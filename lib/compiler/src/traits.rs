@@ -4,10 +4,7 @@ use crate::Features;
 use enumset::EnumSet;
 use std::any::Any;
 #[cfg(feature = "enable-rkyv")]
-use std::{
-    fs,
-    path::Path,
-};
+use std::{fs, path::Path};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
     CpuFeature, MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer, TableIndex, TableStyle,

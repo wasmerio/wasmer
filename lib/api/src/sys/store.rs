@@ -5,9 +5,9 @@ use std::fmt;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Engine, EngineBuilder, Tunables};
 use wasmer_types::{OnCalledAction, StoreSnapshot};
-use wasmer_vm::{StoreId, TrapHandler, TrapHandlerFn};
 #[cfg(feature = "compiler")]
 use wasmer_vm::init_traps;
+use wasmer_vm::{StoreId, TrapHandler, TrapHandlerFn};
 
 use wasmer_vm::StoreObjects;
 

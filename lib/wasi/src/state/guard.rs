@@ -1,6 +1,6 @@
 use tokio::sync::mpsc;
 use wasmer_vnet::{net_error_into_io_err, NetworkError};
-use wasmer_wasi_types::wasi::{Subscription, Event, Eventrwflags, EventFdReadwrite, EventUnion};
+use wasmer_wasi_types::wasi::{Event, EventFdReadwrite, EventUnion, Eventrwflags, Subscription};
 
 use crate::VirtualTaskManager;
 
@@ -111,12 +111,12 @@ impl InodeValFilePollGuard {
                 let guard = file.read().unwrap();
                 guard.bytes_available_read()
             }
-            InodeValFilePollGuardMode::EventNotifications { counter, .. } => Ok(
-                counter.load(std::sync::atomic::Ordering::Acquire) as usize,
-            ),
-            InodeValFilePollGuardMode::Socket(socket) => socket
-                .peek()
-                .map_err(fs_error_from_wasi_err),
+            InodeValFilePollGuardMode::EventNotifications { counter, .. } => {
+                Ok(counter.load(std::sync::atomic::Ordering::Acquire) as usize)
+            }
+            InodeValFilePollGuardMode::Socket(socket) => {
+                socket.peek().map_err(fs_error_from_wasi_err)
+            }
         }
     }
 
@@ -241,24 +241,17 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                     error: Errno::Success,
                     type_: s.type_,
                     u: match s.type_ {
-                        Eventtype::FdRead |
-                        Eventtype::FdWrite => {
-                            EventUnion {
-                                fd_readwrite: EventFdReadwrite {
-                                    nbytes: 0,
-                                    flags: if has_hangup {
-                                        Eventrwflags::FD_READWRITE_HANGUP
-                                    } else {
-                                        Eventrwflags::empty()
-                                    }
-                                }
-                            }
+                        Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
+                            fd_readwrite: EventFdReadwrite {
+                                nbytes: 0,
+                                flags: if has_hangup {
+                                    Eventrwflags::FD_READWRITE_HANGUP
+                                } else {
+                                    Eventrwflags::empty()
+                                },
+                            },
                         },
-                        Eventtype::Clock => {
-                            EventUnion {
-                                clock: 0,
-                            }
-                        }
+                        Eventtype::Clock => EventUnion { clock: 0 },
                     },
                 });
             }
@@ -306,24 +299,17 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                             error: Errno::Success,
                             type_: s.type_,
                             u: match s.type_ {
-                                Eventtype::FdRead |
-                                Eventtype::FdWrite => {
-                                    EventUnion {
-                                        fd_readwrite: EventFdReadwrite {
-                                            nbytes: 0,
-                                            flags: if has_hangup {
-                                                Eventrwflags::FD_READWRITE_HANGUP
-                                            } else {
-                                                Eventrwflags::empty()
-                                            }
-                                        }
-                                    }
+                                Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
+                                    fd_readwrite: EventFdReadwrite {
+                                        nbytes: 0,
+                                        flags: if has_hangup {
+                                            Eventrwflags::FD_READWRITE_HANGUP
+                                        } else {
+                                            Eventrwflags::empty()
+                                        },
+                                    },
                                 },
-                                Eventtype::Clock => {
-                                    EventUnion {
-                                        clock: 0,
-                                    }
-                                }
+                                Eventtype::Clock => EventUnion { clock: 0 },
                             },
                         });
                         Poll::Pending
@@ -340,20 +326,13 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         .unwrap_or_else(fs_error_into_wasi_err),
                     type_: s.type_,
                     u: match s.type_ {
-                        Eventtype::FdRead |
-                        Eventtype::FdWrite => {
-                            EventUnion {
-                                fd_readwrite: EventFdReadwrite {
-                                    nbytes: bytes_available.unwrap_or_default() as u64,
-                                    flags: Eventrwflags::empty()
-                                }
-                            }
+                        Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
+                            fd_readwrite: EventFdReadwrite {
+                                nbytes: bytes_available.unwrap_or_default() as u64,
+                                flags: Eventrwflags::empty(),
+                            },
                         },
-                        Eventtype::Clock => {
-                            EventUnion {
-                                clock: 0,
-                            }
-                        }
+                        Eventtype::Clock => EventUnion { clock: 0 },
                     },
                 });
             }
@@ -401,24 +380,17 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                             error: Errno::Success,
                             type_: s.type_,
                             u: match s.type_ {
-                                Eventtype::FdRead |
-                                Eventtype::FdWrite => {
-                                    EventUnion {
-                                        fd_readwrite: EventFdReadwrite {
-                                            nbytes: 0,
-                                            flags: if has_hangup {
-                                                Eventrwflags::FD_READWRITE_HANGUP
-                                            } else {
-                                                Eventrwflags::empty()
-                                            }
-                                        }
-                                    }
+                                Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
+                                    fd_readwrite: EventFdReadwrite {
+                                        nbytes: 0,
+                                        flags: if has_hangup {
+                                            Eventrwflags::FD_READWRITE_HANGUP
+                                        } else {
+                                            Eventrwflags::empty()
+                                        },
+                                    },
                                 },
-                                Eventtype::Clock => {
-                                    EventUnion {
-                                        clock: 0,
-                                    }
-                                }
+                                Eventtype::Clock => EventUnion { clock: 0 },
                             },
                         });
                         Poll::Pending
@@ -435,20 +407,13 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         .unwrap_or_else(fs_error_into_wasi_err),
                     type_: s.type_,
                     u: match s.type_ {
-                        Eventtype::FdRead |
-                        Eventtype::FdWrite => {
-                            EventUnion {
-                                fd_readwrite: EventFdReadwrite {
-                                    nbytes: bytes_available.unwrap_or_default() as u64,
-                                    flags: Eventrwflags::empty()
-                                }
-                            }
+                        Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
+                            fd_readwrite: EventFdReadwrite {
+                                nbytes: bytes_available.unwrap_or_default() as u64,
+                                flags: Eventrwflags::empty(),
+                            },
                         },
-                        Eventtype::Clock => {
-                            EventUnion {
-                                clock: 0,
-                            }
-                        }
+                        Eventtype::Clock => EventUnion { clock: 0 },
                     },
                 });
             }

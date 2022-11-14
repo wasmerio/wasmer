@@ -7,13 +7,13 @@ use std::{collections::BTreeSet, path::Path};
 use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, RuntimeError, Value};
 use wasmer_vfs::FileSystem;
 use wasmer_wasi::fs::{PassthruFileSystem, RootFileSystemBuilder, SpecialFile, TtyFile};
+#[cfg(feature = "wasix")]
+use wasmer_wasi::is_wasix_module;
 use wasmer_wasi::types::__WASI_STDIN_FILENO;
 use wasmer_wasi::{
     default_fs_backing, get_wasi_versions, import_object_for_all_wasi_versions,
     PluggableRuntimeImplementation, WasiEnv, WasiError, WasiState, WasiVersion,
 };
-#[cfg(feature = "wasix")]
-use wasmer_wasi::is_wasix_module;
 
 use clap::Parser;
 

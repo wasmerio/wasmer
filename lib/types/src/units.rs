@@ -21,11 +21,12 @@ pub const WASM_MAX_PAGES: u32 = 0x10000;
 pub const WASM_MIN_PAGES: u32 = 0x100;
 
 /// Units of WebAssembly pages (as specified to be 65,536 bytes).
-#[derive(
-    Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash,
-)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 pub struct Pages(pub u32);
 

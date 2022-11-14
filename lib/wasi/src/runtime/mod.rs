@@ -1,5 +1,4 @@
 use derivative::Derivative;
-use wasmer_wasi_types::wasi::Errno;
 use std::future::Future;
 use std::io::Write;
 use std::pin::Pin;
@@ -14,6 +13,7 @@ use wasmer::{MemoryType, Module, Store};
 use wasmer_types::MemoryStyle;
 use wasmer_vbus::{DefaultVirtualBus, VirtualBus};
 use wasmer_vnet::VirtualNetworking;
+use wasmer_wasi_types::wasi::Errno;
 
 use crate::{WasiCallingId, WasiEnv};
 

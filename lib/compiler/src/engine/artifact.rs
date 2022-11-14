@@ -29,15 +29,12 @@ use wasmer_types::MetadataHeader;
 use wasmer_types::SerializableCompilation;
 use wasmer_types::{
     CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
-    MemoryIndex, ModuleInfo, OwnedDataInitializer,
-    SignatureIndex, TableIndex,
-};
-#[cfg(feature = "enable-rkyv")]
-use wasmer_types::{
-    SerializableModule, SerializeError,
+    MemoryIndex, ModuleInfo, OwnedDataInitializer, SignatureIndex, TableIndex,
 };
 #[cfg(feature = "static-artifact-create")]
 use wasmer_types::{CompileModuleInfo, Target};
+#[cfg(feature = "enable-rkyv")]
+use wasmer_types::{SerializableModule, SerializeError};
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
 use wasmer_vm::{InstanceAllocator, InstanceHandle, StoreObjects, TrapHandlerFn, VMExtern};
 

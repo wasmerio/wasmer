@@ -20,7 +20,7 @@ pub use subscription::*;
 
 pub mod bus {
     use crate::wasi::{
-        __wasi_busdataformat_t, BusEventType, Cid, OptionCid, WasiHash, ExitCode, Fd, Bid, BusErrno,
+        Bid, BusErrno, BusEventType, Cid, ExitCode, Fd, OptionCid, WasiHash, __wasi_busdataformat_t,
     };
     use wasmer_derive::ValueType;
 
@@ -359,7 +359,5 @@ pub mod signal {
 }
 
 pub mod subscription {
-    pub use crate::wasi::{
-        Eventtype, SubscriptionFsReadwrite,
-    };
+    pub use crate::wasi::{Eventtype, SubscriptionFsReadwrite};
 }

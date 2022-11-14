@@ -9,9 +9,7 @@ use std::path::Path;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::sync::Mutex;
-use tokio::sync::{
-    mpsc, RwLock
-};
+use tokio::sync::{mpsc, RwLock};
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
 #[cfg(feature = "sys")]

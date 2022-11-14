@@ -117,7 +117,7 @@ macro_rules! impl_native_traits {
                     break;
                 }
                 r?;
-                
+
                 let num_rets = rets_list.len();
                 if !using_rets_array && num_rets > 0 {
                     let src_pointer = params_list.as_ptr();

@@ -238,9 +238,7 @@ impl AsJs for Imports {
     fn as_jsvalue(&self, store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
         let imports_object = js_sys::Object::new();
         for (namespace, name, extern_) in self.iter() {
-            let val = unsafe {
-                js_sys::Reflect::get(&imports_object, &namespace.into()).unwrap()
-            };
+            let val = unsafe { js_sys::Reflect::get(&imports_object, &namespace.into()).unwrap() };
             if !val.is_undefined() {
                 // If the namespace is already set
                 #[allow(unused_unsafe)]
@@ -263,8 +261,12 @@ impl AsJs for Imports {
                         &extern_.as_jsvalue(&store.as_store_ref()),
                     )
                     .unwrap();
-                    js_sys::Reflect::set(&imports_object, &namespace.into(), &import_namespace.into())
-                        .unwrap();
+                    js_sys::Reflect::set(
+                        &imports_object,
+                        &namespace.into(),
+                        &import_namespace.into(),
+                    )
+                    .unwrap();
                 }
             }
         }

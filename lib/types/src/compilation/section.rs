@@ -14,19 +14,12 @@ use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 
 /// Index type of a Section defined inside a WebAssembly `Compilation`.
-#[derive(
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    Debug,
-    Default,
-)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, Default)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 pub struct SectionIndex(u32);
 
@@ -36,7 +29,10 @@ entity_impl!(SectionIndex);
 ///
 /// Determines how a custom section may be used.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CustomSectionProtection {
@@ -52,7 +48,10 @@ pub enum CustomSectionProtection {
 /// This is used so compilers can store arbitrary information
 /// in the emitted module.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CustomSection {
     /// Memory protection that applies to this section.
@@ -72,7 +71,10 @@ pub struct CustomSection {
 
 /// The bytes in the section.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct SectionBody(#[cfg_attr(feature = "enable-serde", serde(with = "serde_bytes"))] Vec<u8>);
 

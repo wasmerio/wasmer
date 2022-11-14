@@ -11,9 +11,9 @@ use std::slice;
 #[cfg(feature = "tracing")]
 use tracing::warn;
 use wasmer_types::Pages;
-use wasmer_vm::{InternalStoreHandle, LinearMemory, MemoryError, StoreHandle, VMExtern, VMMemory};
 #[cfg(feature = "compiler")]
 use wasmer_types::WASM_PAGE_SIZE;
+use wasmer_vm::{InternalStoreHandle, LinearMemory, MemoryError, StoreHandle, VMExtern, VMMemory};
 
 use super::MemoryView;
 

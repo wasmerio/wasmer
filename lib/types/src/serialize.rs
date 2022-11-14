@@ -1,13 +1,13 @@
 use crate::entity::PrimaryMap;
 use crate::Pages;
+#[cfg(feature = "enable-rkyv")]
+use crate::SerializeError;
 use crate::{
     compilation::target::CpuFeature, CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection,
     DeserializeError, Dwarf, Features, FunctionBody, FunctionIndex, LocalFunctionIndex,
     MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex,
     SignatureIndex, TableIndex, TableStyle,
 };
-#[cfg(feature = "enable-rkyv")]
-use crate::SerializeError;
 use enumset::EnumSet;
 #[cfg(feature = "rkyv")]
 use rkyv::{
@@ -16,16 +16,16 @@ use rkyv::{
     Serialize as RkyvSerialize,
 };
 use std::convert::TryInto;
-#[cfg(feature = "enable-rkyv")]
-use std::{
-    path::Path,
-    fs
-};
 use std::mem;
+#[cfg(feature = "enable-rkyv")]
+use std::{fs, path::Path};
 
 /// The compilation related data for a serialized modules
 #[derive(Default)]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[allow(missing_docs)]
 pub struct SerializableCompilation {
     pub function_bodies: PrimaryMap<LocalFunctionIndex, FunctionBody>,
@@ -60,7 +60,10 @@ impl SerializableCompilation {
 }
 
 /// Serializable struct that is able to serialize from and to a `ArtifactInfo`.
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[allow(missing_docs)]
 pub struct SerializableModule {
     /// The main serializable compilation object

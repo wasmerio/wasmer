@@ -188,9 +188,9 @@ impl Module {
 
         Self::from_js_module(
             store,
-            module, 
+            module,
             #[cfg(feature = "js-serializable-module")]
-            Bytes::from(binary)
+            Bytes::from(binary),
         )
     }
 
@@ -199,8 +199,7 @@ impl Module {
     pub unsafe fn from_js_module(
         _store: &impl AsStoreRef,
         module: WebAssembly::Module,
-        #[cfg(feature = "js-serializable-module")]
-        binary: impl IntoBytes,
+        #[cfg(feature = "js-serializable-module")] binary: impl IntoBytes,
     ) -> Result<Self, CompileError> {
         #[cfg(feature = "js-serializable-module")]
         let binary = binary.into_bytes();

@@ -12,7 +12,10 @@ use serde::{Deserialize, Serialize};
 /// possible after translation (such as the features used for compiling,
 /// or the `MemoryStyle` and `TableStyle`).
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Debug, PartialEq, Eq)]
 pub struct CompileModuleInfo {
     /// The features used for compiling the module

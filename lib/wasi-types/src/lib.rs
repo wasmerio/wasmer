@@ -1,9 +1,9 @@
 #![doc(html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png")]
 #![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
 
+pub mod asyncify;
 pub mod types;
 pub mod wasi;
-pub mod asyncify;
 
 // Prevent the CI from passing if the wasi/bindings.rs is not
 // up to date with the output.wit file

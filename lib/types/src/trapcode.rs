@@ -14,11 +14,12 @@ use thiserror::Error;
 /// A trap code describing the reason for a trap.
 ///
 /// All trap instructions have an explicit trap code.
-#[derive(
-    Clone, Copy, PartialEq, Eq, Debug, Hash, Error,
-)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Error)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 #[repr(u32)]
 pub enum TrapCode {

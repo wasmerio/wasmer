@@ -397,7 +397,7 @@ impl crate::FileSystem for FileSystem {
                 match inode_of_file {
                     InodeResolution::Found(inode_of_file) => {
                         fs.storage.remove(inode_of_file);
-                    },
+                    }
                     InodeResolution::Redirect(..) => {
                         return Err(FsError::InvalidInput);
                     }

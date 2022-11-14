@@ -1,5 +1,5 @@
-use std::borrow::Cow;
 use bytes::Bytes;
+use std::borrow::Cow;
 
 /// Convert binary data into [`bytes::Bytes`].
 pub trait IntoBytes {

@@ -21,7 +21,10 @@ use serde::{Deserialize, Serialize};
 /// This structure is only used for reconstructing
 /// the frame information after a `Trap`.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct CompiledFunctionFrameInfo {
     /// The traps (in the function body).
@@ -35,7 +38,10 @@ pub struct CompiledFunctionFrameInfo {
 
 /// The function body.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FunctionBody {
     /// The function body bytes.
@@ -52,7 +58,10 @@ pub struct FunctionBody {
 /// (function bytecode body, relocations, traps, jump tables
 /// and unwind information).
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompiledFunction {
     /// The function body.
@@ -78,7 +87,10 @@ pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
 /// In the future this structure may also hold other information useful
 /// for debugging.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Dwarf {

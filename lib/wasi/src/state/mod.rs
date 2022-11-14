@@ -46,8 +46,6 @@ use generational_arena::Arena;
 pub use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasmer_wasi_types::wasi::Cid;
-use wasmer_wasi_types::wasi::Clockid;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -68,14 +66,16 @@ use std::{
     },
 };
 use tracing::{debug, trace};
-use wasmer_wasi_types::wasi::{
-    Errno, Fd as WasiFd, Fdflags, Fdstat, Filesize, Filestat, Filetype, Preopentype, Rights,
-};
-use wasmer_wasi_types::wasi::{Prestat, PrestatEnum};
 use wasmer::Store;
 use wasmer_vbus::VirtualBusCalled;
 use wasmer_vbus::VirtualBusInvocation;
 use wasmer_vfs::FileOpener;
+use wasmer_wasi_types::wasi::Cid;
+use wasmer_wasi_types::wasi::Clockid;
+use wasmer_wasi_types::wasi::{
+    Errno, Fd as WasiFd, Fdflags, Fdstat, Filesize, Filestat, Filetype, Preopentype, Rights,
+};
+use wasmer_wasi_types::wasi::{Prestat, PrestatEnum};
 
 use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
 
@@ -1564,7 +1564,7 @@ impl WasiFs {
                 // REVIEW:
                 // no need for +1, because there is no 0 end-of-string marker
                 // john: removing the +1 seems cause regression issues
-                pr_name_len: inode_val.name.len() as u32 + 1, 
+                pr_name_len: inode_val.name.len() as u32 + 1,
             }
             .untagged(),
         }
@@ -1596,7 +1596,7 @@ impl WasiFs {
                     } => {
                         let mut file = file.write().unwrap();
                         file.flush().map_err(|_| Errno::Io)?
-                    },
+                    }
                     // TODO: verify this behavior
                     Kind::Dir { .. } => return Err(Errno::Isdir),
                     Kind::Symlink { .. } => unimplemented!("WasiFs::flush Kind::Symlink"),
@@ -1823,7 +1823,7 @@ impl WasiFs {
                         st_ctim: wf.created_time(),
 
                         ..Filestat::default()
-                    })
+                    });
                 }
                 None => self
                     .root_fs
@@ -1874,11 +1874,7 @@ impl WasiFs {
     }
 
     /// Closes an open FD, handling all details such as FD being preopen
-    pub(crate) fn close_fd(
-        &self,
-        inodes: &WasiInodes,
-        fd: WasiFd,
-    ) -> Result<(), Errno> {
+    pub(crate) fn close_fd(&self, inodes: &WasiInodes, fd: WasiFd) -> Result<(), Errno> {
         let mut fd_map = self.fd_map.write().unwrap();
         self.close_fd_ext(inodes, &mut fd_map, fd)
     }
@@ -2064,9 +2060,7 @@ pub(crate) struct WasiStateThreading {
 #[derive(Debug, Clone)]
 pub struct WasiFutex {
     pub(crate) refcnt: Arc<AtomicU32>,
-    pub(crate) inner: Arc<Mutex<
-        tokio::sync::broadcast::Sender<()>,
-    >>,
+    pub(crate) inner: Arc<Mutex<tokio::sync::broadcast::Sender<()>>>,
 }
 
 #[derive(Debug)]

@@ -3,8 +3,9 @@ use crate::syscalls::types;
 use crate::{mem_error_to_wasi, Memory32, MemorySize, WasiEnv, WasiError, WasiThread};
 use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
 use wasmer_wasi_types::wasi::{
-    Errno, Event, Fd, Filesize, Filestat, Filetype, Snapshot0Filestat, Snapshot0Subscription,
-    Snapshot0Whence, Subscription, Whence, Snapshot0Event, Eventtype, EventFdReadwrite, Eventrwflags,
+    Errno, Event, EventFdReadwrite, Eventrwflags, Eventtype, Fd, Filesize, Filestat, Filetype,
+    Snapshot0Event, Snapshot0Filestat, Snapshot0Subscription, Snapshot0Whence, Subscription,
+    Whence,
 };
 
 /// Wrapper around `syscalls::fd_filestat_get` with extra logic to handle the size
@@ -132,7 +133,6 @@ pub fn poll_oneoff(
     nsubscriptions: u32,
     nevents: WasmPtr<u32, Memory32>,
 ) -> Result<Errno, WasiError> {
-
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
     let mut subscriptions = Vec::new();
@@ -143,10 +143,7 @@ pub fn poll_oneoff(
     }
 
     // make the call
-    let triggered_events = syscalls::poll_oneoff_internal(
-        &mut ctx,
-        subscriptions
-    );
+    let triggered_events = syscalls::poll_oneoff_internal(&mut ctx, subscriptions);
     let triggered_events = match triggered_events {
         Ok(a) => a,
         Err(err) => {
@@ -175,9 +172,9 @@ pub fn poll_oneoff(
                 Eventtype::FdWrite => unsafe { event.u.fd_readwrite },
                 Eventtype::Clock => EventFdReadwrite {
                     nbytes: 0,
-                    flags: Eventrwflags::empty()
+                    flags: Eventrwflags::empty(),
                 },
-            }
+            },
         };
         wasi_try_mem_ok!(event_array.index(events_seen as u64).write(event));
         events_seen += 1;

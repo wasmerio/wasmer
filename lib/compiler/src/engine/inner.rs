@@ -19,8 +19,8 @@ use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::{Arc, Mutex};
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
-    entity::PrimaryMap, FunctionBody, FunctionIndex, FunctionType,
-    LocalFunctionIndex, ModuleInfo, SignatureIndex,
+    entity::PrimaryMap, FunctionBody, FunctionIndex, FunctionType, LocalFunctionIndex, ModuleInfo,
+    SignatureIndex,
 };
 use wasmer_types::{CompileError, Features, Target};
 #[cfg(not(target_arch = "wasm32"))]
@@ -168,7 +168,10 @@ impl Engine {
     ///
     /// The serialized content must represent a serialized WebAssembly module.
     #[cfg(feature = "enable-rkyv")]
-    pub unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<Artifact>, wasmer_types::DeserializeError> {
+    pub unsafe fn deserialize(
+        &self,
+        bytes: &[u8],
+    ) -> Result<Arc<Artifact>, wasmer_types::DeserializeError> {
         Ok(Arc::new(Artifact::deserialize(self, bytes)?))
     }
 

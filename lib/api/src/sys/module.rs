@@ -2,24 +2,17 @@ use std::fmt;
 use std::io;
 #[cfg(feature = "compiler")]
 use std::path::Path;
-#[cfg(feature = "compiler")]
-use wasmer_compiler::ArtifactCreate;
 use std::sync::Arc;
 use thiserror::Error;
+#[cfg(feature = "compiler")]
+use wasmer_compiler::ArtifactCreate;
 #[cfg(feature = "wat")]
 use wasmer_types::WasmError;
-use wasmer_types::{
-    CompileError, ExportsIterator, ImportsIterator, ModuleInfo,
-};
+use wasmer_types::{CompileError, ExportsIterator, ImportsIterator, ModuleInfo};
 use wasmer_types::{ExportType, ImportType};
 
 #[cfg(feature = "compiler")]
-use crate::{
-    sys::InstantiationError,
-    AsStoreMut,
-    AsStoreRef,
-    IntoBytes
-};
+use crate::{sys::InstantiationError, AsStoreMut, AsStoreRef, IntoBytes};
 #[cfg(feature = "compiler")]
 use wasmer_vm::InstanceHandle;
 
@@ -245,7 +238,10 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn serialize_to_file(&self, path: impl AsRef<Path>) -> Result<(), wasmer_types::SerializeError> {
+    pub fn serialize_to_file(
+        &self,
+        path: impl AsRef<Path>,
+    ) -> Result<(), wasmer_types::SerializeError> {
         self.artifact.serialize_to_file(path.as_ref())
     }
 

@@ -1,13 +1,11 @@
 /// types for use in the WASI filesystem
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasmer_vbus::VirtualBusError;
 #[cfg(all(unix, feature = "sys-poll", not(feature = "os")))]
 use std::convert::TryInto;
+use std::time::Duration;
+use wasmer_vbus::VirtualBusError;
 use wasmer_wasi_types::wasi::{BusErrno, Errno, Rights};
-use std::{
-    time::Duration,
-};
 
 #[cfg(all(not(feature = "mem-fs"), not(feature = "host-fs")))]
 pub use crate::{fs::NullFile as Stderr, fs::NullFile as Stdin, fs::NullFile as Stdout};

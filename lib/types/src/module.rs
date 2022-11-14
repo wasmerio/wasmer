@@ -27,7 +27,10 @@ use std::iter::ExactSizeIterator;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub struct ModuleId {
     id: usize,
 }
@@ -50,7 +53,10 @@ impl Default for ModuleId {
 /// Hash key of an import
 #[derive(Debug, Hash, Eq, PartialEq, Clone, Default)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub struct ImportKey {
     /// Module name
     pub module: String,
@@ -150,7 +156,10 @@ pub struct ModuleInfo {
 }
 
 /// Mirror version of ModuleInfo that can derive rkyv traits
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub struct ArchivableModuleInfo {
     name: Option<String>,
     imports: IndexMap<ImportKey, ImportIndex>,

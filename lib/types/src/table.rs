@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 /// Implementation styles for WebAssembly tables.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 pub enum TableStyle {
     /// Signatures are stored in the table and checked in the caller.

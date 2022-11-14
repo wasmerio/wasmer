@@ -8,17 +8,12 @@ use std::fmt;
 /// The name of a runtime library routine.
 ///
 /// This list is likely to grow over time.
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    PartialEq,
-    Eq,
-    Hash,
-    IntoEnumIterator,
-)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, IntoEnumIterator)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 pub enum LibCall {
     /// ceil.f32

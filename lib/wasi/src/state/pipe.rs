@@ -11,10 +11,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Poll;
 use std::task::Waker;
-use tokio::sync::{
-    mpsc, Mutex,
-    mpsc::error::TryRecvError
-};
+use tokio::sync::{mpsc, mpsc::error::TryRecvError, Mutex};
 use wasmer::WasmSlice;
 use wasmer::{MemorySize, MemoryView};
 use wasmer_vfs::{FsError, VirtualFile};
@@ -99,11 +96,19 @@ impl VirtualFile for WasiBidirectionalPipePair {
     ) -> std::task::Poll<wasmer_vfs::Result<usize>> {
         self.send.poll_write_ready(cx, register_root_waker)
     }
-    fn read_async<'a>(&'a mut self, max_size: usize, register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<Vec<u8>, std::io::Error>> + 'a)>>
+    fn read_async<'a>(
+        &'a mut self,
+        max_size: usize,
+        register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<Vec<u8>, std::io::Error>> + 'a)>>
     {
         self.recv.read_async(max_size, register_root_waker)
     }
-    fn write_async<'a>(&'a mut self, buf: &'a [u8], register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<usize, std::io::Error>> + 'a)>>
+    fn write_async<'a>(
+        &'a mut self,
+        buf: &'a [u8],
+        register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<usize, std::io::Error>> + 'a)>>
     {
         self.send.write_async(buf, register_root_waker)
     }
@@ -265,24 +270,28 @@ impl VirtualFile for WasiBidirectionalSharedPipePair {
             .unwrap()
             .poll_write_ready(cx, register_root_waker)
     }
-    fn read_async<'a>(&'a mut self, max_size: usize, register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<Vec<u8>, std::io::Error>> + 'a)>>
+    fn read_async<'a>(
+        &'a mut self,
+        max_size: usize,
+        register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<Vec<u8>, std::io::Error>> + 'a)>>
     {
         let register_root_waker = register_root_waker.clone();
         Box::pin(async move {
             let mut inner = self.inner.lock().unwrap();
-            inner
-                .read_async(max_size, &register_root_waker)
-                .await
+            inner.read_async(max_size, &register_root_waker).await
         })
     }
-    fn write_async<'a>(&'a mut self, buf: &'a [u8], register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<usize, std::io::Error>> + 'a)>>
+    fn write_async<'a>(
+        &'a mut self,
+        buf: &'a [u8],
+        register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<usize, std::io::Error>> + 'a)>>
     {
         let register_root_waker = register_root_waker.clone();
         Box::pin(async move {
             let mut inner = self.inner.lock().unwrap();
-            inner
-                .write_async(buf, &register_root_waker)
-                .await
+            inner.write_async(buf, &register_root_waker).await
         })
     }
 }
@@ -299,10 +308,7 @@ impl WasiPipe {
         self.block = block;
     }
 
-    pub async fn recv(
-        &self,
-        max_size: usize,
-    ) -> Result<Bytes, Errno> {
+    pub async fn recv(&self, max_size: usize) -> Result<Bytes, Errno> {
         let mut no_more = None;
         loop {
             {
@@ -323,25 +329,33 @@ impl WasiPipe {
             let data = {
                 let mut rx = match self.rx.try_lock() {
                     Ok(a) => a,
-                    Err(_) => {
-                        match self.block {
-                            true => self.rx.lock().await,
-                            false => { no_more = Some(Err(Errno::Again)); continue; }
+                    Err(_) => match self.block {
+                        true => self.rx.lock().await,
+                        false => {
+                            no_more = Some(Err(Errno::Again));
+                            continue;
                         }
-                    }
+                    },
                 };
                 match self.block {
                     true => match rx.recv().await {
                         Some(a) => a,
-                        None => { no_more = Some(Ok(Bytes::new())); continue; },
-                    },
-                    false => {
-                        match rx.try_recv() {
-                            Ok(a) => a,
-                            Err(TryRecvError::Empty) => { no_more = Some(Err(Errno::Again)); continue; },
-                            Err(TryRecvError::Disconnected) => { no_more = Some(Ok(Bytes::new())); continue; }
+                        None => {
+                            no_more = Some(Ok(Bytes::new()));
+                            continue;
                         }
-                    }
+                    },
+                    false => match rx.try_recv() {
+                        Ok(a) => a,
+                        Err(TryRecvError::Empty) => {
+                            no_more = Some(Err(Errno::Again));
+                            continue;
+                        }
+                        Err(TryRecvError::Disconnected) => {
+                            no_more = Some(Ok(Bytes::new()));
+                            continue;
+                        }
+                    },
                 }
             };
 
@@ -416,25 +430,33 @@ impl Read for WasiPipe {
             let data = {
                 let mut rx = match self.rx.try_lock() {
                     Ok(a) => a,
-                    Err(_) => {
-                        match self.block {
-                            true => self.rx.blocking_lock(),
-                            false => { no_more = Some(Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock))); continue; }
+                    Err(_) => match self.block {
+                        true => self.rx.blocking_lock(),
+                        false => {
+                            no_more = Some(Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock)));
+                            continue;
                         }
-                    }
+                    },
                 };
                 match self.block {
-                    true => match rx.blocking_recv(){
+                    true => match rx.blocking_recv() {
                         Some(a) => a,
-                        None => { no_more = Some(Ok(0)); continue; },
-                    },
-                    false => {
-                        match rx.try_recv() {
-                            Ok(a) => a,
-                            Err(TryRecvError::Empty) => { no_more = Some(Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock))); continue; },
-                            Err(TryRecvError::Disconnected) => { no_more = Some(Ok(0)); continue; }
+                        None => {
+                            no_more = Some(Ok(0));
+                            continue;
                         }
-                    }
+                    },
+                    false => match rx.try_recv() {
+                        Ok(a) => a,
+                        Err(TryRecvError::Empty) => {
+                            no_more = Some(Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock)));
+                            continue;
+                        }
+                        Err(TryRecvError::Disconnected) => {
+                            no_more = Some(Ok(0));
+                            continue;
+                        }
+                    },
                 }
             };
 
@@ -448,12 +470,10 @@ impl std::io::Write for WasiPipe {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let tx = match self.tx.try_lock() {
             Ok(a) => a,
-            Err(_) => {
-                match self.block {
-                    true => self.tx.blocking_lock(),
-                    false => return Err(Into::<std::io::Error>::into(std::io::ErrorKind::WouldBlock)),
-                }
-            }
+            Err(_) => match self.block {
+                true => self.tx.blocking_lock(),
+                false => return Err(Into::<std::io::Error>::into(std::io::ErrorKind::WouldBlock)),
+            },
         };
         tx.send(buf.to_vec())
             .map_err(|_| Into::<std::io::Error>::into(std::io::ErrorKind::BrokenPipe))?;
@@ -508,7 +528,9 @@ impl VirtualFile for WasiPipe {
 
     /// Returns the number of bytes available.  This function must not block
     fn bytes_available(&self) -> Result<usize, FsError> {
-        Ok(self.bytes_available_read()?.max(self.bytes_available_write()?))
+        Ok(self
+            .bytes_available_read()?
+            .max(self.bytes_available_write()?))
     }
 
     /// Returns the number of bytes available.  This function must not block
@@ -531,12 +553,21 @@ impl VirtualFile for WasiPipe {
             let data = {
                 let mut rx = match self.rx.try_lock() {
                     Ok(a) => a,
-                    Err(_) => { no_more = Some(Ok(0)); continue; }
+                    Err(_) => {
+                        no_more = Some(Ok(0));
+                        continue;
+                    }
                 };
                 match rx.try_recv() {
                     Ok(a) => a,
-                    Err(TryRecvError::Empty) => { no_more = Some(Ok(0)); continue; },
-                    Err(TryRecvError::Disconnected) => { no_more = Some(Ok(0)); continue; }
+                    Err(TryRecvError::Empty) => {
+                        no_more = Some(Ok(0));
+                        continue;
+                    }
+                    Err(TryRecvError::Disconnected) => {
+                        no_more = Some(Ok(0));
+                        continue;
+                    }
                 }
             };
 
@@ -548,7 +579,8 @@ impl VirtualFile for WasiPipe {
     /// Returns the number of bytes available.  This function must not block
     /// Defaults to `None` which means the number of bytes is unknown
     fn bytes_available_write(&self) -> Result<usize, FsError> {
-        self.tx.try_lock()
+        self.tx
+            .try_lock()
             .map(|_| Ok(8192))
             .unwrap_or_else(|_| Ok(0))
     }
@@ -556,7 +588,8 @@ impl VirtualFile for WasiPipe {
     /// Indicates if the file is opened or closed. This function must not block
     /// Defaults to a status of being constantly open
     fn is_open(&self) -> bool {
-        self.tx.try_lock()
+        self.tx
+            .try_lock()
             .map(|a| a.is_closed() == false)
             .unwrap_or_else(|_| true)
     }
@@ -596,13 +629,22 @@ impl VirtualFile for WasiPipe {
                 let mut rx = Box::pin(self.rx.lock());
                 let rx = rx.as_mut();
                 match rx.poll(cx) {
-                    Poll::Pending => { no_more = Some(Poll::Pending); continue; }
+                    Poll::Pending => {
+                        no_more = Some(Poll::Pending);
+                        continue;
+                    }
                     Poll::Ready(mut rx) => {
                         let mut rx = Pin::new(&mut rx);
                         match rx.poll_recv(cx) {
-                            Poll::Pending => { no_more = Some(Poll::Pending); continue; }
+                            Poll::Pending => {
+                                no_more = Some(Poll::Pending);
+                                continue;
+                            }
                             Poll::Ready(Some(a)) => a,
-                            Poll::Ready(None) => { no_more = Some(Poll::Ready(Ok(0))); continue; }
+                            Poll::Ready(None) => {
+                                no_more = Some(Poll::Ready(Ok(0)));
+                                continue;
+                            }
                         }
                     }
                 }
@@ -620,39 +662,42 @@ impl VirtualFile for WasiPipe {
     ) -> std::task::Poll<wasmer_vfs::Result<usize>> {
         let mut tx = Box::pin(self.tx.lock());
         let tx = tx.as_mut();
-        tx.poll(cx)
-            .map(|_| Ok(8192))
+        tx.poll(cx).map(|_| Ok(8192))
     }
 
-    fn read_async<'a>(&'a mut self, max_size: usize, _register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<Vec<u8>, std::io::Error>> + 'a)>>
+    fn read_async<'a>(
+        &'a mut self,
+        max_size: usize,
+        _register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<Vec<u8>, std::io::Error>> + 'a)>>
     {
-        Box::pin(
-            async move {
-                self.recv(max_size)
-                    .await
-                    .map(|a| a.to_vec())
-                    .map_err(|err| Into::<std::io::Error>::into(err))
-            }
-        )
+        Box::pin(async move {
+            self.recv(max_size)
+                .await
+                .map(|a| a.to_vec())
+                .map_err(|err| Into::<std::io::Error>::into(err))
+        })
     }
 
-    fn write_async<'a>(&'a mut self, buf: &'a [u8], _register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<usize, std::io::Error>> + 'a)>>
+    fn write_async<'a>(
+        &'a mut self,
+        buf: &'a [u8],
+        _register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<usize, std::io::Error>> + 'a)>>
     {
-        Box::pin(
-            async move {
-                let tx = match self.tx.try_lock() {
-                    Ok(a) => a,
-                    Err(_) => {
-                        match self.block {
-                            true => self.tx.lock().await,
-                            false => return Err(Into::<std::io::Error>::into(std::io::ErrorKind::WouldBlock)),
-                        }
+        Box::pin(async move {
+            let tx = match self.tx.try_lock() {
+                Ok(a) => a,
+                Err(_) => match self.block {
+                    true => self.tx.lock().await,
+                    false => {
+                        return Err(Into::<std::io::Error>::into(std::io::ErrorKind::WouldBlock))
                     }
-                };
-                tx.send(buf.to_vec())
-                    .map_err(|_| Into::<std::io::Error>::into(std::io::ErrorKind::BrokenPipe))?;
-                Ok(buf.len())
-            }
-        )
+                },
+            };
+            tx.send(buf.to_vec())
+                .map_err(|_| Into::<std::io::Error>::into(std::io::ErrorKind::BrokenPipe))?;
+            Ok(buf.len())
+        })
     }
 }

@@ -10,7 +10,10 @@ use serde::{Deserialize, Serialize};
 
 /// Single source location to generated address mapping.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstructionAddressMap {
     /// Original source location.
@@ -25,7 +28,10 @@ pub struct InstructionAddressMap {
 
 /// Function and its instructions addresses mappings.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct FunctionAddressMap {
     /// Instructions maps.

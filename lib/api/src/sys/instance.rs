@@ -7,12 +7,9 @@ use thiserror::Error;
 use wasmer_vm::{InstanceHandle, StoreHandle};
 
 #[cfg(feature = "compiler")]
-use crate::sys::{
-    externals::Extern,
-    imports::Imports,
-};
-#[cfg(feature = "compiler")]
 use super::store::AsStoreMut;
+#[cfg(feature = "compiler")]
+use crate::sys::{externals::Extern, imports::Imports};
 
 /// A WebAssembly Instance is a stateful, executable
 /// instance of a WebAssembly [`Module`].
