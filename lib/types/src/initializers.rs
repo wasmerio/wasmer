@@ -1,13 +1,15 @@
 use crate::indexes::{FunctionIndex, GlobalIndex, MemoryIndex, TableIndex};
 use crate::lib::std::boxed::Box;
 
+#[cfg(feature = "rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
 /// A WebAssembly table initializer.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
 pub struct TableInitializer {
     /// The index of a table to initialize.
     pub table_index: TableIndex,
@@ -21,8 +23,9 @@ pub struct TableInitializer {
 
 /// A memory index and offset within that memory where a data initialization
 /// should be performed.
-#[derive(Clone, Debug, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
 pub struct DataInitializerLocation {
     /// The index of the memory to initialize.
     pub memory_index: MemoryIndex,
@@ -47,8 +50,9 @@ pub struct DataInitializer<'data> {
 
 /// As `DataInitializer` but owning the data rather than
 /// holding a reference to it
-#[derive(Debug, Clone, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
 pub struct OwnedDataInitializer {
     /// The location where the initialization is to be performed.
     pub location: DataInitializerLocation,

@@ -127,6 +127,9 @@ enable-serde = [
   "wasmer-compiler/enable-serde",
   "wasmer-types/enable-serde",
 ]
+enable-rkyv = [
+  "wasmer-types/enable-rkyv",
+]
 
 wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
 wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]

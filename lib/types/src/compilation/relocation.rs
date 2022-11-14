@@ -15,14 +15,16 @@ use crate::lib::std::fmt;
 use crate::lib::std::vec::Vec;
 use crate::{Addend, CodeOffset};
 use crate::{LibCall, LocalFunctionIndex};
+#[cfg(feature = "rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
 /// Relocation kinds for every ISA.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Copy, Clone, Debug, PartialEq, Eq)]
-#[archive(as = "Self")]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum RelocationKind {
     /// absolute 4-byte
     Abs4,
@@ -83,7 +85,8 @@ impl fmt::Display for RelocationKind {
 
 /// A record of a relocation to perform.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Relocation {
     /// The relocation kind.
     pub kind: RelocationKind,
@@ -97,8 +100,9 @@ pub struct Relocation {
 
 /// Destination function. Can be either user function or some special one, like `memory.grow`.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Copy, Clone, PartialEq, Eq)]
-#[archive(as = "Self")]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum RelocationTarget {
     /// A relocation to a function defined locally in the wasm (not an imported one).
     LocalFunc(LocalFunctionIndex),

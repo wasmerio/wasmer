@@ -11,7 +11,7 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../types", version = "=3.0.0-rc.2", default-features = false }
+wasmer-types = { path = "../types", version = "=3.0.0-rc.2", default-features = false, features = [ ] }
 wasmer-object = { path = "../object", version = "=3.0.0-rc.2", optional = true }
 wasmparser = { version = "0.83", optional = true, default-features = false }
 enumset = "1.0.2"
@@ -48,10 +48,11 @@ compiler = ["translator"]
 wasmer-artifact-load = []
 wasmer-artifact-create = []
 static-artifact-load = []
-static-artifact-create = ["wasmer-object"]
+static-artifact-create = ["wasmer-object", "enable-rkyv"]
 std = ["wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
 enable-serde = ["serde", "serde_bytes", "wasmer-types/enable-serde"]
+enable-rkyv = [ "wasmer-types/enable-rkyv" ]
 
 [badges]
 maintenance = { status = "experimental" }

@@ -12,6 +12,7 @@ use crate::{
     TableIndex, TableInitializer, TableType,
 };
 use indexmap::IndexMap;
+#[cfg(feature = "rkyv")]
 use rkyv::{
     de::SharedDeserializeRegistry, ser::ScratchSpace, ser::Serializer,
     ser::SharedSerializeRegistry, Archive, Archived, Deserialize as RkyvDeserialize, Fallible,
@@ -25,7 +26,8 @@ use std::fmt;
 use std::iter::ExactSizeIterator;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
-#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
 pub struct ModuleId {
     id: usize,
 }
@@ -46,8 +48,9 @@ impl Default for ModuleId {
 }
 
 /// Hash key of an import
-#[derive(Debug, Hash, Eq, PartialEq, Clone, Default, RkyvSerialize, RkyvDeserialize, Archive)]
+#[derive(Debug, Hash, Eq, PartialEq, Clone, Default)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
 pub struct ImportKey {
     /// Module name
     pub module: String,
@@ -147,7 +150,7 @@ pub struct ModuleInfo {
 }
 
 /// Mirror version of ModuleInfo that can derive rkyv traits
-#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
 pub struct ArchivableModuleInfo {
     name: Option<String>,
     imports: IndexMap<ImportKey, ImportIndex>,
@@ -232,6 +235,7 @@ impl From<&ModuleInfo> for ArchivableModuleInfo {
     }
 }
 
+#[cfg(feature = "enable-rkyv")]
 impl Archive for ModuleInfo {
     type Archived = <ArchivableModuleInfo as Archive>::Archived;
     type Resolver = <ArchivableModuleInfo as Archive>::Resolver;
@@ -241,6 +245,7 @@ impl Archive for ModuleInfo {
     }
 }
 
+#[cfg(feature = "enable-rkyv")]
 impl<S: Serializer + SharedSerializeRegistry + ScratchSpace + ?Sized> RkyvSerialize<S>
     for ModuleInfo
 {
@@ -249,6 +254,7 @@ impl<S: Serializer + SharedSerializeRegistry + ScratchSpace + ?Sized> RkyvSerial
     }
 }
 
+#[cfg(feature = "enable-rkyv")]
 impl<D: Fallible + ?Sized + SharedDeserializeRegistry> RkyvDeserialize<ModuleInfo, D>
     for Archived<ModuleInfo>
 {
