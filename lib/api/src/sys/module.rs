@@ -1,6 +1,3 @@
-use crate::sys::InstantiationError;
-use crate::AsStoreMut;
-use crate::AsStoreRef;
 use std::fmt;
 use std::io;
 use std::path::Path;
@@ -12,11 +9,21 @@ use wasmer_compiler::ArtifactCreate;
 #[cfg(feature = "wat")]
 use wasmer_types::WasmError;
 use wasmer_types::{
-    CompileError, DeserializeError, ExportsIterator, ImportsIterator, ModuleInfo, SerializeError,
+    CompileError, ExportsIterator, ImportsIterator, ModuleInfo, SerializeError,
 };
 use wasmer_types::{ExportType, ImportType};
+
+#[cfg(feature = "compiler")]
+use crate::{
+    sys::InstantiationError,
+    AsStoreMut,
+    AsStoreRef,
+    IntoBytes
+};
+#[cfg(feature = "compiler")]
+use wasmer_types::DeserializeError;
+#[cfg(feature = "compiler")]
 use wasmer_vm::InstanceHandle;
-use crate::IntoBytes;
 
 #[derive(Error, Debug)]
 pub enum IoCompileError {
@@ -119,6 +126,7 @@ impl Module {
     /// ```
     #[allow(unreachable_code)]
     pub fn new(store: &impl AsStoreRef, bytes: impl IntoBytes) -> Result<Self, CompileError> {
+        #[allow(unused_mut)]
         let mut bytes = bytes.into_bytes();
         #[cfg(feature = "wat")]
         if bytes.starts_with(b"\0asm") == false {
@@ -302,6 +310,7 @@ impl Module {
         Ok(Self::from_artifact(artifact))
     }
 
+    #[cfg(feature = "compiler")]
     fn from_artifact(artifact: Arc<Artifact>) -> Self {
         Self {
             module_info: Arc::new(artifact.create_module_info()),

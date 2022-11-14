@@ -1,12 +1,15 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
-use crate::{AsStoreMut, Exports, Extern, Memory, Module};
+use crate::{Exports, Extern, Module};
 use std::collections::HashMap;
 use std::fmt;
 use wasmer_compiler::LinkError;
 use wasmer_types::ImportError;
+#[cfg(feature = "compiler")]
 use wasmer_vm::VMSharedMemory;
+#[cfg(feature = "compiler")]
+use crate::{AsStoreMut, Memory};
 
 /// All of the import data used when instantiating.
 ///
@@ -114,6 +117,7 @@ impl Imports {
 
     /// Imports (any) shared memory into the imports.
     /// (if the module does not import memory then this function is ignored)
+    #[cfg(feature = "compiler")]
     pub fn import_shared_memory(
         &mut self,
         module: &Module,

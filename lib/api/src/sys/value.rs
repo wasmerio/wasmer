@@ -3,13 +3,18 @@ use std::fmt;
 use std::string::{String, ToString};
 
 use wasmer_types::Type;
-use wasmer_vm::VMExternRef;
-use wasmer_vm::VMFuncRef;
+#[cfg(feature = "compiler")]
+use wasmer_vm::{
+    VMExternRef,
+    VMFuncRef
+};
 
 use crate::ExternRef;
 use crate::Function;
 
-use super::store::{AsStoreMut, AsStoreRef};
+use super::store::AsStoreRef;
+#[cfg(feature = "compiler")]
+use super::store::AsStoreMut;
 
 pub use wasmer_types::RawValue;
 

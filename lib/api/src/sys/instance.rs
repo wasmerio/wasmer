@@ -1,12 +1,16 @@
 use crate::sys::exports::Exports;
-use crate::sys::externals::Extern;
-use crate::sys::imports::Imports;
 use crate::sys::module::Module;
 use crate::sys::{LinkError, RuntimeError};
 use std::fmt;
 use thiserror::Error;
 use wasmer_vm::{InstanceHandle, StoreHandle};
 
+#[cfg(feature = "compiler")]
+use crate::sys::{
+    externals::Extern,
+    imports::Imports,
+};
+#[cfg(feature = "compiler")]
 use super::store::AsStoreMut;
 
 /// A WebAssembly Instance is a stateful, executable

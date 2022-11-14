@@ -9,6 +9,7 @@ use std::{
 #[derive(Debug)]
 pub struct WasiParkingLot {
     waker: Waker,
+    #[cfg_attr(not(feature = "os"), allow(dead_code))]
     run: Arc<(Mutex<bool>, Condvar)>,
 }
 
@@ -47,6 +48,7 @@ impl WasiParkingLot {
 
     /// Will wait until either the reactor is triggered
     /// or the timeout occurs
+    #[cfg_attr(not(feature = "os"), allow(dead_code))]
     pub fn wait(&self, timeout: Duration) -> bool {
         let mut run = self.run.0.lock().unwrap();
         if *run == true {

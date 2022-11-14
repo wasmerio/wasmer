@@ -10,8 +10,10 @@ use std::mem::MaybeUninit;
 use std::slice;
 #[cfg(feature = "tracing")]
 use tracing::warn;
-use wasmer_types::{Pages, WASM_PAGE_SIZE};
+use wasmer_types::Pages;
 use wasmer_vm::{InternalStoreHandle, LinearMemory, MemoryError, StoreHandle, VMExtern, VMMemory};
+#[cfg(feature = "compiler")]
+use wasmer_types::WASM_PAGE_SIZE;
 
 use super::MemoryView;
 
@@ -133,6 +135,7 @@ impl Memory {
     }
 
     /// Copies the memory to a new store and returns a memory reference to it
+    #[cfg(feature = "compiler")]
     pub fn copy_to_store(
         &self,
         store: &impl AsStoreRef,

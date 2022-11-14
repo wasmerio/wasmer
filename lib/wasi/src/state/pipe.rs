@@ -2,7 +2,8 @@ use crate::syscalls::types::*;
 use crate::syscalls::write_bytes;
 use bytes::{Buf, Bytes};
 use futures::Future;
-use tokio::sync::mpsc::error::TryRecvError;
+#[cfg(feature = "futures")]
+use futures::Future;
 use std::convert::TryInto;
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::ops::DerefMut;
@@ -10,8 +11,10 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Poll;
 use std::task::Waker;
-use tokio::sync::mpsc;
-use tokio::sync::Mutex;
+use tokio::sync::{
+    mpsc, Mutex,
+    mpsc::error::TryRecvError
+};
 use wasmer::WasmSlice;
 use wasmer::{MemorySize, MemoryView};
 use wasmer_vfs::{FsError, VirtualFile};

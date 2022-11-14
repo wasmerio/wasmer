@@ -38,6 +38,7 @@ macro_rules! wasi_try_ok {
 
 /// Like the `try!` macro or `?` syntax: returns the value if the computation
 /// succeeded or returns the error value.
+#[allow(unused_macros)]
 macro_rules! wasi_try_bus {
     ($expr:expr) => {{
         let res: Result<_, crate::BusErrno> = $expr;
@@ -56,6 +57,7 @@ macro_rules! wasi_try_bus {
 
 /// Like the `try!` macro or `?` syntax: returns the value if the computation
 /// succeeded or returns the error value.
+#[allow(unused_macros)]
 macro_rules! wasi_try_bus_ok {
     ($expr:expr) => {{
         let res: Result<_, crate::BusErrno> = $expr;
@@ -80,6 +82,7 @@ macro_rules! wasi_try_mem {
 }
 
 /// Like `wasi_try` but converts a `MemoryAccessError` to a `wasi::BusErrno`.
+#[allow(unused_macros)]
 macro_rules! wasi_try_mem_bus {
     ($expr:expr) => {{
         wasi_try_bus!($expr.map_err($crate::mem_error_to_bus))
@@ -87,6 +90,7 @@ macro_rules! wasi_try_mem_bus {
 }
 
 /// Like `wasi_try` but converts a `MemoryAccessError` to a __bus_errno_t`.
+#[allow(unused_macros)]
 macro_rules! wasi_try_mem_bus_ok {
     ($expr:expr) => {{
         wasi_try_bus_ok!($expr.map_err($crate::mem_error_to_bus))
@@ -111,12 +115,14 @@ macro_rules! get_input_str {
     }};
 }
 
+#[allow(unused_macros)]
 macro_rules! get_input_str_bus {
     ($memory:expr, $data:expr, $len:expr) => {{
         wasi_try_mem_bus!($data.read_utf8_string($memory, $len))
     }};
 }
 
+#[allow(unused_macros)]
 macro_rules! get_input_str_bus_ok {
     ($memory:expr, $data:expr, $len:expr) => {{
         wasi_try_mem_bus_ok!($data.read_utf8_string($memory, $len))
