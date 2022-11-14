@@ -23,7 +23,6 @@ fn test_no_start_wat_path() -> String {
 
 #[test]
 fn test_cross_compile_python_windows() -> anyhow::Result<()> {
-
     let temp_dir = tempfile::TempDir::new()?;
     let python_wasmer_path = temp_dir.path().join("python.exe");
 
@@ -35,7 +34,7 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
         .arg("-o")
         .arg(python_wasmer_path)
         .output()?;
-    
+
     if !output.status.success() {
         bail!(
             "linking failed with: stdout: {}\n\nstderr: {}",

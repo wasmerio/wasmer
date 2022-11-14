@@ -3951,6 +3951,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spinner",
+ "tar",
  "target-lexicon 0.12.4",
  "tempdir",
  "tempfile",

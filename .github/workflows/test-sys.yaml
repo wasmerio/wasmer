@@ -107,7 +107,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add build-base bash musl-dev curl make libtool libffi-dev gcc gcc-multilib automake autoconf git openssl-dev g++
+            apk add build-base bash musl-dev curl make libtool libffi-dev gcc build-base automake autoconf git openssl-dev g++
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:

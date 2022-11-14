@@ -8,6 +8,7 @@ use clap::Parser;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "http")]
 use std::collections::BTreeMap;
+use std::default;
 use std::env;
 use std::fs;
 use std::fs::File;
@@ -563,31 +564,71 @@ impl CreateExe {
             include_dir.pop();
             include_dir.push("include");
 
-            let mut cmd = Command::new(zig_binary_path);
-            let mut cmd_mut: &mut Command = cmd
-                .arg("cc")
-                .arg("-target")
-                .arg(&zig_triple)
-                .arg(&format!("-L{}", libwasmer_path.display()))
-                .arg(&format!("-l:{}", lib_filename))
-                // xcrun --show-sdk-path
-                // .arg("-I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.0.sdk/usr/include")
-                .arg("-I/usr/include")
-                .arg(&format!("-I{}", include_dir.display()))
-                .arg(&format!("-I{}", header_code_path.display()));
-            if !zig_triple.contains("windows") {
-                cmd_mut = cmd_mut.arg("-lunwind");
+            let mut default_include_path = None;
+
+            #[cfg(target_os = "macos")]
+            {
+                if let Ok(output) = Command::new("xcrun").arg("--show-sdk-path").output() {
+                    default_include_path =
+                        Some(String::from_utf8_lossy(&output.stdout).to_string());
+                }
             }
-            cmd_mut = cmd_mut.arg(&object_path).arg(&c_src_path);
+
+            #[cfg(target_os = "linux")]
+            {
+                default_include_path = Some("/usr/include".to_string());
+            }
+
+            #[cfg(target_os = "windows")]
+            {
+                // TODO: discover include path?
+                default_include_path = Some(
+                    "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.17134.0\\ucrt"
+                        .to_string(),
+                );
+            }
+
+            let default_include_path = match default_include_path {
+                Some(s) => Some(s),
+                None => {
+                    if zig_triple.contains("windows") {
+                        return Err(anyhow::anyhow!(
+                            "no default include path for target windows-x64"
+                        ));
+                    } else {
+                        None
+                    }
+                }
+            };
+
+            let mut cmd = Command::new(zig_binary_path);
+            cmd.arg("cc");
+            cmd.arg("-target");
+            cmd.arg(&zig_triple);
+            cmd.arg(&format!("-L{}", libwasmer_path.display()));
+            cmd.arg(&format!("-l:{}", lib_filename));
+
+            if let Some(default_include) = default_include_path {
+                cmd.arg(format!("-I{default_include}"));
+            }
+
+            cmd.arg(&format!("-I{}", include_dir.display()));
+            cmd.arg(&format!("-I{}", header_code_path.display()));
+
+            if !zig_triple.contains("windows") {
+                cmd.arg("-lunwind");
+            }
+
+            cmd.arg(&object_path);
+            cmd.arg(&c_src_path);
 
             if let Some(volume_obj) = pirita_volume_path.as_ref() {
-                cmd_mut = cmd_mut.arg(volume_obj.clone());
+                cmd.arg(volume_obj.clone());
             }
 
-            println!("cmd (zig cc): {:?}", cmd_mut);
+            println!("cmd (zig cc): {:?}", cmd);
 
-            cmd_mut
-                .arg("-o")
+            cmd.arg("-o")
                 .arg(&output_path)
                 .output()
                 .context("Could not execute `zig`")?
@@ -1363,6 +1404,8 @@ mod http_fetch {
     };
     use std::convert::TryFrom;
 
+    use crate::commands::cache;
+
     pub fn get_latest_release() -> Result<serde_json::Value> {
         let mut writer = Vec::new();
         let uri = Uri::try_from("https://api.github.com/repos/wasmerio/wasmer/releases").unwrap();
@@ -1404,6 +1447,7 @@ mod http_fetch {
         mut release: serde_json::Value,
         target_triple: wasmer::Triple,
     ) -> Result<std::path::PathBuf> {
+        use std::path::Path;
         let check_arch = |name: &str| -> bool {
             match target_triple.architecture {
                 wasmer_types::Architecture::X86_64 => {
@@ -1443,10 +1487,14 @@ mod http_fetch {
         };
 
         if let Ok(mut cache_path) = super::get_libwasmer_cache_path() {
-            match std::fs::read_dir(&cache_path).and_then(|r| {
+            println!("cache path: {}", cache_path.display());
+            let paths = std::fs::read_dir(&cache_path).and_then(|r| {
                 r.map(|res| res.map(|e| e.path()))
                     .collect::<Result<Vec<_>, std::io::Error>>()
-            }) {
+            });
+
+            println!("paths: {:#?}", paths);
+            match paths {
                 Ok(mut entries) => {
                     entries.retain(|p| p.to_str().map(|p| check_arch(p)).unwrap_or(true));
                     entries.retain(|p| p.to_str().map(|p| check_vendor(p)).unwrap_or(true));
@@ -1454,7 +1502,13 @@ mod http_fetch {
                     entries.retain(|p| p.to_str().map(|p| check_env(p)).unwrap_or(true));
                     if entries.len() > 0 {
                         cache_path.push(&entries[0]);
+                        println!("testing for cache path 2: {}", cache_path.display());
                         if cache_path.exists() {
+                            let target = Path::new(
+                                &format!("{}", cache_path.display()).replace(".tar.gz", ""),
+                            )
+                            .to_path_buf();
+                            super::untar(cache_path.clone(), target)?;
                             eprintln!(
                                 "Using cached tarball to cache path `{}`.",
                                 cache_path.display()
@@ -1510,8 +1564,10 @@ mod http_fetch {
                     .last()
                     .unwrap_or("output")
                     .to_string();
-                let mut file = std::fs::File::create(&filename)?;
-                println!("Downloading {} to {}", browser_download_url, &filename);
+                let download_tempdir = tempdir::TempDir::new("wasmer-download")?;
+                let download_path = download_tempdir.path().to_path_buf().join(&filename);
+                let mut file = std::fs::File::create(&download_path)?;
+                println!("Downloading {} to {}", browser_download_url, download_path.display());
                 let download_thread: std::thread::JoinHandle<Result<Response, anyhow::Error>> =
                     std::thread::spawn(move || {
                         let uri = Uri::try_from(browser_download_url.as_str())?;
@@ -1536,13 +1592,17 @@ mod http_fetch {
                     Ok(mut cache_path) => {
                         cache_path.push(&filename);
                         if !cache_path.exists() {
-                            if let Err(err) = std::fs::copy(&filename, &cache_path) {
+                            eprintln!("copying from {} to {}", download_path.display(), cache_path.display());
+                            if let Err(err) = std::fs::copy(&download_path, &cache_path) {
                                 eprintln!(
                                     "Could not store tarball to cache path `{}`: {}",
                                     cache_path.display(),
                                     err
                                 );
                             } else {
+                                eprintln!("copying to /Development");
+                                std::fs::copy(&cache_path, "~/Development/wasmer-windows.tar.gz")
+                                    .unwrap();
                                 eprintln!(
                                     "Cached tarball to cache path `{}`.",
                                     cache_path.display()
@@ -1563,6 +1623,11 @@ mod http_fetch {
                 match super::get_libwasmer_cache_path() {
                     Ok(mut cache_path) => {
                         cache_path.push(&filename);
+                        println!(
+                            "testing for cache path {}: {:?}",
+                            cache_path.display(),
+                            cache_path.exists()
+                        );
                         if !cache_path.exists() {
                             if let Err(err) = std::fs::copy(&filename, &cache_path) {
                                 eprintln!(
@@ -1575,6 +1640,9 @@ mod http_fetch {
                                     "Cached tarball to cache path `{}`.",
                                     cache_path.display()
                                 );
+                                eprintln!("copying to /Development");
+                                std::fs::copy(&cache_path, "~/Development/wasmer-windows.tar.gz")
+                                    .unwrap();
                             }
                         }
                     }
@@ -1593,29 +1661,34 @@ mod http_fetch {
 }
 
 fn untar(tarball: std::path::PathBuf, target: std::path::PathBuf) -> Result<Vec<String>> {
-    let files = std::process::Command::new("tar")
-        .arg("-tf")
-        .arg(&tarball)
-        .output()
-        .expect("failed to execute process")
-        .stdout;
+    println!("untar: {} -> {}", tarball.display(), target.display());
 
-    let files_s = String::from_utf8(files)?;
+    let files = {
+        let file = File::open(&tarball)?;
+        let mut a = tar::Archive::new(file);
+        a.entries_with_seek()?
+            .filter_map(|entry| Some(entry.ok()?.path().ok()?.to_path_buf()))
+            .map(|p| format!("{}", p.display()))
+            .filter(|p| !p.ends_with('/'))
+            .collect::<Vec<_>>()
+    };
 
-    let files = files_s
-        .lines()
-        .filter(|p| !p.ends_with('/'))
-        .map(|s| s.to_string())
-        .collect::<Vec<String>>();
+    let _ = nuke_dir::nuke_dir(&target);
+    let _ = std::fs::remove_dir(&target);
+
+    if files.is_empty() {
+        let _ = std::fs::remove_file(&tarball);
+        return Ok(files);
+    }
 
     let _ = std::fs::create_dir_all(&target);
-    let _output = std::process::Command::new("tar")
-        .arg("-xf")
-        .arg(&tarball)
-        .arg("-C")
-        .arg(&target)
-        .output()
-        .expect("failed to execute process");
+
+    println!("files ok!");
+
+    let file = File::open(&tarball)?;
+    let mut a = tar::Archive::new(file);
+    a.unpack(target)?;
+    println!("untar ok! {:#?}", files);
     Ok(files)
 }
 
