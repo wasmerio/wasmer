@@ -28,6 +28,7 @@ pub mod term;
 #[cfg(feature = "termios")]
 pub use term::*;
 
+#[cfg(feature = "sys-thread")]
 use tokio::runtime::{Builder, Runtime};
 
 #[derive(Error, Debug)]
@@ -511,6 +512,7 @@ impl Default for PluggableRuntimeImplementation {
 pub struct DefaultTaskManager {
     /// This is the tokio runtime used for ASYNC operations that is
     /// used for non-javascript environments
+    #[cfg(feature = "sys-thread")]
     runtime: std::sync::Arc<Runtime>,
     /// List of periodic wakers to wake (this is used by IO subsystems)
     /// that do not support async operations
@@ -518,12 +520,20 @@ pub struct DefaultTaskManager {
 }
 
 impl Default for DefaultTaskManager {
+    #[cfg(feature = "sys-thread")]
     fn default() -> Self {
         let runtime: std::sync::Arc<Runtime> =
             std::sync::Arc::new(Builder::new_current_thread().enable_all().build().unwrap());
         let (tx, _) = tokio::sync::broadcast::channel(100);
         Self {
             runtime,
+            periodic_wakers: Arc::new(Mutex::new((Vec::new(), tx))),
+        }
+    }
+    #[cfg(not(feature = "sys-thread"))]
+    fn default() -> Self {
+        let (tx, _) = tokio::sync::broadcast::channel(100);
+        Self {
             periodic_wakers: Arc::new(Mutex::new((Vec::new(), tx))),
         }
     }
@@ -561,15 +571,12 @@ impl VirtualTaskManager for DefaultTaskManager {
 
     /// Starts an asynchronous task on the local thread (by running it in a runtime)
     fn block_on(&self, task: Pin<Box<dyn Future<Output = ()>>>) {
-        let _guard = self.runtime.enter();
-        self.runtime.block_on(async move {
-            task.await;
-        });
+        unimplemented!("asynchronous operations are not supported on this task manager");
     }
 
     /// Enters the task runtime
     fn enter(&self) -> Box<dyn std::any::Any> {
-        Box::new(self.runtime.enter())
+        unimplemented!("asynchronous operations are not supported on this task manager");
     }
 
     /// Starts an asynchronous task will will run on a dedicated thread

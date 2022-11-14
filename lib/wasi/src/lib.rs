@@ -107,7 +107,7 @@ use thiserror::Error;
 use wasmer::{
     imports, namespace, AsStoreMut, AsStoreRef, ExportError, Exports, Function, FunctionEnv,
     Global, Imports, Instance, Memory, Memory32, Memory64, MemoryAccessError, MemorySize,
-    MemoryView, Module, Store, TypedFunction, Value,
+    MemoryView, Module, Store, TypedFunction,
 };
 
 pub use runtime::{
@@ -166,6 +166,7 @@ pub struct WasiEnvInner {
     stack_pointer: Option<Global>,
     /// Main function that will be invoked (name = "_start")
     #[derivative(Debug = "ignore")]
+    #[cfg_attr(not(feature = "os"), allow(dead_code))]
     start: Option<TypedFunction<(), ()>>,
     /// Function thats invoked to initialize the WASM module (nane = "_initialize")
     #[allow(dead_code)]
@@ -196,6 +197,7 @@ pub struct WasiEnvInner {
     /// asyncify_start_unwind(data : i32): call this to start unwinding the
     /// stack from the current location. "data" must point to a data
     /// structure as described above (with fields containing valid data).
+    #[cfg_attr(not(feature = "os"), allow(dead_code))]
     #[derivative(Debug = "ignore")]
     asyncify_start_unwind: Option<TypedFunction<i32, ()>>,
     /// asyncify_stop_unwind(): call this to note that unwinding has
@@ -205,16 +207,19 @@ pub struct WasiEnvInner {
     /// "sleep", then you must call this at the proper time. Otherwise,
     /// the code will think it is still unwinding when it should not be,
     /// which means it will keep unwinding in a meaningless way.
+    #[cfg_attr(not(feature = "os"), allow(dead_code))]
     #[derivative(Debug = "ignore")]
     asyncify_stop_unwind: Option<TypedFunction<(), ()>>,
     /// asyncify_start_rewind(data : i32): call this to start rewinding the
     /// stack vack up to the location stored in the provided data. This prepares
     /// for the rewind; to start it, you must call the first function in the
     /// call stack to be unwound.
+    #[cfg_attr(not(feature = "os"), allow(dead_code))]
     #[derivative(Debug = "ignore")]
     asyncify_start_rewind: Option<TypedFunction<i32, ()>>,
     /// asyncify_stop_rewind(): call this to note that rewinding has
     /// concluded, and normal execution can resume.
+    #[cfg_attr(not(feature = "os"), allow(dead_code))]
     #[derivative(Debug = "ignore")]
     asyncify_stop_rewind: Option<TypedFunction<(), ()>>,
     /// asyncify_get_state(): call this to get the current value of the
@@ -324,6 +329,7 @@ pub struct WasiEnv
     /// Represents the thread this environment is attached to
     pub thread: WasiThread,
     /// Represents a fork of the process that is currently in play
+    #[cfg(feature = "os")]
     pub vfork: Option<WasiVFork>,
     /// Base stack pointer for the memory stack
     pub stack_base: u64,
@@ -369,6 +375,7 @@ impl WasiEnv {
             Self {
                 process: process,
                 thread,
+                #[cfg(feature = "os")]
                 vfork: None,
                 stack_base: self.stack_base,
                 stack_start: self.stack_start,
@@ -445,6 +452,7 @@ impl WasiEnv {
         let mut ret = Self {
             process,
             thread: thread.as_thread(),
+            #[cfg(feature = "os")]
             vfork: None,
             stack_base: DEFAULT_STACK_SIZE,
             stack_start: 0,
@@ -966,15 +974,18 @@ impl WasiFunctionEnv {
         );
 
         // Set the base stack
+        #[cfg(feature = "os")]
         let stack_base = if let Some(stack_pointer) = env.inner().stack_pointer.clone() {
             match stack_pointer.get(store) {
-                Value::I32(a) => a as u64,
-                Value::I64(a) => a as u64,
+                wasmer::Value::I32(a) => a as u64,
+                wasmer::Value::I64(a) => a as u64,
                 _ => DEFAULT_STACK_SIZE,
             }
         } else {
             DEFAULT_STACK_SIZE
         };
+        #[cfg(not(feature = "os"))]
+        let stack_base = DEFAULT_STACK_SIZE;
         self.data_mut(store).stack_base = stack_base;
 
         Ok(())

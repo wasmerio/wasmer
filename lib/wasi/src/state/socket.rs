@@ -1670,6 +1670,7 @@ pub(crate) fn write_route<M: MemorySize>(
     Ok(())
 }
 
+#[cfg_attr(not(feature = "os"), allow(dead_code))]
 pub(crate) fn all_socket_rights() -> Rights {
     Rights::FD_FDSTAT_SET_FLAGS
         .union(Rights::FD_FILESTAT_GET)

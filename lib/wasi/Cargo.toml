@@ -40,8 +40,9 @@ sha2 = { version = "0.10" }
 waker-fn = { version = "1.1" }
 cooked-waker = "^5"
 rand = "0.8"
+tokio = { version = "1", features = [ "sync", "macros" ], default_features = false }
+futures = { version = "0.3" }
 # used by feature='os'
-tokio = { version = "1", features = [ "sync", "macros" ], default_features = false, optional = true }
 async-trait = { version = "^0.1", optional = true }
 urlencoding = { version = "^2", optional = true }
 # FIXME: proper dependency!
@@ -54,7 +55,6 @@ weezl = { version = "^0.1", optional = true }
 hex = { version = "^0.4", optional = true }
 term_size = { version = "0.3", optional = true }
 linked_hash_set = { version = "0.1", optional = true }
-futures = { version = "0.3", optional = true }
 # used by feature='host-reqwest'
 reqwest = { version = "0.11", features = ["json"], optional = true }
 # used by feature='host-termios'
@@ -92,7 +92,7 @@ webc_runner_rt_wasi = []
 sys = ["wasmer/sys", "wasmer-wasi-types/sys", "wasix", "webc/mmap"]
 sys-default = ["wasmer/wat", "wasmer/compiler", "sys", "os", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest" ]
 sys-poll = []
-sys-thread = ["tokio/rt", "tokio/rt-multi-thread"]
+sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 
 compiler = [ "wasmer/compiler", "wasmer-compiler"]
 compiler-cranelift = [ "wasmer-compiler-cranelift" ]
@@ -103,7 +103,7 @@ js = ["wasmer/js", "mem-fs", "wasmer-vfs/no-time", "getrandom/js", "chrono", "wa
 js-default = ["js", "wasmer/js-default"]
 test-js = ["js", "wasmer/js-default", "wasmer/wat"]
 
-os = [ "wasmer/wat", "wasmer/js-serializable-module", "tokio", "async-trait", "urlencoding", "webc-vfs", "serde", "serde_derive", "serde_json", "serde_yaml", "shellexpand", "weezl", "hex", "linked_hash_set", "futures" ]
+os = [ "wasmer/wat", "wasmer/js-serializable-module", "async-trait", "urlencoding", "webc-vfs", "serde", "serde_derive", "serde_json", "serde_yaml", "shellexpand", "weezl", "hex", "linked_hash_set" ]
 
 host-vnet = [ "wasmer-wasi-local-networking" ]
 host-threads = []

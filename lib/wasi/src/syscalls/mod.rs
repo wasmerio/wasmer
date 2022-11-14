@@ -4162,6 +4162,7 @@ pub fn proc_exit<M: MemorySize>(
     ctx.data().thread.terminate(code as u32);
 
     // If we are in a vfork we need to return to the point we left off
+    #[cfg(feature = "os")]
     if let Some(mut vfork) = ctx.data_mut().vfork.take() {
         // Restore the WasiEnv to the point when we vforked
         std::mem::swap(&mut vfork.env.inner, &mut ctx.data_mut().inner);
@@ -4259,7 +4260,7 @@ pub fn thread_signal(
     sig: Signal,
 ) -> Result<Errno, WasiError> {
     warn!(
-        "wasi[{}:{}]::thread_signal(tid={}, sig={}) are not supported without the 'os' feature",
+        "wasi[{}:{}]::thread_signal(tid={}, sig={:?}) are not supported without the 'os' feature",
         ctx.data().pid(),
         ctx.data().tid(),
         tid,
@@ -4353,6 +4354,7 @@ fn get_stack_start(mut ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> u64 {
     ctx.data().stack_start
 }
 
+#[cfg(feature = "os")]
 fn get_memory_stack_pointer(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> Result<u64, String> {
     // Get the current value of the stack pointer (which we will use
     // to save all of the stack)
@@ -4371,12 +4373,14 @@ fn get_memory_stack_pointer(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> Result<u64
     Ok(stack_pointer)
 }
 
+#[cfg(feature = "os")]
 fn get_memory_stack_offset(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> Result<u64, String> {
     let stack_base = get_stack_base(ctx);
     let stack_pointer = get_memory_stack_pointer(ctx)?;
     Ok(stack_base - stack_pointer)
 }
 
+#[cfg(feature = "os")]
 fn set_memory_stack_offset(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     offset: u64,
@@ -4406,6 +4410,7 @@ fn set_memory_stack_offset(
     Ok(())
 }
 
+#[cfg(feature = "os")]
 #[allow(dead_code)]
 fn get_memory_stack<M: MemorySize>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
@@ -4447,6 +4452,7 @@ fn get_memory_stack<M: MemorySize>(
 }
 
 #[allow(dead_code)]
+#[cfg(feature = "os")]
 fn set_memory_stack<M: MemorySize>(
     mut ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     stack: Bytes,
@@ -4478,6 +4484,7 @@ fn set_memory_stack<M: MemorySize>(
     Ok(())
 }
 
+#[cfg(feature = "os")]
 #[must_use = "you must return the result immediately so the stack can unwind"]
 fn unwind<M: MemorySize, F>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
@@ -4668,6 +4675,7 @@ fn rewind<M: MemorySize>(
     Errno::Success
 }
 
+#[cfg(feature = "os")]
 fn handle_rewind<M: MemorySize>(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> bool {
     // If the stack has been restored
     if let Some(memory_stack) = super::REWIND.with(|cell| cell.borrow_mut().take()) {
@@ -4688,6 +4696,7 @@ fn handle_rewind<M: MemorySize>(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> bool {
 /// ### `stack_checkpoint()`
 /// Creates a snapshot of the current stack which allows it to be restored
 /// later using its stack hash.
+#[cfg(feature = "os")]
 pub fn stack_checkpoint<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     snapshot_ptr: WasmPtr<StackSnapshot, M>,
@@ -4848,6 +4857,21 @@ pub fn stack_checkpoint<M: MemorySize>(
     })
 }
 
+#[allow(unused_variables)]
+#[cfg(not(feature = "os"))]
+pub fn stack_checkpoint<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    snapshot_ptr: WasmPtr<StackSnapshot, M>,
+    ret_val: WasmPtr<Longsize, M>,
+) -> Result<Errno, WasiError> {
+    warn!(
+        "wasi[{}:{}]::stack_checkpoint - not supported without 'os' feature",
+        ctx.data().pid(),
+        ctx.data().tid()
+    );
+    return Ok(Errno::Notsup);
+}
+
 /// ### `stack_restore()`
 /// Restores the current stack to a previous stack described by its
 /// stack hash.
@@ -4855,6 +4879,7 @@ pub fn stack_checkpoint<M: MemorySize>(
 /// ## Parameters
 ///
 /// * `snapshot_ptr` - Contains a previously made snapshot
+#[cfg(feature = "os")]
 pub fn stack_restore<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     snapshot_ptr: WasmPtr<StackSnapshot, M>,
@@ -4957,6 +4982,20 @@ pub fn stack_restore<M: MemorySize>(
     Ok(())
 }
 
+#[cfg(not(feature = "os"))]
+pub fn stack_restore<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    snapshot_ptr: WasmPtr<StackSnapshot, M>,
+    mut val: Longsize,
+) -> Result<(), WasiError> {
+    warn!(
+        "wasi[{}:{}]::stack_restore - not supported without 'os' feature",
+        ctx.data().pid(),
+        ctx.data().tid()
+    );
+    Ok(())
+}
+
 /// ### `proc_signal()`
 /// Sends a signal to a child process
 ///
@@ -4998,7 +5037,7 @@ pub fn proc_signal<M: MemorySize>(
     sig: Signal,
 ) -> Result<Errno, WasiError> {
     warn!(
-        "wasi[{}:{}]::proc_signal(pid={}, sig={}) is not supported without 'os' feature",
+        "wasi[{}:{}]::proc_signal(pid={}, sig={:?}) is not supported without 'os' feature",
         ctx.data().pid(),
         ctx.data().tid(),
         pid,
@@ -5359,6 +5398,7 @@ pub fn callback_thread_local_destroy<M: MemorySize>(
 ///
 /// Returns the thread index of the newly created thread
 /// (indices always start from zero)
+#[cfg(feature = "os")]
 pub fn thread_spawn<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     user_data: u64,
@@ -5591,6 +5631,23 @@ pub fn thread_spawn<M: MemorySize>(
     let memory = ctx.data().memory_view(&ctx);
     wasi_try_mem!(ret_tid.write(&memory, thread_id));
     Errno::Success
+}
+
+#[cfg(not(feature = "os"))]
+pub fn thread_spawn<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    user_data: u64,
+    stack_base: u64,
+    stack_start: u64,
+    reactor: Bool,
+    ret_tid: WasmPtr<Tid, M>,
+) -> Errno {
+    warn!(
+        "wasi[{}:{}]::thread_spawn is not supported without 'os' feature",
+        ctx.data().pid(),
+        ctx.data().tid(),
+    );
+    Errno::Notsup
 }
 
 /// ### `thread_local_create()`
@@ -6489,6 +6546,7 @@ pub fn proc_fork<M: MemorySize>(
     })
 }
 
+#[allow(unused_variables)]
 #[cfg(not(feature = "os"))]
 pub fn proc_fork<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
@@ -6790,6 +6848,7 @@ pub fn proc_exec<M: MemorySize>(
 /// ## Return
 ///
 /// Returns a bus process id that can be used to invoke calls
+#[cfg(feature = "os")]
 pub fn proc_spawn<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,
@@ -6861,6 +6920,32 @@ pub fn proc_spawn<M: MemorySize>(
     let memory = env.memory_view(&ctx);
     wasi_try_mem_bus!(ret_handles.write(&memory, handles));
     BusErrno::Success
+}
+
+#[allow(unused_variables)]
+#[cfg(not(feature = "os"))]
+pub fn proc_spawn<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    name: WasmPtr<u8, M>,
+    name_len: M::Offset,
+    chroot: Bool,
+    args: WasmPtr<u8, M>,
+    args_len: M::Offset,
+    preopen: WasmPtr<u8, M>,
+    preopen_len: M::Offset,
+    stdin: WasiStdioMode,
+    stdout: WasiStdioMode,
+    stderr: WasiStdioMode,
+    working_dir: WasmPtr<u8, M>,
+    working_dir_len: M::Offset,
+    ret_handles: WasmPtr<BusHandles, M>,
+) -> BusErrno {
+    warn!(
+        "wasi[{}:{}]::spawn is not supported on this platform",
+        ctx.data().pid(),
+        ctx.data().tid()
+    );
+    BusErrno::Unsupported
 }
 
 #[cfg(not(feature = "os"))]
@@ -7221,6 +7306,7 @@ pub fn bus_open_remote<M: MemorySize>(
     bus_open_internal(ctx, name, reuse, Some(instance), Some(token), ret_bid)
 }
 
+#[cfg(feature = "os")]
 fn bus_open_internal<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     name: String,
@@ -7267,6 +7353,24 @@ fn bus_open_internal<M: MemorySize>(
 
     wasi_try_mem_bus_ok!(ret_bid.write(&memory, pid.into()));
     Ok(BusErrno::Success)
+}
+
+#[allow(unused_variables)]
+#[cfg(not(feature = "os"))]
+fn bus_open_internal<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    name: String,
+    reuse: bool,
+    instance: Option<String>,
+    token: Option<String>,
+    ret_bid: WasmPtr<Bid, M>,
+) -> Result<BusErrno, WasiError> {
+    warn!(
+        "wasi[{}:{}]::bus_open_internal is not supported on this platform",
+        ctx.data().pid(),
+        ctx.data().tid()
+    );
+    Ok(BusErrno::Unsupported)
 }
 
 /// Closes a bus process and releases all associated resources

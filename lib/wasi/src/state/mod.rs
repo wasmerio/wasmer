@@ -2028,6 +2028,7 @@ impl FileOpener for WasiStateOpener {
     }
 }
 
+#[cfg_attr(not(feature = "os"), allow(dead_code))]
 pub(crate) struct WasiThreadContext {
     pub ctx: WasiFunctionEnv,
     pub store: RefCell<Store>,
@@ -2043,7 +2044,7 @@ unsafe impl Sync for WasiThreadContext {}
 ///
 /// These internal implementation details are hidden away from the
 /// consumer who should instead implement the vbus trait on the runtime
-
+#[cfg_attr(not(feature = "os"), allow(dead_code))]
 #[derive(Derivative, Default)]
 #[derivative(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -2088,17 +2089,20 @@ pub struct WasiBusState {
 impl WasiBusState {
     /// Gets a reference to the waker that can be used for
     /// asynchronous calls
+    #[cfg_attr(not(feature = "os"), allow(dead_code))]
     pub fn get_poll_waker(&self) -> Waker {
         self.poll_waker.get_waker()
     }
 
     /// Wakes one of the reactors thats currently waiting
+    #[cfg_attr(not(feature = "os"), allow(dead_code))]
     pub fn poll_wake(&self) {
         self.poll_waker.wake()
     }
 
     /// Will wait until either the reactor is triggered
     /// or the timeout occurs
+    #[cfg_attr(not(feature = "os"), allow(dead_code))]
     pub fn poll_wait(&self, timeout: Duration) -> bool {
         self.poll_waker.wait(timeout)
     }
@@ -2144,6 +2148,7 @@ pub struct WasiState {
     pub fs: WasiFs,
     pub secret: [u8; 32],
     pub inodes: Arc<RwLock<WasiInodes>>,
+    #[cfg_attr(not(feature = "os"), allow(dead_code))]
     pub(crate) threading: RwLock<WasiStateThreading>,
     pub(crate) futexs: Mutex<HashMap<u64, WasiFutex>>,
     pub(crate) clock_offset: Mutex<HashMap<Clockid, i64>>,

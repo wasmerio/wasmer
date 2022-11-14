@@ -8,8 +8,11 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tokio::net::TcpStream;
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
+#[cfg(feature = "tokio_tungstenite")]
+use tokio_tungstenite::{
+    connect_async, tungstenite::protocol::Message,
+    MaybeTlsStream, WebSocketStream
+};
 use wasmer_os::wasmer_wasi::WebSocketAbi;
 
 #[allow(unused_imports)]
