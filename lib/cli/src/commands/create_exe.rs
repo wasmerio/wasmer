@@ -1567,32 +1567,36 @@ mod http_fetch {
                 let download_tempdir = tempdir::TempDir::new("wasmer-download")?;
                 let download_path = download_tempdir.path().to_path_buf().join(&filename);
                 let mut file = std::fs::File::create(&download_path)?;
-                println!("Downloading {} to {}", browser_download_url, download_path.display());
-                let download_thread: std::thread::JoinHandle<Result<Response, anyhow::Error>> =
-                    std::thread::spawn(move || {
-                        let uri = Uri::try_from(browser_download_url.as_str())?;
-                        let mut response = Request::new(&uri)
-                            .header("User-Agent", "wasmer")
-                            .send(&mut file)
-                            .map_err(anyhow::Error::new)
-                            .context("Could not lookup wasmer artifact on Github.")?;
-                        if response.status_code() == StatusCode::new(302) {
-                            let redirect_uri =
-                                Uri::try_from(response.headers().get("Location").unwrap().as_str())
-                                    .unwrap();
-                            response = Request::new(&redirect_uri)
-                                .header("User-Agent", "wasmer")
-                                .send(&mut file)
-                                .map_err(anyhow::Error::new)
-                                .context("Could not lookup wasmer artifact on Github.")?;
-                        }
-                        Ok(response)
-                    });
+                println!(
+                    "Downloading {} to {}",
+                    browser_download_url,
+                    download_path.display()
+                );
+                let uri = Uri::try_from(browser_download_url.as_str())?;
+                let mut response = Request::new(&uri)
+                    .header("User-Agent", "wasmer")
+                    .send(&mut file)
+                    .map_err(anyhow::Error::new)
+                    .context("Could not lookup wasmer artifact on Github.")?;
+                if response.status_code() == StatusCode::new(302) {
+                    let redirect_uri =
+                        Uri::try_from(response.headers().get("Location").unwrap().as_str())
+                            .unwrap();
+                    response = Request::new(&redirect_uri)
+                        .header("User-Agent", "wasmer")
+                        .send(&mut file)
+                        .map_err(anyhow::Error::new)
+                        .context("Could not lookup wasmer artifact on Github.")?;
+                }
                 match super::get_libwasmer_cache_path() {
                     Ok(mut cache_path) => {
                         cache_path.push(&filename);
                         if !cache_path.exists() {
-                            eprintln!("copying from {} to {}", download_path.display(), cache_path.display());
+                            eprintln!(
+                                "copying from {} to {}",
+                                download_path.display(),
+                                cache_path.display()
+                            );
                             if let Err(err) = std::fs::copy(&download_path, &cache_path) {
                                 eprintln!(
                                     "Could not store tarball to cache path `{}`: {}",
@@ -1601,8 +1605,20 @@ mod http_fetch {
                                 );
                             } else {
                                 eprintln!("copying to /Development");
-                                std::fs::copy(&cache_path, "~/Development/wasmer-windows.tar.gz")
-                                    .unwrap();
+                                let _ = std::fs::File::create(
+                                    "/Users/fs/Development/wasmer-windows.tar.gz",
+                                );
+                                eprintln!("source exists: {}", cache_path.exists());
+                                eprintln!(
+                                    "target exists: {}",
+                                    Path::new("/Users/fs/Development/wasmer-windows.tar.gz")
+                                        .exists()
+                                );
+                                std::fs::copy(
+                                    &cache_path,
+                                    "/Users/fs/Development/wasmer-windows.tar.gz",
+                                )
+                                .unwrap();
                                 eprintln!(
                                     "Cached tarball to cache path `{}`.",
                                     cache_path.display()
@@ -1617,9 +1633,6 @@ mod http_fetch {
                         );
                     }
                 }
-                let _response = download_thread
-                    .join()
-                    .expect("Could not join downloading thread");
                 match super::get_libwasmer_cache_path() {
                     Ok(mut cache_path) => {
                         cache_path.push(&filename);
