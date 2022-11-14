@@ -3,10 +3,12 @@
 use crate::Features;
 use enumset::EnumSet;
 use std::any::Any;
-use std::fs;
-use std::path::Path;
+#[cfg(feature = "enable-rkyv")]
+use std::{
+    fs,
+    path::Path,
+};
 use wasmer_types::entity::PrimaryMap;
-use wasmer_types::SerializeError;
 use wasmer_types::{
     CpuFeature, MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer, TableIndex, TableStyle,
 };
@@ -37,10 +39,12 @@ pub trait ArtifactCreate: Send + Sync + Upcastable {
     fn data_initializers(&self) -> &[OwnedDataInitializer];
 
     /// Serializes an artifact into bytes
-    fn serialize(&self) -> Result<Vec<u8>, SerializeError>;
+    #[cfg(feature = "enable-rkyv")]
+    fn serialize(&self) -> Result<Vec<u8>, wasmer_types::SerializeError>;
 
     /// Serializes an artifact into a file path
-    fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
+    #[cfg(feature = "enable-rkyv")]
+    fn serialize_to_file(&self, path: &Path) -> Result<(), wasmer_types::SerializeError> {
         let serialized = self.serialize()?;
         fs::write(&path, serialized)?;
         Ok(())

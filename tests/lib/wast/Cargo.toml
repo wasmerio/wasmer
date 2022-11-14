@@ -13,8 +13,8 @@ edition = "2018"
 [dependencies]
 anyhow = "1.0"
 wasmer = { path = "../../../lib/api", version = "=3.0.0-rc.2", default-features = false }
-wasmer-wasi = { path = "../../../lib/wasi", version = "=3.0.0-rc.2" }
-wasmer-vfs = { path = "../../../lib/vfs", version = "=3.0.0-rc.2" }
+wasmer-wasi = { path = "../../../lib/wasi", version = "=3.0.0-rc.2", default_features = false }
+wasmer-vfs = { path = "../../../lib/vfs", version = "=3.0.0-rc.2", default_features = false }
 wast = "38.0"
 serde = "1"
 tempfile = "3"

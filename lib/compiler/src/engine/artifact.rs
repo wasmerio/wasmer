@@ -23,13 +23,18 @@ use wasmer_object::{emit_compilation, emit_data, get_object_for_target, Object};
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use wasmer_types::compilation::symbols::ModuleMetadata;
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
+#[cfg(feature = "enable-rkyv")]
 use wasmer_types::MetadataHeader;
 #[cfg(feature = "static-artifact-load")]
 use wasmer_types::SerializableCompilation;
 use wasmer_types::{
     CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
-    MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializableModule, SerializeError,
+    MemoryIndex, ModuleInfo, OwnedDataInitializer,
     SignatureIndex, TableIndex,
+};
+#[cfg(feature = "enable-rkyv")]
+use wasmer_types::{
+    SerializableModule, SerializeError,
 };
 #[cfg(feature = "static-artifact-create")]
 use wasmer_types::{CompileModuleInfo, Target};
@@ -102,6 +107,7 @@ impl Artifact {
     /// # Safety
     /// This function is unsafe because rkyv reads directly without validating
     /// the data.
+    #[cfg(feature = "enable-rkyv")]
     pub unsafe fn deserialize(engine: &Engine, bytes: &[u8]) -> Result<Self, DeserializeError> {
         if !ArtifactBuild::is_deserializable(bytes) {
             let static_artifact = Self::deserialize_object(engine, bytes);
@@ -245,6 +251,7 @@ impl ArtifactCreate for Artifact {
         self.artifact.table_styles()
     }
 
+    #[cfg(feature = "enable-rkyv")]
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         self.artifact.serialize()
     }
@@ -578,6 +585,7 @@ impl Artifact {
         ))
     }
 
+    #[cfg(feature = "enable-rkyv")]
     fn get_byte_slice(input: &[u8], start: usize, end: usize) -> Result<&[u8], DeserializeError> {
         if (start == end && input.len() > start)
             || (start < end && input.len() > start && input.len() >= end)

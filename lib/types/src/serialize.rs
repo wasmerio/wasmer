@@ -4,20 +4,28 @@ use crate::{
     compilation::target::CpuFeature, CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection,
     DeserializeError, Dwarf, Features, FunctionBody, FunctionIndex, LocalFunctionIndex,
     MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex,
-    SerializeError, SignatureIndex, TableIndex, TableStyle,
+    SignatureIndex, TableIndex, TableStyle,
 };
+#[cfg(feature = "enable-rkyv")]
+use crate::SerializeError;
 use enumset::EnumSet;
+#[cfg(feature = "rkyv")]
 use rkyv::{
     archived_value, de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer,
     ser::Serializer as RkyvSerializer, Archive, Deserialize as RkyvDeserialize,
     Serialize as RkyvSerialize,
 };
 use std::convert::TryInto;
-use std::path::Path;
-use std::{fs, mem};
+#[cfg(feature = "enable-rkyv")]
+use std::{
+    path::Path,
+    fs
+};
+use std::mem;
 
 /// The compilation related data for a serialized modules
-#[derive(Archive, Default, RkyvDeserialize, RkyvSerialize)]
+#[derive(Default)]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
 #[allow(missing_docs)]
 pub struct SerializableCompilation {
     pub function_bodies: PrimaryMap<LocalFunctionIndex, FunctionBody>,
@@ -39,6 +47,7 @@ impl SerializableCompilation {
     /// Serialize a Compilation into bytes
     /// The bytes will have the following format:
     /// RKYV serialization (any length) + POS (8 bytes)
+    #[cfg(feature = "enable-rkyv")]
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         let mut serializer = AllocSerializer::<4096>::default();
         let pos = serializer
@@ -51,7 +60,7 @@ impl SerializableCompilation {
 }
 
 /// Serializable struct that is able to serialize from and to a `ArtifactInfo`.
-#[derive(Archive, RkyvDeserialize, RkyvSerialize)]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
 #[allow(missing_docs)]
 pub struct SerializableModule {
     /// The main serializable compilation object
@@ -66,6 +75,7 @@ pub struct SerializableModule {
     pub module_start: Option<Pages>,
 }
 
+#[cfg(feature = "rkyv")]
 fn to_serialize_error(err: impl std::error::Error) -> SerializeError {
     SerializeError::Generic(format!("{}", err))
 }
@@ -74,6 +84,7 @@ impl SerializableModule {
     /// Serialize a Module into bytes
     /// The bytes will have the following format:
     /// RKYV serialization (any length) + POS (8 bytes)
+    #[cfg(feature = "enable-rkyv")]
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         let mut serializer = AllocSerializer::<4096>::default();
         let pos = serializer
@@ -95,6 +106,7 @@ impl SerializableModule {
     /// Right now we are not doing any extra work for validation, but
     /// `rkyv` has an option to do bytecheck on the serialized data before
     /// serializing (via `rkyv::check_archived_value`).
+    #[cfg(feature = "enable-rkyv")]
     pub unsafe fn deserialize(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
         let archived = Self::archive_from_slice(metadata_slice)?;
         Self::deserialize_from_archive(archived)
@@ -104,6 +116,7 @@ impl SerializableModule {
     ///
     /// This method is unsafe.
     /// Please check `SerializableModule::deserialize` for more details.
+    #[cfg(feature = "enable-rkyv")]
     unsafe fn archive_from_slice(
         metadata_slice: &[u8],
     ) -> Result<&ArchivedSerializableModule, DeserializeError> {
@@ -122,6 +135,7 @@ impl SerializableModule {
     }
 
     /// Deserialize a compilation module from an archive
+    #[cfg(feature = "enable-rkyv")]
     pub fn deserialize_from_archive(
         archived: &ArchivedSerializableModule,
     ) -> Result<Self, DeserializeError> {
@@ -161,6 +175,7 @@ impl SerializableModule {
     }
 
     /// Serializes an artifact into a file path
+    #[cfg(feature = "enable-rkyv")]
     pub fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
         let serialized = self.serialize()?;
         fs::write(&path, serialized)?;

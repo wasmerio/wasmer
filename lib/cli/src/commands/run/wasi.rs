@@ -116,7 +116,7 @@ impl Wasi {
             .runtime(&runtime)
             .map_commands(map_commands.clone());
 
-        if is_wasix_module(module) {
+        if wasmer_wasi::is_wasix_module(module) {
             // If we preopen anything from the host then shallow copy it over
             let root_fs = RootFileSystemBuilder::new()
                 .with_tty(Box::new(TtyFile::new(

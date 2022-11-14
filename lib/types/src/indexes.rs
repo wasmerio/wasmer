@@ -1,6 +1,7 @@
 //! Helper functions and structures for the translation.
 use crate::entity::entity_impl;
 use core::u32;
+#[cfg(feature = "rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -15,12 +16,10 @@ use serde::{Deserialize, Serialize};
     PartialOrd,
     Ord,
     Debug,
-    RkyvSerialize,
-    RkyvDeserialize,
-    Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive(as = "Self")]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 pub struct LocalFunctionIndex(u32);
 entity_impl!(LocalFunctionIndex);
 
@@ -46,12 +45,10 @@ entity_impl!(LocalMemoryIndex);
     PartialOrd,
     Ord,
     Debug,
-    RkyvSerialize,
-    RkyvDeserialize,
-    Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive(as = "Self")]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 pub struct LocalGlobalIndex(u32);
 entity_impl!(LocalGlobalIndex);
 
@@ -65,12 +62,10 @@ entity_impl!(LocalGlobalIndex);
     PartialOrd,
     Ord,
     Debug,
-    RkyvSerialize,
-    RkyvDeserialize,
-    Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive(as = "Self")]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 pub struct FunctionIndex(u32);
 entity_impl!(FunctionIndex);
 
@@ -84,12 +79,10 @@ entity_impl!(FunctionIndex);
     PartialOrd,
     Ord,
     Debug,
-    RkyvSerialize,
-    RkyvDeserialize,
-    Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive(as = "Self")]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 pub struct TableIndex(u32);
 entity_impl!(TableIndex);
 
@@ -103,12 +96,10 @@ entity_impl!(TableIndex);
     PartialOrd,
     Ord,
     Debug,
-    RkyvSerialize,
-    RkyvDeserialize,
-    Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive(as = "Self")]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 pub struct GlobalIndex(u32);
 entity_impl!(GlobalIndex);
 
@@ -122,12 +113,10 @@ entity_impl!(GlobalIndex);
     PartialOrd,
     Ord,
     Debug,
-    RkyvSerialize,
-    RkyvDeserialize,
-    Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive(as = "Self")]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 pub struct MemoryIndex(u32);
 entity_impl!(MemoryIndex);
 
@@ -141,12 +130,10 @@ entity_impl!(MemoryIndex);
     PartialOrd,
     Ord,
     Debug,
-    RkyvSerialize,
-    RkyvDeserialize,
-    Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive(as = "Self")]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 pub struct SignatureIndex(u32);
 entity_impl!(SignatureIndex);
 
@@ -160,12 +147,10 @@ entity_impl!(SignatureIndex);
     PartialOrd,
     Ord,
     Debug,
-    RkyvSerialize,
-    RkyvDeserialize,
-    Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive(as = "Self")]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 pub struct DataIndex(u32);
 entity_impl!(DataIndex);
 
@@ -179,12 +164,10 @@ entity_impl!(DataIndex);
     PartialOrd,
     Ord,
     Debug,
-    RkyvSerialize,
-    RkyvDeserialize,
-    Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive(as = "Self")]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 pub struct ElemIndex(u32);
 entity_impl!(ElemIndex);
 
@@ -198,12 +181,10 @@ entity_impl!(ElemIndex);
     PartialOrd,
     Ord,
     Debug,
-    RkyvSerialize,
-    RkyvDeserialize,
-    Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive(as = "Self")]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 pub struct CustomSectionIndex(u32);
 entity_impl!(CustomSectionIndex);
 
@@ -217,12 +198,10 @@ entity_impl!(CustomSectionIndex);
     Eq,
     PartialOrd,
     Ord,
-    RkyvSerialize,
-    RkyvDeserialize,
-    Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive(as = "Self")]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 pub enum ExportIndex {
     /// Function export.
     Function(FunctionIndex),
@@ -236,10 +215,11 @@ pub enum ExportIndex {
 
 /// An entity to import.
 #[derive(
-    Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, RkyvSerialize, RkyvDeserialize, Archive,
+    Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive(as = "Self")]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
 pub enum ImportIndex {
     /// Function import.
     Function(FunctionIndex),

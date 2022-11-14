@@ -10,14 +10,16 @@ use crate::{Compiler, CompilerConfig};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{FunctionExtent, Tunables};
 #[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "enable-rkyv")]
 use memmap2::Mmap;
 #[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "enable-rkyv")]
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::{Arc, Mutex};
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
-    entity::PrimaryMap, DeserializeError, FunctionBody, FunctionIndex, FunctionType,
+    entity::PrimaryMap, FunctionBody, FunctionIndex, FunctionType,
     LocalFunctionIndex, ModuleInfo, SignatureIndex,
 };
 use wasmer_types::{CompileError, Features, Target};
@@ -165,7 +167,8 @@ impl Engine {
     /// # Safety
     ///
     /// The serialized content must represent a serialized WebAssembly module.
-    pub unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<Artifact>, DeserializeError> {
+    #[cfg(feature = "enable-rkyv")]
+    pub unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<Artifact>, wasmer_types::DeserializeError> {
         Ok(Arc::new(Artifact::deserialize(self, bytes)?))
     }
 
@@ -176,10 +179,11 @@ impl Engine {
     ///
     /// The file's content must represent a serialized WebAssembly module.
     #[allow(dead_code, unused)]
+    #[cfg(feature = "enable-rkyv")]
     pub unsafe fn deserialize_from_file(
         &self,
         file_ref: &Path,
-    ) -> Result<Arc<Artifact>, DeserializeError> {
+    ) -> Result<Arc<Artifact>, wasmer_types::DeserializeError> {
         let file = std::fs::File::open(file_ref)?;
         let mmap = Mmap::map(&file)?;
         self.deserialize(&mmap)
