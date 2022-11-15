@@ -539,8 +539,10 @@ impl Artifact {
         metadata_binary.extend(MetadataHeader::new(serialized_data.len()).into_bytes());
         metadata_binary.extend(serialized_data);
 
-        let (_compile_info, symbol_registry) = metadata.split();
+        let (_compile_info, mut symbol_registry) = metadata.split();
 
+        symbol_registry.set_windows_underscore(true);
+        
         let compilation: wasmer_types::compilation::function::Compilation = compiler
             .compile_module(
                 target,
