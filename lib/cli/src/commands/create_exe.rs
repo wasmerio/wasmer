@@ -1632,7 +1632,13 @@ fn find_zig_binary(path: Option<PathBuf>) -> Result<PathBuf> {
             .or_else(|| {
                 #[cfg(feature = "http")]
                 {
-                    try_autoinstall_zig().map(|p| p.join("zig"))
+                    match try_autoinstall_zig() {
+                        Ok(p) => Some(p.join("zig")),
+                        Err(e) => {
+                            eprintln!("Error when installing zig: {e}");
+                            None
+                        }
+                    }
                 }
                 #[cfg(not(feature = "http"))]
                 {
@@ -1670,8 +1676,9 @@ fn find_zig_binary(path: Option<PathBuf>) -> Result<PathBuf> {
 
 /// Tries to auto-install zig into ~/.wasmer/utils/zig/{version}
 #[cfg(feature = "http")]
-fn try_autoinstall_zig() -> Option<PathBuf> {
-    let zig_dir = wasmer_registry::get_wasmer_root_dir()?
+fn try_autoinstall_zig() -> Result<PathBuf, String> {
+    let zig_dir = wasmer_registry::get_wasmer_root_dir()
+        .ok_or_else(|| "no wasmer root dir".to_string())?
         .join("utils")
         .join("zig");
     let mut existing_version = None;
@@ -1684,7 +1691,7 @@ fn try_autoinstall_zig() -> Option<PathBuf> {
         existing_version = rd.next().and_then(|entry| {
             let string = entry.ok()?.file_name().to_str()?.to_string();
             if zig_dir.join(&string).join("zig").exists() {
-                Some(string)
+                Ok(string)
             } else {
                 None
             }
@@ -1692,14 +1699,14 @@ fn try_autoinstall_zig() -> Option<PathBuf> {
     }
 
     if let Some(exist) = existing_version {
-        return Some(zig_dir.join(exist));
+        return Ok(zig_dir.join(exist));
     }
 
     install_zig(&zig_dir)
 }
 
 #[cfg(feature = "http")]
-fn install_zig(target_targz_path: &Path) -> Option<PathBuf> {
+fn install_zig(target_targz_path: &Path) -> Result<PathBuf, String> {
     let resp = reqwest::blocking::get("https://ziglang.org/download/index.json");
     let resp = resp.ok()?;
     let resp = resp.json::<ZiglangOrgJson>();
