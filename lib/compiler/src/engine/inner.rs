@@ -207,6 +207,16 @@ impl Engine {
     }
 }
 
+impl std::fmt::Debug for Engine {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Engine")
+            .field("target", &self.target)
+            .field("engine_id", &self.engine_id)
+            .field("name", &self.name)
+            .finish()
+    }
+}
+
 /// The inner contents of `Engine`
 pub struct EngineInner {
     #[cfg(feature = "compiler")]
