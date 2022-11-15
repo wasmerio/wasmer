@@ -12,6 +12,5 @@ wasmer-vfs = { path = "../vfs", version = "=3.0.0-rc.2", default-features = fals
 bytes = "1"
 
 [features]
-default = ["mem_fs"]
-mem_fs = ["wasmer-vfs/mem-fs"]
+default = []
 host_fs = ["wasmer-vfs/host-fs"]

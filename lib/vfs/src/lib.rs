@@ -5,22 +5,41 @@ use std::io::{self, Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
-#[cfg(all(not(feature = "host-fs"), not(feature = "mem-fs")))]
-compile_error!("At least the `host-fs` or the `mem-fs` feature must be enabled. Please, pick one.");
-
-//#[cfg(all(feature = "mem-fs", feature = "enable-serde"))]
-//compile_warn!("`mem-fs` does not support `enable-serde` for the moment.");
-
+pub mod arc_file;
+pub mod arc_fs;
+pub mod builder;
+pub mod delegate_file;
+pub mod empty_fs;
 #[cfg(feature = "host-fs")]
 pub mod host_fs;
-#[cfg(feature = "mem-fs")]
 pub mod mem_fs;
+pub mod null_file;
+pub mod passthru_fs;
+pub mod special_file;
+pub mod tmp_fs;
+pub mod union_fs;
+pub mod zero_file;
+// tty_file -> see wasmer_wasi::tty_file
 #[cfg(feature = "static-fs")]
 pub mod static_fs;
 #[cfg(feature = "webc-fs")]
 pub mod webc_fs;
 
+pub use arc_file::*;
+pub use arc_fs::*;
+pub use builder::*;
+pub use delegate_file::*;
+pub use empty_fs::*;
+pub use null_file::*;
+pub use passthru_fs::*;
+pub use special_file::*;
+pub use tmp_fs::*;
+pub use union_fs::*;
+pub use zero_file::*;
+
 pub type Result<T> = std::result::Result<T, FsError>;
+
+pub trait ClonableVirtualFile: VirtualFile + Clone {}
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -253,6 +272,13 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
     fn get_fd(&self) -> Option<FileDescriptor> {
         None
     }
+
+    /// Used for "special" files such as `stdin`, `stdout` and `stderr`.
+    /// Always returns the same file descriptor (0, 1 or 2). Returns `None`
+    /// on normal files
+    fn get_special_fd(&self) -> Option<u32> {
+        None
+    }
 }
 
 // Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .
@@ -344,8 +370,8 @@ pub enum FsError {
     #[error("connection is not open")]
     NotConnected,
     /// The requested file or directory could not be found
-    #[error("entity not found")]
-    EntityNotFound,
+    #[error("entry not found")]
+    EntryNotFound,
     /// The requested device couldn't be accessed
     #[error("can't access device")]
     NoDevice,
@@ -386,7 +412,7 @@ impl From<io::Error> for FsError {
             io::ErrorKind::InvalidData => FsError::InvalidData,
             io::ErrorKind::InvalidInput => FsError::InvalidInput,
             io::ErrorKind::NotConnected => FsError::NotConnected,
-            io::ErrorKind::NotFound => FsError::EntityNotFound,
+            io::ErrorKind::NotFound => FsError::EntryNotFound,
             io::ErrorKind::PermissionDenied => FsError::PermissionDenied,
             io::ErrorKind::TimedOut => FsError::TimedOut,
             io::ErrorKind::UnexpectedEof => FsError::UnexpectedEof,
@@ -409,6 +435,9 @@ pub struct ReadDir {
 impl ReadDir {
     pub fn new(data: Vec<DirEntry>) -> Self {
         Self { data, index: 0 }
+    }
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
     }
 }
 

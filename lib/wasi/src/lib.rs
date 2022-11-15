@@ -28,16 +28,12 @@ compile_error!(
     "The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
 );
 
-#[cfg(all(feature = "host-fs", feature = "mem-fs"))]
-compile_error!(
-    "Cannot have both `host-fs` and `mem-fs` features enabled at the same time. Please, pick one."
-);
-
 #[macro_use]
 mod macros;
 mod runtime;
 mod state;
 mod syscalls;
+mod tty_file;
 mod utils;
 
 /// Runners for WASI / Emscripten
@@ -52,6 +48,7 @@ pub use crate::state::{
     VIRTUAL_ROOT_FD,
 };
 pub use crate::syscalls::types;
+pub use crate::tty_file::TtyFile;
 #[cfg(feature = "wasix")]
 pub use crate::utils::is_wasix_module;
 pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};

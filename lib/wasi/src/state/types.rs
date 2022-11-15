@@ -9,7 +9,7 @@ use wasmer_wasi_types::wasi::{BusErrno, Errno};
 
 #[cfg(feature = "host-fs")]
 pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
-#[cfg(feature = "mem-fs")]
+#[cfg(not(feature = "host-fs"))]
 pub use wasmer_vfs::mem_fs::{Stderr, Stdin, Stdout};
 
 use wasmer_vfs::{FsError, VirtualFile};
@@ -30,7 +30,7 @@ pub fn fs_error_from_wasi_err(err: Errno) -> FsError {
         Errno::Inval => FsError::InvalidInput,
         Errno::Notconn => FsError::NotConnected,
         Errno::Nodev => FsError::NoDevice,
-        Errno::Noent => FsError::EntityNotFound,
+        Errno::Noent => FsError::EntryNotFound,
         Errno::Perm => FsError::PermissionDenied,
         Errno::Timedout => FsError::TimedOut,
         Errno::Proto => FsError::UnexpectedEof,
@@ -59,7 +59,7 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
         FsError::NoDevice => Errno::Nodev,
         FsError::NotAFile => Errno::Inval,
         FsError::NotConnected => Errno::Notconn,
-        FsError::EntityNotFound => Errno::Noent,
+        FsError::EntryNotFound => Errno::Noent,
         FsError::PermissionDenied => Errno::Perm,
         FsError::TimedOut => Errno::Timedout,
         FsError::UnexpectedEof => Errno::Proto,

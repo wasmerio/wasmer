@@ -1,6 +1,7 @@
-use std::fmt;
+use std::io::Write;
 use std::ops::Deref;
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::{fmt, io};
 use thiserror::Error;
 use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
 use wasmer_vnet::VirtualNetworking;
@@ -97,6 +98,18 @@ pub trait WasiRuntimeImplementation: fmt::Debug + Sync {
     /// Gets the current process ID
     fn getpid(&self) -> Option<u32> {
         None
+    }
+
+    /// Writes output to the console
+    fn stdout(&self, data: &[u8]) -> io::Result<()> {
+        let mut handle = io::stdout();
+        handle.write_all(data)
+    }
+
+    /// Writes output to the console
+    fn stderr(&self, data: &[u8]) -> io::Result<()> {
+        let mut handle = io::stderr();
+        handle.write_all(data)
     }
 }
 

@@ -483,6 +483,7 @@ test-packages:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
+	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/vfs/Cargo.toml $(compiler_features) --release
 
 test-js: test-js-api test-js-wasi
 

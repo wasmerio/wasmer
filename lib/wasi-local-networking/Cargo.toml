@@ -23,4 +23,3 @@ bytes = "1.1"
 default = ["host_fs"]
 wasix = [ ]
 host_fs = ["wasmer-vnet/host_fs", "wasmer-vfs/host-fs"]
-mem_fs = ["wasmer-vnet/mem_fs", "wasmer-vfs/mem-fs"]

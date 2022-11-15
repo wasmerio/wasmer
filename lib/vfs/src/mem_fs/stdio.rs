@@ -52,6 +52,10 @@ macro_rules! impl_virtualfile_on_std_streams {
                 unimplemented!();
             }
 
+            fn get_special_fd(&self) -> Option<u32> {
+                None
+            }
+
             fn get_fd(&self) -> Option<FileDescriptor> {
                 None
             }
