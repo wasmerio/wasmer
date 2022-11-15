@@ -8,7 +8,6 @@ use clap::Parser;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "http")]
 use std::collections::BTreeMap;
-use std::default;
 use std::env;
 use std::fs;
 use std::fs::File;
@@ -564,56 +563,15 @@ impl CreateExe {
             include_dir.pop();
             include_dir.push("include");
 
-            let mut default_include_path = None;
-
-            #[cfg(target_os = "macos")]
-            {
-                if let Ok(output) = Command::new("xcrun").arg("--show-sdk-path").output() {
-                    default_include_path =
-                        Some(String::from_utf8_lossy(&output.stdout).to_string());
-                }
-            }
-
-            #[cfg(target_os = "linux")]
-            {
-                default_include_path = Some("/usr/include".to_string());
-            }
-
-            #[cfg(target_os = "windows")]
-            {
-                // TODO: discover include path?
-                default_include_path = Some(
-                    "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.17134.0\\ucrt"
-                        .to_string(),
-                );
-            }
-
-            let default_include_path = match default_include_path {
-                Some(s) => Some(s),
-                None => {
-                    if zig_triple.contains("windows") {
-                        return Err(anyhow::anyhow!(
-                            "no default include path for target windows-x64"
-                        ));
-                    } else {
-                        None
-                    }
-                }
-            };
-
             let mut cmd = Command::new(zig_binary_path);
             cmd.arg("cc");
             cmd.arg("-target");
             cmd.arg(&zig_triple);
             cmd.arg(&format!("-L{}", libwasmer_path.display()));
             cmd.arg(&format!("-l:{}", lib_filename));
-
-            if let Some(default_include) = default_include_path {
-                cmd.arg(format!("-I{default_include}"));
-            }
-
-            cmd.arg(&format!("-I{}", include_dir.display()));
-            cmd.arg(&format!("-I{}", header_code_path.display()));
+            cmd.arg(&format!("-I{}/", include_dir.display()));
+            cmd.arg(&format!("-I{}/", header_code_path.display()));
+            cmd.arg("-isystem");
 
             if !zig_triple.contains("windows") {
                 cmd.arg("-lunwind");
@@ -625,8 +583,6 @@ impl CreateExe {
             if let Some(volume_obj) = pirita_volume_path.as_ref() {
                 cmd.arg(volume_obj.clone());
             }
-
-            println!("cmd (zig cc): {:?}", cmd);
 
             cmd.arg("-o")
                 .arg(&output_path)
@@ -1397,14 +1353,8 @@ impl LinkCode {
 #[cfg(feature = "http")]
 mod http_fetch {
     use anyhow::{anyhow, Context, Result};
-    use http_req::{
-        request::Request,
-        response::{Response, StatusCode},
-        uri::Uri,
-    };
+    use http_req::{request::Request, response::StatusCode, uri::Uri};
     use std::convert::TryFrom;
-
-    use crate::commands::cache;
 
     pub fn get_latest_release() -> Result<serde_json::Value> {
         let mut writer = Vec::new();
@@ -1447,7 +1397,7 @@ mod http_fetch {
         mut release: serde_json::Value,
         target_triple: wasmer::Triple,
     ) -> Result<std::path::PathBuf> {
-        use std::path::Path;
+        println!("download_release");
         let check_arch = |name: &str| -> bool {
             match target_triple.architecture {
                 wasmer_types::Architecture::X86_64 => {
@@ -1486,223 +1436,159 @@ mod http_fetch {
             }
         };
 
+        // Test if file has been already downloaded
         if let Ok(mut cache_path) = super::get_libwasmer_cache_path() {
-            println!("cache path: {}", cache_path.display());
             let paths = std::fs::read_dir(&cache_path).and_then(|r| {
                 r.map(|res| res.map(|e| e.path()))
                     .collect::<Result<Vec<_>, std::io::Error>>()
             });
 
-            println!("paths: {:#?}", paths);
-            match paths {
-                Ok(mut entries) => {
-                    entries.retain(|p| p.to_str().map(|p| check_arch(p)).unwrap_or(true));
-                    entries.retain(|p| p.to_str().map(|p| check_vendor(p)).unwrap_or(true));
-                    entries.retain(|p| p.to_str().map(|p| check_os(p)).unwrap_or(true));
-                    entries.retain(|p| p.to_str().map(|p| check_env(p)).unwrap_or(true));
-                    if entries.len() > 0 {
-                        cache_path.push(&entries[0]);
-                        println!("testing for cache path 2: {}", cache_path.display());
-                        if cache_path.exists() {
-                            let target = Path::new(
-                                &format!("{}", cache_path.display()).replace(".tar.gz", ""),
-                            )
-                            .to_path_buf();
-                            super::untar(cache_path.clone(), target)?;
-                            eprintln!(
-                                "Using cached tarball to cache path `{}`.",
-                                cache_path.display()
-                            );
-                            return Ok(cache_path);
-                        }
+            if let Ok(mut entries) = paths {
+                entries.retain(|p| p.to_str().map(|p| check_arch(p)).unwrap_or(true));
+                entries.retain(|p| p.to_str().map(|p| check_vendor(p)).unwrap_or(true));
+                entries.retain(|p| p.to_str().map(|p| check_os(p)).unwrap_or(true));
+                entries.retain(|p| p.to_str().map(|p| check_env(p)).unwrap_or(true));
+                if !entries.is_empty() {
+                    cache_path.push(&entries[0]);
+                    if cache_path.exists() {
+                        eprintln!(
+                            "Using cached tarball to cache path `{}`.",
+                            cache_path.display()
+                        );
+                        return Ok(cache_path);
                     }
                 }
-                Err(_ioerr) => {}
             }
         }
-        if let Some(assets) = release["assets"].as_array_mut() {
-            assets.retain(|a| {
-                if let Some(name) = a["name"].as_str() {
-                    check_arch(name)
-                } else {
-                    false
-                }
-            });
-            assets.retain(|a| {
-                if let Some(name) = a["name"].as_str() {
-                    check_vendor(name)
-                } else {
-                    false
-                }
-            });
-            assets.retain(|a| {
-                if let Some(name) = a["name"].as_str() {
-                    check_os(name)
-                } else {
-                    false
-                }
-            });
-            assets.retain(|a| {
-                if let Some(name) = a["name"].as_str() {
-                    check_env(name)
-                } else {
-                    false
-                }
-            });
 
-            if assets.len() == 1 {
-                let browser_download_url =
-                    if let Some(url) = assets[0]["browser_download_url"].as_str() {
-                        url.to_string()
-                    } else {
-                        return Err(anyhow!(
-                            "Could not get download url from Github API response."
-                        ));
-                    };
-                let filename = browser_download_url
-                    .split('/')
-                    .last()
-                    .unwrap_or("output")
-                    .to_string();
-                let download_tempdir = tempdir::TempDir::new("wasmer-download")?;
-                let download_path = download_tempdir.path().to_path_buf().join(&filename);
-                let mut file = std::fs::File::create(&download_path)?;
-                println!(
-                    "Downloading {} to {}",
-                    browser_download_url,
-                    download_path.display()
+        let assets = match release["assets"].as_array_mut() {
+            Some(s) => s,
+            None => {
+                return Err(anyhow!(
+                    "GitHub API: no [assets] array in JSON response for latest releases"
+                ));
+            }
+        };
+
+        assets.retain(|a| {
+            if let Some(name) = a["name"].as_str() {
+                check_arch(name)
+            } else {
+                false
+            }
+        });
+        assets.retain(|a| {
+            if let Some(name) = a["name"].as_str() {
+                check_vendor(name)
+            } else {
+                false
+            }
+        });
+
+        assets.retain(|a| {
+            if let Some(name) = a["name"].as_str() {
+                check_os(name)
+            } else {
+                false
+            }
+        });
+
+        assets.retain(|a| {
+            if let Some(name) = a["name"].as_str() {
+                check_env(name)
+            } else {
+                false
+            }
+        });
+
+        if assets.len() != 1 {
+            return Err(anyhow!(
+                "GitHub API: more that one release selected for target {target_triple}: {assets:?}"
+            ));
+        }
+
+        let browser_download_url = if let Some(url) = assets[0]["browser_download_url"].as_str() {
+            url.to_string()
+        } else {
+            return Err(anyhow!(
+                "Could not get download url from Github API response."
+            ));
+        };
+
+        let filename = browser_download_url
+            .split('/')
+            .last()
+            .unwrap_or("output")
+            .to_string();
+
+        let download_tempdir = tempdir::TempDir::new("wasmer-download")?;
+        let download_path = download_tempdir.path().to_path_buf().join(&filename);
+
+        let mut file = std::fs::File::create(&download_path)?;
+        eprintln!(
+            "Downloading {} to {}",
+            browser_download_url,
+            download_path.display()
+        );
+
+        let uri = Uri::try_from(browser_download_url.as_str())?;
+        let mut response = Request::new(&uri)
+            .header("User-Agent", "wasmer")
+            .send(&mut file)
+            .map_err(anyhow::Error::new)
+            .context("Could not lookup wasmer artifact on Github.")?;
+        if response.status_code() == StatusCode::new(302) {
+            let redirect_uri =
+                Uri::try_from(response.headers().get("Location").unwrap().as_str()).unwrap();
+            response = Request::new(&redirect_uri)
+                .header("User-Agent", "wasmer")
+                .send(&mut file)
+                .map_err(anyhow::Error::new)
+                .context("Could not lookup wasmer artifact on Github.")?;
+        }
+
+        let _ = response;
+
+        match super::get_libwasmer_cache_path() {
+            Ok(mut cache_path) => {
+                cache_path.push(&filename);
+                if let Err(err) = std::fs::copy(&download_path, &cache_path) {
+                    eprintln!(
+                        "Could not store tarball to cache path `{}`: {}",
+                        cache_path.display(),
+                        err
+                    );
+                    Err(anyhow!(
+                        "Could not copy from {} to {}",
+                        download_path.display(),
+                        cache_path.display()
+                    ))
+                } else {
+                    eprintln!("Cached tarball to cache path `{}`.", cache_path.display());
+                    Ok(cache_path)
+                }
+            }
+            Err(err) => {
+                eprintln!(
+                    "Could not determine cache path for downloaded binaries.: {}",
+                    err
                 );
-                let uri = Uri::try_from(browser_download_url.as_str())?;
-                let mut response = Request::new(&uri)
-                    .header("User-Agent", "wasmer")
-                    .send(&mut file)
-                    .map_err(anyhow::Error::new)
-                    .context("Could not lookup wasmer artifact on Github.")?;
-                if response.status_code() == StatusCode::new(302) {
-                    let redirect_uri =
-                        Uri::try_from(response.headers().get("Location").unwrap().as_str())
-                            .unwrap();
-                    response = Request::new(&redirect_uri)
-                        .header("User-Agent", "wasmer")
-                        .send(&mut file)
-                        .map_err(anyhow::Error::new)
-                        .context("Could not lookup wasmer artifact on Github.")?;
-                }
-                match super::get_libwasmer_cache_path() {
-                    Ok(mut cache_path) => {
-                        cache_path.push(&filename);
-                        if !cache_path.exists() {
-                            eprintln!(
-                                "copying from {} to {}",
-                                download_path.display(),
-                                cache_path.display()
-                            );
-                            if let Err(err) = std::fs::copy(&download_path, &cache_path) {
-                                eprintln!(
-                                    "Could not store tarball to cache path `{}`: {}",
-                                    cache_path.display(),
-                                    err
-                                );
-                            } else {
-                                eprintln!("copying to /Development");
-                                let _ = std::fs::File::create(
-                                    "/Users/fs/Development/wasmer-windows.tar.gz",
-                                );
-                                eprintln!("source exists: {}", cache_path.exists());
-                                eprintln!(
-                                    "target exists: {}",
-                                    Path::new("/Users/fs/Development/wasmer-windows.tar.gz")
-                                        .exists()
-                                );
-                                std::fs::copy(
-                                    &cache_path,
-                                    "/Users/fs/Development/wasmer-windows.tar.gz",
-                                )
-                                .unwrap();
-                                eprintln!(
-                                    "Cached tarball to cache path `{}`.",
-                                    cache_path.display()
-                                );
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        eprintln!(
-                            "Could not determine cache path for downloaded binaries.: {}",
-                            err
-                        );
-                    }
-                }
-                match super::get_libwasmer_cache_path() {
-                    Ok(mut cache_path) => {
-                        cache_path.push(&filename);
-                        println!(
-                            "testing for cache path {}: {:?}",
-                            cache_path.display(),
-                            cache_path.exists()
-                        );
-                        if !cache_path.exists() {
-                            if let Err(err) = std::fs::copy(&filename, &cache_path) {
-                                eprintln!(
-                                    "Could not store tarball to cache path `{}`: {}",
-                                    cache_path.display(),
-                                    err
-                                );
-                            } else {
-                                eprintln!(
-                                    "Cached tarball to cache path `{}`.",
-                                    cache_path.display()
-                                );
-                                eprintln!("copying to /Development");
-                                std::fs::copy(&cache_path, "~/Development/wasmer-windows.tar.gz")
-                                    .unwrap();
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        eprintln!(
-                            "Could not determine cache path for downloaded binaries.: {}",
-                            err
-                        );
-                    }
-                }
-                return Ok(filename.into());
+                Err(anyhow!("Could not determine libwasmer cache path"))
             }
         }
-        Err(anyhow!("Could not get release artifact."))
     }
 }
 
 fn untar(tarball: std::path::PathBuf, target: std::path::PathBuf) -> Result<Vec<String>> {
-    println!("untar: {} -> {}", tarball.display(), target.display());
+    use walkdir::WalkDir;
 
-    let files = {
-        let file = File::open(&tarball)?;
-        let mut a = tar::Archive::new(file);
-        a.entries_with_seek()?
-            .filter_map(|entry| Some(entry.ok()?.path().ok()?.to_path_buf()))
-            .map(|p| format!("{}", p.display()))
-            .filter(|p| !p.ends_with('/'))
-            .collect::<Vec<_>>()
-    };
+    wasmer_registry::try_unpack_targz(&tarball, &target, false)?;
 
-    let _ = nuke_dir::nuke_dir(&target);
-    let _ = std::fs::remove_dir(&target);
-
-    if files.is_empty() {
-        let _ = std::fs::remove_file(&tarball);
-        return Ok(files);
-    }
-
-    let _ = std::fs::create_dir_all(&target);
-
-    println!("files ok!");
-
-    let file = File::open(&tarball)?;
-    let mut a = tar::Archive::new(file);
-    a.unpack(target)?;
-    println!("untar ok! {:#?}", files);
-    Ok(files)
+    Ok(WalkDir::new(&target)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .map(|entry| format!("{}", entry.path().display()))
+        .collect())
 }
 
 fn find_zig_binary(path: Option<PathBuf>) -> Result<PathBuf> {
