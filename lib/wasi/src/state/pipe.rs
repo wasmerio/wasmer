@@ -29,19 +29,26 @@ pub struct WasiPipe {
     block: bool,
 }
 
+impl WasiPipe {
+    pub fn channel() -> (WasiPipe, WasiPipe) {
+        let pair = WasiBidirectionalPipePair::new();
+        (pair.tx, pair.rx)
+    }
+}
+
 /// Pipe pair of (a, b) WasiPipes that are connected together
 #[derive(Debug)]
 pub struct WasiBidirectionalPipePair {
-    pub send: WasiPipe,
-    pub recv: WasiPipe,
+    pub tx: WasiPipe,
+    pub rx: WasiPipe,
 }
 
 impl Write for WasiBidirectionalPipePair {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.send.write(buf)
+        self.tx.write(buf)
     }
     fn flush(&mut self) -> io::Result<()> {
-        self.send.flush()
+        self.tx.flush()
     }
 }
 
@@ -53,48 +60,48 @@ impl Seek for WasiBidirectionalPipePair {
 
 impl Read for WasiBidirectionalPipePair {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.recv.read(buf)
+        self.rx.read(buf)
     }
 }
 
 impl VirtualFile for WasiBidirectionalPipePair {
     fn last_accessed(&self) -> u64 {
-        self.recv.last_accessed()
+        self.rx.last_accessed()
     }
     fn last_modified(&self) -> u64 {
-        self.recv.last_modified()
+        self.rx.last_modified()
     }
     fn created_time(&self) -> u64 {
-        self.recv.created_time()
+        self.rx.created_time()
     }
     fn size(&self) -> u64 {
-        self.recv.size()
+        self.rx.size()
     }
     fn set_len(&mut self, i: u64) -> Result<(), FsError> {
-        self.recv.set_len(i)
+        self.rx.set_len(i)
     }
     fn unlink(&mut self) -> Result<(), FsError> {
-        self.recv.unlink()
+        self.rx.unlink()
     }
     fn bytes_available_read(&self) -> Result<usize, FsError> {
-        self.recv.bytes_available_read()
+        self.rx.bytes_available_read()
     }
     fn bytes_available_write(&self) -> Result<usize, FsError> {
-        self.send.bytes_available_write()
+        self.tx.bytes_available_write()
     }
     fn poll_read_ready(
         &self,
         cx: &mut std::task::Context<'_>,
         register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
     ) -> std::task::Poll<wasmer_vfs::Result<usize>> {
-        self.recv.poll_read_ready(cx, register_root_waker)
+        self.rx.poll_read_ready(cx, register_root_waker)
     }
     fn poll_write_ready(
         &self,
         cx: &mut std::task::Context<'_>,
         register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
     ) -> std::task::Poll<wasmer_vfs::Result<usize>> {
-        self.send.poll_write_ready(cx, register_root_waker)
+        self.tx.poll_write_ready(cx, register_root_waker)
     }
     fn read_async<'a>(
         &'a mut self,
@@ -102,7 +109,7 @@ impl VirtualFile for WasiBidirectionalPipePair {
         register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>,
     ) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<Vec<u8>, std::io::Error>> + 'a)>>
     {
-        self.recv.read_async(max_size, register_root_waker)
+        self.rx.read_async(max_size, register_root_waker)
     }
     fn write_async<'a>(
         &'a mut self,
@@ -110,7 +117,7 @@ impl VirtualFile for WasiBidirectionalPipePair {
         register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>,
     ) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<usize, std::io::Error>> + 'a)>>
     {
-        self.send.write_async(buf, register_root_waker)
+        self.tx.write_async(buf, register_root_waker)
     }
 }
 
@@ -140,8 +147,8 @@ impl WasiBidirectionalPipePair {
         };
 
         WasiBidirectionalPipePair {
-            send: pipe1,
-            recv: pipe2,
+            tx: pipe1,
+            rx: pipe2,
         }
     }
 
@@ -154,8 +161,8 @@ impl WasiBidirectionalPipePair {
     /// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`
     #[allow(dead_code)]
     pub fn set_blocking(&mut self, block: bool) {
-        self.send.set_blocking(block);
-        self.recv.set_blocking(block);
+        self.tx.set_blocking(block);
+        self.rx.set_blocking(block);
     }
 }
 

@@ -2388,8 +2388,8 @@ pub fn fd_pipe<M: MemorySize>(
     let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
 
     let pipes = WasiBidirectionalPipePair::new();
-    let pipe1 = pipes.send;
-    let pipe2 = pipes.recv;
+    let pipe1 = pipes.tx;
+    let pipe2 = pipes.rx;
 
     let inode1 = state.fs.create_inode_with_default_stat(
         inodes.deref_mut(),
@@ -6966,8 +6966,8 @@ pub fn proc_spawn_internal(
             match mode {
                 WasiStdioMode::Piped => {
                     let pipes = WasiBidirectionalPipePair::default();
-                    let pipe1 = pipes.recv;
-                    let pipe2 = pipes.send;
+                    let pipe1 = pipes.rx;
+                    let pipe2 = pipes.tx;
                     let inode1 = child_state.fs.create_inode_with_default_stat(
                         child_inodes.deref_mut(),
                         Kind::Pipe { pipe: pipe1 },

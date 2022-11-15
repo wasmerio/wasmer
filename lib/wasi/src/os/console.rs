@@ -28,7 +28,6 @@ use crate::{WasiControlPlane, WasiEnv, WasiProcess, WasiState};
 
 use super::cconst::ConsoleConst;
 use super::common::*;
-use super::posix_err;
 
 //pub const DEFAULT_BOOT_WEBC: &'static str = "sharrattj/bash";
 pub const DEFAULT_BOOT_WEBC: &'static str = "sharrattj/dash";
