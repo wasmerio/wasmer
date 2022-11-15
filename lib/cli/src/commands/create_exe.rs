@@ -1676,9 +1676,9 @@ fn find_zig_binary(path: Option<PathBuf>) -> Result<PathBuf> {
 
 /// Tries to auto-install zig into ~/.wasmer/utils/zig/{version}
 #[cfg(feature = "http")]
-fn try_autoinstall_zig() -> Result<PathBuf, String> {
+fn try_autoinstall_zig() -> Result<PathBuf, anyhow::Error> {
     let zig_dir = wasmer_registry::get_wasmer_root_dir()
-        .ok_or_else(|| "no wasmer root dir".to_string())?
+        .ok_or_else(|| anyhow!("no wasmer root dir"))?
         .join("utils")
         .join("zig");
     let mut existing_version = None;
@@ -1691,7 +1691,7 @@ fn try_autoinstall_zig() -> Result<PathBuf, String> {
         existing_version = rd.next().and_then(|entry| {
             let string = entry.ok()?.file_name().to_str()?.to_string();
             if zig_dir.join(&string).join("zig").exists() {
-                Ok(string)
+                Some(string)
             } else {
                 None
             }
@@ -1706,18 +1706,20 @@ fn try_autoinstall_zig() -> Result<PathBuf, String> {
 }
 
 #[cfg(feature = "http")]
-fn install_zig(target_targz_path: &Path) -> Result<PathBuf, String> {
-    let resp = reqwest::blocking::get("https://ziglang.org/download/index.json");
-    let resp = resp.ok()?;
+fn install_zig(target_targz_path: &Path) -> Result<PathBuf, anyhow::Error> {
+    let url = "https://ziglang.org/download/index.json";
+    let resp = reqwest::blocking::get(url);
+    let resp = resp.map_err(|e| anyhow!("{e}")).context(anyhow!("{url}"))?;
     let resp = resp.json::<ZiglangOrgJson>();
-    let resp = resp.ok()?;
+    let resp = resp.map_err(|e| anyhow!("{e}")).context(anyhow!("{url}"))?;
 
     let default_key = "master".to_string();
     let (latest_version, latest_version_json) = resp
         .versions
         .get(&default_key)
         .map(|v| (&default_key, v))
-        .or_else(|| resp.versions.iter().next())?;
+        .or_else(|| resp.versions.iter().next())
+        .ok_or_else(|| anyhow!("no latest version of zig: {url}"))?;
 
     let latest_version = match latest_version_json.version.as_ref() {
         Some(s) => s,
@@ -1726,12 +1728,19 @@ fn install_zig(target_targz_path: &Path) -> Result<PathBuf, String> {
 
     let install_dir = target_targz_path.join(latest_version);
     if install_dir.join("zig").exists() {
-        return Some(install_dir);
+        return Ok(install_dir);
     }
 
-    let native_host_url = latest_version_json.get_native_host_url()?;
+    let native_host_url = latest_version_json.get_native_host_url().ok_or_else(|| {
+        anyhow!("could not get native host url for target {latest_version_json:#?}")
+    })?;
     let _ = std::fs::create_dir_all(&install_dir);
-    wasmer_registry::download_and_unpack_targz(&native_host_url, &install_dir, true).ok()
+    wasmer_registry::download_and_unpack_targz(&native_host_url, &install_dir, true).context(
+        anyhow!(
+            "could not unpack {native_host_url} into {}",
+            install_dir.display()
+        ),
+    )
 }
 
 #[cfg(feature = "http")]
