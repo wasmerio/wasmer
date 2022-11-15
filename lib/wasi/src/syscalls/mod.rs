@@ -21,12 +21,12 @@ pub mod legacy;
 
 use self::types::{
     wasi::{
-        Addressfamily, Advice, Bid, BusErrno, BusHandles, Cid, Clockid, Dircookie, Dirent, Errno,
-        Event, EventFdReadwrite, Eventrwflags, Eventtype, ExitCode, Fd as WasiFd, Fdflags, Fdstat,
-        Filesize, Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid, Prestat,
-        Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype, StackSnapshot,
+        Addressfamily, Advice, Bid, BusDataFormat, BusErrno, BusHandles, Cid, Clockid, Dircookie,
+        Dirent, Errno, Event, EventFdReadwrite, Eventrwflags, Eventtype, ExitCode, Fd as WasiFd,
+        Fdflags, Fdstat, Filesize, Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd,
+        Pid, Prestat, Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype, StackSnapshot,
         StdioMode as WasiStdioMode, Streamsecurity, Subscription, SubscriptionFsReadwrite, Tid,
-        Timestamp, TlKey, TlUser, TlVal, Tty, WasiHash, Whence, __wasi_busdataformat_t,
+        Timestamp, TlKey, TlUser, TlVal, Tty, WasiHash, Whence,
     },
     *,
 };
@@ -81,8 +81,8 @@ use wasmer::{
     WasmSlice,
 };
 use wasmer_vbus::{
-    BusDataFormat, BusInvocationEvent, BusSpawnedProcess, FileDescriptor, SignalHandlerAbi,
-    SpawnOptionsConfig, StdioMode, VirtualBusError, VirtualBusInvokedWait,
+    BusInvocationEvent, BusSpawnedProcess, FileDescriptor, SignalHandlerAbi, SpawnOptionsConfig,
+    StdioMode, VirtualBusError, VirtualBusInvokedWait,
 };
 use wasmer_vfs::{FileSystem, FsError, VirtualFile};
 use wasmer_vnet::{SocketHttpRequest, StreamSecurity};
@@ -5070,26 +5070,11 @@ pub fn tty_get<M: MemorySize>(
         rows: state.rows,
         width: state.width,
         height: state.height,
-        stdin_tty: match state.stdin_tty {
-            false => Bool::False,
-            true => Bool::True,
-        },
-        stdout_tty: match state.stdout_tty {
-            false => Bool::False,
-            true => Bool::True,
-        },
-        stderr_tty: match state.stderr_tty {
-            false => Bool::False,
-            true => Bool::True,
-        },
-        echo: match state.echo {
-            false => Bool::False,
-            true => Bool::True,
-        },
-        line_buffered: match state.line_buffered {
-            false => Bool::False,
-            true => Bool::True,
-        },
+        stdin_tty: state.stdin_tty,
+        stdout_tty: state.stdout_tty,
+        stderr_tty: state.stderr_tty,
+        echo: state.echo,
+        line_buffered: state.line_buffered,
     };
 
     let memory = env.memory_view(&ctx);
@@ -5109,14 +5094,8 @@ pub fn tty_set<M: MemorySize>(
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
     let state = wasi_try_mem!(tty_state.read(&memory));
-    let echo = match state.echo {
-        Bool::False => false,
-        Bool::True => true,
-    };
-    let line_buffered = match state.line_buffered {
-        Bool::False => false,
-        Bool::True => true,
-    };
+    let echo = state.echo;
+    let line_buffered = state.line_buffered;
     let line_feeds = true;
     debug!(
         "wasi[{}:{}]::tty_set(echo={}, line_buffered={}, line_feeds={})",
@@ -5132,18 +5111,9 @@ pub fn tty_set<M: MemorySize>(
         rows: state.rows,
         width: state.width,
         height: state.height,
-        stdin_tty: match state.stdin_tty {
-            Bool::False => false,
-            Bool::True => true,
-        },
-        stdout_tty: match state.stdout_tty {
-            Bool::False => false,
-            Bool::True => true,
-        },
-        stderr_tty: match state.stderr_tty {
-            Bool::False => false,
-            Bool::True => true,
-        },
+        stdin_tty: state.stdin_tty,
+        stdout_tty: state.stdout_tty,
+        stderr_tty: state.stderr_tty,
         echo,
         line_buffered,
         line_feeds,
@@ -7338,7 +7308,7 @@ pub fn bus_call<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     bid: Bid,
     topic_hash: WasmPtr<WasiHash>,
-    format: __wasi_busdataformat_t,
+    format: BusDataFormat,
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
     ret_cid: WasmPtr<Cid, M>,
@@ -7429,7 +7399,7 @@ pub fn bus_subcall<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     parent_cid: Cid,
     topic_hash: WasmPtr<WasiHash>,
-    format: __wasi_busdataformat_t,
+    format: BusDataFormat,
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
     ret_cid: WasmPtr<Cid, M>,
@@ -7503,27 +7473,27 @@ pub fn bus_subcall<M: MemorySize>(
 }
 
 // Function for converting the format
-fn conv_bus_format(format: BusDataFormat) -> __wasi_busdataformat_t {
+fn conv_bus_format(format: BusDataFormat) -> BusDataFormat {
     match format {
-        BusDataFormat::Raw => __wasi_busdataformat_t::Raw,
-        BusDataFormat::Bincode => __wasi_busdataformat_t::Bincode,
-        BusDataFormat::MessagePack => __wasi_busdataformat_t::MessagePack,
-        BusDataFormat::Json => __wasi_busdataformat_t::Json,
-        BusDataFormat::Yaml => __wasi_busdataformat_t::Yaml,
-        BusDataFormat::Xml => __wasi_busdataformat_t::Xml,
-        BusDataFormat::Rkyv => __wasi_busdataformat_t::Rkyv,
+        BusDataFormat::Raw => BusDataFormat::Raw,
+        BusDataFormat::Bincode => BusDataFormat::Bincode,
+        BusDataFormat::MessagePack => BusDataFormat::MessagePack,
+        BusDataFormat::Json => BusDataFormat::Json,
+        BusDataFormat::Yaml => BusDataFormat::Yaml,
+        BusDataFormat::Xml => BusDataFormat::Xml,
+        BusDataFormat::Rkyv => BusDataFormat::Rkyv,
     }
 }
 
-fn conv_bus_format_from(format: __wasi_busdataformat_t) -> BusDataFormat {
+fn conv_bus_format_from(format: BusDataFormat) -> BusDataFormat {
     match format {
-        __wasi_busdataformat_t::Raw => BusDataFormat::Raw,
-        __wasi_busdataformat_t::Bincode => BusDataFormat::Bincode,
-        __wasi_busdataformat_t::MessagePack => BusDataFormat::MessagePack,
-        __wasi_busdataformat_t::Json => BusDataFormat::Json,
-        __wasi_busdataformat_t::Yaml => BusDataFormat::Yaml,
-        __wasi_busdataformat_t::Xml => BusDataFormat::Xml,
-        __wasi_busdataformat_t::Rkyv => BusDataFormat::Rkyv,
+        BusDataFormat::Raw => BusDataFormat::Raw,
+        BusDataFormat::Bincode => BusDataFormat::Bincode,
+        BusDataFormat::MessagePack => BusDataFormat::MessagePack,
+        BusDataFormat::Json => BusDataFormat::Json,
+        BusDataFormat::Yaml => BusDataFormat::Yaml,
+        BusDataFormat::Xml => BusDataFormat::Xml,
+        BusDataFormat::Rkyv => BusDataFormat::Rkyv,
     }
 }
 
@@ -7973,7 +7943,7 @@ pub fn bus_poll<M: MemorySize>(
 pub fn call_reply<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     cid: Cid,
-    format: __wasi_busdataformat_t,
+    format: BusDataFormat,
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
 ) -> BusErrno {

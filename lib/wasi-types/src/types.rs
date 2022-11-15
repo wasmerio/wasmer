@@ -20,7 +20,7 @@ pub use subscription::*;
 
 pub mod bus {
     use crate::wasi::{
-        Bid, BusErrno, BusEventType, Cid, ExitCode, Fd, OptionCid, WasiHash, __wasi_busdataformat_t,
+        Bid, BusDataFormat, BusErrno, BusEventType, Cid, ExitCode, Fd, OptionCid, WasiHash,
     };
     use wasmer_derive::ValueType;
 
@@ -38,7 +38,7 @@ pub mod bus {
     pub struct __wasi_busevent_call_t {
         pub parent: OptionCid,
         pub cid: Cid,
-        pub format: __wasi_busdataformat_t,
+        pub format: BusDataFormat,
         pub topic_hash: WasiHash,
         pub fd: Fd,
     }
@@ -46,7 +46,7 @@ pub mod bus {
     #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
     #[repr(C)]
     pub struct __wasi_busevent_result_t {
-        pub format: __wasi_busdataformat_t,
+        pub format: BusDataFormat,
         pub cid: Cid,
         pub fd: Fd,
     }

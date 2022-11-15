@@ -1,58 +1,47 @@
-use num_enum::TryFromPrimitive;
 use std::mem::MaybeUninit;
 use wasmer::ValueType;
+// TODO: Remove once bindings generate wai_bindgen_rust::bitflags::bitflags!  (temp hack)
+use wai_bindgen_rust as wit_bindgen_rust;
 
-/// Type names used by low-level WASI interfaces.
-/// An array size.
-///
-/// Note: This is similar to `size_t` in POSIX.
+#[doc = " Type names used by low-level WASI interfaces."]
+#[doc = " An array size."]
+#[doc = " "]
+#[doc = " Note: This is similar to `size_t` in POSIX."]
 pub type Size = u32;
-/// Non-negative file size or length of a region within a file.
+#[doc = " Non-negative file size or length of a region within a file."]
 pub type Filesize = u64;
-/// Timestamp in nanoseconds.
+#[doc = " Timestamp in nanoseconds."]
 pub type Timestamp = u64;
-/// A file descriptor handle.
+#[doc = " A file descriptor handle."]
 pub type Fd = u32;
-/// A reference to the offset of a directory entry.
+#[doc = " A reference to the offset of a directory entry."]
 pub type Dircookie = u64;
-/// The type for the `dirent::d-namlen` field of `dirent` struct.
+#[doc = " The type for the `dirent::d-namlen` field of `dirent` struct."]
 pub type Dirnamlen = u32;
-/// File serial number that is unique within its file system.
+#[doc = " File serial number that is unique within its file system."]
 pub type Inode = u64;
-/// Identifier for a device containing a file system. Can be used in combination
-/// with `inode` to uniquely identify a file or directory in the filesystem.
+#[doc = " Identifier for a device containing a file system. Can be used in combination"]
+#[doc = " with `inode` to uniquely identify a file or directory in the filesystem."]
 pub type Device = u64;
 pub type Linkcount = u64;
 pub type Snapshot0Linkcount = u32;
 pub type Tid = u32;
 pub type Pid = u32;
-/// Thread local key
-pub type TlKey = u32;
-/// Thread local value
-pub type TlVal = u64;
-/// Thread local user data (associated with the value)
-pub type TlUser = u64;
-/// Long size used by checkpoints
-pub type Longsize = u64;
-
-pub type WasiHash = u128;
-pub type WasiSmallHash = u64;
-
-/// Identifiers for clocks, snapshot0 version.
+#[doc = " Identifiers for clocks, snapshot0 version."]
 #[repr(u32)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Snapshot0Clockid {
-    /// The clock measuring real time. Time value zero corresponds with
-    /// 1970-01-01T00:00:00Z.
+    #[doc = " The clock measuring real time. Time value zero corresponds with"]
+    #[doc = " 1970-01-01T00:00:00Z."]
     Realtime,
-    /// The store-wide monotonic clock, which is defined as a clock measuring
-    /// real time, whose value cannot be adjusted and which cannot have negative
-    /// clock jumps. The epoch of this clock is undefined. The absolute time
-    /// value of this clock therefore has no meaning.
+    #[doc = " The store-wide monotonic clock, which is defined as a clock measuring"]
+    #[doc = " real time, whose value cannot be adjusted and which cannot have negative"]
+    #[doc = " clock jumps. The epoch of this clock is undefined. The absolute time"]
+    #[doc = " value of this clock therefore has no meaning."]
     Monotonic,
-    /// The CPU-time clock associated with the current process.
+    #[doc = " The CPU-time clock associated with the current process."]
     ProcessCputimeId,
-    /// The CPU-time clock associated with the current thread.
+    #[doc = " The CPU-time clock associated with the current thread."]
     ThreadCputimeId,
 }
 impl core::fmt::Debug for Snapshot0Clockid {
@@ -69,21 +58,21 @@ impl core::fmt::Debug for Snapshot0Clockid {
         }
     }
 }
-/// Identifiers for clocks.
+#[doc = " Identifiers for clocks."]
 #[repr(u32)]
-#[derive(Clone, Copy, Hash, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
 pub enum Clockid {
-    /// The clock measuring real time. Time value zero corresponds with
-    /// 1970-01-01T00:00:00Z.
+    #[doc = " The clock measuring real time. Time value zero corresponds with"]
+    #[doc = " 1970-01-01T00:00:00Z."]
     Realtime,
-    /// The store-wide monotonic clock, which is defined as a clock measuring
-    /// real time, whose value cannot be adjusted and which cannot have negative
-    /// clock jumps. The epoch of this clock is undefined. The absolute time
-    /// value of this clock therefore has no meaning.
+    #[doc = " The store-wide monotonic clock, which is defined as a clock measuring"]
+    #[doc = " real time, whose value cannot be adjusted and which cannot have negative"]
+    #[doc = " clock jumps. The epoch of this clock is undefined. The absolute time"]
+    #[doc = " value of this clock therefore has no meaning."]
     Monotonic,
-    /// The CPU-time clock associated with the current process.
+    #[doc = " The CPU-time clock associated with the current process."]
     ProcessCputimeId,
-    /// The CPU-time clock associated with the current thread.
+    #[doc = " The CPU-time clock associated with the current thread."]
     ThreadCputimeId,
 }
 impl core::fmt::Debug for Clockid {
@@ -96,169 +85,167 @@ impl core::fmt::Debug for Clockid {
         }
     }
 }
-/// Error codes returned by functions.
-/// Not all of these error codes are returned by the functions provided by this
-/// API; some are used in higher-level library layers, and others are provided
-/// merely for alignment with POSIX.
+#[doc = " Error codes returned by functions."]
+#[doc = " Not all of these error codes are returned by the functions provided by this"]
+#[doc = " API; some are used in higher-level library layers, and others are provided"]
+#[doc = " merely for alignment with POSIX."]
 #[repr(u16)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Errno {
-    /// No error occurred. System call completed successfully.
-    Success = 0,
-    /// Argument list too long.
+    #[doc = " No error occurred. System call completed successfully."]
+    Success,
+    #[doc = " Argument list too long."]
     Toobig,
-    /// Permission denied.
+    #[doc = " Permission denied."]
     Access,
-    /// Address in use.
+    #[doc = " Address in use."]
     Addrinuse,
-    /// Address not available.
+    #[doc = " Address not available."]
     Addrnotavail,
-    /// Address family not supported.
+    #[doc = " Address family not supported."]
     Afnosupport,
-    /// Resource unavailable, or operation would block.
+    #[doc = " Resource unavailable, or operation would block."]
     Again,
-    /// Connection already in progress.
+    #[doc = " Connection already in progress."]
     Already,
-    /// Bad file descriptor.
+    #[doc = " Bad file descriptor."]
     Badf,
-    /// Bad message.
+    #[doc = " Bad message."]
     Badmsg,
-    /// Device or resource busy.
+    #[doc = " Device or resource busy."]
     Busy,
-    /// Operation canceled.
+    #[doc = " Operation canceled."]
     Canceled,
-    /// No child processes.
+    #[doc = " No child processes."]
     Child,
-    /// Connection aborted.
+    #[doc = " Connection aborted."]
     Connaborted,
-    /// Connection refused.
+    #[doc = " Connection refused."]
     Connrefused,
-    /// Connection reset.
+    #[doc = " Connection reset."]
     Connreset,
-    /// Resource deadlock would occur.
+    #[doc = " Resource deadlock would occur."]
     Deadlk,
-    /// Destination address required.
+    #[doc = " Destination address required."]
     Destaddrreq,
-    /// Mathematics argument out of domain of function.
+    #[doc = " Mathematics argument out of domain of function."]
     Dom,
-    /// Reserved.
+    #[doc = " Reserved."]
     Dquot,
-    /// File exists.
+    #[doc = " File exists."]
     Exist,
-    /// Bad address.
+    #[doc = " Bad address."]
     Fault,
-    /// File too large.
+    #[doc = " File too large."]
     Fbig,
-    /// Host is unreachable.
+    #[doc = " Host is unreachable."]
     Hostunreach,
-    /// Identifier removed.
+    #[doc = " Identifier removed."]
     Idrm,
-    /// Illegal byte sequence.
+    #[doc = " Illegal byte sequence."]
     Ilseq,
-    /// Operation in progress.
+    #[doc = " Operation in progress."]
     Inprogress,
-    /// Interrupted function.
+    #[doc = " Interrupted function."]
     Intr,
-    /// Invalid argument.
+    #[doc = " Invalid argument."]
     Inval,
-    /// I/O error.
+    #[doc = " I/O error."]
     Io,
-    /// Socket is connected.
+    #[doc = " Socket is connected."]
     Isconn,
-    /// Is a directory.
+    #[doc = " Is a directory."]
     Isdir,
-    /// Too many levels of symbolic links.
+    #[doc = " Too many levels of symbolic links."]
     Loop,
-    /// File descriptor value too large.
+    #[doc = " File descriptor value too large."]
     Mfile,
-    /// Too many links.
+    #[doc = " Too many links."]
     Mlink,
-    /// Message too large.
+    #[doc = " Message too large."]
     Msgsize,
-    /// Reserved.
+    #[doc = " Reserved."]
     Multihop,
-    /// Filename too long.
+    #[doc = " Filename too long."]
     Nametoolong,
-    /// Network is down.
+    #[doc = " Network is down."]
     Netdown,
-    /// Connection aborted by network.
+    #[doc = " Connection aborted by network."]
     Netreset,
-    /// Network unreachable.
+    #[doc = " Network unreachable."]
     Netunreach,
-    /// Too many files open in system.
+    #[doc = " Too many files open in system."]
     Nfile,
-    /// No buffer space available.
+    #[doc = " No buffer space available."]
     Nobufs,
-    /// No such device.
+    #[doc = " No such device."]
     Nodev,
-    /// No such file or directory.
+    #[doc = " No such file or directory."]
     Noent,
-    /// Executable file format error.
+    #[doc = " Executable file format error."]
     Noexec,
-    /// No locks available.
+    #[doc = " No locks available."]
     Nolck,
-    /// Reserved.
+    #[doc = " Reserved."]
     Nolink,
-    /// Not enough space.
+    #[doc = " Not enough space."]
     Nomem,
-    /// No message of the desired type.
+    #[doc = " No message of the desired type."]
     Nomsg,
-    /// Protocol not available.
+    #[doc = " Protocol not available."]
     Noprotoopt,
-    /// No space left on device.
+    #[doc = " No space left on device."]
     Nospc,
-    /// Function not supported.
+    #[doc = " Function not supported."]
     Nosys,
-    /// The socket is not connected.
+    #[doc = " The socket is not connected."]
     Notconn,
-    /// Not a directory or a symbolic link to a directory.
+    #[doc = " Not a directory or a symbolic link to a directory."]
     Notdir,
-    /// Directory not empty.
+    #[doc = " Directory not empty."]
     Notempty,
-    /// State not recoverable.
+    #[doc = " State not recoverable."]
     Notrecoverable,
-    /// Not a socket.
+    #[doc = " Not a socket."]
     Notsock,
-    /// Not supported, or operation not supported on socket.
+    #[doc = " Not supported, or operation not supported on socket."]
     Notsup,
-    /// Inappropriate I/O control operation.
+    #[doc = " Inappropriate I/O control operation."]
     Notty,
-    /// No such device or address.
+    #[doc = " No such device or address."]
     Nxio,
-    /// Value too large to be stored in data type.
+    #[doc = " Value too large to be stored in data type."]
     Overflow,
-    /// Previous owner died.
+    #[doc = " Previous owner died."]
     Ownerdead,
-    /// Operation not permitted.
+    #[doc = " Operation not permitted."]
     Perm,
-    /// Broken pipe.
+    #[doc = " Broken pipe."]
     Pipe,
-    /// Protocol error.
+    #[doc = " Protocol error."]
     Proto,
-    /// Protocol not supported.
+    #[doc = " Protocol not supported."]
     Protonosupport,
-    /// Protocol wrong type for socket.
+    #[doc = " Protocol wrong type for socket."]
     Prototype,
-    /// Result too large.
+    #[doc = " Result too large."]
     Range,
-    /// Read-only file system.
+    #[doc = " Read-only file system."]
     Rofs,
-    /// Invalid seek.
+    #[doc = " Invalid seek."]
     Spipe,
-    /// No such process.
+    #[doc = " No such process."]
     Srch,
-    /// Reserved.
+    #[doc = " Reserved."]
     Stale,
-    /// Connection timed out.
+    #[doc = " Connection timed out."]
     Timedout,
-    /// Text file busy.
+    #[doc = " Text file busy."]
     Txtbsy,
-    /// Cross-device link.
+    #[doc = " Cross-device link."]
     Xdev,
-    /// Extension: Capabilities insufficient.
+    #[doc = " Extension: Capabilities insufficient."]
     Notcapable,
-    /// Shutdown
-    Shutdown,
 }
 impl Errno {
     pub fn name(&self) -> &'static str {
@@ -340,7 +327,6 @@ impl Errno {
             Errno::Txtbsy => "txtbsy",
             Errno::Xdev => "xdev",
             Errno::Notcapable => "notcapable",
-            Errno::Shutdown => "shutdown",
         }
     }
     pub fn message(&self) -> &'static str {
@@ -422,7 +408,6 @@ impl Errno {
             Errno::Txtbsy => "Text file busy.",
             Errno::Xdev => "Cross-device link.",
             Errno::Notcapable => "Extension: Capabilities insufficient.",
-            Errno::Shutdown => "Cannot send after socket shutdown.",
         }
     }
 }
@@ -440,113 +425,49 @@ impl core::fmt::Display for Errno {
         write!(f, "{} (error {})", self.name(), *self as i32)
     }
 }
-impl Into<std::io::ErrorKind> for Errno {
-    fn into(self) -> std::io::ErrorKind {
-        use std::io::ErrorKind;
-        match self {
-            Errno::Access => ErrorKind::PermissionDenied,
-            Errno::Addrinuse => ErrorKind::AddrInUse,
-            Errno::Addrnotavail => ErrorKind::AddrNotAvailable,
-            Errno::Again => ErrorKind::WouldBlock,
-            Errno::Already => ErrorKind::AlreadyExists,
-            Errno::Badf => ErrorKind::InvalidInput,
-            Errno::Badmsg => ErrorKind::InvalidData,
-            Errno::Canceled => ErrorKind::Interrupted,
-            Errno::Connaborted => ErrorKind::ConnectionAborted,
-            Errno::Connrefused => ErrorKind::ConnectionRefused,
-            Errno::Connreset => ErrorKind::ConnectionReset,
-            Errno::Exist => ErrorKind::AlreadyExists,
-            Errno::Intr => ErrorKind::Interrupted,
-            Errno::Inval => ErrorKind::InvalidInput,
-            Errno::Netreset => ErrorKind::ConnectionReset,
-            Errno::Noent => ErrorKind::NotFound,
-            Errno::Nomem => ErrorKind::OutOfMemory,
-            Errno::Nomsg => ErrorKind::InvalidData,
-            Errno::Notconn => ErrorKind::NotConnected,
-            Errno::Perm => ErrorKind::PermissionDenied,
-            Errno::Pipe => ErrorKind::BrokenPipe,
-            Errno::Timedout => ErrorKind::TimedOut,
-            _ => ErrorKind::Other,
-        }
-    }
-}
-impl Into<std::io::Error> for Errno {
-    fn into(self) -> std::io::Error {
-        let kind = Into::<std::io::ErrorKind>::into(self);
-        std::io::Error::new(kind, self.message())
-    }
-}
-impl From<std::io::Error> for Errno {
-    fn from(err: std::io::Error) -> Self {
-        use std::io::ErrorKind;
-        match err.kind() {
-            ErrorKind::NotFound => Errno::Noent,
-            ErrorKind::PermissionDenied => Errno::Perm,
-            ErrorKind::ConnectionRefused => Errno::Connrefused,
-            ErrorKind::ConnectionReset => Errno::Connreset,
-            ErrorKind::ConnectionAborted => Errno::Connaborted,
-            ErrorKind::NotConnected => Errno::Notconn,
-            ErrorKind::AddrInUse => Errno::Addrinuse,
-            ErrorKind::AddrNotAvailable => Errno::Addrnotavail,
-            ErrorKind::BrokenPipe => Errno::Pipe,
-            ErrorKind::AlreadyExists => Errno::Exist,
-            ErrorKind::WouldBlock => Errno::Again,
-            ErrorKind::InvalidInput => Errno::Io,
-            ErrorKind::InvalidData => Errno::Io,
-            ErrorKind::TimedOut => Errno::Timedout,
-            ErrorKind::WriteZero => Errno::Io,
-            ErrorKind::Interrupted => Errno::Intr,
-            ErrorKind::Other => Errno::Io,
-            ErrorKind::UnexpectedEof => Errno::Io,
-            ErrorKind::Unsupported => Errno::Notsup,
-            _ => Errno::Io,
-        }
-    }
-}
-
 impl std::error::Error for Errno {}
 #[repr(u32)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum BusErrno {
-    /// No error occurred. Call completed successfully.
+    #[doc = " No error occurred. Call completed successfully."]
     Success,
-    /// Failed during serialization
+    #[doc = " Failed during serialization"]
     Ser,
-    /// Failed during deserialization
+    #[doc = " Failed during deserialization"]
     Des,
-    /// Invalid WAPM process
+    #[doc = " Invalid WAPM process"]
     Wapm,
-    /// Failed to fetch the WAPM process
+    #[doc = " Failed to fetch the WAPM process"]
     Fetch,
-    /// Failed to compile the WAPM process
+    #[doc = " Failed to compile the WAPM process"]
     Compile,
-    /// Invalid ABI
+    #[doc = " Invalid ABI"]
     Abi,
-    /// Call was aborted
+    #[doc = " Call was aborted"]
     Aborted,
-    /// Bad handle
+    #[doc = " Bad handle"]
     Badhandle,
-    /// Invalid topic
+    #[doc = " Invalid topic"]
     Topic,
-    /// Invalid callback
+    #[doc = " Invalid callback"]
     Badcb,
-    /// Call is unsupported
+    #[doc = " Call is unsupported"]
     Unsupported,
-    /// Bad request
+    #[doc = " Bad request"]
     Badrequest,
-    /// Access denied
+    #[doc = " Access denied"]
     Denied,
-    /// Internal error has occured
+    #[doc = " Internal error has occured"]
     Internal,
-    /// Memory allocation failed
+    #[doc = " Memory allocation failed"]
     Alloc,
-    /// Invocation has failed
+    #[doc = " Invocation has failed"]
     Invoke,
-    /// Already consumed
+    #[doc = " Already consumed"]
     Consumed,
-    /// Memory access violation
+    #[doc = " Memory access violation"]
     Memviolation,
-    /// Some other unhandled error. If you see this, it's probably a bug.
+    #[doc = " Some other unhandled error. If you see this, it's probably a bug."]
     Unknown,
 }
 impl BusErrno {
@@ -615,134 +536,36 @@ impl core::fmt::Display for BusErrno {
         write!(f, "{} (error {})", self.name(), *self as i32)
     }
 }
-
 impl std::error::Error for BusErrno {}
-bitflags::bitflags! {
-  /// File descriptor rights, determining which actions may be performed.
-  pub struct Rights: u64 {
-    /// The right to invoke `fd_datasync`.
-    ///
-    /// If `rights::path_open` is set, includes the right to invoke
-    /// `path_open` with `fdflags::dsync`.
-    const FD_DATASYNC = 1 << 0;
-    /// The right to invoke `fd_read` and `sock_recv`.
-    ///
-    /// If `rights::fd_seek` is set, includes the right to invoke `fd_pread`.
-    const FD_READ = 1 << 1;
-    /// The right to invoke `fd_seek`. This flag implies `rights::fd_tell`.
-    const FD_SEEK = 1 << 2;
-    /// The right to invoke `fd_fdstat_set_flags`.
-    const FD_FDSTAT_SET_FLAGS = 1 << 3;
-    /// The right to invoke `fd_sync`.
-    ///
-    /// If `rights::path_open` is set, includes the right to invoke
-    /// `path_open` with `fdflags::rsync` and `fdflags::dsync`.
-    const FD_SYNC = 1 << 4;
-    /// The right to invoke `fd_seek` in such a way that the file offset
-    /// remains unaltered (i.e., `whence::cur` with offset zero), or to
-    /// invoke `fd_tell`.
-    const FD_TELL = 1 << 5;
-    /// The right to invoke `fd_write` and `sock_send`.
-    /// If `rights::fd_seek` is set, includes the right to invoke `fd_pwrite`.
-    const FD_WRITE = 1 << 6;
-    /// The right to invoke `fd_advise`.
-    const FD_ADVISE = 1 << 7;
-    /// The right to invoke `fd_allocate`.
-    const FD_ALLOCATE = 1 << 8;
-    /// The right to invoke `path_create_directory`.
-    const PATH_CREATE_DIRECTORY = 1 << 9;
-    /// If `rights::path_open` is set, the right to invoke `path_open` with `oflags::creat`.
-    const PATH_CREATE_FILE = 1 << 10;
-    /// The right to invoke `path_link` with the file descriptor as the
-    /// source directory.
-    const PATH_LINK_SOURCE = 1 << 11;
-    /// The right to invoke `path_link` with the file descriptor as the
-    /// target directory.
-    const PATH_LINK_TARGET = 1 << 12;
-    /// The right to invoke `path_open`.
-    const PATH_OPEN = 1 << 13;
-    /// The right to invoke `fd_readdir`.
-    const FD_READDIR = 1 << 14;
-    /// The right to invoke `path_readlink`.
-    const PATH_READLINK = 1 << 15;
-    /// The right to invoke `path_rename` with the file descriptor as the source directory.
-    const PATH_RENAME_SOURCE = 1 << 16;
-    /// The right to invoke `path_rename` with the file descriptor as the target directory.
-    const PATH_RENAME_TARGET = 1 << 17;
-    /// The right to invoke `path_filestat_get`.
-    const PATH_FILESTAT_GET = 1 << 18;
-    /// The right to change a file's size (there is no `path_filestat_set_size`).
-    /// If `rights::path_open` is set, includes the right to invoke `path_open` with `oflags::trunc`.
-    const PATH_FILESTAT_SET_SIZE = 1 << 19;
-    /// The right to invoke `path_filestat_set_times`.
-    const PATH_FILESTAT_SET_TIMES = 1 << 20;
-    /// The right to invoke `fd_filestat_get`.
-    const FD_FILESTAT_GET = 1 << 21;
-    /// The right to invoke `fd_filestat_set_size`.
-    const FD_FILESTAT_SET_SIZE = 1 << 22;
-    /// The right to invoke `fd_filestat_set_times`.
-    const FD_FILESTAT_SET_TIMES = 1 << 23;
-    /// The right to invoke `path_symlink`.
-    const PATH_SYMLINK = 1 << 24;
-    /// The right to invoke `path_remove_directory`.
-    const PATH_REMOVE_DIRECTORY = 1 << 25;
-    /// The right to invoke `path_unlink_file`.
-    const PATH_UNLINK_FILE = 1 << 26;
-    /// If `rights::fd_read` is set, includes the right to invoke `poll_oneoff` to subscribe to `eventtype::fd_read`.
-    /// If `rights::fd_write` is set, includes the right to invoke `poll_oneoff` to subscribe to `eventtype::fd_write`.
-    const POLL_FD_READWRITE = 1 << 27;
-    /// The right to invoke `sock_shutdown`.
-    const SOCK_SHUTDOWN = 1 << 28;
-    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-    const SOCK_ACCEPT = 1 << 29;
-    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-    const SOCK_CONNECT = 1 << 30;
-    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-    const SOCK_LISTEN = 1 << 31;
-    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-    const SOCK_BIND = 1 << 32;
-    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-    const SOCK_RECV = 1 << 33;
-    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-    const SOCK_SEND = 1 << 34;
-    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-    const SOCK_ADDR_LOCAL = 1 << 35;
-    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-    const SOCK_ADDR_REMOTE = 1 << 36;
-    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-    const SOCK_RECV_FROM = 1 << 37;
-    /// TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0
-    const SOCK_SEND_TO = 1 << 38;
-  }
-}
+wit_bindgen_rust::bitflags::bitflags! { # [doc = " File descriptor rights, determining which actions may be performed."] pub struct Rights : u64 { # [doc = " The right to invoke `fd_datasync`."] # [doc = " "] # [doc = " If `rights::path_open` is set, includes the right to invoke"] # [doc = " `path_open` with `fdflags::dsync`."] const FD_DATASYNC = 1 << 0 ; # [doc = " The right to invoke `fd_read` and `sock_recv`."] # [doc = " "] # [doc = " If `rights::fd_seek` is set, includes the right to invoke `fd_pread`."] const FD_READ = 1 << 1 ; # [doc = " The right to invoke `fd_seek`. This flag implies `rights::fd_tell`."] const FD_SEEK = 1 << 2 ; # [doc = " The right to invoke `fd_fdstat_set_flags`."] const FD_FDSTAT_SET_FLAGS = 1 << 3 ; # [doc = " The right to invoke `fd_sync`."] # [doc = " "] # [doc = " If `rights::path_open` is set, includes the right to invoke"] # [doc = " `path_open` with `fdflags::rsync` and `fdflags::dsync`."] const FD_SYNC = 1 << 4 ; # [doc = " The right to invoke `fd_seek` in such a way that the file offset"] # [doc = " remains unaltered (i.e., `whence::cur` with offset zero), or to"] # [doc = " invoke `fd_tell`."] const FD_TELL = 1 << 5 ; # [doc = " The right to invoke `fd_write` and `sock_send`."] # [doc = " If `rights::fd_seek` is set, includes the right to invoke `fd_pwrite`."] const FD_WRITE = 1 << 6 ; # [doc = " The right to invoke `fd_advise`."] const FD_ADVISE = 1 << 7 ; # [doc = " The right to invoke `fd_allocate`."] const FD_ALLOCATE = 1 << 8 ; # [doc = " The right to invoke `path_create_directory`."] const PATH_CREATE_DIRECTORY = 1 << 9 ; # [doc = " If `rights::path_open` is set, the right to invoke `path_open` with `oflags::creat`."] const PATH_CREATE_FILE = 1 << 10 ; # [doc = " The right to invoke `path_link` with the file descriptor as the"] # [doc = " source directory."] const PATH_LINK_SOURCE = 1 << 11 ; # [doc = " The right to invoke `path_link` with the file descriptor as the"] # [doc = " target directory."] const PATH_LINK_TARGET = 1 << 12 ; # [doc = " The right to invoke `path_open`."] const PATH_OPEN = 1 << 13 ; # [doc = " The right to invoke `fd_readdir`."] const FD_READDIR = 1 << 14 ; # [doc = " The right to invoke `path_readlink`."] const PATH_READLINK = 1 << 15 ; # [doc = " The right to invoke `path_rename` with the file descriptor as the source directory."] const PATH_RENAME_SOURCE = 1 << 16 ; # [doc = " The right to invoke `path_rename` with the file descriptor as the target directory."] const PATH_RENAME_TARGET = 1 << 17 ; # [doc = " The right to invoke `path_filestat_get`."] const PATH_FILESTAT_GET = 1 << 18 ; # [doc = " The right to change a file's size (there is no `path_filestat_set_size`)."] # [doc = " If `rights::path_open` is set, includes the right to invoke `path_open` with `oflags::trunc`."] const PATH_FILESTAT_SET_SIZE = 1 << 19 ; # [doc = " The right to invoke `path_filestat_set_times`."] const PATH_FILESTAT_SET_TIMES = 1 << 20 ; # [doc = " The right to invoke `fd_filestat_get`."] const FD_FILESTAT_GET = 1 << 21 ; # [doc = " The right to invoke `fd_filestat_set_size`."] const FD_FILESTAT_SET_SIZE = 1 << 22 ; # [doc = " The right to invoke `fd_filestat_set_times`."] const FD_FILESTAT_SET_TIMES = 1 << 23 ; # [doc = " The right to invoke `path_symlink`."] const PATH_SYMLINK = 1 << 24 ; # [doc = " The right to invoke `path_remove_directory`."] const PATH_REMOVE_DIRECTORY = 1 << 25 ; # [doc = " The right to invoke `path_unlink_file`."] const PATH_UNLINK_FILE = 1 << 26 ; # [doc = " If `rights::fd_read` is set, includes the right to invoke `poll_oneoff` to subscribe to `eventtype::fd_read`."] # [doc = " If `rights::fd_write` is set, includes the right to invoke `poll_oneoff` to subscribe to `eventtype::fd_write`."] const POLL_FD_READWRITE = 1 << 27 ; # [doc = " The right to invoke `sock_shutdown`."] const SOCK_SHUTDOWN = 1 << 28 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_ACCEPT = 1 << 29 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_CONNECT = 1 << 30 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_LISTEN = 1 << 31 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_BIND = 1 << 32 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_RECV = 1 << 33 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_SEND = 1 << 34 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_ADDR_LOCAL = 1 << 35 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_ADDR_REMOTE = 1 << 36 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_RECV_FROM = 1 << 37 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_SEND_TO = 1 << 38 ; } }
 impl Rights {
-    /// Convert from a raw integer, preserving any unknown bits. See
-    /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
+    #[doc = " Convert from a raw integer, preserving any unknown bits. See"]
+    #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
     pub fn from_bits_preserve(bits: u64) -> Self {
         Self { bits }
     }
 }
-/// The type of a file descriptor or file.
+#[doc = " The type of a file descriptor or file."]
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Filetype {
-    /// The type of the file descriptor or file is unknown or is different from any of the other types specified.
+    #[doc = " The type of the file descriptor or file is unknown or is different from any of the other types specified."]
     Unknown,
-    /// The file descriptor or file refers to a block device inode.
+    #[doc = " The file descriptor or file refers to a block device inode."]
     BlockDevice,
-    /// The file descriptor or file refers to a character device inode.
+    #[doc = " The file descriptor or file refers to a character device inode."]
     CharacterDevice,
-    /// The file descriptor or file refers to a directory inode.
+    #[doc = " The file descriptor or file refers to a directory inode."]
     Directory,
-    /// The file descriptor or file refers to a regular file inode.
+    #[doc = " The file descriptor or file refers to a regular file inode."]
     RegularFile,
-    /// The file descriptor or file refers to a datagram socket.
+    #[doc = " The file descriptor or file refers to a datagram socket."]
     SocketDgram,
-    /// The file descriptor or file refers to a byte-stream socket.
+    #[doc = " The file descriptor or file refers to a byte-stream socket."]
     SocketStream,
-    /// The file refers to a symbolic link inode.
+    #[doc = " The file refers to a symbolic link inode."]
     SymbolicLink,
-    /// The file descriptor or file refers to a FIFO.
+    #[doc = " The file descriptor or file refers to a FIFO."]
     Fifo,
 }
 impl core::fmt::Debug for Filetype {
@@ -760,17 +583,17 @@ impl core::fmt::Debug for Filetype {
         }
     }
 }
-/// A directory entry, snapshot0 version.
+#[doc = " A directory entry, snapshot0 version."]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Snapshot0Dirent {
-    /// The offset of the next directory entry stored in this directory.
+    #[doc = " The offset of the next directory entry stored in this directory."]
     pub d_next: Dircookie,
-    /// The serial number of the file referred to by this directory entry.
+    #[doc = " The serial number of the file referred to by this directory entry."]
     pub d_ino: Inode,
-    /// The length of the name of the directory entry.
+    #[doc = " The length of the name of the directory entry."]
     pub d_namlen: Dirnamlen,
-    /// The type of the file referred to by this directory entry.
+    #[doc = " The type of the file referred to by this directory entry."]
     pub d_type: Filetype,
 }
 impl core::fmt::Debug for Snapshot0Dirent {
@@ -783,17 +606,17 @@ impl core::fmt::Debug for Snapshot0Dirent {
             .finish()
     }
 }
-/// A directory entry.
+#[doc = " A directory entry."]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Dirent {
-    /// The offset of the next directory entry stored in this directory.
+    #[doc = " The offset of the next directory entry stored in this directory."]
     pub d_next: Dircookie,
-    /// The serial number of the file referred to by this directory entry.
+    #[doc = " The serial number of the file referred to by this directory entry."]
     pub d_ino: Inode,
-    /// The type of the file referred to by this directory entry.
+    #[doc = " The type of the file referred to by this directory entry."]
     pub d_type: Filetype,
-    /// The length of the name of the directory entry.
+    #[doc = " The length of the name of the directory entry."]
     pub d_namlen: Dirnamlen,
 }
 impl core::fmt::Debug for Dirent {
@@ -806,21 +629,21 @@ impl core::fmt::Debug for Dirent {
             .finish()
     }
 }
-/// File or memory access pattern advisory information.
+#[doc = " File or memory access pattern advisory information."]
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Advice {
-    /// The application has no advice to give on its behavior with respect to the specified data.
+    #[doc = " The application has no advice to give on its behavior with respect to the specified data."]
     Normal,
-    /// The application expects to access the specified data sequentially from lower offsets to higher offsets.
+    #[doc = " The application expects to access the specified data sequentially from lower offsets to higher offsets."]
     Sequential,
-    /// The application expects to access the specified data in a random order.
+    #[doc = " The application expects to access the specified data in a random order."]
     Random,
-    /// The application expects to access the specified data in the near future.
+    #[doc = " The application expects to access the specified data in the near future."]
     Willneed,
-    /// The application expects that it will not access the specified data in the near future.
+    #[doc = " The application expects that it will not access the specified data in the near future."]
     Dontneed,
-    /// The application expects to access the specified data once and then not reuse it thereafter.
+    #[doc = " The application expects to access the specified data once and then not reuse it thereafter."]
     Noreuse,
 }
 impl core::fmt::Debug for Advice {
@@ -835,42 +658,26 @@ impl core::fmt::Debug for Advice {
         }
     }
 }
-bitflags::bitflags! {
-  /// File descriptor flags.
-  pub struct Fdflags: u16 {
-    /// Append mode: Data written to the file is always appended to the file's end.
-    const APPEND = 1 << 0;
-    /// Write according to synchronized I/O data integrity completion. Only the data stored in the file is synchronized.
-    const DSYNC = 1 << 1;
-    /// Non-blocking mode.
-    const NONBLOCK = 1 << 2;
-    /// Synchronized read I/O operations.
-    const RSYNC = 1 << 3;
-    /// Write according to synchronized I/O file integrity completion. In
-    /// addition to synchronizing the data stored in the file, the implementation
-    /// may also synchronously update the file's metadata.
-    const SYNC = 1 << 4;
-  }
-}
+wit_bindgen_rust::bitflags::bitflags! { # [doc = " File descriptor flags."] pub struct Fdflags : u16 { # [doc = " Append mode: Data written to the file is always appended to the file's end."] const APPEND = 1 << 0 ; # [doc = " Write according to synchronized I/O data integrity completion. Only the data stored in the file is synchronized."] const DSYNC = 1 << 1 ; # [doc = " Non-blocking mode."] const NONBLOCK = 1 << 2 ; # [doc = " Synchronized read I/O operations."] const RSYNC = 1 << 3 ; # [doc = " Write according to synchronized I/O file integrity completion. In"] # [doc = " addition to synchronizing the data stored in the file, the implementation"] # [doc = " may also synchronously update the file's metadata."] const SYNC = 1 << 4 ; } }
 impl Fdflags {
-    /// Convert from a raw integer, preserving any unknown bits. See
-    /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
+    #[doc = " Convert from a raw integer, preserving any unknown bits. See"]
+    #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
     pub fn from_bits_preserve(bits: u16) -> Self {
         Self { bits }
     }
 }
-/// File descriptor attributes.
+#[doc = " File descriptor attributes."]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Fdstat {
-    /// File type.
+    #[doc = " File type."]
     pub fs_filetype: Filetype,
-    /// File descriptor flags.
+    #[doc = " File descriptor flags."]
     pub fs_flags: Fdflags,
-    /// Rights that apply to this file descriptor.
+    #[doc = " Rights that apply to this file descriptor."]
     pub fs_rights_base: Rights,
-    /// Maximum set of rights that may be installed on new file descriptors that
-    /// are created through this file descriptor, e.g., through `path_open`.
+    #[doc = " Maximum set of rights that may be installed on new file descriptors that"]
+    #[doc = " are created through this file descriptor, e.g., through `path_open`."]
     pub fs_rights_inheriting: Rights,
 }
 impl core::fmt::Debug for Fdstat {
@@ -883,81 +690,45 @@ impl core::fmt::Debug for Fdstat {
             .finish()
     }
 }
-bitflags::bitflags! {
-  /// Which file time attributes to adjust.
-  /// TODO: wit appears to not have support for flags repr
-  /// (@witx repr u16)
-  pub struct Fstflags: u16 {
-    /// Adjust the last data access timestamp to the value stored in `filestat::atim`.
-    const SET_ATIM = 1 << 0;
-    /// Adjust the last data access timestamp to the time of clock `clockid::realtime`.
-    const SET_ATIM_NOW = 1 << 1;
-    /// Adjust the last data modification timestamp to the value stored in `filestat::mtim`.
-    const SET_MTIM = 1 << 2;
-    /// Adjust the last data modification timestamp to the time of clock `clockid::realtime`.
-    const SET_MTIM_NOW = 1 << 3;
-  }
-}
+wit_bindgen_rust::bitflags::bitflags! { # [doc = " Which file time attributes to adjust."] # [doc = " TODO: wit appears to not have support for flags repr"] # [doc = " (@witx repr u16)"] pub struct Fstflags : u16 { # [doc = " Adjust the last data access timestamp to the value stored in `filestat::atim`."] const SET_ATIM = 1 << 0 ; # [doc = " Adjust the last data access timestamp to the time of clock `clockid::realtime`."] const SET_ATIM_NOW = 1 << 1 ; # [doc = " Adjust the last data modification timestamp to the value stored in `filestat::mtim`."] const SET_MTIM = 1 << 2 ; # [doc = " Adjust the last data modification timestamp to the time of clock `clockid::realtime`."] const SET_MTIM_NOW = 1 << 3 ; } }
 impl Fstflags {
-    /// Convert from a raw integer, preserving any unknown bits. See
-    /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
+    #[doc = " Convert from a raw integer, preserving any unknown bits. See"]
+    #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
     pub fn from_bits_preserve(bits: u16) -> Self {
         Self { bits }
     }
 }
-bitflags::bitflags! {
-  /// Flags determining the method of how paths are resolved.
-  /// TODO: wit appears to not have support for flags repr
-  /// (@witx repr u32)
-  pub struct Lookup: u32 {
-    /// As long as the resolved path corresponds to a symbolic link, it is expanded.
-    const SYMLINK_FOLLOW = 1 << 0;
-  }
-}
+wit_bindgen_rust::bitflags::bitflags! { # [doc = " Flags determining the method of how paths are resolved."] # [doc = " TODO: wit appears to not have support for flags repr"] # [doc = " (@witx repr u32)"] pub struct Lookup : u32 { # [doc = " As long as the resolved path corresponds to a symbolic link, it is expanded."] const SYMLINK_FOLLOW = 1 << 0 ; } }
 impl Lookup {
-    /// Convert from a raw integer, preserving any unknown bits. See
-    /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
+    #[doc = " Convert from a raw integer, preserving any unknown bits. See"]
+    #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
     pub fn from_bits_preserve(bits: u32) -> Self {
         Self { bits }
     }
 }
-bitflags::bitflags! {
-  /// Open flags used by `path_open`.
-  /// TODO: wit appears to not have support for flags repr
-  /// (@witx repr u16)
-  pub struct Oflags: u16 {
-    /// Create file if it does not exist.
-    const CREATE = 1 << 0;
-    /// Fail if not a directory.
-    const DIRECTORY = 1 << 1;
-    /// Fail if file already exists.
-    const EXCL = 1 << 2;
-    /// Truncate file to size 0.
-    const TRUNC = 1 << 3;
-  }
-}
+wit_bindgen_rust::bitflags::bitflags! { # [doc = " Open flags used by `path_open`."] # [doc = " TODO: wit appears to not have support for flags repr"] # [doc = " (@witx repr u16)"] pub struct Oflags : u16 { # [doc = " Create file if it does not exist."] const CREATE = 1 << 0 ; # [doc = " Fail if not a directory."] const DIRECTORY = 1 << 1 ; # [doc = " Fail if file already exists."] const EXCL = 1 << 2 ; # [doc = " Truncate file to size 0."] const TRUNC = 1 << 3 ; } }
 impl Oflags {
-    /// Convert from a raw integer, preserving any unknown bits. See
-    /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
+    #[doc = " Convert from a raw integer, preserving any unknown bits. See"]
+    #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
     pub fn from_bits_preserve(bits: u16) -> Self {
         Self { bits }
     }
 }
-/// User-provided value that may be attached to objects that is retained when
-/// extracted from the implementation.
+#[doc = " User-provided value that may be attached to objects that is retained when"]
+#[doc = " extracted from the implementation."]
 pub type Userdata = u64;
-/// Type of a subscription to an event or its occurrence.
+#[doc = " Type of a subscription to an event or its occurrence."]
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Eventtype {
-    /// The time value of clock `subscription_clock::id` has
-    /// reached timestamp `subscription_clock::timeout`.
+    #[doc = " The time value of clock `subscription_clock::id` has"]
+    #[doc = " reached timestamp `subscription_clock::timeout`."]
     Clock,
-    /// File descriptor `subscription_fd_readwrite::fd` has data
-    /// available for reading. This event always triggers for regular files.
+    #[doc = " File descriptor `subscription_fd_readwrite::fd` has data"]
+    #[doc = " available for reading. This event always triggers for regular files."]
     FdRead,
-    /// File descriptor `subscription_fd_readwrite::fd` has capacity
-    /// available for writing. This event always triggers for regular files.
+    #[doc = " File descriptor `subscription_fd_readwrite::fd` has capacity"]
+    #[doc = " available for writing. This event always triggers for regular files."]
     FdWrite,
 }
 impl core::fmt::Debug for Eventtype {
@@ -969,39 +740,28 @@ impl core::fmt::Debug for Eventtype {
         }
     }
 }
-bitflags::bitflags! {
-  /// Flags determining how to interpret the timestamp provided in
-  /// `subscription-clock::timeout`.
-  pub struct Subclockflags: u16 {
-    /// If set, treat the timestamp provided in
-    /// `subscription-clock::timeout` as an absolute timestamp of clock
-    /// `subscription-clock::id`. If clear, treat the timestamp
-    /// provided in `subscription-clock::timeout` relative to the
-    /// current time value of clock `subscription-clock::id`.
-    const SUBSCRIPTION_CLOCK_ABSTIME = 1 << 0;
-  }
-}
+wit_bindgen_rust::bitflags::bitflags! { # [doc = " Flags determining how to interpret the timestamp provided in"] # [doc = " `subscription-clock::timeout`."] pub struct Subclockflags : u16 { # [doc = " If set, treat the timestamp provided in"] # [doc = " `subscription-clock::timeout` as an absolute timestamp of clock"] # [doc = " `subscription-clock::id`. If clear, treat the timestamp"] # [doc = " provided in `subscription-clock::timeout` relative to the"] # [doc = " current time value of clock `subscription-clock::id`."] const SUBSCRIPTION_CLOCK_ABSTIME = 1 << 0 ; } }
 impl Subclockflags {
-    /// Convert from a raw integer, preserving any unknown bits. See
-    /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
+    #[doc = " Convert from a raw integer, preserving any unknown bits. See"]
+    #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
     pub fn from_bits_preserve(bits: u16) -> Self {
         Self { bits }
     }
 }
-/// The contents of a `subscription` when type is `eventtype::clock`.
+#[doc = " The contents of a `subscription` when type is `eventtype::clock`."]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Snapshot0SubscriptionClock {
-    /// The user-defined unique identifier of the clock.
+    #[doc = " The user-defined unique identifier of the clock."]
     pub identifier: Userdata,
-    /// The clock against which to compare the timestamp.
+    #[doc = " The clock against which to compare the timestamp."]
     pub id: Snapshot0Clockid,
-    /// The absolute or relative timestamp.
+    #[doc = " The absolute or relative timestamp."]
     pub timeout: Timestamp,
-    /// The amount of time that the implementation may wait additionally
-    /// to coalesce with other events.
+    #[doc = " The amount of time that the implementation may wait additionally"]
+    #[doc = " to coalesce with other events."]
     pub precision: Timestamp,
-    /// Flags specifying whether the timeout is absolute or relative
+    #[doc = " Flags specifying whether the timeout is absolute or relative"]
     pub flags: Subclockflags,
 }
 impl core::fmt::Debug for Snapshot0SubscriptionClock {
@@ -1015,18 +775,18 @@ impl core::fmt::Debug for Snapshot0SubscriptionClock {
             .finish()
     }
 }
-/// The contents of a `subscription` when type is `eventtype::clock`.
+#[doc = " The contents of a `subscription` when type is `eventtype::clock`."]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct SubscriptionClock {
-    /// The clock against which to compare the timestamp.
+    #[doc = " The clock against which to compare the timestamp."]
     pub clock_id: Clockid,
-    /// The absolute or relative timestamp.
+    #[doc = " The absolute or relative timestamp."]
     pub timeout: Timestamp,
-    /// The amount of time that the implementation may wait additionally
-    /// to coalesce with other events.
+    #[doc = " The amount of time that the implementation may wait additionally"]
+    #[doc = " to coalesce with other events."]
     pub precision: Timestamp,
-    /// Flags specifying whether the timeout is absolute or relative
+    #[doc = " Flags specifying whether the timeout is absolute or relative"]
     pub flags: Subclockflags,
 }
 impl core::fmt::Debug for SubscriptionClock {
@@ -1039,11 +799,11 @@ impl core::fmt::Debug for SubscriptionClock {
             .finish()
     }
 }
-/// Identifiers for preopened capabilities.
+#[doc = " Identifiers for preopened capabilities."]
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Preopentype {
-    /// A pre-opened directory.
+    #[doc = " A pre-opened directory."]
     Dir,
 }
 impl core::fmt::Debug for Preopentype {
@@ -1053,29 +813,22 @@ impl core::fmt::Debug for Preopentype {
         }
     }
 }
-bitflags::bitflags! {
-  /// The state of the file descriptor subscribed to with
-  /// `eventtype::fd_read` or `eventtype::fd_write`.
-  pub struct Eventrwflags: u16 {
-    /// The peer of this socket has closed or disconnected.
-    const FD_READWRITE_HANGUP = 1 << 0;
-  }
-}
+wit_bindgen_rust::bitflags::bitflags! { # [doc = " The state of the file descriptor subscribed to with"] # [doc = " `eventtype::fd_read` or `eventtype::fd_write`."] pub struct Eventrwflags : u16 { # [doc = " The peer of this socket has closed or disconnected."] const FD_READWRITE_HANGUP = 1 << 0 ; } }
 impl Eventrwflags {
-    /// Convert from a raw integer, preserving any unknown bits. See
-    /// <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>
+    #[doc = " Convert from a raw integer, preserving any unknown bits. See"]
+    #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
     pub fn from_bits_preserve(bits: u16) -> Self {
         Self { bits }
     }
 }
-/// The contents of an `event` for the `eventtype::fd_read` and
-/// `eventtype::fd_write` variants
+#[doc = " The contents of an `event` for the `eventtype::fd_read` and"]
+#[doc = " `eventtype::fd_write` variants"]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct EventFdReadwrite {
-    /// The number of bytes available for reading or writing.
+    #[doc = " The number of bytes available for reading or writing."]
     pub nbytes: Filesize,
-    /// The state of the file descriptor.
+    #[doc = " The state of the file descriptor."]
     pub flags: Eventrwflags,
 }
 impl core::fmt::Debug for EventFdReadwrite {
@@ -1086,79 +839,17 @@ impl core::fmt::Debug for EventFdReadwrite {
             .finish()
     }
 }
-/// An event that occurred.
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct Event {
-    /// User-provided value that got attached to `subscription::userdata`.
-    pub userdata: Userdata,
-    /// If non-zero, an error that occurred while processing the subscription request.
-    pub error: Errno,
-    /// Type of event that was triggered
-    pub type_: Eventtype,
-    /// The type of the event that occurred, and the contents of the event
-    pub u: EventUnion,
-}
-impl core::fmt::Debug for Event {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("Event")
-            .field("userdata", &self.userdata)
-            .field("error", &self.error)
-            .field("type", &self.type_)
-            .finish()
-    }
-}
-/// The contents of an `event`.
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub union EventUnion {
-    pub clock: u8,
-    pub fd_readwrite: EventFdReadwrite,
-}
-/// An event that occurred.
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct Snapshot0Event {
-    /// User-provided value that got attached to `subscription::userdata`.
-    pub userdata: Userdata,
-    /// If non-zero, an error that occurred while processing the subscription request.
-    pub error: Errno,
-    /// The type of event that occured
-    pub type_: Eventtype,
-    /// The contents of the event, if it is an `eventtype::fd_read` or
-    /// `eventtype::fd_write`. `eventtype::clock` events ignore this field.
-    pub fd_readwrite: EventFdReadwrite,
-}
-impl core::fmt::Debug for Snapshot0Event {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("Snapshot0Event")
-            .field("userdata", &self.userdata)
-            .field("error", &self.error)
-            .field("type", &self.type_)
-            .field("fd-readwrite", &self.fd_readwrite)
-            .finish()
-    }
-}
-/// The contents of a `subscription`, snapshot0 version.
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub union Snapshot0SubscriptionUnion {
-    pub clock: Snapshot0SubscriptionClock,
-    pub fd_readwrite: SubscriptionFsReadwrite,
-}
-/// The contents of a `subscription`.
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub union SubscriptionUnion {
-    pub clock: SubscriptionClock,
-    pub fd_readwrite: SubscriptionFsReadwrite,
-}
-/// The contents of a `subscription` when the variant is
-/// `eventtype::fd_read` or `eventtype::fd_write`.
+#[doc = " An event that occurred."]
+#[doc = " The contents of an `event`."]
+#[doc = " An event that occurred."]
+#[doc = " The contents of a `subscription`, snapshot0 version."]
+#[doc = " The contents of a `subscription`."]
+#[doc = " The contents of a `subscription` when the variant is"]
+#[doc = " `eventtype::fd_read` or `eventtype::fd_write`."]
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct SubscriptionFsReadwrite {
-    /// The file descriptor on which to wait for it to become ready for reading or writing.
+    #[doc = " The file descriptor on which to wait for it to become ready for reading or writing."]
     pub file_descriptor: Fd,
 }
 impl core::fmt::Debug for SubscriptionFsReadwrite {
@@ -1168,38 +859,8 @@ impl core::fmt::Debug for SubscriptionFsReadwrite {
             .finish()
     }
 }
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct Snapshot0Subscription {
-    pub userdata: Userdata,
-    pub type_: Eventtype,
-    pub u: Snapshot0SubscriptionUnion,
-}
-impl core::fmt::Debug for Snapshot0Subscription {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("Snapshot0Subscription")
-            .field("userdata", &self.userdata)
-            .field("type", &self.type_)
-            .finish()
-    }
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct Subscription {
-    pub userdata: Userdata,
-    pub type_: Eventtype,
-    pub data: SubscriptionUnion,
-}
-impl core::fmt::Debug for Subscription {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("Subscription")
-            .field("userdata", &self.userdata)
-            .field("type", &self.type_)
-            .finish()
-    }
-}
 #[repr(u16)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Socktype {
     Dgram,
     Stream,
@@ -1217,7 +878,7 @@ impl core::fmt::Debug for Socktype {
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Sockstatus {
     Opening,
     Opened,
@@ -1235,7 +896,7 @@ impl core::fmt::Debug for Sockstatus {
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Sockoption {
     Noop,
     ReusePort,
@@ -1299,7 +960,7 @@ impl core::fmt::Debug for Sockoption {
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Streamsecurity {
     Unencrypted,
     AnyEncryption,
@@ -1323,7 +984,7 @@ impl core::fmt::Debug for Streamsecurity {
     }
 }
 #[repr(u16)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Addressfamily {
     Unspec,
     Inet4,
@@ -1393,7 +1054,7 @@ impl core::fmt::Debug for Filestat {
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Snapshot0Whence {
     Cur,
     End,
@@ -1409,7 +1070,7 @@ impl core::fmt::Debug for Snapshot0Whence {
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Whence {
     Set,
     Cur,
@@ -1431,11 +1092,11 @@ pub struct Tty {
     pub rows: u32,
     pub width: u32,
     pub height: u32,
-    pub stdin_tty: Bool,
-    pub stdout_tty: Bool,
-    pub stderr_tty: Bool,
-    pub echo: Bool,
-    pub line_buffered: Bool,
+    pub stdin_tty: bool,
+    pub stdout_tty: bool,
+    pub stderr_tty: bool,
+    pub echo: bool,
+    pub line_buffered: bool,
 }
 impl core::fmt::Debug for Tty {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -1453,9 +1114,8 @@ impl core::fmt::Debug for Tty {
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
-#[allow(non_camel_case_types)]
-pub enum __wasi_busdataformat_t {
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum BusDataFormat {
     Raw,
     Bincode,
     MessagePack,
@@ -1464,23 +1124,21 @@ pub enum __wasi_busdataformat_t {
     Xml,
     Rkyv,
 }
-impl core::fmt::Debug for __wasi_busdataformat_t {
+impl core::fmt::Debug for BusDataFormat {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            __wasi_busdataformat_t::Raw => f.debug_tuple("BusDataFormat::Raw").finish(),
-            __wasi_busdataformat_t::Bincode => f.debug_tuple("BusDataFormat::Bincode").finish(),
-            __wasi_busdataformat_t::MessagePack => {
-                f.debug_tuple("BusDataFormat::MessagePack").finish()
-            }
-            __wasi_busdataformat_t::Json => f.debug_tuple("BusDataFormat::Json").finish(),
-            __wasi_busdataformat_t::Yaml => f.debug_tuple("BusDataFormat::Yaml").finish(),
-            __wasi_busdataformat_t::Xml => f.debug_tuple("BusDataFormat::Xml").finish(),
-            __wasi_busdataformat_t::Rkyv => f.debug_tuple("BusDataFormat::Rkyv").finish(),
+            BusDataFormat::Raw => f.debug_tuple("BusDataFormat::Raw").finish(),
+            BusDataFormat::Bincode => f.debug_tuple("BusDataFormat::Bincode").finish(),
+            BusDataFormat::MessagePack => f.debug_tuple("BusDataFormat::MessagePack").finish(),
+            BusDataFormat::Json => f.debug_tuple("BusDataFormat::Json").finish(),
+            BusDataFormat::Yaml => f.debug_tuple("BusDataFormat::Yaml").finish(),
+            BusDataFormat::Xml => f.debug_tuple("BusDataFormat::Xml").finish(),
+            BusDataFormat::Rkyv => f.debug_tuple("BusDataFormat::Rkyv").finish(),
         }
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum BusEventType {
     Noop,
     Exit,
@@ -1501,19 +1159,11 @@ impl core::fmt::Debug for BusEventType {
         }
     }
 }
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[repr(C)]
-pub struct BusHandles {
-    pub bid: Bid,
-    pub stdin: OptionFd,
-    pub stdout: OptionFd,
-    pub stderr: OptionFd,
-}
 pub type Bid = u32;
 pub type Cid = u64;
-/// __wasi_option_t
+#[doc = " __wasi_option_t"]
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum OptionTag {
     None,
     Some,
@@ -1555,7 +1205,7 @@ impl core::fmt::Debug for OptionCid {
     }
 }
 #[repr(C)]
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone)]
 pub struct OptionFd {
     pub tag: OptionTag,
     pub fd: Fd,
@@ -1568,7 +1218,65 @@ impl core::fmt::Debug for OptionFd {
             .finish()
     }
 }
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct BusHandles {
+    pub bid: Bid,
+    pub stdin: OptionFd,
+    pub stdout: OptionFd,
+    pub stderr: OptionFd,
+}
+impl core::fmt::Debug for BusHandles {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("BusHandles")
+            .field("bid", &self.bid)
+            .field("stdin", &self.stdin)
+            .field("stdout", &self.stdout)
+            .field("stderr", &self.stderr)
+            .finish()
+    }
+}
 pub type ExitCode = u32;
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct BusEventExit {
+    pub bid: Bid,
+    pub rval: ExitCode,
+}
+impl core::fmt::Debug for BusEventExit {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("BusEventExit")
+            .field("bid", &self.bid)
+            .field("rval", &self.rval)
+            .finish()
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct BusEventFault {
+    pub cid: Cid,
+    pub err: BusErrno,
+}
+impl core::fmt::Debug for BusEventFault {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("BusEventFault")
+            .field("cid", &self.cid)
+            .field("err", &self.err)
+            .finish()
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct BusEventClose {
+    pub cid: Cid,
+}
+impl core::fmt::Debug for BusEventClose {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("BusEventClose")
+            .field("cid", &self.cid)
+            .finish()
+    }
+}
 pub type EventFdFlags = u16;
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -1644,7 +1352,7 @@ impl core::fmt::Debug for StdioMode {
     }
 }
 #[repr(u16)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum SockProto {
     Ip,
     Icmp,
@@ -2486,7 +2194,7 @@ impl core::fmt::Debug for SockProto {
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Bool {
     False,
     True,
@@ -2513,14 +2221,8 @@ impl core::fmt::Debug for OptionTimestamp {
             .finish()
     }
 }
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(C)]
-pub struct StackSnapshot {
-    pub user: u64,
-    pub hash: u128,
-}
 #[repr(u8)]
-#[derive(Clone, Copy, Hash, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive)]
 pub enum Signal {
     Sighup,
     Sigint,
@@ -2666,7 +2368,7 @@ pub type RoFlags = u16;
 pub type SdFlags = u8;
 pub type SiFlags = u16;
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Timeout {
     Read,
     Write,
@@ -2683,18 +2385,36 @@ impl core::fmt::Debug for Timeout {
         }
     }
 }
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct BusEvent {
+    pub tag: BusEventType,
+    pub padding: (u64, u64, u64, u64, u64, u64, u64, u32, u16, u8),
+}
+impl core::fmt::Debug for BusEvent {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("BusEvent")
+            .field("tag", &self.tag)
+            .field("padding", &self.padding)
+            .finish()
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct BusEvent2 {
+    pub tag: BusEventType,
+    pub event: BusEvent,
+}
+impl core::fmt::Debug for BusEvent2 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("BusEvent2")
+            .field("tag", &self.tag)
+            .field("event", &self.event)
+            .finish()
+    }
+}
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusHandles {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-unsafe impl ValueType for StackSnapshot {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
 unsafe impl ValueType for Snapshot0Clockid {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
@@ -2844,7 +2564,6 @@ unsafe impl wasmer::FromToNativeWasmType for Errno {
             74 => Self::Txtbsy,
             75 => Self::Xdev,
             76 => Self::Notcapable,
-            77 => Self::Shutdown,
 
             q => todo!("could not serialize number {q} to enum Errno"),
         }
@@ -3098,49 +2817,7 @@ unsafe impl ValueType for EventFdReadwrite {
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for Event {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for EventUnion {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for Snapshot0Event {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for Snapshot0SubscriptionUnion {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for SubscriptionUnion {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for SubscriptionFsReadwrite {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for Snapshot0Subscription {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for Subscription {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
@@ -3388,12 +3065,12 @@ unsafe impl ValueType for Tty {
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for __wasi_busdataformat_t {
+unsafe impl ValueType for BusDataFormat {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
 
-unsafe impl wasmer::FromToNativeWasmType for __wasi_busdataformat_t {
+unsafe impl wasmer::FromToNativeWasmType for BusDataFormat {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
@@ -3491,6 +3168,30 @@ unsafe impl ValueType for OptionCid {
 
 // TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for OptionFd {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for BusHandles {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for BusEventExit {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for BusEventFault {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for BusEventClose {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
@@ -3977,4 +3678,16 @@ unsafe impl wasmer::FromToNativeWasmType for Timeout {
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for BusEvent {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for BusEvent2 {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }

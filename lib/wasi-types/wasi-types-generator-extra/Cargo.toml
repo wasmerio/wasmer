@@ -9,6 +9,8 @@ description = "Generator for wasi-types"
 
 [dependencies]
 convert_case = "0.5.0"
+quote = "1.0.21"
+syn = { version = "1.0.103", features = ["full", "extra-traits"] }
 
 [dependencies.wit-parser]
 default-features = false

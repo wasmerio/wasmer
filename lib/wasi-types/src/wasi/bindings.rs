@@ -25,7 +25,7 @@ pub mod output {
   pub type Tid = u32;
   pub type Pid = u32;
   /// Identifiers for clocks, snapshot0 version.
-  #[repr(u32)]
+  #[repr(u8)]
   #[derive(Clone, Copy, PartialEq, Eq)]
   pub enum Snapshot0Clockid {
     /// The clock measuring real time. Time value zero corresponds with
@@ -60,7 +60,7 @@ pub mod output {
     }
   }
   /// Identifiers for clocks.
-  #[repr(u32)]
+  #[repr(u8)]
   #[derive(Clone, Copy, PartialEq, Eq)]
   pub enum Clockid {
     /// The clock measuring real time. Time value zero corresponds with
@@ -85,10 +85,10 @@ pub mod output {
         Clockid::Monotonic => {
           f.debug_tuple("Clockid::Monotonic").finish()
         }
-        Snapshot0Clockid::ProcessCputimeId => {
+        Clockid::ProcessCputimeId => {
           f.debug_tuple("Clockid::ProcessCputimeId").finish()
         }
-        Snapshot0Clockid::ThreadCputimeId => {
+        Clockid::ThreadCputimeId => {
           f.debug_tuple("Clockid::ThreadCputimeId").finish()
         }
       }
@@ -98,7 +98,7 @@ pub mod output {
   /// Not all of these error codes are returned by the functions provided by this
   /// API; some are used in higher-level library layers, and others are provided
   /// merely for alignment with POSIX.
-  #[repr(u16)]
+  #[repr(u8)]
   #[derive(Clone, Copy, PartialEq, Eq)]
   pub enum Errno {
     /// No error occurred. System call completed successfully.
@@ -435,7 +435,7 @@ pub mod output {
   }
   
   impl std::error::Error for Errno{}
-  #[repr(u32)]
+  #[repr(u8)]
   #[derive(Clone, Copy, PartialEq, Eq)]
   pub enum BusErrno {
     /// No error occurred. Call completed successfully.
@@ -544,7 +544,7 @@ pub mod output {
   }
   
   impl std::error::Error for BusErrno{}
-  bitflags! {
+  wit_bindgen_rust::bitflags::bitflags! {
     /// File descriptor rights, determining which actions may be performed.
     pub struct Rights: u64 {
       /// The right to invoke `fd_datasync`.
@@ -780,7 +780,7 @@ pub mod output {
       }
     }
   }
-  bitflags::bitflags! {
+  wit_bindgen_rust::bitflags::bitflags! {
     /// File descriptor flags.
     pub struct Fdflags: u8 {
       /// Append mode: Data written to the file is always appended to the file's end.
@@ -822,7 +822,7 @@ pub mod output {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
       f.debug_struct("Fdstat").field("fs-filetype", &self.fs_filetype).field("fs-flags", &self.fs_flags).field("fs-rights-base", &self.fs_rights_base).field("fs-rights-inheriting", &self.fs_rights_inheriting).finish()}
   }
-  bitflags::bitflags! {
+  wit_bindgen_rust::bitflags::bitflags! {
     /// Which file time attributes to adjust.
     /// TODO: wit appears to not have support for flags repr
     /// (@witx repr u16)
@@ -844,7 +844,7 @@ pub mod output {
               Self { bits }
         }
   }
-  bitflags::bitflags! {
+  wit_bindgen_rust::bitflags::bitflags! {
     /// Flags determining the method of how paths are resolved.
     /// TODO: wit appears to not have support for flags repr
     /// (@witx repr u32)
@@ -860,7 +860,7 @@ pub mod output {
               Self { bits }
         }
   }
-  bitflags::bitflags! {
+  wit_bindgen_rust::bitflags::bitflags! {
     /// Open flags used by `path_open`.
     /// TODO: wit appears to not have support for flags repr
     /// (@witx repr u16)
@@ -914,7 +914,7 @@ pub mod output {
       }
     }
   }
-  bitflags::bitflags! {
+  wit_bindgen_rust::bitflags::bitflags! {
     /// Flags determining how to interpret the timestamp provided in
     /// `subscription-clock::timeout`.
     pub struct Subclockflags: u8 {
@@ -987,7 +987,7 @@ pub mod output {
       }
     }
   }
-  bitflags::bitflags! {
+  wit_bindgen_rust::bitflags::bitflags! {
     /// The state of the file descriptor subscribed to with
     /// `eventtype::fd_read` or `eventtype::fd_write`.
     pub struct Eventrwflags: u8 {
@@ -1017,104 +1017,10 @@ pub mod output {
       f.debug_struct("EventFdReadwrite").field("nbytes", &self.nbytes).field("flags", &self.flags).finish()}
   }
   /// An event that occurred.
-  #[repr(C)]
-  #[derive(Copy, Clone)]
-  pub struct Event {
-    /// User-provided value that got attached to `subscription::userdata`.
-    pub userdata: Userdata,
-    /// If non-zero, an error that occurred while processing the subscription request.
-    pub error: Errno,
-    /// The type of the event that occurred, and the contents of the event
-    pub data: EventEnum,
-  }
-  impl core::fmt::Debug for Event {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-      f.debug_struct("Event").field("userdata", &self.userdata).field("error", &self.error).field("data", &self.data).finish()}
-  }
   /// The contents of an `event`.
-  #[derive(Clone, Copy)]
-  pub enum EventEnum{
-    FdRead(EventFdReadwrite),
-    FdWrite(EventFdReadwrite),
-    Clock,
-  }
-  impl core::fmt::Debug for EventEnum {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-      match self {
-        EventEnum::FdRead(e) => {
-          f.debug_tuple("EventEnum::FdRead").field(e).finish()
-        }
-        EventEnum::FdWrite(e) => {
-          f.debug_tuple("EventEnum::FdWrite").field(e).finish()
-        }
-        EventEnum::Clock => {
-          f.debug_tuple("EventEnum::Clock").finish()
-        }
-      }
-    }
-  }
   /// An event that occurred.
-  #[repr(C)]
-  #[derive(Copy, Clone)]
-  pub struct Snapshot0Event {
-    /// User-provided value that got attached to `subscription::userdata`.
-    pub userdata: Userdata,
-    /// If non-zero, an error that occurred while processing the subscription request.
-    pub error: Errno,
-    /// The type of event that occured
-    pub type_: Eventtype,
-    /// The contents of the event, if it is an `eventtype::fd_read` or
-    /// `eventtype::fd_write`. `eventtype::clock` events ignore this field.
-    pub fd_readwrite: EventFdReadwrite,
-  }
-  impl core::fmt::Debug for Snapshot0Event {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-      f.debug_struct("Snapshot0Event").field("userdata", &self.userdata).field("error", &self.error).field("type", &self.type_).field("fd-readwrite", &self.fd_readwrite).finish()}
-  }
   /// The contents of a `subscription`, snapshot0 version.
-  #[derive(Clone, Copy)]
-  pub enum Snapshot0SubscriptionEnum{
-    Clock(Snapshot0SubscriptionClock),
-    Read(SubscriptionFsReadwrite),
-    Write(SubscriptionFsReadwrite),
-  }
-  impl core::fmt::Debug for Snapshot0SubscriptionEnum {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-      match self {
-        Snapshot0SubscriptionEnum::Clock(e) => {
-          f.debug_tuple("Snapshot0SubscriptionEnum::Clock").field(e).finish()
-        }
-        Snapshot0SubscriptionEnum::Read(e) => {
-          f.debug_tuple("Snapshot0SubscriptionEnum::Read").field(e).finish()
-        }
-        Snapshot0SubscriptionEnum::Write(e) => {
-          f.debug_tuple("Snapshot0SubscriptionEnum::Write").field(e).finish()
-        }
-      }
-    }
-  }
   /// The contents of a `subscription`.
-  #[derive(Clone, Copy)]
-  pub enum SubscriptionEnum{
-    Clock(SubscriptionClock),
-    Read(SubscriptionFsReadwrite),
-    Write(SubscriptionFsReadwrite),
-  }
-  impl core::fmt::Debug for SubscriptionEnum {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-      match self {
-        SubscriptionEnum::Clock(e) => {
-          f.debug_tuple("SubscriptionEnum::Clock").field(e).finish()
-        }
-        SubscriptionEnum::Read(e) => {
-          f.debug_tuple("SubscriptionEnum::Read").field(e).finish()
-        }
-        SubscriptionEnum::Write(e) => {
-          f.debug_tuple("SubscriptionEnum::Write").field(e).finish()
-        }
-      }
-    }
-  }
   /// The contents of a `subscription` when the variant is
   /// `eventtype::fd_read` or `eventtype::fd_write`.
   #[repr(C)]
@@ -1127,27 +1033,7 @@ pub mod output {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
       f.debug_struct("SubscriptionFsReadwrite").field("file-descriptor", &self.file_descriptor).finish()}
   }
-  #[repr(C)]
-  #[derive(Copy, Clone)]
-  pub struct Snapshot0Subscription {
-    pub userdata: Userdata,
-    pub data: Snapshot0SubscriptionEnum,
-  }
-  impl core::fmt::Debug for Snapshot0Subscription {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-      f.debug_struct("Snapshot0Subscription").field("userdata", &self.userdata).field("data", &self.data).finish()}
-  }
-  #[repr(C)]
-  #[derive(Copy, Clone)]
-  pub struct Subscription {
-    pub userdata: Userdata,
-    pub data: SubscriptionEnum,
-  }
-  impl core::fmt::Debug for Subscription {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-      f.debug_struct("Subscription").field("userdata", &self.userdata).field("data", &self.data).finish()}
-  }
-  #[repr(u16)]
+  #[repr(u8)]
   #[derive(Clone, Copy, PartialEq, Eq)]
   pub enum Socktype {
     Dgram,
@@ -1343,7 +1229,7 @@ pub mod output {
       }
     }
   }
-  #[repr(u16)]
+  #[repr(u8)]
   #[derive(Clone, Copy, PartialEq, Eq)]
   pub enum Addressfamily {
     Unspec,
@@ -1535,7 +1421,7 @@ pub mod output {
     }
   }
   pub type Bid = u32;
-  pub type Cid = u32;
+  pub type Cid = u64;
   /// __wasi_option_t
   #[repr(u8)]
   #[derive(Clone, Copy, PartialEq, Eq)]
@@ -3004,5 +2890,25 @@ pub mod output {
         }
       }
     }
+  }
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct BusEvent {
+    pub tag: BusEventType,
+    pub padding: (u64,u64,u64,u64,u64,u64,u64,u32,u16,u8,),
+  }
+  impl core::fmt::Debug for BusEvent {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.debug_struct("BusEvent").field("tag", &self.tag).field("padding", &self.padding).finish()}
+  }
+  #[repr(C)]
+  #[derive(Copy, Clone)]
+  pub struct BusEvent2 {
+    pub tag: BusEventType,
+    pub event: BusEvent,
+  }
+  impl core::fmt::Debug for BusEvent2 {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+      f.debug_struct("BusEvent2").field("tag", &self.tag).field("event", &self.event).finish()}
   }
 }

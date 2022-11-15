@@ -122,34 +122,7 @@ impl From<Snapshot0SubscriptionClock> for SubscriptionClock {
     }
 }
 
-impl From<Snapshot0Subscription> for Subscription {
-    fn from(other: Snapshot0Subscription) -> Self {
-        Self {
-            userdata: other.userdata,
-            type_: other.type_,
-            data: match other.type_ {
-                Eventtype::Clock => SubscriptionUnion {
-                    clock: unsafe {
-                        SubscriptionClock {
-                            clock_id: other.u.clock.id.into(),
-                            timeout: other.u.clock.timeout,
-                            precision: other.u.clock.precision,
-                            flags: other.u.clock.flags,
-                        }
-                    },
-                },
-                Eventtype::FdRead => SubscriptionUnion {
-                    fd_readwrite: unsafe { other.u.fd_readwrite },
-                },
-                Eventtype::FdWrite => SubscriptionUnion {
-                    fd_readwrite: unsafe { other.u.fd_readwrite },
-                },
-            },
-        }
-    }
-}
-
-impl std::fmt::Display for __wasi_busdataformat_t {
+impl std::fmt::Display for BusDataFormat {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
     }
@@ -324,5 +297,71 @@ unsafe impl wasmer::ValueType for Prestat {
             }
         }
         zero!(field_end!(u), core::mem::size_of_val(self));
+    }
+}
+
+impl From<Errno> for std::io::ErrorKind {
+    fn from(err: Errno) -> Self {
+        use std::io::ErrorKind;
+        match err {
+            Errno::Access => ErrorKind::PermissionDenied,
+            Errno::Addrinuse => ErrorKind::AddrInUse,
+            Errno::Addrnotavail => ErrorKind::AddrNotAvailable,
+            Errno::Again => ErrorKind::WouldBlock,
+            Errno::Already => ErrorKind::AlreadyExists,
+            Errno::Badf => ErrorKind::InvalidInput,
+            Errno::Badmsg => ErrorKind::InvalidData,
+            Errno::Canceled => ErrorKind::Interrupted,
+            Errno::Connaborted => ErrorKind::ConnectionAborted,
+            Errno::Connrefused => ErrorKind::ConnectionRefused,
+            Errno::Connreset => ErrorKind::ConnectionReset,
+            Errno::Exist => ErrorKind::AlreadyExists,
+            Errno::Intr => ErrorKind::Interrupted,
+            Errno::Inval => ErrorKind::InvalidInput,
+            Errno::Netreset => ErrorKind::ConnectionReset,
+            Errno::Noent => ErrorKind::NotFound,
+            Errno::Nomem => ErrorKind::OutOfMemory,
+            Errno::Nomsg => ErrorKind::InvalidData,
+            Errno::Notconn => ErrorKind::NotConnected,
+            Errno::Perm => ErrorKind::PermissionDenied,
+            Errno::Pipe => ErrorKind::BrokenPipe,
+            Errno::Timedout => ErrorKind::TimedOut,
+            _ => ErrorKind::Other,
+        }
+    }
+}
+
+impl From<Errno> for std::io::Error {
+    fn from(err: Errno) -> Self {
+        let kind: std::io::ErrorKind = err.into();
+        std::io::Error::new(kind, err.message())
+    }
+}
+
+impl From<std::io::Error> for Errno {
+    fn from(err: std::io::Error) -> Self {
+        use std::io::ErrorKind;
+        match err.kind() {
+            ErrorKind::NotFound => Errno::Noent,
+            ErrorKind::PermissionDenied => Errno::Perm,
+            ErrorKind::ConnectionRefused => Errno::Connrefused,
+            ErrorKind::ConnectionReset => Errno::Connreset,
+            ErrorKind::ConnectionAborted => Errno::Connaborted,
+            ErrorKind::NotConnected => Errno::Notconn,
+            ErrorKind::AddrInUse => Errno::Addrinuse,
+            ErrorKind::AddrNotAvailable => Errno::Addrnotavail,
+            ErrorKind::BrokenPipe => Errno::Pipe,
+            ErrorKind::AlreadyExists => Errno::Exist,
+            ErrorKind::WouldBlock => Errno::Again,
+            ErrorKind::InvalidInput => Errno::Io,
+            ErrorKind::InvalidData => Errno::Io,
+            ErrorKind::TimedOut => Errno::Timedout,
+            ErrorKind::WriteZero => Errno::Io,
+            ErrorKind::Interrupted => Errno::Intr,
+            ErrorKind::Other => Errno::Io,
+            ErrorKind::UnexpectedEof => Errno::Io,
+            ErrorKind::Unsupported => Errno::Notsup,
+            _ => Errno::Io,
+        }
     }
 }
