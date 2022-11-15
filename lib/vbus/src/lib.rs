@@ -9,6 +9,7 @@ use wasmer::{FunctionEnvMut, Store};
 pub use wasmer_vfs::FileDescriptor;
 pub use wasmer_vfs::StdioMode;
 use wasmer_vfs::VirtualFile;
+use wasmer_wasi_types::wasi::BusDataFormat;
 
 pub type Result<T> = std::result::Result<T, VirtualBusError>;
 
@@ -434,17 +435,17 @@ pub trait VirtualBusCalled: fmt::Debug + Send + Sync + 'static {
     fn reply(&self, format: BusDataFormat, buf: Vec<u8>);
 }
 
-/// Format that the supplied data is in
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum BusDataFormat {
-    Raw,
-    Bincode,
-    MessagePack,
-    Json,
-    Yaml,
-    Xml,
-    Rkyv,
-}
+// /// Format that the supplied data is in
+// #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+// pub enum BusDataFormat {
+//     Raw,
+//     Bincode,
+//     MessagePack,
+//     Json,
+//     Yaml,
+//     Xml,
+//     Rkyv,
+// }
 
 #[derive(Debug, Default)]
 pub struct DefaultVirtualBus {}

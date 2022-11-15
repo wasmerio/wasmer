@@ -274,7 +274,7 @@ impl Module {
         store: &impl AsStoreRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, wasmer_types::DeserializeError> {
-        let bytes = bytes.into_bytes();
+        let bytes = bytes.into_bytes().to_vec();
         let artifact = store.as_store_ref().engine().deserialize(&bytes)?;
         Ok(Self::from_artifact(artifact))
     }

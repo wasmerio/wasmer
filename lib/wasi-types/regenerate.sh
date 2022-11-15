@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -Eeuxo pipefail
+
 BASEDIR=$(dirname "$0")
 
 rm -f \
@@ -8,9 +10,13 @@ rm -f \
 
 cat "$BASEDIR"/wit-clean/typenames.wit "$BASEDIR"/wit-clean/wasi_unstable.wit > "$BASEDIR"/wit-clean/output.wit
 
-git clone https://github.com/wasmerio/wit-bindgen --branch force-generate-structs --single-branch
-git pull origin force-generate-structs
+cd "$BASEDIR"
+
+if [ ! -d ./wit-bindgen/.git ]; then
+  git clone https://github.com/wasmerio/wai --branch force-generate-structs --single-branch wit-bindgen
+fi
 cd wit-bindgen
+git pull origin force-generate-structs
 cargo build
 cd ..
 
@@ -25,7 +31,7 @@ cp src/wasi/bindings2.rs src/wasi/bindings.rs
 rm src/wasi/bindings2.rs
 
 cd ./wasi-types-generator-extra
-cargo build
+cargo run
 pwd
 `pwd`/target/debug/wasi-types-generator-extra
 cd ..

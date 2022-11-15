@@ -75,6 +75,12 @@ enum clockid {
     /// clock jumps. The epoch of this clock is undefined. The absolute time
     /// value of this clock therefore has no meaning.
     monotonic,
+
+    // FIXME: this needs to go into a WASIX specific definition
+    /// The CPU-time clock associated with the current process.
+    process-cputime-id,
+    /// The CPU-time clock associated with the current thread.
+    thread-cputime-id,
 }
 
 /// Error codes returned by functions.
@@ -614,55 +620,55 @@ record event-fd-readwrite {
 }
 
 /// An event that occurred.
-record event {
-    /// User-provided value that got attached to `subscription::userdata`.
-    userdata: userdata,
-    /// If non-zero, an error that occurred while processing the subscription request.
-    error: errno,
-    /// The type of the event that occurred, and the contents of the event
-    data: event-enum
-}
+// record event {
+//     /// User-provided value that got attached to `subscription::userdata`.
+//     userdata: userdata,
+//     /// If non-zero, an error that occurred while processing the subscription request.
+//     error: errno,
+//     /// The type of the event that occurred, and the contents of the event
+//     data: event-enum
+// }
 
 /// The contents of an `event`.
-variant event-enum {
-    // TODO: wit appears to not have support for tag type
-    //(@witx tag $eventtype)
-    fd-read(event-fd-readwrite),
-    fd-write(event-fd-readwrite),
-    clock,
-}
+// variant event-enum {
+//     // TODO: wit appears to not have support for tag type
+//     //(@witx tag $eventtype)
+//     fd-read(event-fd-readwrite),
+//     fd-write(event-fd-readwrite),
+//     clock,
+// }
 
 
 /// An event that occurred.
-record snapshot0-event {
-    /// User-provided value that got attached to `subscription::userdata`.
-    userdata: userdata,
-    /// If non-zero, an error that occurred while processing the subscription request.
-    error: errno,
-    /// The type of event that occured
-    %type: eventtype,
-    /// The contents of the event, if it is an `eventtype::fd_read` or
-    /// `eventtype::fd_write`. `eventtype::clock` events ignore this field.
-    fd-readwrite: event-fd-readwrite,
-}
+// record snapshot0-event {
+//     /// User-provided value that got attached to `subscription::userdata`.
+//     userdata: userdata,
+//     /// If non-zero, an error that occurred while processing the subscription request.
+//     error: errno,
+//     /// The type of event that occured
+//     %type: eventtype,
+//     /// The contents of the event, if it is an `eventtype::fd_read` or
+//     /// `eventtype::fd_write`. `eventtype::clock` events ignore this field.
+//     fd-readwrite: event-fd-readwrite,
+// }
 
 /// The contents of a `subscription`, snapshot0 version.
-variant snapshot0-subscription-enum {
-     // TODO: wit appears to have no support for tag types
-     //(@witx tag $eventtype)
-     clock(snapshot0-subscription-clock),
-     read(subscription-fs-readwrite),
-     write(subscription-fs-readwrite),
-}
+// variant snapshot0-subscription-enum {
+//      // TODO: wit appears to have no support for tag types
+//      //(@witx tag $eventtype)
+//      clock(snapshot0-subscription-clock),
+//      read(subscription-fs-readwrite),
+//      write(subscription-fs-readwrite),
+// }
 
 /// The contents of a `subscription`.
-variant subscription-enum {
-     // TODO: wit appears to have no support for tag types
-     //(@witx tag $eventtype)
-     clock(subscription-clock),
-     read(subscription-fs-readwrite),
-     write(subscription-fs-readwrite),
-}
+// variant subscription-enum {
+//      // TODO: wit appears to have no support for tag types
+//      //(@witx tag $eventtype)
+//      clock(subscription-clock),
+//      read(subscription-fs-readwrite),
+//      write(subscription-fs-readwrite),
+// }
 
 /// The contents of a `subscription` when the variant is
 /// `eventtype::fd_read` or `eventtype::fd_write`.
@@ -671,15 +677,15 @@ record subscription-fs-readwrite {
     file-descriptor: fd,
 }
 
-record snapshot0-subscription {
-    userdata: userdata,
-    data: snapshot0-subscription-enum,
-}
+// record snapshot0-subscription {
+//     userdata: userdata,
+//     data: snapshot0-subscription-enum,
+// }
 
-record subscription {
-    userdata: userdata,
-    data: subscription-enum,
-}
+// record subscription {
+//     userdata: userdata,
+//     data: subscription-enum,
+// }
 
 enum socktype {
     dgram,
@@ -806,7 +812,7 @@ enum bus-event-type {
 
 type bid = u32
 
-type cid = u32
+type cid = u64
 
 /// __wasi_option_t
 enum option-tag {
@@ -1236,7 +1242,41 @@ enum timeout {
     write,
     connect,
     accept,
-}// WASI Preview. This is an evolution of the API that WASI initially
+}
+
+// FIXME: move to wasix file and re-work naming?
+// type longsize = u64
+// type thread-local-key = u32
+// type thread-local-value = u64
+
+// type wasi-small-hash = u64
+
+// FIXME: should be optional<T>?
+// record option-hash {
+//  tag: option-tag,
+//  hash: wasi-hash,
+// }
+
+// record stack-snapshot {
+//     user: u64,
+//     hash: wasi-hash,
+// }
+
+record bus-event {
+    tag: bus-event-type,
+    // [u8; 63] == 504 bytes == 
+    // FIXME: why is this padding here?
+    padding: tuple<u64, u64, u64, u64, u64, u64, u64, u32, u16, u8>,
+}
+
+// FIXME: what's going on here?
+record bus-event2 {
+    tag: bus-event-type,
+    event: bus-event,
+}
+
+// FIXME: port other stuff from deleted 
+// WASI Preview. This is an evolution of the API that WASI initially
 // launched with.
 //
 // Some content here is derived from [CloudABI](https://github.com/NuxiNL/cloudabi).
