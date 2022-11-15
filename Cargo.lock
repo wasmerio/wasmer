@@ -4225,6 +4225,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tar",
+ "tempdir",
  "thiserror",
  "toml",
  "url",

@@ -1019,7 +1019,9 @@ pub fn download_and_unpack_targz(
     target_path: &Path,
     strip_toplevel: bool,
 ) -> Result<PathBuf, anyhow::Error> {
-    let target_targz_path = target_path.to_path_buf().join("package.tar.gz");
+    let tempdir = tempdir::TempDir::new("wasmer-download-targz")?;
+
+    let target_targz_path = tempdir.path().join("package.tar.gz");
 
     let mut resp = reqwest::blocking::get(url)
         .map_err(|e| anyhow::anyhow!("failed to download {url}: {e}"))?;
@@ -1044,8 +1046,6 @@ pub fn download_and_unpack_targz(
 
     try_unpack_targz(target_targz_path.as_path(), target_path, strip_toplevel)
         .context(anyhow::anyhow!("Could not download {url}"))?;
-
-    let _ = std::fs::remove_file(target_targz_path);
 
     Ok(target_path.to_path_buf())
 }
