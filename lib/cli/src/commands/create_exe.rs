@@ -1622,7 +1622,7 @@ fn find_zig_binary(path: Option<PathBuf>) -> Result<PathBuf> {
                 OsStr::new("")
             },
         )) {
-            p.push("zig");
+            p.push(get_zig_exe_str());
             if p.exists() {
                 retval = Some(p);
                 break;
@@ -1633,7 +1633,7 @@ fn find_zig_binary(path: Option<PathBuf>) -> Result<PathBuf> {
                 #[cfg(feature = "http")]
                 {
                     match try_autoinstall_zig() {
-                        Ok(p) => Some(p.join("zig")),
+                        Ok(p) => Some(p.join(get_zig_exe_str())),
                         Err(e) => {
                             eprintln!("Error when installing zig: {e}");
                             None
@@ -1674,13 +1674,24 @@ fn find_zig_binary(path: Option<PathBuf>) -> Result<PathBuf> {
     }
 }
 
+fn get_zig_exe_str() -> &'static str {
+    #[cfg(target_os = "windows")]
+    {
+        "zig.exe"
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        "zig"
+    }
+}
+
 /// Tries to auto-install zig into ~/.wasmer/utils/zig/{version}
 #[cfg(feature = "http")]
 fn try_autoinstall_zig() -> Result<PathBuf, anyhow::Error> {
     let zig_dir = wasmer_registry::get_wasmer_root_dir()
         .ok_or_else(|| anyhow!("no wasmer root dir"))?
         .join("utils")
-        .join("zig");
+        .join(get_zig_exe_str());
     let mut existing_version = None;
 
     if !zig_dir.exists() {
@@ -1690,7 +1701,7 @@ fn try_autoinstall_zig() -> Result<PathBuf, anyhow::Error> {
     if let Ok(mut rd) = std::fs::read_dir(&zig_dir) {
         existing_version = rd.next().and_then(|entry| {
             let string = entry.ok()?.file_name().to_str()?.to_string();
-            if zig_dir.join(&string).join("zig").exists() {
+            if zig_dir.join(&string).join(get_zig_exe_str()).exists() {
                 Some(string)
             } else {
                 None
@@ -1727,7 +1738,7 @@ fn install_zig(target_targz_path: &Path) -> Result<PathBuf, anyhow::Error> {
     };
 
     let install_dir = target_targz_path.join(latest_version);
-    if install_dir.join("zig").exists() {
+    if install_dir.join(get_zig_exe_str()).exists() {
         return Ok(install_dir);
     }
 
