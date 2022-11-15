@@ -5,6 +5,7 @@
 //! see issue [#3177](https://github.com/wasmerio/wasmer/issues/3177).
 
 use convert_case::{Case, Casing};
+use quote::quote;
 use wit_parser::TypeDefKind;
 
 const WIT_1: &str = include_str!("../../wit-clean/output.wit");
@@ -21,6 +22,90 @@ fn replace_in_string(s: &str, id: &str, ty: &str) -> String {
         1,
     );
     format!("{}impl {id} {{ {replaced}", parts[0])
+}
+
+fn find_attr_by_name_mut<'a>(
+    mut attrs: impl Iterator<Item = &'a mut syn::Attribute>,
+    name: &str,
+) -> Option<&'a mut syn::Attribute> {
+    attrs.find(|attr| {
+        if let Some(ident) = attr.path.get_ident() {
+            ident.to_string() == name
+        } else {
+            false
+        }
+    })
+}
+
+struct Types(Vec<syn::Path>);
+
+impl syn::parse::Parse for Types {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let result =
+            syn::punctuated::Punctuated::<syn::Path, syn::Token![,]>::parse_terminated(input)?;
+        let items = result.into_iter().collect();
+        Ok(Self(items))
+    }
+}
+
+/// Fix up type definitions for bindings.
+fn visit_item(item: &mut syn::Item) {
+    match item {
+        syn::Item::Enum(enum_) => {
+            let name = enum_.ident.to_string();
+            // Fix integer representation size for enums.
+            let repr_attr = find_attr_by_name_mut(enum_.attrs.iter_mut(), "repr");
+
+            // Change enum repr type.
+            match name.as_str() {
+                "Clockid" | "Snapshot0Clockid" | "BusErrno" => {
+                    repr_attr.unwrap().tokens = quote!((u32));
+                }
+                "Errno" | "Socktype" | "Addressfamily" | "Sockproto" => {
+                    repr_attr.unwrap().tokens = quote!((u16));
+                }
+                _ => {}
+            }
+
+            // Add additional derives.
+
+            match name.as_str() {
+                "Clockid" => {
+                    let attr = find_attr_by_name_mut(enum_.attrs.iter_mut(), "derive").unwrap();
+                    let mut types = attr
+                        .parse_args::<Types>()
+                        .unwrap()
+                        .0;
+
+                    let prim = syn::parse_str::<syn::Path>("num_enum::TryFromPrimitive").unwrap();
+                    types.push(prim);
+
+                    let prim = syn::parse_str::<syn::Path>("Hash").unwrap();
+                    types.push(prim);
+
+                    attr.tokens = quote!( ( #( #types ),* ) );
+                }
+                "Signal" => {
+                    let attr = find_attr_by_name_mut(enum_.attrs.iter_mut(), "derive").unwrap();
+                    let mut types = attr
+                        .parse_args::<Types>()
+                        .unwrap()
+                        .0;
+                    let prim = syn::parse_str::<syn::Path>("num_enum::TryFromPrimitive").unwrap();
+                    types.push(prim);
+                    attr.tokens = quote!( ( #( #types ),* ) );
+                }
+                _ => {}
+            }
+        }
+        // syn::Item::Struct(struct_) => {}
+        syn::Item::Mod(module) => {
+            if let Some((_delimiter, children)) = &mut module.content {
+                children.iter_mut().for_each(visit_item);
+            }
+        }
+        _ => {}
+    }
 }
 
 fn main() {
@@ -54,6 +139,11 @@ fn main() {
     bindings_rs.pop();
     let bindings_rs = bindings_rs.join("\n");
 
+    // Fix enum types.
+    let mut bindings_file = syn::parse_str::<syn::File>(&bindings_rs).unwrap();
+    bindings_file.items.iter_mut().for_each(visit_item);
+    let bindings_rs = quote!(#bindings_file).to_string();
+
     let target_path = env!("CARGO_MANIFEST_DIR");
     let path = std::path::Path::new(&target_path)
         .parent()
@@ -66,6 +156,8 @@ fn main() {
         "
         use std::mem::MaybeUninit;
         use wasmer::ValueType;
+        // TODO: Remove once bindings generate wai_bindgen_rust::bitflags::bitflags!  (temp hack)
+        use wai_bindgen_rust as wit_bindgen_rust;
 
         {bindings_rs}
 
@@ -78,10 +170,22 @@ fn main() {
     let excluded_from_impl_valuetype = ["Prestat"];
 
     for (_, i) in result.types.iter() {
+        let name = i.name.clone().unwrap_or_default().to_case(Case::Pascal);
+        if name.is_empty() {
+            eprintln!(
+                "WARNING: skipping extra trait generation for type without name: {:?}",
+                i
+            );
+            continue;
+        }
+
         match i.kind {
+            TypeDefKind::Tuple(_) => {
+                eprintln!("Skipping extra trait generation for tupe type {:?}", i);
+                continue;
+            }
             | TypeDefKind::Record(_)
             | TypeDefKind::Flags(_)
-            | TypeDefKind::Tuple(_)
             | TypeDefKind::Variant(_)
             | TypeDefKind::Enum(_)
             | TypeDefKind::Option(_)
@@ -92,7 +196,6 @@ fn main() {
             | TypeDefKind::Stream(_)
             // | TypeDefKind::Type(_)
             => {
-                let name = i.name.clone().unwrap_or_default().to_case(Case::Pascal);
                 if excluded_from_impl_valuetype.iter().any(|s| *s == name.as_str()) {
                     continue;
                 }
@@ -107,8 +210,6 @@ fn main() {
             },
             _ => { }
         }
-
-        let name = i.name.clone().unwrap_or_default().to_case(Case::Pascal);
 
         if let wit_parser::TypeDefKind::Enum(e) = &i.kind {
             contents.push_str(

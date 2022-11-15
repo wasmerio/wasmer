@@ -259,3 +259,6 @@ required-features = ["cranelift"]
 name = "features"
 path = "examples/features.rs"
 required-features = ["cranelift"]
+
+[patch.crates-io]
+wasmer-vfs = { path = "./lib/vfs" }
