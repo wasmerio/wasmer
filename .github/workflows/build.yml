@@ -273,13 +273,6 @@ jobs:
         with:
           toolchain: 1.61
           target: x86_64-pc-windows-gnu
-      - name: Setup Rust target
-        run: |
-          mkdir -p .cargo
-          cat << EOF > .cargo/config.toml
-          [build]
-          target = "x86_64-pc-windows-gnu"
-          EOF
       - name: Build Wasmer CLI without LLVM
         run: |
           cargo build  --release --target x86_64-pc-windows-gnu --manifest-path lib/cli/Cargo.toml --features cranelift,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load,webc_runner --bin wasmer
