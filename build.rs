@@ -14,10 +14,6 @@ use test_generator::{
 };
 
 fn main() -> anyhow::Result<()> {
-    #[cfg(target_os = "windows")]
-    if env::var("CARGO_MANIFEST_DIR").unwrap().contains("c-api") {
-        static_vcruntime::metabuild();
-    }
     // As rerun-if-changed doesn't support globs, we use another crate
     // to check changes in directories.
     build_deps::rerun_if_changed_paths("tests/wasi-wast/wasi/unstable/*")

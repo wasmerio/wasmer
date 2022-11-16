@@ -71,6 +71,8 @@ macro_rules! map_feature_as_c_define {
 }
 
 fn main() {
+    static_vcruntime::metabuild();
+
     if !running_self() {
         return;
     }

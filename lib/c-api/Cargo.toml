@@ -101,3 +101,4 @@ jit = ["compiler"]
 
 [build-dependencies]
 cbindgen = "0.24"
+static_vcruntime = "2.0"
