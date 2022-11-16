@@ -1,9 +1,14 @@
+//! Used for /dev/stdin, /dev/stdout, dev/stderr - returns a
+//! static file descriptor (0, 1, 2)
+
 use std::io::{self, *};
 
-use wasmer_vbus::FileDescriptor;
-use wasmer_vfs::VirtualFile;
+use crate::FileDescriptor;
+use crate::VirtualFile;
 use wasmer_wasi_types::wasi::Fd;
 
+/// A "special" file is a file that is locked
+/// to one file descriptor (i.e. stdout => 0, stdin => 1), etc.
 #[derive(Debug)]
 pub struct SpecialFile {
     fd: Fd,
@@ -48,13 +53,13 @@ impl VirtualFile for SpecialFile {
     fn size(&self) -> u64 {
         0
     }
-    fn set_len(&mut self, _new_size: u64) -> wasmer_vfs::Result<()> {
+    fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink(&mut self) -> wasmer_vfs::Result<()> {
+    fn unlink(&mut self) -> crate::Result<()> {
         Ok(())
     }
-    fn bytes_available(&self) -> wasmer_vfs::Result<usize> {
+    fn bytes_available(&self) -> crate::Result<usize> {
         Ok(0)
     }
     fn get_special_fd(&self) -> Option<u32> {

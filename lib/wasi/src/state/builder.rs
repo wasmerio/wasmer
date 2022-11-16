@@ -2,7 +2,6 @@
 
 #[cfg(feature = "os")]
 use crate::bin_factory::CachedCompiledModules;
-use crate::fs::{ArcFile, TmpFileSystem};
 use crate::state::{WasiFs, WasiFsRoot, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 use crate::{
@@ -17,7 +16,7 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use thiserror::Error;
 use wasmer::AsStoreMut;
-use wasmer_vfs::{FsError, VirtualFile};
+use wasmer_vfs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
 
 /// Creates an empty [`WasiStateBuilder`].
 ///

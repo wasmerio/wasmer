@@ -11,7 +11,7 @@ use wasmer_wasi_types::wasi::{BusErrno, Errno, Rights};
 pub use crate::{fs::NullFile as Stderr, fs::NullFile as Stdin, fs::NullFile as Stdout};
 #[cfg(feature = "host-fs")]
 pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
-#[cfg(all(feature = "mem-fs", not(feature = "host-fs")))]
+#[cfg(not(feature = "host-fs"))]
 pub use wasmer_vfs::mem_fs::{Stderr, Stdin, Stdout};
 
 use wasmer_vfs::{FsError, VirtualFile};

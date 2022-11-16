@@ -44,12 +44,12 @@ mod macros;
 pub mod bin_factory;
 #[cfg(feature = "os")]
 pub mod builtins;
-pub mod fs;
 #[cfg(feature = "os")]
 pub mod os;
 pub mod runtime;
 mod state;
 mod syscalls;
+mod tty_file;
 mod utils;
 #[cfg(feature = "os")]
 pub mod wapm;
@@ -71,6 +71,7 @@ pub use crate::state::{
     ALL_RIGHTS, VIRTUAL_ROOT_FD,
 };
 pub use crate::syscalls::types;
+pub use crate::tty_file::TtyFile;
 #[cfg(feature = "wasix")]
 pub use crate::utils::is_wasix_module;
 pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};

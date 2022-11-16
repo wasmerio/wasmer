@@ -1,8 +1,11 @@
+//! When no file system is used by a WebC then this is used as a placeholder -
+//! as the name suggests it always returns file not found.
+
 use std::path::Path;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
 
-use wasmer_vfs::*;
+use crate::*;
 
 #[derive(Debug, Default)]
 pub struct EmptyFileSystem {}

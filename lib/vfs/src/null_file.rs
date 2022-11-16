@@ -1,7 +1,10 @@
+//! NullFile is a special file for `/dev/null`, which returns 0 for all
+//! operations except writing.
+
 use std::io::{self, *};
 
-use wasmer_vbus::FileDescriptor;
-use wasmer_vfs::{ClonableVirtualFile, VirtualFile};
+use crate::FileDescriptor;
+use crate::{ClonableVirtualFile, VirtualFile};
 
 #[derive(Debug, Clone, Default)]
 pub struct NullFile {}
@@ -11,6 +14,7 @@ impl Seek for NullFile {
         Ok(0)
     }
 }
+
 impl Write for NullFile {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         Ok(buf.len())
@@ -39,13 +43,13 @@ impl VirtualFile for NullFile {
     fn size(&self) -> u64 {
         0
     }
-    fn set_len(&mut self, _new_size: u64) -> wasmer_vfs::Result<()> {
+    fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink(&mut self) -> wasmer_vfs::Result<()> {
+    fn unlink(&mut self) -> crate::Result<()> {
         Ok(())
     }
-    fn bytes_available(&self) -> wasmer_vfs::Result<usize> {
+    fn bytes_available(&self) -> crate::Result<usize> {
         Ok(0)
     }
     fn get_fd(&self) -> Option<FileDescriptor> {

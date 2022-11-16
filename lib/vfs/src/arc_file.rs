@@ -1,10 +1,13 @@
+//! Used for sharing references to the same file across multiple file systems,
+//! effectively this is a symbolic link without all the complex path redirection
+
+use crate::FileDescriptor;
+use crate::{ClonableVirtualFile, VirtualFile};
 use derivative::Derivative;
 use std::{
     io::{self, *},
     sync::{Arc, Mutex},
 };
-use wasmer_vbus::FileDescriptor;
-use wasmer_vfs::{ClonableVirtualFile, VirtualFile};
 
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
@@ -27,6 +30,7 @@ impl Seek for ArcFile {
         inner.seek(pos)
     }
 }
+
 impl Write for ArcFile {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let mut inner = self.inner.lock().unwrap();
@@ -62,23 +66,23 @@ impl VirtualFile for ArcFile {
         let inner = self.inner.lock().unwrap();
         inner.size()
     }
-    fn set_len(&mut self, new_size: u64) -> wasmer_vfs::Result<()> {
+    fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
         let mut inner = self.inner.lock().unwrap();
         inner.set_len(new_size)
     }
-    fn unlink(&mut self) -> wasmer_vfs::Result<()> {
+    fn unlink(&mut self) -> crate::Result<()> {
         let mut inner = self.inner.lock().unwrap();
         inner.unlink()
     }
-    fn bytes_available(&self) -> wasmer_vfs::Result<usize> {
+    fn bytes_available(&self) -> crate::Result<usize> {
         let inner = self.inner.lock().unwrap();
         inner.bytes_available()
     }
-    fn bytes_available_read(&self) -> wasmer_vfs::Result<usize> {
+    fn bytes_available_read(&self) -> crate::Result<usize> {
         let inner = self.inner.lock().unwrap();
         inner.bytes_available_read()
     }
-    fn bytes_available_write(&self) -> wasmer_vfs::Result<usize> {
+    fn bytes_available_write(&self) -> crate::Result<usize> {
         let inner = self.inner.lock().unwrap();
         inner.bytes_available_write()
     }

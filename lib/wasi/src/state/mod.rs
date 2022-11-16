@@ -371,7 +371,7 @@ impl WasiInodes {
 
 #[derive(Debug, Clone)]
 pub enum WasiFsRoot {
-    Sandbox(Arc<crate::fs::TmpFileSystem>),
+    Sandbox(Arc<wasmer_vfs::tmp_fs::TmpFileSystem>),
     Backing(Arc<Box<dyn FileSystem>>),
 }
 
@@ -505,7 +505,7 @@ pub fn default_fs_backing() -> Box<dyn wasmer_vfs::FileSystem + Send + Sync> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "host-fs")] {
             Box::new(wasmer_vfs::host_fs::FileSystem::default())
-        } else if #[cfg(feature = "mem-fs")] {
+        } else if #[cfg(not(feature = "host-fs"))] {
             Box::new(wasmer_vfs::mem_fs::FileSystem::default())
         } else {
             Box::new(FallbackFileSystem::default())

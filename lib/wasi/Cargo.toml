@@ -98,7 +98,7 @@ compiler-cranelift = [ "wasmer-compiler-cranelift" ]
 compiler-llvm = [ "wasmer-compiler-llvm" ]
 compiler-singlepass = [ "wasmer-compiler-singlepass" ]
 
-js = ["wasmer/js", "mem-fs", "wasmer-vfs/no-time", "getrandom/js", "chrono", "wasmer-wasi-types/js"]
+js = ["wasmer/js", "wasmer-vfs/no-time", "getrandom/js", "chrono", "wasmer-wasi-types/js"]
 js-default = ["js", "wasmer/js-default"]
 test-js = ["js", "wasmer/js-default", "wasmer/wat"]
 

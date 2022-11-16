@@ -1,7 +1,10 @@
+//! Used for /dev/zero - infinitely returns zero
+//! which is useful for commands like `dd if=/dev/zero of=bigfile.img size=1G`
+
 use std::io::{self, *};
 
-use wasmer_vbus::FileDescriptor;
-use wasmer_vfs::VirtualFile;
+use crate::FileDescriptor;
+use crate::VirtualFile;
 
 #[derive(Debug, Default)]
 pub struct ZeroFile {}
@@ -22,9 +25,7 @@ impl Write for ZeroFile {
 
 impl Read for ZeroFile {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        for b in buf.iter_mut() {
-            *b = 0;
-        }
+        buf.fill(0);
         Ok(buf.len())
     }
 }
@@ -42,13 +43,13 @@ impl VirtualFile for ZeroFile {
     fn size(&self) -> u64 {
         0
     }
-    fn set_len(&mut self, _new_size: u64) -> wasmer_vfs::Result<()> {
+    fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink(&mut self) -> wasmer_vfs::Result<()> {
+    fn unlink(&mut self) -> crate::Result<()> {
         Ok(())
     }
-    fn bytes_available(&self) -> wasmer_vfs::Result<usize> {
+    fn bytes_available(&self) -> crate::Result<usize> {
         Ok(0)
     }
     fn get_fd(&self) -> Option<FileDescriptor> {
