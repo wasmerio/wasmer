@@ -103,11 +103,10 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
           sudo apt-get install --reinstall g++-8
-          sudo apt-get install -y gcc-multilib
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add build-base bash musl-dev curl make libtool libffi-dev gcc build-base automake autoconf git openssl-dev g++
+            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:

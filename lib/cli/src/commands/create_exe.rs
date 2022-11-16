@@ -1615,8 +1615,7 @@ fn find_zig_binary(path: Option<PathBuf>) -> Result<PathBuf> {
                 break;
             }
         }
-        retval
-            .ok_or_else(|| anyhow!("Could not find `zig` binary in PATH."))?
+        retval.ok_or_else(|| anyhow!("Could not find `zig` binary in PATH."))?
     };
 
     let version = std::process::Command::new(&retval)
