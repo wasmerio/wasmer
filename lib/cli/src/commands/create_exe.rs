@@ -774,7 +774,7 @@ impl CreateExe {
                 link_objects.push(volume_object_path);
 
                 #[cfg(not(windows))]
-                let c_src_obj = tempdir_path.join("wasmer_main.o");
+                let c_src_obj = working_dir.join("wasmer_main.o");
                 #[cfg(windows)]
                 let c_src_obj = working_dir.join("wasmer_main.obj");
 
@@ -864,7 +864,7 @@ impl CreateExe {
                 }
             }
             ObjectFormat::Symbols => {
-                let object_file_path = working_dir.join("atoms").join(&format!("{entrypoint}.obj"));
+                let object_file_path = working_dir.join("atoms").join(&format!("{entrypoint}.o"));
                 let static_defs_file_path = working_dir
                     .join("atoms")
                     .join(&entrypoint)
