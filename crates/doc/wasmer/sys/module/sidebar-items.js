@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["IoCompileError",""]],"struct":[["Module","A WebAssembly Module contains stateless WebAssembly code that has already been compiled and can be instantiated multiple times."]],"trait":[["IntoBytes",""]]});
+initSidebarItems({"enum":[["IoCompileError","IO Error on a Module Compilation"]],"struct":[["Module","A WebAssembly Module contains stateless WebAssembly code that has already been compiled and can be instantiated multiple times."]],"trait":[["IntoBytes",""]]});

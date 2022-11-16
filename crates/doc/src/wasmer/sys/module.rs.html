@@ -520,6 +520,7 @@
 <span id="513">513</span>
 <span id="514">514</span>
 <span id="515">515</span>
+<span id="516">516</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::InstantiationError</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::AsStoreMut</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::AsStoreRef</span>;
@@ -540,6 +541,7 @@
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">ExportType</span>, <span class="ident">ImportType</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm::InstanceHandle</span>;
 
+<span class="doccomment">/// IO Error on a Module Compilation</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Error</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">IoCompileError</span> {
     <span class="doccomment">/// An IO error</span>
