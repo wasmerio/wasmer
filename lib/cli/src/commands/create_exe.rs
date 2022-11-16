@@ -235,7 +235,6 @@ impl CreateExe {
             std::fs::copy(&header_path, Path::new("static_defs.h"))
                 .context("Could not access given header file")?;
             if let Some(setup) = cross_compilation.as_ref() {
-                println!("compile zig static_defs.h");
                 self.compile_zig(
                     output_path,
                     wasm_module_path,
@@ -256,7 +255,6 @@ impl CreateExe {
                 )?;
             }
         } else {
-            println!("compiling non-pirita with object format {object_format:?}");
             match object_format {
                 ObjectFormat::Serialized => {
                     let module = Module::from_file(&store, &wasm_module_path)
@@ -308,7 +306,6 @@ impl CreateExe {
                     writer.write_all(header_file_src.as_bytes())?;
                     writer.flush()?;
                     if let Some(setup) = cross_compilation.as_ref() {
-                        println!("compile zig static_defs.h 2");
                         self.compile_zig(
                             output_path,
                             object_file_path,
@@ -406,12 +403,11 @@ impl CreateExe {
                 v.canonicalize().unwrap_or(v)
             } else {
                 {
-                    let libwasmer_path = if target_triple.unwrap_or(Triple::host()).operating_system
-                        == wasmer_types::OperatingSystem::Windows
-                    {
-                        "lib/wasmer.lib"
-                    } else {
-                        "lib/libwasmer.a"
+                    let os = target_triple.unwrap_or(Triple::host()).operating_system;
+                    let libwasmer_path = match os {
+                        OperatingSystem::Windows => "lib/wasmer.lib",
+                        // OperatingSystem::Darwin => "lib/libwasmer.dylib",
+                        _ => "lib/libwasmer.a",
                     };
                     let tarball_dir;
                     let filename = if let Some(local_tarball) = cross_subc.tarball.as_ref() {
@@ -489,12 +485,8 @@ impl CreateExe {
                 .as_bytes(),
         )?;
 
-        println!("compile_c: output {c_src_path:?} to {c_src_obj:?}");
-
         run_c_compile(&c_src_path, &c_src_obj, target_triple.clone())
             .context("Failed to compile C source code")?;
-
-        println!("linking code...");
 
         LinkCode {
             object_paths: vec![c_src_obj, wasm_object_path],
@@ -505,8 +497,6 @@ impl CreateExe {
         }
         .run()
         .context("Failed to link objects together")?;
-
-        println!("linking code done");
 
         Ok(())
     }
@@ -546,18 +536,13 @@ impl CreateExe {
         libwasmer_path.pop();
 
         if let Some(entrypoint) = pirita_main_atom.as_ref() {
-            println!("entrypint - static wasmer_main.c source:");
             let c_code = Self::generate_pirita_wasmer_main_c_static(pirita_atoms, entrypoint);
-            println!("{c_code}");
             std::fs::write(&c_src_path, c_code)?;
         } else {
-            println!("no entrypint - default wasmer_main.c source");
             std::fs::write(&c_src_path, WASMER_STATIC_MAIN_C_SOURCE)?;
         }
 
-        println!("header code path code:");
         if !header_code_path.is_dir() {
-            println!("{}", std::fs::read_to_string(&header_code_path).unwrap());
             header_code_path.pop();
         }
 
@@ -572,38 +557,31 @@ impl CreateExe {
             include_dir.push("include");
 
             let mut cmd = Command::new(zig_binary_path);
-            cmd.arg("cc");
-            cmd.arg("--verbose");
+            cmd.arg("build-exe");
             cmd.arg("-target");
             cmd.arg(&zig_triple);
-            cmd.arg(&format!("-L{}", libwasmer_path.display()));
-            cmd.arg(&format!("-l:{}", lib_filename));
             cmd.arg(&format!("-I{}/", include_dir.display()));
             cmd.arg(&format!("-I{}/", header_code_path.display()));
-            cmd.arg("-isystem");
+            cmd.arg("--library");
+            cmd.arg("c");
+            cmd.arg("-OReleaseSafe");
+            cmd.arg(&format!("-femit-bin={}", output_path.display()));
 
             if !zig_triple.contains("windows") {
                 cmd.arg("-lunwind");
             }
 
-            println!("pirita object path (should contain all functions): {}", object_path.display());
-
             cmd.arg(&object_path);
             cmd.arg(&c_src_path);
+            cmd.arg(libwasmer_path.join(lib_filename));
 
             if let Some(volume_obj) = pirita_volume_path.as_ref() {
                 cmd.arg(volume_obj.clone());
             }
 
-            println!("zig cc command: {cmd:#?} -> {output_path:?}");
-
-            cmd.arg("-o")
-                .arg(&output_path)
-                .output()
-                .context("Could not execute `zig`")?
+            cmd.output().context("Could not execute `zig`")?
         };
         if !compilation.status.success() {
-            println!("compilation error");
             return Err(anyhow::anyhow!(String::from_utf8_lossy(
                 &compilation.stderr
             )
@@ -619,7 +597,6 @@ impl CreateExe {
         target: &Target,
         output_path: &Path,
     ) -> anyhow::Result<PathBuf> {
-
         let volume_object_path = output_path.join("volumes.obj");
 
         let mut volumes_object = get_object_for_target(target.triple())?;
@@ -671,7 +648,7 @@ impl CreateExe {
             std::fs::create_dir_all(output_path.join("atoms"))?;
 
             let object_path = output_path.join("atoms").join(&format!("{atom_name}.obj"));
-            
+
             std::fs::create_dir_all(output_path.join("atoms").join(&atom_name))?;
 
             let header_path = output_path
@@ -713,23 +690,14 @@ impl CreateExe {
                         metadata_length,
                     );
 
-                    println!("symbols: pirita header file:");
-                    println!("{header_file_src}");
-                    println!("------");
-
                     let mut writer = BufWriter::new(File::create(&object_path)?);
                     obj.write_stream(&mut writer)
                         .map_err(|err| anyhow::anyhow!(err.to_string()))?;
                     writer.flush()?;
 
-                    std::fs::copy(&object_path, format!("{atom_name}.obj"));
-
                     let mut writer = BufWriter::new(File::create(&header_path)?);
                     writer.write_all(header_file_src.as_bytes())?;
                     writer.flush()?;
-
-                    println!("pirita obj created at {}", object_path.display());
-                    println!("pirita static_defs.h created at {}", header_path.display());
                 }
                 #[cfg(not(feature = "static-artifact-create"))]
                 ObjectFormat::Symbols => {
@@ -836,19 +804,16 @@ impl CreateExe {
                             .arg("--verbose")
                             .arg("-target")
                             .arg(&zig_triple)
-                            .arg(&format!("-L{}", libwasmer_path.display()))
-                            .arg(&format!("-l:{}", lib_filename))
-                            .arg("-isystem")
-                            .arg(&format!("-I{}", include_dir.display()));
+                            .arg(&format!("-I{}", include_dir.display()))
+                            .arg("-lc");
                         if !zig_triple.contains("windows") {
                             cmd_mut = cmd_mut.arg("-lunwind");
                         }
 
-                        println!("pirita: output {cmd_mut:?} to {output_path:?}");
-
                         cmd_mut
                             .args(link_objects.into_iter())
                             .arg(&c_src_path)
+                            .arg(libwasmer_path.join(lib_filename))
                             .arg("-o")
                             .arg(&output_path)
                             .output()
@@ -885,7 +850,6 @@ impl CreateExe {
                 let volumes_obj_path = Self::write_volume_obj(volume_bytes, target, tempdir_path)?;
 
                 if let Some(setup) = cross_compilation.as_ref() {
-                    println!("compile zig static_defs.h pirita");
                     self.compile_zig(
                         output_path,
                         object_file_path,
@@ -1014,9 +978,7 @@ impl CreateExe {
         let _ = std::fs::create_dir_all(&working_dir);
         let (store, _) = self.compiler.get_store_for_target(target.clone())?;
 
-        println!("create objs pirita...");
         Self::create_objs_pirita(&store, file, &target, working_dir, object_format)?;
-        println!("pirita objs created!");
 
         let volumes_obj = file.get_volumes_as_fileblock();
         self.link_exe_from_dir(
@@ -1059,8 +1021,6 @@ impl CreateExe {
         let mut libwasmer_path = get_libwasmer_path()?
             .canonicalize()
             .context("Failed to find libwasmer")?;
-
-        println!("Using libwasmer file: {}", libwasmer_path.display());
 
         let lib_filename = libwasmer_path
             .file_name()
@@ -1418,7 +1378,6 @@ mod http_fetch {
         mut release: serde_json::Value,
         target_triple: wasmer::Triple,
     ) -> Result<std::path::PathBuf> {
-        println!("download_release");
         let check_arch = |name: &str| -> bool {
             match target_triple.architecture {
                 wasmer_types::Architecture::X86_64 => {

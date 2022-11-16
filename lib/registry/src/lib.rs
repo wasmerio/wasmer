@@ -962,7 +962,7 @@ pub fn try_unpack_targz<P: AsRef<Path>>(
 
     let try_decode_zip = || {
         let file = open_file()?;
-        zip_extract::extract(file, &target_targz_path, strip_toplevel).map_err(|e| {
+        zip_extract::extract(file, target_targz_path, strip_toplevel).map_err(|e| {
             anyhow::anyhow!(
                 "could not extract zip file {}: {e}",
                 target_targz_path.display()
