@@ -4294,7 +4294,7 @@ dependencies = [
  "wasmer-types",
  "wasmer-vfs",
  "wasmer-wasi",
- "webc 0.1.0",
+ "webc",
 ]
 
 [[package]]
@@ -4379,7 +4379,7 @@ dependencies = [
  "wasmer-wasi",
  "wasmer-wasi-experimental-io-devices",
  "wasmer-wast",
- "webc 3.0.1",
+ "webc",
 ]
 
 [[package]]
@@ -4645,7 +4645,7 @@ dependencies = [
  "tracing",
  "typetag",
  "wasmer-wasi-types",
- "webc 0.1.0",
+ "webc",
 ]
 
 [[package]]
@@ -4735,7 +4735,7 @@ dependencies = [
  "wasmer-vnet",
  "wasmer-wasi-local-networking",
  "wasmer-wasi-types",
- "webc 0.1.0",
+ "webc",
  "webc-vfs",
  "weezl",
  "winapi",
@@ -5024,7 +5024,7 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "0.1.0"
+version = "3.0.1"
 dependencies = [
  "anyhow",
  "base64",
@@ -5044,34 +5044,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "webc"
-version = "3.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef87e7b955d5d1feaa8697ae129f1a9ce8859e151574ad3baceae9413b48d2f0"
-dependencies = [
- "anyhow",
- "base64",
- "indexmap",
- "leb128",
- "lexical-sort",
- "memchr",
- "path-clean",
- "rand 0.8.5",
- "serde",
- "serde_cbor",
- "serde_json",
- "sha2",
- "url",
- "walkdir",
-]
-
-[[package]]
 name = "webc-vfs"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "wasmer-vfs",
- "webc 0.1.0",
+ "webc",
 ]
 
 [[package]]

@@ -32,8 +32,7 @@ wasmer-middlewares = { version = "=3.0.0-rc.2", path = "../middlewares", optiona
 wasmer-wasi = { version = "=3.0.0-rc.2", path = "../wasi", default-features = false, features = ["host-fs", "sys"], optional = true }
 wasmer-types = { version = "=3.0.0-rc.2", path = "../types" }
 wasmer-vfs = { version = "=3.0.0-rc.2", path = "../vfs", optional = true, default-features = false, features = ["static-fs"] }
-#webc = { version = "3.0.1", optional = true }
-webc = { version = "0.1.0", optional = true, path="../../../pirita/crates/webc" }
+webc = { version = "3.0.1", optional = true }
 enumset = "1.0.2"
 cfg-if = "1.0"
 lazy_static = "1.4"

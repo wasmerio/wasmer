@@ -47,6 +47,7 @@ members = [
     "lib/wasi-types",
     "lib/wasi-experimental-io-devices",
     "lib/wasi-local-networking",
+    # "lib/wasix",
     "lib/c-api/tests/wasmer-c-api-test-runner",
     "lib/c-api/examples/wasmer-capi-examples-runner",
     "lib/types",
@@ -262,3 +263,6 @@ required-features = ["cranelift"]
 
 [patch.crates-io]
 wasmer-vfs = { path = "./lib/vfs" }
+webc = { path="../pirita/crates/webc" }
+webc-vfs = { path="../pirita/crates/webc-vfs" }
+
