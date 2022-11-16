@@ -226,6 +226,9 @@ impl CreateExe {
         println!("Target: {}", target.triple());
         println!("Format: {:?}", object_format);
 
+        #[cfg(not(windows))]
+        let wasm_object_path = PathBuf::from("wasm.o");
+        #[cfg(windows)]
         let wasm_object_path = PathBuf::from("wasm.obj");
 
         if let Some(header_path) = self.header.as_ref() {
@@ -404,10 +407,10 @@ impl CreateExe {
             } else {
                 {
                     let os = target_triple.unwrap_or(Triple::host()).operating_system;
-                    let libwasmer_path = match os {
-                        OperatingSystem::Windows => "lib/wasmer.lib",
-                        // OperatingSystem::Darwin => "lib/libwasmer.dylib",
-                        _ => "lib/libwasmer.a",
+                    let libwasmer_path = if os == OperatingSystem::Windows {
+                        "lib/wasmer.lib"
+                    } else {
+                        "lib/libwasmer.a"
                     };
                     let tarball_dir;
                     let filename = if let Some(local_tarball) = cross_subc.tarball.as_ref() {
@@ -476,6 +479,9 @@ impl CreateExe {
 
         // write C src to disk
         let c_src_path = tempdir_path.join("wasmer_main.c");
+        #[cfg(not(windows))]
+        let c_src_obj = tempdir_path.join("wasmer_main.o");
+        #[cfg(windows)]
         let c_src_obj = tempdir_path.join("wasmer_main.obj");
 
         std::fs::write(
@@ -604,6 +610,9 @@ impl CreateExe {
         target: &Target,
         output_path: &Path,
     ) -> anyhow::Result<PathBuf> {
+        #[cfg(not(windows))]
+        let volume_object_path = output_path.join("volumes.o");
+        #[cfg(windows)]
         let volume_object_path = output_path.join("volumes.obj");
 
         let mut volumes_object = get_object_for_target(target.triple())?;
@@ -654,6 +663,9 @@ impl CreateExe {
         for (atom_name, atom_bytes) in file.get_all_atoms() {
             std::fs::create_dir_all(output_path.join("atoms"))?;
 
+            #[cfg(not(windows))]
+            let object_path = output_path.join("atoms").join(&format!("{atom_name}.o"));
+            #[cfg(windows)]
             let object_path = output_path.join("atoms").join(&format!("{atom_name}.obj"));
 
             std::fs::create_dir_all(output_path.join("atoms").join(&atom_name))?;
@@ -761,6 +773,9 @@ impl CreateExe {
 
                 link_objects.push(volume_object_path);
 
+                #[cfg(not(windows))]
+                let c_src_obj = tempdir_path.join("wasmer_main.o");
+                #[cfg(windows)]
                 let c_src_obj = working_dir.join("wasmer_main.obj");
 
                 for obj in std::fs::read_dir(working_dir.join("atoms"))? {

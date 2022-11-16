@@ -91,8 +91,8 @@ struct WasmerCreateObj {
 
 impl Default for WasmerCreateObj {
     fn default() -> Self {
-        #[cfg(not(windows))]	
-        let output_object_path = PathBuf::from("wasm.o");	
+        #[cfg(not(windows))]
+        let output_object_path = PathBuf::from("wasm.o");
         #[cfg(windows)]
         let output_object_path = PathBuf::from("wasm.obj");
         Self {
@@ -271,8 +271,8 @@ fn create_obj(args: Vec<&'static str>, keyword_needle: &str, keyword: &str) -> a
 
     let wasm_path = operating_dir.join(create_exe_test_wasm_path());
 
-    #[cfg(not(windows))]	
-    let object_path = operating_dir.join("wasm.o");	
+    #[cfg(not(windows))]
+    let object_path = operating_dir.join("wasm.o");
     #[cfg(windows)]
     let object_path = operating_dir.join("wasm.obj");
 
@@ -336,8 +336,8 @@ fn create_exe_with_object_input(args: Vec<&'static str>) -> anyhow::Result<()> {
 
     let wasm_path = operating_dir.join(create_exe_test_wasm_path());
 
-    #[cfg(not(windows))]	
-    let object_path = operating_dir.join("wasm.o");	
+    #[cfg(not(windows))]
+    let object_path = operating_dir.join("wasm.o");
     #[cfg(windows)]
     let object_path = operating_dir.join("wasm.obj");
 
