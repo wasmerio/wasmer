@@ -25,7 +25,6 @@ fn test_no_start_wat_path() -> String {
 #[test]
 fn test_cross_compile_python_windows() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;
-    let python_wasmer_path = temp_dir.path().join("python.exe");
 
     let targets = &[
         "aarch64-darwin",
@@ -36,6 +35,8 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
     ];
 
     for t in targets {
+        let python_wasmer_path = temp_dir.path().join(format!("{t}-python"));
+
         let output = Command::new(get_wasmer_path())
             .arg("create-exe")
             .arg(wasi_test_python_path())
@@ -45,17 +46,26 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
             .arg(python_wasmer_path.clone())
             .output()?;
 
+        let stdout = std::str::from_utf8(&output.stdout)
+            .expect("stdout is not utf8! need to handle arbitrary bytes");
+
+        let stderr = std::str::from_utf8(&output.stderr)
+            .expect("stderr is not utf8! need to handle arbitrary bytes");
+
         if !output.status.success() {
-            bail!(
-                "linking failed with: stdout: {}\n\nstderr: {}",
-                std::str::from_utf8(&output.stdout)
-                    .expect("stdout is not utf8! need to handle arbitrary bytes"),
-                std::str::from_utf8(&output.stderr)
-                    .expect("stderr is not utf8! need to handle arbitrary bytes")
-            );
+            bail!("linking failed with: stdout: {stdout}\n\nstderr: {stderr}");
         }
 
-        assert!(python_wasmer_path.exists());
+        println!("stdout: {stdout}");
+        println!("stderr: {stderr}");
+
+        if !python_wasmer_path.exists() {
+            let p = std::fs::read_dir(temp_dir.path())
+                .unwrap()
+                .filter_map(|e| Some(e.ok()?.path()))
+                .collect::<Vec<_>>();
+            println!("p: {:#?}", p);
+        }
     }
 
     Ok(())

@@ -550,6 +550,8 @@ impl CreateExe {
             header_code_path = std::env::current_dir()?;
         }
 
+        println!("Output result to: {}", output_path.display());
+
         /* Compile main function */
         let compilation = {
             let mut include_dir = libwasmer_path.clone();
@@ -565,6 +567,10 @@ impl CreateExe {
             cmd.arg("--library");
             cmd.arg("c");
             cmd.arg("-OReleaseSafe");
+            cmd.arg("-fstrip");
+            cmd.arg("-dead_strip");
+            cmd.arg("-dead_strip_dylibs");
+            cmd.arg("--verbose-cc");
             cmd.arg(&format!("-femit-bin={}", output_path.display()));
 
             if !zig_triple.contains("windows") {
@@ -579,6 +585,7 @@ impl CreateExe {
                 cmd.arg(volume_obj.clone());
             }
 
+            println!("{:?}", cmd);
             cmd.output().context("Could not execute `zig`")?
         };
         if !compilation.status.success() {
