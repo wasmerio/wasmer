@@ -71,17 +71,8 @@ pub struct ModuleMetadata {
 
 /// A simple metadata registry
 pub struct ModuleMetadataSymbolRegistry {
-    /// Whether to prefix function symbols with a "_" when compiling the object
-    pub windows_underscore: bool,
     /// Symbol prefix stirng
     pub prefix: String,
-}
-
-impl ModuleMetadataSymbolRegistry {
-    /// Sets the self.windows_underscore field
-    pub fn set_windows_underscore(&mut self, b: bool) {
-        self.windows_underscore = b;
-    }
 }
 
 impl ModuleMetadata {
@@ -89,7 +80,6 @@ impl ModuleMetadata {
     pub fn split(&mut self) -> (&mut CompileModuleInfo, ModuleMetadataSymbolRegistry) {
         let compile_info = &mut self.compile_info;
         let symbol_registry = ModuleMetadataSymbolRegistry {
-            windows_underscore: false,
             prefix: self.prefix.clone(),
         };
         (compile_info, symbol_registry)
@@ -98,7 +88,6 @@ impl ModuleMetadata {
     /// Returns symbol registry.
     pub fn get_symbol_registry(&self) -> ModuleMetadataSymbolRegistry {
         ModuleMetadataSymbolRegistry {
-            windows_underscore: false,
             prefix: self.prefix.clone(),
         }
     }
