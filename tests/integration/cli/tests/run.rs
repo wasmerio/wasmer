@@ -64,7 +64,7 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
                 .unwrap()
                 .filter_map(|e| Some(e.ok()?.path()))
                 .collect::<Vec<_>>();
-            println!("p: {:#?}", p);
+            panic!("target {t} was not compiled correctly {stdout} {stderr}, tempdir: {:#?}", p);
         }
     }
 
