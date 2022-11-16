@@ -960,16 +960,6 @@ pub fn try_unpack_targz<P: AsRef<Path>>(
             .map_err(|e| anyhow::anyhow!("failed to open {}: {e}", target_targz_path.display()))
     };
 
-    let try_decode_zip = || {
-        let file = open_file()?;
-        zip_extract::extract(file, target_targz_path, strip_toplevel).map_err(|e| {
-            anyhow::anyhow!(
-                "could not extract zip file {}: {e}",
-                target_targz_path.display()
-            )
-        })
-    };
-
     let try_decode_gz = || {
         let file = open_file()?;
         let gz_decoded = flate2::read::GzDecoder::new(&file);
@@ -1006,9 +996,7 @@ pub fn try_unpack_targz<P: AsRef<Path>>(
         }
     };
 
-    try_decode_gz()
-        .or_else(|_| try_decode_xz())
-        .or_else(|_| try_decode_zip())?;
+    try_decode_gz().or_else(|_| try_decode_xz())?;
 
     Ok(target_targz_path.to_path_buf())
 }

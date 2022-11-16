@@ -1579,6 +1579,17 @@ fn untar(tarball: std::path::PathBuf, target: std::path::PathBuf) -> Result<Vec<
         .collect())
 }
 
+fn get_zig_exe_str() -> &'static str {
+    #[cfg(target_os = "windows")]
+    {
+        "zig.exe"
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        "zig"
+    }
+}
+
 fn find_zig_binary(path: Option<PathBuf>) -> Result<PathBuf> {
     use std::env::split_paths;
     use std::ffi::OsStr;
