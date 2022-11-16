@@ -324,8 +324,10 @@ where
         options: ReqwestOptions,
         headers: Vec<(String, String)>,
         data: Option<Vec<u8>>,
-    ) -> Result<ReqwestResponse, Errno> {
-        Err(Errno::Notsup)
+    ) -> Pin<Box<dyn Future<Output=Result<ReqwestResponse, Errno>>>> {
+        Box::pin(async move {
+            Err(Errno::Notsup)
+        })
     }
 
     /// Performs a HTTP or HTTPS request to a destination URL
@@ -338,138 +340,133 @@ where
         _options: ReqwestOptions,
         headers: Vec<(String, String)>,
         data: Option<Vec<u8>>,
-    ) -> Result<ReqwestResponse, Errno> {
+    ) -> Pin<Box<dyn Future<Output=Result<ReqwestResponse, Errno>>>> {
         use std::convert::TryFrom;
 
-        let work = {
-            let url = url.to_string();
-            let method = method.to_string();
-            async move {
-                let method = reqwest::Method::try_from(method.as_str()).map_err(|err| {
-                    debug!("failed to convert method ({}) - {}", method, err);
-                    Errno::Io
-                })?;
+        let url = url.to_string();
+        let method = method.to_string();
 
-                let client = reqwest::ClientBuilder::default().build().map_err(|err| {
-                    debug!("failed to build reqwest client - {}", err);
-                    Errno::Io
-                })?;
+        Box::pin(async move {
+            let method = reqwest::Method::try_from(method.as_str()).map_err(|err| {
+                debug!("failed to convert method ({}) - {}", method, err);
+                Errno::Io
+            })?;
 
-                let mut builder = client.request(method, url.as_str());
-                for (header, val) in headers {
-                    if let Ok(header) = reqwest::header::HeaderName::from_bytes(header.as_bytes()) {
-                        builder = builder.header(header, val);
-                    } else {
-                        debug!("failed to parse header - {}", header);
-                    }
+            let client = reqwest::ClientBuilder::default().build().map_err(|err| {
+                debug!("failed to build reqwest client - {}", err);
+                Errno::Io
+            })?;
+
+            let mut builder = client.request(method, url.as_str());
+            for (header, val) in headers {
+                if let Ok(header) = reqwest::header::HeaderName::from_bytes(header.as_bytes()) {
+                    builder = builder.header(header, val);
+                } else {
+                    debug!("failed to parse header - {}", header);
                 }
-
-                if let Some(data) = data {
-                    builder = builder.body(reqwest::Body::from(data));
-                }
-
-                let request = builder.build().map_err(|err| {
-                    debug!("failed to convert request (url={}) - {}", url.as_str(), err);
-                    Errno::Io
-                })?;
-
-                let response = client.execute(request).await.map_err(|err| {
-                    debug!("failed to execute reqest - {}", err);
-                    Errno::Io
-                })?;
-
-                let status = response.status().as_u16();
-                let status_text = response.status().as_str().to_string();
-                let data = response.bytes().await.map_err(|err| {
-                    debug!("failed to read response bytes - {}", err);
-                    Errno::Io
-                })?;
-                let data = data.to_vec();
-
-                Ok(ReqwestResponse {
-                    pos: 0usize,
-                    ok: true,
-                    status,
-                    status_text,
-                    redirected: false,
-                    data: Some(data),
-                    headers: Vec::new(),
-                })
             }
-        };
 
-        let (tx, rx) = std::sync::mpsc::channel();
-        tasks.block_on(Box::pin(async move {
-            let ret = work.await;
-            let _ = tx.send(ret);
-        }));
-        rx.try_recv().map_err(|_| Errno::Io)?
+            if let Some(data) = data {
+                builder = builder.body(reqwest::Body::from(data));
+            }
+
+            let request = builder.build().map_err(|err| {
+                debug!("failed to convert request (url={}) - {}", url.as_str(), err);
+                Errno::Io
+            })?;
+
+            let response = client.execute(request).await.map_err(|err| {
+                debug!("failed to execute reqest - {}", err);
+                Errno::Io
+            })?;
+
+            let status = response.status().as_u16();
+            let status_text = response.status().as_str().to_string();
+            let data = response.bytes().await.map_err(|err| {
+                debug!("failed to read response bytes - {}", err);
+                Errno::Io
+            })?;
+            let data = data.to_vec();
+
+            Ok(ReqwestResponse {
+                pos: 0usize,
+                ok: true,
+                status,
+                status_text,
+                redirected: false,
+                data: Some(data),
+                headers: Vec::new(),
+            })
+        })
     }
 
     /// Make a web socket connection to a particular URL
     #[cfg(feature = "os")]
     #[cfg(not(feature = "host-ws"))]
-    fn web_socket(&self, url: &str) -> Result<Box<dyn WebSocketAbi>, String> {
-        Err("not supported".to_string())
+    fn web_socket(&self, url: &str) -> Pin<Box<dyn Future<Output=Result<Box<dyn WebSocketAbi>, String>>>> {
+        Box::pin(async move {
+            Err("not supported".to_string())
+        })
     }
 
     /// Make a web socket connection to a particular URL
     #[cfg(feature = "os")]
     #[cfg(feature = "host-ws")]
-    fn web_socket(&self, url: &str) -> Result<Box<dyn WebSocketAbi>, String> {
+    fn web_socket(&self, url: &str) -> Pin<Box<dyn Future<Output=Result<Box<dyn WebSocketAbi>, String>>>> {
         let url = url.to_string();
-        let (tx_done, rx_done) = mpsc::unbounded_channel();
-        self.task_shared(Box::new(move || {
-            Box::pin(async move {
-                let ret =
-                    move || async move { Box::new(TerminalWebSocket::new(url.as_str())).await };
-                let ret = ret().await;
-                let _ = tx_done.send(ret);
-            })
-        }));
-        tokio::task::block_in_place(move || {
-            rx_done
-                .blocking_recv()
-                .ok_or("failed to create web socket".to_string())
+        Box::pin(async move {
+            Box::new(TerminalWebSocket::new(url.as_str())).await
         })
     }
 
     /// Writes output to the console
-    fn stdout(&self, data: &[u8]) -> io::Result<()> {
-        let mut handle = io::stdout();
-        handle.write_all(data)
+    fn stdout(&self, data: &[u8]) -> Pin<Box<dyn Future<Output=io::Result<()>>>> {
+        Box::pin(async move {
+            let mut handle = io::stdout();
+            handle.write_all(data)
+        })
     }
 
     /// Writes output to the console
-    fn stderr(&self, data: &[u8]) -> io::Result<()> {
-        let mut handle = io::stderr();
-        handle.write_all(data)
+    fn stderr(&self, data: &[u8]) -> Pin<Box<dyn Future<Output=io::Result<()>>>> {
+        Box::pin(async move {
+            let mut handle = io::stderr();
+            handle.write_all(data)
+        })
     }
 
     /// Flushes the output to the console
-    fn flush(&self) -> io::Result<()> {
-        io::stdout().flush()?;
-        io::stderr().flush()?;
-        Ok(())
+    fn flush(&self) -> Pin<Box<dyn Future<Output=io::Result<()>>>> {
+        Box::pin(async move {
+            io::stdout().flush()?;
+            io::stderr().flush()?;
+            Ok(())
+        })
     }
 
     /// Writes output to the log
     #[cfg(feature = "tracing")]
-    fn log(&self, text: String) -> io::Result<()> {
-        tracing::info!("{}", text);
-        Ok(())
+    fn log(&self, text: String) -> Pin<Box<dyn Future<Output=io::Result<()>>>> {
+        Box::pin(async move {
+            tracing::info!("{}", text);
+            Ok(())
+        })
     }
 
     /// Writes output to the log
     #[cfg(not(feature = "tracing"))]
-    fn log(&self, text: String) -> io::Result<()> {
-        let text = format!("{}\r\n", text);
-        self.stderr(text.as_bytes())
+    fn log(&self, text: String) -> Pin<Box<dyn Future<Output=io::Result<()>>>> {
+        Box::pin(async move {
+            let text = format!("{}\r\n", text);
+            self.stderr(text.as_bytes()).await
+        })
     }
 
     /// Clears the terminal
-    fn cls(&self) -> io::Result<()> {
-        self.stdout("\x1B[H\x1B[2J".as_bytes())
+    fn cls(&self) -> Pin<Box<dyn Future<Output=io::Result<()>>>> {
+        Box::pin(async move {
+            self.stdout("\x1B[H\x1B[2J".as_bytes()).await
+        })
     }
 }
 

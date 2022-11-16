@@ -2,7 +2,6 @@ use super::filesystem::InodeResolution;
 use super::*;
 use crate::{FileType, FsError, Metadata, OpenOptionsConfig, Result, VirtualFile};
 use std::borrow::Cow;
-use std::io::{self, Seek};
 use std::path::Path;
 use tracing::*;
 
@@ -364,7 +363,7 @@ impl crate::FileOpener for FileOpener {
 
                 // Write lock.
                 let mut fs = self.filesystem.inner.write().map_err(|_| FsError::Lock)?;
-
+                
                 let inode = fs.storage.get_mut(inode_of_file);
                 match inode {
                     Some(Node::File { metadata, file, .. }) => {
@@ -434,11 +433,7 @@ impl crate::FileOpener for FileOpener {
 
                         // Move the cursor to the end if needed.
                         if append {
-                            file.seek(io::SeekFrom::End(0))?;
-                        }
-                        // Otherwise, move the cursor to the start.
-                        else {
-                            file.seek(io::SeekFrom::Start(0))?;
+                            cursor = file.size();
                         }
                     }
 
@@ -508,6 +503,8 @@ impl crate::FileOpener for FileOpener {
 
 #[cfg(test)]
 mod test_file_opener {
+    use tokio::io::{AsyncWriteExt, AsyncSeekExt, AsyncReadExt};
+
     use crate::{mem_fs::*, FileSystem as FS, FsError};
     use std::io;
 
@@ -572,14 +569,13 @@ mod test_file_opener {
             "creating a new file that already exist",
         );
 
-        assert!(
-            matches!(
-                fs.new_open_options()
-                    .write(true)
-                    .create_new(true)
-                    .open(path!("/foo/bar.txt")),
-                Err(FsError::NotAFile),
-            ),
+        assert_eq!(
+            fs.new_open_options()
+                .write(true)
+                .create_new(true)
+                .open(path!("/foo/bar.txt"))
+                .map(|_| ()),
+            Err(FsError::EntryNotFound),
             "creating a file in a directory that doesn't exist",
         );
 
@@ -613,8 +609,8 @@ mod test_file_opener {
         );
     }
 
-    #[test]
-    fn test_truncate() {
+    #[tokio::test]
+    async fn test_truncate() {
         let fs = FileSystem::default();
 
         let mut file = fs
@@ -625,16 +621,16 @@ mod test_file_opener {
             .expect("failed to create a new file");
 
         assert!(
-            matches!(file.write(b"foobar"), Ok(6)),
+            matches!(file.write(b"foobar").await, Ok(6)),
             "writing `foobar` at the end of the file",
         );
 
         assert!(
-            matches!(file.seek(io::SeekFrom::Current(0)), Ok(6)),
+            matches!(file.seek(io::SeekFrom::Current(0)).await, Ok(6)),
             "checking the current position is 6",
         );
         assert!(
-            matches!(file.seek(io::SeekFrom::End(0)), Ok(6)),
+            matches!(file.seek(io::SeekFrom::End(0)).await, Ok(6)),
             "checking the size is 6",
         );
 
@@ -646,17 +642,17 @@ mod test_file_opener {
             .expect("failed to open + truncate `foo.txt`");
 
         assert!(
-            matches!(file.seek(io::SeekFrom::Current(0)), Ok(0)),
+            matches!(file.seek(io::SeekFrom::Current(0)).await, Ok(0)),
             "checking the current position is 0",
         );
         assert!(
-            matches!(file.seek(io::SeekFrom::End(0)), Ok(0)),
+            matches!(file.seek(io::SeekFrom::End(0)).await, Ok(0)),
             "checking the size is 0",
         );
     }
 
-    #[test]
-    fn test_append() {
+    #[tokio::test]
+    async fn test_append() {
         let fs = FileSystem::default();
 
         let mut file = fs
@@ -667,16 +663,16 @@ mod test_file_opener {
             .expect("failed to create a new file");
 
         assert!(
-            matches!(file.write(b"foobar"), Ok(6)),
+            matches!(file.write(b"foobar").await, Ok(6)),
             "writing `foobar` at the end of the file",
         );
 
         assert!(
-            matches!(file.seek(io::SeekFrom::Current(0)), Ok(6)),
+            matches!(file.seek(io::SeekFrom::Current(0)).await, Ok(6)),
             "checking the current position is 6",
         );
         assert!(
-            matches!(file.seek(io::SeekFrom::End(0)), Ok(6)),
+            matches!(file.seek(io::SeekFrom::End(0)).await, Ok(6)),
             "checking the size is 6",
         );
 
@@ -687,14 +683,14 @@ mod test_file_opener {
             .expect("failed to open `foo.txt`");
 
         assert!(
-            matches!(file.seek(io::SeekFrom::Current(0)), Ok(0)),
+            matches!(file.seek(io::SeekFrom::Current(0)).await, Ok(0)),
             "checking the current position in append-mode is 0",
         );
         assert!(
-            matches!(file.seek(io::SeekFrom::Start(0)), Ok(0)),
+            matches!(file.seek(io::SeekFrom::Start(0)).await, Ok(0)),
             "trying to rewind in append-mode",
         );
-        assert!(matches!(file.write(b"baz"), Ok(3)), "writing `baz`");
+        assert!(matches!(file.write(b"baz").await, Ok(3)), "writing `baz`");
 
         let mut file = fs
             .new_open_options()
@@ -703,13 +699,13 @@ mod test_file_opener {
             .expect("failed to open `foo.txt");
 
         assert!(
-            matches!(file.seek(io::SeekFrom::Current(0)), Ok(0)),
+            matches!(file.seek(io::SeekFrom::Current(0)).await, Ok(0)),
             "checking the current position is read-mode is 0",
         );
 
         let mut string = String::new();
         assert!(
-            matches!(file.read_to_string(&mut string), Ok(9)),
+            matches!(file.read_to_string(&mut string).await, Ok(9)),
             "reading the entire `foo.txt` file",
         );
         assert_eq!(
@@ -718,8 +714,8 @@ mod test_file_opener {
         );
     }
 
-    #[test]
-    fn test_opening_a_file_that_already_exists() {
+    #[tokio::test]
+    async fn test_opening_a_file_that_already_exists() {
         let fs = FileSystem::default();
 
         assert!(

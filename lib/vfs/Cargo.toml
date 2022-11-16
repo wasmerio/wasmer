@@ -19,10 +19,14 @@ webc = { version = "*", optional = true, path="../../../pirita/crates/webc" }
 anyhow = { version = "1.0.66", optional = true }
 async-trait = { version = "^0.1" }
 lazy_static = "1.4"
+tokio = { version = "1", features = [ "sync", "macros" ], default_features = false }
+
+[dev-dependencies]
+tokio = { version = "1", features = [ "io-util", "rt" ], default_features = false }
 
 [features]
 default = ["host-fs", "mem-fs", "webc-fs", "static-fs"]
-host-fs = ["libc"]
+host-fs = ["libc", "tokio/fs", "tokio/io-std"]
 mem-fs = ["slab"]
 webc-fs = ["webc", "anyhow"]
 static-fs = ["webc", "anyhow", "mem-fs"]

@@ -1,12 +1,8 @@
 use std::any::Any;
 use std::ffi::OsString;
 use std::fmt;
-use std::future::Future;
-use std::io::{self, Read, Seek, Write};
+use std::io;
 use std::path::{Path, PathBuf};
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll, Waker};
 use thiserror::Error;
 
 #[cfg(all(not(feature = "host-fs"), not(feature = "mem-fs")))]
@@ -25,6 +21,12 @@ pub mod static_fs;
 pub mod webc_fs;
 
 pub type Result<T> = std::result::Result<T, FsError>;
+
+// re-exports
+pub use tokio::io::AsyncRead;
+pub use tokio::io::AsyncWrite;
+pub use tokio::io::AsyncSeek;
+pub use tokio::io::ReadBuf;
 
 #[derive(Debug, Clone, Copy)]
 #[repr(transparent)]
@@ -202,7 +204,7 @@ impl OpenOptions {
 /// This trait relies on your file closing when it goes out of scope via `Drop`
 //#[cfg_attr(feature = "enable-serde", typetag::serde)]
 #[async_trait::async_trait]
-pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
+pub trait VirtualFile: fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64;
 
@@ -222,117 +224,6 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
     /// Request deletion of the file
     fn unlink(&mut self) -> Result<()>;
 
-    /// Store file contents and metadata to disk
-    /// Default implementation returns `Ok(())`.  You should implement this method if you care
-    /// about flushing your cache to permanent storage
-    fn sync_to_disk(&self) -> Result<()> {
-        Ok(())
-    }
-
-    /// Returns the number of bytes available.  This function must not block
-    fn bytes_available(&self) -> Result<usize> {
-        Ok(self
-            .bytes_available_read()?
-            .max(self.bytes_available_write()?))
-    }
-
-    /// Returns the number of bytes available.  This function must not block
-    /// Defaults to `None` which means the number of bytes is unknown
-    fn bytes_available_read(&self) -> Result<usize> {
-        Ok(8192)
-    }
-
-    /// Returns the number of bytes available.  This function must not block
-    /// Defaults to `None` which means the number of bytes is unknown
-    fn bytes_available_write(&self) -> Result<usize> {
-        Ok(8192)
-    }
-
-    /// Polls for when read data is available again
-    /// Defaults to `None` which means no asynchronous IO support - caller
-    /// must poll `bytes_available_read` instead
-    fn poll_read_ready(
-        &self,
-        cx: &mut std::task::Context<'_>,
-        register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
-    ) -> std::task::Poll<Result<usize>> {
-        use std::ops::Deref;
-        match self.bytes_available_read() {
-            Ok(0) => {
-                let waker = cx.waker().clone();
-                register_root_waker.deref()(waker);
-                std::task::Poll::Pending
-            }
-            Ok(a) => std::task::Poll::Ready(Ok(a)),
-            Err(err) => std::task::Poll::Ready(Err(err)),
-        }
-    }
-
-    /// Polls for when the file can be written to again
-    /// Defaults to `None` which means no asynchronous IO support - caller
-    /// must poll `bytes_available_write` instead
-    fn poll_write_ready(
-        &self,
-        cx: &mut std::task::Context<'_>,
-        register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
-    ) -> std::task::Poll<Result<usize>> {
-        use std::ops::Deref;
-        match self.bytes_available_write() {
-            Ok(0) => {
-                let waker = cx.waker().clone();
-                register_root_waker.deref()(waker);
-                std::task::Poll::Pending
-            }
-            Ok(a) => std::task::Poll::Ready(Ok(a)),
-            Err(err) => std::task::Poll::Ready(Err(err)),
-        }
-    }
-
-    /// Polls for when the file can be written to again
-    /// Defaults to `None` which means no asynchronous IO support - caller
-    /// must poll `bytes_available_write` instead
-    fn poll_close_ready(
-        &self,
-        cx: &mut std::task::Context<'_>,
-        register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
-    ) -> std::task::Poll<()> {
-        use std::ops::Deref;
-        match self.is_open() {
-            true => {
-                let waker = cx.waker().clone();
-                register_root_waker.deref()(waker);
-                std::task::Poll::Pending
-            }
-            false => std::task::Poll::Ready(()),
-        }
-    }
-
-    /// Asynchronously reads from this file
-    fn read_async<'a>(
-        &'a mut self,
-        max_size: usize,
-        register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>,
-    ) -> Pin<Box<dyn Future<Output = io::Result<Vec<u8>>> + 'a>> {
-        Box::pin(VirtualFileAsyncRead {
-            file: self,
-            buf: Some(Vec::with_capacity(max_size)),
-            register_root_waker: register_root_waker.clone(),
-        })
-    }
-
-    /// Asynchronously writes to this file
-    fn write_async<'a>(
-        &'a mut self,
-        buf: &'a [u8],
-        register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>,
-    ) -> Pin<Box<dyn Future<Output = io::Result<usize>> + 'a>> {
-        Box::pin(VirtualFileAsyncWrite {
-            file: self,
-            buf,
-            register_root_waker: register_root_waker.clone(),
-        })
-    }
-
     /// Indicates if the file is opened or closed. This function must not block
     /// Defaults to a status of being constantly open
     fn is_open(&self) -> bool {
@@ -349,65 +240,6 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
     /// Returns the underlying host fd
     fn get_fd(&self) -> Option<FileDescriptor> {
         None
-    }
-}
-
-struct VirtualFileAsyncRead<'a, T: ?Sized> {
-    file: &'a mut T,
-    buf: Option<Vec<u8>>,
-    register_root_waker: Arc<dyn Fn(Waker) + Send + Sync + 'static>,
-}
-impl<'a, T: ?Sized> Future for VirtualFileAsyncRead<'a, T>
-where
-    T: VirtualFile,
-{
-    type Output = io::Result<Vec<u8>>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.file.poll_read_ready(cx, &self.register_root_waker) {
-            Poll::Pending => return Poll::Pending,
-            Poll::Ready(Err(FsError::WouldBlock)) => {}
-            Poll::Ready(Err(err)) => return Poll::Ready(Err(Into::<io::Error>::into(err))),
-            Poll::Ready(Ok(_)) => {}
-        };
-        let mut buf = match self.buf.take() {
-            Some(a) => a,
-            None => {
-                return Poll::Ready(Err(Into::<io::Error>::into(io::ErrorKind::BrokenPipe)));
-            }
-        };
-        unsafe {
-            buf.set_len(buf.capacity());
-        }
-        Poll::Ready(self.file.read(&mut buf[..]).map(|amt| {
-            unsafe {
-                buf.set_len(amt);
-            }
-            buf
-        }))
-    }
-}
-
-struct VirtualFileAsyncWrite<'a, T: ?Sized> {
-    file: &'a mut T,
-    buf: &'a [u8],
-    register_root_waker: Arc<dyn Fn(Waker) + Send + Sync + 'static>,
-}
-impl<'a, T: ?Sized> Future for VirtualFileAsyncWrite<'a, T>
-where
-    T: VirtualFile,
-{
-    type Output = io::Result<usize>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.file.poll_write_ready(cx, &self.register_root_waker) {
-            Poll::Pending => return Poll::Pending,
-            Poll::Ready(Err(FsError::WouldBlock)) => {}
-            Poll::Ready(Err(err)) => return Poll::Ready(Err(Into::<io::Error>::into(err))),
-            Poll::Ready(Ok(_)) => {}
-        };
-        let buf = self.buf;
-        Poll::Ready(self.file.write(buf))
     }
 }
 

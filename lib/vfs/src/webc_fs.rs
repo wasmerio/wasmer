@@ -4,12 +4,15 @@ use crate::{
     ReadDir, VirtualFile,
 };
 use anyhow::anyhow;
+use tokio::io::{AsyncRead, AsyncWrite, AsyncSeek};
 use std::convert::TryInto;
-use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read, Seek, SeekFrom, Write};
+use std::io::{Error as IoError, ErrorKind as IoErrorKind, SeekFrom, self};
 use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 use webc::{FsEntry, FsEntryType, OwnedFsEntryFile, WebC};
 
 /// Custom file system wrapper to map requested file paths
@@ -147,23 +150,22 @@ where
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
-    fn bytes_available(&self) -> Result<usize, FsError> {
-        Ok(self.size().try_into().unwrap_or(u32::MAX as usize))
-    }
-    fn sync_to_disk(&self) -> Result<(), FsError> {
-        Ok(())
-    }
     fn get_fd(&self) -> Option<FileDescriptor> {
         None
     }
 }
 
-impl<T> Read for WebCFile<T>
+impl<T> AsyncRead for WebCFile<T>
 where
     T: std::fmt::Debug + Send + Sync + 'static,
     T: Deref<Target = WebC<'static>>,
 {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, IoError> {
+    
+    fn poll_read(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
         let bytes = self
             .webc
             .volumes
@@ -181,36 +183,46 @@ where
         let _start = cursor.min(bytes.len());
         let bytes = &bytes[cursor..];
 
-        let mut len = 0;
-        for (source, target) in bytes.iter().zip(buf.iter_mut()) {
-            *target = *source;
-            len += 1;
+        if bytes.len() > buf.remaining() {
+            let remaining = buf.remaining();
+            buf.put_slice(&bytes[..remaining]);
+        } else {
+            buf.put_slice(bytes);
         }
-
-        Ok(len)
+        Poll::Ready(Ok(()))
     }
 }
 
 // WebC file is not writable, the FileOpener will return a MemoryFile for writing instead
 // This code should never be executed (since writes are redirected to memory instead).
-impl<T> Write for WebCFile<T>
+impl<T> AsyncWrite for WebCFile<T>
 where
     T: std::fmt::Debug + Send + Sync + 'static,
 {
-    fn write(&mut self, buf: &[u8]) -> Result<usize, IoError> {
-        Ok(buf.len())
+    fn poll_write(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(buf.len()))
     }
-    fn flush(&mut self) -> Result<(), IoError> {
-        Ok(())
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        Poll::Ready(Ok(()))
     }
 }
 
-impl<T> Seek for WebCFile<T>
+impl<T> AsyncSeek for WebCFile<T>
 where
     T: std::fmt::Debug + Send + Sync + 'static,
     T: Deref<Target = WebC<'static>>,
 {
-    fn seek(&mut self, pos: SeekFrom) -> Result<u64, IoError> {
+    fn start_seek(
+        mut self: Pin<&mut Self>,
+        pos: io::SeekFrom
+    ) -> io::Result<()> {
         let self_size = self.size();
         match pos {
             SeekFrom::Start(s) => {
@@ -230,7 +242,12 @@ where
                 .min(self_size);
             }
         }
-        Ok(self.cursor)
+        Ok(())
+    }
+    fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+        Poll::Ready(
+            Ok(self.cursor)
+        )
     }
 }
 

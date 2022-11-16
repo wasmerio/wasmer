@@ -4614,6 +4614,7 @@ dependencies = [
  "serde",
  "slab",
  "thiserror",
+ "tokio",
  "tracing",
  "typetag",
  "webc",

@@ -968,8 +968,8 @@ mod test_filesystem {
 
         assert_eq!(
             fs.create_dir(path!("/")),
-            Err(FsError::BaseNotDirectory),
-            "creating a directory that has no parent",
+            Err(FsError::AlreadyExists),
+            "creating the root which already exists",
         );
 
         assert_eq!(fs.create_dir(path!("/foo")), Ok(()), "creating a directory",);
@@ -1071,7 +1071,7 @@ mod test_filesystem {
 
         assert_eq!(
             fs.remove_dir(path!("/foo")),
-            Err(FsError::NotAFile),
+            Err(FsError::EntryNotFound),
             "cannot remove a directory that doesn't exist",
         );
 
@@ -1136,7 +1136,7 @@ mod test_filesystem {
 
         assert_eq!(
             fs.rename(path!("/foo"), path!("/bar/baz")),
-            Err(FsError::NotAFile),
+            Err(FsError::EntryNotFound),
             "renaming to a directory that has parent that doesn't exist",
         );
 
