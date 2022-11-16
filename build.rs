@@ -14,6 +14,7 @@ use test_generator::{
 };
 
 fn main() -> anyhow::Result<()> {
+    static_vcruntime::metabuild();
     // As rerun-if-changed doesn't support globs, we use another crate
     // to check changes in directories.
     build_deps::rerun_if_changed_paths("tests/wasi-wast/wasi/unstable/*")
