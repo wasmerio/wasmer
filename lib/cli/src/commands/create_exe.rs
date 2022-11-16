@@ -1730,7 +1730,8 @@ fn install_zig(target_targz_path: &Path) -> Result<PathBuf, anyhow::Error> {
     }
 
     let native_host_url = latest_version_json.get_native_host_url().ok_or_else(|| {
-        anyhow!("could not get native host url for target {latest_version_json:#?}")
+        let native_host = format!("{}", target_lexicon::HOST);
+        anyhow!("could not get native host url for target {native_host:?}: {latest_version_json:#?}")
     })?;
     let _ = std::fs::create_dir_all(&install_dir);
     wasmer_registry::download_and_unpack_targz(&native_host_url, &install_dir, true).context(
