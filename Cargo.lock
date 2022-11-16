@@ -4736,7 +4736,6 @@ dependencies = [
  "wasmer-wasi-local-networking",
  "wasmer-wasi-types",
  "webc",
- "webc-vfs",
  "weezl",
  "winapi",
 ]
@@ -5041,15 +5040,6 @@ dependencies = [
  "sha2",
  "url",
  "walkdir",
-]
-
-[[package]]
-name = "webc-vfs"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "wasmer-vfs",
- "webc",
 ]
 
 [[package]]

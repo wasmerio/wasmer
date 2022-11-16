@@ -264,5 +264,4 @@ required-features = ["cranelift"]
 [patch.crates-io]
 wasmer-vfs = { path = "./lib/vfs" }
 webc = { path="../pirita/crates/webc" }
-webc-vfs = { path="../pirita/crates/webc-vfs" }
 
