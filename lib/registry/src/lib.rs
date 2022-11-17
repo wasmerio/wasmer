@@ -19,8 +19,10 @@ pub mod login;
 pub mod utils;
 
 pub use crate::config::format_graphql;
-use crate::config::Registries;
 pub use config::PartialWapmConfig;
+
+use crate::config::Registries;
+use anyhow::Context;
 
 pub static GLOBAL_CONFIG_FILE_NAME: &str = if cfg!(target_os = "wasi") {
     "/.private/wapm.toml"
@@ -973,4 +975,81 @@ fn test_install_package() {
     }
 
     println!("ok, done");
+}
+
+/// A package which can be added as a dependency.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BindingsPackage {
+    /// A unique ID specifying this set of bindings.
+    pub id: String,
+    /// The URL which can be used to download the files that were generated
+    /// (typically as a `*.tar.gz` file).
+    pub url: String,
+    /// The programming language these bindings are written in.
+    pub language: graphql::get_bindings_query::ProgrammingLanguage,
+    /// The generator used to generate these bindings.
+    pub generator: BindingsGenerator,
+}
+
+/// The generator used to create a [`BindingsPackage`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BindingsGenerator {
+    /// A unique ID specifying this generator.
+    pub id: String,
+    /// The generator package's name (e.g. the `wasmer-pack` in
+    /// `wasmer/wasmer-pack`).
+    pub name: String,
+    /// The username or namespace this package was published under (e.g. the
+    /// `wasmer` in `wasmer/wasmer-pack`).
+    pub namespace: Option<String>,
+    /// The exact package version.
+    pub version: String,
+    /// The name of the command that was used for generating bindings.
+    pub command: String,
+}
+
+/// List all bindings associated with a particular package.
+///
+/// If a version number isn't provided, this will default to the most recently
+/// published version.
+pub fn list_bindings(
+    registry: &str,
+    name: &str,
+    version: Option<&str>,
+) -> Result<Vec<BindingsPackage>, anyhow::Error> {
+    use crate::graphql::{
+        get_bindings_query::{ResponseData, Variables},
+        GetBindingsQuery,
+    };
+    use graphql_client::GraphQLQuery;
+
+    let variables = Variables {
+        name: name.to_string(),
+        version: version.map(String::from),
+    };
+
+    let q = GetBindingsQuery::build_query(variables);
+    let response: ResponseData = crate::graphql::execute_query(registry, "", &q)?;
+
+    let package_version = response.package_version.context("Package not found")?;
+
+    let mut bindings_packages = Vec::new();
+
+    for b in package_version.bindings.into_iter().flatten() {
+        let pkg = BindingsPackage {
+            id: b.id,
+            url: b.url,
+            language: b.language,
+            generator: BindingsGenerator {
+                id: b.generator.package_version.id,
+                name: b.generator.package_version.package.package_name,
+                namespace: b.generator.package_version.package.namespace,
+                version: b.generator.package_version.version,
+                command: b.generator.command_name,
+            },
+        };
+        bindings_packages.push(pkg);
+    }
+
+    Ok(bindings_packages)
 }

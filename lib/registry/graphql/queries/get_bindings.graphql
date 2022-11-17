@@ -1,0 +1,23 @@
+query GetBindingsQuery ($name: String!, $version: String = "latest") {
+  packageVersion: getPackageVersion(name:$name, version:$version) {
+    bindings {
+      id
+      language
+      url
+
+      generator {
+        packageVersion {
+          id
+          version
+          package {
+            packageName
+            namespace
+          }
+        }
+        commandName
+      }
+
+      __typename
+    }
+  }
+}
