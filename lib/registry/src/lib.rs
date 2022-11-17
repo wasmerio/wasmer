@@ -1,417 +1,22 @@
 use std::collections::BTreeMap;
-use std::env;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use serde::Deserialize;
-use serde::Serialize;
+pub mod config;
+pub mod graphql;
+pub mod login;
+pub mod utils;
 
-pub mod graphql {
-
-    use graphql_client::*;
-    #[cfg(not(target_os = "wasi"))]
-    use reqwest::{
-        blocking::{multipart::Form, Client},
-        header::USER_AGENT,
-    };
-    use std::env;
-    use std::time::Duration;
-    #[cfg(target_os = "wasi")]
-    use {wasm_bus_reqwest::prelude::header::*, wasm_bus_reqwest::prelude::*};
-
-    mod proxy {
-        //! Code for dealing with setting things up to proxy network requests
-        use thiserror::Error;
-
-        #[derive(Debug, Error)]
-        pub enum ProxyError {
-            #[error("Failed to parse URL from {}: {}", url_location, error_message)]
-            UrlParseError {
-                url_location: String,
-                error_message: String,
-            },
-
-            #[error("Could not connect to proxy: {0}")]
-            ConnectionError(String),
-        }
-
-        /// Tries to set up a proxy
-        ///
-        /// This function reads from wapm config's `proxy.url` first, then checks
-        /// `ALL_PROXY`, `HTTPS_PROXY`, and `HTTP_PROXY` environment variables, in both
-        /// upper case and lower case, in that order.
-        ///
-        /// If a proxy is specified in wapm config's `proxy.url`, it is assumed
-        /// to be a general proxy
-        ///
-        /// A return value of `Ok(None)` means that there was no attempt to set up a proxy,
-        /// `Ok(Some(proxy))` means that the proxy was set up successfully, and `Err(e)` that
-        /// there was a failure while attempting to set up the proxy.
-        pub fn maybe_set_up_proxy() -> anyhow::Result<Option<reqwest::Proxy>> {
-            use std::env;
-            let proxy = if let Ok(proxy_url) =
-                env::var("ALL_PROXY").or_else(|_| env::var("all_proxy"))
-            {
-                reqwest::Proxy::all(&proxy_url).map(|proxy| (proxy_url, proxy, "ALL_PROXY"))
-            } else if let Ok(https_proxy_url) =
-                env::var("HTTPS_PROXY").or_else(|_| env::var("https_proxy"))
-            {
-                reqwest::Proxy::https(&https_proxy_url)
-                    .map(|proxy| (https_proxy_url, proxy, "HTTPS_PROXY"))
-            } else if let Ok(http_proxy_url) =
-                env::var("HTTP_PROXY").or_else(|_| env::var("http_proxy"))
-            {
-                reqwest::Proxy::http(&http_proxy_url)
-                    .map(|proxy| (http_proxy_url, proxy, "http_proxy"))
-            } else {
-                return Ok(None);
-            }
-            .map_err(|e| ProxyError::ConnectionError(e.to_string()))
-            .and_then(
-                |(proxy_url_str, proxy, url_location): (String, _, &'static str)| {
-                    url::Url::parse(&proxy_url_str)
-                        .map_err(|e| ProxyError::UrlParseError {
-                            url_location: url_location.to_string(),
-                            error_message: e.to_string(),
-                        })
-                        .map(|url| {
-                            if !(url.username().is_empty()) && url.password().is_some() {
-                                proxy.basic_auth(url.username(), url.password().unwrap_or_default())
-                            } else {
-                                proxy
-                            }
-                        })
-                },
-            )?;
-
-            Ok(Some(proxy))
-        }
-    }
-
-    #[derive(GraphQLQuery)]
-    #[graphql(
-        schema_path = "graphql/schema.graphql",
-        query_path = "graphql/queries/get_package_version.graphql",
-        response_derives = "Debug"
-    )]
-    pub(crate) struct GetPackageVersionQuery;
-
-    #[derive(GraphQLQuery)]
-    #[graphql(
-        schema_path = "graphql/schema.graphql",
-        query_path = "graphql/queries/get_package_by_command.graphql",
-        response_derives = "Debug"
-    )]
-    pub(crate) struct GetPackageByCommandQuery;
-
-    #[derive(GraphQLQuery)]
-    #[graphql(
-        schema_path = "graphql/schema.graphql",
-        query_path = "graphql/queries/test_if_registry_present.graphql",
-        response_derives = "Debug"
-    )]
-    pub(crate) struct TestIfRegistryPresent;
-
-    #[cfg(target_os = "wasi")]
-    pub fn whoami_distro() -> String {
-        whoami::os().to_lowercase()
-    }
-
-    #[cfg(not(target_os = "wasi"))]
-    pub fn whoami_distro() -> String {
-        whoami::distro().to_lowercase()
-    }
-
-    pub fn execute_query_modifier_inner_check_json<V, F>(
-        registry_url: &str,
-        login_token: &str,
-        query: &QueryBody<V>,
-        timeout: Option<Duration>,
-        form_modifier: F,
-    ) -> anyhow::Result<()>
-    where
-        V: serde::Serialize,
-        F: FnOnce(Form) -> Form,
-    {
-        let client = {
-            let builder = Client::builder();
-
-            #[cfg(not(target_os = "wasi"))]
-            let builder = if let Some(proxy) = proxy::maybe_set_up_proxy()? {
-                builder.proxy(proxy)
-            } else {
-                builder
-            };
-            builder.build()?
-        };
-
-        let vars = serde_json::to_string(&query.variables).unwrap();
-
-        let form = Form::new()
-            .text("query", query.query.to_string())
-            .text("operationName", query.operation_name.to_string())
-            .text("variables", vars);
-
-        let form = form_modifier(form);
-
-        let user_agent = format!(
-            "wapm/{} {} {}",
-            env!("CARGO_PKG_VERSION"),
-            whoami::platform(),
-            whoami_distro(),
-        );
-
-        let mut res = client
-            .post(registry_url)
-            .multipart(form)
-            .bearer_auth(
-                env::var("WAPM_REGISTRY_TOKEN").unwrap_or_else(|_| login_token.to_string()),
-            )
-            .header(USER_AGENT, user_agent);
-
-        if let Some(t) = timeout {
-            res = res.timeout(t);
-        }
-
-        let res = res.send()?;
-
-        let _: Response<serde_json::Value> = res.json()?;
-
-        Ok(())
-    }
-
-    pub fn execute_query_modifier_inner<R, V, F>(
-        registry_url: &str,
-        login_token: &str,
-        query: &QueryBody<V>,
-        timeout: Option<Duration>,
-        form_modifier: F,
-    ) -> anyhow::Result<R>
-    where
-        for<'de> R: serde::Deserialize<'de>,
-        V: serde::Serialize,
-        F: FnOnce(Form) -> Form,
-    {
-        let client = {
-            let builder = Client::builder();
-
-            #[cfg(not(target_os = "wasi"))]
-            let builder = if let Some(proxy) = proxy::maybe_set_up_proxy()? {
-                builder.proxy(proxy)
-            } else {
-                builder
-            };
-            builder.build()?
-        };
-
-        let vars = serde_json::to_string(&query.variables).unwrap();
-
-        let form = Form::new()
-            .text("query", query.query.to_string())
-            .text("operationName", query.operation_name.to_string())
-            .text("variables", vars);
-
-        let form = form_modifier(form);
-
-        let user_agent = format!(
-            "wapm/{} {} {}",
-            env!("CARGO_PKG_VERSION"),
-            whoami::platform(),
-            whoami_distro(),
-        );
-
-        let mut res = client
-            .post(registry_url)
-            .multipart(form)
-            .bearer_auth(
-                env::var("WAPM_REGISTRY_TOKEN").unwrap_or_else(|_| login_token.to_string()),
-            )
-            .header(USER_AGENT, user_agent);
-
-        if let Some(t) = timeout {
-            res = res.timeout(t);
-        }
-
-        let res = res.send()?;
-        let response_body: Response<R> = res.json()?;
-        if let Some(errors) = response_body.errors {
-            let error_messages: Vec<String> = errors.into_iter().map(|err| err.message).collect();
-            return Err(anyhow::anyhow!("{}", error_messages.join(", ")));
-        }
-        Ok(response_body.data.expect("missing response data"))
-    }
-
-    pub fn execute_query<R, V>(
-        registry_url: &str,
-        login_token: &str,
-        query: &QueryBody<V>,
-    ) -> anyhow::Result<R>
-    where
-        for<'de> R: serde::Deserialize<'de>,
-        V: serde::Serialize,
-    {
-        execute_query_modifier_inner(registry_url, login_token, query, None, |f| f)
-    }
-
-    pub fn execute_query_with_timeout<R, V>(
-        registry_url: &str,
-        login_token: &str,
-        timeout: Duration,
-        query: &QueryBody<V>,
-    ) -> anyhow::Result<R>
-    where
-        for<'de> R: serde::Deserialize<'de>,
-        V: serde::Serialize,
-    {
-        execute_query_modifier_inner(registry_url, login_token, query, Some(timeout), |f| f)
-    }
-}
+pub use crate::config::format_graphql;
+use crate::config::Registries;
+pub use config::PartialWapmConfig;
 
 pub static GLOBAL_CONFIG_FILE_NAME: &str = if cfg!(target_os = "wasi") {
     "/.private/wapm.toml"
 } else {
     "wapm.toml"
 };
-
-#[derive(Deserialize, Default, Serialize, Debug, PartialEq)]
-pub struct PartialWapmConfig {
-    /// The number of seconds to wait before checking the registry for a new
-    /// version of the package.
-    #[serde(default = "wax_default_cooldown")]
-    pub wax_cooldown: i32,
-
-    /// The registry that wapm will connect to.
-    pub registry: Registries,
-
-    /// Whether or not telemetry is enabled.
-    #[cfg(feature = "telemetry")]
-    #[serde(default)]
-    pub telemetry: Telemetry,
-
-    /// Whether or not updated notifications are enabled.
-    #[cfg(feature = "update-notifications")]
-    #[serde(default)]
-    pub update_notifications: UpdateNotifications,
-
-    /// The proxy to use when connecting to the Internet.
-    #[serde(default)]
-    pub proxy: Proxy,
-}
-
-pub const fn wax_default_cooldown() -> i32 {
-    5 * 60
-}
-
-#[derive(Deserialize, Serialize, Debug, PartialEq, Default)]
-pub struct Proxy {
-    pub url: Option<String>,
-}
-
-#[derive(Deserialize, Serialize, Debug, PartialEq, Default)]
-pub struct UpdateNotifications {
-    pub enabled: String,
-}
-
-#[cfg(feature = "telemetry")]
-#[derive(Deserialize, Serialize, Debug, PartialEq)]
-pub struct Telemetry {
-    pub enabled: String,
-}
-
-#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
-#[serde(untagged)]
-pub enum Registries {
-    Single(Registry),
-    Multi(MultiRegistry),
-}
-
-#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
-pub struct MultiRegistry {
-    /// Currently active registry
-    pub current: String,
-    /// Map from "RegistryUrl" to "LoginToken", in order to
-    /// be able to be able to easily switch between registries
-    pub tokens: BTreeMap<String, String>,
-}
-
-impl Default for Registries {
-    fn default() -> Self {
-        Registries::Single(Registry {
-            url: format_graphql("https://registry.wapm.io"),
-            token: None,
-        })
-    }
-}
-
-#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
-pub struct Registry {
-    pub url: String,
-    pub token: Option<String>,
-}
-
-fn format_graphql(registry: &str) -> String {
-    if registry.ends_with("/graphql") {
-        registry.to_string()
-    } else if registry.ends_with('/') {
-        format!("{}graphql", registry)
-    } else {
-        format!("{}/graphql", registry)
-    }
-}
-
-impl PartialWapmConfig {
-    pub fn from_file() -> Result<Self, String> {
-        let path = Self::get_file_location()?;
-
-        match std::fs::read_to_string(&path) {
-            Ok(config_toml) => {
-                toml::from_str(&config_toml).map_err(|e| format!("could not parse {path:?}: {e}"))
-            }
-            Err(_e) => Ok(Self::default()),
-        }
-    }
-
-    pub fn get_current_dir() -> std::io::Result<PathBuf> {
-        #[cfg(target_os = "wasi")]
-        if let Some(pwd) = std::env::var("PWD").ok() {
-            return Ok(PathBuf::from(pwd));
-        }
-        std::env::current_dir()
-    }
-
-    pub fn get_folder() -> Result<PathBuf, String> {
-        Ok(
-            if let Some(folder_str) = env::var("WASMER_DIR").ok().filter(|s| !s.is_empty()) {
-                let folder = PathBuf::from(folder_str);
-                std::fs::create_dir_all(folder.clone())
-                    .map_err(|e| format!("cannot create config directory: {e}"))?;
-                folder
-            } else {
-                #[allow(unused_variables)]
-                let default_dir = Self::get_current_dir()
-                    .ok()
-                    .unwrap_or_else(|| PathBuf::from("/".to_string()));
-                #[cfg(feature = "dirs")]
-                let home_dir =
-                    dirs::home_dir().ok_or(GlobalConfigError::CannotFindHomeDirectory)?;
-                #[cfg(not(feature = "dirs"))]
-                let home_dir = std::env::var("HOME")
-                    .ok()
-                    .unwrap_or_else(|| default_dir.to_string_lossy().to_string());
-                let mut folder = PathBuf::from(home_dir);
-                folder.push(".wasmer");
-                std::fs::create_dir_all(folder.clone())
-                    .map_err(|e| format!("cannot create config directory: {e}"))?;
-                folder
-            },
-        )
-    }
-
-    fn get_file_location() -> Result<PathBuf, String> {
-        Ok(Self::get_folder()?.join(GLOBAL_CONFIG_FILE_NAME))
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct PackageDownloadInfo {
@@ -425,6 +30,7 @@ pub struct PackageDownloadInfo {
 }
 
 pub fn get_package_local_dir(
+    #[cfg(test)] test_name: &str,
     registry_host: &str,
     name: &str,
     version: &str,
@@ -437,18 +43,26 @@ pub fn get_package_local_dir(
     let (namespace, name) = name
         .split_once('/')
         .ok_or_else(|| format!("missing namespace / name for {name:?}"))?;
-    let install_dir = get_global_install_dir(registry_host)
-        .ok_or_else(|| format!("no install dir for {name:?}"))?;
+    #[cfg(test)]
+    let global_install_dir = get_global_install_dir(test_name, registry_host);
+    #[cfg(not(test))]
+    let global_install_dir = get_global_install_dir(registry_host);
+    let install_dir = global_install_dir.ok_or_else(|| format!("no install dir for {name:?}"))?;
     Ok(install_dir.join(namespace).join(name).join(version))
 }
 
-pub fn try_finding_local_command(cmd: &str) -> Option<LocalPackage> {
-    for p in get_all_local_packages(None) {
-        if p.get_commands()
-            .unwrap_or_default()
-            .iter()
-            .any(|c| c == cmd)
-        {
+pub fn try_finding_local_command(#[cfg(test)] test_name: &str, cmd: &str) -> Option<LocalPackage> {
+    #[cfg(test)]
+    let local_packages = get_all_local_packages(test_name, None);
+    #[cfg(not(test))]
+    let local_packages = get_all_local_packages(None);
+    for p in local_packages {
+        #[cfg(not(test))]
+        let commands = p.get_commands();
+        #[cfg(test)]
+        let commands = p.get_commands(test_name);
+
+        if commands.unwrap_or_default().iter().any(|c| c == cmd) {
             return Some(p);
         }
     }
@@ -463,16 +77,28 @@ pub struct LocalPackage {
 }
 
 impl LocalPackage {
-    pub fn get_path(&self) -> Result<PathBuf, String> {
+    pub fn get_path(&self, #[cfg(test)] test_name: &str) -> Result<PathBuf, String> {
         let host = url::Url::parse(&self.registry)
             .ok()
             .and_then(|o| o.host_str().map(|s| s.to_string()))
             .unwrap_or_else(|| self.registry.clone());
 
-        get_package_local_dir(&host, &self.name, &self.version)
+        #[cfg(test)]
+        {
+            get_package_local_dir(test_name, &host, &self.name, &self.version)
+        }
+
+        #[cfg(not(test))]
+        {
+            get_package_local_dir(&host, &self.name, &self.version)
+        }
     }
-    pub fn get_commands(&self) -> Result<Vec<String>, String> {
-        let toml_path = self.get_path()?.join("wapm.toml");
+    pub fn get_commands(&self, #[cfg(test)] test_name: &str) -> Result<Vec<String>, String> {
+        #[cfg(not(test))]
+        let path = self.get_path()?;
+        #[cfg(test)]
+        let path = self.get_path(test_name)?;
+        let toml_path = path.join("wapm.toml");
         let toml = std::fs::read_to_string(&toml_path)
             .map_err(|e| format!("error reading {}: {e}", toml_path.display()))?;
         let toml_parsed = toml::from_str::<wapm_toml::Manifest>(&toml)
@@ -552,11 +178,23 @@ fn get_all_names_in_dir(dir: &PathBuf) -> Vec<(PathBuf, String)> {
 }
 
 /// Returns a list of all locally installed packages
-pub fn get_all_local_packages(registry: Option<&str>) -> Vec<LocalPackage> {
+pub fn get_all_local_packages(
+    #[cfg(test)] test_name: &str,
+    registry: Option<&str>,
+) -> Vec<LocalPackage> {
     let mut packages = Vec::new();
     let registries = match registry {
         Some(s) => vec![s.to_string()],
-        None => get_all_available_registries().unwrap_or_default(),
+        None => {
+            #[cfg(test)]
+            {
+                get_all_available_registries(test_name).unwrap_or_default()
+            }
+            #[cfg(not(test))]
+            {
+                get_all_available_registries().unwrap_or_default()
+            }
+        }
     };
 
     let mut registry_hosts = registries
@@ -564,7 +202,12 @@ pub fn get_all_local_packages(registry: Option<&str>) -> Vec<LocalPackage> {
         .filter_map(|s| url::Url::parse(&s).ok()?.host_str().map(|s| s.to_string()))
         .collect::<Vec<_>>();
 
-    let mut registries_in_root_dir = get_checkouts_dir()
+    #[cfg(not(test))]
+    let checkouts_dir = get_checkouts_dir();
+    #[cfg(test)]
+    let checkouts_dir = get_checkouts_dir(test_name);
+
+    let mut registries_in_root_dir = checkouts_dir
         .as_ref()
         .map(get_all_names_in_dir)
         .unwrap_or_default()
@@ -577,7 +220,11 @@ pub fn get_all_local_packages(registry: Option<&str>) -> Vec<LocalPackage> {
     registry_hosts.dedup();
 
     for host in registry_hosts {
-        let root_dir = match get_global_install_dir(&host) {
+        #[cfg(not(test))]
+        let global_install_dir = get_global_install_dir(&host);
+        #[cfg(test)]
+        let global_install_dir = get_global_install_dir(test_name, &host);
+        let root_dir = match global_install_dir {
             Some(o) => o,
             None => continue,
         };
@@ -603,11 +250,17 @@ pub fn get_all_local_packages(registry: Option<&str>) -> Vec<LocalPackage> {
 }
 
 pub fn get_local_package(
+    #[cfg(test)] test_name: &str,
     registry: Option<&str>,
     name: &str,
     version: Option<&str>,
 ) -> Option<LocalPackage> {
-    get_all_local_packages(registry)
+    #[cfg(not(test))]
+    let local_packages = get_all_local_packages(registry);
+    #[cfg(test)]
+    let local_packages = get_all_local_packages(test_name, registry);
+
+    local_packages
         .iter()
         .find(|p| {
             if p.name != name {
@@ -706,15 +359,17 @@ pub enum GetIfPackageHasNewVersionResult {
 
 #[test]
 fn test_get_if_package_has_new_version() {
+    const TEST_NAME: &str = "test_get_if_package_has_new_version";
     let fake_registry = "https://h0.com";
     let fake_name = "namespace0/project1";
     let fake_version = "1.0.0";
 
-    let package_path = get_package_local_dir("h0.com", fake_name, fake_version).unwrap();
+    let package_path = get_package_local_dir(TEST_NAME, "h0.com", fake_name, fake_version).unwrap();
     let _ = std::fs::remove_file(&package_path.join("wapm.toml"));
     let _ = std::fs::remove_file(&package_path.join("wapm.toml"));
 
     let r1 = get_if_package_has_new_version(
+        TEST_NAME,
         fake_registry,
         "namespace0/project1",
         Some(fake_version.to_string()),
@@ -731,11 +386,12 @@ fn test_get_if_package_has_new_version() {
         }
     );
 
-    let package_path = get_package_local_dir("h0.com", fake_name, fake_version).unwrap();
+    let package_path = get_package_local_dir(TEST_NAME, "h0.com", fake_name, fake_version).unwrap();
     std::fs::create_dir_all(&package_path).unwrap();
     std::fs::write(&package_path.join("wapm.toml"), b"").unwrap();
 
     let r1 = get_if_package_has_new_version(
+        TEST_NAME,
         fake_registry,
         "namespace0/project1",
         Some(fake_version.to_string()),
@@ -758,6 +414,7 @@ fn test_get_if_package_has_new_version() {
 ///
 /// Also returns true if the package is not installed yet.
 pub fn get_if_package_has_new_version(
+    #[cfg(test)] test_name: &str,
     registry_url: &str,
     name: &str,
     version: Option<String>,
@@ -775,7 +432,12 @@ pub fn get_if_package_has_new_version(
         .split_once('/')
         .ok_or_else(|| format!("missing namespace / name for {name:?}"))?;
 
-    let package_dir = get_global_install_dir(&host).map(|path| path.join(namespace).join(name));
+    #[cfg(not(test))]
+    let global_install_dir = get_global_install_dir(&host);
+    #[cfg(test)]
+    let global_install_dir = get_global_install_dir(test_name, &host);
+
+    let package_dir = global_install_dir.map(|path| path.join(namespace).join(name));
 
     let package_dir = match package_dir {
         Some(s) => s,
@@ -933,16 +595,35 @@ pub fn query_package_from_registry(
     })
 }
 
-pub fn get_wasmer_root_dir() -> Option<PathBuf> {
-    PartialWapmConfig::get_folder().ok()
+pub fn get_wasmer_root_dir(#[cfg(test)] test_name: &str) -> Option<PathBuf> {
+    #[cfg(test)]
+    {
+        PartialWapmConfig::get_folder(test_name).ok()
+    }
+    #[cfg(not(test))]
+    {
+        PartialWapmConfig::get_folder().ok()
+    }
 }
-pub fn get_checkouts_dir() -> Option<PathBuf> {
-    Some(get_wasmer_root_dir()?.join("checkouts"))
+
+pub fn get_checkouts_dir(#[cfg(test)] test_name: &str) -> Option<PathBuf> {
+    #[cfg(test)]
+    let root_dir = get_wasmer_root_dir(test_name)?;
+    #[cfg(not(test))]
+    let root_dir = get_wasmer_root_dir()?;
+    Some(root_dir.join("checkouts"))
 }
 
 /// Returs the path to the directory where all packages on this computer are being stored
-pub fn get_global_install_dir(registry_host: &str) -> Option<PathBuf> {
-    Some(get_checkouts_dir()?.join(registry_host))
+pub fn get_global_install_dir(
+    #[cfg(test)] test_name: &str,
+    registry_host: &str,
+) -> Option<PathBuf> {
+    #[cfg(test)]
+    let root_dir = get_checkouts_dir(test_name)?;
+    #[cfg(not(test))]
+    let root_dir = get_checkouts_dir()?;
+    Some(root_dir.join(registry_host))
 }
 
 /// Whether the top-level directory should be stripped
@@ -1042,6 +723,7 @@ where
 /// Given a triple of [registry, name, version], downloads and installs the
 /// .tar.gz if it doesn't yet exist, returns the (package dir, entrypoint .wasm file path)
 pub fn install_package(
+    #[cfg(test)] test_name: &str,
     registry: Option<&str>,
     name: &str,
     version: Option<&str>,
@@ -1053,7 +735,16 @@ pub fn install_package(
         None => {
             let registries = match registry {
                 Some(s) => vec![s.to_string()],
-                None => get_all_available_registries()?,
+                None => {
+                    #[cfg(test)]
+                    {
+                        get_all_available_registries(test_name)?
+                    }
+                    #[cfg(not(test))]
+                    {
+                        get_all_available_registries()?
+                    }
+                }
             };
             let mut url_of_package = None;
 
@@ -1072,7 +763,16 @@ pub fn install_package(
 
             for r in registries.iter() {
                 if !force_install {
+                    #[cfg(not(test))]
                     let package_has_new_version = get_if_package_has_new_version(
+                        r,
+                        name,
+                        version.map(|s| s.to_string()),
+                        Duration::from_secs(60 * 5),
+                    )?;
+                    #[cfg(test)]
+                    let package_has_new_version = get_if_package_has_new_version(
+                        test_name,
                         r,
                         name,
                         version.map(|s| s.to_string()),
@@ -1128,6 +828,14 @@ pub fn install_package(
         .ok_or_else(|| format!("invalid url: {}", package_info.registry))?
         .to_string();
 
+    #[cfg(test)]
+    let dir = get_package_local_dir(
+        test_name,
+        &host,
+        &package_info.package,
+        &package_info.version,
+    )?;
+    #[cfg(not(test))]
     let dir = get_package_local_dir(&host, &package_info.package, &package_info.version)?;
 
     let version = package_info.version;
@@ -1164,8 +872,12 @@ pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
     Ok(true)
 }
 
-pub fn get_all_available_registries() -> Result<Vec<String>, String> {
+pub fn get_all_available_registries(#[cfg(test)] test_name: &str) -> Result<Vec<String>, String> {
+    #[cfg(test)]
+    let config = PartialWapmConfig::from_file(test_name)?;
+    #[cfg(not(test))]
     let config = PartialWapmConfig::from_file()?;
+
     let mut registries = Vec::new();
     match config.registry {
         Registries::Single(s) => {
@@ -1185,6 +897,8 @@ pub fn get_all_available_registries() -> Result<Vec<String>, String> {
 #[cfg(not(target_env = "musl"))]
 #[test]
 fn test_install_package() {
+    const TEST_NAME: &str = "test_install_package";
+
     println!("test install package...");
     let registry = "https://registry.wapm.io/graphql";
     if !test_if_registry_present(registry).unwrap_or(false) {
@@ -1208,21 +922,28 @@ fn test_install_package() {
         "https://registry-cdn.wapm.io/packages/wasmer/wabt/wabt-1.0.29.tar.gz".to_string()
     );
 
-    let (package, _) =
-        install_package(Some(registry), "wasmer/wabt", Some("1.0.29"), None, true).unwrap();
+    let (package, _) = install_package(
+        TEST_NAME,
+        Some(registry),
+        "wasmer/wabt",
+        Some("1.0.29"),
+        None,
+        true,
+    )
+    .unwrap();
 
     println!("package installed: {package:#?}");
 
     assert_eq!(
-        package.get_path().unwrap(),
-        get_global_install_dir("registry.wapm.io")
+        package.get_path(TEST_NAME).unwrap(),
+        get_global_install_dir(TEST_NAME, "registry.wapm.io")
             .unwrap()
             .join("wasmer")
             .join("wabt")
             .join("1.0.29")
     );
 
-    let all_installed_packages = get_all_local_packages(Some(registry));
+    let all_installed_packages = get_all_local_packages(TEST_NAME, Some(registry));
 
     println!("all_installed_packages: {all_installed_packages:#?}");
 
@@ -1233,7 +954,7 @@ fn test_install_package() {
     println!("is_installed: {is_installed:#?}");
 
     if !is_installed {
-        let panic_str = get_all_local_packages(Some(registry))
+        let panic_str = get_all_local_packages(TEST_NAME, Some(registry))
             .iter()
             .map(|p| format!("{} {} {}", p.registry, p.name, p.version))
             .collect::<Vec<_>>()
