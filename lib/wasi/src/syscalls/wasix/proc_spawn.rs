@@ -220,10 +220,11 @@ pub fn proc_spawn_internal(
         new_store,
         &ctx.data().bin_factory,
     );
-    let mut process = __asyncify(&mut ctx, None, async move {
-        Ok(child_work.await.map_err(vbus_error_into_bus_errno))
-    })
-    .map_err(|err| BusErrno::Unknown)??;
+    // let mut process = __asyncify(&mut ctx, None, async move {
+    //     Ok(child_work.await.map_err(vbus_error_into_bus_errno))
+    // })
+    // .map_err(|err| BusErrno::Unknown)??;
+    let mut process = todo!();
 
     // Add the process to the environment state
     {
