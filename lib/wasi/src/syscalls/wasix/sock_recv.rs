@@ -48,8 +48,9 @@ pub fn sock_recv<M: MemorySize>(
             &mut ctx,
             sock,
             Rights::SOCK_RECV,
-            move |socket| async move { socket.recv(max_size).await }
-        ).await
+            move |socket| async move { socket.recv(max_size).await },
+        )
+        .await
     }));
     env = ctx.data();
 

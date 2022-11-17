@@ -157,10 +157,7 @@ fn fd_write_internal<M: MemorySize>(
                                         .map_err(map_io_err)?;
                                 }
 
-                                handle
-                                    .write(&buf[..])
-                                    .await
-                                    .map_err(map_io_err)
+                                handle.write(&buf[..]).await.map_err(map_io_err)
                             }
                         )
                         .map_err(|err| match err {
@@ -191,15 +188,16 @@ fn fd_write_internal<M: MemorySize>(
                     ))
                 }
                 Kind::Pipe { pipe } => {
-                    let buf_len: M::Offset = iovs_arr.iter().filter_map(|a| a.read().ok()).map(|a| a.buf_len).sum();
+                    let buf_len: M::Offset = iovs_arr
+                        .iter()
+                        .filter_map(|a| a.read().ok())
+                        .map(|a| a.buf_len)
+                        .sum();
                     let buf_len: usize = wasi_try_ok!(buf_len.try_into().map_err(|_| Errno::Inval));
                     let mut buf = Vec::with_capacity(buf_len);
                     wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
 
-                    wasi_try_ok!(
-                        std::io::Write::write(&mut pipe, &buf[..])
-                            .map_err(map_io_err)
-                    )
+                    wasi_try_ok!(std::io::Write::write(&mut pipe, &buf[..]).map_err(map_io_err))
                 }
                 Kind::Dir { .. } | Kind::Root { .. } => {
                     // TODO: verify

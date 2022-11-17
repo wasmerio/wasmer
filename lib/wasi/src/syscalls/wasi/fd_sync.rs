@@ -27,23 +27,15 @@ pub fn fd_sync(ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Errno {
         match guard.deref_mut() {
             Kind::File { handle, .. } => {
                 if let Some(handle) = handle {
-                    
                     let handle = handle.clone();
                     drop(inode);
                     drop(guard);
                     drop(inodes);
-                    
-                    wasi_try!(__asyncify(
-                        &mut ctx,
-                        None,
-                        async move {
-                            let mut handle = handle.write().unwrap();
-                            handle
-                                .flush()
-                                .await
-                                .map_err(map_io_err)
-                        }
-                    ))
+
+                    wasi_try!(__asyncify(&mut ctx, None, async move {
+                        let mut handle = handle.write().unwrap();
+                        handle.flush().await.map_err(map_io_err)
+                    }))
                 } else {
                     return Errno::Inval;
                 }

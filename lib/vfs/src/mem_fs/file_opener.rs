@@ -164,25 +164,26 @@ impl FileOpener {
 
                 // Creating the file in the storage.
                 let inode_of_file = fs_lock.storage.vacant_entry().key();
-                let real_inode_of_file = fs_lock.storage.insert(Node::ArcDirectory(ArcDirectoryNode {
-                    inode: inode_of_file,
-                    name: name_of_file,
-                    fs,
-                    path,
-                    metadata: {
-                        let time = time();
-                        Metadata {
-                            ft: FileType {
-                                file: true,
-                                ..Default::default()
-                            },
-                            accessed: time,
-                            created: time,
-                            modified: time,
-                            len: 0,
-                        }
-                    },
-                }));
+                let real_inode_of_file =
+                    fs_lock.storage.insert(Node::ArcDirectory(ArcDirectoryNode {
+                        inode: inode_of_file,
+                        name: name_of_file,
+                        fs,
+                        path,
+                        metadata: {
+                            let time = time();
+                            Metadata {
+                                ft: FileType {
+                                    file: true,
+                                    ..Default::default()
+                                },
+                                accessed: time,
+                                created: time,
+                                modified: time,
+                                len: 0,
+                            }
+                        },
+                    }));
 
                 assert_eq!(
                     inode_of_file, real_inode_of_file,
@@ -363,7 +364,7 @@ impl crate::FileOpener for FileOpener {
 
                 // Write lock.
                 let mut fs = self.filesystem.inner.write().map_err(|_| FsError::Lock)?;
-                
+
                 let inode = fs.storage.get_mut(inode_of_file);
                 match inode {
                     Some(Node::File(FileNode { metadata, file, .. })) => {
@@ -413,7 +414,8 @@ impl crate::FileOpener for FileOpener {
                         // Update the accessed time.
                         node.metadata.accessed = time();
 
-                        let mut file = node.fs
+                        let mut file = node
+                            .fs
                             .new_open_options()
                             .read(read)
                             .write(write)
@@ -502,7 +504,7 @@ impl crate::FileOpener for FileOpener {
 
 #[cfg(test)]
 mod test_file_opener {
-    use tokio::io::{AsyncWriteExt, AsyncSeekExt, AsyncReadExt};
+    use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
     use crate::{mem_fs::*, FileSystem as FS, FsError};
     use std::io;

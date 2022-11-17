@@ -2,8 +2,8 @@
 //! implementations. They aren't exposed to the public API. Only
 //! `FileHandle` can be used through the `VirtualFile` trait object.
 
+use tokio::io::AsyncRead;
 use tokio::io::{AsyncSeek, AsyncWrite};
-use tokio::io::{AsyncRead};
 
 use super::*;
 use crate::{FsError, Result, VirtualFile};
@@ -13,7 +13,7 @@ use std::convert::TryInto;
 use std::fmt;
 use std::io;
 use std::pin::Pin;
-use std::task::{Poll, Context};
+use std::task::{Context, Poll};
 
 /// A file handle. The file system doesn't return the [`File`] type
 /// directly, but rather this `FileHandle` type, which contains the
@@ -77,7 +77,8 @@ impl FileHandle {
             match inode {
                 Some(Node::ArcFile(node)) => {
                     self.arc_file.replace(
-                        node.fs.new_open_options()
+                        node.fs
+                            .new_open_options()
                             .read(self.readable)
                             .write(self.writable)
                             .append(self.append_mode)
@@ -155,7 +156,8 @@ impl VirtualFile for FileHandle {
             }
             Some(Node::ArcFile(node)) => match self.arc_file.as_ref() {
                 Some(file) => file.as_ref().map(|file| file.size()).unwrap_or(0),
-                None => node.fs
+                None => node
+                    .fs
                     .new_open_options()
                     .read(self.readable)
                     .write(self.writable)
@@ -259,7 +261,8 @@ impl VirtualFile for FileHandle {
                     .as_ref()
                     .map(|file| file.get_special_fd())
                     .unwrap_or(None),
-                None => node.fs
+                None => node
+                    .fs
                     .new_open_options()
                     .read(self.readable)
                     .write(self.writable)
@@ -274,15 +277,13 @@ impl VirtualFile for FileHandle {
 
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         if !self.readable {
-            return Poll::Ready(
-                    Err(io::Error::new(
-                    io::ErrorKind::PermissionDenied,
-                    format!(
-                        "the file (inode `{}) doesn't have the `read` permission",
-                        self.inode
-                    ),
-                ))
-            );
+            return Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                format!(
+                    "the file (inode `{}) doesn't have the `read` permission",
+                    self.inode
+                ),
+            )));
         }
 
         let mut fs =
@@ -295,11 +296,11 @@ impl VirtualFile for FileHandle {
             Some(Node::File(node)) => {
                 let remaining = node.file.buffer.len() - (self.cursor as usize);
                 Poll::Ready(Ok(remaining))
-            },
+            }
             Some(Node::ReadOnlyFile(node)) => {
                 let remaining = node.file.buffer.len() - (self.cursor as usize);
                 Poll::Ready(Ok(remaining))
-            },
+            }
             Some(Node::CustomFile(node)) => {
                 let mut file = node.file.lock().unwrap();
                 let file = Pin::new(file.as_mut());
@@ -311,39 +312,33 @@ impl VirtualFile for FileHandle {
                     Ok(file) => {
                         let file = Pin::new(file);
                         file.poll_read_ready(cx)
-                    },
+                    }
                     Err(_) => {
-                        return Poll::Ready(Err(
-                            io::Error::new(
-                                io::ErrorKind::NotFound,
-                                format!("inode `{}` doesn't match a file", self.inode),
-                            )
-                        ))
+                        return Poll::Ready(Err(io::Error::new(
+                            io::ErrorKind::NotFound,
+                            format!("inode `{}` doesn't match a file", self.inode),
+                        )))
                     }
                 }
             }
             _ => {
-                return Poll::Ready(
-                    Err(io::Error::new(
-                        io::ErrorKind::NotFound,
-                        format!("inode `{}` doesn't match a file", self.inode),
-                    ))
-                );
+                return Poll::Ready(Err(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    format!("inode `{}` doesn't match a file", self.inode),
+                )));
             }
         }
     }
 
     fn poll_write_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         if !self.readable {
-            return Poll::Ready(
-                    Err(io::Error::new(
-                    io::ErrorKind::PermissionDenied,
-                    format!(
-                        "the file (inode `{}) doesn't have the `read` permission",
-                        self.inode
-                    ),
-                ))
-            );
+            return Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                format!(
+                    "the file (inode `{}) doesn't have the `read` permission",
+                    self.inode
+                ),
+            )));
         }
 
         let mut fs =
@@ -353,12 +348,8 @@ impl VirtualFile for FileHandle {
 
         let inode = fs.storage.get_mut(self.inode);
         match inode {
-            Some(Node::File(_)) => {
-                Poll::Ready(Ok(8192))
-            },
-            Some(Node::ReadOnlyFile(_)) => {
-                Poll::Ready(Ok(0))
-            },
+            Some(Node::File(_)) => Poll::Ready(Ok(8192)),
+            Some(Node::ReadOnlyFile(_)) => Poll::Ready(Ok(0)),
             Some(Node::CustomFile(node)) => {
                 let mut file = node.file.lock().unwrap();
                 let file = Pin::new(file.as_mut());
@@ -370,24 +361,20 @@ impl VirtualFile for FileHandle {
                     Ok(file) => {
                         let file = Pin::new(file);
                         file.poll_read_ready(cx)
-                    },
+                    }
                     Err(_) => {
-                        return Poll::Ready(Err(
-                            io::Error::new(
-                                io::ErrorKind::NotFound,
-                                format!("inode `{}` doesn't match a file", self.inode),
-                            )
-                        ))
+                        return Poll::Ready(Err(io::Error::new(
+                            io::ErrorKind::NotFound,
+                            format!("inode `{}` doesn't match a file", self.inode),
+                        )))
                     }
                 }
             }
             _ => {
-                return Poll::Ready(
-                    Err(io::Error::new(
-                        io::ErrorKind::NotFound,
-                        format!("inode `{}` doesn't match a file", self.inode),
-                    ))
-                );
+                return Poll::Ready(Err(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    format!("inode `{}` doesn't match a file", self.inode),
+                )));
             }
         }
     }
@@ -570,54 +557,52 @@ mod test_virtual_file {
     }
 }
 
-impl AsyncRead
-for FileHandle {
+impl AsyncRead for FileHandle {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
         if !self.readable {
-            return Poll::Ready(
-                    Err(io::Error::new(
-                    io::ErrorKind::PermissionDenied,
-                    format!(
-                        "the file (inode `{}) doesn't have the `read` permission",
-                        self.inode
-                    ),
-                ))
-            );
+            return Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                format!(
+                    "the file (inode `{}) doesn't have the `read` permission",
+                    self.inode
+                ),
+            )));
         }
 
         let mut cursor = self.cursor;
         let ret = {
-            let mut fs =
-                self.filesystem.inner.write().map_err(|_| {
-                    io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
-                })?;
+            let mut fs = self.filesystem.inner.write().map_err(|_| {
+                io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
+            })?;
 
             let inode = fs.storage.get_mut(self.inode);
             match inode {
                 Some(Node::File(node)) => {
                     let read = unsafe {
-                        node.file.read(std::mem::transmute(buf.unfilled_mut()), &mut cursor)
+                        node.file
+                            .read(std::mem::transmute(buf.unfilled_mut()), &mut cursor)
                     };
                     if let Ok(read) = &read {
                         unsafe { buf.assume_init(*read) };
                         buf.advance(*read);
                     }
                     Poll::Ready(read.map(|_| ()))
-                },
+                }
                 Some(Node::ReadOnlyFile(node)) => {
                     let read = unsafe {
-                        node.file.read(std::mem::transmute(buf.unfilled_mut()), &mut cursor)
+                        node.file
+                            .read(std::mem::transmute(buf.unfilled_mut()), &mut cursor)
                     };
                     if let Ok(read) = &read {
                         unsafe { buf.assume_init(*read) };
                         buf.advance(*read);
                     }
                     Poll::Ready(read.map(|_| ()))
-                },
+                }
                 Some(Node::CustomFile(node)) => {
                     let mut file = node.file.lock().unwrap();
                     let file = Pin::new(file.as_mut());
@@ -629,24 +614,20 @@ for FileHandle {
                         Ok(file) => {
                             let file = Pin::new(file);
                             file.poll_read(cx, buf)
-                        },
+                        }
                         Err(_) => {
-                            return Poll::Ready(Err(
-                                io::Error::new(
-                                    io::ErrorKind::NotFound,
-                                    format!("inode `{}` doesn't match a file", self.inode),
-                                )
-                            ))
+                            return Poll::Ready(Err(io::Error::new(
+                                io::ErrorKind::NotFound,
+                                format!("inode `{}` doesn't match a file", self.inode),
+                            )))
                         }
                     }
                 }
                 _ => {
-                    return Poll::Ready(
-                        Err(io::Error::new(
-                            io::ErrorKind::NotFound,
-                            format!("inode `{}` doesn't match a file", self.inode),
-                        ))
-                    );
+                    return Poll::Ready(Err(io::Error::new(
+                        io::ErrorKind::NotFound,
+                        format!("inode `{}` doesn't match a file", self.inode),
+                    )));
                 }
             }
         };
@@ -655,33 +636,28 @@ for FileHandle {
     }
 }
 
-impl AsyncSeek
-for FileHandle {
-    fn start_seek(
-        mut self: Pin<&mut Self>,
-        position: io::SeekFrom
-    ) -> io::Result<()> {
+impl AsyncSeek for FileHandle {
+    fn start_seek(mut self: Pin<&mut Self>, position: io::SeekFrom) -> io::Result<()> {
         if self.append_mode {
-            return Ok(())
+            return Ok(());
         }
 
         let mut cursor = self.cursor;
         let ret = {
-            let mut fs =
-                self.filesystem.inner.write().map_err(|_| {
-                    io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
-                })?;
+            let mut fs = self.filesystem.inner.write().map_err(|_| {
+                io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
+            })?;
 
             let inode = fs.storage.get_mut(self.inode);
             match inode {
                 Some(Node::File(node)) => {
                     node.file.seek(position, &mut cursor)?;
                     Ok(())
-                },
+                }
                 Some(Node::ReadOnlyFile(node)) => {
                     node.file.seek(position, &mut cursor)?;
                     Ok(())
-                },
+                }
                 Some(Node::CustomFile(node)) => {
                     let mut file = node.file.lock().unwrap();
                     let file = Pin::new(file.as_mut());
@@ -693,7 +669,7 @@ for FileHandle {
                         Ok(file) => {
                             let file = Pin::new(file);
                             file.start_seek(position)
-                        },
+                        }
                         Err(_) => {
                             return Err(io::Error::new(
                                 io::ErrorKind::NotFound,
@@ -714,10 +690,7 @@ for FileHandle {
         ret
     }
 
-    fn poll_complete(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>
-    ) -> Poll<io::Result<u64>> {
+    fn poll_complete(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
         // In `append` mode, it's not possible to seek in the file. In
         // [`open(2)`](https://man7.org/linux/man-pages/man2/open.2.html),
         // the `O_APPEND` option describes this behavior well:
@@ -743,12 +716,8 @@ for FileHandle {
 
         let inode = fs.storage.get_mut(self.inode);
         match inode {
-            Some(Node::File { .. }) => {
-                Poll::Ready(Ok(self.cursor))
-            },
-            Some(Node::ReadOnlyFile { .. }) => {
-                Poll::Ready(Ok(self.cursor))
-            },
+            Some(Node::File { .. }) => Poll::Ready(Ok(self.cursor)),
+            Some(Node::ReadOnlyFile { .. }) => Poll::Ready(Ok(self.cursor)),
             Some(Node::CustomFile(node)) => {
                 let mut file = node.file.lock().unwrap();
                 let file = Pin::new(file.as_mut());
@@ -760,54 +729,42 @@ for FileHandle {
                     Ok(file) => {
                         let file = Pin::new(file);
                         file.poll_complete(cx)
-                    },
-                    Err(_) => {
-                        Poll::Ready(
-                            Err(io::Error::new(
-                                io::ErrorKind::NotFound,
-                                format!("inode `{}` doesn't match a file", self.inode),
-                            ))
-                        )
                     }
-                }
-            }
-            _ => {
-                Poll::Ready(
-                    Err(io::Error::new(
+                    Err(_) => Poll::Ready(Err(io::Error::new(
                         io::ErrorKind::NotFound,
                         format!("inode `{}` doesn't match a file", self.inode),
-                    ))
-                )
+                    ))),
+                }
             }
+            _ => Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("inode `{}` doesn't match a file", self.inode),
+            ))),
         }
     }
 }
 
-impl AsyncWrite
-for FileHandle {
+impl AsyncWrite for FileHandle {
     fn poll_write(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
         if !self.writable {
-            return Poll::Ready(
-                Err(io::Error::new(
-                    io::ErrorKind::PermissionDenied,
-                    format!(
-                        "the file (inode `{}) doesn't have the `write` permission",
-                        self.inode
-                    ),
-                ))
-            );
+            return Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                format!(
+                    "the file (inode `{}) doesn't have the `write` permission",
+                    self.inode
+                ),
+            )));
         }
 
         let mut cursor = self.cursor;
         let bytes_written = {
-            let mut fs =
-                self.filesystem.inner.write().map_err(|_| {
-                    io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
-                })?;
+            let mut fs = self.filesystem.inner.write().map_err(|_| {
+                io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
+            })?;
 
             let inode = fs.storage.get_mut(self.inode);
             match inode {
@@ -823,12 +780,12 @@ for FileHandle {
                 }
                 Some(Node::CustomFile(node)) => {
                     let mut guard = node.file.lock().unwrap();
-                    
+
                     let file = Pin::new(guard.as_mut());
                     if let Err(err) = file.start_seek(io::SeekFrom::Start(self.cursor as u64)) {
                         return Poll::Ready(Err(err));
                     }
-                    
+
                     let file = Pin::new(guard.as_mut());
                     let _ = file.poll_complete(cx);
 
@@ -848,24 +805,20 @@ for FileHandle {
                         Ok(file) => {
                             let file = Pin::new(file);
                             return file.poll_write(cx, buf);
-                        },
+                        }
                         Err(_) => {
-                            return Poll::Ready(
-                                Err(io::Error::new(
-                                    io::ErrorKind::NotFound,
-                                    format!("inode `{}` doesn't match a file", self.inode),
-                                ))
-                            )
+                            return Poll::Ready(Err(io::Error::new(
+                                io::ErrorKind::NotFound,
+                                format!("inode `{}` doesn't match a file", self.inode),
+                            )))
                         }
                     }
                 }
                 _ => {
-                    return Poll::Ready(
-                        Err(io::Error::new(
-                            io::ErrorKind::NotFound,
-                            format!("inode `{}` doesn't match a file", self.inode),
-                        ))
-                    )
+                    return Poll::Ready(Err(io::Error::new(
+                        io::ErrorKind::NotFound,
+                        format!("inode `{}` doesn't match a file", self.inode),
+                    )))
                 }
             }
         };
@@ -880,25 +833,30 @@ for FileHandle {
     ) -> Poll<io::Result<usize>> {
         let mut cursor = self.cursor;
         let ret = {
-            let mut fs =
-                self.filesystem.inner.write().map_err(|_| {
-                    io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
-                })?;
+            let mut fs = self.filesystem.inner.write().map_err(|_| {
+                io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
+            })?;
 
             let inode = fs.storage.get_mut(self.inode);
             match inode {
                 Some(Node::File(node)) => {
-                    let buf = bufs.iter().find(|b| !b.is_empty()).map_or(&[][..], |b| &**b);
+                    let buf = bufs
+                        .iter()
+                        .find(|b| !b.is_empty())
+                        .map_or(&[][..], |b| &**b);
                     let bytes_written = node.file.write(buf, &mut cursor)?;
                     node.metadata.len = node.file.buffer.len() as u64;
                     Poll::Ready(Ok(bytes_written))
-                },
+                }
                 Some(Node::ReadOnlyFile(node)) => {
-                    let buf = bufs.iter().find(|b| !b.is_empty()).map_or(&[][..], |b| &**b);
+                    let buf = bufs
+                        .iter()
+                        .find(|b| !b.is_empty())
+                        .map_or(&[][..], |b| &**b);
                     let bytes_written = node.file.write(buf, &mut cursor)?;
                     node.metadata.len = node.file.buffer.len() as u64;
                     Poll::Ready(Ok(bytes_written))
-                },
+                }
                 Some(Node::CustomFile(node)) => {
                     let mut file = node.file.lock().unwrap();
                     let file = Pin::new(file.as_mut());
@@ -910,33 +868,24 @@ for FileHandle {
                         Ok(file) => {
                             let file = Pin::new(file);
                             file.poll_write_vectored(cx, bufs)
-                        },
-                        Err(_) => {
-                            Poll::Ready(
-                                Err(io::Error::new(
-                                    io::ErrorKind::NotFound,
-                                    format!("inode `{}` doesn't match a file", self.inode),
-                                ))
-                            )
                         }
+                        Err(_) => Poll::Ready(Err(io::Error::new(
+                            io::ErrorKind::NotFound,
+                            format!("inode `{}` doesn't match a file", self.inode),
+                        ))),
                     }
                 }
-                _ => Poll::Ready(
-                    Err(io::Error::new(
-                        io::ErrorKind::NotFound,
-                        format!("inode `{}` doesn't match a file", self.inode),
-                    ))
-                ),
+                _ => Poll::Ready(Err(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    format!("inode `{}` doesn't match a file", self.inode),
+                ))),
             }
         };
         self.cursor = cursor;
         ret
     }
-    
-    fn poll_flush(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>
-    ) -> Poll<io::Result<()>> {
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let mut fs =
             self.filesystem.inner.write().map_err(|_| {
                 io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
@@ -944,12 +893,8 @@ for FileHandle {
 
         let inode = fs.storage.get_mut(self.inode);
         match inode {
-            Some(Node::File(node)) => {
-                Poll::Ready(node.file.flush())
-            },
-            Some(Node::ReadOnlyFile(node)) => {
-                Poll::Ready(node.file.flush())
-            },
+            Some(Node::File(node)) => Poll::Ready(node.file.flush()),
+            Some(Node::ReadOnlyFile(node)) => Poll::Ready(node.file.flush()),
             Some(Node::CustomFile(node)) => {
                 let mut file = node.file.lock().unwrap();
                 let file = Pin::new(file.as_mut());
@@ -961,30 +906,21 @@ for FileHandle {
                     Ok(file) => {
                         let file = Pin::new(file);
                         file.poll_flush(cx)
-                    },
-                    Err(_) => {
-                        Poll::Ready(
-                            Err(io::Error::new(
-                                io::ErrorKind::NotFound,
-                                format!("inode `{}` doesn't match a file", self.inode),
-                            ))
-                        )
                     }
+                    Err(_) => Poll::Ready(Err(io::Error::new(
+                        io::ErrorKind::NotFound,
+                        format!("inode `{}` doesn't match a file", self.inode),
+                    ))),
                 }
             }
-            _ => Poll::Ready(
-                Err(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    format!("inode `{}` doesn't match a file", self.inode),
-                ))
-            ),
+            _ => Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("inode `{}` doesn't match a file", self.inode),
+            ))),
         }
     }
 
-    fn poll_shutdown(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>
-    ) -> Poll<io::Result<()>> {
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let mut fs =
             self.filesystem.inner.write().map_err(|_| {
                 io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
@@ -992,12 +928,8 @@ for FileHandle {
 
         let inode = fs.storage.get_mut(self.inode);
         match inode {
-            Some(Node::File { .. }) => {
-                Poll::Ready(Ok(()))
-            },
-            Some(Node::ReadOnlyFile { .. }) => {
-                Poll::Ready(Ok(()))
-            },
+            Some(Node::File { .. }) => Poll::Ready(Ok(())),
+            Some(Node::ReadOnlyFile { .. }) => Poll::Ready(Ok(())),
             Some(Node::CustomFile(node)) => {
                 let mut file = node.file.lock().unwrap();
                 let file = Pin::new(file.as_mut());
@@ -1009,23 +941,17 @@ for FileHandle {
                     Ok(file) => {
                         let file = Pin::new(file);
                         file.poll_shutdown(cx)
-                    },
-                    Err(_) => {
-                        Poll::Ready(
-                            Err(io::Error::new(
-                                io::ErrorKind::NotFound,
-                                format!("inode `{}` doesn't match a file", self.inode),
-                            ))
-                        )
                     }
+                    Err(_) => Poll::Ready(Err(io::Error::new(
+                        io::ErrorKind::NotFound,
+                        format!("inode `{}` doesn't match a file", self.inode),
+                    ))),
                 }
             }
-            _ => Poll::Ready(
-                Err(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    format!("inode `{}` doesn't match a file", self.inode),
-                ))
-            ),
+            _ => Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("inode `{}` doesn't match a file", self.inode),
+            ))),
         }
     }
 
@@ -1042,12 +968,12 @@ for FileHandle {
             Some(Node::CustomFile(node)) => {
                 let file = node.file.lock().unwrap();
                 file.is_write_vectored()
-            },
+            }
             Some(Node::ArcFile { .. }) => {
                 drop(fs);
                 match self.arc_file.as_ref() {
                     Some(Ok(file)) => file.is_write_vectored(),
-                    _ => false
+                    _ => false,
                 }
             }
             _ => false,
@@ -1057,7 +983,7 @@ for FileHandle {
 
 #[cfg(test)]
 mod test_read_write_seek {
-    use tokio::io::{AsyncWriteExt, AsyncSeekExt, AsyncReadExt};
+    use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
     use crate::{mem_fs::*, FileSystem as FS};
     use std::io;

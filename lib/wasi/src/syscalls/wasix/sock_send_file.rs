@@ -58,9 +58,7 @@ pub fn sock_send_file<M: MemorySize>(
                         let mut stdin = inodes
                             .stdin_mut(&state.fs.fd_map)
                             .map_err(fs_error_into_wasi_err)?;
-                        stdin.read(&mut buf)
-                            .await
-                            .map_err(map_io_err)?
+                        stdin.read(&mut buf).await.map_err(map_io_err)?
                     }
                     __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => return Ok(Errno::Inval),
                     _ => {
@@ -83,10 +81,7 @@ pub fn sock_send_file<M: MemorySize>(
                                             .seek(std::io::SeekFrom::Start(offset as u64))
                                             .await
                                             .map_err(map_io_err)?;
-                                        handle
-                                            .read(&mut buf)
-                                            .await
-                                            .map_err(map_io_err)?
+                                        handle.read(&mut buf).await.map_err(map_io_err)?
                                     } else {
                                         return Ok(Errno::Inval);
                                     }
@@ -141,8 +136,9 @@ pub fn sock_send_file<M: MemorySize>(
                 &mut ctx,
                 sock,
                 Rights::SOCK_SEND,
-                move |socket| async move { socket.send(buf).await }
-            ).await?;
+                move |socket| async move { socket.send(buf).await },
+            )
+            .await?;
             env = ctx.data();
 
             total_written += bytes_written as u64;

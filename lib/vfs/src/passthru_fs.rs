@@ -55,10 +55,10 @@ impl FileSystem for PassthruFileSystem {
 
 #[cfg(test)]
 mod test_builder {
-    use tokio::io::{AsyncWriteExt, AsyncReadExt};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     use crate::{FileSystem, PassthruFileSystem};
-    
+
     #[tokio::test]
     async fn test_passthru_fs_2() {
         let mem_fs = crate::mem_fs::FileSystem::default();

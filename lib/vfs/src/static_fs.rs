@@ -1,8 +1,8 @@
 use anyhow::anyhow;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncSeek};
+use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
 use std::convert::TryInto;
-use std::io::{Error as IoError, ErrorKind as IoErrorKind, SeekFrom, self};
+use std::io::{self, Error as IoError, ErrorKind as IoErrorKind, SeekFrom};
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -11,8 +11,7 @@ use std::task::{Context, Poll};
 
 use crate::mem_fs::FileSystem as MemFileSystem;
 use crate::{
-    FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig,
-    ReadDir, VirtualFile,
+    FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, VirtualFile,
 };
 use webc::{FsEntry, FsEntryType, OwnedFsEntryFile};
 
@@ -135,8 +134,7 @@ impl VirtualFile for WebCFile {
     }
 }
 
-impl AsyncRead
-for WebCFile {
+impl AsyncRead for WebCFile {
     fn poll_read(
         self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
@@ -170,8 +168,7 @@ for WebCFile {
 
 // WebC file is not writable, the FileOpener will return a MemoryFile for writing instead
 // This code should never be executed (since writes are redirected to memory instead).
-impl AsyncWrite
-for WebCFile {
+impl AsyncWrite for WebCFile {
     fn poll_write(
         self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
@@ -187,12 +184,8 @@ for WebCFile {
     }
 }
 
-impl AsyncSeek
-for WebCFile {
-    fn start_seek(
-        mut self: Pin<&mut Self>,
-        pos: io::SeekFrom
-    ) -> io::Result<()> {
+impl AsyncSeek for WebCFile {
+    fn start_seek(mut self: Pin<&mut Self>, pos: io::SeekFrom) -> io::Result<()> {
         let self_size = self.size();
         match pos {
             SeekFrom::Start(s) => {
@@ -215,9 +208,7 @@ for WebCFile {
         Ok(())
     }
     fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
-        Poll::Ready(
-            Ok(self.cursor)
-        )
+        Poll::Ready(Ok(self.cursor))
     }
 }
 

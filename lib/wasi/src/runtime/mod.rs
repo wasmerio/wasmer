@@ -276,10 +276,8 @@ where
         options: ReqwestOptions,
         headers: Vec<(String, String)>,
         data: Option<Vec<u8>>,
-    ) -> Pin<Box<dyn Future<Output=Result<ReqwestResponse, Errno>>>> {
-        Box::pin(async move {
-            Err(Errno::Notsup)
-        })
+    ) -> Pin<Box<dyn Future<Output = Result<ReqwestResponse, Errno>>>> {
+        Box::pin(async move { Err(Errno::Notsup) })
     }
 
     /// Performs a HTTP or HTTPS request to a destination URL
@@ -292,7 +290,7 @@ where
         _options: ReqwestOptions,
         headers: Vec<(String, String)>,
         data: Option<Vec<u8>>,
-    ) -> Pin<Box<dyn Future<Output=Result<ReqwestResponse, Errno>>>> {
+    ) -> Pin<Box<dyn Future<Output = Result<ReqwestResponse, Errno>>>> {
         use std::convert::TryFrom;
 
         let url = url.to_string();
@@ -354,23 +352,25 @@ where
 
     /// Make a web socket connection to a particular URL
     #[cfg(not(feature = "host-ws"))]
-    fn web_socket(&self, url: &str) -> Pin<Box<dyn Future<Output=Result<Box<dyn WebSocketAbi>, String>>>> {
-        Box::pin(async move {
-            Err("not supported".to_string())
-        })
+    fn web_socket(
+        &self,
+        url: &str,
+    ) -> Pin<Box<dyn Future<Output = Result<Box<dyn WebSocketAbi>, String>>>> {
+        Box::pin(async move { Err("not supported".to_string()) })
     }
 
     /// Make a web socket connection to a particular URL
     #[cfg(feature = "host-ws")]
-    fn web_socket(&self, url: &str) -> Pin<Box<dyn Future<Output=Result<Box<dyn WebSocketAbi>, String>>>> {
+    fn web_socket(
+        &self,
+        url: &str,
+    ) -> Pin<Box<dyn Future<Output = Result<Box<dyn WebSocketAbi>, String>>>> {
         let url = url.to_string();
-        Box::pin(async move {
-            Box::new(TerminalWebSocket::new(url.as_str())).await
-        })
+        Box::pin(async move { Box::new(TerminalWebSocket::new(url.as_str())).await })
     }
 
     /// Writes output to the console
-    fn stdout(&self, data: &[u8]) -> Pin<Box<dyn Future<Output=io::Result<()>> + Send + Sync>> {
+    fn stdout(&self, data: &[u8]) -> Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync>> {
         Box::pin(async move {
             let mut handle = io::stdout();
             handle.write_all(data)
@@ -378,7 +378,7 @@ where
     }
 
     /// Writes output to the console
-    fn stderr(&self, data: &[u8]) -> Pin<Box<dyn Future<Output=io::Result<()>> + Send + Sync>> {
+    fn stderr(&self, data: &[u8]) -> Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync>> {
         Box::pin(async move {
             let mut handle = io::stderr();
             handle.write_all(data)
@@ -386,7 +386,7 @@ where
     }
 
     /// Flushes the output to the console
-    fn flush(&self) -> Pin<Box<dyn Future<Output=io::Result<()>>>> {
+    fn flush(&self) -> Pin<Box<dyn Future<Output = io::Result<()>>>> {
         Box::pin(async move {
             io::stdout().flush()?;
             io::stderr().flush()?;
@@ -396,7 +396,7 @@ where
 
     /// Writes output to the log
     #[cfg(feature = "tracing")]
-    fn log(&self, text: String) -> Pin<Box<dyn Future<Output=io::Result<()>>>> {
+    fn log(&self, text: String) -> Pin<Box<dyn Future<Output = io::Result<()>>>> {
         Box::pin(async move {
             tracing::info!("{}", text);
             Ok(())
@@ -405,7 +405,7 @@ where
 
     /// Writes output to the log
     #[cfg(not(feature = "tracing"))]
-    fn log(&self, text: String) -> Pin<Box<dyn Future<Output=io::Result<()>>>> {
+    fn log(&self, text: String) -> Pin<Box<dyn Future<Output = io::Result<()>>>> {
         Box::pin(async move {
             let text = format!("{}\r\n", text);
             self.stderr(text.as_bytes()).await
@@ -413,10 +413,8 @@ where
     }
 
     /// Clears the terminal
-    fn cls(&self) -> Pin<Box<dyn Future<Output=io::Result<()>>>> {
-        Box::pin(async move {
-            self.stdout("\x1B[H\x1B[2J".as_bytes()).await
-        })
+    fn cls(&self) -> Pin<Box<dyn Future<Output = io::Result<()>>>> {
+        Box::pin(async move { self.stdout("\x1B[H\x1B[2J".as_bytes()).await })
     }
 }
 
@@ -468,9 +466,7 @@ impl Default for DefaultTaskManager {
     fn default() -> Self {
         let runtime: std::sync::Arc<Runtime> =
             std::sync::Arc::new(Builder::new_current_thread().enable_all().build().unwrap());
-        Self {
-            runtime,
-        }
+        Self { runtime }
     }
     #[cfg(not(feature = "sys-thread"))]
     fn default() -> Self {

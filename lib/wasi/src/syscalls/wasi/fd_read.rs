@@ -42,7 +42,6 @@ pub fn fd_read<M: MemorySize>(
     fd_read_internal::<M>(ctx, fd, iovs, iovs_len, offset, nread)
 }
 
-
 /// ### `fd_pread()`
 /// Read from the file at the given offset without updating the file cursor.
 /// This acts like a stateless version of Seek + Read
@@ -144,8 +143,7 @@ fn fd_read_internal<M: MemorySize>(
             let mut guard = inode.write();
             match guard.deref_mut() {
                 Kind::File { handle, .. } => {
-                    if let Some(handle) = handle
-                    {
+                    if let Some(handle) = handle {
                         let handle = handle.clone();
                         drop(inode);
                         drop(guard);
@@ -169,10 +167,7 @@ fn fd_read_internal<M: MemorySize>(
 
                                 let mut data = Vec::with_capacity(max_size);
                                 unsafe { data.set_len(max_size) };
-                                let amt = handle
-                                    .read(&mut data[..])
-                                    .await
-                                    .map_err(map_io_err)?;
+                                let amt = handle.read(&mut data[..]).await.map_err(map_io_err)?;
                                 unsafe { data.set_len(amt) };
                                 Ok(data)
                             }
@@ -199,9 +194,7 @@ fn fd_read_internal<M: MemorySize>(
                         } else {
                             None
                         },
-                        async move {
-                            socket.recv(max_size).await
-                        }
+                        async move { socket.recv(max_size).await }
                     )
                     .map_err(|err| match err {
                         Errno::Timedout => Errno::Again,

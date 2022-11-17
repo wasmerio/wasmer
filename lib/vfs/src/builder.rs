@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use tracing::*;
 use wasmer_wasi_types::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 
+use super::ZeroFile;
 use super::{NullFile, SpecialFile};
-use super::{ZeroFile};
 use crate::tmp_fs::TmpFileSystem;
 
 pub struct RootFileSystemBuilder {
@@ -108,7 +108,7 @@ impl RootFileSystemBuilder {
 
 #[cfg(test)]
 mod test_builder {
-    use crate::{RootFileSystemBuilder, FileSystem};
+    use crate::{FileSystem, RootFileSystemBuilder};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     #[tokio::test]

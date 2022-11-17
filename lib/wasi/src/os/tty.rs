@@ -1,11 +1,9 @@
 use derivative::*;
-use std::{
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 use wasmer_wasi_types::wasi::{Signal, Snapshot0Clockid};
 
 use wasmer_vbus::SignalHandlerAbi;
-use wasmer_vfs::{VirtualFile, AsyncWriteExt};
+use wasmer_vfs::{AsyncWriteExt, VirtualFile};
 
 use crate::syscalls::platform_clock_time_get;
 

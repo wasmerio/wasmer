@@ -1,10 +1,10 @@
 use derivative::Derivative;
-use wasmer_vfs::AsyncReadExt;
 use std::{
     collections::HashMap,
     ops::Deref,
     sync::{Arc, RwLock},
 };
+use wasmer_vfs::AsyncReadExt;
 
 mod binary_package;
 mod cached_modules;

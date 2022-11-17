@@ -1,18 +1,17 @@
 use crate::mem_fs::FileSystem as MemFileSystem;
 use crate::{
-    FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig,
-    ReadDir, VirtualFile,
+    FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, VirtualFile,
 };
 use anyhow::anyhow;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncSeek};
 use std::convert::TryInto;
-use std::io::{Error as IoError, ErrorKind as IoErrorKind, SeekFrom, self};
+use std::io::{self, Error as IoError, ErrorKind as IoErrorKind, SeekFrom};
 use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use webc::{FsEntry, FsEntryType, OwnedFsEntryFile, WebC};
 
 /// Custom file system wrapper to map requested file paths
@@ -149,7 +148,7 @@ where
     }
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
-    }    
+    }
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         let remaining = self.entry.get_len() - self.cursor;
         Poll::Ready(Ok(remaining as usize))
@@ -222,10 +221,7 @@ where
     T: std::fmt::Debug + Send + Sync + 'static,
     T: Deref<Target = WebC<'static>>,
 {
-    fn start_seek(
-        mut self: Pin<&mut Self>,
-        pos: io::SeekFrom
-    ) -> io::Result<()> {
+    fn start_seek(mut self: Pin<&mut Self>, pos: io::SeekFrom) -> io::Result<()> {
         let self_size = self.size();
         match pos {
             SeekFrom::Start(s) => {
@@ -248,9 +244,7 @@ where
         Ok(())
     }
     fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
-        Poll::Ready(
-            Ok(self.cursor)
-        )
+        Poll::Ready(Ok(self.cursor))
     }
 }
 

@@ -1,8 +1,11 @@
 use std::{
     io::{self, *},
-    sync::Arc, pin::Pin, task::{Context, Poll}, ops::DerefMut,
+    ops::DerefMut,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
 };
-use wasmer_vfs::{VirtualFile, AsyncSeek, AsyncWrite, AsyncRead};
+use wasmer_vfs::{AsyncRead, AsyncSeek, AsyncWrite, VirtualFile};
 
 use crate::runtime::RuntimeStdout;
 
@@ -20,10 +23,7 @@ impl TtyFile {
         stdin: Box<dyn VirtualFile + Send + Sync + 'static>,
     ) -> Self {
         let stdout = RuntimeStdout::new(runtime);
-        Self {
-            stdout,
-            stdin
-        }
+        Self { stdout, stdin }
     }
 }
 
@@ -37,7 +37,11 @@ impl AsyncSeek for TtyFile {
 }
 
 impl AsyncWrite for TtyFile {
-    fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
         let stdout = Pin::new(&mut self.stdout);
         stdout.poll_write(cx, buf)
     }
@@ -49,7 +53,11 @@ impl AsyncWrite for TtyFile {
         let stdout = Pin::new(&mut self.stdout);
         stdout.poll_shutdown(cx)
     }
-    fn poll_write_vectored(self: Pin<&mut Self>, cx: &mut Context<'_>, bufs: &[IoSlice<'_>]) -> Poll<io::Result<usize>> {
+    fn poll_write_vectored(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        bufs: &[IoSlice<'_>],
+    ) -> Poll<io::Result<usize>> {
         let stdout = Pin::new(&mut self.stdout);
         stdout.poll_write_vectored(cx, bufs)
     }
@@ -59,7 +67,11 @@ impl AsyncWrite for TtyFile {
 }
 
 impl AsyncRead for TtyFile {
-    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut tokio::io::ReadBuf<'_>) -> Poll<io::Result<()>> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
         let stdin = Pin::new(&mut self.stdin);
         stdin.poll_read(cx, buf)
     }
@@ -100,13 +112,15 @@ impl VirtualFile for TtyFile {
 #[cfg(test)]
 mod tests {
 
-    use crate::{VirtualNetworking, WasiRuntimeImplementation, WasiEnv};
-    use std::{sync::{
-        Arc, Mutex,
-    }, pin::Pin, io};
+    use crate::{VirtualNetworking, WasiEnv, WasiRuntimeImplementation};
     use futures::Future;
+    use std::{
+        io,
+        pin::Pin,
+        sync::{Arc, Mutex},
+    };
     use wasmer_vbus::{DefaultVirtualBus, VirtualBus};
-    use wasmer_vfs::{WasiBidirectionalPipePair, AsyncWriteExt};
+    use wasmer_vfs::{AsyncWriteExt, WasiBidirectionalPipePair};
 
     struct FakeRuntimeImplementation {
         pub data: Arc<Mutex<Vec<u8>>>,
@@ -144,12 +158,15 @@ mod tests {
         fn bus<'a>(&'a self) -> Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static> {
             self.bus.clone()
         }
-    
+
         fn networking<'a>(&'a self) -> Arc<dyn VirtualNetworking + Send + Sync + 'static> {
             self.networking.clone()
         }
 
-        fn stdout(&self, data: &[u8]) -> Pin<Box<dyn Future<Output=io::Result<()>> + Send + Sync>> {
+        fn stdout(
+            &self,
+            data: &[u8],
+        ) -> Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync>> {
             let inner = self.data.clone();
             Box::pin(async move {
                 let mut inner = inner.lock().unwrap();

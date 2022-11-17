@@ -61,12 +61,10 @@ pub use wasmer_compiler_singlepass;
 use wasmer_wasi_types::wasi::{BusErrno, Errno, ExitCode, Signal, Snapshot0Clockid};
 
 pub use crate::state::{
-    default_fs_backing, Fd, Pipe,
-    WasiControlPlane, WasiFs, WasiInodes, WasiProcess, WasiProcessId, WasiState,
-    WasiStateBuilder, WasiStateCreationError, WasiThread, WasiThreadHandle, WasiThreadId,
-    ALL_RIGHTS, VIRTUAL_ROOT_FD,
+    default_fs_backing, Fd, Pipe, WasiControlPlane, WasiFs, WasiInodes, WasiProcess, WasiProcessId,
+    WasiState, WasiStateBuilder, WasiStateCreationError, WasiThread, WasiThreadHandle,
+    WasiThreadId, ALL_RIGHTS, VIRTUAL_ROOT_FD,
 };
-pub use wasmer_vfs::{WasiBidirectionalPipePair, WasiBidirectionalSharedPipePair, WasiPipe};
 pub use crate::syscalls::types;
 pub use crate::tty_file::TtyFile;
 #[cfg(feature = "wasix")]
@@ -85,6 +83,7 @@ pub use wasmer_vfs::FsError as WasiFsError;
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::VirtualFile`")]
 pub use wasmer_vfs::VirtualFile as WasiFile;
 pub use wasmer_vfs::{FsError, VirtualFile};
+pub use wasmer_vfs::{WasiBidirectionalPipePair, WasiBidirectionalSharedPipePair, WasiPipe};
 pub use wasmer_vnet::{UnsupportedVirtualNetworking, VirtualNetworking};
 
 // re-exports needed for OS
@@ -422,13 +421,7 @@ impl WasiEnv {
     ) -> Self {
         let state = Arc::new(state);
         let runtime = Arc::new(PluggableRuntimeImplementation::default());
-        Self::new_ext(
-            state,
-            compiled_modules,
-            process,
-            thread,
-            runtime,
-        )
+        Self::new_ext(state, compiled_modules, process, thread, runtime)
     }
 
     pub fn new_ext(

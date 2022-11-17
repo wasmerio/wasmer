@@ -60,8 +60,9 @@ pub fn sock_send_to<M: MemorySize>(
             &mut ctx,
             sock,
             Rights::SOCK_SEND_TO,
-            move |socket| async move { socket.send_to::<M>(buf, addr).await }
-        ).await
+            move |socket| async move { socket.send_to::<M>(buf, addr).await },
+        )
+        .await
     }));
     env = ctx.data();
 

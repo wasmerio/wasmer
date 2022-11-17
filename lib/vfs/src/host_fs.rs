@@ -1,20 +1,20 @@
 use crate::{
-    DirEntry, FileType, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir,
-    Result, VirtualFile,
+    DirEntry, FileType, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, Result,
+    VirtualFile,
 };
-use bytes::{Bytes, Buf};
+use bytes::{Buf, Bytes};
 #[cfg(feature = "enable-serde")]
 use serde::{de, Deserialize, Serialize};
-use tokio::io::{AsyncRead, AsyncWrite, AsyncSeek, ReadBuf};
 use std::convert::TryInto;
+use std::fs;
+use std::io::{self, Seek};
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use std::fs;
-use tokio::fs as tfs;
-use std::io::{self, Seek};
-use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::fs as tfs;
+use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 use tracing::debug;
 
 #[derive(Debug, Default, Clone)]
@@ -423,8 +423,7 @@ impl VirtualFile for File {
     }
 }
 
-impl AsyncRead
-for File {
+impl AsyncRead for File {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -435,8 +434,7 @@ for File {
     }
 }
 
-impl AsyncWrite
-for File {
+impl AsyncWrite for File {
     fn poll_write(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -446,18 +444,12 @@ for File {
         inner.poll_write(cx, buf)
     }
 
-    fn poll_flush(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>
-    ) -> Poll<io::Result<()>> {
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let inner = Pin::new(&mut self.inner);
         inner.poll_flush(cx)
     }
 
-    fn poll_shutdown(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>
-    ) -> Poll<io::Result<()>> {
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let inner = Pin::new(&mut self.inner);
         inner.poll_shutdown(cx)
     }
@@ -476,20 +468,13 @@ for File {
     }
 }
 
-impl AsyncSeek
-for File {
-    fn start_seek(
-        mut self: Pin<&mut Self>,
-        position: io::SeekFrom
-    ) -> io::Result<()> {
+impl AsyncSeek for File {
+    fn start_seek(mut self: Pin<&mut Self>, position: io::SeekFrom) -> io::Result<()> {
         let inner = Pin::new(&mut self.inner);
         inner.start_seek(position)
     }
 
-    fn poll_complete(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>
-    ) -> Poll<io::Result<u64>> {
+    fn poll_complete(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
         let inner = Pin::new(&mut self.inner);
         inner.poll_complete(cx)
     }
@@ -542,24 +527,20 @@ impl VirtualFile for Stdout {
     }
 }
 
-impl AsyncRead
-for Stdout {
+impl AsyncRead for Stdout {
     fn poll_read(
         self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
         _buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        Poll::Ready(
-            Err(io::Error::new(
-                io::ErrorKind::Other,
-                "can not read from stdout",
-            ))
-        )
+        Poll::Ready(Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from stdout",
+        )))
     }
 }
 
-impl AsyncWrite
-for Stdout {
+impl AsyncWrite for Stdout {
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -593,16 +574,16 @@ for Stdout {
     }
 }
 
-impl AsyncSeek
-for Stdout {
+impl AsyncSeek for Stdout {
     fn start_seek(self: Pin<&mut Self>, _position: io::SeekFrom) -> io::Result<()> {
         Err(io::Error::new(io::ErrorKind::Other, "can not seek stdout"))
     }
 
     fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
-        Poll::Ready(
-            Err(io::Error::new(io::ErrorKind::Other, "can not seek stdout"))
-        )
+        Poll::Ready(Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not seek stdout",
+        )))
     }
 }
 
@@ -612,24 +593,20 @@ for Stdout {
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stderr;
 
-impl AsyncRead
-for Stderr {
+impl AsyncRead for Stderr {
     fn poll_read(
         self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
         _buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        Poll::Ready(
-            Err(io::Error::new(
-                io::ErrorKind::Other,
-                "can not read from stderr",
-            ))
-        )
+        Poll::Ready(Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from stderr",
+        )))
     }
 }
 
-impl AsyncWrite
-for Stderr {
+impl AsyncWrite for Stderr {
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -663,16 +640,16 @@ for Stderr {
     }
 }
 
-impl AsyncSeek
-for Stderr {
+impl AsyncSeek for Stderr {
     fn start_seek(self: Pin<&mut Self>, _position: io::SeekFrom) -> io::Result<()> {
         Err(io::Error::new(io::ErrorKind::Other, "can not seek stderr"))
     }
 
     fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
-        Poll::Ready(
-            Err(io::Error::new(io::ErrorKind::Other, "can not seek stderr"))
-        )
+        Poll::Ready(Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not seek stderr",
+        )))
     }
 }
 
@@ -724,18 +701,15 @@ impl VirtualFile for Stderr {
 pub struct Stdin {
     read_buffer: Arc<std::sync::Mutex<Option<Bytes>>>,
 }
-impl Default
-for Stdin
-{
+impl Default for Stdin {
     fn default() -> Self {
         Self {
-            read_buffer: Arc::new(std::sync::Mutex::new(None))
+            read_buffer: Arc::new(std::sync::Mutex::new(None)),
         }
     }
 }
 
-impl AsyncRead
-for Stdin {
+impl AsyncRead for Stdin {
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -761,28 +735,30 @@ for Stdin {
     }
 }
 
-impl AsyncWrite
-for Stdin {
+impl AsyncWrite for Stdin {
     fn poll_write(
         self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
         _buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        Poll::Ready(
-            Err(io::Error::new(io::ErrorKind::Other, "can not wrote to stdin"))
-        )
+        Poll::Ready(Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not wrote to stdin",
+        )))
     }
 
     fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(
-            Err(io::Error::new(io::ErrorKind::Other, "can not flush stdin"))
-        )
+        Poll::Ready(Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not flush stdin",
+        )))
     }
 
     fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(
-            Err(io::Error::new(io::ErrorKind::Other, "can not wrote to stdin"))
-        )
+        Poll::Ready(Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not wrote to stdin",
+        )))
     }
 
     fn poll_write_vectored(
@@ -790,22 +766,23 @@ for Stdin {
         _cx: &mut Context<'_>,
         _bufs: &[io::IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        Poll::Ready(
-            Err(io::Error::new(io::ErrorKind::Other, "can not wrote to stdin"))
-        )
+        Poll::Ready(Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not wrote to stdin",
+        )))
     }
 }
 
-impl AsyncSeek
-for Stdin {
+impl AsyncSeek for Stdin {
     fn start_seek(self: Pin<&mut Self>, _position: io::SeekFrom) -> io::Result<()> {
         Err(io::Error::new(io::ErrorKind::Other, "can not seek stdin"))
     }
 
     fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
-        Poll::Ready(
-            Err(io::Error::new(io::ErrorKind::Other, "can not seek stdin"))
-        )
+        Poll::Ready(Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not seek stdin",
+        )))
     }
 }
 
@@ -856,7 +833,7 @@ impl VirtualFile for Stdin {
                 let buf_len = buf.len();
                 read_buffer.replace(Bytes::from(buf.to_vec()));
                 Poll::Ready(Ok(buf_len))
-            },            
+            }
         }
     }
     fn poll_write_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {

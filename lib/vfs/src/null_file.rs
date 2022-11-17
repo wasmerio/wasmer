@@ -3,9 +3,9 @@
 
 use std::io::{self, *};
 use std::pin::Pin;
-use std::task::{Poll, Context};
+use std::task::{Context, Poll};
 
-use tokio::io::{AsyncSeek, AsyncWrite, AsyncRead};
+use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
 use crate::{ClonableVirtualFile, VirtualFile};
 
@@ -22,7 +22,11 @@ impl AsyncSeek for NullFile {
 }
 
 impl AsyncWrite for NullFile {
-    fn poll_write(self: Pin<&mut Self>, _cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(buf.len()))
     }
     fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
@@ -31,7 +35,11 @@ impl AsyncWrite for NullFile {
     fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Poll::Ready(Ok(()))
     }
-    fn poll_write_vectored(self: Pin<&mut Self>, _cx: &mut Context<'_>, bufs: &[IoSlice<'_>]) -> Poll<io::Result<usize>> {
+    fn poll_write_vectored(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        bufs: &[IoSlice<'_>],
+    ) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(bufs.len()))
     }
     fn is_write_vectored(&self) -> bool {
@@ -40,7 +48,11 @@ impl AsyncWrite for NullFile {
 }
 
 impl AsyncRead for NullFile {
-    fn poll_read(self: Pin<&mut Self>, _cx: &mut Context<'_>, _buf: &mut tokio::io::ReadBuf<'_>) -> Poll<io::Result<()>> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        _buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
         Poll::Ready(Ok(()))
     }
 }

@@ -48,11 +48,10 @@ pub(crate) use crate::{
     mem_error_to_wasi,
     state::{
         self, bus_errno_into_vbus_error, fs_error_into_wasi_err, iterate_poll_events,
-        net_error_into_wasi_err, vbus_error_into_bus_errno,
-        virtual_file_type_to_wasi_file_type, Inode, InodeHttpSocketType, InodeSocket,
-        InodeSocketKind, InodeVal, Kind, PollEvent, PollEventBuilder,
-        WasiBusCall, WasiDummyWaker, WasiFutex, WasiParkingLot, WasiProcessId, WasiState,
-        WasiThreadContext, WasiThreadId, MAX_SYMLINKS,
+        net_error_into_wasi_err, vbus_error_into_bus_errno, virtual_file_type_to_wasi_file_type,
+        Inode, InodeHttpSocketType, InodeSocket, InodeSocketKind, InodeVal, Kind, PollEvent,
+        PollEventBuilder, WasiBusCall, WasiDummyWaker, WasiFutex, WasiParkingLot, WasiProcessId,
+        WasiState, WasiThreadContext, WasiThreadId, MAX_SYMLINKS,
     },
     Fd, WasiEnv, WasiError,
 };
@@ -87,10 +86,12 @@ pub(crate) use wasmer::{
     WasmSlice,
 };
 pub(crate) use wasmer_vbus::{
-    BusInvocationEvent, BusSpawnedProcess, SignalHandlerAbi, SpawnOptionsConfig,
-    StdioMode, VirtualBusError, VirtualBusInvokedWait,
+    BusInvocationEvent, BusSpawnedProcess, SignalHandlerAbi, SpawnOptionsConfig, StdioMode,
+    VirtualBusError, VirtualBusInvokedWait,
 };
-pub(crate) use wasmer_vfs::{FileSystem, FsError, VirtualFile, WasiBidirectionalPipePair, AsyncWriteExt, AsyncSeekExt};
+pub(crate) use wasmer_vfs::{
+    AsyncSeekExt, AsyncWriteExt, FileSystem, FsError, VirtualFile, WasiBidirectionalPipePair,
+};
 pub(crate) use wasmer_vnet::{SocketHttpRequest, StreamSecurity};
 pub(crate) use wasmer_wasi_types::{asyncify::__wasi_asyncify_t, wasi::EventUnion};
 
@@ -508,7 +509,9 @@ pub(crate) fn get_stack_start(mut ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> u64 
     ctx.data().stack_start
 }
 
-pub(crate) fn get_memory_stack_pointer(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> Result<u64, String> {
+pub(crate) fn get_memory_stack_pointer(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+) -> Result<u64, String> {
     // Get the current value of the stack pointer (which we will use
     // to save all of the stack)
     let stack_base = get_stack_base(ctx);
@@ -526,7 +529,9 @@ pub(crate) fn get_memory_stack_pointer(ctx: &mut FunctionEnvMut<'_, WasiEnv>) ->
     Ok(stack_pointer)
 }
 
-pub(crate) fn get_memory_stack_offset(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> Result<u64, String> {
+pub(crate) fn get_memory_stack_offset(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+) -> Result<u64, String> {
     let stack_base = get_stack_base(ctx);
     let stack_pointer = get_memory_stack_pointer(ctx)?;
     Ok(stack_base - stack_pointer)

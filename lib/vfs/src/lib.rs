@@ -22,11 +22,11 @@ pub mod tmp_fs;
 pub mod union_fs;
 pub mod zero_file;
 // tty_file -> see wasmer_wasi::tty_file
+pub mod pipe;
 #[cfg(feature = "static-fs")]
 pub mod static_fs;
 #[cfg(feature = "webc-fs")]
 pub mod webc_fs;
-pub mod pipe;
 
 pub use arc_file::*;
 pub use arc_fs::*;
@@ -34,19 +34,19 @@ pub use builder::*;
 pub use empty_fs::*;
 pub use null_file::*;
 pub use passthru_fs::*;
+pub use pipe::*;
 pub use special_file::*;
 pub use tmp_fs::*;
 pub use union_fs::*;
 pub use zero_file::*;
-pub use pipe::*;
 
 pub type Result<T> = std::result::Result<T, FsError>;
 
 // re-exports
-pub use tokio::io::{AsyncRead, AsyncReadExt};
-pub use tokio::io::{AsyncWrite, AsyncWriteExt};
-pub use tokio::io::{AsyncSeek, AsyncSeekExt};
 pub use tokio::io::ReadBuf;
+pub use tokio::io::{AsyncRead, AsyncReadExt};
+pub use tokio::io::{AsyncSeek, AsyncSeekExt};
+pub use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 pub trait ClonableVirtualFile: VirtualFile + Clone {}
 
@@ -210,7 +210,9 @@ impl OpenOptions {
 /// This trait relies on your file closing when it goes out of scope via `Drop`
 //#[cfg_attr(feature = "enable-serde", typetag::serde)]
 #[async_trait::async_trait]
-pub trait VirtualFile: fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable {
+pub trait VirtualFile:
+    fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable
+{
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64;
 

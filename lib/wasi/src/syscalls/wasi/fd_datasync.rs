@@ -21,7 +21,10 @@ pub fn fd_datasync(ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Errno {
     }
 
     wasi_try!(__asyncify(&mut ctx, None, async move {
-        state.fs.flush(inodes.deref(), fd).await
+        state
+            .fs
+            .flush(inodes.deref(), fd)
+            .await
             .map(|_| Errno::Success)
     }))
 }

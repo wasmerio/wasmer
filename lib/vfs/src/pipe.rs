@@ -1,7 +1,6 @@
-use bytes::{Bytes, Buf};
+use bytes::{Buf, Bytes};
 #[cfg(feature = "futures")]
 use futures::Future;
-use tokio::io::{AsyncSeek, AsyncWrite, AsyncRead};
 use std::io::IoSlice;
 use std::io::{self, Read, Seek, SeekFrom};
 use std::ops::DerefMut;
@@ -10,9 +9,10 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::task::Context;
 use std::task::Poll;
+use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use tokio::sync::{mpsc, mpsc::error::TryRecvError};
 
-use crate::{FsError, VirtualFile, ArcFile};
+use crate::{ArcFile, FsError, VirtualFile};
 
 #[derive(Debug, Clone)]
 pub struct WasiPipe {
@@ -79,7 +79,11 @@ impl AsyncSeek for WasiBidirectionalPipePair {
 }
 
 impl AsyncWrite for WasiBidirectionalPipePair {
-    fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
         let file = Pin::new(&mut self.tx);
         file.poll_write(cx, buf)
     }
@@ -91,7 +95,11 @@ impl AsyncWrite for WasiBidirectionalPipePair {
         let file = Pin::new(&mut self.tx);
         file.poll_shutdown(cx)
     }
-    fn poll_write_vectored(mut self: Pin<&mut Self>, cx: &mut Context<'_>, bufs: &[IoSlice<'_>]) -> Poll<io::Result<usize>> {
+    fn poll_write_vectored(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        bufs: &[IoSlice<'_>],
+    ) -> Poll<io::Result<usize>> {
         let file = Pin::new(&mut self.tx);
         file.poll_write_vectored(cx, bufs)
     }
@@ -101,7 +109,11 @@ impl AsyncWrite for WasiBidirectionalPipePair {
 }
 
 impl AsyncRead for WasiBidirectionalPipePair {
-    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut tokio::io::ReadBuf<'_>) -> Poll<io::Result<()>> {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
         let file = Pin::new(&mut self.rx);
         file.poll_read(cx, buf)
     }
@@ -266,11 +278,17 @@ impl AsyncSeek for WasiPipe {
 }
 
 impl AsyncWrite for WasiPipe {
-    fn poll_write(self: Pin<&mut Self>, _cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
         let guard = self.tx.lock().unwrap();
         match guard.send(buf.to_vec()) {
             Ok(()) => Poll::Ready(Ok(buf.len())),
-            Err(_) => Poll::Ready(Err(Into::<std::io::Error>::into(std::io::ErrorKind::BrokenPipe))),
+            Err(_) => Poll::Ready(Err(Into::<std::io::Error>::into(
+                std::io::ErrorKind::BrokenPipe,
+            ))),
         }
     }
     fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
@@ -282,7 +300,11 @@ impl AsyncWrite for WasiPipe {
 }
 
 impl AsyncRead for WasiPipe {
-    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut tokio::io::ReadBuf<'_>) -> Poll<io::Result<()>> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
         loop {
             {
                 let mut read_buffer = self.read_buffer.lock().unwrap();
@@ -298,16 +320,18 @@ impl AsyncRead for WasiPipe {
             }
             let data = {
                 let mut rx = self.rx.lock().unwrap();
-                let mut rx = Pin::new(rx.deref_mut());                
+                let mut rx = Pin::new(rx.deref_mut());
                 match rx.poll_recv(cx) {
                     Poll::Ready(Some(a)) => a,
                     Poll::Ready(None) => return Poll::Ready(Ok(())),
                     Poll::Pending => {
                         return match self.block {
                             true => Poll::Pending,
-                            false => Poll::Ready(Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock))) 
+                            false => {
+                                Poll::Ready(Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock)))
+                            }
                         }
-                    },
+                    }
                 }
             };
 
@@ -379,9 +403,11 @@ impl VirtualFile for WasiPipe {
                     Poll::Pending => {
                         return match self.block {
                             true => Poll::Pending,
-                            false => Poll::Ready(Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock))) 
+                            false => {
+                                Poll::Ready(Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock)))
+                            }
                         }
-                    },
+                    }
                 }
             };
 

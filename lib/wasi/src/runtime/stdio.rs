@@ -1,18 +1,21 @@
 use std::io::{self, SeekFrom};
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::{Poll, Context};
+use std::task::{Context, Poll};
 
 use derivative::Derivative;
 use futures::Future;
-use wasmer_vfs::{AsyncRead, AsyncWrite, AsyncSeek};
+use wasmer_vfs::{AsyncRead, AsyncSeek, AsyncWrite};
 
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct RuntimeStdout {
     runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>,
     #[derivative(Debug = "ignore")]
-    writing: Option<(Pin<Box<dyn Future<Output=io::Result<()>> + Send + Sync + 'static>>, u64)>,
+    writing: Option<(
+        Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync + 'static>>,
+        u64,
+    )>,
 }
 
 impl RuntimeStdout {
@@ -29,12 +32,19 @@ impl AsyncSeek for RuntimeStdout {
         Err(io::Error::new(io::ErrorKind::Other, "can not seek stdout"))
     }
     fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
-        Poll::Ready(Err(io::Error::new(io::ErrorKind::Other, "can not seek stdout")))
+        Poll::Ready(Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not seek stdout",
+        )))
     }
 }
 
 impl AsyncWrite for RuntimeStdout {
-    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
         let buf_ptr = buf.as_ptr() as u64;
         if let Some((writing, buf2)) = self.writing.as_mut() {
             if *buf2 == buf_ptr {
@@ -46,9 +56,7 @@ impl AsyncWrite for RuntimeStdout {
                 };
             }
         }
-        self.writing.replace(
-            (self.runtime.stdout(buf), buf_ptr)
-        );
+        self.writing.replace((self.runtime.stdout(buf), buf_ptr));
         let (writing, _) = self.writing.as_mut().unwrap();
         let writing = writing.as_mut();
         match writing.poll(cx) {
@@ -66,7 +74,11 @@ impl AsyncWrite for RuntimeStdout {
 }
 
 impl AsyncRead for RuntimeStdout {
-    fn poll_read(self: Pin<&mut Self>, _cx: &mut Context<'_>, _buf: &mut tokio::io::ReadBuf<'_>) -> Poll<io::Result<()>> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        _buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
         Poll::Ready(Err(io::Error::new(
             io::ErrorKind::Other,
             "can not read from stdout",
@@ -114,7 +126,10 @@ impl wasmer_vfs::VirtualFile for RuntimeStdout {
 pub struct RuntimeStderr {
     runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>,
     #[derivative(Debug = "ignore")]
-    writing: Option<(Pin<Box<dyn Future<Output=io::Result<()>> + Send + Sync + 'static>>, u64)>,
+    writing: Option<(
+        Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync + 'static>>,
+        u64,
+    )>,
 }
 
 impl RuntimeStderr {
@@ -131,12 +146,19 @@ impl AsyncSeek for RuntimeStderr {
         Err(io::Error::new(io::ErrorKind::Other, "can not seek stderr"))
     }
     fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
-        Poll::Ready(Err(io::Error::new(io::ErrorKind::Other, "can not seek stderr")))
+        Poll::Ready(Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not seek stderr",
+        )))
     }
 }
 
 impl AsyncWrite for RuntimeStderr {
-    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
         let buf_ptr = buf.as_ptr() as u64;
         if let Some((writing, buf2)) = self.writing.as_mut() {
             if *buf2 == buf_ptr {
@@ -148,9 +170,7 @@ impl AsyncWrite for RuntimeStderr {
                 };
             }
         }
-        self.writing.replace(
-            (self.runtime.stdout(buf), buf_ptr)
-        );
+        self.writing.replace((self.runtime.stdout(buf), buf_ptr));
         let (writing, _) = self.writing.as_mut().unwrap();
         let writing = writing.as_mut();
         match writing.poll(cx) {
@@ -168,14 +188,17 @@ impl AsyncWrite for RuntimeStderr {
 }
 
 impl AsyncRead for RuntimeStderr {
-    fn poll_read(self: Pin<&mut Self>, _cx: &mut Context<'_>, _buf: &mut tokio::io::ReadBuf<'_>) -> Poll<io::Result<()>> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        _buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
         Poll::Ready(Err(io::Error::new(
             io::ErrorKind::Other,
             "can not read from stderr",
         )))
     }
 }
-
 
 impl wasmer_vfs::VirtualFile for RuntimeStderr {
     fn last_accessed(&self) -> u64 {

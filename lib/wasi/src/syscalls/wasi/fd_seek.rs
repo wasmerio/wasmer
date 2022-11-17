@@ -59,34 +59,26 @@ pub fn fd_seek<M: MemorySize>(
             match deref_mut {
                 Kind::File { ref mut handle, .. } => {
                     if let Some(handle) = handle {
-
                         let handle = handle.clone();
                         drop(guard);
                         drop(inodes);
 
-                        wasi_try_ok!(__asyncify(
-                            &mut ctx,
-                            None,
-                            async move {
-                                let mut handle = handle.write().unwrap();
-                                let end = handle
-                                    .seek(SeekFrom::End(0))
-                                    .await
-                                    .map_err(map_io_err)?;
+                        wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+                            let mut handle = handle.write().unwrap();
+                            let end = handle.seek(SeekFrom::End(0)).await.map_err(map_io_err)?;
 
-                                // TODO: handle case if fd_entry.offset uses 64 bits of a u64
-                                drop(handle);
-                                let mut fd_map = state.fs.fd_map.write().unwrap();
-                                let fd_entry = fd_map.get_mut(&fd).ok_or(Errno::Badf)?;
-                                fd_entry
-                                    .offset
-                                    .store((end as i64 + offset) as u64, Ordering::Release);
-                                fd_entry
-                                    .offset
-                                    .store((end as i64 + offset) as u64, Ordering::Release);
-                                Ok(())
-                            }
-                        ));
+                            // TODO: handle case if fd_entry.offset uses 64 bits of a u64
+                            drop(handle);
+                            let mut fd_map = state.fs.fd_map.write().unwrap();
+                            let fd_entry = fd_map.get_mut(&fd).ok_or(Errno::Badf)?;
+                            fd_entry
+                                .offset
+                                .store((end as i64 + offset) as u64, Ordering::Release);
+                            fd_entry
+                                .offset
+                                .store((end as i64 + offset) as u64, Ordering::Release);
+                            Ok(())
+                        }));
                     } else {
                         return Ok(Errno::Inval);
                     }

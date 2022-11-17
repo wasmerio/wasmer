@@ -53,8 +53,9 @@ pub fn sock_send<M: MemorySize>(
             &mut ctx,
             sock,
             Rights::SOCK_SEND,
-            move |socket| async move { socket.send(buf).await }
-        ).await
+            move |socket| async move { socket.send(buf).await },
+        )
+        .await
     }));
     env = ctx.data();
 

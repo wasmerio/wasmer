@@ -43,12 +43,15 @@ pub(crate) fn fetch_webc(
     let options = ReqwestOptions::default();
     let headers = Default::default();
     let data = None;
-    
+
     let (tx, rx) = std::sync::mpsc::channel();
     let tasks_inner = tasks.clone();
     let runtime = runtime.clone();
     tasks.block_on(Box::pin(async move {
-        let ret = match runtime.reqwest(tasks, url.as_str(), "POST", options, headers, data).await {
+        let ret = match runtime
+            .reqwest(tasks, url.as_str(), "POST", options, headers, data)
+            .await
+        {
             Ok(wapm) => {
                 if wapm.status == 200 {
                     if let Some(data) = wapm.data {
@@ -64,7 +67,8 @@ pub(crate) fn fetch_webc(
                                             pirita_download_url,
                                             runtime,
                                             tasks,
-                                        ).await;
+                                        )
+                                        .await;
                                         if let Some(ret) = ret.as_mut() {
                                             ret.version = package.version.into();
                                         }
@@ -87,7 +91,8 @@ pub(crate) fn fetch_webc(
                                             pirita_download_url,
                                             runtime,
                                             tasks,
-                                        ).await;
+                                        )
+                                        .await;
                                         if let Some(ret) = ret.as_mut() {
                                             ret.version = package.last_version.version.into();
                                         }
@@ -119,7 +124,7 @@ pub(crate) fn fetch_webc(
                             "failed to contact WAPM: http_code={}, http_response={}",
                             wapm.status, wapm.status_text
                         );
-                        None    
+                        None
                     }
                 } else {
                     warn!(
@@ -138,7 +143,7 @@ pub(crate) fn fetch_webc(
     }));
     match rx.recv() {
         Ok(a) => a,
-        _ => return None
+        _ => return None,
     }
 }
 
@@ -262,7 +267,10 @@ async fn download_miss(
     let headers = Default::default();
     let data = None;
 
-    match runtime.reqwest(tasks, download_url, "GET", options, headers, data).await {
+    match runtime
+        .reqwest(tasks, download_url, "GET", options, headers, data)
+        .await
+    {
         Ok(wapm) => {
             if wapm.status == 200 {
                 return wapm.data;

@@ -53,16 +53,17 @@ pub trait VirtualBusSpawner<T> {
         store: Store,
         config: SpawnOptionsConfig<T>,
         fallback: &'a dyn VirtualBusSpawner<T>,
-    ) -> Pin<Box<dyn Future<Output=Result<BusSpawnedProcess>> + 'a>>
-    {
+    ) -> Pin<Box<dyn Future<Output = Result<BusSpawnedProcess>> + 'a>> {
         Box::pin(async move {
-            fallback.spawn(
-                parent_ctx,
-                name,
-                store,
-                config,
-                &mut UnsupportedVirtualBusSpawner::default(),
-            ).await
+            fallback
+                .spawn(
+                    parent_ctx,
+                    name,
+                    store,
+                    config,
+                    &mut UnsupportedVirtualBusSpawner::default(),
+                )
+                .await
         })
     }
 }
@@ -77,11 +78,8 @@ impl<T> VirtualBusSpawner<T> for UnsupportedVirtualBusSpawner {
         _store: Store,
         _config: SpawnOptionsConfig<T>,
         _fallback: &'a dyn VirtualBusSpawner<T>,
-    ) -> Pin<Box<dyn Future<Output=Result<BusSpawnedProcess>> + 'a>>
-    {
-        Box::pin(async move {
-            Err(VirtualBusError::Unsupported)
-        })
+    ) -> Pin<Box<dyn Future<Output = Result<BusSpawnedProcess>> + 'a>> {
+        Box::pin(async move { Err(VirtualBusError::Unsupported) })
     }
 }
 
@@ -169,7 +167,7 @@ where
         name: &'a str,
         store: Store,
         fallback: &'a dyn VirtualBusSpawner<T>,
-    ) -> Pin<Box<dyn Future<Output=Result<BusSpawnedProcess>> + 'a>> {
+    ) -> Pin<Box<dyn Future<Output = Result<BusSpawnedProcess>> + 'a>> {
         Box::pin(async move {
             self.spawner
                 .spawn(parent_ctx, name, store, self.conf, fallback)

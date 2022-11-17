@@ -1,5 +1,5 @@
 use tokio::sync::mpsc;
-use wasmer_vfs::{AsyncSeek, AsyncRead, AsyncWrite};
+use wasmer_vfs::{AsyncRead, AsyncSeek, AsyncWrite};
 use wasmer_vnet::{net_error_into_io_err, NetworkError};
 use wasmer_wasi_types::wasi::{Event, EventFdReadwrite, EventUnion, Eventrwflags, Subscription};
 
@@ -8,10 +8,10 @@ use crate::VirtualTaskManager;
 use super::*;
 use std::{
     future::Future,
-    io::{SeekFrom, IoSlice},
+    io::{IoSlice, SeekFrom},
     pin::Pin,
     sync::RwLockReadGuard,
-    task::{Poll, Context},
+    task::{Context, Poll},
 };
 
 pub(crate) enum InodeValFilePollGuardMode {
@@ -245,18 +245,19 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         })
                     }
                 }
-                InodeValFilePollGuardMode::Socket(socket) => socket
-                    .poll_read_ready(cx)
-                    .map_err(net_error_into_io_err),
+                InodeValFilePollGuardMode::Socket(socket) => {
+                    socket.poll_read_ready(cx).map_err(net_error_into_io_err)
+                }
             };
             if let Some(s) = has_close.as_ref() {
                 poll_result = match poll_result {
-                    Poll::Ready(Err(err)) if err.kind() == std::io::ErrorKind::ConnectionAborted ||
-                                                    err.kind() == std::io::ErrorKind::ConnectionRefused ||
-                                                    err.kind() == std::io::ErrorKind::ConnectionReset ||
-                                                    err.kind() == std::io::ErrorKind::BrokenPipe ||
-                                                    err.kind() == std::io::ErrorKind::NotConnected ||
-                                                    err.kind() == std::io::ErrorKind::UnexpectedEof =>
+                    Poll::Ready(Err(err))
+                        if err.kind() == std::io::ErrorKind::ConnectionAborted
+                            || err.kind() == std::io::ErrorKind::ConnectionRefused
+                            || err.kind() == std::io::ErrorKind::ConnectionReset
+                            || err.kind() == std::io::ErrorKind::BrokenPipe
+                            || err.kind() == std::io::ErrorKind::NotConnected
+                            || err.kind() == std::io::ErrorKind::UnexpectedEof =>
                     {
                         ret.push(Event {
                             userdata: s.userdata,
@@ -332,18 +333,19 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         })
                     }
                 }
-                InodeValFilePollGuardMode::Socket(socket) => socket
-                    .poll_write_ready(cx)
-                    .map_err(net_error_into_io_err),
+                InodeValFilePollGuardMode::Socket(socket) => {
+                    socket.poll_write_ready(cx).map_err(net_error_into_io_err)
+                }
             };
             if let Some(s) = has_close.as_ref() {
                 poll_result = match poll_result {
-                    Poll::Ready(Err(err)) if err.kind() == std::io::ErrorKind::ConnectionAborted ||
-                                                    err.kind() == std::io::ErrorKind::ConnectionRefused ||
-                                                    err.kind() == std::io::ErrorKind::ConnectionReset ||
-                                                    err.kind() == std::io::ErrorKind::BrokenPipe ||
-                                                    err.kind() == std::io::ErrorKind::NotConnected ||
-                                                    err.kind() == std::io::ErrorKind::UnexpectedEof =>
+                    Poll::Ready(Err(err))
+                        if err.kind() == std::io::ErrorKind::ConnectionAborted
+                            || err.kind() == std::io::ErrorKind::ConnectionRefused
+                            || err.kind() == std::io::ErrorKind::ConnectionReset
+                            || err.kind() == std::io::ErrorKind::BrokenPipe
+                            || err.kind() == std::io::ErrorKind::NotConnected
+                            || err.kind() == std::io::ErrorKind::UnexpectedEof =>
                     {
                         ret.push(Event {
                             userdata: s.userdata,
@@ -618,7 +620,10 @@ impl VirtualFile for WasiStateFileGuard {
         }
     }
 
-    fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<usize>> {
+    fn poll_write_ready(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<std::io::Result<usize>> {
         let inodes = self.inodes.read().unwrap();
         let guard = self.lock_write(&inodes);
         if let Some(file) = guard.as_mut() {
@@ -654,7 +659,11 @@ impl AsyncSeek for WasiStateFileGuard {
 }
 
 impl AsyncWrite for WasiStateFileGuard {
-    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<std::io::Result<usize>> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<std::io::Result<usize>> {
         let inodes = self.inodes.read().unwrap();
         let mut guard = self.lock_write(&inodes);
         if let Some(guard) = guard.as_mut() {
@@ -684,7 +693,11 @@ impl AsyncWrite for WasiStateFileGuard {
             Poll::Ready(Err(std::io::ErrorKind::Unsupported.into()))
         }
     }
-    fn poll_write_vectored(self: Pin<&mut Self>, cx: &mut Context<'_>, bufs: &[IoSlice<'_>]) -> Poll<std::io::Result<usize>> {
+    fn poll_write_vectored(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        bufs: &[IoSlice<'_>],
+    ) -> Poll<std::io::Result<usize>> {
         let inodes = self.inodes.read().unwrap();
         let mut guard = self.lock_write(&inodes);
         if let Some(guard) = guard.as_mut() {
@@ -707,7 +720,11 @@ impl AsyncWrite for WasiStateFileGuard {
 }
 
 impl AsyncRead for WasiStateFileGuard {
-    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut tokio::io::ReadBuf<'_>) -> Poll<std::io::Result<()>> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
         let inodes = self.inodes.read().unwrap();
         let mut guard = self.lock_write(&inodes);
         if let Some(guard) = guard.as_mut() {

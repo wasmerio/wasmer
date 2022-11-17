@@ -100,10 +100,10 @@ macro_rules! impl_virtualfile_on_std_streams {
                     if self.is_readable() {
                         let length = buf.remaining().min(self.buf.len());
                         buf.put_slice(&self.buf[..length]);
-    
+
                         // Remove what has been consumed.
                         self.buf.drain(..length);
-    
+
                         Ok(())
                     } else {
                         Err(io::Error::new(
@@ -176,7 +176,7 @@ impl_virtualfile_on_std_streams!(Stderr {
 
 #[cfg(test)]
 mod test_read_write_seek {
-    use tokio::io::{AsyncReadExt, AsyncWriteExt, AsyncSeekExt};
+    use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
     use crate::mem_fs::*;
     use std::io::{self};
@@ -222,7 +222,10 @@ mod test_read_write_seek {
     async fn test_write_stdin() {
         let mut stdin = Stdin { buf: vec![] };
 
-        assert!(stdin.write(b"bazqux").await.is_err(), "cannot write into `stdin`");
+        assert!(
+            stdin.write(b"bazqux").await.is_err(),
+            "cannot write into `stdin`"
+        );
     }
 
     #[tokio::test]

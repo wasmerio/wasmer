@@ -1,10 +1,10 @@
+use futures::Future;
 use std::{
     ops::DerefMut,
     pin::Pin,
     sync::{Arc, Mutex},
     task::{Context, Poll},
 };
-use futures::Future;
 use tokio::sync::mpsc;
 use tracing::*;
 use wasmer::{FunctionEnvMut, Instance, Memory, Module, Store};
@@ -208,7 +208,7 @@ impl VirtualBusSpawner<WasiEnv> for BinFactory {
         store: Store,
         config: SpawnOptionsConfig<WasiEnv>,
         _fallback: &'a dyn VirtualBusSpawner<WasiEnv>,
-    ) -> Pin<Box<dyn Future<Output=wasmer_vbus::Result<BusSpawnedProcess>> + 'a>> {
+    ) -> Pin<Box<dyn Future<Output = wasmer_vbus::Result<BusSpawnedProcess>> + 'a>> {
         Box::pin(async move {
             if config.remote_instance().is_some() {
                 return Err(VirtualBusError::Unsupported);
@@ -226,7 +226,10 @@ impl VirtualBusSpawner<WasiEnv> for BinFactory {
             }
 
             // Find the binary (or die trying) and make the spawn type
-            let binary = self.get_binary(name).await.ok_or(VirtualBusError::NotFound)?;
+            let binary = self
+                .get_binary(name)
+                .await
+                .ok_or(VirtualBusError::NotFound)?;
             spawn_exec(binary, name, store, config, &self.runtime, &self.cache)
         })
     }

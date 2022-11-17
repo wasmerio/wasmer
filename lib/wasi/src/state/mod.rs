@@ -43,8 +43,6 @@ use generational_arena::Arena;
 pub use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasmer_vfs::AsyncWriteExt;
-use wasmer_vfs::WasiPipe;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -67,7 +65,9 @@ use tracing::{debug, trace};
 use wasmer::Store;
 use wasmer_vbus::VirtualBusCalled;
 use wasmer_vbus::VirtualBusInvocation;
+use wasmer_vfs::AsyncWriteExt;
 use wasmer_vfs::FileOpener;
+use wasmer_vfs::WasiPipe;
 use wasmer_wasi_types::wasi::Cid;
 use wasmer_wasi_types::wasi::Clockid;
 use wasmer_wasi_types::wasi::{
