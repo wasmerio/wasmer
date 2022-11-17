@@ -53,7 +53,7 @@ pub fn get_package_local_dir(
 
 pub fn try_finding_local_command(#[cfg(test)] test_name: &str, cmd: &str) -> Option<LocalPackage> {
     #[cfg(test)]
-    let local_packages = get_all_local_packages(None, test_name);
+    let local_packages = get_all_local_packages(test_name, None);
     #[cfg(not(test))]
     let local_packages = get_all_local_packages(None);
     for p in local_packages {
@@ -179,13 +179,22 @@ fn get_all_names_in_dir(dir: &PathBuf) -> Vec<(PathBuf, String)> {
 
 /// Returns a list of all locally installed packages
 pub fn get_all_local_packages(
-    registry: Option<&str>,
     #[cfg(test)] test_name: &str,
+    registry: Option<&str>,
 ) -> Vec<LocalPackage> {
     let mut packages = Vec::new();
     let registries = match registry {
         Some(s) => vec![s.to_string()],
-        None => get_all_available_registries().unwrap_or_default(),
+        None => {
+            #[cfg(test)]
+            {
+                get_all_available_registries(test_name).unwrap_or_default()
+            }
+            #[cfg(not(test))]
+            {
+                get_all_available_registries().unwrap_or_default()
+            }
+        }
     };
 
     let mut registry_hosts = registries
@@ -249,7 +258,7 @@ pub fn get_local_package(
     #[cfg(not(test))]
     let local_packages = get_all_local_packages(registry);
     #[cfg(test)]
-    let local_packages = get_all_local_packages(registry, test_name);
+    let local_packages = get_all_local_packages(test_name, registry);
 
     local_packages
         .iter()
@@ -350,15 +359,17 @@ pub enum GetIfPackageHasNewVersionResult {
 
 #[test]
 fn test_get_if_package_has_new_version() {
+    const TEST_NAME: &str = "test_get_if_package_has_new_version";
     let fake_registry = "https://h0.com";
     let fake_name = "namespace0/project1";
     let fake_version = "1.0.0";
 
-    let package_path = get_package_local_dir("h0.com", fake_name, fake_version).unwrap();
+    let package_path = get_package_local_dir(TEST_NAME, "h0.com", fake_name, fake_version).unwrap();
     let _ = std::fs::remove_file(&package_path.join("wapm.toml"));
     let _ = std::fs::remove_file(&package_path.join("wapm.toml"));
 
     let r1 = get_if_package_has_new_version(
+        TEST_NAME,
         fake_registry,
         "namespace0/project1",
         Some(fake_version.to_string()),
@@ -375,11 +386,12 @@ fn test_get_if_package_has_new_version() {
         }
     );
 
-    let package_path = get_package_local_dir("h0.com", fake_name, fake_version).unwrap();
+    let package_path = get_package_local_dir(TEST_NAME, "h0.com", fake_name, fake_version).unwrap();
     std::fs::create_dir_all(&package_path).unwrap();
     std::fs::write(&package_path.join("wapm.toml"), b"").unwrap();
 
     let r1 = get_if_package_has_new_version(
+        TEST_NAME,
         fake_registry,
         "namespace0/project1",
         Some(fake_version.to_string()),
@@ -723,7 +735,16 @@ pub fn install_package(
         None => {
             let registries = match registry {
                 Some(s) => vec![s.to_string()],
-                None => get_all_available_registries()?,
+                None => {
+                    #[cfg(test)]
+                    {
+                        get_all_available_registries(test_name)?
+                    }
+                    #[cfg(not(test))]
+                    {
+                        get_all_available_registries()?
+                    }
+                }
             };
             let mut url_of_package = None;
 
@@ -854,6 +875,7 @@ pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
 pub fn get_all_available_registries(#[cfg(test)] test_name: &str) -> Result<Vec<String>, String> {
     #[cfg(test)]
     let config = PartialWapmConfig::from_file(test_name)?;
+    #[cfg(not(test))]
     let config = PartialWapmConfig::from_file()?;
 
     let mut registries = Vec::new();
@@ -875,6 +897,8 @@ pub fn get_all_available_registries(#[cfg(test)] test_name: &str) -> Result<Vec<
 #[cfg(not(target_env = "musl"))]
 #[test]
 fn test_install_package() {
+    const TEST_NAME: &str = "test_install_package";
+
     println!("test install package...");
     let registry = "https://registry.wapm.io/graphql";
     if !test_if_registry_present(registry).unwrap_or(false) {
@@ -898,21 +922,28 @@ fn test_install_package() {
         "https://registry-cdn.wapm.io/packages/wasmer/wabt/wabt-1.0.29.tar.gz".to_string()
     );
 
-    let (package, _) =
-        install_package(Some(registry), "wasmer/wabt", Some("1.0.29"), None, true).unwrap();
+    let (package, _) = install_package(
+        TEST_NAME,
+        Some(registry),
+        "wasmer/wabt",
+        Some("1.0.29"),
+        None,
+        true,
+    )
+    .unwrap();
 
     println!("package installed: {package:#?}");
 
     assert_eq!(
-        package.get_path().unwrap(),
-        get_global_install_dir("registry.wapm.io")
+        package.get_path(TEST_NAME).unwrap(),
+        get_global_install_dir(TEST_NAME, "registry.wapm.io")
             .unwrap()
             .join("wasmer")
             .join("wabt")
             .join("1.0.29")
     );
 
-    let all_installed_packages = get_all_local_packages(Some(registry));
+    let all_installed_packages = get_all_local_packages(TEST_NAME, Some(registry));
 
     println!("all_installed_packages: {all_installed_packages:#?}");
 
@@ -923,7 +954,7 @@ fn test_install_package() {
     println!("is_installed: {is_installed:#?}");
 
     if !is_installed {
-        let panic_str = get_all_local_packages(Some(registry))
+        let panic_str = get_all_local_packages(TEST_NAME, Some(registry))
             .iter()
             .map(|p| format!("{} {} {}", p.registry, p.name, p.version))
             .collect::<Vec<_>>()

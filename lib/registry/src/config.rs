@@ -276,7 +276,6 @@ impl PartialWapmConfig {
 
     #[cfg(test)]
     pub fn get_folder(test_name: &str) -> Result<PathBuf, String> {
-        let test_name = std::env::var("WASMER_REGISTRY_TEST_NAME").unwrap();
         let test_dir = std::env::temp_dir().join("test_wasmer").join(test_name);
         let _ = std::fs::create_dir_all(&test_dir);
         Ok(test_dir.to_path_buf())
