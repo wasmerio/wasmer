@@ -407,14 +407,12 @@ where
     }
 
     /// Make a web socket connection to a particular URL
-    #[cfg(feature = "os")]
     #[cfg(not(feature = "host-ws"))]
     fn web_socket(&self, url: &str) -> Result<Box<dyn WebSocketAbi>, String> {
         Err("not supported".to_string())
     }
 
     /// Make a web socket connection to a particular URL
-    #[cfg(feature = "os")]
     #[cfg(feature = "host-ws")]
     fn web_socket(&self, url: &str) -> Result<Box<dyn WebSocketAbi>, String> {
         let url = url.to_string();

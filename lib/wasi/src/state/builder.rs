@@ -1,6 +1,5 @@
 //! Builder system for configuring a [`WasiState`] and creating it.
 
-#[cfg(feature = "os")]
 use crate::bin_factory::CachedCompiledModules;
 use crate::state::{WasiFs, WasiFsRoot, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
@@ -53,7 +52,6 @@ pub struct WasiStateBuilder {
     #[cfg(feature = "sys")]
     map_commands: HashMap<String, PathBuf>,
     vfs_preopens: Vec<String>,
-    #[cfg(feature = "os")]
     compiled_modules: Arc<CachedCompiledModules>,
     #[allow(clippy::type_complexity)]
     setup_fs_fn: Option<Box<dyn Fn(&mut WasiInodes, &mut WasiFs) -> Result<(), String> + Send>>,
@@ -410,7 +408,6 @@ impl WasiStateBuilder {
 
     /// Sets the compiled modules to use with this builder (sharing the
     /// cached modules is better for performance and memory consumption)
-    #[cfg(feature = "os")]
     pub fn compiled_modules(&mut self, compiled_modules: &Arc<CachedCompiledModules>) -> &mut Self {
         let mut compiled_modules = compiled_modules.clone();
         std::mem::swap(&mut self.compiled_modules, &mut compiled_modules);
@@ -618,16 +615,13 @@ impl WasiStateBuilder {
 
         let env = WasiEnv::new_ext(
             state,
-            #[cfg(feature = "os")]
             self.compiled_modules.clone(),
             process,
             thread,
             runtime,
         );
 
-        #[cfg(feature = "os")]
         env.uses(self.uses.clone())?;
-        #[cfg(feature = "os")]
         #[cfg(feature = "sys")]
         env.map_commands(self.map_commands.clone())?;
 

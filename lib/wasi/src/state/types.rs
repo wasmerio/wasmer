@@ -1,8 +1,11 @@
 /// types for use in the WASI filesystem
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(all(unix, feature = "sys-poll", not(feature = "os")))]
+
+// TODO: review allow..
+#[allow(unused_imports)]
 use std::convert::TryInto;
+
 use std::time::Duration;
 use wasmer_vbus::VirtualBusError;
 use wasmer_wasi_types::wasi::{BusErrno, Errno, Rights};
@@ -231,7 +234,7 @@ pub fn iterate_poll_events(pes: PollEventSet) -> PollEventIter {
     PollEventIter { pes, i: 0 }
 }
 
-#[cfg(all(unix, feature = "sys-poll", not(feature = "os")))]
+#[cfg(all(unix, feature = "sys-poll"))]
 fn poll_event_set_to_platform_poll_events(mut pes: PollEventSet) -> i16 {
     let mut out = 0;
     for i in 0..16 {
@@ -248,7 +251,7 @@ fn poll_event_set_to_platform_poll_events(mut pes: PollEventSet) -> i16 {
     out
 }
 
-#[cfg(all(unix, feature = "sys-poll", not(feature = "os")))]
+#[cfg(all(unix, feature = "sys-poll"))]
 fn platform_poll_events_to_pollevent_set(mut num: i16) -> PollEventSet {
     let mut peb = PollEventBuilder::new();
     for i in 0..16 {
@@ -281,7 +284,7 @@ impl PollEventBuilder {
     }
 }
 
-#[cfg(all(unix, feature = "sys-poll", not(feature = "os")))]
+#[cfg(all(unix, feature = "sys-poll"))]
 pub(crate) fn poll(
     selfs: &[&(dyn VirtualFile + Send + Sync + 'static)],
     events: &[PollEventSet],
@@ -321,7 +324,7 @@ pub(crate) fn poll(
     Ok(result.try_into().unwrap())
 }
 
-#[cfg(any(not(unix), not(feature = "sys-poll"), feature = "os"))]
+#[cfg(any(not(unix), not(feature = "sys-poll")))]
 pub(crate) fn poll(
     files: &[&(dyn VirtualFile + Send + Sync + 'static)],
     // FIXME: evaluate changd signature

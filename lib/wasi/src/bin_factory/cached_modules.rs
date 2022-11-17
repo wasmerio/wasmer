@@ -165,7 +165,6 @@ impl CachedCompiledModules {
         }
 
         // Now try for the WebC
-        #[cfg(feature = "os")]
         {
             let wapm_name = name
                 .split_once(":")
