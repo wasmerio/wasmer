@@ -1,3 +1,13 @@
+//! High-level interactions with the WAPM backend.
+//!
+//! The GraphQL schema can be updated by running `make` in the Wasmer repo's
+//! root directory.
+//!
+//! ```console
+//! $ make update-graphql-schema
+//! curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
+//! ```
+
 use std::collections::BTreeMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
