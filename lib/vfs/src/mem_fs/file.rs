@@ -6,7 +6,7 @@ use tokio::io::{AsyncSeek, AsyncWrite};
 use tokio::io::{AsyncRead};
 
 use super::*;
-use crate::{FileDescriptor, FsError, Result, VirtualFile};
+use crate::{FsError, Result, VirtualFile};
 use std::borrow::Cow;
 use std::cmp;
 use std::convert::TryInto;
@@ -75,13 +75,13 @@ impl FileHandle {
 
             let inode = fs.storage.get(self.inode);
             match inode {
-                Some(Node::ArcFile { fs, path, .. }) => {
+                Some(Node::ArcFile(node)) => {
                     self.arc_file.replace(
-                        fs.new_open_options()
+                        node.fs.new_open_options()
                             .read(self.readable)
                             .write(self.writable)
                             .append(self.append_mode)
-                            .open(path.as_path()),
+                            .open(node.path.as_path()),
                     );
                 }
                 _ => return Err(FsError::EntryNotFound),
@@ -147,20 +147,20 @@ impl VirtualFile for FileHandle {
 
         let inode = fs.storage.get(self.inode);
         match inode {
-            Some(Node::File { file, .. }) => file.len().try_into().unwrap_or(0),
-            Some(Node::ReadOnlyFile { file, .. }) => file.len().try_into().unwrap_or(0),
-            Some(Node::CustomFile { file, .. }) => {
-                let file = file.lock().unwrap();
+            Some(Node::File(node)) => node.file.len().try_into().unwrap_or(0),
+            Some(Node::ReadOnlyFile(node)) => node.file.len().try_into().unwrap_or(0),
+            Some(Node::CustomFile(node)) => {
+                let file = node.file.lock().unwrap();
                 file.size().try_into().unwrap_or(0)
             }
-            Some(Node::ArcFile { fs, path, .. }) => match self.arc_file.as_ref() {
+            Some(Node::ArcFile(node)) => match self.arc_file.as_ref() {
                 Some(file) => file.as_ref().map(|file| file.size()).unwrap_or(0),
-                None => fs
+                None => node.fs
                     .new_open_options()
                     .read(self.readable)
                     .write(self.writable)
                     .append(self.append_mode)
-                    .open(path.as_path())
+                    .open(node.path.as_path())
                     .map(|file| file.size())
                     .unwrap_or(0),
             },
@@ -173,15 +173,15 @@ impl VirtualFile for FileHandle {
 
         let inode = fs.storage.get_mut(self.inode);
         match inode {
-            Some(Node::File { file, metadata, .. }) => {
+            Some(Node::File(FileNode { file, metadata, .. })) => {
                 file.buffer
                     .resize(new_size.try_into().map_err(|_| FsError::UnknownError)?, 0);
                 metadata.len = new_size;
             }
-            Some(Node::CustomFile { file, metadata, .. }) => {
-                let mut file = file.lock().unwrap();
+            Some(Node::CustomFile(node)) => {
+                let mut file = node.file.lock().unwrap();
                 file.set_len(new_size)?;
-                metadata.len = new_size;
+                node.metadata.len = new_size;
             }
             Some(Node::ReadOnlyFile { .. }) => return Err(FsError::PermissionDenied),
             Some(Node::ArcFile { .. }) => {
@@ -209,7 +209,7 @@ impl VirtualFile for FileHandle {
                 .storage
                 .iter()
                 .find_map(|(inode_of_parent, node)| match node {
-                    Node::Directory { children, .. } => {
+                    Node::Directory(DirectoryNode { children, .. }) => {
                         children.iter().enumerate().find_map(|(nth, inode)| {
                             if inode == &inode_of_file {
                                 Some((nth, inode_of_parent))
@@ -240,10 +240,6 @@ impl VirtualFile for FileHandle {
         Ok(())
     }
 
-    fn get_fd(&self) -> Option<FileDescriptor> {
-        Some(FileDescriptor(self.inode))
-    }
-
     fn get_special_fd(&self) -> Option<u32> {
         let fs = match self.filesystem.inner.read() {
             Ok(a) => a,
@@ -254,21 +250,21 @@ impl VirtualFile for FileHandle {
 
         let inode = fs.storage.get(self.inode);
         match inode {
-            Some(Node::CustomFile { file, .. }) => {
-                let file = file.lock().unwrap();
+            Some(Node::CustomFile(node)) => {
+                let file = node.file.lock().unwrap();
                 file.get_special_fd()
             }
-            Some(Node::ArcFile { fs, path, .. }) => match self.arc_file.as_ref() {
+            Some(Node::ArcFile(node)) => match self.arc_file.as_ref() {
                 Some(file) => file
                     .as_ref()
                     .map(|file| file.get_special_fd())
                     .unwrap_or(None),
-                None => fs
+                None => node.fs
                     .new_open_options()
                     .read(self.readable)
                     .write(self.writable)
                     .append(self.append_mode)
-                    .open(path.as_path())
+                    .open(node.path.as_path())
                     .map(|file| file.get_special_fd())
                     .unwrap_or(None),
             },
@@ -279,7 +275,7 @@ impl VirtualFile for FileHandle {
 
 #[cfg(test)]
 mod test_virtual_file {
-    use crate::{mem_fs::*, FileDescriptor, FileSystem as FS};
+    use crate::{mem_fs::*, FileSystem as FS};
     use std::thread::sleep;
     use std::time::Duration;
 
@@ -406,23 +402,23 @@ mod test_virtual_file {
             assert!(
                 matches!(
                     fs_inner.storage.get(ROOT_INODE),
-                    Some(Node::Directory {
+                    Some(Node::Directory(DirectoryNode {
                         inode: ROOT_INODE,
                         name,
                         children,
                         ..
-                    }) if name == "/" && children == &[1]
+                    })) if name == "/" && children == &[1]
                 ),
                 "`/` contains `foo.txt`",
             );
             assert!(
                 matches!(
                     fs_inner.storage.get(1),
-                    Some(Node::File {
+                    Some(Node::File(FileNode {
                         inode: 1,
                         name,
                         ..
-                    }) if name == "foo.txt"
+                    })) if name == "foo.txt"
                 ),
                 "`foo.txt` exists and is a file",
             );
@@ -441,33 +437,16 @@ mod test_virtual_file {
             assert!(
                 matches!(
                     fs_inner.storage.get(ROOT_INODE),
-                    Some(Node::Directory {
+                    Some(Node::Directory(DirectoryNode {
                         inode: ROOT_INODE,
                         name,
                         children,
                         ..
-                    }) if name == "/" && children.is_empty()
+                    })) if name == "/" && children.is_empty()
                 ),
                 "`/` is empty",
             );
         }
-    }
-
-    #[tokio::test]
-    async fn test_fd() {
-        let fs = FileSystem::default();
-
-        let file = fs
-            .new_open_options()
-            .write(true)
-            .create_new(true)
-            .open(path!("/foo.txt"))
-            .expect("failed to create a new file");
-
-        assert!(
-            matches!(file.get_fd(), Some(FileDescriptor(1))),
-            "reading the file descriptor",
-        );
     }
 }
 
@@ -499,9 +478,9 @@ for FileHandle {
 
             let inode = fs.storage.get_mut(self.inode);
             match inode {
-                Some(Node::File { file, .. }) => {
+                Some(Node::File(node)) => {
                     let read = unsafe {
-                        file.read(std::mem::transmute(buf.unfilled_mut()), &mut cursor)
+                        node.file.read(std::mem::transmute(buf.unfilled_mut()), &mut cursor)
                     };
                     if let Ok(read) = &read {
                         unsafe { buf.assume_init(*read) };
@@ -509,9 +488,9 @@ for FileHandle {
                     }
                     Poll::Ready(read.map(|_| ()))
                 },
-                Some(Node::ReadOnlyFile { file, .. }) => {
+                Some(Node::ReadOnlyFile(node)) => {
                     let read = unsafe {
-                        file.read(std::mem::transmute(buf.unfilled_mut()), &mut cursor)
+                        node.file.read(std::mem::transmute(buf.unfilled_mut()), &mut cursor)
                     };
                     if let Ok(read) = &read {
                         unsafe { buf.assume_init(*read) };
@@ -519,12 +498,12 @@ for FileHandle {
                     }
                     Poll::Ready(read.map(|_| ()))
                 },
-                Some(Node::CustomFile { file, .. }) => {
-                    let mut file = file.lock().unwrap();
+                Some(Node::CustomFile(node)) => {
+                    let mut file = node.file.lock().unwrap();
                     let file = Pin::new(file.as_mut());
                     file.poll_read(cx, buf)
                 }
-                Some(Node::ArcFile { .. }) => {
+                Some(Node::ArcFile(_)) => {
                     drop(fs);
                     match self.lazy_load_arc_file_mut() {
                         Ok(file) => {
@@ -575,20 +554,20 @@ for FileHandle {
 
             let inode = fs.storage.get_mut(self.inode);
             match inode {
-                Some(Node::File { file, .. }) => {
-                    file.seek(position, &mut cursor)?;
+                Some(Node::File(node)) => {
+                    node.file.seek(position, &mut cursor)?;
                     Ok(())
                 },
-                Some(Node::ReadOnlyFile { file, .. }) => {
-                    file.seek(position, &mut cursor)?;
+                Some(Node::ReadOnlyFile(node)) => {
+                    node.file.seek(position, &mut cursor)?;
                     Ok(())
                 },
-                Some(Node::CustomFile { file, .. }) => {
-                    let mut file = file.lock().unwrap();
+                Some(Node::CustomFile(node)) => {
+                    let mut file = node.file.lock().unwrap();
                     let file = Pin::new(file.as_mut());
                     file.start_seek(position)
                 }
-                Some(Node::ArcFile { .. }) => {
+                Some(Node::ArcFile(_)) => {
                     drop(fs);
                     match self.lazy_load_arc_file_mut() {
                         Ok(file) => {
@@ -650,8 +629,8 @@ for FileHandle {
             Some(Node::ReadOnlyFile { .. }) => {
                 Poll::Ready(Ok(self.cursor))
             },
-            Some(Node::CustomFile { file, .. }) => {
-                let mut file = file.lock().unwrap();
+            Some(Node::CustomFile(node)) => {
+                let mut file = node.file.lock().unwrap();
                 let file = Pin::new(file.as_mut());
                 file.poll_complete(cx)
             }
@@ -712,18 +691,18 @@ for FileHandle {
 
             let inode = fs.storage.get_mut(self.inode);
             match inode {
-                Some(Node::File { file, metadata, .. }) => {
-                    let bytes_written = file.write(buf, &mut cursor)?;
-                    metadata.len = file.len().try_into().unwrap();
+                Some(Node::File(node)) => {
+                    let bytes_written = node.file.write(buf, &mut cursor)?;
+                    node.metadata.len = node.file.len().try_into().unwrap();
                     bytes_written
                 }
-                Some(Node::ReadOnlyFile { file, metadata, .. }) => {
-                    let bytes_written = file.write(buf, &mut cursor)?;
-                    metadata.len = file.len().try_into().unwrap();
+                Some(Node::ReadOnlyFile(node)) => {
+                    let bytes_written = node.file.write(buf, &mut cursor)?;
+                    node.metadata.len = node.file.len().try_into().unwrap();
                     bytes_written
                 }
-                Some(Node::CustomFile { file, metadata, .. }) => {
-                    let mut guard = file.lock().unwrap();
+                Some(Node::CustomFile(node)) => {
+                    let mut guard = node.file.lock().unwrap();
                     
                     let file = Pin::new(guard.as_mut());
                     if let Err(err) = file.start_seek(io::SeekFrom::Start(self.cursor as u64)) {
@@ -740,10 +719,10 @@ for FileHandle {
                         Poll::Pending => return Poll::Pending,
                     };
                     cursor += bytes_written as u64;
-                    metadata.len = guard.size().try_into().unwrap();
+                    node.metadata.len = guard.size().try_into().unwrap();
                     bytes_written
                 }
-                Some(Node::ArcFile { .. }) => {
+                Some(Node::ArcFile(_)) => {
                     drop(fs);
                     match self.lazy_load_arc_file_mut() {
                         Ok(file) => {
@@ -788,24 +767,24 @@ for FileHandle {
 
             let inode = fs.storage.get_mut(self.inode);
             match inode {
-                Some(Node::File { file, metadata, .. }) => {
+                Some(Node::File(node)) => {
                     let buf = bufs.iter().find(|b| !b.is_empty()).map_or(&[][..], |b| &**b);
-                    let bytes_written = file.write(buf, &mut cursor)?;
-                    metadata.len = file.buffer.len() as u64;
+                    let bytes_written = node.file.write(buf, &mut cursor)?;
+                    node.metadata.len = node.file.buffer.len() as u64;
                     Poll::Ready(Ok(bytes_written))
                 },
-                Some(Node::ReadOnlyFile { file, metadata, .. }) => {
+                Some(Node::ReadOnlyFile(node)) => {
                     let buf = bufs.iter().find(|b| !b.is_empty()).map_or(&[][..], |b| &**b);
-                    let bytes_written = file.write(buf, &mut cursor)?;
-                    metadata.len = file.buffer.len() as u64;
+                    let bytes_written = node.file.write(buf, &mut cursor)?;
+                    node.metadata.len = node.file.buffer.len() as u64;
                     Poll::Ready(Ok(bytes_written))
                 },
-                Some(Node::CustomFile { file, .. }) => {
-                    let mut file = file.lock().unwrap();
+                Some(Node::CustomFile(node)) => {
+                    let mut file = node.file.lock().unwrap();
                     let file = Pin::new(file.as_mut());
                     file.poll_write_vectored(cx, bufs)
                 }
-                Some(Node::ArcFile { .. }) => {
+                Some(Node::ArcFile(_)) => {
                     drop(fs);
                     match self.lazy_load_arc_file_mut() {
                         Ok(file) => {
@@ -845,14 +824,14 @@ for FileHandle {
 
         let inode = fs.storage.get_mut(self.inode);
         match inode {
-            Some(Node::File { file, .. }) => {
-                Poll::Ready(file.flush())
+            Some(Node::File(node)) => {
+                Poll::Ready(node.file.flush())
             },
-            Some(Node::ReadOnlyFile { file, .. }) => {
-                Poll::Ready(file.flush())
+            Some(Node::ReadOnlyFile(node)) => {
+                Poll::Ready(node.file.flush())
             },
-            Some(Node::CustomFile { file, .. }) => {
-                let mut file = file.lock().unwrap();
+            Some(Node::CustomFile(node)) => {
+                let mut file = node.file.lock().unwrap();
                 let file = Pin::new(file.as_mut());
                 file.poll_flush(cx)
             }
@@ -899,8 +878,8 @@ for FileHandle {
             Some(Node::ReadOnlyFile { .. }) => {
                 Poll::Ready(Ok(()))
             },
-            Some(Node::CustomFile { file, .. }) => {
-                let mut file = file.lock().unwrap();
+            Some(Node::CustomFile(node)) => {
+                let mut file = node.file.lock().unwrap();
                 let file = Pin::new(file.as_mut());
                 file.poll_shutdown(cx)
             }
@@ -940,8 +919,8 @@ for FileHandle {
         match inode {
             Some(Node::File { .. }) => false,
             Some(Node::ReadOnlyFile { .. }) => false,
-            Some(Node::CustomFile { file, .. }) => {
-                let file = file.lock().unwrap();
+            Some(Node::CustomFile(node)) => {
+                let file = node.file.lock().unwrap();
                 file.is_write_vectored()
             },
             Some(Node::ArcFile { .. }) => {

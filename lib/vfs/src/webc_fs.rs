@@ -1,6 +1,6 @@
 use crate::mem_fs::FileSystem as MemFileSystem;
 use crate::{
-    FileDescriptor, FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig,
+    FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig,
     ReadDir, VirtualFile,
 };
 use anyhow::anyhow;
@@ -149,9 +149,6 @@ where
     }
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
-    }
-    fn get_fd(&self) -> Option<FileDescriptor> {
-        None
     }
 }
 

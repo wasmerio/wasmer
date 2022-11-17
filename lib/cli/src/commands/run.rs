@@ -97,6 +97,7 @@ impl RunWithoutFile {
         mut self,
         package_root_dir: PathBuf, // <- package dir
         command: Option<&str>,
+        _debug_output_allowed: bool,
     ) -> Result<Run, anyhow::Error> {
         let (manifest, pathbuf) =
             wasmer_registry::get_executable_file_from_path(&package_root_dir, command)?;
@@ -108,10 +109,12 @@ impl RunWithoutFile {
             for (alias, real_dir) in fs.iter() {
                 let real_dir = package_root_dir.join(&real_dir);
                 if !real_dir.exists() {
-                    println!(
-                        "warning: cannot map {alias:?} to {}: directory does not exist",
-                        real_dir.display()
-                    );
+                    if _debug_output_allowed {
+                        println!(
+                            "warning: cannot map {alias:?} to {}: directory does not exist",
+                            real_dir.display()
+                        );
+                    }
                     continue;
                 }
 
@@ -644,12 +647,47 @@ impl Run {
     }
 }
 
-fn start_spinner(msg: String) -> spinner::SpinnerHandle {
-    spinner::SpinnerBuilder::new(msg)
-        .spinner(vec![
-            "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷", " ", "⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈",
-        ])
-        .start()
+fn start_spinner(msg: String) -> Option<spinner::SpinnerHandle> {
+    if !isatty::stdout_isatty() {
+        return None;
+    }
+    Some(
+        spinner::SpinnerBuilder::new(msg)
+            .spinner(vec![
+                "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷", " ", "⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈",
+            ])
+            .start(),
+    )
+}
+
+/// Before looking up a command from the registry, try to see if we have
+/// the command already installed
+fn try_run_local_command(
+    args: &[String],
+    sv: &SplitVersion,
+    debug_msgs_allowed: bool,
+) -> Result<(), ExecuteLocalPackageError> {
+    let result = wasmer_registry::try_finding_local_command(&sv.original).ok_or_else(|| {
+        ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!(
+            "could not find command {} locally",
+            sv.original
+        ))
+    })?;
+    let package_dir = result
+        .get_path()
+        .map_err(|e| ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("{e}")))?;
+
+    // Try auto-installing the remote package
+    let args_without_package = fixup_args(args, &sv.original);
+    let mut run_args = RunWithoutFile::try_parse_from(args_without_package.iter())
+        .map_err(|e| ExecuteLocalPackageError::DuringExec(e.into()))?;
+    run_args.command_name = sv.command.clone();
+
+    run_args
+        .into_run_args(package_dir, sv.command.as_deref(), debug_msgs_allowed)
+        .map_err(ExecuteLocalPackageError::DuringExec)?
+        .execute()
+        .map_err(ExecuteLocalPackageError::DuringExec)
 }
 
 pub(crate) fn try_autoinstall_package(
@@ -659,7 +697,8 @@ pub(crate) fn try_autoinstall_package(
     force_install: bool,
 ) -> Result<(), anyhow::Error> {
     use std::io::Write;
-    let sp = start_spinner(format!("Installing package {} ...", sv.package));
+    let mut sp = start_spinner(format!("Installing package {} ...", sv.package));
+    let debug_msgs_allowed = sp.is_some();
     let v = sv.version.as_deref();
     let result = wasmer_registry::install_package(
         sv.registry.as_deref(),
@@ -668,8 +707,10 @@ pub(crate) fn try_autoinstall_package(
         package,
         force_install,
     );
-    sp.close();
-    print!("\r");
+    if let Some(sp) = sp.take() {
+        sp.close();
+        print!("\r");
+    }
     let _ = std::io::stdout().flush();
     let (_, package_dir) = match result {
         Ok(o) => o,
@@ -684,7 +725,7 @@ pub(crate) fn try_autoinstall_package(
     run_args.command_name = sv.command.clone();
 
     run_args
-        .into_run_args(package_dir, sv.command.as_deref())?
+        .into_run_args(package_dir, sv.command.as_deref(), debug_msgs_allowed)?
         .execute()
 }
 
@@ -698,6 +739,7 @@ enum ExecuteLocalPackageError {
 fn try_execute_local_package(
     args: &[String],
     sv: &SplitVersion,
+    debug_msgs_allowed: bool,
 ) -> Result<(), ExecuteLocalPackageError> {
     let package = wasmer_registry::get_local_package(None, &sv.package, sv.version.as_deref())
         .ok_or_else(|| {
@@ -713,7 +755,7 @@ fn try_execute_local_package(
 
     RunWithoutFile::try_parse_from(args_without_package.iter())
         .map_err(|e| ExecuteLocalPackageError::DuringExec(e.into()))?
-        .into_run_args(package_dir, sv.command.as_deref())
+        .into_run_args(package_dir, sv.command.as_deref(), debug_msgs_allowed)
         .map_err(ExecuteLocalPackageError::DuringExec)?
         .execute()
         .map_err(|e| ExecuteLocalPackageError::DuringExec(e.context(anyhow::anyhow!("{}", sv))))
@@ -721,11 +763,13 @@ fn try_execute_local_package(
 
 fn try_lookup_command(sv: &mut SplitVersion) -> Result<PackageDownloadInfo, anyhow::Error> {
     use std::io::Write;
-    let sp = start_spinner(format!("Looking up command {} ...", sv.package));
+    let mut sp = start_spinner(format!("Looking up command {} ...", sv.package));
 
     for registry in wasmer_registry::get_all_available_registries().unwrap_or_default() {
         let result = wasmer_registry::query_command_from_registry(&registry, &sv.package);
-        print!("\r");
+        if sp.is_some() {
+            print!("\r");
+        }
         let _ = std::io::stdout().flush();
         let command = sv.package.clone();
         if let Ok(o) = result {
@@ -736,8 +780,10 @@ fn try_lookup_command(sv: &mut SplitVersion) -> Result<PackageDownloadInfo, anyh
         }
     }
 
-    sp.close();
-    print!("\r");
+    if let Some(sp) = sp.take() {
+        sp.close();
+        print!("\r");
+    }
     let _ = std::io::stdout().flush();
     Err(anyhow::anyhow!("command {sv} not found"))
 }
@@ -782,12 +828,18 @@ pub(crate) fn try_run_package_or_file(
     r: &Run,
     debug: bool,
 ) -> Result<(), anyhow::Error> {
+    let debug_msgs_allowed = isatty::stdout_isatty();
+
     // Check "r.path" is a file or a package / command name
     if r.path.exists() {
         if r.path.is_dir() && r.path.join("wapm.toml").exists() {
             let args_without_package = fixup_args(args, &format!("{}", r.path.display()));
             return RunWithoutFile::try_parse_from(args_without_package.iter())?
-                .into_run_args(r.path.clone(), r.command_name.as_deref())?
+                .into_run_args(
+                    r.path.clone(),
+                    r.command_name.as_deref(),
+                    debug_msgs_allowed,
+                )?
                 .execute();
         }
         return r.execute();
@@ -807,9 +859,14 @@ pub(crate) fn try_run_package_or_file(
                 command: None,
             };
             is_fake_sv = true;
+            match try_run_local_command(args, &fake_sv, debug) {
+                Ok(()) => return Ok(()),
+                Err(ExecuteLocalPackageError::DuringExec(e)) => return Err(e),
+                _ => {}
+            }
             match try_lookup_command(&mut fake_sv) {
                 Ok(o) => SplitVersion {
-                    original: format!("{}@{}", o.package, o.version),
+                    original: package.to_string(),
                     registry: None,
                     package: o.package,
                     version: Some(o.version),
@@ -841,13 +898,13 @@ pub(crate) fn try_run_package_or_file(
         }
     }
 
-    match try_execute_local_package(args, &sv) {
+    match try_execute_local_package(args, &sv, debug_msgs_allowed) {
         Ok(o) => return Ok(o),
         Err(ExecuteLocalPackageError::DuringExec(e)) => return Err(e),
         _ => {}
     }
 
-    if debug {
+    if debug && isatty::stdout_isatty() {
         eprintln!("finding local package {} failed", sv);
     }
 

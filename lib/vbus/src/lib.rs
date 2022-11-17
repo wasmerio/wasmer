@@ -6,7 +6,6 @@ use std::task::{Context, Poll};
 use thiserror::Error;
 
 use wasmer::{FunctionEnvMut, Store};
-pub use wasmer_vfs::FileDescriptor;
 pub use wasmer_vfs::StdioMode;
 use wasmer_vfs::VirtualFile;
 use wasmer_wasi_types::wasi::BusDataFormat;

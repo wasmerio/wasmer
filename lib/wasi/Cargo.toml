@@ -44,8 +44,6 @@ futures = { version = "0.3" }
 # used by feature='os'
 async-trait = { version = "^0.1", optional = true }
 urlencoding = { version = "^2", optional = true }
-# FIXME: proper dependency!
-webc-vfs = { version = "0.1", path = "../../../pirita/crates/webc-vfs", default_features = false, optional = true }
 serde_derive = { version = "^1", optional = true }
 serde_json = { version = "^1", optional = true }
 serde_yaml = { version = "^0.8", optional = true }
@@ -98,11 +96,11 @@ compiler-cranelift = [ "wasmer-compiler-cranelift" ]
 compiler-llvm = [ "wasmer-compiler-llvm" ]
 compiler-singlepass = [ "wasmer-compiler-singlepass" ]
 
-js = ["wasmer/js", "mem-fs", "wasmer-vfs/no-time", "getrandom/js", "chrono", "wasmer-wasi-types/js"]
+js = ["wasmer/js", "wasmer-vfs/no-time", "getrandom/js", "chrono", "wasmer-wasi-types/js"]
 js-default = ["js", "wasmer/js-default"]
 test-js = ["js", "wasmer/js-default", "wasmer/wat"]
 
-os = [ "wasmer/wat", "wasmer/js-serializable-module", "async-trait", "urlencoding", "webc", "webc-vfs", "serde", "serde_derive", "serde_json", "serde_yaml", "shellexpand", "weezl", "hex", "linked_hash_set", "wasmer/enable-rkyv" ]
+os = [ "wasmer/wat", "wasmer/js-serializable-module", "async-trait", "urlencoding", "webc", "serde", "serde_derive", "serde_json", "serde_yaml", "shellexpand", "weezl", "hex", "linked_hash_set", "wasmer/enable-rkyv" ]
 
 host-vnet = [ "wasmer-wasi-local-networking" ]
 host-threads = []

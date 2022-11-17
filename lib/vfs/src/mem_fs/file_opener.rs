@@ -38,7 +38,7 @@ impl FileOpener {
 
                 // Creating the file in the storage.
                 let inode_of_file = fs.storage.vacant_entry().key();
-                let real_inode_of_file = fs.storage.insert(Node::ReadOnlyFile {
+                let real_inode_of_file = fs.storage.insert(Node::ReadOnlyFile(ReadOnlyFileNode {
                     inode: inode_of_file,
                     name: name_of_file,
                     file,
@@ -56,7 +56,7 @@ impl FileOpener {
                             len: 0,
                         }
                     },
-                });
+                }));
 
                 assert_eq!(
                     inode_of_file, real_inode_of_file,
@@ -101,7 +101,7 @@ impl FileOpener {
 
                 // Creating the file in the storage.
                 let inode_of_file = fs_lock.storage.vacant_entry().key();
-                let real_inode_of_file = fs_lock.storage.insert(Node::ArcFile {
+                let real_inode_of_file = fs_lock.storage.insert(Node::ArcFile(ArcFileNode {
                     inode: inode_of_file,
                     name: name_of_file,
                     fs,
@@ -119,7 +119,7 @@ impl FileOpener {
                             len: 0,
                         }
                     },
-                });
+                }));
 
                 assert_eq!(
                     inode_of_file, real_inode_of_file,
@@ -164,7 +164,7 @@ impl FileOpener {
 
                 // Creating the file in the storage.
                 let inode_of_file = fs_lock.storage.vacant_entry().key();
-                let real_inode_of_file = fs_lock.storage.insert(Node::ArcDirectory {
+                let real_inode_of_file = fs_lock.storage.insert(Node::ArcDirectory(ArcDirectoryNode {
                     inode: inode_of_file,
                     name: name_of_file,
                     fs,
@@ -182,7 +182,7 @@ impl FileOpener {
                             len: 0,
                         }
                     },
-                });
+                }));
 
                 assert_eq!(
                     inode_of_file, real_inode_of_file,
@@ -227,7 +227,7 @@ impl FileOpener {
 
                 // Creating the file in the storage.
                 let inode_of_file = fs_lock.storage.vacant_entry().key();
-                let real_inode_of_file = fs_lock.storage.insert(Node::CustomFile {
+                let real_inode_of_file = fs_lock.storage.insert(Node::CustomFile(CustomFileNode {
                     inode: inode_of_file,
                     name: name_of_file,
                     file: Mutex::new(file),
@@ -244,7 +244,7 @@ impl FileOpener {
                             len: 0,
                         }
                     },
-                });
+                }));
 
                 assert_eq!(
                     inode_of_file, real_inode_of_file,
@@ -366,7 +366,7 @@ impl crate::FileOpener for FileOpener {
                 
                 let inode = fs.storage.get_mut(inode_of_file);
                 match inode {
-                    Some(Node::File { metadata, file, .. }) => {
+                    Some(Node::File(FileNode { metadata, file, .. })) => {
                         // Update the accessed time.
                         metadata.accessed = time();
 
@@ -382,9 +382,9 @@ impl crate::FileOpener for FileOpener {
                         }
                     }
 
-                    Some(Node::ReadOnlyFile { metadata, .. }) => {
+                    Some(Node::ReadOnlyFile(node)) => {
                         // Update the accessed time.
-                        metadata.accessed = time();
+                        node.metadata.accessed = time();
 
                         // Truncate if needed.
                         if truncate || append {
@@ -392,15 +392,15 @@ impl crate::FileOpener for FileOpener {
                         }
                     }
 
-                    Some(Node::CustomFile { metadata, file, .. }) => {
+                    Some(Node::CustomFile(node)) => {
                         // Update the accessed time.
-                        metadata.accessed = time();
+                        node.metadata.accessed = time();
 
                         // Truncate if needed.
-                        let mut file = file.lock().unwrap();
+                        let mut file = node.file.lock().unwrap();
                         if truncate {
                             file.set_len(0)?;
-                            metadata.len = 0;
+                            node.metadata.len = 0;
                         }
 
                         // Move the cursor to the end if needed.
@@ -409,13 +409,11 @@ impl crate::FileOpener for FileOpener {
                         }
                     }
 
-                    Some(Node::ArcFile {
-                        metadata, fs, path, ..
-                    }) => {
+                    Some(Node::ArcFile(node)) => {
                         // Update the accessed time.
-                        metadata.accessed = time();
+                        node.metadata.accessed = time();
 
-                        let mut file = fs
+                        let mut file = node.fs
                             .new_open_options()
                             .read(read)
                             .write(write)
@@ -423,12 +421,12 @@ impl crate::FileOpener for FileOpener {
                             .truncate(truncate)
                             .create(create)
                             .create_new(create_new)
-                            .open(path.as_path())?;
+                            .open(node.path.as_path())?;
 
                         // Truncate if needed.
                         if truncate {
                             file.set_len(0)?;
-                            metadata.len = 0;
+                            node.metadata.len = 0;
                         }
 
                         // Move the cursor to the end if needed.
@@ -437,6 +435,7 @@ impl crate::FileOpener for FileOpener {
                         }
                     }
 
+                    None => return Err(FsError::EntryNotFound),
                     _ => return Err(FsError::NotAFile),
                 }
 
@@ -454,7 +453,7 @@ impl crate::FileOpener for FileOpener {
 
                 // Creating the file in the storage.
                 let inode_of_file = fs.storage.vacant_entry().key();
-                let real_inode_of_file = fs.storage.insert(Node::File {
+                let real_inode_of_file = fs.storage.insert(Node::File(FileNode {
                     inode: inode_of_file,
                     name: name_of_file,
                     file,
@@ -472,7 +471,7 @@ impl crate::FileOpener for FileOpener {
                             len: 0,
                         }
                     },
-                });
+                }));
 
                 assert_eq!(
                     inode_of_file, real_inode_of_file,
@@ -536,23 +535,23 @@ mod test_file_opener {
             assert!(
                 matches!(
                     fs_inner.storage.get(ROOT_INODE),
-                    Some(Node::Directory {
+                    Some(Node::Directory(DirectoryNode {
                         inode: ROOT_INODE,
                         name,
                         children,
                         ..
-                    }) if name == "/" && children == &[1]
+                    })) if name == "/" && children == &[1]
                 ),
                 "`/` contains `foo.txt`",
             );
             assert!(
                 matches!(
                     fs_inner.storage.get(1),
-                    Some(Node::File {
+                    Some(Node::File(FileNode {
                         inode: 1,
                         name,
                         ..
-                    }) if name == "foo.txt"
+                    })) if name == "foo.txt"
                 ),
                 "`foo.txt` exists and is a file",
             );

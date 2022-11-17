@@ -119,6 +119,39 @@ impl VirtualFile for WasiBidirectionalPipePair {
     {
         self.tx.write_async(buf, register_root_waker)
     }
+    fn bytes_available_write(&self) -> Result<usize, FsError> {
+        self.send.bytes_available_write()
+    }
+    fn poll_read_ready(
+        &self,
+        cx: &mut std::task::Context<'_>,
+        register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> std::task::Poll<wasmer_vfs::Result<usize>> {
+        self.recv.poll_read_ready(cx, register_root_waker)
+    }
+    fn poll_write_ready(
+        &self,
+        cx: &mut std::task::Context<'_>,
+        register_root_waker: &Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> std::task::Poll<wasmer_vfs::Result<usize>> {
+        self.send.poll_write_ready(cx, register_root_waker)
+    }
+    fn read_async<'a>(
+        &'a mut self,
+        max_size: usize,
+        register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<Vec<u8>, std::io::Error>> + 'a)>>
+    {
+        self.recv.read_async(max_size, register_root_waker)
+    }
+    fn write_async<'a>(
+        &'a mut self,
+        buf: &'a [u8],
+        register_root_waker: &'_ Arc<dyn Fn(Waker) + Send + Sync + 'static>,
+    ) -> Pin<Box<(dyn futures::Future<Output = std::result::Result<usize, std::io::Error>> + 'a)>>
+    {
+        self.send.write_async(buf, register_root_waker)
+    }
 }
 
 impl Default for WasiBidirectionalPipePair {

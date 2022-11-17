@@ -1,7 +1,7 @@
 //! This module contains the standard I/O streams, i.e. “emulated”
 //! `stdin`, `stdout` and `stderr`.
 
-use crate::{FileDescriptor, FsError, Result, VirtualFile};
+use crate::{FsError, Result, VirtualFile};
 use std::io::{self, Write};
 
 macro_rules! impl_virtualfile_on_std_streams {
@@ -47,14 +47,6 @@ macro_rules! impl_virtualfile_on_std_streams {
 
             fn unlink(&mut self) -> Result<()> {
                 Ok(())
-            }
-
-            fn get_special_fd(&self) -> Option<u32> {
-                None
-            }
-
-            fn get_fd(&self) -> Option<FileDescriptor> {
-                None
             }
         }
 

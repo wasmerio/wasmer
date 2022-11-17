@@ -5,20 +5,35 @@ use std::io;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
-#[cfg(all(not(feature = "host-fs"), not(feature = "mem-fs")))]
-compile_error!("At least the `host-fs` or the `mem-fs` feature must be enabled. Please, pick one.");
-
-//#[cfg(all(feature = "mem-fs", feature = "enable-serde"))]
-//compile_warn!("`mem-fs` does not support `enable-serde` for the moment.");
-
+pub mod arc_file;
+pub mod arc_fs;
+pub mod builder;
+pub mod empty_fs;
 #[cfg(feature = "host-fs")]
 pub mod host_fs;
-#[cfg(feature = "mem-fs")]
 pub mod mem_fs;
+pub mod null_file;
+pub mod passthru_fs;
+pub mod special_file;
+pub mod tmp_fs;
+pub mod union_fs;
+pub mod zero_file;
+// tty_file -> see wasmer_wasi::tty_file
 #[cfg(feature = "static-fs")]
 pub mod static_fs;
 #[cfg(feature = "webc-fs")]
 pub mod webc_fs;
+
+pub use arc_file::*;
+pub use arc_fs::*;
+pub use builder::*;
+pub use empty_fs::*;
+pub use null_file::*;
+pub use passthru_fs::*;
+pub use special_file::*;
+pub use tmp_fs::*;
+pub use union_fs::*;
+pub use zero_file::*;
 
 pub type Result<T> = std::result::Result<T, FsError>;
 
@@ -28,21 +43,7 @@ pub use tokio::io::AsyncWrite;
 pub use tokio::io::AsyncSeek;
 pub use tokio::io::ReadBuf;
 
-#[derive(Debug, Clone, Copy)]
-#[repr(transparent)]
-pub struct FileDescriptor(usize);
-
-impl From<u32> for FileDescriptor {
-    fn from(a: u32) -> Self {
-        Self(a as usize)
-    }
-}
-
-impl From<FileDescriptor> for u32 {
-    fn from(a: FileDescriptor) -> u32 {
-        a.0 as u32
-    }
-}
+pub trait ClonableVirtualFile: VirtualFile + Clone {}
 
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
@@ -230,15 +231,10 @@ pub trait VirtualFile: fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin +
         true
     }
 
-    /// Returns a special file descriptor when opening this file rather than
-    /// generating a new one
+    /// Used for "special" files such as `stdin`, `stdout` and `stderr`.
+    /// Always returns the same file descriptor (0, 1 or 2). Returns `None`
+    /// on normal files
     fn get_special_fd(&self) -> Option<u32> {
-        None
-    }
-
-    /// Used for polling.  Default returns `None` because this method cannot be implemented for most types
-    /// Returns the underlying host fd
-    fn get_fd(&self) -> Option<FileDescriptor> {
         None
     }
 }
@@ -250,8 +246,6 @@ pub trait Upcastable {
     fn upcast_any_mut(&'_ mut self) -> &'_ mut dyn Any;
     fn upcast_any_box(self: Box<Self>) -> Box<dyn Any>;
 }
-
-pub trait ClonableVirtualFile: VirtualFile + Clone {}
 
 impl<T: Any + fmt::Debug + 'static> Upcastable for T {
     #[inline]
@@ -432,6 +426,9 @@ pub struct ReadDir {
 impl ReadDir {
     pub fn new(data: Vec<DirEntry>) -> Self {
         Self { data, index: 0 }
+    }
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
     }
 }
 
