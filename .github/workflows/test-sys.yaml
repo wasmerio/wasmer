@@ -210,6 +210,8 @@ jobs:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
+          WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
+
       #- name: Test integration CLI
       #  if: matrix.run_test && matrix.os == 'windows-2019'
       #  shell: bash

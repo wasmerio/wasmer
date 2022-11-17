@@ -11,6 +11,7 @@ mod create_exe;
 mod create_obj;
 mod inspect;
 mod list;
+mod login;
 mod run;
 mod self_update;
 mod validate;
@@ -27,7 +28,7 @@ pub use create_exe::*;
 pub use create_obj::*;
 #[cfg(feature = "wast")]
 pub use wast::*;
-pub use {cache::*, config::*, inspect::*, list::*, run::*, self_update::*, validate::*};
+pub use {cache::*, config::*, inspect::*, list::*, login::*, run::*, self_update::*, validate::*};
 
 /// The kind of object format to emit.
 #[derive(Debug, Copy, Clone, clap::Parser)]
