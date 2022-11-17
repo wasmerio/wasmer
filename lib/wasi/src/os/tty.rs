@@ -16,7 +16,7 @@ pub enum InputEvent {
     Raw(Vec<u8>),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ConsoleRect {
     pub cols: u32,
     pub rows: u32,
@@ -28,7 +28,7 @@ impl Default for ConsoleRect {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TtyOptionsInner {
     echo: bool,
     line_buffering: bool,
@@ -270,7 +270,7 @@ impl Tty {
 
     async fn on_data(&mut self, data: &[u8]) {
         // If we are line buffering then we need to check for some special cases
-        let options = self.options.inner.lock().unwrap();
+        let options = { self.options.inner.lock().unwrap().clone() };
         if options.line_buffering {
             let echo = options.echo;
             drop(options);
