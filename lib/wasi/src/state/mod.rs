@@ -25,9 +25,9 @@ mod thread;
 mod types;
 
 pub use self::{
+    builder::*,
     env::{WasiEnv, WasiEnvInner},
     func_env::WasiFunctionEnv,
-    builder::*,
     guard::*,
     parking::*,
     socket::*,
@@ -78,10 +78,7 @@ use wasmer_wasi_types::wasi::{Prestat, PrestatEnum};
 use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
 
 use crate::{
-    bin_factory::BinaryPackage,
-    syscalls::types::*,
-    utils::map_io_err,
-    WasiCallingId,
+    bin_factory::BinaryPackage, syscalls::types::*, utils::map_io_err, WasiCallingId,
     WasiRuntimeImplementation,
 };
 

@@ -7,13 +7,14 @@ use std::{
 use wasmer_vfs::AsyncReadExt;
 
 mod binary_package;
-mod cached_modules;
 mod exec;
+mod module_cache;
 
-pub use binary_package::*;
-pub use cached_modules::*;
-pub use exec::spawn_exec;
-pub use exec::spawn_exec_module;
+pub use self::{
+    binary_package::*,
+    exec::{spawn_exec, spawn_exec_module},
+    module_cache::ModuleCache,
+};
 pub(crate) use exec::SpawnedProcess;
 
 use sha2::*;

@@ -152,7 +152,10 @@ impl Console {
         }
 
         // Build a new store that will be passed to the thread
-        let store = self.compiled_modules.new_store();
+        let store = self
+            .compiled_modules
+            .new_store()
+            .expect("Module compilation is not supported");
 
         // Create the control plane, process and thread
         let control_plane = WasiControlPlane::default();

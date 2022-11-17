@@ -1,9 +1,7 @@
-use derivative::*;
 use std::sync::RwLock;
 use std::{cell::RefCell, collections::HashMap, ops::DerefMut, path::PathBuf};
 
 use bytes::Bytes;
-#[cfg(feature = "sys")]
 use wasmer::Engine;
 use wasmer::{AsStoreRef, Module};
 use wasmer_wasi_types::wasi::Snapshot0Clockid;
@@ -17,22 +15,19 @@ pub const DEFAULT_COMPILED_PATH: &'static str = "~/.wasmer/compiled";
 pub const DEFAULT_WEBC_PATH: &'static str = "~/.wasmer/webc";
 pub const DEFAULT_CACHE_TIME: u128 = std::time::Duration::from_secs(30).as_nanos();
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct ModuleCache {
-    #[cfg(feature = "sys")]
-    pub(crate) cached_modules: RwLock<HashMap<String, Module>>,
     pub(crate) cache_compile_dir: String,
+    pub(crate) cached_modules: Option<RwLock<HashMap<String, Module>>>,
+
     pub(crate) cache_webc: RwLock<HashMap<String, BinaryPackage>>,
     pub(crate) cache_webc_dir: String,
-    #[cfg(feature = "sys")]
-    #[derivative(Debug = "ignore")]
-    pub(crate) engine: Engine,
+    pub(crate) engine: Option<Engine>,
 }
 
 impl Default for ModuleCache {
     fn default() -> Self {
-        ModuleCache::new(None, None)
+        ModuleCache::new(None, None, true)
     }
 }
 
@@ -42,6 +37,53 @@ thread_local! {
 }
 
 impl ModuleCache {
+    /// Create a new [`ModuleCache`].
+    ///
+    /// use_shared_cache enables a shared cache of modules in addition to a thread-local cache.
+    pub fn new(
+        cache_compile_dir: Option<String>,
+        cache_webc_dir: Option<String>,
+        use_shared_cache: bool,
+    ) -> ModuleCache {
+        let cache_compile_dir = shellexpand::tilde(
+            cache_compile_dir
+                .as_ref()
+                .map(|a| a.as_str())
+                .unwrap_or_else(|| DEFAULT_COMPILED_PATH),
+        )
+        .to_string();
+        let _ = std::fs::create_dir_all(PathBuf::from(cache_compile_dir.clone()));
+
+        let cache_webc_dir = shellexpand::tilde(
+            cache_webc_dir
+                .as_ref()
+                .map(|a| a.as_str())
+                .unwrap_or_else(|| DEFAULT_WEBC_PATH),
+        )
+        .to_string();
+        let _ = std::fs::create_dir_all(PathBuf::from(cache_webc_dir.clone()));
+
+        // TODO: let users provide an optional engine via argument.
+        #[cfg(feature = "sys")]
+        let engine = Some(Self::new_engine());
+        #[cfg(not(feature = "sys"))]
+        let engine = None;
+
+        let cached_modules = if use_shared_cache {
+            Some(RwLock::new(HashMap::default()))
+        } else {
+            None
+        };
+
+        ModuleCache {
+            cached_modules,
+            cache_compile_dir,
+            cache_webc: RwLock::new(HashMap::default()),
+            cache_webc_dir,
+            engine,
+        }
+    }
+
     #[cfg(feature = "sys")]
     fn new_engine() -> wasmer::Engine {
         // Build the features list
@@ -86,46 +128,8 @@ impl ModuleCache {
         panic!("wasmer not built with a compiler")
     }
 
-    pub fn new(
-        cache_compile_dir: Option<String>,
-        cache_webc_dir: Option<String>,
-    ) -> ModuleCache {
-        let cache_compile_dir = shellexpand::tilde(
-            cache_compile_dir
-                .as_ref()
-                .map(|a| a.as_str())
-                .unwrap_or_else(|| DEFAULT_COMPILED_PATH),
-        )
-        .to_string();
-        let _ = std::fs::create_dir_all(PathBuf::from(cache_compile_dir.clone()));
-
-        let cache_webc_dir = shellexpand::tilde(
-            cache_webc_dir
-                .as_ref()
-                .map(|a| a.as_str())
-                .unwrap_or_else(|| DEFAULT_WEBC_PATH),
-        )
-        .to_string();
-        let _ = std::fs::create_dir_all(PathBuf::from(cache_webc_dir.clone()));
-
-        #[cfg(feature = "sys")]
-        let engine = Self::new_engine();
-
-        ModuleCache {
-            #[cfg(feature = "sys")]
-            cached_modules: RwLock::new(HashMap::default()),
-            cache_compile_dir,
-            cache_webc: RwLock::new(HashMap::default()),
-            cache_webc_dir,
-            #[cfg(feature = "sys")]
-            engine,
-        }
-    }
-
-    #[cfg(feature = "sys")]
-    pub fn new_store(&self) -> wasmer::Store {
-        let engine = self.engine.clone();
-        wasmer::Store::new(engine)
+    pub fn new_store(&self) -> Option<wasmer::Store> {
+        self.engine.as_ref().map(|e| wasmer::Store::new(e.clone()))
     }
 
     #[cfg(not(feature = "sys"))]
@@ -209,9 +213,8 @@ impl ModuleCache {
         }
 
         // fast path
-        #[cfg(feature = "sys")]
-        {
-            let cache = self.cached_modules.read().unwrap();
+        if let Some(cache) = &self.cached_modules {
+            let cache = cache.read().unwrap();
             if let Some(module) = cache.get(&key) {
                 THREAD_LOCAL_CACHED_MODULES.with(|cache| {
                     let mut cache = cache.borrow_mut();
@@ -232,11 +235,11 @@ impl ModuleCache {
                 // Load the module
                 let module = unsafe { Module::deserialize(store, &module_bytes[..]).unwrap() };
 
-                #[cfg(feature = "sys")]
-                {
-                    let mut cache = self.cached_modules.write().unwrap();
+                if let Some(cache) = &self.cached_modules {
+                    let mut cache = cache.write().unwrap();
                     cache.insert(key.clone(), module.clone());
                 }
+
                 THREAD_LOCAL_CACHED_MODULES.with(|cache| {
                     let mut cache = cache.borrow_mut();
                     cache.insert(key.clone(), module.clone());
@@ -260,9 +263,8 @@ impl ModuleCache {
         });
 
         // Serialize the compiled module into bytes and insert it into the cache
-        #[cfg(feature = "sys")]
-        {
-            let mut cache = self.cached_modules.write().unwrap();
+        if let Some(cache) = &self.cached_modules {
+            let mut cache = cache.write().unwrap();
             cache.insert(key.clone(), module.clone());
         }
 

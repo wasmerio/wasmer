@@ -4,9 +4,7 @@ use wasmer::{FunctionEnvMut, Store};
 use wasmer_vbus::{BusSpawnedProcess, SpawnOptionsConfig};
 use wasmer_wasi_types::wasi::Errno;
 
-use crate::{
-    bin_factory::ModuleCache, syscalls::stderr_write, WasiEnv, WasiRuntimeImplementation,
-};
+use crate::{bin_factory::ModuleCache, syscalls::stderr_write, WasiEnv, WasiRuntimeImplementation};
 mod cmd_wasmer;
 
 pub trait BuiltInCommand
