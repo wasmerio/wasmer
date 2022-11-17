@@ -192,12 +192,10 @@ impl WasiThread {
 
                 // Output debug info for the dead stack
                 let mut disown = Some(Box::new(new_stack));
-                #[cfg(feature = "logging")]
                 if disown.is_some() {
                     tracing::trace!("wasi[{}]::stacks forgotten (memory_stack_before={}, memory_stack_after={})", self.pid, memory_stack_before, memory_stack_after);
                 }
                 while let Some(disowned) = disown {
-                    #[cfg(feature = "logging")]
                     for hash in disowned.snapshots.keys() {
                         tracing::trace!(
                             "wasi[{}]::stack has been forgotten (hash={})",

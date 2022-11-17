@@ -189,7 +189,6 @@ impl WasiProcess {
         if let Some(thread) = inner.threads.get(tid) {
             thread.signal(signal);
         } else {
-            #[cfg(feature = "logging")]
             trace!(
                 "wasi[{}]::lost-signal(tid={}, sig={:?})",
                 self.pid(),
