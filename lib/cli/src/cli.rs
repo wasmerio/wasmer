@@ -10,7 +10,7 @@ use crate::commands::CreateExe;
 use crate::commands::CreateObj;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
-use crate::commands::{Cache, Config, Inspect, Install, List, Login, Run, SelfUpdate, Validate};
+use crate::commands::{Add, Cache, Config, Inspect, List, Login, Run, SelfUpdate, Validate};
 use crate::error::PrettyError;
 use clap::{CommandFactory, ErrorKind, Parser};
 use std::fmt;
@@ -152,7 +152,7 @@ enum WasmerCLIOptions {
     Binfmt(Binfmt),
 
     /// Add a WAPM package's bindings to your application.
-    Install(Install),
+    Add(Add),
 }
 
 impl WasmerCLIOptions {
@@ -176,7 +176,7 @@ impl WasmerCLIOptions {
             Self::Wast(wast) => wast.execute(),
             #[cfg(target_os = "linux")]
             Self::Binfmt(binfmt) => binfmt.execute(),
-            Self::Install(install) => install.execute(),
+            Self::Add(install) => install.execute(),
         }
     }
 }
@@ -228,8 +228,8 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
         WasmerCLIOptions::Run(Run::from_binfmt_args())
     } else {
         match command.unwrap_or(&"".to_string()).as_ref() {
-            "cache" | "compile" | "config" | "create-exe" | "help" | "inspect" | "install"
-            | "run" | "self-update" | "validate" | "wast" | "binfmt" | "list" | "login" => {
+            "add" | "cache" | "compile" | "config" | "create-exe" | "help" | "inspect" | "run"
+            | "self-update" | "validate" | "wast" | "binfmt" | "list" | "login" => {
                 WasmerCLIOptions::parse()
             }
             _ => {

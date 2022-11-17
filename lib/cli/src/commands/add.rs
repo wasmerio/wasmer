@@ -10,8 +10,8 @@ use wasmer_registry::{Bindings, PartialWapmConfig, ProgrammingLanguage};
 
 /// Add a WAPM package's bindings to your application.
 #[derive(Debug, Parser)]
-pub struct Install {
-    /// The registry to install bindings from.
+pub struct Add {
+    /// The registry to fetch bindings from.
     #[clap(long, env = "WAPM_REGISTRY")]
     registry: Option<String>,
     /// Add the JavaScript bindings using "npm install".
@@ -20,19 +20,19 @@ pub struct Install {
     /// Add the JavaScript bindings using "yarn add".
     #[clap(long, groups = &["bindings", "js"])]
     yarn: bool,
-    /// Install the package as a dev-dependency.
+    /// Add the package as a dev-dependency.
     #[clap(long, requires = "js")]
     dev: bool,
     /// Add the Python bindings using "pip install".
     #[clap(long, groups = &["bindings", "py"])]
     pip: bool,
-    /// The packages to install (e.g. "wasmer/wasmer-pack@0.5.0" or "python/python")
+    /// The packages to add (e.g. "wasmer/wasmer-pack@0.5.0" or "python/python")
     #[clap(parse(try_from_str))]
     packages: Vec<PackageSpecifier>,
 }
 
-impl Install {
-    /// Execute [`Install`].
+impl Add {
+    /// Execute [`Add`].
     pub fn execute(&self) -> Result<(), Error> {
         anyhow::ensure!(!self.packages.is_empty(), "No packages specified");
 
@@ -68,16 +68,16 @@ impl Install {
         #[cfg(feature = "debug")]
         log::debug!("Querying WAPM for the bindings packages");
 
-        let mut bindings_to_install = Vec::new();
+        let mut bindings_to_add = Vec::new();
         let language = self.target().language();
 
         for pkg in &self.packages {
             let bindings = lookup_bindings_for_package(registry, pkg, &language)
                 .with_context(|| format!("Unable to find bindings for {pkg}"))?;
-            bindings_to_install.push(bindings);
+            bindings_to_add.push(bindings);
         }
 
-        Ok(bindings_to_install)
+        Ok(bindings_to_add)
     }
 
     fn registry(&self) -> Result<String, Error> {
@@ -109,8 +109,7 @@ fn lookup_bindings_for_package(
     pkg: &PackageSpecifier,
     language: &ProgrammingLanguage,
 ) -> Result<Bindings, Error> {
-    let all_bindings =
-        wasmer_registry::list_bindings(&registry, &pkg.name, pkg.version.as_deref())?;
+    let all_bindings = wasmer_registry::list_bindings(registry, &pkg.name, pkg.version.as_deref())?;
 
     match all_bindings.iter().find(|b| b.language == *language) {
         Some(b) => {
@@ -147,7 +146,7 @@ impl Target {
         }
     }
 
-    /// Construct a command which we can run to install the packages.
+    /// Construct a command which we can run to add packages.
     ///
     /// This deliberately runs the command using the OS shell instead of
     /// invoking the tool directly. That way we can handle when a version
