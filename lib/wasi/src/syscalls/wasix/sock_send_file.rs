@@ -35,7 +35,7 @@ pub fn sock_send_file<M: MemorySize>(
     let tasks = env.tasks.clone();
     let state = env.state.clone();
 
-    let ret = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+    let ret = wasi_try_ok!(__asyncify(&mut ctx, None, move |ctx| async move {
         // Set the offset of the file
         {
             let mut fd_map = state.fs.fd_map.write().unwrap();
@@ -133,7 +133,7 @@ pub fn sock_send_file<M: MemorySize>(
             // Write it down to the socket
             let buf = (&buf[..]).to_vec();
             let bytes_written = __sock_actor_mut(
-                &mut ctx,
+                ctx,
                 sock,
                 Rights::SOCK_SEND,
                 move |socket| async move { socket.send(buf).await },

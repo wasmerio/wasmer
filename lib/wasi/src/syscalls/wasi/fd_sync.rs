@@ -32,7 +32,7 @@ pub fn fd_sync(ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Errno {
                     drop(guard);
                     drop(inodes);
 
-                    wasi_try!(__asyncify(&mut ctx, None, async move {
+                    wasi_try!(__asyncify(&mut ctx, None, move |_| async move {
                         let mut handle = handle.write().unwrap();
                         handle.flush().await.map_err(map_io_err)
                     }))

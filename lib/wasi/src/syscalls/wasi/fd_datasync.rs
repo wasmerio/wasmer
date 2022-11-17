@@ -20,7 +20,7 @@ pub fn fd_datasync(ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Errno {
         return Errno::Access;
     }
 
-    wasi_try!(__asyncify(&mut ctx, None, async move {
+    wasi_try!(__asyncify(&mut ctx, None, move |_| async move {
         state
             .fs
             .flush(inodes.deref(), fd)

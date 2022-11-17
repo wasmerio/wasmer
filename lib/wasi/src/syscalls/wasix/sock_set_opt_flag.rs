@@ -32,9 +32,9 @@ pub fn sock_set_opt_flag(
     };
 
     let option: crate::state::WasiSocketOption = opt.into();
-    wasi_try!(__asyncify(&mut ctx, None, async move {
+    wasi_try!(__asyncify(&mut ctx, None, move |ctx| async move {
         __sock_actor_mut(
-            &mut ctx,
+            ctx,
             sock,
             Rights::empty(),
             move |mut socket| async move { socket.set_opt_flag(option, flag) }

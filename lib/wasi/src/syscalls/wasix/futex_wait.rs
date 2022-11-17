@@ -88,7 +88,7 @@ pub fn futex_wait<M: MemorySize>(
         }
 
         // Now wait for it to be triggered
-        wasi_try_ok!(__asyncify(&mut ctx, sub_timeout, async move {
+        wasi_try_ok!(__asyncify(&mut ctx, sub_timeout, move |_| async move {
             let _ = rx.recv().await;
             Ok(())
         }));

@@ -241,13 +241,14 @@ where
 /// thus allowed for asynchronous operations to execute. It has built in functionality
 /// to (optionally) timeout the IO, force exit the process, callback signals and pump
 /// synchronous IO engine
-pub(crate) fn __asyncify<T, Fut>(
+pub(crate) fn __asyncify<T, F, Fut>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     timeout: Option<Duration>,
-    work: Fut,
+    work: F,
 ) -> Result<T, Errno>
 where
     T: 'static,
+    F: FnOnce(&mut FunctionEnvMut<'_, WasiEnv>) -> Fut,
     Fut: std::future::Future<Output = Result<T, Errno>> + 'static,
 {
     let mut env = ctx.data();
@@ -300,7 +301,7 @@ where
     tasks.block_on(Box::pin(async move {
         tokio::select! {
             // The main work we are doing
-            ret = work => {
+            ret = work(ctx) => {
                 let _ = tx_ret.send(Some(ret));
             },
             // If a signaller is triggered then we interrupt the main process

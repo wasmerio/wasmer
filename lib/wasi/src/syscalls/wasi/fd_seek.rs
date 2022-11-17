@@ -63,7 +63,7 @@ pub fn fd_seek<M: MemorySize>(
                         drop(guard);
                         drop(inodes);
 
-                        wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+                        wasi_try_ok!(__asyncify(&mut ctx, None, move |_| async move {
                             let mut handle = handle.write().unwrap();
                             let end = handle.seek(SeekFrom::End(0)).await.map_err(map_io_err)?;
 

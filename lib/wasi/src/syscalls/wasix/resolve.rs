@@ -46,7 +46,7 @@ pub fn resolve<M: MemorySize>(
 
     let net = env.net();
     let tasks = env.tasks.clone();
-    let found_ips = wasi_try!(__asyncify(&mut ctx, None, async move {
+    let found_ips = wasi_try!(__asyncify(&mut ctx, None, move |_| async move {
         net.resolve(host_str.as_str(), port, None)
             .await
             .map_err(net_error_into_wasi_err)

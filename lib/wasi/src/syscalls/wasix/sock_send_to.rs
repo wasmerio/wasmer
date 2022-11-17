@@ -55,9 +55,9 @@ pub fn sock_send_to<M: MemorySize>(
     };
     let addr = SocketAddr::new(addr_ip, addr_port);
 
-    let bytes_written = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+    let bytes_written = wasi_try_ok!(__asyncify(&mut ctx, None, move |ctx| async move {
         __sock_actor_mut(
-            &mut ctx,
+            ctx,
             sock,
             Rights::SOCK_SEND_TO,
             move |socket| async move { socket.send_to::<M>(buf, addr).await },

@@ -31,9 +31,9 @@ pub fn sock_get_opt_time<M: MemorySize>(
         _ => return Errno::Inval,
     };
 
-    let time = wasi_try!(__asyncify(&mut ctx, None, async move {
+    let time = wasi_try!(__asyncify(&mut ctx, None, move |ctx| async move {
         __sock_actor(
-            &mut ctx,
+            ctx,
             sock,
             Rights::empty(),
             move |socket| async move { socket.opt_time(ty) }

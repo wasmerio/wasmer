@@ -21,7 +21,7 @@ pub fn thread_join(mut ctx: FunctionEnvMut<'_, WasiEnv>, tid: Tid) -> Result<Err
     let tid: WasiThreadId = tid.into();
     let other_thread = env.process.get_thread(&tid);
     if let Some(other_thread) = other_thread {
-        wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+        wasi_try_ok!(__asyncify(&mut ctx, None, move |_| async move {
             other_thread.join().await;
             Ok(())
         }));

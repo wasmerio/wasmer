@@ -15,9 +15,9 @@ pub fn sock_status<M: MemorySize>(
         sock
     );
 
-    let status = wasi_try!(__asyncify(&mut ctx, None, async move {
+    let status = wasi_try!(__asyncify(&mut ctx, None, move |ctx| async move {
         __sock_actor(
-            &mut ctx,
+            ctx,
             sock,
             Rights::empty(),
             move |socket| async move { socket.status() }

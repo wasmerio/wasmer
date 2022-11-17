@@ -26,9 +26,9 @@ pub fn sock_leave_multicast_v4<M: MemorySize>(
     let memory = env.memory_view(&ctx);
     let multiaddr = wasi_try!(crate::state::read_ip_v4(&memory, multiaddr));
     let iface = wasi_try!(crate::state::read_ip_v4(&memory, iface));
-    wasi_try!(__asyncify(&mut ctx, None, async move {
+    wasi_try!(__asyncify(&mut ctx, None, move |ctx| async move {
         __sock_actor_mut(
-            &mut ctx,
+            ctx,
             sock,
             Rights::empty(),
             move |socket| async move { socket.leave_multicast_v4(multiaddr, iface).await }

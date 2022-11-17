@@ -28,9 +28,9 @@ pub fn sock_listen<M: MemorySize>(
     let env = ctx.data();
     let net = env.net();
     let backlog: usize = wasi_try!(backlog.try_into().map_err(|_| Errno::Inval));
-    wasi_try!(__asyncify(&mut ctx, None, async move {
+    wasi_try!(__asyncify(&mut ctx, None, move |ctx| async move {
         __sock_upgrade(
-            &mut ctx,
+            ctx,
             sock,
             Rights::SOCK_LISTEN,
             move |socket| async move { socket.listen(net, backlog).await }

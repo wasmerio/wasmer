@@ -213,7 +213,7 @@ pub fn proc_spawn_internal(
 
     // Create the new process
     let bus = env.runtime.bus();
-    let mut process = __asyncify(&mut ctx, None, async move {
+    let mut process = __asyncify(&mut ctx, None, move |_| async move {
         Ok(
             bus
                 .spawn(child_env)

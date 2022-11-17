@@ -45,16 +45,16 @@ impl AsyncWrite for TtyFile {
         let stdout = Pin::new(&mut self.stdout);
         stdout.poll_write(cx, buf)
     }
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let stdout = Pin::new(&mut self.stdout);
         stdout.poll_flush(cx)
     }
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let stdout = Pin::new(&mut self.stdout);
         stdout.poll_shutdown(cx)
     }
     fn poll_write_vectored(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         bufs: &[IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
@@ -68,7 +68,7 @@ impl AsyncWrite for TtyFile {
 
 impl AsyncRead for TtyFile {
     fn poll_read(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
@@ -99,11 +99,11 @@ impl VirtualFile for TtyFile {
     fn is_open(&self) -> bool {
         true
     }
-    fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+    fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         let stdin = Pin::new(self.stdin.deref_mut());
         stdin.poll_read_ready(cx)
     }
-    fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+    fn poll_write_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         let stdout = Pin::new(&mut self.stdout);
         stdout.poll_write_ready(cx)
     }

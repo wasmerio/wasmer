@@ -148,7 +148,7 @@ fn fd_write_internal<M: MemorySize>(
                             } else {
                                 None
                             },
-                            async move {
+                            move |_| async move {
                                 let mut handle = handle.write().unwrap();
                                 if is_stdio == false {
                                     handle
@@ -184,7 +184,7 @@ fn fd_write_internal<M: MemorySize>(
                     wasi_try_ok!(__asyncify(
                         &mut ctx,
                         None,
-                        async move { socket.send(buf).await }
+                        move |_| async move { socket.send(buf).await }
                     ))
                 }
                 Kind::Pipe { pipe } => {

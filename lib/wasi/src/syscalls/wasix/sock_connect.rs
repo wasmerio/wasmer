@@ -31,9 +31,9 @@ pub fn sock_connect<M: MemorySize>(
     let addr = wasi_try!(crate::state::read_ip_port(&memory, addr));
     let addr = SocketAddr::new(addr.0, addr.1);
 
-    wasi_try!(__asyncify(&mut ctx, None, async move {
+    wasi_try!(__asyncify(&mut ctx, None, move |ctx| async move {
         __sock_upgrade(
-            &mut ctx,
+            ctx,
             sock,
             Rights::SOCK_CONNECT,
             move |mut socket| async move { socket.connect(net, addr).await }

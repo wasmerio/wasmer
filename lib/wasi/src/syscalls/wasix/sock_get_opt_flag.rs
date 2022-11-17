@@ -24,9 +24,9 @@ pub fn sock_get_opt_flag<M: MemorySize>(
     );
 
     let option: crate::state::WasiSocketOption = opt.into();
-    let flag = wasi_try!(__asyncify(&mut ctx, None, async move {
+    let flag = wasi_try!(__asyncify(&mut ctx, None, move |ctx| async move {
         __sock_actor(
-            &mut ctx,
+            ctx,
             sock,
             Rights::empty(),
             move |socket| async move { socket.get_opt_flag(option) }

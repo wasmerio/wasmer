@@ -25,9 +25,9 @@ pub fn sock_join_multicast_v6<M: MemorySize>(
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
     let multiaddr = wasi_try!(crate::state::read_ip_v6(&memory, multiaddr));
-    wasi_try!(__asyncify(&mut ctx, None, async move {
+    wasi_try!(__asyncify(&mut ctx, None, move |ctx| async move {
         __sock_actor_mut(
-            &mut ctx,
+            ctx,
             sock,
             Rights::empty(),
             move |socket| async move { socket.join_multicast_v6(multiaddr, iface).await }

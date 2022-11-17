@@ -22,9 +22,9 @@ pub fn sock_get_opt_size<M: MemorySize>(
         sock,
         opt
     );
-    let size = wasi_try!(__asyncify(&mut ctx, None, async move {
+    let size = wasi_try!(__asyncify(&mut ctx, None, move |ctx| async move {
         __sock_actor(
-            &mut ctx,
+            ctx,
             sock,
             Rights::empty(),
             move |socket| async move {

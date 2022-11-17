@@ -7,7 +7,7 @@ pub fn sched_yield(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, WasiEr
     //trace!("wasi[{}:{}]::sched_yield", ctx.data().pid(), ctx.data().tid());
     let env = ctx.data();
     let tasks = env.tasks.clone();
-    wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+    wasi_try_ok!(__asyncify(&mut ctx, None, move |_| async move {
         tasks.sleep_now(current_caller_id(), 0).await;
         Ok(())
     }));

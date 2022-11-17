@@ -27,9 +27,9 @@ pub fn sock_accept<M: MemorySize>(
         sock
     );
 
-    let (child, addr) = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+    let (child, addr) = wasi_try_ok!(__asyncify(&mut ctx, None, move |ctx| async move {
         __sock_actor(
-            &mut ctx,
+            ctx,
             sock,
             Rights::SOCK_ACCEPT,
             move |socket| async move { socket.accept(fd_flags).await }

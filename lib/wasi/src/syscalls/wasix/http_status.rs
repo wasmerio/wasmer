@@ -22,9 +22,9 @@ pub fn http_status<M: MemorySize>(
 
     let mut env = ctx.data();
 
-    let http_status = wasi_try!(__asyncify(&mut ctx, None, async move {
+    let http_status = wasi_try!(__asyncify(&mut ctx, None, move |ctx| async move {
         __sock_actor(
-            &mut ctx,
+            ctx,
             sock,
             Rights::empty(),
             move |socket| async move { socket.http_status() }

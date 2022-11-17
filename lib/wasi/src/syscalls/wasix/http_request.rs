@@ -47,7 +47,7 @@ pub fn http_request<M: MemorySize>(
 
     let net = env.net();
     let tasks = env.tasks.clone();
-    let socket = wasi_try!(__asyncify(&mut ctx, None, async move {
+    let socket = wasi_try!(__asyncify(&mut ctx, None, move |_| async move {
         net.http_request(url.as_str(), method.as_str(), headers.as_str(), gzip)
             .await
             .map_err(net_error_into_wasi_err)
