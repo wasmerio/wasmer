@@ -17,13 +17,17 @@
 
 mod builder;
 mod env;
+mod func_env;
 mod guard;
 mod parking;
 mod socket;
 mod thread;
 mod types;
 
-pub use self::env::{WasiEnv, WasiEnvInner};
+pub use self::{
+    env::{WasiEnv, WasiEnvInner},
+    func_env::WasiFunctionEnv,
+};
 
 pub use self::builder::*;
 pub use self::guard::*;
@@ -36,7 +40,6 @@ use crate::bin_factory::BinaryPackage;
 use crate::syscalls::types::*;
 use crate::utils::map_io_err;
 use crate::WasiCallingId;
-use crate::WasiFunctionEnv;
 use crate::WasiRuntimeImplementation;
 use cooked_waker::ViaRawPointer;
 use cooked_waker::Wake;
