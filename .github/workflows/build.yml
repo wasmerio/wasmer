@@ -274,10 +274,16 @@ jobs:
           toolchain: 1.61
           target: x86_64-pc-windows-gnu
       - name: Build Wasmer CLI without LLVM
+        shell: bash
         run: |
+          export RUSTFLAGS='-C target-feature=+crt-static' 
+          export CARGO_CFG_TARGET_ENV=gnu
           cargo build --release --target x86_64-pc-windows-gnu --manifest-path lib/cli/Cargo.toml --features cranelift,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load,webc_runner --bin wasmer
       - name: Build Wasmer C-API without LLVM
+        shell: bash
         run: |
+          export RUSTFLAGS='-C target-feature=+crt-static' 
+          export CARGO_CFG_TARGET_ENV=gnu
           cargo build --release --target x86_64-pc-windows-gnu --manifest-path lib/c-api/Cargo.toml --no-default-features --features wat,compiler,wasi,middlewares,webc_runner --features cranelift,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
       - name: Build Wapm binary
         run: |
