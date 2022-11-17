@@ -51,9 +51,10 @@ pub fn sock_send_file<M: MemorySize>(
 
             let fd_entry = wasi_try_ok!(state.fs.get_fd(in_fd));
             let data = {
-                let (memory, _, mut inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+                let inodes = env.state.inodes.clone();
                 match in_fd {
                     __WASI_STDIN_FILENO => {
+                        let inodes = inodes.read().unwrap();
                         let mut stdin = wasi_try_ok!(inodes
                             .stdin_mut(&state.fs.fd_map)
                             .map_err(fs_error_into_wasi_err));
@@ -80,6 +81,7 @@ pub fn sock_send_file<M: MemorySize>(
 
                         let offset = fd_entry.offset.load(Ordering::Acquire) as usize;
                         let inode_idx = fd_entry.inode;
+                        let inodes = inodes.read().unwrap();
                         let inode = &inodes.arena[inode_idx];
 
                         let data = {
@@ -131,7 +133,7 @@ pub fn sock_send_file<M: MemorySize>(
                                     env = ctx.data();
                                     data
                                 }
-                                Kind::Pipe { pipe } => {
+                                Kind::Pipe { ref mut pipe } => {
                                     let data =
                                         wasi_try_ok!(__asyncify(&mut ctx, None, async move {
                                             let mut buf = Vec::with_capacity(sub_count as usize);
@@ -140,7 +142,7 @@ pub fn sock_send_file<M: MemorySize>(
                                             }
 
                                             let amt = wasmer_vfs::AsyncReadExt::read(
-                                                &mut pipe,
+                                                pipe,
                                                 &mut buf[..],
                                             )
                                             .await

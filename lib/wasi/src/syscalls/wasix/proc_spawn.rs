@@ -213,45 +213,37 @@ pub fn proc_spawn_internal(
 
     // Create the new process
     let bus = env.runtime.bus();
+    let child_pid = child_env.pid();
+    let child_work = bus
+        .spawn(child_env)
+        .spawn(
+            Some(&ctx),
+            name.as_str(),
+            new_store,
+            &ctx.data().bin_factory,
+        );
     let mut process = __asyncify(&mut ctx, None, async move {
-        Ok(bus
-            .spawn(child_env)
-            .spawn(
-                Some(&ctx),
-                name.as_str(),
-                new_store,
-                &ctx.data().bin_factory,
-            )
+        Ok(child_work
             .await
             .map_err(vbus_error_into_bus_errno))
     })
     .map_err(|err| BusErrno::Unknown)??;
 
     // Add the process to the environment state
-    let pid = env.process.pid();
     {
         let mut children = ctx.data().process.children.write().unwrap();
-        children.push(pid);
-    }
-    let env = ctx.data();
-    let memory = env.memory_view(&ctx);
-
-    // Add the process to the environment state
-    let pid = env.process.pid();
-    {
-        let mut children = ctx.data().process.children.write().unwrap();
-        children.push(pid);
+        children.push(child_pid);
     }
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 
     {
         let mut guard = env.process.write();
-        guard.bus_processes.insert(pid.into(), Box::new(process));
+        guard.bus_processes.insert(child_pid.into(), Box::new(process));
     };
 
     let handles = BusHandles {
-        bid: pid.raw(),
+        bid: child_pid.raw(),
         stdin,
         stdout,
         stderr,
