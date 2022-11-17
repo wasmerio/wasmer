@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["OPERATION_NAME",""],["QUERY",""],["__QUERY_WORKAROUND",""]],"enum":[["ResponseData",""]],"struct":[["Variables",""]],"type":[["Boolean",""],["Float",""],["ID",""],["Int",""]]});

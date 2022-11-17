@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Registries",""],["UpdateRegistry",""]],"fn":[["format_graphql",""],["test_if_registry_present",""],["wax_default_cooldown",""]],"mod":[["test_if_registry_present",""]],"static":[["GLOBAL_CONFIG_FILE_NAME",""]],"struct":[["MultiRegistry",""],["PartialWapmConfig",""],["Proxy",""],["Registry",""],["TestIfRegistryPresent",""],["UpdateNotifications",""]]});
