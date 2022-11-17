@@ -60,13 +60,12 @@ pub use wasmer_compiler_llvm;
 pub use wasmer_compiler_singlepass;
 use wasmer_wasi_types::wasi::{BusErrno, Errno, ExitCode};
 
-pub use crate::state::{
-    ALL_RIGHTS,
-    default_fs_backing, WasiEnv, Fd, Pipe, VIRTUAL_ROOT_FD, WasiControlPlane, WasiFs, WasiInodes,
-    WasiProcess, WasiProcessId, WasiState, WasiStateBuilder, WasiStateCreationError,
-    WasiThread, WasiThreadHandle, WasiThreadId,
-};
 use crate::state::WasiEnvInner;
+pub use crate::state::{
+    default_fs_backing, Fd, Pipe, WasiControlPlane, WasiEnv, WasiFs, WasiInodes, WasiProcess,
+    WasiProcessId, WasiState, WasiStateBuilder, WasiStateCreationError, WasiThread,
+    WasiThreadHandle, WasiThreadId, ALL_RIGHTS, VIRTUAL_ROOT_FD,
+};
 pub use crate::syscalls::types;
 pub use crate::tty_file::TtyFile;
 #[cfg(feature = "wasix")]
@@ -95,8 +94,8 @@ use std::ops::Deref;
 use std::sync::atomic::{AtomicU32, Ordering};
 use thiserror::Error;
 use wasmer::{
-    AsStoreMut, AsStoreRef, ExportError, Exports, FunctionEnv, imports, Imports, Instance,
-    Memory32, MemoryAccessError, MemorySize, Module, namespace, Store,
+    imports, namespace, AsStoreMut, AsStoreRef, ExportError, Exports, FunctionEnv, Imports,
+    Instance, Memory32, MemoryAccessError, MemorySize, Module, Store,
 };
 
 pub use runtime::{

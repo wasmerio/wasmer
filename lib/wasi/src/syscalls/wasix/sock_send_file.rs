@@ -141,12 +141,10 @@ pub fn sock_send_file<M: MemorySize>(
                                                 buf.set_len(sub_count as usize);
                                             }
 
-                                            let amt = wasmer_vfs::AsyncReadExt::read(
-                                                pipe,
-                                                &mut buf[..],
-                                            )
-                                            .await
-                                            .map_err(map_io_err)?;
+                                            let amt =
+                                                wasmer_vfs::AsyncReadExt::read(pipe, &mut buf[..])
+                                                    .await
+                                                    .map_err(map_io_err)?;
                                             unsafe {
                                                 buf.set_len(amt);
                                             }

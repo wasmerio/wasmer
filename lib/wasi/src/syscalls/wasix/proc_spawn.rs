@@ -214,18 +214,14 @@ pub fn proc_spawn_internal(
     // Create the new process
     let bus = env.runtime.bus();
     let child_pid = child_env.pid();
-    let child_work = bus
-        .spawn(child_env)
-        .spawn(
-            Some(&ctx),
-            name.as_str(),
-            new_store,
-            &ctx.data().bin_factory,
-        );
+    let child_work = bus.spawn(child_env).spawn(
+        Some(&ctx),
+        name.as_str(),
+        new_store,
+        &ctx.data().bin_factory,
+    );
     let mut process = __asyncify(&mut ctx, None, async move {
-        Ok(child_work
-            .await
-            .map_err(vbus_error_into_bus_errno))
+        Ok(child_work.await.map_err(vbus_error_into_bus_errno))
     })
     .map_err(|err| BusErrno::Unknown)??;
 
@@ -239,7 +235,9 @@ pub fn proc_spawn_internal(
 
     {
         let mut guard = env.process.write();
-        guard.bus_processes.insert(child_pid.into(), Box::new(process));
+        guard
+            .bus_processes
+            .insert(child_pid.into(), Box::new(process));
     };
 
     let handles = BusHandles {

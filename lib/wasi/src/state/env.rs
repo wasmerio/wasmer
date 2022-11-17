@@ -1,15 +1,21 @@
+use crate::bin_factory::BinFactory;
+use crate::syscalls::platform_clock_time_get;
+use crate::{
+    bin_factory, PluggableRuntimeImplementation, VirtualTaskManager, WasiError, WasiInodes,
+    WasiProcess, WasiProcessId, WasiRuntimeImplementation, WasiState, WasiStateCreationError,
+    WasiThread, WasiThreadHandle, WasiThreadId, WasiVFork, DEFAULT_STACK_SIZE,
+};
 use derivative::Derivative;
+use std::ops::Deref;
 use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
 use tracing::{trace, warn};
-use std::ops::Deref;
-use wasmer::{AsStoreMut, AsStoreRef, Exports, Global, Instance, Memory, MemoryView, Module, TypedFunction};
+use wasmer::{
+    AsStoreMut, AsStoreRef, Exports, Global, Instance, Memory, MemoryView, Module, TypedFunction,
+};
 use wasmer_vbus::{SpawnEnvironmentIntrinsics, VirtualBus};
 use wasmer_vnet::VirtualNetworking;
 use wasmer_wasi_types::types::Signal;
 use wasmer_wasi_types::wasi::{Errno, Snapshot0Clockid};
-use crate::{bin_factory, DEFAULT_STACK_SIZE, PluggableRuntimeImplementation, VirtualTaskManager, WasiError, WasiInodes, WasiProcess, WasiProcessId, WasiRuntimeImplementation, WasiState, WasiStateCreationError, WasiThread, WasiThreadHandle, WasiThreadId, WasiVFork};
-use crate::bin_factory::BinFactory;
-use crate::syscalls::platform_clock_time_get;
 
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
