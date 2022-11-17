@@ -1001,12 +1001,8 @@ pub struct Bindings {
 pub struct BindingsGenerator {
     /// A unique ID specifying this generator.
     pub id: String,
-    /// The generator package's name (e.g. the `wasmer-pack` in
-    /// `wasmer/wasmer-pack`).
-    pub name: String,
-    /// The username or namespace this package was published under (e.g. the
-    /// `wasmer` in `wasmer/wasmer-pack`).
-    pub namespace: Option<String>,
+    /// The generator package's name (e.g. `wasmer/wasmer-pack`).
+    pub package_name: String,
     /// The exact package version.
     pub version: String,
     /// The name of the command that was used for generating bindings.
@@ -1016,22 +1012,13 @@ pub struct BindingsGenerator {
 impl Display for BindingsGenerator {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let BindingsGenerator {
-            name,
-            namespace,
+            package_name,
             version,
             command,
             ..
         } = self;
 
-        if let Some(namespace) = namespace {
-            write!(f, "{namespace}/")?;
-        }
-
-        write!(f, "{name}@{version}")?;
-
-        if command != name {
-            write!(f, ":{command}")?;
-        }
+        write!(f, "{package_name}@{version}:{command}")?;
 
         Ok(())
     }
@@ -1071,8 +1058,7 @@ pub fn list_bindings(
             language: b.language,
             generator: BindingsGenerator {
                 id: b.generator.package_version.id,
-                name: b.generator.package_version.package.package_name,
-                namespace: b.generator.package_version.package.namespace,
+                package_name: b.generator.package_version.package.name,
                 version: b.generator.package_version.version,
                 command: b.generator.command_name,
             },
