@@ -15,15 +15,12 @@ pub fn sock_status<M: MemorySize>(
         sock
     );
 
-    let status = wasi_try!(__asyncify(&mut ctx, None, move |ctx| async move {
-        __sock_actor(
-            ctx,
-            sock,
-            Rights::empty(),
-            move |socket| async move { socket.status() }
-        )
-        .await
-    }));
+    let status = wasi_try!(__sock_actor(
+        &mut ctx,
+        sock,
+        Rights::empty(),
+        move |socket| async move { socket.status() }
+    ));
 
     use crate::state::WasiSocketStatus;
     let status = match status {

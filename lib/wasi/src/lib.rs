@@ -97,9 +97,9 @@ use std::ops::Deref;
 use std::sync::atomic::{AtomicU32, Ordering};
 use thiserror::Error;
 use wasmer::{
-    imports, namespace, AsStoreMut, AsStoreRef, ExportError, Exports, Function, FunctionEnv,
-    Global, Imports, Instance, Memory, Memory32, Memory64, MemoryAccessError, MemorySize,
-    MemoryView, Module, Store, TypedFunction,
+    imports, namespace, AsStoreMut, AsStoreRef, ExportError, Exports, FunctionEnv, Global, Imports,
+    Instance, Memory, Memory32, MemoryAccessError, MemorySize, MemoryView, Module, Store,
+    TypedFunction,
 };
 
 pub use runtime::{

@@ -99,7 +99,7 @@ pub fn proc_exec<M: MemorySize>(
         // Spawn a new process with this current execution environment
         let mut err_exit_code = -2i32 as u32;
         let bus = ctx.data().bus();
-        let mut process = __asyncify(&mut ctx, None, move |_| async move {
+        let mut process = __asyncify(&mut ctx, None, async move {
             Ok(bus
                 .spawn(wasi_env)
                 .spawn(
@@ -217,7 +217,7 @@ pub fn proc_exec<M: MemorySize>(
 
             // Spawn a new process with this current execution environment
             //let pid = wasi_env.process.pid();
-            let process = __asyncify(&mut ctx, None, move |_| async move {
+            let process = __asyncify(&mut ctx, None, async move {
                 Ok(builder
                     .spawn(Some(&ctx), name.as_str(), new_store, &bin_factory)
                     .await)

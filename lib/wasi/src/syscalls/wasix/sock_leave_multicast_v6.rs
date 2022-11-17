@@ -25,14 +25,11 @@ pub fn sock_leave_multicast_v6<M: MemorySize>(
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
     let multiaddr = wasi_try!(crate::state::read_ip_v6(&memory, multiaddr));
-    wasi_try!(__asyncify(&mut ctx, None, move |ctx| async move {
-        __sock_actor_mut(
-            ctx,
-            sock,
-            Rights::empty(),
-            move |mut socket| async move { socket.leave_multicast_v6(multiaddr, iface).await }
-        )
-        .await
-    }));
+    wasi_try!(__sock_actor_mut(
+        &mut ctx,
+        sock,
+        Rights::empty(),
+        move |mut socket| async move { socket.leave_multicast_v6(multiaddr, iface).await }
+    ));
     Errno::Success
 }

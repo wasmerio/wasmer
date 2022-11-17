@@ -288,7 +288,7 @@ pub(crate) fn poll_oneoff_internal(
 
     // Block on the work and process process
     let mut env = ctx.data();
-    let mut ret = __asyncify(ctx, time_to_sleep, move |_| async move { work.await });
+    let mut ret = __asyncify(ctx, time_to_sleep, async move { work.await });
     env = ctx.data();
     memory = env.memory_view(&ctx);
 

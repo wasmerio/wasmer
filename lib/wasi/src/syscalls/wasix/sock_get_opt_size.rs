@@ -22,23 +22,20 @@ pub fn sock_get_opt_size<M: MemorySize>(
         sock,
         opt
     );
-    let size = wasi_try!(__asyncify(&mut ctx, None, move |ctx| async move {
-        __sock_actor(
-            ctx,
-            sock,
-            Rights::empty(),
-            move |socket| async move {
-                match opt {
-                    Sockoption::RecvBufSize => socket.recv_buf_size().map(|a| a as Filesize),
-                    Sockoption::SendBufSize => socket.send_buf_size().map(|a| a as Filesize),
-                    Sockoption::Ttl => socket.ttl().map(|a| a as Filesize),
-                    Sockoption::MulticastTtlV4 => socket.multicast_ttl_v4().map(|a| a as Filesize),
-                    _ => Err(Errno::Inval),
-                }
+    let size = wasi_try!(__sock_actor(
+        &mut ctx,
+        sock,
+        Rights::empty(),
+        move |socket| async move {
+            match opt {
+                Sockoption::RecvBufSize => socket.recv_buf_size().map(|a| a as Filesize),
+                Sockoption::SendBufSize => socket.send_buf_size().map(|a| a as Filesize),
+                Sockoption::Ttl => socket.ttl().map(|a| a as Filesize),
+                Sockoption::MulticastTtlV4 => socket.multicast_ttl_v4().map(|a| a as Filesize),
+                _ => Err(Errno::Inval),
             }
-        )
-        .await
-    }));
+        }
+    ));
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);

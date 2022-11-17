@@ -47,7 +47,7 @@ where
 pub trait VirtualBusSpawner<T> {
     /// Spawns a new WAPM process by its name
     fn spawn<'a>(
-        &self,
+        &'a self,
         parent_ctx: Option<&'a FunctionEnvMut<'a, T>>,
         name: &'a str,
         store: Store,

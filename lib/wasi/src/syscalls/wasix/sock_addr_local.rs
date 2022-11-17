@@ -24,12 +24,12 @@ pub fn sock_addr_local<M: MemorySize>(
         sock
     );
 
-    let addr = wasi_try!(__asyncify(&mut ctx, None, move |ctx| async move {
-        __sock_actor(ctx, sock, Rights::empty(), move |socket| async move {
-            socket.addr_local()
-        })
-        .await
-    }));
+    let addr = wasi_try!(__sock_actor(
+        &mut ctx,
+        sock,
+        Rights::empty(),
+        move |socket| async move { socket.addr_local() }
+    ));
     let memory = ctx.data().memory_view(&ctx);
     wasi_try!(crate::state::write_ip_port(
         &memory,

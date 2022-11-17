@@ -27,15 +27,12 @@ pub fn sock_accept<M: MemorySize>(
         sock
     );
 
-    let (child, addr) = wasi_try_ok!(__asyncify(&mut ctx, None, move |ctx| async move {
-        __sock_actor(
-            ctx,
-            sock,
-            Rights::SOCK_ACCEPT,
-            move |socket| async move { socket.accept(fd_flags).await }
-        )
-        .await
-    }));
+    let (child, addr) = wasi_try_ok!(__sock_actor(
+        &mut ctx,
+        sock,
+        Rights::SOCK_ACCEPT,
+        move |socket| async move { socket.accept(fd_flags).await }
+    ));
 
     let env = ctx.data();
     let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);

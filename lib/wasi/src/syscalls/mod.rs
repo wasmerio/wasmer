@@ -190,65 +190,17 @@ pub async fn stderr_write(ctx: &FunctionEnvMut<'_, WasiEnv>, buf: &[u8]) -> Resu
     stderr.write_all(buf).await.map_err(map_io_err)
 }
 
-/// Performs an immuatble operation on the socket while running in an asynchronous runtime
-/// This has built in signal support
-pub(crate) async fn __sock_actor<T, F, Fut>(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
-    sock: WasiFd,
-    rights: Rights,
-    actor: F,
-) -> Result<T, Errno>
-where
-    T: 'static,
-    F: FnOnce(crate::state::InodeSocket) -> Fut + 'static,
-    Fut: std::future::Future<Output = Result<T, Errno>>,
-{
-    let env = ctx.data();
-    let state = env.state.clone();
-    let inodes = state.inodes.clone();
-
-    let fd_entry = state.fs.get_fd(sock)?;
-    let ret = {
-        if !rights.is_empty() && !fd_entry.rights.contains(rights) {
-            return Err(Errno::Access);
-        }
-
-        let inodes_guard = inodes.read().unwrap();
-        let inode_idx = fd_entry.inode;
-        let inode = &inodes_guard.arena[inode_idx];
-
-        let tasks = env.tasks.clone();
-        let mut guard = inode.read();
-        match guard.deref() {
-            Kind::Socket { socket } => {
-                // Clone the socket and release the lock
-                let socket = socket.clone();
-                drop(guard);
-
-                // Block on the work and process process
-                actor(socket).await?
-            }
-            _ => {
-                return Err(Errno::Notsock);
-            }
-        }
-    };
-
-    Ok(ret)
-}
-
 /// Asyncify takes the current thread and blocks on the async runtime associated with it
 /// thus allowed for asynchronous operations to execute. It has built in functionality
 /// to (optionally) timeout the IO, force exit the process, callback signals and pump
 /// synchronous IO engine
-pub(crate) fn __asyncify<T, F, Fut>(
+pub(crate) fn __asyncify<T, Fut>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     timeout: Option<Duration>,
-    work: F,
+    work: Fut,
 ) -> Result<T, Errno>
 where
     T: 'static,
-    F: FnOnce(&mut FunctionEnvMut<'_, WasiEnv>) -> Fut,
     Fut: std::future::Future<Output = Result<T, Errno>> + 'static,
 {
     let mut env = ctx.data();
@@ -301,30 +253,25 @@ where
     tasks.block_on(Box::pin(async move {
         tokio::select! {
             // The main work we are doing
-            ret = work(ctx) => {
-                let _ = tx_ret.send(Some(ret));
+            ret = work => {
+                let _ = tx_ret.send(ret);
             },
             // If a signaller is triggered then we interrupt the main process
             _ = signaler.recv() => {
-                let _ = tx_ret.send(None);
+                if let Err(err) = ctx.data().clone().process_signals(ctx) {
+                    let _ = tx_ret.send(Err(err));
+                }
             },
             // Optional timeout
             _ = timeout => {
-                let _ = tx_ret.send(Some(Err(Errno::Timedout)));
+                let _ = tx_ret.send(Err(Errno::Timedout));
             },
         }
     }));
 
     // If a signal is received then we need to process it and if
     // we can not then fail with an interrupt error code
-    let ret = rx_ret.try_recv().map_err(|_| Errno::Intr)?;
-    return match ret {
-        Some(a) => a,
-        None => {
-            ctx.data().clone().process_signals(ctx)?;
-            Err(Errno::Intr)
-        }
-    };
+    rx_ret.try_recv().map_err(|_| Errno::Intr)?
 }
 
 // This should be compiled away, it will simply wait forever however its never
@@ -339,9 +286,9 @@ impl std::future::Future for InfiniteSleep {
     }
 }
 
-/// Performs mutable work on a socket under an asynchronous runtime with
-/// built in signal processing
-pub(crate) async fn __sock_actor_mut<T, F, Fut>(
+/// Performs an immuatble operation on the socket while running in an asynchronous runtime
+/// This has built in signal support
+pub(crate) fn __sock_actor<T, F, Fut>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     rights: Rights,
@@ -353,6 +300,61 @@ where
     Fut: std::future::Future<Output = Result<T, Errno>>,
 {
     let env = ctx.data();
+    let tasks = env.tasks.clone();
+
+    let state = env.state.clone();
+    let inodes = state.inodes.clone();
+
+    let fd_entry = state.fs.get_fd(sock)?;
+    if !rights.is_empty() && !fd_entry.rights.contains(rights) {
+        return Err(Errno::Access);
+    }
+
+    let inodes_guard = inodes.read().unwrap();
+    let inode_idx = fd_entry.inode;
+    let inode = &inodes_guard.arena[inode_idx];
+
+    let tasks = env.tasks.clone();
+    let mut guard = inode.read();
+    match guard.deref() {
+        Kind::Socket { socket } => {
+            // Clone the socket and release the lock
+            let socket = socket.clone();
+            drop(guard);
+
+            // Start the work using the socket
+            let work = actor(socket);
+
+            // Block on the work and process it
+            let (tx, rx) = std::sync::mpsc::channel();
+            tasks.block_on(Box::pin(async move {
+                let ret = work.await;
+                tx.send(ret);
+            }));
+            rx.recv().unwrap()
+        }
+        _ => {
+            return Err(Errno::Notsock);
+        }
+    }
+}
+
+/// Performs mutable work on a socket under an asynchronous runtime with
+/// built in signal processing
+pub(crate) fn __sock_actor_mut<'a, T, F, Fut>(
+    ctx: &'a mut FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    rights: Rights,
+    actor: F,
+) -> Result<T, Errno>
+where
+    T: 'static,
+    F: FnOnce(crate::state::InodeSocket) -> Fut,
+    Fut: std::future::Future<Output = Result<T, Errno>> + 'a,
+{
+    let env = ctx.data();
+    let tasks = env.tasks.clone();
+
     let state = env.state.clone();
     let inodes = state.inodes.clone();
 
@@ -374,7 +376,16 @@ where
                 drop(guard);
                 drop(inodes_guard);
 
-                actor(socket).await
+                // Start the work using the socket
+                let work = actor(socket);
+
+                // Block on the work and process it
+                let (tx, rx) = std::sync::mpsc::channel();
+                tasks.block_on(Box::pin(async move {
+                    let ret = work.await;
+                    tx.send(ret);
+                }));
+                rx.recv().unwrap()
             }
             _ => {
                 return Err(Errno::Notsock);
@@ -386,15 +397,15 @@ where
 /// Replaces a socket with another socket in under an asynchronous runtime.
 /// This is used for opening sockets or connecting sockets which changes
 /// the fundamental state of the socket to another state machine
-pub(crate) async fn __sock_upgrade<F, Fut>(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+pub(crate) fn __sock_upgrade<'a, F, Fut>(
+    ctx: &'a mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     rights: Rights,
     actor: F,
 ) -> Result<(), Errno>
 where
-    F: FnOnce(crate::state::InodeSocket) -> Fut + 'static,
-    Fut: std::future::Future<Output = Result<Option<crate::state::InodeSocket>, Errno>>,
+    F: FnOnce(crate::state::InodeSocket) -> Fut,
+    Fut: std::future::Future<Output = Result<Option<crate::state::InodeSocket>, Errno>> + 'a,
 {
     let env = ctx.data();
     let state = env.state.clone();
@@ -424,10 +435,16 @@ where
                 drop(guard);
                 drop(inodes_guard);
 
-                let new_socket = {
-                    // Block on the work and process process
-                    actor(socket).await?
-                };
+                // Start the work using the socket
+                let work = actor(socket);
+
+                // Block on the work and process it
+                let (tx, rx) = std::sync::mpsc::channel();
+                tasks.block_on(Box::pin(async move {
+                    let ret = work.await;
+                    tx.send(ret);
+                }));
+                let new_socket = rx.recv().unwrap()?;
 
                 if let Some(mut new_socket) = new_socket {
                     let inodes_guard = inodes.read().unwrap();

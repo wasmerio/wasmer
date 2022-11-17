@@ -24,12 +24,12 @@ pub fn sock_addr_peer<M: MemorySize>(
         sock
     );
 
-    let addr = wasi_try!(__asyncify(&mut ctx, None, move |ctx| async move {
-        __sock_actor(ctx, sock, Rights::empty(), move |socket| async move {
-            socket.addr_peer()
-        })
-        .await
-    }));
+    let addr = wasi_try!(__sock_actor(
+        &mut ctx,
+        sock,
+        Rights::empty(),
+        move |socket| async move { socket.addr_peer() }
+    ));
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);

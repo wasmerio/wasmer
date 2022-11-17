@@ -202,7 +202,7 @@ pub fn spawn_exec_module(
 
 impl VirtualBusSpawner<WasiEnv> for BinFactory {
     fn spawn<'a>(
-        &self,
+        &'a self,
         parent_ctx: Option<&'a FunctionEnvMut<'a, WasiEnv>>,
         name: &'a str,
         store: Store,

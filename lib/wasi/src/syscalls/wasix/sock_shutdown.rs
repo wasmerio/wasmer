@@ -24,15 +24,12 @@ pub fn sock_shutdown(mut ctx: FunctionEnvMut<'_, WasiEnv>, sock: WasiFd, how: Sd
         _ => return Errno::Inval,
     };
 
-    wasi_try!(__asyncify(&mut ctx, None, move |ctx| async move {
-        __sock_actor_mut(
-            ctx,
-            sock,
-            Rights::SOCK_SHUTDOWN,
-            move |mut socket| async move { socket.shutdown(how).await }
-        )
-        .await
-    }));
+    wasi_try!(__sock_actor_mut(
+        &mut ctx,
+        sock,
+        Rights::SOCK_SHUTDOWN,
+        move |mut socket| async move { socket.shutdown(how).await }
+    ));
 
     Errno::Success
 }

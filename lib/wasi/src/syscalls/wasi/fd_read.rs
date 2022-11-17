@@ -156,7 +156,7 @@ fn fd_read_internal<M: MemorySize>(
                             } else {
                                 None
                             },
-                            move |_| async move {
+                            async move {
                                 let mut handle = handle.write().unwrap();
                                 if is_stdio == false {
                                     handle
@@ -194,7 +194,7 @@ fn fd_read_internal<M: MemorySize>(
                         } else {
                             None
                         },
-                        move |_| async move { socket.recv(max_size).await }
+                        async move { socket.recv(max_size).await }
                     )
                     .map_err(|err| match err {
                         Errno::Timedout => Errno::Again,
@@ -220,7 +220,7 @@ fn fd_read_internal<M: MemorySize>(
                         } else {
                             None
                         },
-                        move |_| async move {
+                        async move {
                             let mut data = Vec::with_capacity(max_size);
                             unsafe { data.set_len(max_size) };
                             let amt = wasmer_vfs::AsyncReadExt::read(&mut pipe, &mut data[..])
@@ -291,7 +291,7 @@ fn fd_read_internal<M: MemorySize>(
 
                         // Yield until the notifications are triggered
                         let tasks_inner = env.tasks.clone();
-                        rx = wasi_try_ok!(__asyncify(&mut ctx, None, move |_| async move {
+                        rx = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
                             let _ = rx.recv().await;
                             Ok(rx)
                         })

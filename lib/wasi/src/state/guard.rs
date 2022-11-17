@@ -170,7 +170,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
         if let Some(s) = has_close.as_ref() {
             let is_closed = match self.mode {
                 InodeValFilePollGuardMode::File(file) => {
-                    let mut guard = file.read().unwrap();
+                    let mut guard = file.write().unwrap();
                     let file = Pin::new(guard.as_mut());
                     file.poll_shutdown(cx).is_ready()
                 }
@@ -222,7 +222,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
         if let Some(s) = has_read {
             let mut poll_result = match &self.mode {
                 InodeValFilePollGuardMode::File(file) => {
-                    let mut guard = file.read().unwrap();
+                    let mut guard = file.write().unwrap();
                     let file = Pin::new(guard.as_mut());
                     file.poll_read_ready(cx)
                 }
@@ -310,7 +310,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
         if let Some(s) = has_write {
             let mut poll_result = match self.mode {
                 InodeValFilePollGuardMode::File(file) => {
-                    let guard = file.read().unwrap();
+                    let mut guard = file.write().unwrap();
                     let file = Pin::new(guard.as_mut());
                     file.poll_write_ready(cx)
                 }

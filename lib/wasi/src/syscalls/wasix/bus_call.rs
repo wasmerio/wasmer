@@ -59,7 +59,7 @@ pub fn bus_call<M: MemorySize>(
     // Poll the invocation until it does its thing
     let mut invocation;
     {
-        invocation = wasi_try_bus_ok!(__asyncify(&mut ctx, None, move |_| async move {
+        invocation = wasi_try_bus_ok!(__asyncify(&mut ctx, None, async move {
             VirtualBusInvokedWait::new(invoked).await.map_err(|err| {
                 debug!(
                     "wasi::bus_call failed (bid={}, buf_len={}) - {}",

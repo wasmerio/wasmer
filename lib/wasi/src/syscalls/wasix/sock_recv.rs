@@ -43,15 +43,12 @@ pub fn sock_recv<M: MemorySize>(
         max_size
     };
 
-    let data = wasi_try_ok!(__asyncify(&mut ctx, None, move |ctx| async move {
-        __sock_actor_mut(
-            ctx,
-            sock,
-            Rights::SOCK_RECV,
-            move |socket| async move { socket.recv(max_size).await },
-        )
-        .await
-    }));
+    let data = wasi_try_ok!(__sock_actor_mut(
+        &mut ctx,
+        sock,
+        Rights::SOCK_RECV,
+        move |socket| async move { socket.recv(max_size).await },
+    ));
     env = ctx.data();
 
     let memory = env.memory_view(&ctx);

@@ -45,7 +45,6 @@ pub(crate) fn fetch_webc(
     let data = None;
 
     let (tx, rx) = std::sync::mpsc::channel();
-    let tasks_inner = tasks.clone();
     let runtime = runtime.clone();
     tasks.block_on(Box::pin(async move {
         let ret = match runtime

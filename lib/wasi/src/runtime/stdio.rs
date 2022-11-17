@@ -41,7 +41,7 @@ impl AsyncSeek for RuntimeStdout {
 
 impl AsyncWrite for RuntimeStdout {
     fn poll_write(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
@@ -56,7 +56,8 @@ impl AsyncWrite for RuntimeStdout {
                 };
             }
         }
-        self.writing.replace((self.runtime.stdout(buf), buf_ptr));
+        let stdout = self.runtime.stdout(buf);
+        self.writing.replace((stdout, buf_ptr));
         let (writing, _) = self.writing.as_mut().unwrap();
         let writing = writing.as_mut();
         match writing.poll(cx) {
@@ -112,11 +113,11 @@ impl wasmer_vfs::VirtualFile for RuntimeStdout {
         Ok(())
     }
 
-    fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+    fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(0))
     }
 
-    fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+    fn poll_write_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(8192))
     }
 }
@@ -155,7 +156,7 @@ impl AsyncSeek for RuntimeStderr {
 
 impl AsyncWrite for RuntimeStderr {
     fn poll_write(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
@@ -170,7 +171,8 @@ impl AsyncWrite for RuntimeStderr {
                 };
             }
         }
-        self.writing.replace((self.runtime.stdout(buf), buf_ptr));
+        let stdout = self.runtime.stdout(buf);
+        self.writing.replace((stdout, buf_ptr));
         let (writing, _) = self.writing.as_mut().unwrap();
         let writing = writing.as_mut();
         match writing.poll(cx) {
@@ -226,11 +228,11 @@ impl wasmer_vfs::VirtualFile for RuntimeStderr {
         Ok(())
     }
 
-    fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+    fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(0))
     }
 
-    fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+    fn poll_write_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(8192))
     }
 }

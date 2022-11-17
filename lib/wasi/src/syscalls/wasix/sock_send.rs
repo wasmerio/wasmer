@@ -48,15 +48,12 @@ pub fn sock_send<M: MemorySize>(
         wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
     }
 
-    let bytes_written = wasi_try_ok!(__asyncify(&mut ctx, None, move |ctx| async move {
-        __sock_actor_mut(
-            ctx,
-            sock,
-            Rights::SOCK_SEND,
-            move |socket| async move { socket.send(buf).await },
-        )
-        .await
-    }));
+    let bytes_written = wasi_try_ok!(__sock_actor_mut(
+        &mut ctx,
+        sock,
+        Rights::SOCK_SEND,
+        move |socket| async move { socket.send(buf).await },
+    ));
     env = ctx.data();
 
     let bytes_written: M::Offset =

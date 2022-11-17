@@ -28,7 +28,7 @@ pub fn ws_connect<M: MemorySize>(
 
     let net = env.net();
     let tasks = env.tasks.clone();
-    let socket = wasi_try!(__asyncify(&mut ctx, None, move |_| async move {
+    let socket = wasi_try!(__asyncify(&mut ctx, None, async move {
         net.ws_connect(url.as_str())
             .await
             .map_err(net_error_into_wasi_err)

@@ -53,7 +53,7 @@ pub fn bus_subcall<M: MemorySize>(
         // Poll the invocation until it does its thing
         let invocation;
         {
-            invocation = wasi_try_bus_ok!(__asyncify(&mut ctx, None, move |_| async move {
+            invocation = wasi_try_bus_ok!(__asyncify(&mut ctx, None, async move {
                 VirtualBusInvokedWait::new(invoked).await.map_err(|err| {
                     debug!(
                         "wasi::bus_subcall failed (parent={}, buf_len={}) - {}",

@@ -371,17 +371,19 @@ where
 
     /// Writes output to the console
     fn stdout(&self, data: &[u8]) -> Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync>> {
+        let data = data.to_vec();
         Box::pin(async move {
             let mut handle = io::stdout();
-            handle.write_all(data)
+            handle.write_all(&data[..])
         })
     }
 
     /// Writes output to the console
     fn stderr(&self, data: &[u8]) -> Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync>> {
+        let data = data.to_vec();
         Box::pin(async move {
             let mut handle = io::stderr();
-            handle.write_all(data)
+            handle.write_all(&data[..])
         })
     }
 
@@ -408,13 +410,17 @@ where
     fn log(&self, text: String) -> Pin<Box<dyn Future<Output = io::Result<()>>>> {
         Box::pin(async move {
             let text = format!("{}\r\n", text);
-            self.stderr(text.as_bytes()).await
+            let mut handle = io::stderr();
+            handle.write_all(text.as_bytes())
         })
     }
 
     /// Clears the terminal
     fn cls(&self) -> Pin<Box<dyn Future<Output = io::Result<()>>>> {
-        Box::pin(async move { self.stdout("\x1B[H\x1B[2J".as_bytes()).await })
+        Box::pin(async move {
+            let mut handle = io::stdout();
+            handle.write_all("\x1B[H\x1B[2J".as_bytes())
+        })
     }
 }
 

@@ -22,15 +22,12 @@ pub fn http_status<M: MemorySize>(
 
     let mut env = ctx.data();
 
-    let http_status = wasi_try!(__asyncify(&mut ctx, None, move |ctx| async move {
-        __sock_actor(
-            ctx,
-            sock,
-            Rights::empty(),
-            move |socket| async move { socket.http_status() }
-        )
-        .await
-    }));
+    let http_status = wasi_try!(__sock_actor(
+        &mut ctx,
+        sock,
+        Rights::empty(),
+        move |socket| async move { socket.http_status() }
+    ));
     env = ctx.data();
 
     // Write everything else and return the status to the caller

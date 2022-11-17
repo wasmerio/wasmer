@@ -213,20 +213,19 @@ pub fn proc_spawn_internal(
 
     // Create the new process
     let bus = env.runtime.bus();
-    let mut process = __asyncify(&mut ctx, None, move |_| async move {
-        Ok(
-            bus
-                .spawn(child_env)
-                .spawn(
-                    Some(&ctx),
-                    name.as_str(),
-                    new_store,
-                    &ctx.data().bin_factory,
-                )
-                .await
-                .map_err(vbus_error_into_bus_errno)
-        )
-    }).map_err(|err| BusErrno::Unknown)??;
+    let mut process = __asyncify(&mut ctx, None, async move {
+        Ok(bus
+            .spawn(child_env)
+            .spawn(
+                Some(&ctx),
+                name.as_str(),
+                new_store,
+                &ctx.data().bin_factory,
+            )
+            .await
+            .map_err(vbus_error_into_bus_errno))
+    })
+    .map_err(|err| BusErrno::Unknown)??;
 
     // Add the process to the environment state
     let pid = env.process.pid();

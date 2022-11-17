@@ -24,15 +24,12 @@ pub fn sock_get_opt_flag<M: MemorySize>(
     );
 
     let option: crate::state::WasiSocketOption = opt.into();
-    let flag = wasi_try!(__asyncify(&mut ctx, None, move |ctx| async move {
-        __sock_actor(
-            ctx,
-            sock,
-            Rights::empty(),
-            move |socket| async move { socket.get_opt_flag(option) }
-        )
-        .await
-    }));
+    let flag = wasi_try!(__sock_actor(
+        &mut ctx,
+        sock,
+        Rights::empty(),
+        move |socket| async move { socket.get_opt_flag(option) }
+    ));
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
