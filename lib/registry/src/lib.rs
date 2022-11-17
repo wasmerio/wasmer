@@ -8,18 +8,23 @@
 //! curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
 //! ```
 
-use std::collections::BTreeMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use std::{
+    collections::BTreeMap,
+    fmt::{Display, Formatter},
+};
 
 pub mod config;
 pub mod graphql;
 pub mod login;
 pub mod utils;
 
-pub use crate::config::format_graphql;
-pub use config::PartialWapmConfig;
+pub use crate::{
+    config::{format_graphql, PartialWapmConfig},
+    graphql::get_bindings_query::ProgrammingLanguage,
+};
 
 use crate::config::Registries;
 use anyhow::Context;
@@ -331,7 +336,7 @@ pub enum QueryPackageError {
 }
 
 impl fmt::Display for QueryPackageError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             QueryPackageError::ErrorSendingQuery(q) => write!(f, "error sending query: {q}"),
             QueryPackageError::NoPackageFound { name, version } => {
@@ -977,9 +982,9 @@ fn test_install_package() {
     println!("ok, done");
 }
 
-/// A package which can be added as a dependency.
+/// A library that exposes bindings to a WAPM package.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BindingsPackage {
+pub struct Bindings {
     /// A unique ID specifying this set of bindings.
     pub id: String,
     /// The URL which can be used to download the files that were generated
@@ -1008,6 +1013,30 @@ pub struct BindingsGenerator {
     pub command: String,
 }
 
+impl Display for BindingsGenerator {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let BindingsGenerator {
+            name,
+            namespace,
+            version,
+            command,
+            ..
+        } = self;
+
+        if let Some(namespace) = namespace {
+            write!(f, "{namespace}/")?;
+        }
+
+        write!(f, "{name}@{version}")?;
+
+        if command != name {
+            write!(f, ":{command}")?;
+        }
+
+        Ok(())
+    }
+}
+
 /// List all bindings associated with a particular package.
 ///
 /// If a version number isn't provided, this will default to the most recently
@@ -1016,7 +1045,7 @@ pub fn list_bindings(
     registry: &str,
     name: &str,
     version: Option<&str>,
-) -> Result<Vec<BindingsPackage>, anyhow::Error> {
+) -> Result<Vec<Bindings>, anyhow::Error> {
     use crate::graphql::{
         get_bindings_query::{ResponseData, Variables},
         GetBindingsQuery,
@@ -1036,7 +1065,7 @@ pub fn list_bindings(
     let mut bindings_packages = Vec::new();
 
     for b in package_version.bindings.into_iter().flatten() {
-        let pkg = BindingsPackage {
+        let pkg = Bindings {
             id: b.id,
             url: b.url,
             language: b.language,

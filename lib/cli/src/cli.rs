@@ -10,7 +10,7 @@ use crate::commands::CreateExe;
 use crate::commands::CreateObj;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
-use crate::commands::{Cache, Config, Inspect, List, Login, Run, SelfUpdate, Validate};
+use crate::commands::{Cache, Config, Inspect, Install, List, Login, Run, SelfUpdate, Validate};
 use crate::error::PrettyError;
 use clap::{CommandFactory, ErrorKind, Parser};
 use std::fmt;
@@ -150,6 +150,9 @@ enum WasmerCLIOptions {
     #[cfg(target_os = "linux")]
     #[clap(name = "binfmt")]
     Binfmt(Binfmt),
+
+    /// Add a WAPM package's bindings to your application.
+    Install(Install),
 }
 
 impl WasmerCLIOptions {
@@ -173,6 +176,7 @@ impl WasmerCLIOptions {
             Self::Wast(wast) => wast.execute(),
             #[cfg(target_os = "linux")]
             Self::Binfmt(binfmt) => binfmt.execute(),
+            Self::Install(install) => install.execute(),
         }
     }
 }
