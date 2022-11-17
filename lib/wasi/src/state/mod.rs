@@ -27,20 +27,14 @@ mod types;
 pub use self::{
     env::{WasiEnv, WasiEnvInner},
     func_env::WasiFunctionEnv,
+    builder::*,
+    guard::*,
+    parking::*,
+    socket::*,
+    thread::*,
+    types::*,
 };
 
-pub use self::builder::*;
-pub use self::guard::*;
-pub use self::guard::*;
-pub use self::parking::*;
-pub use self::socket::*;
-pub use self::thread::*;
-pub use self::types::*;
-use crate::bin_factory::BinaryPackage;
-use crate::syscalls::types::*;
-use crate::utils::map_io_err;
-use crate::WasiCallingId;
-use crate::WasiRuntimeImplementation;
 use cooked_waker::ViaRawPointer;
 use cooked_waker::Wake;
 use cooked_waker::WakeRef;
@@ -82,6 +76,14 @@ use wasmer_wasi_types::wasi::{
 use wasmer_wasi_types::wasi::{Prestat, PrestatEnum};
 
 use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
+
+use crate::{
+    bin_factory::BinaryPackage,
+    syscalls::types::*,
+    utils::map_io_err,
+    WasiCallingId,
+    WasiRuntimeImplementation,
+};
 
 /// the fd value of the virtual root
 pub const VIRTUAL_ROOT_FD: WasiFd = 3;
