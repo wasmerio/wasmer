@@ -4294,7 +4294,7 @@ dependencies = [
  "wasmer-types",
  "wasmer-vfs",
  "wasmer-wasi",
- "webc 0.1.0",
+ "webc",
 ]
 
 [[package]]
@@ -4379,7 +4379,7 @@ dependencies = [
  "wasmer-wasi",
  "wasmer-wasi-experimental-io-devices",
  "wasmer-wast",
- "webc 3.0.1",
+ "webc",
 ]
 
 [[package]]
@@ -4648,7 +4648,7 @@ dependencies = [
  "typetag",
  "wasmer-types",
  "wasmer-wasi-types",
- "webc 3.0.1",
+ "webc",
 ]
 
 [[package]]
@@ -4738,7 +4738,7 @@ dependencies = [
  "wasmer-vnet",
  "wasmer-wasi-local-networking",
  "wasmer-wasi-types",
- "webc 3.0.1",
+ "webc",
  "weezl",
  "winapi",
 ]
@@ -5022,26 +5022,6 @@ checksum = "bcda906d8be16e728fd5adc5b729afad4e444e106ab28cd1c7256e54fa61510f"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "webc"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64",
- "indexmap",
- "leb128",
- "lexical-sort",
- "memchr",
- "path-clean",
- "rand 0.8.5",
- "serde",
- "serde_cbor",
- "serde_json",
- "sha2",
- "url",
- "walkdir",
 ]
 
 [[package]]
