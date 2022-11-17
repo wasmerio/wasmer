@@ -15,12 +15,15 @@ pub fn sock_status<M: MemorySize>(
         sock
     );
 
-    let status = wasi_try!(__sock_actor(
-        &mut ctx,
-        sock,
-        Rights::empty(),
-        move |socket| async move { socket.status() }
-    ));
+    let status = wasi_try!(__asyncify(&mut ctx, None, async move {
+        __sock_actor(
+            &mut ctx,
+            sock,
+            Rights::empty(),
+            move |socket| async move { socket.status() }
+        )
+        .await
+    }));
 
     use crate::state::WasiSocketStatus;
     let status = match status {
@@ -33,6 +36,5 @@ pub fn sock_status<M: MemorySize>(
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
     wasi_try_mem!(ret_status.write(&memory, status));
-
     Errno::Success
 }
