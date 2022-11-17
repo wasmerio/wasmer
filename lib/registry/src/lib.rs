@@ -996,7 +996,7 @@ pub struct Bindings {
     pub generator: BindingsGenerator,
 }
 
-/// The generator used to create a [`BindingsPackage`].
+/// The generator used to create [`Bindings`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BindingsGenerator {
     /// A unique ID specifying this generator.
