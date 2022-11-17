@@ -47,9 +47,9 @@ pub(crate) use crate::{
     },
     runtime::SpawnType,
     state::{
-        self, bus_errno_into_vbus_error, fs_error_into_wasi_err, iterate_poll_events,
-        net_error_into_wasi_err, vbus_error_into_bus_errno, Inode, PollEvent, PollEventBuilder,
-        WasiBusCall, WasiDummyWaker, WasiFutex, WasiParkingLot, WasiState, WasiThreadContext,
+        self, bus_errno_into_vbus_error, iterate_poll_events, vbus_error_into_bus_errno, Inode,
+        PollEvent, PollEventBuilder, WasiBusCall, WasiDummyWaker, WasiFutex, WasiParkingLot,
+        WasiState, WasiThreadContext,
     },
     utils::{self, map_io_err},
     VirtualTaskManager, WasiEnv, WasiEnvInner, WasiError, WasiFunctionEnv,
@@ -112,7 +112,10 @@ pub(crate) use crate::os::task::thread::WasiThreadId;
 #[cfg(any(target_family = "wasm"))]
 pub use wasm::*;
 
-use crate::fs::{virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind, MAX_SYMLINKS};
+use crate::fs::{
+    fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind, MAX_SYMLINKS,
+};
+pub(crate) use crate::net::net_error_into_wasi_err;
 
 pub(crate) fn to_offset<M: MemorySize>(offset: usize) -> Result<M::Offset, Errno> {
     let ret: M::Offset = offset.try_into().map_err(|_| Errno::Inval)?;

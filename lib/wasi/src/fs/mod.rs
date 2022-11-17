@@ -10,7 +10,7 @@ use crate::ALL_RIGHTS;
 use crate::{
     bin_factory::BinaryPackage,
     net::socket::{InodeSocket, InodeSocketKind},
-    state::{fs_error_from_wasi_err, fs_error_into_wasi_err, PreopenedDir},
+    state::PreopenedDir,
 };
 use generational_arena::{Arena, Index as Inode};
 #[cfg(feature = "enable-serde")]
@@ -1795,5 +1795,60 @@ pub fn virtual_file_type_to_wasi_file_type(file_type: wasmer_vfs::FileType) -> F
         Filetype::SymbolicLink
     } else {
         Filetype::Unknown
+    }
+}
+
+pub fn fs_error_from_wasi_err(err: Errno) -> FsError {
+    match err {
+        Errno::Badf => FsError::InvalidFd,
+        Errno::Exist => FsError::AlreadyExists,
+        Errno::Io => FsError::IOError,
+        Errno::Addrinuse => FsError::AddressInUse,
+        Errno::Addrnotavail => FsError::AddressNotAvailable,
+        Errno::Pipe => FsError::BrokenPipe,
+        Errno::Connaborted => FsError::ConnectionAborted,
+        Errno::Connrefused => FsError::ConnectionRefused,
+        Errno::Connreset => FsError::ConnectionReset,
+        Errno::Intr => FsError::Interrupted,
+        Errno::Inval => FsError::InvalidInput,
+        Errno::Notconn => FsError::NotConnected,
+        Errno::Nodev => FsError::NoDevice,
+        Errno::Noent => FsError::EntryNotFound,
+        Errno::Perm => FsError::PermissionDenied,
+        Errno::Timedout => FsError::TimedOut,
+        Errno::Proto => FsError::UnexpectedEof,
+        Errno::Again => FsError::WouldBlock,
+        Errno::Nospc => FsError::WriteZero,
+        Errno::Notempty => FsError::DirectoryNotEmpty,
+        _ => FsError::UnknownError,
+    }
+}
+
+pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
+    match fs_error {
+        FsError::AlreadyExists => Errno::Exist,
+        FsError::AddressInUse => Errno::Addrinuse,
+        FsError::AddressNotAvailable => Errno::Addrnotavail,
+        FsError::BaseNotDirectory => Errno::Notdir,
+        FsError::BrokenPipe => Errno::Pipe,
+        FsError::ConnectionAborted => Errno::Connaborted,
+        FsError::ConnectionRefused => Errno::Connrefused,
+        FsError::ConnectionReset => Errno::Connreset,
+        FsError::Interrupted => Errno::Intr,
+        FsError::InvalidData => Errno::Io,
+        FsError::InvalidFd => Errno::Badf,
+        FsError::InvalidInput => Errno::Inval,
+        FsError::IOError => Errno::Io,
+        FsError::NoDevice => Errno::Nodev,
+        FsError::NotAFile => Errno::Inval,
+        FsError::NotConnected => Errno::Notconn,
+        FsError::EntryNotFound => Errno::Noent,
+        FsError::PermissionDenied => Errno::Perm,
+        FsError::TimedOut => Errno::Timedout,
+        FsError::UnexpectedEof => Errno::Proto,
+        FsError::WouldBlock => Errno::Again,
+        FsError::WriteZero => Errno::Nospc,
+        FsError::DirectoryNotEmpty => Errno::Notempty,
+        FsError::Lock | FsError::UnknownError => Errno::Io,
     }
 }

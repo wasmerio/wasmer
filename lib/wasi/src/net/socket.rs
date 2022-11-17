@@ -15,7 +15,7 @@ use wasmer_wasi_types::wasi::{
     Addressfamily, Errno, Fdflags, Rights, SockProto, Sockoption, Socktype,
 };
 
-use crate::state::net_error_into_wasi_err;
+use crate::net::net_error_into_wasi_err;
 
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]

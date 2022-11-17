@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
 use wasmer_vbus::VirtualBusError;
-use wasmer_wasi_types::wasi::{BusErrno, Errno, Rights};
+use wasmer_wasi_types::wasi::{BusErrno, Rights};
 
 #[cfg(all(not(feature = "mem-fs"), not(feature = "host-fs")))]
 pub use crate::{fs::NullFile as Stderr, fs::NullFile as Stdin, fs::NullFile as Stdout};
@@ -15,91 +15,6 @@ pub use crate::{fs::NullFile as Stderr, fs::NullFile as Stdin, fs::NullFile as S
 pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
 #[cfg(all(feature = "mem-fs", not(feature = "host-fs")))]
 pub use wasmer_vfs::mem_fs::{Stderr, Stdin, Stdout};
-
-use wasmer_vfs::FsError;
-use wasmer_vnet::NetworkError;
-
-pub fn fs_error_from_wasi_err(err: Errno) -> FsError {
-    match err {
-        Errno::Badf => FsError::InvalidFd,
-        Errno::Exist => FsError::AlreadyExists,
-        Errno::Io => FsError::IOError,
-        Errno::Addrinuse => FsError::AddressInUse,
-        Errno::Addrnotavail => FsError::AddressNotAvailable,
-        Errno::Pipe => FsError::BrokenPipe,
-        Errno::Connaborted => FsError::ConnectionAborted,
-        Errno::Connrefused => FsError::ConnectionRefused,
-        Errno::Connreset => FsError::ConnectionReset,
-        Errno::Intr => FsError::Interrupted,
-        Errno::Inval => FsError::InvalidInput,
-        Errno::Notconn => FsError::NotConnected,
-        Errno::Nodev => FsError::NoDevice,
-        Errno::Noent => FsError::EntryNotFound,
-        Errno::Perm => FsError::PermissionDenied,
-        Errno::Timedout => FsError::TimedOut,
-        Errno::Proto => FsError::UnexpectedEof,
-        Errno::Again => FsError::WouldBlock,
-        Errno::Nospc => FsError::WriteZero,
-        Errno::Notempty => FsError::DirectoryNotEmpty,
-        _ => FsError::UnknownError,
-    }
-}
-
-pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
-    match fs_error {
-        FsError::AlreadyExists => Errno::Exist,
-        FsError::AddressInUse => Errno::Addrinuse,
-        FsError::AddressNotAvailable => Errno::Addrnotavail,
-        FsError::BaseNotDirectory => Errno::Notdir,
-        FsError::BrokenPipe => Errno::Pipe,
-        FsError::ConnectionAborted => Errno::Connaborted,
-        FsError::ConnectionRefused => Errno::Connrefused,
-        FsError::ConnectionReset => Errno::Connreset,
-        FsError::Interrupted => Errno::Intr,
-        FsError::InvalidData => Errno::Io,
-        FsError::InvalidFd => Errno::Badf,
-        FsError::InvalidInput => Errno::Inval,
-        FsError::IOError => Errno::Io,
-        FsError::NoDevice => Errno::Nodev,
-        FsError::NotAFile => Errno::Inval,
-        FsError::NotConnected => Errno::Notconn,
-        FsError::EntryNotFound => Errno::Noent,
-        FsError::PermissionDenied => Errno::Perm,
-        FsError::TimedOut => Errno::Timedout,
-        FsError::UnexpectedEof => Errno::Proto,
-        FsError::WouldBlock => Errno::Again,
-        FsError::WriteZero => Errno::Nospc,
-        FsError::DirectoryNotEmpty => Errno::Notempty,
-        FsError::Lock | FsError::UnknownError => Errno::Io,
-    }
-}
-
-pub fn net_error_into_wasi_err(net_error: NetworkError) -> Errno {
-    match net_error {
-        NetworkError::InvalidFd => Errno::Badf,
-        NetworkError::AlreadyExists => Errno::Exist,
-        NetworkError::Lock => Errno::Io,
-        NetworkError::IOError => Errno::Io,
-        NetworkError::AddressInUse => Errno::Addrinuse,
-        NetworkError::AddressNotAvailable => Errno::Addrnotavail,
-        NetworkError::BrokenPipe => Errno::Pipe,
-        NetworkError::ConnectionAborted => Errno::Connaborted,
-        NetworkError::ConnectionRefused => Errno::Connrefused,
-        NetworkError::ConnectionReset => Errno::Connreset,
-        NetworkError::Interrupted => Errno::Intr,
-        NetworkError::InvalidData => Errno::Io,
-        NetworkError::InvalidInput => Errno::Inval,
-        NetworkError::NotConnected => Errno::Notconn,
-        NetworkError::NoDevice => Errno::Nodev,
-        NetworkError::PermissionDenied => Errno::Perm,
-        NetworkError::TimedOut => Errno::Timedout,
-        NetworkError::UnexpectedEof => Errno::Proto,
-        NetworkError::WouldBlock => Errno::Again,
-        NetworkError::WriteZero => Errno::Nospc,
-        NetworkError::Unsupported => Errno::Notsup,
-        NetworkError::UnknownError => Errno::Io,
-    }
-}
 
 pub fn vbus_error_into_bus_errno(bus_error: VirtualBusError) -> BusErrno {
     use VirtualBusError::*;

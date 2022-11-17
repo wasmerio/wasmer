@@ -55,7 +55,7 @@ use wasmer_wasi_types::wasi::Cid;
 use wasmer_wasi_types::wasi::Clockid;
 use wasmer_wasi_types::wasi::{Errno, Fd as WasiFd, Rights};
 
-use crate::fs::WasiStateFileGuard;
+use crate::fs::{fs_error_into_wasi_err, WasiStateFileGuard};
 use crate::{
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::process::WasiProcessId,

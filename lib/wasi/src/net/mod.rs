@@ -3,7 +3,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::time::Duration;
 use wasmer::{MemoryView, WasmPtr};
 use wasmer_types::MemorySize;
-use wasmer_vnet::{IpCidr, IpRoute};
+use wasmer_vnet::{IpCidr, IpRoute, NetworkError};
 use wasmer_wasi_types::types::{
     OptionTag, OptionTimestamp, Route, __wasi_addr_ip4_t, __wasi_addr_ip6_t, __wasi_addr_port_t,
     __wasi_addr_port_u, __wasi_addr_t, __wasi_addr_u, __wasi_cidr_t, __wasi_cidr_u,
@@ -356,4 +356,31 @@ pub(crate) fn write_route<M: MemorySize>(
     let route_ptr = ptr.deref(memory);
     route_ptr.write(route).map_err(crate::mem_error_to_wasi)?;
     Ok(())
+}
+
+pub fn net_error_into_wasi_err(net_error: NetworkError) -> Errno {
+    match net_error {
+        NetworkError::InvalidFd => Errno::Badf,
+        NetworkError::AlreadyExists => Errno::Exist,
+        NetworkError::Lock => Errno::Io,
+        NetworkError::IOError => Errno::Io,
+        NetworkError::AddressInUse => Errno::Addrinuse,
+        NetworkError::AddressNotAvailable => Errno::Addrnotavail,
+        NetworkError::BrokenPipe => Errno::Pipe,
+        NetworkError::ConnectionAborted => Errno::Connaborted,
+        NetworkError::ConnectionRefused => Errno::Connrefused,
+        NetworkError::ConnectionReset => Errno::Connreset,
+        NetworkError::Interrupted => Errno::Intr,
+        NetworkError::InvalidData => Errno::Io,
+        NetworkError::InvalidInput => Errno::Inval,
+        NetworkError::NotConnected => Errno::Notconn,
+        NetworkError::NoDevice => Errno::Nodev,
+        NetworkError::PermissionDenied => Errno::Perm,
+        NetworkError::TimedOut => Errno::Timedout,
+        NetworkError::UnexpectedEof => Errno::Proto,
+        NetworkError::WouldBlock => Errno::Again,
+        NetworkError::WriteZero => Errno::Nospc,
+        NetworkError::Unsupported => Errno::Notsup,
+        NetworkError::UnknownError => Errno::Io,
+    }
 }
