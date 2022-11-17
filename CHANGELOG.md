@@ -10,6 +10,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## Added
 
+- [#3317](https://github.com/wasmerio/wasmer/pull/3317) Add a `wasmer add` command for adding bindings for a WAPM package to your project (only Python and JavaScript are supported for now)
+
 ## Changed
 
 - [#3318](https://github.com/wasmerio/wasmer/pull/3318) Bump the Minimum Supported Rust Version (MSRV) to 1.63
