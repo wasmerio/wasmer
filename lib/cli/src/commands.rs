@@ -17,6 +17,7 @@ mod self_update;
 mod validate;
 #[cfg(feature = "wast")]
 mod wast;
+mod whoami;
 
 #[cfg(target_os = "linux")]
 pub use binfmt::*;

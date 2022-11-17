@@ -150,6 +150,10 @@ enum WasmerCLIOptions {
     #[cfg(target_os = "linux")]
     #[clap(name = "binfmt")]
     Binfmt(Binfmt),
+
+    /// Shows the current logged in user for the current active registry
+    #[clap(name = "whoami")]
+    Whoami(Whoami),
 }
 
 impl WasmerCLIOptions {
@@ -173,6 +177,7 @@ impl WasmerCLIOptions {
             Self::Wast(wast) => wast.execute(),
             #[cfg(target_os = "linux")]
             Self::Binfmt(binfmt) => binfmt.execute(),
+            Self::Whoami(whoami) => whoami.execute(),
         }
     }
 }
