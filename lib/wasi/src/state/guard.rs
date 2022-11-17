@@ -611,7 +611,7 @@ impl VirtualFile for WasiStateFileGuard {
 
     fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<usize>> {
         let inodes = self.inodes.read().unwrap();
-        let guard = self.lock_write(&inodes);
+        let mut guard = self.lock_write(&inodes);
         if let Some(file) = guard.as_mut() {
             let file = Pin::new(file.deref_mut());
             file.poll_read_ready(cx)
@@ -625,7 +625,7 @@ impl VirtualFile for WasiStateFileGuard {
         cx: &mut Context<'_>,
     ) -> Poll<std::io::Result<usize>> {
         let inodes = self.inodes.read().unwrap();
-        let guard = self.lock_write(&inodes);
+        let mut guard = self.lock_write(&inodes);
         if let Some(file) = guard.as_mut() {
             let file = Pin::new(file.deref_mut());
             file.poll_write_ready(cx)

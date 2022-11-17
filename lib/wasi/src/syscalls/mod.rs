@@ -201,7 +201,7 @@ pub(crate) fn __asyncify<T, Fut>(
 ) -> Result<T, Errno>
 where
     T: 'static,
-    Fut: std::future::Future<Output = Result<T, Errno>> + 'static,
+    Fut: std::future::Future<Output = Result<T, Errno>>,
 {
     let mut env = ctx.data();
 
