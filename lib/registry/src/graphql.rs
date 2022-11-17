@@ -122,6 +122,10 @@ fn setup_client() -> Result<Client, anyhow::Error> {
     builder.build().map_err(|e| e.into())
 }
 
+/// This function is being used to "ping" the registry
+/// (see test_if_registry_present and see whether the response
+/// is valid JSON, it doesn't check the response itself,
+/// since the response format might change
 pub fn execute_query_modifier_inner_check_json<V, F>(
     registry_url: &str,
     login_token: &str,
@@ -154,7 +158,12 @@ where
     let mut res = client
         .post(registry_url)
         .multipart(form)
-        .bearer_auth(env::var("WAPM_REGISTRY_TOKEN").unwrap_or_else(|_| login_token.to_string()))
+        .bearer_auth(
+            env::var("WASMER_TOKEN")
+                .ok()
+                .or_else(|| env::var("WAPM_REGISTRY_TOKEN").ok())
+                .unwrap_or_else(|| login_token.to_string()),
+        )
         .header(USER_AGENT, user_agent);
 
     if let Some(t) = timeout {
