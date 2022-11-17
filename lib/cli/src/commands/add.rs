@@ -1,12 +1,10 @@
-use std::{
-    fmt::{self, Display, Formatter},
-    process::{Command, Stdio},
-    str::FromStr,
-};
+use std::process::{Command, Stdio};
 
 use anyhow::{Context, Error};
 use clap::Parser;
 use wasmer_registry::{Bindings, PartialWapmConfig, ProgrammingLanguage};
+
+use crate::cli::SplitVersion;
 
 /// Add a WAPM package's bindings to your application.
 #[derive(Debug, Parser)]
@@ -28,7 +26,7 @@ pub struct Add {
     pip: bool,
     /// The packages to add (e.g. "wasmer/wasmer-pack@0.5.0" or "python/python")
     #[clap(parse(try_from_str))]
-    packages: Vec<PackageSpecifier>,
+    packages: Vec<SplitVersion>,
 }
 
 impl Add {
@@ -106,10 +104,11 @@ impl Add {
 
 fn lookup_bindings_for_package(
     registry: &str,
-    pkg: &PackageSpecifier,
+    pkg: &SplitVersion,
     language: &ProgrammingLanguage,
 ) -> Result<Bindings, Error> {
-    let all_bindings = wasmer_registry::list_bindings(registry, &pkg.name, pkg.version.as_deref())?;
+    let all_bindings =
+        wasmer_registry::list_bindings(registry, &pkg.package, pkg.version.as_deref())?;
 
     match all_bindings.iter().find(|b| b.language == *language) {
         Some(b) => {
@@ -178,50 +177,5 @@ impl Target {
             cmd.arg("-c").arg(command_line);
             cmd
         }
-    }
-}
-
-/// The full name and optional version number for a WAPM package.
-#[derive(Debug)]
-struct PackageSpecifier {
-    /// The package's full name (i.e. `wasmer/wasmer-pack` in
-    /// `wasmer/wasmer-pack@0.5.0`).
-    name: String,
-    version: Option<String>,
-}
-
-impl FromStr for PackageSpecifier {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (name, version) = match s.split_once('@') {
-            Some((name, version)) => (name, Some(version)),
-            None => (s, None),
-        };
-
-        if !name
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || "/_-".contains(c))
-        {
-            anyhow::bail!("Invalid package name");
-        }
-
-        Ok(PackageSpecifier {
-            name: name.to_string(),
-            version: version.map(|s| s.to_string()),
-        })
-    }
-}
-
-impl Display for PackageSpecifier {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let PackageSpecifier { name, version } = self;
-
-        write!(f, "{name}")?;
-        if let Some(version) = version {
-            write!(f, "@{version}")?;
-        }
-
-        Ok(())
     }
 }
