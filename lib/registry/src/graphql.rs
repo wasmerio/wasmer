@@ -142,7 +142,7 @@ where
     let form = form_modifier(form);
 
     let user_agent = format!(
-        "wapm/{} {} {}",
+        "wasmer/{} {} {}",
         env!("CARGO_PKG_VERSION"),
         whoami::platform(),
         whoami_distro(),
@@ -198,7 +198,7 @@ where
     let form = form_modifier(form);
 
     let user_agent = format!(
-        "wapm/{} {} {}",
+        "wasmer/{} {} {}",
         env!("CARGO_PKG_VERSION"),
         whoami::platform(),
         whoami_distro(),
@@ -207,7 +207,12 @@ where
     let mut res = client
         .post(registry_url)
         .multipart(form)
-        .bearer_auth(env::var("WAPM_REGISTRY_TOKEN").unwrap_or_else(|_| login_token.to_string()))
+        .bearer_auth(
+            env::var("WASMER_TOKEN")
+                .ok()
+                .or_else(|| env::var("WAPM_REGISTRY_TOKEN").ok())
+                .unwrap_or_else(|| login_token.to_string()),
+        )
         .header(USER_AGENT, user_agent);
 
     if let Some(t) = timeout {
