@@ -228,8 +228,8 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
         WasmerCLIOptions::Run(Run::from_binfmt_args())
     } else {
         match command.unwrap_or(&"".to_string()).as_ref() {
-            "cache" | "compile" | "config" | "create-exe" | "help" | "inspect" | "run"
-            | "self-update" | "validate" | "wast" | "binfmt" | "list" | "login" => {
+            "cache" | "compile" | "config" | "create-exe" | "help" | "inspect" | "install"
+            | "run" | "self-update" | "validate" | "wast" | "binfmt" | "list" | "login" => {
                 WasmerCLIOptions::parse()
             }
             _ => {
