@@ -48,6 +48,14 @@ macro_rules! impl_virtualfile_on_std_streams {
             fn unlink(&mut self) -> Result<()> {
                 Ok(())
             }
+
+            fn poll_read_ready(self: std::pin::Pin<&mut Self>, _cx: &mut std::task::Context<'_>) -> std::task::Poll<std::io::Result<usize>> {
+                std::task::Poll::Ready(Ok(self.buf.len()))
+            }
+
+            fn poll_write_ready(self: std::pin::Pin<&mut Self>, _cx: &mut std::task::Context<'_>) -> std::task::Poll<std::io::Result<usize>> {
+                std::task::Poll::Ready(Ok(8192))
+            }
         }
 
         impl_virtualfile_on_std_streams!(impl AsyncSeek for $name);

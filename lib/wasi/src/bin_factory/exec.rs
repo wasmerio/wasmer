@@ -4,6 +4,7 @@ use std::{
     sync::{Arc, Mutex},
     task::{Context, Poll},
 };
+use futures::Future;
 use tokio::sync::mpsc;
 use tracing::*;
 use wasmer::{FunctionEnvMut, Instance, Memory, Module, Store};
@@ -202,30 +203,32 @@ pub fn spawn_exec_module(
 impl VirtualBusSpawner<WasiEnv> for BinFactory {
     fn spawn<'a>(
         &self,
-        parent_ctx: Option<&FunctionEnvMut<'a, WasiEnv>>,
-        name: &str,
+        parent_ctx: Option<&'a FunctionEnvMut<'a, WasiEnv>>,
+        name: &'a str,
         store: Store,
         config: SpawnOptionsConfig<WasiEnv>,
-        _fallback: &dyn VirtualBusSpawner<WasiEnv>,
-    ) -> wasmer_vbus::Result<BusSpawnedProcess> {
-        if config.remote_instance().is_some() {
-            return Err(VirtualBusError::Unsupported);
-        }
-
-        // We check for built in commands
-        if let Some(parent_ctx) = parent_ctx {
-            if self.builtins.exists(name) {
-                return self.builtins.exec(parent_ctx, name, store, config);
+        _fallback: &'a dyn VirtualBusSpawner<WasiEnv>,
+    ) -> Pin<Box<dyn Future<Output=wasmer_vbus::Result<BusSpawnedProcess>> + 'a>> {
+        Box::pin(async move {
+            if config.remote_instance().is_some() {
+                return Err(VirtualBusError::Unsupported);
             }
-        } else {
-            if self.builtins.exists(name) {
-                tracing::warn!("builtin command without a parent ctx - {}", name);
-            }
-        }
 
-        // Find the binary (or die trying) and make the spawn type
-        let binary = self.get_binary(name).ok_or(VirtualBusError::NotFound)?;
-        spawn_exec(binary, name, store, config, &self.runtime, &self.cache)
+            // We check for built in commands
+            if let Some(parent_ctx) = parent_ctx {
+                if self.builtins.exists(name) {
+                    return self.builtins.exec(parent_ctx, name, store, config);
+                }
+            } else {
+                if self.builtins.exists(name) {
+                    tracing::warn!("builtin command without a parent ctx - {}", name);
+                }
+            }
+
+            // Find the binary (or die trying) and make the spawn type
+            let binary = self.get_binary(name).await.ok_or(VirtualBusError::NotFound)?;
+            spawn_exec(binary, name, store, config, &self.runtime, &self.cache)
+        })
     }
 }
 

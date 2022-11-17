@@ -126,6 +126,13 @@ impl VirtualFile for WebCFile {
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
+    fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        let remaining = self.entry.get_len() - self.cursor;
+        Poll::Ready(Ok(remaining as usize))
+    }
+    fn poll_write_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(0))
+    }
 }
 
 impl AsyncRead

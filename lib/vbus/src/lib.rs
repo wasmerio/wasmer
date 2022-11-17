@@ -48,19 +48,22 @@ pub trait VirtualBusSpawner<T> {
     /// Spawns a new WAPM process by its name
     fn spawn<'a>(
         &self,
-        parent_ctx: Option<&FunctionEnvMut<'a, T>>,
-        name: &str,
+        parent_ctx: Option<&'a FunctionEnvMut<'a, T>>,
+        name: &'a str,
         store: Store,
         config: SpawnOptionsConfig<T>,
-        fallback: &dyn VirtualBusSpawner<T>,
-    ) -> Result<BusSpawnedProcess> {
-        fallback.spawn(
-            parent_ctx,
-            name,
-            store,
-            config,
-            &mut UnsupportedVirtualBusSpawner::default(),
-        )
+        fallback: &'a dyn VirtualBusSpawner<T>,
+    ) -> Pin<Box<dyn Future<Output=Result<BusSpawnedProcess>> + 'a>>
+    {
+        Box::pin(async move {
+            fallback.spawn(
+                parent_ctx,
+                name,
+                store,
+                config,
+                &mut UnsupportedVirtualBusSpawner::default(),
+            ).await
+        })
     }
 }
 
@@ -69,13 +72,16 @@ pub struct UnsupportedVirtualBusSpawner {}
 impl<T> VirtualBusSpawner<T> for UnsupportedVirtualBusSpawner {
     fn spawn<'a>(
         &self,
-        _parent_ctx: Option<&FunctionEnvMut<'a, T>>,
-        _name: &str,
+        _parent_ctx: Option<&'a FunctionEnvMut<'a, T>>,
+        _name: &'a str,
         _store: Store,
         _config: SpawnOptionsConfig<T>,
-        _fallback: &dyn VirtualBusSpawner<T>,
-    ) -> Result<BusSpawnedProcess> {
-        Err(VirtualBusError::Unsupported)
+        _fallback: &'a dyn VirtualBusSpawner<T>,
+    ) -> Pin<Box<dyn Future<Output=Result<BusSpawnedProcess>> + 'a>>
+    {
+        Box::pin(async move {
+            Err(VirtualBusError::Unsupported)
+        })
     }
 }
 
@@ -159,13 +165,16 @@ where
     /// Spawns a new bus instance by its reference name
     pub fn spawn<'a>(
         self,
-        parent_ctx: Option<&FunctionEnvMut<'a, T>>,
-        name: &str,
+        parent_ctx: Option<&'a FunctionEnvMut<'a, T>>,
+        name: &'a str,
         store: Store,
-        fallback: &dyn VirtualBusSpawner<T>,
-    ) -> Result<BusSpawnedProcess> {
-        self.spawner
-            .spawn(parent_ctx, name, store, self.conf, fallback)
+        fallback: &'a dyn VirtualBusSpawner<T>,
+    ) -> Pin<Box<dyn Future<Output=Result<BusSpawnedProcess>> + 'a>> {
+        Box::pin(async move {
+            self.spawner
+                .spawn(parent_ctx, name, store, self.conf, fallback)
+                .await
+        })
     }
 }
 

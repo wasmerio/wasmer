@@ -1,12 +1,11 @@
 use derivative::*;
 use std::{
-    io::Write,
     sync::{Arc, Mutex},
 };
 use wasmer_wasi_types::wasi::{Signal, Snapshot0Clockid};
 
 use wasmer_vbus::SignalHandlerAbi;
-use wasmer_vfs::VirtualFile;
+use wasmer_vfs::{VirtualFile, AsyncWriteExt};
 
 use crate::syscalls::platform_clock_time_get;
 
@@ -147,7 +146,7 @@ impl Tty {
         self.signaler.replace(signaler);
     }
 
-    pub fn on_event(&mut self, event: InputEvent) {
+    pub async fn on_event(&mut self, event: InputEvent) {
         match event {
             InputEvent::Key => {
                 // do nothing
@@ -167,13 +166,13 @@ impl Tty {
                     self.last = Some((data.clone(), now))
                 }
 
-                self.on_data(data.as_bytes())
+                self.on_data(data.as_bytes()).await
             }
-            InputEvent::Raw(data) => self.on_data(&data[..]),
+            InputEvent::Raw(data) => self.on_data(&data[..]).await,
         }
     }
 
-    fn on_enter(&mut self, _data: &str) {
+    async fn on_enter(&mut self, _data: &str) {
         // Add a line feed on the end and take the line
         let mut data = self.line.clone();
         self.line.clear();
@@ -189,7 +188,7 @@ impl Tty {
         }
 
         // Send the data to the process
-        let _ = self.stdin.write(data.as_bytes());
+        let _ = self.stdin.write(data.as_bytes()).await;
     }
 
     fn on_ctrl_c(&mut self, _data: &str) {
@@ -271,7 +270,7 @@ impl Tty {
 
     fn on_f12(&mut self, _data: &str) {}
 
-    fn on_data(&mut self, data: &[u8]) {
+    async fn on_data(&mut self, data: &[u8]) {
         // If we are line buffering then we need to check for some special cases
         let options = self.options.inner.lock().unwrap();
         if options.line_buffering {
@@ -280,7 +279,7 @@ impl Tty {
             let data = String::from_utf8_lossy(data);
             let data = data.as_ref();
             return match data {
-                "\r" | "\u{000A}" => self.on_enter(data),
+                "\r" | "\u{000A}" => self.on_enter(data).await,
                 "\u{0003}" => self.on_ctrl_c(data),
                 "\u{007F}" => self.on_backspace(data),
                 "\u{0009}" => self.on_tab(data),

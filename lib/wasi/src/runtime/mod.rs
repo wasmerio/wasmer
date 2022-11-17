@@ -2,8 +2,7 @@ use derivative::Derivative;
 use std::future::Future;
 use std::io::Write;
 use std::pin::Pin;
-use std::sync::{Arc, Mutex};
-use std::task::Waker;
+use std::sync::Arc;
 use std::{fmt, io};
 use thiserror::Error;
 use tracing::*;
@@ -172,53 +171,6 @@ pub trait VirtualTaskManager: fmt::Debug + Send + Sync + 'static {
 
     /// Returns the amount of parallelism that is possible on this platform
     fn thread_parallelism(&self) -> Result<usize, WasiThreadError>;
-
-    /// Returns a list of periodic wakers that need to be woken on a regular basis
-    fn periodic_wakers(&self) -> Arc<Mutex<(Vec<Waker>, tokio::sync::broadcast::Sender<()>)>>;
-
-    /// Gets a function that will register a root periodic waker
-    fn register_root_waker(&self) -> Arc<dyn Fn(Waker) + Send + Sync + 'static> {
-        let periodic_wakers = self.periodic_wakers();
-        Arc::new(move |waker: Waker| {
-            let mut guard = periodic_wakers.lock().unwrap();
-            guard.0.push(waker);
-            let _ = guard.1.send(());
-        })
-    }
-
-    /// Wakes all the root wakers
-    fn wake_root_wakers(&self) {
-        let wakers = {
-            let periodic_wakers = self.periodic_wakers();
-            let mut guard = periodic_wakers.lock().unwrap();
-            guard.0.drain(..).collect::<Vec<_>>()
-        };
-        for waker in wakers {
-            waker.wake();
-        }
-    }
-
-    /// Waits for a periodic period (if there is anyone waiting on it)
-    fn wait_for_root_waker(&self) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>> {
-        let (has_wakers, mut new_wakers) = {
-            let periodic_wakers = self.periodic_wakers();
-            let guard = periodic_wakers.lock().unwrap();
-            let has_wakers = guard.0.is_empty() == false;
-            let new_wakers = guard.1.subscribe();
-            (has_wakers, new_wakers)
-        };
-        let sleep_now = self.sleep_now(crate::current_caller_id(), 5);
-        Box::pin(async move {
-            if has_wakers {
-                tokio::select! {
-                    _ = sleep_now => { },
-                    _ = new_wakers.recv() => { },
-                }
-            } else {
-                let _ = new_wakers.recv().await;
-            }
-        })
-    }
 }
 
 /// Represents an implementation of the WASI runtime - by default everything is
@@ -401,7 +353,6 @@ where
     }
 
     /// Make a web socket connection to a particular URL
-    #[cfg(feature = "os")]
     #[cfg(not(feature = "host-ws"))]
     fn web_socket(&self, url: &str) -> Pin<Box<dyn Future<Output=Result<Box<dyn WebSocketAbi>, String>>>> {
         Box::pin(async move {
@@ -410,7 +361,6 @@ where
     }
 
     /// Make a web socket connection to a particular URL
-    #[cfg(feature = "os")]
     #[cfg(feature = "host-ws")]
     fn web_socket(&self, url: &str) -> Pin<Box<dyn Future<Output=Result<Box<dyn WebSocketAbi>, String>>>> {
         let url = url.to_string();
@@ -420,7 +370,7 @@ where
     }
 
     /// Writes output to the console
-    fn stdout(&self, data: &[u8]) -> Pin<Box<dyn Future<Output=io::Result<()>>>> {
+    fn stdout(&self, data: &[u8]) -> Pin<Box<dyn Future<Output=io::Result<()>> + Send + Sync>> {
         Box::pin(async move {
             let mut handle = io::stdout();
             handle.write_all(data)
@@ -428,7 +378,7 @@ where
     }
 
     /// Writes output to the console
-    fn stderr(&self, data: &[u8]) -> Pin<Box<dyn Future<Output=io::Result<()>>>> {
+    fn stderr(&self, data: &[u8]) -> Pin<Box<dyn Future<Output=io::Result<()>> + Send + Sync>> {
         Box::pin(async move {
             let mut handle = io::stderr();
             handle.write_all(data)
@@ -511,9 +461,6 @@ pub struct DefaultTaskManager {
     /// used for non-javascript environments
     #[cfg(feature = "sys-thread")]
     runtime: std::sync::Arc<Runtime>,
-    /// List of periodic wakers to wake (this is used by IO subsystems)
-    /// that do not support async operations
-    periodic_wakers: Arc<Mutex<(Vec<Waker>, tokio::sync::broadcast::Sender<()>)>>,
 }
 
 impl Default for DefaultTaskManager {
@@ -521,10 +468,8 @@ impl Default for DefaultTaskManager {
     fn default() -> Self {
         let runtime: std::sync::Arc<Runtime> =
             std::sync::Arc::new(Builder::new_current_thread().enable_all().build().unwrap());
-        let (tx, _) = tokio::sync::broadcast::channel(100);
         Self {
             runtime,
-            periodic_wakers: Arc::new(Mutex::new((Vec::new(), tx))),
         }
     }
     #[cfg(not(feature = "sys-thread"))]
@@ -612,11 +557,6 @@ impl VirtualTaskManager for DefaultTaskManager {
     /// Returns the amount of parallelism that is possible on this platform
     fn thread_parallelism(&self) -> Result<usize, WasiThreadError> {
         Err(WasiThreadError::Unsupported)
-    }
-
-    /// Returns a reference to the periodic wakers used by this task manager
-    fn periodic_wakers(&self) -> Arc<Mutex<(Vec<Waker>, tokio::sync::broadcast::Sender<()>)>> {
-        self.periodic_wakers.clone()
     }
 }
 
@@ -735,11 +675,6 @@ impl VirtualTaskManager for DefaultTaskManager {
         Ok(std::thread::available_parallelism()
             .map(|a| usize::from(a))
             .unwrap_or(8))
-    }
-
-    /// Returns a reference to the periodic wakers used by this task manager
-    fn periodic_wakers(&self) -> Arc<Mutex<(Vec<Waker>, tokio::sync::broadcast::Sender<()>)>> {
-        self.periodic_wakers.clone()
     }
 }
 

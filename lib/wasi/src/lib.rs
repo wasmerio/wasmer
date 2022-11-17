@@ -40,18 +40,14 @@ compile_error!(
 
 #[macro_use]
 mod macros;
-#[cfg(feature = "os")]
 pub mod bin_factory;
-#[cfg(feature = "os")]
 pub mod builtins;
-#[cfg(feature = "os")]
 pub mod os;
 pub mod runtime;
 mod state;
 mod syscalls;
 mod tty_file;
 mod utils;
-#[cfg(feature = "os")]
 pub mod wapm;
 
 #[cfg(feature = "compiler")]
@@ -65,17 +61,17 @@ pub use wasmer_compiler_singlepass;
 use wasmer_wasi_types::wasi::{BusErrno, Errno, ExitCode, Signal, Snapshot0Clockid};
 
 pub use crate::state::{
-    default_fs_backing, Fd, Pipe, WasiBidirectionalPipePair, WasiBidirectionalSharedPipePair,
-    WasiControlPlane, WasiFs, WasiInodes, WasiPipe, WasiProcess, WasiProcessId, WasiState,
+    default_fs_backing, Fd, Pipe,
+    WasiControlPlane, WasiFs, WasiInodes, WasiProcess, WasiProcessId, WasiState,
     WasiStateBuilder, WasiStateCreationError, WasiThread, WasiThreadHandle, WasiThreadId,
     ALL_RIGHTS, VIRTUAL_ROOT_FD,
 };
+pub use wasmer_vfs::{WasiBidirectionalPipePair, WasiBidirectionalSharedPipePair, WasiPipe};
 pub use crate::syscalls::types;
 pub use crate::tty_file::TtyFile;
 #[cfg(feature = "wasix")]
 pub use crate::utils::is_wasix_module;
 pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};
-#[cfg(feature = "os")]
 use bin_factory::BinFactory;
 #[allow(unused_imports)]
 use bytes::{Bytes, BytesMut};
@@ -92,13 +88,9 @@ pub use wasmer_vfs::{FsError, VirtualFile};
 pub use wasmer_vnet::{UnsupportedVirtualNetworking, VirtualNetworking};
 
 // re-exports needed for OS
-#[cfg(feature = "os")]
 pub use wasmer;
-#[cfg(feature = "os")]
 pub use wasmer_vbus;
-#[cfg(feature = "os")]
 pub use wasmer_vfs;
-#[cfg(feature = "os")]
 pub use wasmer_vnet;
 
 use std::cell::RefCell;
@@ -167,11 +159,13 @@ pub struct WasiEnvInner {
     stack_pointer: Option<Global>,
     /// Main function that will be invoked (name = "_start")
     #[derivative(Debug = "ignore")]
-    #[cfg_attr(not(feature = "os"), allow(dead_code))]
+    // TODO: review allow...
+    #[allow(dead_code)]
     start: Option<TypedFunction<(), ()>>,
     /// Function thats invoked to initialize the WASM module (nane = "_initialize")
-    #[allow(dead_code)]
     #[derivative(Debug = "ignore")]
+    // TODO: review allow...
+    #[allow(dead_code)]
     initialize: Option<TypedFunction<(), ()>>,
     /// Represents the callback for spawning a thread (name = "_start_thread")
     /// (due to limitations with i64 in browsers the parameters are broken into i32 pairs)
@@ -198,8 +192,9 @@ pub struct WasiEnvInner {
     /// asyncify_start_unwind(data : i32): call this to start unwinding the
     /// stack from the current location. "data" must point to a data
     /// structure as described above (with fields containing valid data).
-    #[cfg_attr(not(feature = "os"), allow(dead_code))]
     #[derivative(Debug = "ignore")]
+    // TODO: review allow...
+    #[allow(dead_code)]
     asyncify_start_unwind: Option<TypedFunction<i32, ()>>,
     /// asyncify_stop_unwind(): call this to note that unwinding has
     /// concluded. If no other code will run before you start to rewind,
@@ -208,20 +203,23 @@ pub struct WasiEnvInner {
     /// "sleep", then you must call this at the proper time. Otherwise,
     /// the code will think it is still unwinding when it should not be,
     /// which means it will keep unwinding in a meaningless way.
-    #[cfg_attr(not(feature = "os"), allow(dead_code))]
     #[derivative(Debug = "ignore")]
+    // TODO: review allow...
+    #[allow(dead_code)]
     asyncify_stop_unwind: Option<TypedFunction<(), ()>>,
     /// asyncify_start_rewind(data : i32): call this to start rewinding the
     /// stack vack up to the location stored in the provided data. This prepares
     /// for the rewind; to start it, you must call the first function in the
     /// call stack to be unwound.
-    #[cfg_attr(not(feature = "os"), allow(dead_code))]
     #[derivative(Debug = "ignore")]
+    // TODO: review allow...
+    #[allow(dead_code)]
     asyncify_start_rewind: Option<TypedFunction<i32, ()>>,
     /// asyncify_stop_rewind(): call this to note that rewinding has
     /// concluded, and normal execution can resume.
-    #[cfg_attr(not(feature = "os"), allow(dead_code))]
     #[derivative(Debug = "ignore")]
+    // TODO: review allow...
+    #[allow(dead_code)]
     asyncify_stop_rewind: Option<TypedFunction<(), ()>>,
     /// asyncify_get_state(): call this to get the current value of the
     /// internal "__asyncify_state" variable as described above.
@@ -329,7 +327,6 @@ pub struct WasiEnv {
     /// Represents the thread this environment is attached to
     pub thread: WasiThread,
     /// Represents a fork of the process that is currently in play
-    #[cfg(feature = "os")]
     pub vfork: Option<WasiVFork>,
     /// Base stack pointer for the memory stack
     pub stack_base: u64,
@@ -339,7 +336,6 @@ pub struct WasiEnv {
     /// executing WASI program can see.
     pub state: Arc<WasiState>,
     /// Binary factory attached to this environment
-    #[cfg(feature = "os")]
     #[derivative(Debug = "ignore")]
     pub bin_factory: BinFactory,
     /// Inner functions and references that are loaded before the environment starts
@@ -364,7 +360,6 @@ impl WasiEnv {
 
         let state = Arc::new(self.state.fork());
 
-        #[cfg(feature = "os")]
         let bin_factory = {
             let mut bin_factory = self.bin_factory.clone();
             bin_factory.state = state.clone();
@@ -375,11 +370,9 @@ impl WasiEnv {
             Self {
                 process: process,
                 thread,
-                #[cfg(feature = "os")]
                 vfork: None,
                 stack_base: self.stack_base,
                 stack_start: self.stack_start,
-                #[cfg(feature = "os")]
                 bin_factory,
                 state,
                 inner: None,
@@ -423,7 +416,7 @@ pub fn current_caller_id() -> WasiCallingId {
 impl WasiEnv {
     pub fn new(
         state: WasiState,
-        #[cfg(feature = "os")] compiled_modules: Arc<bin_factory::CachedCompiledModules>,
+        compiled_modules: Arc<bin_factory::CachedCompiledModules>,
         process: WasiProcess,
         thread: WasiThreadHandle,
     ) -> Self {
@@ -431,7 +424,6 @@ impl WasiEnv {
         let runtime = Arc::new(PluggableRuntimeImplementation::default());
         Self::new_ext(
             state,
-            #[cfg(feature = "os")]
             compiled_modules,
             process,
             thread,
@@ -441,18 +433,16 @@ impl WasiEnv {
 
     pub fn new_ext(
         state: Arc<WasiState>,
-        #[cfg(feature = "os")] compiled_modules: Arc<bin_factory::CachedCompiledModules>,
+        compiled_modules: Arc<bin_factory::CachedCompiledModules>,
         process: WasiProcess,
         thread: WasiThreadHandle,
         runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync>,
     ) -> Self {
-        #[cfg(feature = "os")]
         let bin_factory = BinFactory::new(state.clone(), compiled_modules, runtime.clone());
         let tasks = runtime.new_task_manager();
         let mut ret = Self {
             process,
             thread: thread.as_thread(),
-            #[cfg(feature = "os")]
             vfork: None,
             stack_base: DEFAULT_STACK_SIZE,
             stack_start: 0,
@@ -461,7 +451,6 @@ impl WasiEnv {
             owned_handles: Vec::new(),
             runtime,
             tasks,
-            #[cfg(feature = "os")]
             bin_factory,
         };
         ret.owned_handles.push(thread);
@@ -680,7 +669,6 @@ impl WasiEnv {
         (memory, state, inodes)
     }
 
-    #[cfg(feature = "os")]
     pub fn uses<'a, I>(&self, uses: I) -> Result<(), WasiStateCreationError>
     where
         I: IntoIterator<Item = String>,
@@ -773,7 +761,6 @@ impl WasiEnv {
         Ok(())
     }
 
-    #[cfg(feature = "os")]
     #[cfg(feature = "sys")]
     pub fn map_commands(
         &self,
@@ -969,7 +956,6 @@ impl WasiFunctionEnv {
         );
 
         // Set the base stack
-        #[cfg(feature = "os")]
         let stack_base = if let Some(stack_pointer) = env.inner().stack_pointer.clone() {
             match stack_pointer.get(store) {
                 wasmer::Value::I32(a) => a as u64,
@@ -979,8 +965,6 @@ impl WasiFunctionEnv {
         } else {
             DEFAULT_STACK_SIZE
         };
-        #[cfg(not(feature = "os"))]
-        let stack_base = DEFAULT_STACK_SIZE;
         self.data_mut(store).stack_base = stack_base;
 
         Ok(())

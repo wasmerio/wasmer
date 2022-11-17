@@ -13,20 +13,25 @@ use std::{
 
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
-pub struct ArcFile {
+pub struct ArcFile<T>
+where T: VirtualFile + Send + Sync + 'static
+{
     #[derivative(Debug = "ignore")]
-    inner: Arc<Mutex<Box<dyn VirtualFile + Send + Sync + 'static>>>,
+    inner: Arc<Mutex<Box<T>>>,
 }
 
-impl ArcFile {
-    pub fn new(inner: Box<dyn VirtualFile + Send + Sync + 'static>) -> Self {
+impl<T> ArcFile<T>
+where T: VirtualFile + Send + Sync + 'static
+{
+    pub fn new(inner: Box<T>) -> Self {
         Self {
             inner: Arc::new(Mutex::new(inner)),
         }
     }
 }
 
-impl AsyncSeek for ArcFile {
+impl<T> AsyncSeek for ArcFile<T>
+where T: VirtualFile + Send + Sync + 'static {
     fn start_seek(self: Pin<&mut Self>, position: SeekFrom) -> io::Result<()> {
         let mut guard = self.inner.lock().unwrap();
         let file = Pin::new(guard.as_mut());
@@ -39,7 +44,8 @@ impl AsyncSeek for ArcFile {
     }
 }
 
-impl AsyncWrite for ArcFile {
+impl<T> AsyncWrite for ArcFile<T>
+where T: VirtualFile + Send + Sync + 'static {
     fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
         let mut guard = self.inner.lock().unwrap();
         let file = Pin::new(guard.as_mut());
@@ -67,7 +73,8 @@ impl AsyncWrite for ArcFile {
     }
 }
 
-impl AsyncRead for ArcFile {
+impl<T> AsyncRead for ArcFile<T>
+where T: VirtualFile + Send + Sync + 'static {
     fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut tokio::io::ReadBuf<'_>) -> Poll<io::Result<()>> {
         let mut guard = self.inner.lock().unwrap();
         let file = Pin::new(guard.as_mut());
@@ -75,7 +82,8 @@ impl AsyncRead for ArcFile {
     }
 }
 
-impl VirtualFile for ArcFile {
+impl<T> VirtualFile for ArcFile<T>
+where T: VirtualFile + Send + Sync + 'static {
     fn last_accessed(&self) -> u64 {
         let inner = self.inner.lock().unwrap();
         inner.last_accessed()
@@ -108,6 +116,32 @@ impl VirtualFile for ArcFile {
         let inner = self.inner.lock().unwrap();
         inner.get_special_fd()
     }
+    fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        let mut inner = self.inner.lock().unwrap();
+        let inner = Pin::new(inner.as_mut());
+        inner.poll_read_ready(cx)
+    }
+    fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        let mut inner = self.inner.lock().unwrap();
+        let inner = Pin::new(inner.as_mut());
+        inner.poll_write_ready(cx)
+    }
 }
 
-impl ClonableVirtualFile for ArcFile {}
+impl<T> ClonableVirtualFile
+for ArcFile<T>
+where T: VirtualFile + Send + Sync + 'static,
+      T: Clone
+{}
+
+impl<T> Default
+for ArcFile<T>
+where T: VirtualFile + Send + Sync + 'static,
+      T: Default
+{
+    fn default() -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(Box::new(Default::default())))
+        }
+    }
+}

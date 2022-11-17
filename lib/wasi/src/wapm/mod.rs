@@ -1,6 +1,6 @@
 use std::{ops::Deref, path::PathBuf, sync::Arc};
 use tracing::*;
-#[cfg(feature = "webc")]
+
 use webc::{Annotation, FsEntryType, UrlOrManifest, WebC};
 
 #[allow(unused_imports)]
@@ -18,7 +18,6 @@ mod pirita;
 
 use pirita::*;
 
-#[cfg(feature = "os")]
 pub(crate) fn fetch_webc(
     cache_dir: &str,
     webc: &str,
@@ -44,81 +43,106 @@ pub(crate) fn fetch_webc(
     let options = ReqwestOptions::default();
     let headers = Default::default();
     let data = None;
-    match runtime.reqwest(tasks, url.as_str(), "POST", options, headers, data) {
-        Ok(wapm) => {
-            if wapm.status == 200 {
-                if let Some(data) = wapm.data {
-                    match serde_json::from_slice::<'_, WapmWebQuery>(data.as_ref()) {
-                        Ok(query) => {
-                            if let Some(package) = query.data.get_package_version {
-                                if let Some(pirita_download_url) =
-                                    package.distribution.pirita_download_url
-                                {
-                                    let mut ret = download_webc(
-                                        cache_dir,
-                                        name,
-                                        pirita_download_url,
-                                        runtime,
-                                        tasks,
-                                    )?;
-                                    ret.version = package.version.into();
-                                    return Some(ret);
+    
+    let (tx, rx) = std::sync::mpsc::channel();
+    let tasks_inner = tasks.clone();
+    let runtime = runtime.clone();
+    tasks.block_on(Box::pin(async move {
+        let ret = match runtime.reqwest(tasks, url.as_str(), "POST", options, headers, data).await {
+            Ok(wapm) => {
+                if wapm.status == 200 {
+                    if let Some(data) = wapm.data {
+                        match serde_json::from_slice::<'_, WapmWebQuery>(data.as_ref()) {
+                            Ok(query) => {
+                                if let Some(package) = query.data.get_package_version {
+                                    if let Some(pirita_download_url) =
+                                        package.distribution.pirita_download_url
+                                    {
+                                        let mut ret = download_webc(
+                                            cache_dir,
+                                            name,
+                                            pirita_download_url,
+                                            runtime,
+                                            tasks,
+                                        ).await;
+                                        if let Some(ret) = ret.as_mut() {
+                                            ret.version = package.version.into();
+                                        }
+                                        ret
+                                    } else {
+                                        warn!(
+                                            "package ({}) has no pirita download URL: {}",
+                                            webc,
+                                            String::from_utf8_lossy(data.as_ref())
+                                        );
+                                        None
+                                    }
+                                } else if let Some(package) = query.data.get_package {
+                                    if let Some(pirita_download_url) =
+                                        package.last_version.distribution.pirita_download_url
+                                    {
+                                        let mut ret = download_webc(
+                                            cache_dir,
+                                            name,
+                                            pirita_download_url,
+                                            runtime,
+                                            tasks,
+                                        ).await;
+                                        if let Some(ret) = ret.as_mut() {
+                                            ret.version = package.last_version.version.into();
+                                        }
+                                        ret
+                                    } else {
+                                        warn!(
+                                            "package ({}) has no pirita download URL: {}",
+                                            webc,
+                                            String::from_utf8_lossy(data.as_ref())
+                                        );
+                                        None
+                                    }
                                 } else {
                                     warn!(
-                                        "package ({}) has no pirita download URL: {}",
-                                        webc,
-                                        String::from_utf8_lossy(data.as_ref())
-                                    );
-                                }
-                            } else if let Some(package) = query.data.get_package {
-                                if let Some(pirita_download_url) =
-                                    package.last_version.distribution.pirita_download_url
-                                {
-                                    let mut ret = download_webc(
-                                        cache_dir,
+                                        "failed to parse WAPM package ({}): {}",
                                         name,
-                                        pirita_download_url,
-                                        runtime,
-                                        tasks,
-                                    )?;
-                                    ret.version = package.last_version.version.into();
-                                    return Some(ret);
-                                } else {
-                                    warn!(
-                                        "package ({}) has no pirita download URL: {}",
-                                        webc,
                                         String::from_utf8_lossy(data.as_ref())
                                     );
+                                    None
                                 }
-                            } else {
-                                warn!(
-                                    "failed to parse WAPM package ({}): {}",
-                                    name,
-                                    String::from_utf8_lossy(data.as_ref())
-                                );
+                            }
+                            Err(err) => {
+                                warn!("failed to deserialize WAPM response: {}", err);
+                                None
                             }
                         }
-                        Err(err) => {
-                            warn!("failed to deserialize WAPM response: {}", err);
-                        }
+                    } else {
+                        warn!(
+                            "failed to contact WAPM: http_code={}, http_response={}",
+                            wapm.status, wapm.status_text
+                        );
+                        None    
                     }
+                } else {
+                    warn!(
+                        "failed to contact WAPM: http_code={}, http_response={}",
+                        wapm.status, wapm.status_text
+                    );
+                    None
                 }
-            } else {
-                warn!(
-                    "failed to contact WAPM: http_code={}, http_response={}",
-                    wapm.status, wapm.status_text
-                );
             }
-        }
-        Err(code) => {
-            warn!("failed to contact WAPM: http_code={}", code);
-        }
+            Err(code) => {
+                warn!("failed to contact WAPM: http_code={}", code);
+                None
+            }
+        };
+        tx.send(ret);
+    }));
+    match rx.recv() {
+        Ok(a) => a,
+        _ => return None
     }
-    None
 }
 
-#[cfg(feature = "os")]
-fn download_webc(
+async fn download_webc(
     cache_dir: &str,
     name: &str,
     pirita_download_url: String,
@@ -175,7 +199,7 @@ fn download_webc(
     // slow path
     let cache_dir = cache_dir.to_string();
     let name = name.to_string();
-    if let Some(data) = download_miss(pirita_download_url.as_str(), runtime, tasks) {
+    if let Some(data) = download_miss(pirita_download_url.as_str(), runtime, tasks).await {
         let path = compute_path(cache_dir.as_str(), name.as_str());
         let _ = std::fs::create_dir_all(path.parent().unwrap().clone());
 
@@ -227,7 +251,7 @@ fn download_webc(
     None
 }
 
-fn download_miss(
+async fn download_miss(
     download_url: &str,
     runtime: &dyn WasiRuntimeImplementation,
     tasks: &dyn VirtualTaskManager,
@@ -238,7 +262,7 @@ fn download_miss(
     let headers = Default::default();
     let data = None;
 
-    match runtime.reqwest(tasks, download_url, "GET", options, headers, data) {
+    match runtime.reqwest(tasks, download_url, "GET", options, headers, data).await {
         Ok(wapm) => {
             if wapm.status == 200 {
                 return wapm.data;
@@ -341,7 +365,7 @@ where
             })
             .collect::<Vec<_>>();
 
-        pck.webc_fs = Some(Arc::new(webc_vfs::VirtualFileSystem::init(
+        pck.webc_fs = Some(Arc::new(wasmer_vfs::webc_fs::WebcFileSystem::init(
             ownership.clone(),
             &package_name,
         )));

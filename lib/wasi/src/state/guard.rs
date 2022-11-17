@@ -1,4 +1,5 @@
 use tokio::sync::mpsc;
+use wasmer_vfs::{AsyncSeek, AsyncRead, AsyncWrite};
 use wasmer_vnet::{net_error_into_io_err, NetworkError};
 use wasmer_wasi_types::wasi::{Event, EventFdReadwrite, EventUnion, Eventrwflags, Subscription};
 
@@ -7,10 +8,10 @@ use crate::VirtualTaskManager;
 use super::*;
 use std::{
     future::Future,
-    io::{Read, Seek},
+    io::{SeekFrom, IoSlice},
     pin::Pin,
     sync::RwLockReadGuard,
-    task::Poll,
+    task::{Poll, Context},
 };
 
 pub(crate) enum InodeValFilePollGuardMode {
@@ -105,43 +106,6 @@ impl std::fmt::Debug for InodeValFilePollGuard {
 
 impl InodeValFilePollGuard {
     #[allow(dead_code)]
-    pub fn bytes_available_read(&self) -> wasmer_vfs::Result<usize> {
-        match &self.mode {
-            InodeValFilePollGuardMode::File(file) => {
-                let guard = file.read().unwrap();
-                guard.bytes_available_read()
-            }
-            InodeValFilePollGuardMode::EventNotifications { counter, .. } => {
-                Ok(counter.load(std::sync::atomic::Ordering::Acquire) as usize)
-            }
-            InodeValFilePollGuardMode::Socket(socket) => {
-                socket.peek().map_err(fs_error_from_wasi_err)
-            }
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn bytes_available_write(&self) -> wasmer_vfs::Result<usize> {
-        match &self.mode {
-            InodeValFilePollGuardMode::File(file) => {
-                let guard = file.read().unwrap();
-                guard.bytes_available_write()
-            }
-            InodeValFilePollGuardMode::EventNotifications { wakers, .. } => {
-                let wakers = wakers.lock().unwrap();
-                Ok(wakers.len())
-            }
-            InodeValFilePollGuardMode::Socket(socket) => {
-                if socket.can_write() {
-                    Ok(4096)
-                } else {
-                    Ok(0)
-                }
-            }
-        }
-    }
-
-    #[allow(dead_code)]
     pub fn is_open(&self) -> bool {
         match &self.mode {
             InodeValFilePollGuardMode::File(file) => {
@@ -181,8 +145,6 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
         let mut has_close = None;
         let mut has_hangup = false;
 
-        let register_root_waker = self.tasks.register_root_waker();
-
         let mut ret = Vec::new();
         for (set, s) in self.subscriptions.iter() {
             for in_event in iterate_poll_events(*set) {
@@ -208,8 +170,9 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
         if let Some(s) = has_close.as_ref() {
             let is_closed = match self.mode {
                 InodeValFilePollGuardMode::File(file) => {
-                    let guard = file.read().unwrap();
-                    guard.poll_close_ready(cx, &register_root_waker).is_ready()
+                    let mut guard = file.read().unwrap();
+                    let file = Pin::new(guard.as_mut());
+                    file.poll_shutdown(cx).is_ready()
                 }
                 InodeValFilePollGuardMode::EventNotifications { .. } => false,
                 InodeValFilePollGuardMode::Socket(socket) => {
@@ -259,8 +222,9 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
         if let Some(s) = has_read {
             let mut poll_result = match &self.mode {
                 InodeValFilePollGuardMode::File(file) => {
-                    let guard = file.read().unwrap();
-                    guard.poll_read_ready(cx, &register_root_waker)
+                    let mut guard = file.read().unwrap();
+                    let file = Pin::new(guard.as_mut());
+                    file.poll_read_ready(cx)
                 }
                 InodeValFilePollGuardMode::EventNotifications {
                     waker,
@@ -283,17 +247,17 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                 }
                 InodeValFilePollGuardMode::Socket(socket) => socket
                     .poll_read_ready(cx)
-                    .map_err(net_error_into_io_err)
-                    .map_err(Into::<FsError>::into),
+                    .map_err(net_error_into_io_err),
             };
             if let Some(s) = has_close.as_ref() {
                 poll_result = match poll_result {
-                    Poll::Ready(Err(FsError::ConnectionAborted))
-                    | Poll::Ready(Err(FsError::ConnectionRefused))
-                    | Poll::Ready(Err(FsError::ConnectionReset))
-                    | Poll::Ready(Err(FsError::BrokenPipe))
-                    | Poll::Ready(Err(FsError::NotConnected))
-                    | Poll::Ready(Err(FsError::UnexpectedEof)) => {
+                    Poll::Ready(Err(err)) if err.kind() == std::io::ErrorKind::ConnectionAborted ||
+                                                    err.kind() == std::io::ErrorKind::ConnectionRefused ||
+                                                    err.kind() == std::io::ErrorKind::ConnectionReset ||
+                                                    err.kind() == std::io::ErrorKind::BrokenPipe ||
+                                                    err.kind() == std::io::ErrorKind::NotConnected ||
+                                                    err.kind() == std::io::ErrorKind::UnexpectedEof =>
+                    {
                         ret.push(Event {
                             userdata: s.userdata,
                             error: Errno::Success,
@@ -318,17 +282,22 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                 };
             }
             if let Poll::Ready(bytes_available) = poll_result {
+                let mut error = Errno::Success;
+                let bytes_available = match bytes_available {
+                    Ok(a) => a,
+                    Err(e) => {
+                        error = map_io_err(e);
+                        0
+                    }
+                };
                 ret.push(Event {
                     userdata: s.userdata,
-                    error: bytes_available
-                        .clone()
-                        .map(|_| Errno::Success)
-                        .unwrap_or_else(fs_error_into_wasi_err),
+                    error,
                     type_: s.type_,
                     u: match s.type_ {
                         Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
                             fd_readwrite: EventFdReadwrite {
-                                nbytes: bytes_available.unwrap_or_default() as u64,
+                                nbytes: bytes_available as u64,
                                 flags: Eventrwflags::empty(),
                             },
                         },
@@ -341,7 +310,8 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
             let mut poll_result = match self.mode {
                 InodeValFilePollGuardMode::File(file) => {
                     let guard = file.read().unwrap();
-                    guard.poll_write_ready(cx, &register_root_waker)
+                    let file = Pin::new(guard.as_mut());
+                    file.poll_write_ready(cx)
                 }
                 InodeValFilePollGuardMode::EventNotifications {
                     waker,
@@ -364,17 +334,17 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                 }
                 InodeValFilePollGuardMode::Socket(socket) => socket
                     .poll_write_ready(cx)
-                    .map_err(net_error_into_io_err)
-                    .map_err(Into::<FsError>::into),
+                    .map_err(net_error_into_io_err),
             };
             if let Some(s) = has_close.as_ref() {
                 poll_result = match poll_result {
-                    Poll::Ready(Err(FsError::ConnectionAborted))
-                    | Poll::Ready(Err(FsError::ConnectionRefused))
-                    | Poll::Ready(Err(FsError::ConnectionReset))
-                    | Poll::Ready(Err(FsError::BrokenPipe))
-                    | Poll::Ready(Err(FsError::NotConnected))
-                    | Poll::Ready(Err(FsError::UnexpectedEof)) => {
+                    Poll::Ready(Err(err)) if err.kind() == std::io::ErrorKind::ConnectionAborted ||
+                                                    err.kind() == std::io::ErrorKind::ConnectionRefused ||
+                                                    err.kind() == std::io::ErrorKind::ConnectionReset ||
+                                                    err.kind() == std::io::ErrorKind::BrokenPipe ||
+                                                    err.kind() == std::io::ErrorKind::NotConnected ||
+                                                    err.kind() == std::io::ErrorKind::UnexpectedEof =>
+                    {
                         ret.push(Event {
                             userdata: s.userdata,
                             error: Errno::Success,
@@ -399,17 +369,22 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                 };
             }
             if let Poll::Ready(bytes_available) = poll_result {
+                let mut error = Errno::Success;
+                let bytes_available = match bytes_available {
+                    Ok(a) => a,
+                    Err(e) => {
+                        error = map_io_err(e);
+                        0
+                    }
+                };
                 ret.push(Event {
                     userdata: s.userdata,
-                    error: bytes_available
-                        .clone()
-                        .map(|_| Errno::Success)
-                        .unwrap_or_else(fs_error_into_wasi_err),
+                    error,
                     type_: s.type_,
                     u: match s.type_ {
                         Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
                             fd_readwrite: EventFdReadwrite {
-                                nbytes: bytes_available.unwrap_or_default() as u64,
+                                nbytes: bytes_available as u64,
                                 flags: Eventrwflags::empty(),
                             },
                         },
@@ -622,46 +597,6 @@ impl VirtualFile for WasiStateFileGuard {
         }
     }
 
-    fn sync_to_disk(&self) -> Result<(), FsError> {
-        let inodes = self.inodes.read().unwrap();
-        let guard = self.lock_read(&inodes);
-        if let Some(file) = guard.as_ref() {
-            file.sync_to_disk()
-        } else {
-            Err(FsError::IOError)
-        }
-    }
-
-    fn bytes_available(&self) -> Result<usize, FsError> {
-        let inodes = self.inodes.read().unwrap();
-        let guard = self.lock_read(&inodes);
-        if let Some(file) = guard.as_ref() {
-            file.bytes_available()
-        } else {
-            Err(FsError::IOError)
-        }
-    }
-
-    fn bytes_available_read(&self) -> Result<usize, FsError> {
-        let inodes = self.inodes.read().unwrap();
-        let guard = self.lock_read(&inodes);
-        if let Some(file) = guard.as_ref() {
-            file.bytes_available_read()
-        } else {
-            Err(FsError::IOError)
-        }
-    }
-
-    fn bytes_available_write(&self) -> Result<usize, FsError> {
-        let inodes = self.inodes.read().unwrap();
-        let guard = self.lock_read(&inodes);
-        if let Some(file) = guard.as_ref() {
-            file.bytes_available_write()
-        } else {
-            Err(FsError::IOError)
-        }
-    }
-
     fn is_open(&self) -> bool {
         let inodes = self.inodes.read().unwrap();
         let guard = self.lock_read(&inodes);
@@ -672,79 +607,114 @@ impl VirtualFile for WasiStateFileGuard {
         }
     }
 
-    fn get_fd(&self) -> Option<wasmer_vfs::FileDescriptor> {
+    fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<usize>> {
         let inodes = self.inodes.read().unwrap();
-        let guard = self.lock_read(&inodes);
-        if let Some(file) = guard.as_ref() {
-            file.get_fd()
+        let guard = self.lock_write(&inodes);
+        if let Some(file) = guard.as_mut() {
+            let file = Pin::new(file.deref_mut());
+            file.poll_read_ready(cx)
         } else {
-            None
+            Poll::Ready(Ok(0))
+        }
+    }
+
+    fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<usize>> {
+        let inodes = self.inodes.read().unwrap();
+        let guard = self.lock_write(&inodes);
+        if let Some(file) = guard.as_mut() {
+            let file = Pin::new(file.deref_mut());
+            file.poll_write_ready(cx)
+        } else {
+            Poll::Ready(Ok(0))
         }
     }
 }
 
-impl Write for WasiStateFileGuard {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+impl AsyncSeek for WasiStateFileGuard {
+    fn start_seek(self: Pin<&mut Self>, position: SeekFrom) -> std::io::Result<()> {
         let inodes = self.inodes.read().unwrap();
         let mut guard = self.lock_write(&inodes);
-        if let Some(file) = guard.as_mut() {
-            file.write(buf)
+        if let Some(guard) = guard.as_mut() {
+            let file = Pin::new(guard.deref_mut());
+            file.start_seek(position)
         } else {
             Err(std::io::ErrorKind::Unsupported.into())
         }
     }
-
-    fn write_vectored(&mut self, bufs: &[std::io::IoSlice<'_>]) -> std::io::Result<usize> {
+    fn poll_complete(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<u64>> {
         let inodes = self.inodes.read().unwrap();
         let mut guard = self.lock_write(&inodes);
-        if let Some(file) = guard.as_mut() {
-            file.write_vectored(bufs)
+        if let Some(guard) = guard.as_mut() {
+            let file = Pin::new(guard.deref_mut());
+            file.poll_complete(cx)
         } else {
-            Err(std::io::ErrorKind::Unsupported.into())
-        }
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        let inodes = self.inodes.read().unwrap();
-        let mut guard = self.lock_write(&inodes);
-        if let Some(file) = guard.as_mut() {
-            file.flush()
-        } else {
-            Err(std::io::ErrorKind::Unsupported.into())
+            Poll::Ready(Err(std::io::ErrorKind::Unsupported.into()))
         }
     }
 }
 
-impl Read for WasiStateFileGuard {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+impl AsyncWrite for WasiStateFileGuard {
+    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<std::io::Result<usize>> {
         let inodes = self.inodes.read().unwrap();
         let mut guard = self.lock_write(&inodes);
-        if let Some(file) = guard.as_mut() {
-            file.read(buf)
+        if let Some(guard) = guard.as_mut() {
+            let file = Pin::new(guard.deref_mut());
+            file.poll_write(cx, buf)
         } else {
-            Err(std::io::ErrorKind::Unsupported.into())
+            Poll::Ready(Err(std::io::ErrorKind::Unsupported.into()))
         }
     }
-
-    fn read_vectored(&mut self, bufs: &mut [std::io::IoSliceMut<'_>]) -> std::io::Result<usize> {
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
         let inodes = self.inodes.read().unwrap();
         let mut guard = self.lock_write(&inodes);
-        if let Some(file) = guard.as_mut() {
-            file.read_vectored(bufs)
+        if let Some(guard) = guard.as_mut() {
+            let file = Pin::new(guard.deref_mut());
+            file.poll_flush(cx)
         } else {
-            Err(std::io::ErrorKind::Unsupported.into())
+            Poll::Ready(Err(std::io::ErrorKind::Unsupported.into()))
+        }
+    }
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        let inodes = self.inodes.read().unwrap();
+        let mut guard = self.lock_write(&inodes);
+        if let Some(guard) = guard.as_mut() {
+            let file = Pin::new(guard.deref_mut());
+            file.poll_shutdown(cx)
+        } else {
+            Poll::Ready(Err(std::io::ErrorKind::Unsupported.into()))
+        }
+    }
+    fn poll_write_vectored(self: Pin<&mut Self>, cx: &mut Context<'_>, bufs: &[IoSlice<'_>]) -> Poll<std::io::Result<usize>> {
+        let inodes = self.inodes.read().unwrap();
+        let mut guard = self.lock_write(&inodes);
+        if let Some(guard) = guard.as_mut() {
+            let file = Pin::new(guard.deref_mut());
+            file.poll_write_vectored(cx, bufs)
+        } else {
+            Poll::Ready(Err(std::io::ErrorKind::Unsupported.into()))
+        }
+    }
+    fn is_write_vectored(&self) -> bool {
+        let inodes = self.inodes.read().unwrap();
+        let mut guard = self.lock_write(&inodes);
+        if let Some(guard) = guard.as_mut() {
+            let file = Pin::new(guard.deref_mut());
+            file.is_write_vectored()
+        } else {
+            false
         }
     }
 }
 
-impl Seek for WasiStateFileGuard {
-    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+impl AsyncRead for WasiStateFileGuard {
+    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut tokio::io::ReadBuf<'_>) -> Poll<std::io::Result<()>> {
         let inodes = self.inodes.read().unwrap();
         let mut guard = self.lock_write(&inodes);
-        if let Some(file) = guard.as_mut() {
-            file.seek(pos)
+        if let Some(guard) = guard.as_mut() {
+            let file = Pin::new(guard.deref_mut());
+            file.poll_read(cx, buf)
         } else {
-            Err(std::io::ErrorKind::Unsupported.into())
+            Poll::Ready(Err(std::io::ErrorKind::Unsupported.into()))
         }
     }
 }

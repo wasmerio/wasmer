@@ -1,15 +1,16 @@
 use std::{
     io::{self, *},
-    sync::Arc,
+    sync::Arc, pin::Pin, task::{Context, Poll}, ops::DerefMut,
 };
-use wasmer_vfs::FileDescriptor;
-use wasmer_vfs::VirtualFile;
+use wasmer_vfs::{VirtualFile, AsyncSeek, AsyncWrite, AsyncRead};
+
+use crate::runtime::RuntimeStdout;
 
 /// Special file for `/dev/tty` that can print to stdout
 /// (hence the requirement for a `WasiRuntimeImplementation`)
 #[derive(Debug)]
 pub struct TtyFile {
-    runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>,
+    stdout: RuntimeStdout,
     stdin: Box<dyn VirtualFile + Send + Sync + 'static>,
 }
 
@@ -18,28 +19,49 @@ impl TtyFile {
         runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>,
         stdin: Box<dyn VirtualFile + Send + Sync + 'static>,
     ) -> Self {
-        Self { runtime, stdin }
+        let stdout = RuntimeStdout::new(runtime);
+        Self {
+            stdout,
+            stdin
+        }
     }
 }
 
-impl Seek for TtyFile {
-    fn seek(&mut self, _pos: SeekFrom) -> io::Result<u64> {
-        Ok(0)
-    }
-}
-impl Write for TtyFile {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.runtime.stdout(buf)?;
-        Ok(buf.len())
-    }
-    fn flush(&mut self) -> io::Result<()> {
+impl AsyncSeek for TtyFile {
+    fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
         Ok(())
     }
+    fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+        Poll::Ready(Ok(0))
+    }
 }
 
-impl Read for TtyFile {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.stdin.read(buf)
+impl AsyncWrite for TtyFile {
+    fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+        let stdout = Pin::new(&mut self.stdout);
+        stdout.poll_write(cx, buf)
+    }
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let stdout = Pin::new(&mut self.stdout);
+        stdout.poll_flush(cx)
+    }
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let stdout = Pin::new(&mut self.stdout);
+        stdout.poll_shutdown(cx)
+    }
+    fn poll_write_vectored(self: Pin<&mut Self>, cx: &mut Context<'_>, bufs: &[IoSlice<'_>]) -> Poll<io::Result<usize>> {
+        let stdout = Pin::new(&mut self.stdout);
+        stdout.poll_write_vectored(cx, bufs)
+    }
+    fn is_write_vectored(&self) -> bool {
+        self.stdout.is_write_vectored()
+    }
+}
+
+impl AsyncRead for TtyFile {
+    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut tokio::io::ReadBuf<'_>) -> Poll<io::Result<()>> {
+        let stdin = Pin::new(&mut self.stdin);
+        stdin.poll_read(cx, buf)
     }
 }
 
@@ -62,42 +84,34 @@ impl VirtualFile for TtyFile {
     fn unlink(&mut self) -> wasmer_vfs::Result<()> {
         Ok(())
     }
-    fn bytes_available(&self) -> wasmer_vfs::Result<usize> {
-        self.stdin.bytes_available()
-    }
-    fn bytes_available_read(&self) -> wasmer_vfs::Result<usize> {
-        self.stdin.bytes_available_read()
-    }
-    fn bytes_available_write(&self) -> wasmer_vfs::Result<usize> {
-        self.stdin.bytes_available_write()
-    }
-    fn get_fd(&self) -> Option<FileDescriptor> {
-        None
-    }
     fn is_open(&self) -> bool {
         true
     }
-    fn get_special_fd(&self) -> Option<u32> {
-        None
+    fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        let stdin = Pin::new(self.stdin.deref_mut());
+        stdin.poll_read_ready(cx)
+    }
+    fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        let stdout = Pin::new(&mut self.stdout);
+        stdout.poll_write_ready(cx)
     }
 }
 
 #[cfg(test)]
 mod tests {
 
-    use crate::{VirtualNetworking, WasiRuntimeImplementation, WasiThreadId};
-    use std::ops::Deref;
-    use std::sync::{
-        atomic::{AtomicU32, Ordering},
+    use crate::{VirtualNetworking, WasiRuntimeImplementation, WasiEnv};
+    use std::{sync::{
         Arc, Mutex,
-    };
-    use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
+    }, pin::Pin, io};
+    use futures::Future;
+    use wasmer_vbus::{DefaultVirtualBus, VirtualBus};
+    use wasmer_vfs::{WasiBidirectionalPipePair, AsyncWriteExt};
 
     struct FakeRuntimeImplementation {
         pub data: Arc<Mutex<Vec<u8>>>,
-        pub bus: Box<dyn VirtualBus + Sync>,
-        pub networking: Box<dyn VirtualNetworking + Sync>,
-        pub thread_id_seed: AtomicU32,
+        pub bus: Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static>,
+        pub networking: Arc<dyn VirtualNetworking + Send + Sync + 'static>,
     }
 
     impl Default for FakeRuntimeImplementation {
@@ -105,11 +119,10 @@ mod tests {
             FakeRuntimeImplementation {
                 data: Arc::new(Mutex::new(Vec::new())),
                 #[cfg(not(feature = "host-vnet"))]
-                networking: Box::new(wasmer_vnet::UnsupportedVirtualNetworking::default()),
+                networking: Arc::new(wasmer_vnet::UnsupportedVirtualNetworking::default()),
                 #[cfg(feature = "host-vnet")]
-                networking: Box::new(wasmer_wasi_local_networking::LocalNetworking::default()),
-                bus: Box::new(UnsupportedVirtualBus::default()),
-                thread_id_seed: Default::default(),
+                networking: Arc::new(wasmer_wasi_local_networking::LocalNetworking::default()),
+                bus: Arc::new(DefaultVirtualBus::default()),
             }
         }
     }
@@ -128,31 +141,27 @@ mod tests {
     }
 
     impl WasiRuntimeImplementation for FakeRuntimeImplementation {
-        fn bus(&self) -> &(dyn VirtualBus) {
-            self.bus.deref()
+        fn bus<'a>(&'a self) -> Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static> {
+            self.bus.clone()
+        }
+    
+        fn networking<'a>(&'a self) -> Arc<dyn VirtualNetworking + Send + Sync + 'static> {
+            self.networking.clone()
         }
 
-        fn networking(&self) -> &(dyn VirtualNetworking) {
-            self.networking.deref()
-        }
-
-        fn thread_generate_id(&self) -> WasiThreadId {
-            self.thread_id_seed.fetch_add(1, Ordering::Relaxed).into()
-        }
-
-        fn stdout(&self, data: &[u8]) -> std::io::Result<()> {
-            if let Ok(mut s) = self.data.try_lock() {
-                s.extend_from_slice(data);
-            }
-            Ok(())
+        fn stdout(&self, data: &[u8]) -> Pin<Box<dyn Future<Output=io::Result<()>> + Send + Sync>> {
+            let inner = self.data.clone();
+            Box::pin(async move {
+                let mut inner = inner.lock().unwrap();
+                inner.extend_from_slice(data);
+                Ok(())
+            })
         }
     }
 
-    #[test]
-    fn test_tty_file() {
-        use crate::state::WasiBidirectionalPipePair;
+    #[tokio::test]
+    async fn test_tty_file() {
         use crate::tty_file::TtyFile;
-        use std::io::Write;
         use std::sync::Arc;
 
         let mut pair = WasiBidirectionalPipePair::new();
@@ -160,7 +169,7 @@ mod tests {
 
         let rt = Arc::new(FakeRuntimeImplementation::default());
         let mut tty_file = TtyFile::new(rt.clone(), Box::new(pair));
-        tty_file.write(b"hello");
+        tty_file.write(b"hello").await.unwrap();
         assert_eq!(rt.get_stdout_written().unwrap(), b"hello".to_vec());
     }
 }

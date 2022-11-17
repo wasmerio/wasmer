@@ -15,14 +15,13 @@ use tracing::{debug, error, info, trace, warn};
 #[cfg(feature = "sys")]
 use wasmer::Engine;
 use wasmer_vbus::{BusSpawnedProcess, SpawnOptionsConfig};
-use wasmer_vfs::FileSystem;
+use wasmer_vfs::{FileSystem, WasiPipe};
 
 use crate::bin_factory::spawn_exec;
 use crate::bin_factory::BinFactory;
 use crate::bin_factory::CachedCompiledModules;
 use crate::runtime::RuntimeStderr;
 use crate::runtime::RuntimeStdout;
-use crate::WasiPipe;
 use crate::WasiRuntimeImplementation;
 use crate::{WasiControlPlane, WasiEnv, WasiProcess, WasiState};
 

@@ -3,6 +3,9 @@ use std::ffi::OsString;
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
+use std::task::Context;
+use std::task::Poll;
 use thiserror::Error;
 
 pub mod arc_file;
@@ -23,6 +26,7 @@ pub mod zero_file;
 pub mod static_fs;
 #[cfg(feature = "webc-fs")]
 pub mod webc_fs;
+pub mod pipe;
 
 pub use arc_file::*;
 pub use arc_fs::*;
@@ -34,13 +38,14 @@ pub use special_file::*;
 pub use tmp_fs::*;
 pub use union_fs::*;
 pub use zero_file::*;
+pub use pipe::*;
 
 pub type Result<T> = std::result::Result<T, FsError>;
 
 // re-exports
-pub use tokio::io::AsyncRead;
-pub use tokio::io::AsyncWrite;
-pub use tokio::io::AsyncSeek;
+pub use tokio::io::{AsyncRead, AsyncReadExt};
+pub use tokio::io::{AsyncWrite, AsyncWriteExt};
+pub use tokio::io::{AsyncSeek, AsyncSeekExt};
 pub use tokio::io::ReadBuf;
 
 pub trait ClonableVirtualFile: VirtualFile + Clone {}
@@ -237,6 +242,12 @@ pub trait VirtualFile: fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin +
     fn get_special_fd(&self) -> Option<u32> {
         None
     }
+
+    /// Polls the file for when there is data to be read
+    fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>>;
+
+    /// Polls the file for when it is available for writing
+    fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>>;
 }
 
 // Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .

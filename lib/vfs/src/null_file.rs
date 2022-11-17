@@ -64,6 +64,12 @@ impl VirtualFile for NullFile {
     fn unlink(&mut self) -> crate::Result<()> {
         Ok(())
     }
+    fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(8192))
+    }
+    fn poll_write_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(8192))
+    }
 }
 
 impl ClonableVirtualFile for NullFile {}

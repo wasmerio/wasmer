@@ -1,61 +1,76 @@
-use std::io::{self, Read, Seek, Write};
+use std::io::{self, SeekFrom};
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::{Poll, Context};
 
-#[derive(Debug)]
+use derivative::Derivative;
+use futures::Future;
+use wasmer_vfs::{AsyncRead, AsyncWrite, AsyncSeek};
+
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct RuntimeStdout {
     runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>,
+    #[derivative(Debug = "ignore")]
+    writing: Option<(Pin<Box<dyn Future<Output=io::Result<()>> + Send + Sync + 'static>>, u64)>,
 }
 
 impl RuntimeStdout {
     pub fn new(runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>) -> Self {
-        Self { runtime }
+        Self {
+            runtime,
+            writing: None,
+        }
     }
 }
 
-impl Read for RuntimeStdout {
-    fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not read from stdout",
-        ))
-    }
-
-    fn read_to_end(&mut self, _buf: &mut Vec<u8>) -> io::Result<usize> {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not read from stdout",
-        ))
-    }
-
-    fn read_to_string(&mut self, _buf: &mut String) -> io::Result<usize> {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not read from stdout",
-        ))
-    }
-
-    fn read_exact(&mut self, _buf: &mut [u8]) -> io::Result<()> {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not read from stdout",
-        ))
-    }
-}
-
-impl Seek for RuntimeStdout {
-    fn seek(&mut self, _pos: io::SeekFrom) -> io::Result<u64> {
+impl AsyncSeek for RuntimeStdout {
+    fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
         Err(io::Error::new(io::ErrorKind::Other, "can not seek stdout"))
     }
+    fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+        Poll::Ready(Err(io::Error::new(io::ErrorKind::Other, "can not seek stdout")))
+    }
 }
 
-impl Write for RuntimeStdout {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.runtime.stdout(buf)?;
-        Ok(buf.len())
+impl AsyncWrite for RuntimeStdout {
+    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+        let buf_ptr = buf.as_ptr() as u64;
+        if let Some((writing, buf2)) = self.writing.as_mut() {
+            if *buf2 == buf_ptr {
+                let writing = writing.as_mut();
+                return match writing.poll(cx) {
+                    Poll::Pending => Poll::Pending,
+                    Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
+                    Poll::Ready(Ok(())) => Poll::Ready(Ok(buf.len())),
+                };
+            }
+        }
+        self.writing.replace(
+            (self.runtime.stdout(buf), buf_ptr)
+        );
+        let (writing, _) = self.writing.as_mut().unwrap();
+        let writing = writing.as_mut();
+        match writing.poll(cx) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
+            Poll::Ready(Ok(())) => Poll::Ready(Ok(buf.len())),
+        }
     }
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+}
 
-    fn flush(&mut self) -> io::Result<()> {
-        self.runtime.flush()
+impl AsyncRead for RuntimeStdout {
+    fn poll_read(self: Pin<&mut Self>, _cx: &mut Context<'_>, _buf: &mut tokio::io::ReadBuf<'_>) -> Poll<io::Result<()>> {
+        Poll::Ready(Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from stdout",
+        )))
     }
 }
 
@@ -84,65 +99,83 @@ impl wasmer_vfs::VirtualFile for RuntimeStdout {
     fn unlink(&mut self) -> wasmer_vfs::Result<()> {
         Ok(())
     }
+
+    fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(0))
+    }
+
+    fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(8192))
+    }
 }
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct RuntimeStderr {
     runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>,
+    #[derivative(Debug = "ignore")]
+    writing: Option<(Pin<Box<dyn Future<Output=io::Result<()>> + Send + Sync + 'static>>, u64)>,
 }
 
 impl RuntimeStderr {
     pub fn new(runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>) -> Self {
-        Self { runtime }
+        Self {
+            runtime,
+            writing: None,
+        }
     }
 }
 
-impl Read for RuntimeStderr {
-    fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not read from stderr",
-        ))
-    }
-
-    fn read_to_end(&mut self, _buf: &mut Vec<u8>) -> io::Result<usize> {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not read from stderr",
-        ))
-    }
-
-    fn read_to_string(&mut self, _buf: &mut String) -> io::Result<usize> {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not read from stderr",
-        ))
-    }
-
-    fn read_exact(&mut self, _buf: &mut [u8]) -> io::Result<()> {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not read from stderr",
-        ))
-    }
-}
-
-impl Seek for RuntimeStderr {
-    fn seek(&mut self, _pos: io::SeekFrom) -> io::Result<u64> {
+impl AsyncSeek for RuntimeStderr {
+    fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
         Err(io::Error::new(io::ErrorKind::Other, "can not seek stderr"))
     }
-}
-
-impl Write for RuntimeStderr {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.runtime.stderr(buf)?;
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.runtime.flush()
+    fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+        Poll::Ready(Err(io::Error::new(io::ErrorKind::Other, "can not seek stderr")))
     }
 }
+
+impl AsyncWrite for RuntimeStderr {
+    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+        let buf_ptr = buf.as_ptr() as u64;
+        if let Some((writing, buf2)) = self.writing.as_mut() {
+            if *buf2 == buf_ptr {
+                let writing = writing.as_mut();
+                return match writing.poll(cx) {
+                    Poll::Pending => Poll::Pending,
+                    Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
+                    Poll::Ready(Ok(())) => Poll::Ready(Ok(buf.len())),
+                };
+            }
+        }
+        self.writing.replace(
+            (self.runtime.stdout(buf), buf_ptr)
+        );
+        let (writing, _) = self.writing.as_mut().unwrap();
+        let writing = writing.as_mut();
+        match writing.poll(cx) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
+            Poll::Ready(Ok(())) => Poll::Ready(Ok(buf.len())),
+        }
+    }
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+}
+
+impl AsyncRead for RuntimeStderr {
+    fn poll_read(self: Pin<&mut Self>, _cx: &mut Context<'_>, _buf: &mut tokio::io::ReadBuf<'_>) -> Poll<io::Result<()>> {
+        Poll::Ready(Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from stderr",
+        )))
+    }
+}
+
 
 impl wasmer_vfs::VirtualFile for RuntimeStderr {
     fn last_accessed(&self) -> u64 {
@@ -168,5 +201,13 @@ impl wasmer_vfs::VirtualFile for RuntimeStderr {
 
     fn unlink(&mut self) -> wasmer_vfs::Result<()> {
         Ok(())
+    }
+
+    fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(0))
+    }
+
+    fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(8192))
     }
 }

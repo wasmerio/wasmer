@@ -1,4 +1,5 @@
 use derivative::Derivative;
+use wasmer_vfs::AsyncReadExt;
 use std::{
     collections::HashMap,
     ops::Deref,
@@ -52,7 +53,7 @@ impl BinFactory {
         cache.insert(name.to_string(), Some(binary));
     }
 
-    pub fn get_binary(&self, name: &str) -> Option<BinaryPackage> {
+    pub async fn get_binary(&self, name: &str) -> Option<BinaryPackage> {
         let name = name.to_string();
 
         // Fast path
@@ -81,7 +82,7 @@ impl BinFactory {
             {
                 // Read the file
                 let mut data = Vec::with_capacity(file.size() as usize);
-                if let Ok(_) = file.read_to_end(&mut data) {
+                if let Ok(_) = file.read_to_end(&mut data).await {
                     let package_name = name.split("/").last().unwrap_or_else(|| name.as_str());
                     let data = BinaryPackage::new(package_name, data.into());
                     cache.insert(name, Some(data.clone()));

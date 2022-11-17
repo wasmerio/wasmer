@@ -18,7 +18,6 @@
 mod builder;
 mod guard;
 mod parking;
-mod pipe;
 mod socket;
 mod thread;
 mod types;
@@ -27,11 +26,9 @@ pub use self::builder::*;
 pub use self::guard::*;
 pub use self::guard::*;
 pub use self::parking::*;
-pub use self::pipe::*;
 pub use self::socket::*;
 pub use self::thread::*;
 pub use self::types::*;
-#[cfg(feature = "os")]
 use crate::bin_factory::BinaryPackage;
 use crate::syscalls::types::*;
 use crate::utils::map_io_err;
@@ -46,6 +43,8 @@ use generational_arena::Arena;
 pub use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+use wasmer_vfs::AsyncWriteExt;
+use wasmer_vfs::WasiPipe;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -57,7 +56,6 @@ use std::task::Waker;
 use std::time::Duration;
 use std::{
     borrow::Borrow,
-    io::Write,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     sync::{
@@ -478,7 +476,6 @@ impl WasiFs {
 
     /// Will conditionally union the binary file system with this one
     /// if it has not already been unioned
-    #[cfg(feature = "os")]
     pub fn conditional_union(&self, binary: &BinaryPackage) -> bool {
         let sandbox_fs = match &self.root_fs {
             WasiFsRoot::Sandbox(fs) => fs,
@@ -1570,18 +1567,20 @@ impl WasiFs {
         }
     }
 
-    pub fn flush(&self, inodes: &WasiInodes, fd: WasiFd) -> Result<(), Errno> {
+    pub async fn flush(&self, inodes: &WasiInodes, fd: WasiFd) -> Result<(), Errno> {
         match fd {
             __WASI_STDIN_FILENO => (),
             __WASI_STDOUT_FILENO => inodes
                 .stdout_mut(&self.fd_map)
                 .map_err(fs_error_into_wasi_err)?
                 .flush()
+                .await
                 .map_err(map_io_err)?,
             __WASI_STDERR_FILENO => inodes
                 .stderr_mut(&self.fd_map)
                 .map_err(fs_error_into_wasi_err)?
                 .flush()
+                .await
                 .map_err(map_io_err)?,
             _ => {
                 let fd = self.get_fd(fd)?;
@@ -1595,7 +1594,7 @@ impl WasiFs {
                         handle: Some(file), ..
                     } => {
                         let mut file = file.write().unwrap();
-                        file.flush().map_err(|_| Errno::Io)?
+                        file.flush().await.map_err(|_| Errno::Io)?
                     }
                     // TODO: verify this behavior
                     Kind::Dir { .. } => return Err(Errno::Isdir),
@@ -2030,7 +2029,8 @@ impl FileOpener for WasiStateOpener {
     }
 }
 
-#[cfg_attr(not(feature = "os"), allow(dead_code))]
+// TODO: review allow...
+#[allow(dead_code)]
 pub(crate) struct WasiThreadContext {
     pub ctx: WasiFunctionEnv,
     pub store: RefCell<Store>,
@@ -2046,8 +2046,9 @@ unsafe impl Sync for WasiThreadContext {}
 ///
 /// These internal implementation details are hidden away from the
 /// consumer who should instead implement the vbus trait on the runtime
-#[cfg_attr(not(feature = "os"), allow(dead_code))]
 #[derive(Derivative, Default)]
+// TODO: review allow...
+#[allow(dead_code)]
 #[derivative(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct WasiStateThreading {
@@ -2089,20 +2090,23 @@ pub struct WasiBusState {
 impl WasiBusState {
     /// Gets a reference to the waker that can be used for
     /// asynchronous calls
-    #[cfg_attr(not(feature = "os"), allow(dead_code))]
+    // TODO: review allow...
+    #[allow(dead_code)]
     pub fn get_poll_waker(&self) -> Waker {
         self.poll_waker.get_waker()
     }
 
     /// Wakes one of the reactors thats currently waiting
-    #[cfg_attr(not(feature = "os"), allow(dead_code))]
+    // TODO: review allow...
+    #[allow(dead_code)]
     pub fn poll_wake(&self) {
         self.poll_waker.wake()
     }
 
     /// Will wait until either the reactor is triggered
     /// or the timeout occurs
-    #[cfg_attr(not(feature = "os"), allow(dead_code))]
+    // TODO: review allow...
+    #[allow(dead_code)]
     pub fn poll_wait(&self, timeout: Duration) -> bool {
         self.poll_waker.wait(timeout)
     }
@@ -2148,7 +2152,8 @@ pub struct WasiState {
     pub fs: WasiFs,
     pub secret: [u8; 32],
     pub inodes: Arc<RwLock<WasiInodes>>,
-    #[cfg_attr(not(feature = "os"), allow(dead_code))]
+    // TODO: review allow...
+    #[allow(dead_code)]
     pub(crate) threading: RwLock<WasiStateThreading>,
     pub(crate) futexs: Mutex<HashMap<u64, WasiFutex>>,
     pub(crate) clock_offset: Mutex<HashMap<Clockid, i64>>,

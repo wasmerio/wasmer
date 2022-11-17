@@ -4634,6 +4634,7 @@ version = "3.0.0-rc.2"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bytes",
  "derivative",
  "filetime",
  "fs_extra",
@@ -4737,7 +4738,7 @@ dependencies = [
  "wasmer-vnet",
  "wasmer-wasi-local-networking",
  "wasmer-wasi-types",
- "webc 0.1.0",
+ "webc 3.0.1",
  "weezl",
  "winapi",
 ]
@@ -5033,7 +5034,6 @@ dependencies = [
  "leb128",
  "lexical-sort",
  "memchr",
- "memmap2",
  "path-clean",
  "rand 0.8.5",
  "serde",
@@ -5056,6 +5056,7 @@ dependencies = [
  "leb128",
  "lexical-sort",
  "memchr",
+ "memmap2",
  "path-clean",
  "rand 0.8.5",
  "serde",

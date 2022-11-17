@@ -2,15 +2,17 @@ use crate::{
     DirEntry, FileType, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir,
     Result, VirtualFile,
 };
+use bytes::{Bytes, Buf};
 #[cfg(feature = "enable-serde")]
 use serde::{de, Deserialize, Serialize};
-use tokio::io::{AsyncRead, AsyncWrite, AsyncSeek};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncSeek, ReadBuf};
 use std::convert::TryInto;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::fs;
 use tokio::fs as tfs;
-use std::io::{self};
+use std::io::{self, Seek};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::debug;
@@ -396,8 +398,28 @@ impl VirtualFile for File {
     fn unlink(&mut self) -> Result<()> {
         fs::remove_file(&self.host_path).map_err(Into::into)
     }
+
     fn get_special_fd(&self) -> Option<u32> {
         None
+    }
+
+    fn poll_read_ready(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        let cursor = match self.inner_std.seek(io::SeekFrom::Current(0)) {
+            Ok(a) => a,
+            Err(err) => return Poll::Ready(Err(err)),
+        };
+        let end = match self.inner_std.seek(io::SeekFrom::End(0)) {
+            Ok(a) => a,
+            Err(err) => return Poll::Ready(Err(err)),
+        };
+        let _ = self.inner_std.seek(io::SeekFrom::Start(cursor));
+
+        let remaining = end - cursor;
+        Poll::Ready(Ok(remaining as usize))
+    }
+
+    fn poll_write_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(8192))
     }
 }
 
@@ -509,6 +531,14 @@ impl VirtualFile for Stdout {
 
     fn get_special_fd(&self) -> Option<u32> {
         Some(1)
+    }
+
+    fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(0))
+    }
+
+    fn poll_write_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(8192))
     }
 }
 
@@ -677,13 +707,32 @@ impl VirtualFile for Stderr {
     fn get_special_fd(&self) -> Option<u32> {
         Some(2)
     }
+
+    fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(0))
+    }
+
+    fn poll_write_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(8192))
+    }
 }
 
 /// A wrapper type around Stdin that implements `VirtualFile` and
 /// `Serialize` + `Deserialize`.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct Stdin;
+pub struct Stdin {
+    read_buffer: Arc<std::sync::Mutex<Option<Bytes>>>,
+}
+impl Default
+for Stdin
+{
+    fn default() -> Self {
+        Self {
+            read_buffer: Arc::new(std::sync::Mutex::new(None))
+        }
+    }
+}
 
 impl AsyncRead
 for Stdin {
@@ -692,6 +741,20 @@ for Stdin {
         cx: &mut Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
+        let max_size = buf.remaining();
+        {
+            let mut read_buffer = self.read_buffer.lock().unwrap();
+            if let Some(read_buffer) = read_buffer.as_mut() {
+                let buf_len = read_buffer.len();
+                if buf_len > 0 {
+                    let read = buf_len.min(max_size);
+                    buf.put_slice(&read_buffer[..read]);
+                    read_buffer.advance(read);
+                    return Poll::Ready(Ok(()));
+                }
+            }
+        }
+
         let mut inner = tokio::io::stdin();
         let inner = Pin::new(&mut inner);
         inner.poll_read(cx, buf)
@@ -752,30 +815,52 @@ impl VirtualFile for Stdin {
     fn last_accessed(&self) -> u64 {
         0
     }
-
     fn last_modified(&self) -> u64 {
         0
     }
-
     fn created_time(&self) -> u64 {
         0
     }
-
     fn size(&self) -> u64 {
         0
     }
-
     fn set_len(&mut self, _new_size: u64) -> Result<()> {
         debug!("Calling VirtualFile::set_len on stdin; this is probably a bug");
         Err(FsError::PermissionDenied)
     }
-
     fn unlink(&mut self) -> Result<()> {
         Ok(())
     }
-
     fn get_special_fd(&self) -> Option<u32> {
         Some(0)
+    }
+    fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        let mut read_buffer = self.read_buffer.lock().unwrap();
+        if let Some(read_buffer) = read_buffer.as_mut() {
+            let buf_len = read_buffer.len();
+            if buf_len > 0 {
+                return Poll::Ready(Ok(buf_len));
+            }
+        }
+
+        let mut inner = tokio::io::stdin();
+        let inner = Pin::new(&mut inner);
+
+        let mut buf = [0u8; 8192];
+        let mut read_buf = ReadBuf::new(&mut buf[..]);
+        match inner.poll_read(cx, &mut read_buf) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
+            Poll::Ready(Ok(())) => {
+                let buf = read_buf.filled();
+                let buf_len = buf.len();
+                read_buffer.replace(Bytes::from(buf.to_vec()));
+                Poll::Ready(Ok(buf_len))
+            },            
+        }
+    }
+    fn poll_write_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(0))
     }
 }
 

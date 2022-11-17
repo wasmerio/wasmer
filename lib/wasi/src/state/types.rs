@@ -1,9 +1,11 @@
 /// types for use in the WASI filesystem
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(all(unix, feature = "sys-poll", not(feature = "os")))]
+
+// TODO: review allow..
+#[allow(unused_imports)]
 use std::convert::TryInto;
-use std::time::Duration;
+
 use wasmer_vbus::VirtualBusError;
 use wasmer_wasi_types::wasi::{BusErrno, Errno, Rights};
 
@@ -14,7 +16,7 @@ pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
 #[cfg(all(feature = "mem-fs", not(feature = "host-fs")))]
 pub use wasmer_vfs::mem_fs::{Stderr, Stdin, Stdout};
 
-use wasmer_vfs::{FsError, VirtualFile};
+use wasmer_vfs::FsError;
 use wasmer_vnet::NetworkError;
 
 pub fn fs_error_from_wasi_err(err: Errno) -> FsError {
@@ -231,7 +233,7 @@ pub fn iterate_poll_events(pes: PollEventSet) -> PollEventIter {
     PollEventIter { pes, i: 0 }
 }
 
-#[cfg(all(unix, feature = "sys-poll", not(feature = "os")))]
+#[cfg(all(unix, feature = "sys-poll"))]
 fn poll_event_set_to_platform_poll_events(mut pes: PollEventSet) -> i16 {
     let mut out = 0;
     for i in 0..16 {
@@ -248,7 +250,7 @@ fn poll_event_set_to_platform_poll_events(mut pes: PollEventSet) -> i16 {
     out
 }
 
-#[cfg(all(unix, feature = "sys-poll", not(feature = "os")))]
+#[cfg(all(unix, feature = "sys-poll"))]
 fn platform_poll_events_to_pollevent_set(mut num: i16) -> PollEventSet {
     let mut peb = PollEventBuilder::new();
     for i in 0..16 {
@@ -281,116 +283,13 @@ impl PollEventBuilder {
     }
 }
 
-#[cfg(all(unix, feature = "sys-poll", not(feature = "os")))]
-pub(crate) fn poll(
-    selfs: &[&(dyn VirtualFile + Send + Sync + 'static)],
-    events: &[PollEventSet],
-    seen_events: &mut [PollEventSet],
-    timeout: Duration,
-) -> Result<u32, FsError> {
-    if !(selfs.len() == events.len() && events.len() == seen_events.len()) {
-        return Err(FsError::InvalidInput);
-    }
-    let mut fds = selfs
-        .iter()
-        .enumerate()
-        .filter_map(|(i, s)| s.get_fd().map(|rfd| (i, rfd)))
-        .map(|(i, host_fd)| libc::pollfd {
-            fd: host_fd.try_into().unwrap(),
-            events: poll_event_set_to_platform_poll_events(events[i]),
-            revents: 0,
-        })
-        .collect::<Vec<_>>();
-    let result = unsafe {
-        libc::poll(
-            fds.as_mut_ptr(),
-            selfs.len() as _,
-            timeout.as_millis() as i32,
-        )
-    };
-
-    if result < 0 {
-        // TODO: check errno and return value
-        return Err(FsError::IOError);
-    }
-    // convert result and write back values
-    for (i, fd) in fds.into_iter().enumerate() {
-        seen_events[i] = platform_poll_events_to_pollevent_set(fd.revents);
-    }
-    // unwrap is safe because we check for negative values above
-    Ok(result.try_into().unwrap())
-}
-
-#[cfg(any(not(unix), not(feature = "sys-poll"), feature = "os"))]
-pub(crate) fn poll(
-    files: &[&(dyn VirtualFile + Send + Sync + 'static)],
-    // FIXME: evaluate changd signature
-    // files: &[super::InodeValFilePollGuard],
-    events: &[PollEventSet],
-    seen_events: &mut [PollEventSet],
-    timeout: Duration,
-) -> Result<u32, FsError> {
-    if !(files.len() == events.len() && events.len() == seen_events.len()) {
-        tracing::debug!("the slice length of 'files', 'events' and 'seen_events' must be the same (files={}, events={}, seen_events={})", files.len(), events.len(), seen_events.len());
-        return Err(FsError::InvalidInput);
-    }
-
-    let mut ret = 0;
-    for (n, file) in files.iter().enumerate() {
-        let mut builder = PollEventBuilder::new();
-
-        let can_read = file.bytes_available_read()? > 0;
-        let can_write = file.bytes_available_write()? > 0;
-        let is_closed = file.is_open() == false;
-
-        tracing::debug!(
-            "poll_evt can_read={} can_write={} is_closed={}",
-            can_read,
-            can_write,
-            is_closed
-        );
-
-        for event in iterate_poll_events(events[n]) {
-            match event {
-                PollEvent::PollIn if can_read => {
-                    builder = builder.add(PollEvent::PollIn);
-                }
-                PollEvent::PollOut if can_write => {
-                    builder = builder.add(PollEvent::PollOut);
-                }
-                PollEvent::PollHangUp if is_closed => {
-                    builder = builder.add(PollEvent::PollHangUp);
-                }
-                PollEvent::PollInvalid if is_closed => {
-                    builder = builder.add(PollEvent::PollInvalid);
-                }
-                PollEvent::PollError if is_closed => {
-                    builder = builder.add(PollEvent::PollError);
-                }
-                _ => {}
-            }
-        }
-        let revents = builder.build();
-        if revents != 0 {
-            ret += 1;
-        }
-        seen_events[n] = revents;
-    }
-
-    if ret == 0 && timeout > Duration::ZERO {
-        return Err(FsError::WouldBlock);
-    }
-
-    Ok(ret)
-}
-
 pub trait WasiPath {}
 
 #[deprecated(
     since = "3.0.0-beta.2",
     note = "Moved to `wasmer_wasi::pipe::WasiBidirectionalSharedPipePair`, `Pipe` is only a transitional reexport"
 )]
-pub use crate::state::WasiBidirectionalSharedPipePair as Pipe;
+pub use wasmer_vfs::WasiBidirectionalSharedPipePair as Pipe;
 
 /*
 TODO: Think about using this
