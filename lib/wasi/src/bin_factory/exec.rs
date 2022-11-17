@@ -216,11 +216,11 @@ impl VirtualBusSpawner<WasiEnv> for BinFactory {
 
             // We check for built in commands
             if let Some(parent_ctx) = parent_ctx {
-                if self.builtins.exists(name) {
-                    return self.builtins.exec(parent_ctx, name, store, config);
+                if self.commands.exists(name) {
+                    return self.commands.exec(parent_ctx, name, store, config);
                 }
             } else {
-                if self.builtins.exists(name) {
+                if self.commands.exists(name) {
                     tracing::warn!("builtin command without a parent ctx - {}", name);
                 }
             }

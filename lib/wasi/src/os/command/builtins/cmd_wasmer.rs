@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::{ops::Deref, sync::Arc};
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_vbus::{BusSpawnedProcess, SpawnOptionsConfig};
@@ -27,7 +28,7 @@ ARGS:
     <ARGS>...    Application arguments
 "#;
 
-use super::BuiltInCommand;
+use crate::os::command::VirtualCommand;
 
 #[derive(Debug, Clone)]
 pub struct CmdWasmer {
@@ -36,6 +37,8 @@ pub struct CmdWasmer {
 }
 
 impl CmdWasmer {
+    const NAME: &str = "wasmer";
+
     pub fn new(
         runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
         compiled_modules: Arc<ModuleCache>,
@@ -66,7 +69,7 @@ impl CmdWasmer {
 
             // Get the binary
             let tasks = parent_ctx.data().tasks();
-            if let Some(binary) = self.get(what.clone(), tasks) {
+            if let Some(binary) = self.get_package(what.clone(), tasks) {
                 // Now run the module
                 spawn_exec(binary, name, store, config, &self.runtime, &self.cache)
             } else {
@@ -82,13 +85,25 @@ impl CmdWasmer {
         }
     }
 
-    pub fn get(&self, name: String, tasks: &dyn VirtualTaskManager) -> Option<BinaryPackage> {
+    pub fn get_package(
+        &self,
+        name: String,
+        tasks: &dyn VirtualTaskManager,
+    ) -> Option<BinaryPackage> {
         self.cache
             .get_webc(name.as_str(), self.runtime.deref(), tasks)
     }
 }
 
-impl BuiltInCommand for CmdWasmer {
+impl VirtualCommand for CmdWasmer {
+    fn name(&self) -> &str {
+        Self::NAME
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn exec<'a>(
         &self,
         parent_ctx: &FunctionEnvMut<'a, WasiEnv>,

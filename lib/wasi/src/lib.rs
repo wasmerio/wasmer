@@ -41,7 +41,6 @@ compile_error!(
 #[macro_use]
 mod macros;
 pub mod bin_factory;
-pub mod builtins;
 pub mod os;
 pub mod runtime;
 mod state;

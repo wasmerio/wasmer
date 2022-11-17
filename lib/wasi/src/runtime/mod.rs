@@ -1,9 +1,9 @@
 use std::{
+    fmt,
     future::Future,
     io::{self, Write},
     pin::Pin,
     sync::Arc,
-    fmt,
 };
 
 use derivative::Derivative;

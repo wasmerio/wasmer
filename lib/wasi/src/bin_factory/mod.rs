@@ -19,12 +19,13 @@ pub(crate) use exec::SpawnedProcess;
 
 use sha2::*;
 
-use crate::{builtins::BuiltIns, WasiRuntimeImplementation, WasiState};
+use crate::os::command::Commands;
+use crate::{WasiRuntimeImplementation, WasiState};
 
 #[derive(Derivative, Clone)]
 pub struct BinFactory {
     pub(crate) state: Arc<WasiState>,
-    pub(crate) builtins: BuiltIns,
+    pub(crate) commands: Commands,
     runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
     pub(crate) cache: Arc<ModuleCache>,
     pub(crate) local: Arc<RwLock<HashMap<String, Option<BinaryPackage>>>>,
@@ -38,7 +39,7 @@ impl BinFactory {
     ) -> BinFactory {
         BinFactory {
             state,
-            builtins: BuiltIns::new(runtime.clone(), compiled_modules.clone()),
+            commands: Commands::new_with_builtins(runtime.clone(), compiled_modules.clone()),
             runtime,
             cache: compiled_modules,
             local: Arc::new(RwLock::new(HashMap::new())),

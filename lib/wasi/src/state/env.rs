@@ -1,4 +1,5 @@
 use crate::bin_factory::BinFactory;
+use crate::os::command::builtins::cmd_wasmer::CmdWasmer;
 use crate::syscalls::platform_clock_time_get;
 use crate::{
     bin_factory, PluggableRuntimeImplementation, VirtualTaskManager, WasiError, WasiInodes,
@@ -513,12 +514,17 @@ impl WasiEnv {
         let mut already: HashMap<String, Cow<'static, str>> = HashMap::new();
 
         let mut use_packages = uses.into_iter().collect::<VecDeque<_>>();
+
+        let cmd_wasmer = self
+            .bin_factory
+            .commands
+            .get("/bin/wasmer")
+            .and_then(|cmd| cmd.as_any().downcast_ref::<CmdWasmer>());
+
         while let Some(use_package) = use_packages.pop_back() {
-            if let Some(package) = self
-                .bin_factory
-                .builtins
-                .cmd_wasmer
-                .get(use_package.clone(), self.tasks.deref())
+            if let Some(package) = cmd_wasmer
+                .as_ref()
+                .and_then(|cmd| cmd.get_package(use_package.clone(), self.tasks.deref()))
             {
                 // If its already been added make sure the version is correct
                 let package_name = package.package_name.to_string();
