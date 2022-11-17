@@ -1,18 +1,24 @@
-use std::{
-    future::Future,
-    io::{IoSlice, SeekFrom},
-    pin::Pin,
-    sync::RwLockReadGuard,
-    task::{Context, Poll},
-};
+use crate::os::fs::Kind;
+use crate::state::{iterate_poll_events, InodeSocket, InodeSocketKind, PollEvent, PollEventSet};
+use crate::syscalls::map_io_err;
+use crate::{VirtualTaskManager, WasiInodes, WasiState};
+use std::collections::{HashMap, VecDeque};
+use std::future::Future;
+use std::io::{IoSlice, SeekFrom};
+use std::ops::{Deref, DerefMut};
+use std::pin::Pin;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::task::{Context, Poll};
+use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use tokio::sync::mpsc;
-use wasmer_vfs::{AsyncRead, AsyncSeek, AsyncWrite};
+use wasmer_vfs::{FsError, VirtualFile};
 use wasmer_vnet::{net_error_into_io_err, NetworkError};
-use wasmer_wasi_types::wasi::{Event, EventFdReadwrite, EventUnion, Eventrwflags, Subscription};
-
-use crate::{os::fs::Kind, VirtualTaskManager};
-
-use super::*;
+use wasmer_wasi_types::types::Eventtype;
+use wasmer_wasi_types::wasi;
+use wasmer_wasi_types::wasi::{
+    Errno, Event, EventFdReadwrite, EventUnion, Eventrwflags, Subscription,
+};
 
 pub(crate) enum InodeValFilePollGuardMode {
     File(Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>),
@@ -31,6 +37,7 @@ pub(crate) struct InodeValFilePollGuard {
     pub(crate) subscriptions: HashMap<PollEventSet, Subscription>,
     pub(crate) tasks: Arc<dyn VirtualTaskManager + Send + Sync + 'static>,
 }
+
 impl<'a> InodeValFilePollGuard {
     pub(crate) fn new(
         fd: u32,
@@ -127,6 +134,7 @@ struct InodeValFilePollGuardJoin<'a> {
     subscriptions: HashMap<PollEventSet, Subscription>,
     tasks: Arc<dyn VirtualTaskManager + Send + Sync + 'static>,
 }
+
 impl<'a> InodeValFilePollGuardJoin<'a> {
     fn new(guard: &'a InodeValFilePollGuard) -> Self {
         Self {
@@ -136,6 +144,7 @@ impl<'a> InodeValFilePollGuardJoin<'a> {
         }
     }
 }
+
 impl<'a> Future for InodeValFilePollGuardJoin<'a> {
     type Output = Vec<Event>;
 

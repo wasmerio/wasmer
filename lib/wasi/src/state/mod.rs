@@ -18,7 +18,6 @@
 mod builder;
 mod env;
 mod func_env;
-mod guard;
 mod parking;
 mod socket;
 mod types;
@@ -27,7 +26,6 @@ pub use self::{
     builder::*,
     env::{WasiEnv, WasiEnvInner},
     func_env::WasiFunctionEnv,
-    guard::*,
     parking::*,
     socket::*,
     types::*,
@@ -42,18 +40,13 @@ pub use generational_arena::Index as Inode;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::collections::VecDeque;
 use std::sync::Arc;
 use std::sync::MutexGuard;
 use std::task::Waker;
 use std::time::Duration;
 use std::{
-    ops::{Deref, DerefMut},
     path::Path,
-    sync::{
-        atomic::{AtomicU32, AtomicU64, Ordering},
-        Mutex, RwLock, RwLockWriteGuard,
-    },
+    sync::{atomic::AtomicU32, Mutex, RwLock},
 };
 use wasmer::Store;
 use wasmer_vbus::VirtualBusCalled;
@@ -64,13 +57,13 @@ use wasmer_wasi_types::wasi::Cid;
 use wasmer_wasi_types::wasi::Clockid;
 use wasmer_wasi_types::wasi::{Errno, Fd as WasiFd, Rights};
 
+use crate::os::fs::WasiStateFileGuard;
 use crate::{
     os::{
         fs::{WasiFs, WasiFsRoot, WasiInodes},
         task::process::WasiProcessId,
     },
     syscalls::types::*,
-    utils::map_io_err,
     WasiCallingId, WasiRuntimeImplementation,
 };
 

@@ -1,7 +1,14 @@
+mod fd;
+mod inode_guard;
+
+pub use self::fd::{Fd, InodeVal, Kind};
+pub(crate) use self::inode_guard::{
+    InodeValFilePollGuard, InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard,
+};
+
 use crate::bin_factory::BinaryPackage;
 use crate::state::{
-    fs_error_from_wasi_err, fs_error_into_wasi_err, InodeSocket, InodeSocketKind,
-    InodeValFileReadGuard, InodeValFileWriteGuard, PreopenedDir,
+    fs_error_from_wasi_err, fs_error_into_wasi_err, InodeSocket, InodeSocketKind, PreopenedDir,
 };
 use crate::ALL_RIGHTS;
 use generational_arena::{Arena, Index as Inode};
@@ -24,9 +31,6 @@ use wasmer_wasi_types::wasi::{
 };
 
 use crate::syscalls::map_io_err;
-
-mod fd;
-pub use self::fd::{Fd, InodeVal, Kind};
 
 /// the fd value of the virtual root
 pub const VIRTUAL_ROOT_FD: WasiFd = 3;
