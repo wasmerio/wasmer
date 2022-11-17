@@ -1,4 +1,5 @@
 // TODO: review allow..
+use cfg_if::cfg_if;
 #[allow(unused_imports)]
 use std::convert::TryInto;
 
@@ -6,14 +7,15 @@ use std::convert::TryInto;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasmer_vbus::VirtualBusError;
-#[cfg(feature = "host-fs")]
-pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
-#[cfg(all(feature = "mem-fs", not(feature = "host-fs")))]
-pub use wasmer_vfs::mem_fs::{Stderr, Stdin, Stdout};
 use wasmer_wasi_types::wasi::{BusErrno, Rights};
 
-#[cfg(all(not(feature = "mem-fs"), not(feature = "host-fs")))]
-pub use crate::{fs::NullFile as Stderr, fs::NullFile as Stdin, fs::NullFile as Stdout};
+cfg_if! {
+    if #[cfg(feature = "host-fs")] {
+        pub use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
+    } else {
+        pub use wasmer_vfs::mem_fs::{Stderr, Stdin, Stdout};
+    }
+}
 
 pub fn vbus_error_into_bus_errno(bus_error: VirtualBusError) -> BusErrno {
     use VirtualBusError::*;

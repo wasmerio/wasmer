@@ -19,7 +19,7 @@ getrandom = "0.2"
 wasmer-wasi-types = { path = "../wasi-types", version = "=3.0.0-rc.2" }
 wasmer-types = { path = "../types", version = "=3.0.0-rc.2", default-features = false }
 wasmer = { path = "../api", version = "=3.0.0-rc.2", default-features = false, features = ["wat", "js-serializable-module", "enable-rkyv"] }
-wasmer-vfs = { path = "../vfs", version = "=3.0.0-rc.2", default-features = false, features = ["mem-fs", "webc-fs"] }
+wasmer-vfs = { path = "../vfs", version = "=3.0.0-rc.2", default-features = false, features = ["webc-fs"] }
 wasmer-vbus = { path = "../vbus", version = "=3.0.0-rc.2", default-features = false }
 wasmer-vnet = { path = "../vnet", version = "=3.0.0-rc.2", default-features = false }
 wasmer-wasi-local-networking = { path = "../wasi-local-networking", version = "=3.0.0-rc.2", default-features = false, optional = true }
@@ -104,7 +104,6 @@ host-threads = []
 host-reqwest = ["reqwest"]
 host-fs = ["wasmer-vfs/host-fs"]
 host-termios = ["termios", "term_size"]
-mem-fs = []
 
 logging = ["tracing/log"]
 disable-all-logging = [

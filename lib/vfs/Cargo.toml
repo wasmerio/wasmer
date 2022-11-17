@@ -30,11 +30,10 @@ tokio = { version = "1", features = [ "sync", "macros" ], default_features = fal
 tokio = { version = "1", features = [ "io-util", "rt" ], default_features = false }
 
 [features]
-default = ["std", "sys", "host-fs", "mem-fs", "webc-fs", "static-fs"]
+default = ["std", "sys", "host-fs", "webc-fs", "static-fs"]
 host-fs = ["libc", "fs_extra", "filetime", "tokio/fs", "tokio/io-std"]
-mem-fs = []
 webc-fs = ["webc", "anyhow"]
-static-fs = ["webc", "anyhow", "mem-fs"]
+static-fs = ["webc", "anyhow"]
 enable-serde = [
     "serde",
     "typetag"
