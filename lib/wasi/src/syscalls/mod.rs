@@ -38,7 +38,8 @@ pub(crate) use self::types::{
 };
 
 pub(crate) use crate::bin_factory::spawn_exec_module;
-pub(crate) use crate::state::{read_ip_port, write_ip_port, WasiProcessWait};
+pub(crate) use crate::runtime::SpawnType;
+pub(crate) use crate::state::{read_ip_port, write_ip_port};
 pub(crate) use crate::utils::map_io_err;
 pub(crate) use crate::{
     current_caller_id, import_object_for_all_wasi_versions, VirtualTaskManager, WasiEnvInner,
@@ -50,12 +51,11 @@ pub(crate) use crate::{
         self, bus_errno_into_vbus_error, fs_error_into_wasi_err, iterate_poll_events,
         net_error_into_wasi_err, vbus_error_into_bus_errno, virtual_file_type_to_wasi_file_type,
         Inode, InodeHttpSocketType, InodeSocket, InodeSocketKind, InodeVal, Kind, PollEvent,
-        PollEventBuilder, WasiBusCall, WasiDummyWaker, WasiFutex, WasiParkingLot, WasiProcessId,
-        WasiState, WasiThreadContext, WasiThreadId, MAX_SYMLINKS,
+        PollEventBuilder, WasiBusCall, WasiDummyWaker, WasiFutex, WasiParkingLot, WasiState,
+        WasiThreadContext, MAX_SYMLINKS,
     },
     Fd, WasiEnv, WasiError,
 };
-pub(crate) use crate::{runtime::SpawnType, WasiThread};
 pub(crate) use bytes::{Bytes, BytesMut};
 pub(crate) use cooked_waker::IntoWaker;
 pub(crate) use sha2::Sha256;
@@ -106,6 +106,10 @@ pub use unix::*;
 #[cfg(any(target_os = "windows"))]
 pub use windows::*;
 
+pub(crate) use crate::os::task::process::WasiProcessId;
+pub(crate) use crate::os::task::process::WasiProcessWait;
+pub(crate) use crate::os::task::thread::WasiThread;
+pub(crate) use crate::os::task::thread::WasiThreadId;
 #[cfg(any(target_family = "wasm"))]
 pub use wasm::*;
 

@@ -21,7 +21,6 @@ mod func_env;
 mod guard;
 mod parking;
 mod socket;
-mod thread;
 mod types;
 
 pub use self::{
@@ -31,7 +30,6 @@ pub use self::{
     guard::*,
     parking::*,
     socket::*,
-    thread::*,
     types::*,
 };
 
@@ -77,6 +75,7 @@ use wasmer_wasi_types::wasi::{Prestat, PrestatEnum};
 
 use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
 
+use crate::os::task::process::WasiProcessId;
 use crate::{
     bin_factory::BinaryPackage, syscalls::types::*, utils::map_io_err, WasiCallingId,
     WasiRuntimeImplementation,

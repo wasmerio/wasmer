@@ -20,10 +20,12 @@ use wasmer_vfs::{FileSystem, WasiPipe};
 use crate::bin_factory::spawn_exec;
 use crate::bin_factory::BinFactory;
 use crate::bin_factory::ModuleCache;
+use crate::os::task::control_plane::WasiControlPlane;
+use crate::os::task::process::WasiProcess;
 use crate::runtime::RuntimeStderr;
 use crate::runtime::RuntimeStdout;
 use crate::WasiRuntimeImplementation;
-use crate::{WasiControlPlane, WasiEnv, WasiProcess, WasiState};
+use crate::{WasiEnv, WasiState};
 
 use super::cconst::ConsoleConst;
 use super::common::*;

@@ -60,9 +60,8 @@ pub use wasmer_compiler_singlepass;
 use wasmer_wasi_types::wasi::{BusErrno, Errno, ExitCode};
 
 pub use crate::state::{
-    default_fs_backing, Fd, Pipe, WasiControlPlane, WasiEnv, WasiEnvInner, WasiFs, WasiFunctionEnv,
-    WasiInodes, WasiProcess, WasiProcessId, WasiState, WasiStateBuilder, WasiStateCreationError,
-    WasiThread, WasiThreadHandle, WasiThreadId, ALL_RIGHTS, VIRTUAL_ROOT_FD,
+    default_fs_backing, Fd, Pipe, WasiEnv, WasiEnvInner, WasiFs, WasiFunctionEnv, WasiInodes,
+    WasiState, WasiStateBuilder, WasiStateCreationError, ALL_RIGHTS, VIRTUAL_ROOT_FD,
 };
 pub use crate::syscalls::types;
 pub use crate::tty_file::TtyFile;
@@ -95,6 +94,12 @@ use wasmer::{
     MemorySize,
 };
 
+pub use os::task::control_plane::WasiControlPlane;
+pub use os::task::process::WasiProcess;
+pub use os::task::process::WasiProcessId;
+pub use os::task::thread::WasiThread;
+pub use os::task::thread::WasiThreadHandle;
+pub use os::task::thread::WasiThreadId;
 pub use runtime::{
     PluggableRuntimeImplementation, SpawnedMemory, VirtualTaskManager, WasiRuntimeImplementation,
     WasiThreadError, WasiTtyState, WebSocketAbi,

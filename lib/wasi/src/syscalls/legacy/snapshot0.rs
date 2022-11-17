@@ -1,6 +1,7 @@
+use crate::os::task::thread::WasiThread;
 use crate::syscalls;
 use crate::syscalls::types;
-use crate::{mem_error_to_wasi, Memory32, MemorySize, WasiEnv, WasiError, WasiThread};
+use crate::{mem_error_to_wasi, Memory32, MemorySize, WasiEnv, WasiError};
 use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
 use wasmer_wasi_types::wasi::{
     Errno, Event, EventFdReadwrite, Eventrwflags, Eventtype, Fd, Filesize, Filestat, Filetype,

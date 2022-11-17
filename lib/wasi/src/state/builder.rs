@@ -1,11 +1,10 @@
 //! Builder system for configuring a [`WasiState`] and creating it.
 
 use crate::bin_factory::ModuleCache;
+use crate::os::task::control_plane::WasiControlPlane;
 use crate::state::{WasiFs, WasiFsRoot, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
-use crate::{
-    PluggableRuntimeImplementation, WasiControlPlane, WasiEnv, WasiFunctionEnv, WasiInodes,
-};
+use crate::{PluggableRuntimeImplementation, WasiEnv, WasiFunctionEnv, WasiInodes};
 use generational_arena::Arena;
 use rand::Rng;
 use std::collections::HashMap;

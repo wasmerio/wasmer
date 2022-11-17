@@ -1,10 +1,11 @@
 use crate::bin_factory::BinFactory;
 use crate::os::command::builtins::cmd_wasmer::CmdWasmer;
+use crate::os::task::process::{WasiProcess, WasiProcessId};
+use crate::os::task::thread::{WasiThread, WasiThreadHandle, WasiThreadId};
 use crate::syscalls::platform_clock_time_get;
 use crate::{
     bin_factory, PluggableRuntimeImplementation, VirtualTaskManager, WasiError, WasiInodes,
-    WasiProcess, WasiProcessId, WasiRuntimeImplementation, WasiState, WasiStateCreationError,
-    WasiThread, WasiThreadHandle, WasiThreadId, WasiVFork, DEFAULT_STACK_SIZE,
+    WasiRuntimeImplementation, WasiState, WasiStateCreationError, WasiVFork, DEFAULT_STACK_SIZE,
 };
 use derivative::Derivative;
 use std::ops::Deref;
