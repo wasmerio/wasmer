@@ -12,7 +12,7 @@ pub static GLOBAL_CONFIG_FILE_NAME: &str = if cfg!(target_os = "wasi") {
     "wapm.toml"
 };
 
-#[derive(Deserialize, Default, Serialize, Debug, PartialEq)]
+#[derive(Deserialize, Default, Serialize, Debug, PartialEq, Eq)]
 pub struct PartialWapmConfig {
     /// The number of seconds to wait before checking the registry for a new
     /// version of the package.
@@ -41,12 +41,12 @@ pub const fn wax_default_cooldown() -> i32 {
     5 * 60
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq, Default)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Default)]
 pub struct Proxy {
     pub url: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq, Default)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Default)]
 pub struct UpdateNotifications {
     pub enabled: String,
 }
@@ -57,14 +57,14 @@ pub struct Telemetry {
     pub enabled: String,
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 #[serde(untagged)]
 pub enum Registries {
     Single(Registry),
     Multi(MultiRegistry),
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 pub struct MultiRegistry {
     /// Currently active registry
     pub current: String,
@@ -82,7 +82,7 @@ impl Default for Registries {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq, Clone)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 pub struct Registry {
     pub url: String,
     pub token: Option<String>,
@@ -278,7 +278,7 @@ impl PartialWapmConfig {
     pub fn get_folder(test_name: &str) -> Result<PathBuf, String> {
         let test_dir = std::env::temp_dir().join("test_wasmer").join(test_name);
         let _ = std::fs::create_dir_all(&test_dir);
-        Ok(test_dir.to_path_buf())
+        Ok(test_dir)
     }
 
     #[cfg(not(test))]

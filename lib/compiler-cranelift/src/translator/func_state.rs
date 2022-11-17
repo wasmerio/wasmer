@@ -189,7 +189,7 @@ impl ControlStackFrame {
     /// Pop values from the value stack so that it is left at the
     /// input-parameters to an else-block.
     pub fn truncate_value_stack_to_else_params(&self, stack: &mut Vec<Value>) {
-        debug_assert!(matches!(self, &ControlStackFrame::If { .. }));
+        debug_assert!(matches!(self, &Self::If { .. }));
         stack.truncate(self.original_stack_size());
     }
 
@@ -202,7 +202,7 @@ impl ControlStackFrame {
         // block can see the same number of parameters as the consequent block. As a matter of
         // fact, we need to substract an extra number of parameter values for if blocks.
         let num_duplicated_params = match self {
-            &ControlStackFrame::If {
+            &Self::If {
                 num_param_values, ..
             } => {
                 debug_assert!(num_param_values <= self.original_stack_size());

@@ -36,7 +36,7 @@ impl List {
         if empty_table {
             table.add_empty_row();
         }
-        let _ = table.printstd();
+        table.printstd();
 
         Ok(())
     }

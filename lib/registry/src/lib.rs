@@ -309,7 +309,7 @@ pub fn query_command_from_registry(
     })
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub enum QueryPackageError {
     ErrorSendingQuery(String),
     NoPackageFound {
@@ -329,7 +329,7 @@ impl fmt::Display for QueryPackageError {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub enum GetIfPackageHasNewVersionResult {
     // if version = Some(...) and the ~/.wasmer/checkouts/.../{version} exists, the package is already installed
     UseLocalAlreadyInstalled {
@@ -860,7 +860,7 @@ pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
     use graphql_client::GraphQLQuery;
 
     let q = TestIfRegistryPresent::build_query(test_if_registry_present::Variables {});
-    let _ = crate::graphql::execute_query_modifier_inner_check_json(
+    crate::graphql::execute_query_modifier_inner_check_json(
         registry,
         "",
         &q,

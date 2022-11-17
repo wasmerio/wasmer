@@ -829,14 +829,14 @@ enum UnwindReason {
 impl UnwindReason {
     fn into_trap(self) -> Trap {
         match self {
-            UnwindReason::UserTrap(data) => Trap::User(data),
-            UnwindReason::LibTrap(trap) => trap,
-            UnwindReason::WasmTrap {
+            Self::UserTrap(data) => Trap::User(data),
+            Self::LibTrap(trap) => trap,
+            Self::WasmTrap {
                 backtrace,
                 pc,
                 signal_trap,
             } => Trap::wasm(pc, backtrace, signal_trap),
-            UnwindReason::Panic(panic) => std::panic::resume_unwind(panic),
+            Self::Panic(panic) => std::panic::resume_unwind(panic),
         }
     }
 }
