@@ -1,4 +1,3 @@
-use crate::os::fs::Kind;
 use crate::state::{iterate_poll_events, InodeSocket, InodeSocketKind, PollEvent, PollEventSet};
 use crate::syscalls::map_io_err;
 use crate::{VirtualTaskManager, WasiInodes, WasiState};
@@ -19,6 +18,8 @@ use wasmer_wasi_types::wasi;
 use wasmer_wasi_types::wasi::{
     Errno, Event, EventFdReadwrite, EventUnion, Eventrwflags, Subscription,
 };
+
+use super::Kind;
 
 pub(crate) enum InodeValFilePollGuardMode {
     File(Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>),

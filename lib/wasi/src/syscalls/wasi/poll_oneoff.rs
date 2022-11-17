@@ -211,7 +211,7 @@ pub(crate) fn poll_oneoff_internal(
 
                             {
                                 let guard = inodes.arena[inode].read();
-                                if let Some(guard) = crate::os::fs::InodeValFilePollGuard::new(
+                                if let Some(guard) = crate::fs::InodeValFilePollGuard::new(
                                     fd,
                                     guard.deref(),
                                     in_events,

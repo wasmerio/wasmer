@@ -42,6 +42,7 @@ compile_error!(
 mod macros;
 pub mod bin_factory;
 pub mod os;
+pub mod fs;
 pub mod runtime;
 mod state;
 mod syscalls;
@@ -106,7 +107,7 @@ pub use runtime::{
 };
 use std::sync::Arc;
 
-pub use crate::os::fs::{default_fs_backing, Fd, WasiFs, WasiInodes, VIRTUAL_ROOT_FD};
+pub use crate::fs::{default_fs_backing, Fd, WasiFs, WasiInodes, VIRTUAL_ROOT_FD};
 
 /// This is returned in `RuntimeError`.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.

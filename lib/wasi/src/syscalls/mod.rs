@@ -112,7 +112,7 @@ pub(crate) use crate::os::task::thread::WasiThreadId;
 #[cfg(any(target_family = "wasm"))]
 pub use wasm::*;
 
-use crate::os::fs::{virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind, MAX_SYMLINKS};
+use crate::fs::{virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind, MAX_SYMLINKS};
 
 pub(crate) fn to_offset<M: MemorySize>(offset: usize) -> Result<M::Offset, Errno> {
     let ret: M::Offset = offset.try_into().map_err(|_| Errno::Inval)?;

@@ -57,10 +57,10 @@ use wasmer_wasi_types::wasi::Cid;
 use wasmer_wasi_types::wasi::Clockid;
 use wasmer_wasi_types::wasi::{Errno, Fd as WasiFd, Rights};
 
-use crate::os::fs::WasiStateFileGuard;
+use crate::fs::WasiStateFileGuard;
 use crate::{
+    fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::{
-        fs::{WasiFs, WasiFsRoot, WasiInodes},
         task::process::WasiProcessId,
     },
     syscalls::types::*,

@@ -1,7 +1,7 @@
 //! Builder system for configuring a [`WasiState`] and creating it.
 
 use crate::bin_factory::ModuleCache;
-use crate::os::fs::{WasiFs, WasiFsRoot, WasiInodes};
+use crate::fs::{WasiFs, WasiFsRoot, WasiInodes};
 use crate::os::task::control_plane::WasiControlPlane;
 use crate::state::WasiState;
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
