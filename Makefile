@@ -665,7 +665,7 @@ package-gnu: package-wasmer-gnu package-capi-gnu
 
 package-wasmer-gnu: 
 	mkdir -p "package/bin"
-	cp target/release/x86_64-windows-gnu/wasmer.exe package/bin/
+	cp target/x86_64-pc-windows-gnu/release/wasmer.exe package/bin/
 
 package-capi-gnu:
 	mkdir -p "package/include"
@@ -674,16 +674,27 @@ package-capi-gnu:
 	cp lib/c-api/wasmer_wasm.h* package/include
 	cp lib/c-api/tests/wasm-c-api/include/wasm.h* package/include
 	cp lib/c-api/README.md package/include/README.md
-	cp target/release/x86_64-windows-gnu/wasmer.dll package/lib/wasmer.dll
-	cp target/release/x86_64-windows-gnu/wasmer.dll.lib package/lib/wasmer.dll.lib
-	cp target/release/x86_64-windows-gnu/wasmer.lib package/lib/wasmer.lib
+	
+	if [ -f target/x86_64-pc-windows-gnu/release/wasmer.dll ]; then \
+		cp target/x86_64-pc-windows-gnu/release/wasmer.dll package/lib/wasmer.dll ;\
+	fi
+
+	if [ -f target/x86_64-pc-windows-gnu/release/wasmer.dll.lib ]; then \
+		cp target/x86_64-pc-windows-gnu/release/wasmer.dll.lib package/lib/wasmer.dll.lib ;\
+	fi
+
+	if [ -f target/x86_64-pc-windows-gnu/release/wasmer.lib ]; then \
+		cp target/x86_64-pc-windows-gnu/release/wasmer.lib package/lib/wasmer.lib ;\
+	fi
+
+	if [ -f target/x86_64-pc-windows-gnu/release/libwasmer.a ]; then \
+		cp target/x86_64-pc-windows-gnu/release/libwasmer.a package/lib/libwasmer.a ;\
+	fi
 
 distribution-gnu: package-gnu
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
-	iscc scripts/windows-installer/wasmer.iss
-	cp scripts/windows-installer/WasmerInstaller.exe dist/
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
 	mv wasmer.tar.gz dist/
 
