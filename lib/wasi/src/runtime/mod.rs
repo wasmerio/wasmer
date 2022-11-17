@@ -137,7 +137,7 @@ pub trait VirtualTaskManager: fmt::Debug + Send + Sync + 'static {
     ) -> Result<(), WasiThreadError>;
 
     /// Starts an asynchronous task on the local thread (by running it in a runtime)
-    fn block_on(&self, task: Pin<Box<dyn Future<Output = ()>>>);
+    fn block_on<'a>(&self, task: Pin<Box<dyn Future<Output = ()> + 'a>>);
 
     /// Starts an asynchronous task on the local thread (by running it in a runtime)
     fn enter<'a>(&'a self) -> Box<dyn std::any::Any + 'a>;
@@ -592,7 +592,7 @@ impl VirtualTaskManager for DefaultTaskManager {
     }
 
     /// Starts an asynchronous task on the local thread (by running it in a runtime)
-    fn block_on(&self, task: Pin<Box<dyn Future<Output = ()>>>) {
+    fn block_on<'a>(&self, task: Pin<Box<dyn Future<Output = ()> + 'a>>) {
         let _guard = self.runtime.enter();
         self.runtime.block_on(async move {
             task.await;
