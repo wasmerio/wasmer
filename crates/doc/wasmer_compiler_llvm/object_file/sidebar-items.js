@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["load_object_file",""],["map_object_err",""],["map_tryfromint_err",""]],"struct":[["CompiledFunction",""]]});
+window.SIDEBAR_ITEMS = {"fn":[["load_object_file",""],["map_object_err",""],["map_tryfromint_err",""]],"struct":[["CompiledFunction",""]]};

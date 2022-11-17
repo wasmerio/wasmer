@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["_llvm_bswap_i64","emscripten: _llvm_bswap_i64"]]});
+window.SIDEBAR_ITEMS = {"fn":[["_llvm_bswap_i64","emscripten: _llvm_bswap_i64"]]};

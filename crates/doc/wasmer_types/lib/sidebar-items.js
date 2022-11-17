@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["std","Custom `std` module."]]});
+window.SIDEBAR_ITEMS = {"mod":[["std","Custom `std` module."]]};

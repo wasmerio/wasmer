@@ -1,1 +1,1 @@
-initSidebarItems({"trait":[["NativeWasmType","`NativeWasmType` represents a Wasm type that has a direct representation on the host (hence the “native” term)."]]});
+window.SIDEBAR_ITEMS = {"trait":[["NativeWasmType","`NativeWasmType` represents a Wasm type that has a direct representation on the host (hence the “native” term)."]]};

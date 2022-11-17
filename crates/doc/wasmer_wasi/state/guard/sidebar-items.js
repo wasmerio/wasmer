@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["InodeValFileReadGuard",""],["InodeValFileWriteGuard",""],["WasiStateFileGuard",""]]});
+window.SIDEBAR_ITEMS = {"struct":[["InodeValFileReadGuard",""],["InodeValFileWriteGuard",""],["WasiStateFileGuard",""]]};

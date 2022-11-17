@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Wast","The options for the `wasmer wast` subcommand"]]});
+window.SIDEBAR_ITEMS = {"struct":[["Wast","The options for the `wasmer wast` subcommand"]]};

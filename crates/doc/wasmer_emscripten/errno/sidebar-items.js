@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["___seterrno",""]]});
+window.SIDEBAR_ITEMS = {"fn":[["___seterrno",""]]};

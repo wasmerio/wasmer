@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Login","Subcommand for listing packages"]]});
+window.SIDEBAR_ITEMS = {"struct":[["Login","Subcommand for listing packages"]]};

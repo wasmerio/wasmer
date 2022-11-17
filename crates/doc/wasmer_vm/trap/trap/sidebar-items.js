@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Trap","Stores trace message with backtrace."]]});
+window.SIDEBAR_ITEMS = {"enum":[["Trap","Stores trace message with backtrace."]]};

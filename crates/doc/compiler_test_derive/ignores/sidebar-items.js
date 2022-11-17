@@ -1,1 +1,1 @@
-initSidebarItems({"constant":[["CFG_TARGET_ARCH",""],["CFG_TARGET_ENV",""],["CFG_TARGET_OS",""]],"struct":[["IgnorePattern",""],["Ignores",""]]});
+window.SIDEBAR_ITEMS = {"constant":[["CFG_TARGET_ARCH",""],["CFG_TARGET_ENV",""],["CFG_TARGET_OS",""]],"struct":[["IgnorePattern",""],["Ignores",""]]};

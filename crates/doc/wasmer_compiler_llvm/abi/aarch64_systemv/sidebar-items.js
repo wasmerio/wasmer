@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Aarch64SystemV","Implementation of the [`Abi`] trait for the Aarch64 ABI on Linux."]]});
+window.SIDEBAR_ITEMS = {"struct":[["Aarch64SystemV","Implementation of the [`Abi`] trait for the Aarch64 ABI on Linux."]]};

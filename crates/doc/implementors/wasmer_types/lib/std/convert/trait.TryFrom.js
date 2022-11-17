@@ -1,3 +1,0 @@
-(function() {var implementors = {};
-implementors["wasmer_types"] = [{"text":"impl <a class=\"trait\" href=\"wasmer_types/lib/std/convert/trait.TryFrom.html\" title=\"trait wasmer_types::lib::std::convert::TryFrom\">TryFrom</a>&lt;<a class=\"struct\" href=\"wasmer_types/units/struct.Bytes.html\" title=\"struct wasmer_types::units::Bytes\">Bytes</a>&gt; for <a class=\"struct\" href=\"wasmer_types/units/struct.Pages.html\" title=\"struct wasmer_types::units::Pages\">Pages</a>","synthetic":false,"types":["wasmer_types::units::Pages"]}];
-if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

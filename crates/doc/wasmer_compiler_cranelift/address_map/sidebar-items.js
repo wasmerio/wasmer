@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["get_function_address_map",""]]});
+window.SIDEBAR_ITEMS = {"fn":[["get_function_address_map",""]]};

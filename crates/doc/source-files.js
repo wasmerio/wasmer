@@ -1,4 +1,4 @@
-var N = null;var sourcesIndex = {};
+var sourcesIndex = {};
 sourcesIndex["compiler_test_derive"] = {"name":"","files":["ignores.rs","lib.rs"]};
 sourcesIndex["macro_wasmer_universal_test"] = {"name":"","files":["lib.rs"]};
 sourcesIndex["test_generator"] = {"name":"","files":["lib.rs","processors.rs"]};

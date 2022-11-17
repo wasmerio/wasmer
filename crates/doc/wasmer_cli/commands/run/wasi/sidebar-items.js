@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Wasi","WASI Options"]]});
+window.SIDEBAR_ITEMS = {"struct":[["Wasi","WASI Options"]]};

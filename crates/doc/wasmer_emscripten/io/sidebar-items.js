@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["getprotobyname","getprotobyname"],["getprotobynumber","getprotobynumber"],["sigdelset","sigdelset"],["sigfillset","sigfillset"],["strptime","strptime"],["tzset","tzset"]],"mod":[["unix",""]]});
+window.SIDEBAR_ITEMS = {"fn":[["getprotobyname","getprotobyname"],["getprotobynumber","getprotobynumber"],["sigdelset","sigdelset"],["sigfillset","sigfillset"],["strptime","strptime"],["tzset","tzset"]],"mod":[["unix",""]]};

@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["login_and_save_token","Login to a registry and save the token associated with it."]]});
+window.SIDEBAR_ITEMS = {"fn":[["login_and_save_token","Login to a registry and save the token associated with it."]]};

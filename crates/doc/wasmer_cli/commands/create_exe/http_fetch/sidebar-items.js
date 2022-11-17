@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["download_release",""],["get_latest_release",""]]});
+window.SIDEBAR_ITEMS = {"fn":[["download_release",""],["get_latest_release",""]]};

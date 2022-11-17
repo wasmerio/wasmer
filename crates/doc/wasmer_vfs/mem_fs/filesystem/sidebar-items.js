@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["DirectoryMustBeEmpty",""]],"struct":[["FileSystem","The in-memory file system!"],["FileSystemInner","The core of the file system. It contains a collection of `Node`s, indexed by their respective `Inode` in a slab."]]});
+window.SIDEBAR_ITEMS = {"enum":[["DirectoryMustBeEmpty",""]],"struct":[["FileSystem","The in-memory file system!"],["FileSystemInner","The core of the file system. It contains a collection of `Node`s, indexed by their respective `Inode` in a slab."]]};

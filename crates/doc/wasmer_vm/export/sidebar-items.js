@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["VMExtern","The value of an export passed from one instance to another."]],"struct":[["VMFunction","A function export value."]]});
+window.SIDEBAR_ITEMS = {"enum":[["VMExtern","The value of an export passed from one instance to another."]],"struct":[["VMFunction","A function export value."]]};

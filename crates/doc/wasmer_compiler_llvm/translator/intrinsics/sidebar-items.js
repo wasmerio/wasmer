@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["GlobalCache",""],["MemoryCache",""]],"fn":[["tbaa_label",""],["type_to_llvm",""],["type_to_llvm_ptr",""]],"struct":[["CtxType",""],["FunctionCache",""],["Intrinsics","Struct containing LLVM and VM intrinsics."],["TableCache",""]]});
+window.SIDEBAR_ITEMS = {"enum":[["GlobalCache",""],["MemoryCache",""]],"fn":[["tbaa_label",""],["type_to_llvm",""],["type_to_llvm_ptr",""]],"struct":[["CtxType",""],["FunctionCache",""],["Intrinsics","Struct containing LLVM and VM intrinsics."],["TableCache",""]]};

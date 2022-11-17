@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Global","A WebAssembly `global` instance."]]});
+window.SIDEBAR_ITEMS = {"struct":[["Global","A WebAssembly `global` instance."]]};

@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["TableStyle","Implementation styles for WebAssembly tables."],["TableStyleResolver","The resolver for an archived [`TableStyle`]"]]});
+window.SIDEBAR_ITEMS = {"enum":[["TableStyle","Implementation styles for WebAssembly tables."],["TableStyleResolver","The resolver for an archived [`TableStyle`]"]]};

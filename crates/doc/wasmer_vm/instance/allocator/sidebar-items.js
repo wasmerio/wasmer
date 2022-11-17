@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["InstanceAllocator","This is an intermediate type that manages the raw allocation and metadata when creating an [`Instance`]."]]});
+window.SIDEBAR_ITEMS = {"struct":[["InstanceAllocator","This is an intermediate type that manages the raw allocation and metadata when creating an [`Instance`]."]]};

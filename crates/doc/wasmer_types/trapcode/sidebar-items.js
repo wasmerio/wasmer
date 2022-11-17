@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["TrapCode","A trap code describing the reason for a trap."],["TrapCodeResolver","The resolver for an archived [`TrapCode`]"]]});
+window.SIDEBAR_ITEMS = {"enum":[["TrapCode","A trap code describing the reason for a trap."],["TrapCodeResolver","The resolver for an archived [`TrapCode`]"]]};

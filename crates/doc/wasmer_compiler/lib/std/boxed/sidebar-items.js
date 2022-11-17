@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Box","A pointer type for heap allocation."]]});
+window.SIDEBAR_ITEMS = {"struct":[["Box","A pointer type for heap allocation."],["ThinBox","ThinBox."]]};

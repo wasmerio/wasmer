@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["addr",""]]});
+window.SIDEBAR_ITEMS = {"fn":[["addr",""]]};

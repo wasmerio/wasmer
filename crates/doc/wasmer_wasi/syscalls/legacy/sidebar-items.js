@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["snapshot0",""]]});
+window.SIDEBAR_ITEMS = {"mod":[["snapshot0",""]]};

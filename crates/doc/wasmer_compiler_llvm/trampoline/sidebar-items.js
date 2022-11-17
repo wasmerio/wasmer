@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["wasm",""]]});
+window.SIDEBAR_ITEMS = {"mod":[["wasm",""]]};

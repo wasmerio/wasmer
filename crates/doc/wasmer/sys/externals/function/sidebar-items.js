@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["inner","This private inner module contains the low-level implementation for `Function` and its siblings."]],"struct":[["DynamicFunction","Host state for a dynamic function."],["Function","A WebAssembly `function` instance."]]});
+window.SIDEBAR_ITEMS = {"mod":[["inner","This private inner module contains the low-level implementation for `Function` and its siblings."]],"struct":[["DynamicFunction","Host state for a dynamic function."],["Function","A WebAssembly `function` instance."]]};

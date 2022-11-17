@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["compile",""],["config",""],["validate",""]],"struct":[["Compile","The options for the `wasmer compile` subcommand"],["Config","The options for the `wasmer config` subcommand"],["Validate","The options for the `wasmer validate` subcommand"]]});
+window.SIDEBAR_ITEMS = {"mod":[["compile",""],["config",""],["validate",""]],"struct":[["Compile","The options for the `wasmer compile` subcommand"],["Config","The options for the `wasmer config` subcommand"],["Validate","The options for the `wasmer validate` subcommand"]]};

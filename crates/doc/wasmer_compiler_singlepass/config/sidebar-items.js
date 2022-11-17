@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["Singlepass",""]]});
+window.SIDEBAR_ITEMS = {"struct":[["Singlepass",""]]};

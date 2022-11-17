@@ -1,1 +1,1 @@
-initSidebarItems({"attr":[["universal_test",""]]});
+window.SIDEBAR_ITEMS = {"attr":[["universal_test",""]]};

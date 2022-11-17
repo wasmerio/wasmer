@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["VMGlobal","A Global instance"]]});
+window.SIDEBAR_ITEMS = {"struct":[["VMGlobal","A Global instance"]]};

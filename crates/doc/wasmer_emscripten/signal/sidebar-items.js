@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["_sigaction",""],["_sigaddset",""],["_sigemptyset",""],["_siginterrupt",""],["_signal",""],["_sigprocmask",""],["_sigsuspend",""]]});
+window.SIDEBAR_ITEMS = {"fn":[["_sigaction",""],["_sigaddset",""],["_sigemptyset",""],["_siginterrupt",""],["_signal",""],["_sigprocmask",""],["_sigsuspend",""]]};

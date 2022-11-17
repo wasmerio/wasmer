@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["initialize",""]]});
+window.SIDEBAR_ITEMS = {"fn":[["initialize",""]]};

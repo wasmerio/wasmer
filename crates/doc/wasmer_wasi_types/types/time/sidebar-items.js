@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["OptionTimestamp",""]]});
+window.SIDEBAR_ITEMS = {"struct":[["OptionTimestamp",""]]};

@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["assets",""],["link_code",""],["util",""]]});
+window.SIDEBAR_ITEMS = {"mod":[["assets",""],["link_code",""],["util",""]]};

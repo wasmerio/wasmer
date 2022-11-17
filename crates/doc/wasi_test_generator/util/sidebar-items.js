@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["print_info_on_error",""]]});
+window.SIDEBAR_ITEMS = {"fn":[["print_info_on_error",""]]};

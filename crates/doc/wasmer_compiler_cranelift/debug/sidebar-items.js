@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["address_map","Data structures to provide transformation of the source"]]});
+window.SIDEBAR_ITEMS = {"mod":[["address_map","Data structures to provide transformation of the source"]]};

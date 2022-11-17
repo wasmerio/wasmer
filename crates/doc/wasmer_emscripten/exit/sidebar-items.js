@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["exit",""]]});
+window.SIDEBAR_ITEMS = {"fn":[["exit",""]]};

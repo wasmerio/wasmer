@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["WriterRelocate",""]]});
+window.SIDEBAR_ITEMS = {"struct":[["WriterRelocate",""]]};

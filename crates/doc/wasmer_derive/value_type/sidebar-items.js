@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["check_repr","We can only validate types that have a well defined layout."],["impl_value_type",""],["zero_padding","Zero out any padding bytes between fields."]]});
+window.SIDEBAR_ITEMS = {"fn":[["check_repr","We can only validate types that have a well defined layout."],["impl_value_type",""],["zero_padding","Zero out any padding bytes between fields."]]};

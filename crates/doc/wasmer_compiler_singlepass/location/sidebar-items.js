@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Location",""],["Multiplier",""]],"trait":[["CombinedRegister",""],["Descriptor",""],["Reg",""]]});
+window.SIDEBAR_ITEMS = {"enum":[["Location",""],["Multiplier",""]],"trait":[["CombinedRegister",""],["Descriptor",""],["Reg",""]]};

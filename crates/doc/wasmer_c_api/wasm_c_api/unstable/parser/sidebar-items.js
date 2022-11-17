@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["operator",""]]});
+window.SIDEBAR_ITEMS = {"mod":[["operator",""]]};
