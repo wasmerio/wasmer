@@ -99,7 +99,7 @@ pub fn proc_exec<M: MemorySize>(
         // Spawn a new process with this current execution environment
         let mut err_exit_code = -2i32 as u32;
         let bus = ctx.data().bus();
-        
+
         let (mut process, c) = {
             let (tx, rx) = std::sync::mpsc::channel();
             let tasks = wasi_env.tasks.clone();
@@ -121,7 +121,8 @@ pub fn proc_exec<M: MemorySize>(
                         );
                         let _ = stderr_write(
                             &ctx,
-                            format!("wasm execute failed [{}] - {}\n", name.as_str(), err).as_bytes(),
+                            format!("wasm execute failed [{}] - {}\n", name.as_str(), err)
+                                .as_bytes(),
                         );
                         err
                     })
