@@ -197,7 +197,7 @@ fn fd_write_internal<M: MemorySize>(
                     let mut buf = Vec::with_capacity(buf_len);
                     wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
 
-                    wasi_try_ok!(std::io::Write::write(&mut pipe, &buf[..]).map_err(map_io_err))
+                    wasi_try_ok!(std::io::Write::write(pipe, &buf[..]).map_err(map_io_err))
                 }
                 Kind::Dir { .. } | Kind::Root { .. } => {
                     // TODO: verify

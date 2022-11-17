@@ -14,7 +14,7 @@ use crate::syscalls::*;
 /// - `Filesize *fd`
 ///     The new offset relative to the start of the file
 pub fn fd_seek<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     offset: FileDelta,
     whence: Whence,
@@ -28,8 +28,8 @@ pub fn fd_seek<M: MemorySize>(
         offset
     );
     let env = ctx.data();
-    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
-    let new_offset_ref = newoffset.deref(&memory);
+    let state = env.state.clone();
+    let (memory, _, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
     let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
 
     if !fd_entry.rights.contains(Rights::FD_SEEK) {
@@ -111,7 +111,10 @@ pub fn fd_seek<M: MemorySize>(
         _ => return Ok(Errno::Inval),
     };
     // reborrow
-    let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
+    let env = ctx.data();
+    let memory = env.memory_view(&ctx);
+    let new_offset_ref = newoffset.deref(&memory);
+    let fd_entry = wasi_try_ok!(env.state.fs.get_fd(fd));
     wasi_try_mem_ok!(new_offset_ref.write(new_offset));
 
     Ok(Errno::Success)

@@ -99,36 +99,44 @@ pub fn proc_exec<M: MemorySize>(
         // Spawn a new process with this current execution environment
         let mut err_exit_code = -2i32 as u32;
         let bus = ctx.data().bus();
-        let mut process = __asyncify(&mut ctx, None, async move {
-            Ok(bus
-                .spawn(wasi_env)
-                .spawn(
-                    Some(&ctx),
-                    name.as_str(),
-                    new_store,
-                    &ctx.data().bin_factory,
-                )
-                .await
-                .map_err(|err| {
-                    err_exit_code = conv_bus_err_to_exit_code(err);
-                    warn!(
-                        "failed to execve as the process could not be spawned (vfork) - {}",
+        
+        let (mut process, c) = {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let tasks = wasi_env.tasks.clone();
+            tasks.block_on(Box::pin(async move {
+                let ret = bus
+                    .spawn(wasi_env)
+                    .spawn(
+                        Some(&ctx),
+                        name.as_str(),
+                        new_store,
+                        &ctx.data().bin_factory,
+                    )
+                    .await
+                    .map_err(|err| {
+                        err_exit_code = conv_bus_err_to_exit_code(err);
+                        warn!(
+                            "failed to execve as the process could not be spawned (vfork) - {}",
+                            err
+                        );
+                        let _ = stderr_write(
+                            &ctx,
+                            format!("wasm execute failed [{}] - {}\n", name.as_str(), err).as_bytes(),
+                        );
                         err
-                    );
-                    let _ = stderr_write(
-                        &ctx,
-                        format!("wasm execute failed [{}] - {}\n", name.as_str(), err).as_bytes(),
-                    );
-                    err
-                })
-                .ok())
-        });
+                    })
+                    .ok();
+                tx.send((ret, ctx));
+            }));
+            rx.recv().unwrap()
+        };
+        ctx = c;
 
         // If no process was created then we create a dummy one so that an
         // exit code can be processed
         let process = match process {
-            Ok(Some(a)) => a,
-            _ => {
+            Some(a) => a,
+            None => {
                 debug!(
                     "wasi[{}:{}]::process failed with (err={})",
                     ctx.data().pid(),
@@ -217,12 +225,14 @@ pub fn proc_exec<M: MemorySize>(
 
             // Spawn a new process with this current execution environment
             //let pid = wasi_env.process.pid();
-            let process = __asyncify(&mut ctx, None, async move {
-                Ok(builder
+            let (tx, rx) = std::sync::mpsc::channel();
+            tasks.block_on(Box::pin(async move {
+                let ret = builder
                     .spawn(Some(&ctx), name.as_str(), new_store, &bin_factory)
-                    .await)
-            });
-            match process {
+                    .await;
+                tx.send(ret);
+            }));
+            match rx.recv() {
                 Ok(Ok(mut process)) => {
                     // Wait for the sub-process to exit itself - then we will exit
                     let (tx, rx) = std::sync::mpsc::channel();

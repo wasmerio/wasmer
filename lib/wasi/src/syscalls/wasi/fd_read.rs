@@ -92,7 +92,7 @@ pub fn fd_pread<M: MemorySize>(
 /// - `size_t nread`
 ///     The number of bytes read
 fn fd_read_internal<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     iovs: WasmPtr<__wasi_iovec_t<M>, M>,
     iovs_len: M::Offset,
@@ -211,7 +211,7 @@ fn fd_read_internal<M: MemorySize>(
                     bytes_read
                 }
                 Kind::Pipe { pipe } => {
-                    let pipe = pipe.clone();
+                    let mut pipe = pipe.clone();
 
                     let data = wasi_try_ok!(__asyncify(
                         &mut ctx,
