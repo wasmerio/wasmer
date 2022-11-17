@@ -18,14 +18,12 @@
 mod builder;
 mod env;
 mod func_env;
-mod parking;
 mod types;
 
 pub use self::{
     builder::*,
     env::{WasiEnv, WasiEnvInner},
     func_env::WasiFunctionEnv,
-    parking::*,
     types::*,
 };
 
@@ -60,6 +58,7 @@ use crate::{
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::process::WasiProcessId,
     syscalls::types::*,
+    utils::WasiParkingLot,
     WasiCallingId, WasiRuntimeImplementation,
 };
 

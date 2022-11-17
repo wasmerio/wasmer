@@ -1,8 +1,6 @@
-use std::{
-    sync::{Arc, Condvar, Mutex},
-    task::Waker,
-    time::Duration,
-};
+use std::sync::{Arc, Condvar, Mutex};
+use std::task::Waker;
+use std::time::Duration;
 
 /// Represents a waker that can be used to put a thread to
 /// sleep while it waits for an event to occur

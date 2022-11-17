@@ -1,3 +1,7 @@
+mod thread_parker;
+
+pub use self::thread_parker::WasiParkingLot;
+
 use std::collections::BTreeSet;
 use wasmer::Module;
 use wasmer_wasi_types::wasi::Errno;
