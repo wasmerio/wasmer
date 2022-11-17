@@ -1,29 +1,35 @@
-use std::collections::{HashMap, VecDeque};
-use std::future::Future;
-use std::io::{IoSlice, SeekFrom};
-use std::ops::{Deref, DerefMut};
-use std::pin::Pin;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
-use std::task::{Context, Poll};
-use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
-use tokio::sync::mpsc;
-use wasmer_vfs::{FsError, VirtualFile};
-use wasmer_vnet::{net_error_into_io_err, NetworkError};
-use wasmer_wasi_types::types::Eventtype;
-use wasmer_wasi_types::wasi;
-use wasmer_wasi_types::wasi::{
-    Errno, Event, EventFdReadwrite, EventUnion, Eventrwflags, Subscription,
+use std::{
+    collections::{HashMap, VecDeque},
+    future::Future,
+    io::{IoSlice, SeekFrom},
+    ops::{Deref, DerefMut},
+    pin::Pin,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard,
+    },
+    task::{Context, Poll},
 };
 
+use tokio::{
+    io::{AsyncRead, AsyncSeek, AsyncWrite},
+    sync::mpsc,
+};
+use wasmer_vfs::{FsError, VirtualFile};
+use wasmer_vnet::{net_error_into_io_err, NetworkError};
+use wasmer_wasi_types::{
+    types::Eventtype,
+    wasi,
+    wasi::{Errno, Event, EventFdReadwrite, EventUnion, Eventrwflags, Subscription},
+};
+
+use super::Kind;
 use crate::{
     net::socket::{InodeSocket, InodeSocketKind},
     state::{iterate_poll_events, PollEvent, PollEventSet},
     syscalls::map_io_err,
     VirtualTaskManager, WasiInodes, WasiState,
 };
-
-use super::Kind;
 
 pub(crate) enum InodeValFilePollGuardMode {
     File(Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>),

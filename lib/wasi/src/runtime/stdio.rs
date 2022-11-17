@@ -1,7 +1,9 @@
-use std::io::{self, SeekFrom};
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
+use std::{
+    io::{self, SeekFrom},
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+};
 
 use derivative::Derivative;
 use futures::Future;

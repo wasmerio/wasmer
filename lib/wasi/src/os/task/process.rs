@@ -1,18 +1,26 @@
-use crate::os::task::control_plane::WasiControlPlane;
-use crate::os::task::signal::WasiSignalInterval;
-use crate::os::task::thread::ThreadStack;
-use crate::syscalls::platform_clock_time_get;
-use crate::{WasiThread, WasiThreadHandle, WasiThreadId};
-use std::borrow::Cow;
-use std::collections::HashMap;
-use std::convert::TryInto;
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
-use std::time::Duration;
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    convert::TryInto,
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard,
+    },
+    time::Duration,
+};
+
 use tracing::log::trace;
 use wasmer_vbus::{BusSpawnedProcess, SignalHandlerAbi};
-use wasmer_wasi_types::types::Signal;
-use wasmer_wasi_types::wasi::{Errno, ExitCode, Snapshot0Clockid, TlKey, TlUser, TlVal};
+use wasmer_wasi_types::{
+    types::Signal,
+    wasi::{Errno, ExitCode, Snapshot0Clockid, TlKey, TlUser, TlVal},
+};
+
+use crate::{
+    os::task::{control_plane::WasiControlPlane, signal::WasiSignalInterval, thread::ThreadStack},
+    syscalls::platform_clock_time_get,
+    WasiThread, WasiThreadHandle, WasiThreadId,
+};
 
 /// Represents the ID of a sub-process
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

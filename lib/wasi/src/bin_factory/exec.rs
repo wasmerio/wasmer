@@ -1,10 +1,11 @@
-use futures::Future;
 use std::{
     ops::DerefMut,
     pin::Pin,
     sync::{Arc, Mutex},
     task::{Context, Poll},
 };
+
+use futures::Future;
 use tokio::sync::mpsc;
 use tracing::*;
 use wasmer::{FunctionEnvMut, Instance, Memory, Module, Store};
@@ -15,10 +16,9 @@ use wasmer_vbus::{
 use wasmer_wasi_types::wasi::Errno;
 
 use super::{BinFactory, BinaryPackage, ModuleCache};
-use crate::runtime::SpawnType;
 use crate::{
-    import_object_for_all_wasi_versions, SpawnedMemory, WasiEnv, WasiError, WasiFunctionEnv,
-    WasiRuntimeImplementation,
+    import_object_for_all_wasi_versions, runtime::SpawnType, SpawnedMemory, WasiEnv, WasiError,
+    WasiFunctionEnv, WasiRuntimeImplementation,
 };
 
 pub fn spawn_exec(

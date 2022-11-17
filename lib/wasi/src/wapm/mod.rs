@@ -1,10 +1,9 @@
 use std::{ops::Deref, path::PathBuf, sync::Arc};
+
 use tracing::*;
-
-use webc::{Annotation, FsEntryType, UrlOrManifest, WebC};
-
 #[allow(unused_imports)]
 use tracing::{error, warn};
+use webc::{Annotation, FsEntryType, UrlOrManifest, WebC};
 
 use crate::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},

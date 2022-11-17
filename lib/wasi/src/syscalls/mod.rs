@@ -1,8 +1,7 @@
 #![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
 
 pub mod types {
-    pub use wasmer_wasi_types::types::*;
-    pub use wasmer_wasi_types::wasi;
+    pub use wasmer_wasi_types::{types::*, wasi};
 }
 
 #[cfg(any(
@@ -25,6 +24,58 @@ pub use wasix::*;
 
 pub mod legacy;
 
+pub(crate) use std::{
+    borrow::{Borrow, Cow},
+    cell::RefCell,
+    collections::{hash_map::Entry, HashMap, HashSet},
+    convert::{Infallible, TryInto},
+    io::{self, Read, Seek, Write},
+    mem::transmute,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    num::NonZeroU64,
+    ops::{Deref, DerefMut},
+    path::Path,
+    pin::Pin,
+    sync::{
+        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
+        mpsc, Arc, Condvar, Mutex,
+    },
+    task::{Context, Poll},
+    thread::LocalKey,
+    time::Duration,
+};
+
+pub(crate) use bytes::{Bytes, BytesMut};
+pub(crate) use cooked_waker::IntoWaker;
+pub(crate) use sha2::Sha256;
+pub(crate) use tracing::{debug, error, trace, warn};
+#[cfg(any(
+    target_os = "freebsd",
+    target_os = "linux",
+    target_os = "android",
+    target_vendor = "apple"
+))]
+pub use unix::*;
+#[cfg(any(target_family = "wasm"))]
+pub use wasm::*;
+pub(crate) use wasmer::{
+    vm::VMMemory, AsStoreMut, AsStoreRef, Extern, Function, FunctionEnv, FunctionEnvMut, Global,
+    Instance, Memory, Memory32, Memory64, MemoryAccessError, MemoryError, MemorySize, MemoryView,
+    Module, OnCalledAction, Pages, RuntimeError, Store, StoreSnapshot, TypedFunction, Value,
+    WasmPtr, WasmSlice,
+};
+pub(crate) use wasmer_vbus::{
+    BusInvocationEvent, BusSpawnedProcess, SignalHandlerAbi, SpawnOptionsConfig, StdioMode,
+    VirtualBusError, VirtualBusInvokedWait,
+};
+pub(crate) use wasmer_vfs::{
+    AsyncSeekExt, AsyncWriteExt, FileSystem, FsError, VirtualFile, WasiBidirectionalPipePair,
+};
+pub(crate) use wasmer_vnet::{SocketHttpRequest, StreamSecurity};
+pub(crate) use wasmer_wasi_types::{asyncify::__wasi_asyncify_t, wasi::EventUnion};
+#[cfg(any(target_os = "windows"))]
+pub use windows::*;
+
 pub(crate) use self::types::{
     wasi::{
         Addressfamily, Advice, Bid, BusDataFormat, BusErrno, BusHandles, Cid, Clockid, Dircookie,
@@ -36,7 +87,13 @@ pub(crate) use self::types::{
     },
     *,
 };
-
+use crate::fs::{
+    fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind, MAX_SYMLINKS,
+};
+pub(crate) use crate::os::task::{
+    process::{WasiProcessId, WasiProcessWait},
+    thread::{WasiThread, WasiThreadId},
+};
 pub(crate) use crate::{
     bin_factory::spawn_exec_module,
     current_caller_id, import_object_for_all_wasi_versions, mem_error_to_wasi,
@@ -55,68 +112,7 @@ pub(crate) use crate::{
     VirtualTaskManager, WasiEnv, WasiEnvInner, WasiError, WasiFunctionEnv,
     WasiRuntimeImplementation, WasiVFork, DEFAULT_STACK_SIZE,
 };
-pub(crate) use bytes::{Bytes, BytesMut};
-pub(crate) use cooked_waker::IntoWaker;
-pub(crate) use sha2::Sha256;
-pub(crate) use std::borrow::{Borrow, Cow};
-pub(crate) use std::cell::RefCell;
-pub(crate) use std::collections::hash_map::Entry;
-pub(crate) use std::collections::{HashMap, HashSet};
-pub(crate) use std::convert::{Infallible, TryInto};
-pub(crate) use std::io::{self, Read, Seek, Write};
-pub(crate) use std::mem::transmute;
-pub(crate) use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-pub(crate) use std::num::NonZeroU64;
-pub(crate) use std::ops::{Deref, DerefMut};
-pub(crate) use std::path::Path;
-pub(crate) use std::pin::Pin;
-pub(crate) use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
-pub(crate) use std::sync::{atomic::Ordering, Mutex};
-pub(crate) use std::sync::{mpsc, Arc, Condvar};
-pub(crate) use std::task::{Context, Poll};
-pub(crate) use std::thread::LocalKey;
-pub(crate) use std::time::Duration;
-pub(crate) use tracing::{debug, error, trace, warn};
-pub(crate) use wasmer::vm::VMMemory;
-pub(crate) use wasmer::{
-    AsStoreMut, AsStoreRef, Extern, Function, FunctionEnv, FunctionEnvMut, Global, Instance,
-    Memory, Memory32, Memory64, MemoryAccessError, MemoryError, MemorySize, MemoryView, Module,
-    OnCalledAction, Pages, RuntimeError, Store, StoreSnapshot, TypedFunction, Value, WasmPtr,
-    WasmSlice,
-};
-pub(crate) use wasmer_vbus::{
-    BusInvocationEvent, BusSpawnedProcess, SignalHandlerAbi, SpawnOptionsConfig, StdioMode,
-    VirtualBusError, VirtualBusInvokedWait,
-};
-pub(crate) use wasmer_vfs::{
-    AsyncSeekExt, AsyncWriteExt, FileSystem, FsError, VirtualFile, WasiBidirectionalPipePair,
-};
-pub(crate) use wasmer_vnet::{SocketHttpRequest, StreamSecurity};
-pub(crate) use wasmer_wasi_types::{asyncify::__wasi_asyncify_t, wasi::EventUnion};
-
-#[cfg(any(
-    target_os = "freebsd",
-    target_os = "linux",
-    target_os = "android",
-    target_vendor = "apple"
-))]
-pub use unix::*;
-
-#[cfg(any(target_os = "windows"))]
-pub use windows::*;
-
-pub(crate) use crate::os::task::process::WasiProcessId;
-pub(crate) use crate::os::task::process::WasiProcessWait;
-pub(crate) use crate::os::task::thread::WasiThread;
-pub(crate) use crate::os::task::thread::WasiThreadId;
-#[cfg(any(target_family = "wasm"))]
-pub use wasm::*;
-
-use crate::fs::{
-    fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind, MAX_SYMLINKS,
-};
-pub(crate) use crate::net::net_error_into_wasi_err;
-pub(crate) use crate::utils::WasiParkingLot;
+pub(crate) use crate::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 
 pub(crate) fn to_offset<M: MemorySize>(offset: usize) -> Result<M::Offset, Errno> {
     let ret: M::Offset = offset.try_into().map_err(|_| Errno::Inval)?;

@@ -1,11 +1,16 @@
+use std::{
+    borrow::Cow,
+    collections::{HashMap, VecDeque},
+    path::PathBuf,
+    sync::{
+        atomic::{AtomicBool, AtomicU32, AtomicU64},
+        Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard,
+    },
+};
+
 use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use std::borrow::Cow;
-use std::collections::{HashMap, VecDeque};
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
-use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use wasmer_vfs::{VirtualFile, WasiPipe};
 use wasmer_wasi_types::wasi::{Fd as WasiFd, Fdflags, Filestat, Rights};
 

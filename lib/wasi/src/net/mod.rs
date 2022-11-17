@@ -1,14 +1,20 @@
-use std::intrinsics::transmute;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::time::Duration;
+use std::{
+    intrinsics::transmute,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    time::Duration,
+};
+
 use wasmer::{MemoryView, WasmPtr};
 use wasmer_types::MemorySize;
 use wasmer_vnet::{IpCidr, IpRoute, NetworkError};
-use wasmer_wasi_types::types::{
-    OptionTag, OptionTimestamp, Route, __wasi_addr_ip4_t, __wasi_addr_ip6_t, __wasi_addr_port_t,
-    __wasi_addr_port_u, __wasi_addr_t, __wasi_addr_u, __wasi_cidr_t, __wasi_cidr_u,
+use wasmer_wasi_types::{
+    types::{
+        OptionTag, OptionTimestamp, Route, __wasi_addr_ip4_t, __wasi_addr_ip6_t,
+        __wasi_addr_port_t, __wasi_addr_port_u, __wasi_addr_t, __wasi_addr_u, __wasi_cidr_t,
+        __wasi_cidr_u,
+    },
+    wasi::{Addressfamily, Errno},
 };
-use wasmer_wasi_types::wasi::{Addressfamily, Errno};
 
 pub mod socket;
 

@@ -1,21 +1,26 @@
 //! Builder system for configuring a [`WasiState`] and creating it.
 
-use crate::bin_factory::ModuleCache;
-use crate::fs::{WasiFs, WasiFsRoot, WasiInodes};
-use crate::os::task::control_plane::WasiControlPlane;
-use crate::state::WasiState;
-use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
-use crate::{PluggableRuntimeImplementation, WasiEnv, WasiFunctionEnv};
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+    path::{Path, PathBuf},
+    sync::{Arc, RwLock},
+};
+
 use generational_arena::Arena;
 use rand::Rng;
-use std::collections::HashMap;
-use std::ops::{Deref, DerefMut};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::RwLock;
 use thiserror::Error;
 use wasmer::AsStoreMut;
 use wasmer_vfs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
+
+use crate::{
+    bin_factory::ModuleCache,
+    fs::{WasiFs, WasiFsRoot, WasiInodes},
+    os::task::control_plane::WasiControlPlane,
+    state::WasiState,
+    syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
+    PluggableRuntimeImplementation, WasiEnv, WasiFunctionEnv,
+};
 
 /// Creates an empty [`WasiStateBuilder`].
 ///

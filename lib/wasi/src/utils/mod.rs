@@ -1,10 +1,11 @@
 mod thread_parker;
 
-pub use self::thread_parker::WasiParkingLot;
-
 use std::collections::BTreeSet;
+
 use wasmer::Module;
 use wasmer_wasi_types::wasi::Errno;
+
+pub use self::thread_parker::WasiParkingLot;
 
 #[allow(dead_code)]
 /// Check if a provided module is compiled for some version of WASI.

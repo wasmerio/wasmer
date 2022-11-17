@@ -5,12 +5,12 @@ use std::{
     sync::{Arc, Mutex, RwLock},
 };
 
-use crate::syscalls::platform_clock_time_get;
 use derivative::*;
 use wasmer_vfs::{FileSystem, TmpFileSystem};
 use wasmer_wasi_types::wasi::Snapshot0Clockid;
 
 use super::hash_of_binary;
+use crate::syscalls::platform_clock_time_get;
 
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]

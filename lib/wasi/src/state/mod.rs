@@ -20,42 +20,33 @@ mod env;
 mod func_env;
 mod types;
 
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    path::Path,
+    sync::{atomic::AtomicU32, Arc, Mutex, MutexGuard, RwLock},
+    task::Waker,
+    time::Duration,
+};
+
+use cooked_waker::{ViaRawPointer, Wake, WakeRef};
+use derivative::Derivative;
+pub use generational_arena::Index as Inode;
+#[cfg(feature = "enable-serde")]
+use serde::{Deserialize, Serialize};
+use wasmer::Store;
+use wasmer_vbus::{VirtualBusCalled, VirtualBusInvocation};
+use wasmer_vfs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
+use wasmer_wasi_types::wasi::{Cid, Clockid, Errno, Fd as WasiFd, Rights};
+
 pub use self::{
     builder::*,
     env::{WasiEnv, WasiEnvInner},
     func_env::WasiFunctionEnv,
     types::*,
 };
-
-use cooked_waker::ViaRawPointer;
-use cooked_waker::Wake;
-use cooked_waker::WakeRef;
-use derivative::Derivative;
-pub use generational_arena::Index as Inode;
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::sync::MutexGuard;
-use std::task::Waker;
-use std::time::Duration;
-use std::{
-    path::Path,
-    sync::{atomic::AtomicU32, Mutex, RwLock},
-};
-use wasmer::Store;
-use wasmer_vbus::VirtualBusCalled;
-use wasmer_vbus::VirtualBusInvocation;
-use wasmer_vfs::FileOpener;
-use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
-use wasmer_wasi_types::wasi::Cid;
-use wasmer_wasi_types::wasi::Clockid;
-use wasmer_wasi_types::wasi::{Errno, Fd as WasiFd, Rights};
-
-use crate::fs::{fs_error_into_wasi_err, WasiStateFileGuard};
 use crate::{
-    fs::{WasiFs, WasiFsRoot, WasiInodes},
+    fs::{fs_error_into_wasi_err, WasiFs, WasiFsRoot, WasiInodes, WasiStateFileGuard},
     os::task::process::WasiProcessId,
     syscalls::types::*,
     utils::WasiParkingLot,

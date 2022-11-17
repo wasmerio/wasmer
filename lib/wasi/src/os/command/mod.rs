@@ -1,13 +1,12 @@
 pub mod builtins;
 
-use crate::bin_factory::ModuleCache;
-use crate::syscalls::stderr_write;
-use crate::{WasiEnv, WasiRuntimeImplementation};
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
+
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_vbus::{BusSpawnedProcess, SpawnOptionsConfig};
 use wasmer_wasi_types::wasi::Errno;
+
+use crate::{bin_factory::ModuleCache, syscalls::stderr_write, WasiEnv, WasiRuntimeImplementation};
 
 /// A command available to an OS environment.
 pub trait VirtualCommand

@@ -1,9 +1,13 @@
-use crate::state::WasiEnvInner;
-use crate::utils::{get_wasi_version, get_wasi_versions, is_wasix_module};
-use crate::{WasiEnv, WasiError, DEFAULT_STACK_SIZE};
 use std::ops::Deref;
+
 use tracing::trace;
 use wasmer::{AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Module, Store};
+
+use crate::{
+    state::WasiEnvInner,
+    utils::{get_wasi_version, get_wasi_versions, is_wasix_module},
+    WasiEnv, WasiError, DEFAULT_STACK_SIZE,
+};
 
 pub struct WasiFunctionEnv {
     pub env: FunctionEnv<WasiEnv>,

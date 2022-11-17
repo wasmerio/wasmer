@@ -1,15 +1,11 @@
-use std::sync::RwLock;
-use std::{cell::RefCell, collections::HashMap, ops::DerefMut, path::PathBuf};
+use std::{cell::RefCell, collections::HashMap, ops::DerefMut, path::PathBuf, sync::RwLock};
 
 use bytes::Bytes;
-use wasmer::Engine;
-use wasmer::{AsStoreRef, Module};
+use wasmer::{AsStoreRef, Engine, Module};
 use wasmer_wasi_types::wasi::Snapshot0Clockid;
 
-use crate::syscalls::platform_clock_time_get;
-use crate::{VirtualTaskManager, WasiRuntimeImplementation};
-
 use super::BinaryPackage;
+use crate::{syscalls::platform_clock_time_get, VirtualTaskManager, WasiRuntimeImplementation};
 
 pub const DEFAULT_COMPILED_PATH: &'static str = "~/.wasmer/compiled";
 pub const DEFAULT_WEBC_PATH: &'static str = "~/.wasmer/webc";

@@ -1,14 +1,15 @@
 #![allow(unused_imports)]
 #![allow(dead_code)]
+use std::{
+    collections::HashMap,
+    io::Write,
+    ops::{Deref, DerefMut},
+    path::Path,
+    sync::{atomic::AtomicBool, Arc, Mutex},
+};
+
 use derivative::*;
 use linked_hash_set::LinkedHashSet;
-use std::collections::HashMap;
-use std::io::Write;
-use std::ops::{Deref, DerefMut};
-use std::path::Path;
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
-use std::sync::Mutex;
 use tokio::sync::{mpsc, RwLock};
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
@@ -17,18 +18,13 @@ use wasmer::Engine;
 use wasmer_vbus::{BusSpawnedProcess, SpawnOptionsConfig};
 use wasmer_vfs::{FileSystem, WasiPipe};
 
-use crate::bin_factory::spawn_exec;
-use crate::bin_factory::BinFactory;
-use crate::bin_factory::ModuleCache;
-use crate::os::task::control_plane::WasiControlPlane;
-use crate::os::task::process::WasiProcess;
-use crate::runtime::RuntimeStderr;
-use crate::runtime::RuntimeStdout;
-use crate::WasiRuntimeImplementation;
-use crate::{WasiEnv, WasiState};
-
-use super::cconst::ConsoleConst;
-use super::common::*;
+use super::{cconst::ConsoleConst, common::*};
+use crate::{
+    bin_factory::{spawn_exec, BinFactory, ModuleCache},
+    os::task::{control_plane::WasiControlPlane, process::WasiProcess},
+    runtime::{RuntimeStderr, RuntimeStdout},
+    WasiEnv, WasiRuntimeImplementation, WasiState,
+};
 
 //pub const DEFAULT_BOOT_WEBC: &'static str = "sharrattj/bash";
 pub const DEFAULT_BOOT_WEBC: &'static str = "sharrattj/dash";

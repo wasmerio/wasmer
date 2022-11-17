@@ -53,6 +53,31 @@ mod tty_file;
 mod utils;
 pub mod wapm;
 
+use std::sync::Arc;
+use std::{
+    cell::RefCell,
+    sync::atomic::{AtomicU32, Ordering},
+};
+
+#[allow(unused_imports)]
+use bytes::{Bytes, BytesMut};
+pub use os::task::{
+    control_plane::WasiControlPlane,
+    process::{WasiProcess, WasiProcessId},
+    thread::{WasiThread, WasiThreadHandle, WasiThreadId},
+};
+pub use runtime::{
+    PluggableRuntimeImplementation, SpawnedMemory, VirtualTaskManager, WasiRuntimeImplementation,
+    WasiThreadError, WasiTtyState, WebSocketAbi,
+};
+use thiserror::Error;
+use tracing::error;
+// re-exports needed for OS
+pub use wasmer;
+use wasmer::{
+    imports, namespace, AsStoreMut, Exports, FunctionEnv, Imports, Memory32, MemoryAccessError,
+    MemorySize,
+};
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler;
 #[cfg(feature = "compiler-cranelift")]
@@ -61,56 +86,32 @@ pub use wasmer_compiler_cranelift;
 pub use wasmer_compiler_llvm;
 #[cfg(feature = "compiler-singlepass")]
 pub use wasmer_compiler_singlepass;
-use wasmer_wasi_types::wasi::{BusErrno, Errno, ExitCode};
-
-pub use crate::state::{
-    Pipe, WasiEnv, WasiEnvInner, WasiFunctionEnv, WasiState, WasiStateBuilder,
-    WasiStateCreationError, ALL_RIGHTS,
-};
-pub use crate::syscalls::types;
-pub use crate::tty_file::TtyFile;
-#[cfg(feature = "wasix")]
-pub use crate::utils::is_wasix_module;
-pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};
-#[allow(unused_imports)]
-use bytes::{Bytes, BytesMut};
-use tracing::error;
+pub use wasmer_vbus;
 pub use wasmer_vbus::{BusSpawnedProcessJoin, DefaultVirtualBus, VirtualBus};
+pub use wasmer_vfs;
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
 pub use wasmer_vfs::FsError as WasiFsError;
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::VirtualFile`")]
 pub use wasmer_vfs::VirtualFile as WasiFile;
-pub use wasmer_vfs::{FsError, VirtualFile};
-pub use wasmer_vfs::{WasiBidirectionalPipePair, WasiBidirectionalSharedPipePair, WasiPipe};
-pub use wasmer_vnet::{UnsupportedVirtualNetworking, VirtualNetworking};
-
-// re-exports needed for OS
-pub use wasmer;
-pub use wasmer_vbus;
-pub use wasmer_vfs;
+pub use wasmer_vfs::{
+    FsError, VirtualFile, WasiBidirectionalPipePair, WasiBidirectionalSharedPipePair, WasiPipe,
+};
 pub use wasmer_vnet;
-
-use std::cell::RefCell;
-use std::sync::atomic::{AtomicU32, Ordering};
-use thiserror::Error;
-use wasmer::{
-    imports, namespace, AsStoreMut, Exports, FunctionEnv, Imports, Memory32, MemoryAccessError,
-    MemorySize,
-};
-
-pub use os::task::control_plane::WasiControlPlane;
-pub use os::task::process::WasiProcess;
-pub use os::task::process::WasiProcessId;
-pub use os::task::thread::WasiThread;
-pub use os::task::thread::WasiThreadHandle;
-pub use os::task::thread::WasiThreadId;
-pub use runtime::{
-    PluggableRuntimeImplementation, SpawnedMemory, VirtualTaskManager, WasiRuntimeImplementation,
-    WasiThreadError, WasiTtyState, WebSocketAbi,
-};
-use std::sync::Arc;
+pub use wasmer_vnet::{UnsupportedVirtualNetworking, VirtualNetworking};
+use wasmer_wasi_types::wasi::{BusErrno, Errno, ExitCode};
 
 pub use crate::fs::{default_fs_backing, Fd, WasiFs, WasiInodes, VIRTUAL_ROOT_FD};
+#[cfg(feature = "wasix")]
+pub use crate::utils::is_wasix_module;
+pub use crate::{
+    state::{
+        Pipe, WasiEnv, WasiEnvInner, WasiFunctionEnv, WasiState, WasiStateBuilder,
+        WasiStateCreationError, ALL_RIGHTS,
+    },
+    syscalls::types,
+    tty_file::TtyFile,
+    utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion},
+};
 
 /// This is returned in `RuntimeError`.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.

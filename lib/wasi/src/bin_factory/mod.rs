@@ -1,26 +1,25 @@
-use derivative::Derivative;
 use std::{
     collections::HashMap,
     ops::Deref,
     sync::{Arc, RwLock},
 };
+
+use derivative::Derivative;
 use wasmer_vfs::AsyncReadExt;
 
 mod binary_package;
 mod exec;
 mod module_cache;
 
+pub(crate) use exec::SpawnedProcess;
+use sha2::*;
+
 pub use self::{
     binary_package::*,
     exec::{spawn_exec, spawn_exec_module},
     module_cache::ModuleCache,
 };
-pub(crate) use exec::SpawnedProcess;
-
-use sha2::*;
-
-use crate::os::command::Commands;
-use crate::{WasiRuntimeImplementation, WasiState};
+use crate::{os::command::Commands, WasiRuntimeImplementation, WasiState};
 
 #[derive(Derivative, Clone)]
 pub struct BinFactory {

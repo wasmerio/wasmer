@@ -5,6 +5,7 @@ use std::{
     sync::Arc,
     task::{Context, Poll},
 };
+
 use wasmer_vfs::{AsyncRead, AsyncSeek, AsyncWrite, VirtualFile};
 
 use crate::runtime::RuntimeStdout;
@@ -112,15 +113,17 @@ impl VirtualFile for TtyFile {
 #[cfg(test)]
 mod tests {
 
-    use crate::{VirtualNetworking, WasiEnv, WasiRuntimeImplementation};
-    use futures::Future;
     use std::{
         io,
         pin::Pin,
         sync::{Arc, Mutex},
     };
+
+    use futures::Future;
     use wasmer_vbus::{DefaultVirtualBus, VirtualBus};
     use wasmer_vfs::{AsyncWriteExt, WasiBidirectionalPipePair};
+
+    use crate::{VirtualNetworking, WasiEnv, WasiRuntimeImplementation};
 
     struct FakeRuntimeImplementation {
         pub data: Arc<Mutex<Vec<u8>>>,
@@ -178,8 +181,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_tty_file() {
-        use crate::tty_file::TtyFile;
         use std::sync::Arc;
+
+        use crate::tty_file::TtyFile;
 
         let mut pair = WasiBidirectionalPipePair::new();
         pair.set_blocking(false);

@@ -1,10 +1,12 @@
+use std::mem;
+
+use chrono::prelude::*;
+use wasmer::WasmRef;
+
 use crate::syscalls::types::{
     wasi::{Errno, Snapshot0Clockid, Timestamp},
     *,
 };
-use chrono::prelude::*;
-use std::mem;
-use wasmer::WasmRef;
 
 pub fn platform_clock_res_get(
     clock_id: Snapshot0Clockid,

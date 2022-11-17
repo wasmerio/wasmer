@@ -1,24 +1,35 @@
-use crate::bin_factory::BinFactory;
-use crate::fs::WasiInodes;
-use crate::os::command::builtins::cmd_wasmer::CmdWasmer;
-use crate::os::task::process::{WasiProcess, WasiProcessId};
-use crate::os::task::thread::{WasiThread, WasiThreadHandle, WasiThreadId};
-use crate::syscalls::platform_clock_time_get;
-use crate::{
-    bin_factory, PluggableRuntimeImplementation, VirtualTaskManager, WasiError,
-    WasiRuntimeImplementation, WasiState, WasiStateCreationError, WasiVFork, DEFAULT_STACK_SIZE,
+use std::{
+    ops::Deref,
+    sync::{Arc, RwLockReadGuard, RwLockWriteGuard},
 };
+
 use derivative::Derivative;
-use std::ops::Deref;
-use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
 use tracing::{trace, warn};
 use wasmer::{
     AsStoreMut, AsStoreRef, Exports, Global, Instance, Memory, MemoryView, Module, TypedFunction,
 };
 use wasmer_vbus::{SpawnEnvironmentIntrinsics, VirtualBus};
 use wasmer_vnet::VirtualNetworking;
-use wasmer_wasi_types::types::Signal;
-use wasmer_wasi_types::wasi::{Errno, Snapshot0Clockid};
+use wasmer_wasi_types::{
+    types::Signal,
+    wasi::{Errno, Snapshot0Clockid},
+};
+
+use crate::{
+    bin_factory,
+    bin_factory::BinFactory,
+    fs::WasiInodes,
+    os::{
+        command::builtins::cmd_wasmer::CmdWasmer,
+        task::{
+            process::{WasiProcess, WasiProcessId},
+            thread::{WasiThread, WasiThreadHandle, WasiThreadId},
+        },
+    },
+    syscalls::platform_clock_time_get,
+    PluggableRuntimeImplementation, VirtualTaskManager, WasiError, WasiRuntimeImplementation,
+    WasiState, WasiStateCreationError, WasiVFork, DEFAULT_STACK_SIZE,
+};
 
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
@@ -501,13 +512,14 @@ impl WasiEnv {
     where
         I: IntoIterator<Item = String>,
     {
+        // Load all the containers that we inherit from
+        #[allow(unused_imports)]
+        use std::path::Path;
         use std::{
             borrow::Cow,
             collections::{HashMap, VecDeque},
         };
-        // Load all the containers that we inherit from
-        #[allow(unused_imports)]
-        use std::path::Path;
+
         #[allow(unused_imports)]
         use wasmer_vfs::FileSystem;
 
@@ -602,6 +614,7 @@ impl WasiEnv {
         // Load all the mapped atoms
         #[allow(unused_imports)]
         use std::path::Path;
+
         #[allow(unused_imports)]
         use wasmer_vfs::FileSystem;
 

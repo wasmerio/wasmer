@@ -11,8 +11,7 @@ use std::{
 use derivative::Derivative;
 use thiserror::Error;
 use tracing::*;
-use wasmer::vm::VMMemory;
-use wasmer::{MemoryType, Module, Store};
+use wasmer::{vm::VMMemory, MemoryType, Module, Store};
 #[cfg(feature = "sys")]
 use wasmer_types::MemoryStyle;
 use wasmer_vbus::{DefaultVirtualBus, VirtualBus};
@@ -31,7 +30,6 @@ pub use stdio::*;
 pub mod term;
 #[cfg(feature = "termios")]
 pub use term::*;
-
 #[cfg(feature = "sys-thread")]
 use tokio::runtime::{Builder, Runtime};
 

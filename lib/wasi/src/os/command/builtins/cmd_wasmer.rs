@@ -1,5 +1,5 @@
-use std::any::Any;
-use std::{ops::Deref, sync::Arc};
+use std::{any::Any, ops::Deref, sync::Arc};
+
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_vbus::{BusSpawnedProcess, SpawnOptionsConfig};
 use wasmer_wasi_types::wasi::Errno;

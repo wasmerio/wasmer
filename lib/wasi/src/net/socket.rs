@@ -1,11 +1,14 @@
+use std::{
+    future::Future,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    pin::Pin,
+    sync::{Arc, Mutex, RwLock},
+    time::Duration,
+};
+
 use bytes::{Buf, Bytes};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use std::future::Future;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::pin::Pin;
-use std::sync::{Arc, Mutex, RwLock};
-use std::time::Duration;
 use wasmer_types::MemorySize;
 use wasmer_vnet::{
     SocketHttpRequest, TimeType, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,

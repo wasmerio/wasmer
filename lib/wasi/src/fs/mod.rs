@@ -1,37 +1,45 @@
 mod fd;
 mod inode_guard;
 
+use std::{
+    borrow::{Borrow, Cow},
+    collections::{HashMap, HashSet},
+    ops::{Deref, DerefMut},
+    path::{Path, PathBuf},
+    sync::{
+        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
+        Arc, Mutex, RwLock, RwLockWriteGuard,
+    },
+};
+
+use generational_arena::{Arena, Index as Inode};
+#[cfg(feature = "enable-serde")]
+use serde_derive::{Deserialize, Serialize};
+use tokio::io::AsyncWriteExt;
+use tracing::{debug, trace};
+use wasmer_vfs::{
+    host_fs::{Stderr, Stdin, Stdout},
+    FileSystem, FsError, OpenOptions, VirtualFile,
+};
+use wasmer_wasi_types::{
+    types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
+    wasi::{
+        Errno, Fd as WasiFd, Fdflags, Fdstat, Filesize, Filestat, Filetype, Preopentype, Prestat,
+        PrestatEnum, Rights,
+    },
+};
+
 pub use self::fd::{Fd, InodeVal, Kind};
 pub(crate) use self::inode_guard::{
     InodeValFilePollGuard, InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard,
 };
-
-use crate::ALL_RIGHTS;
+use crate::syscalls::map_io_err;
 use crate::{
     bin_factory::BinaryPackage,
     net::socket::{InodeSocket, InodeSocketKind},
     state::PreopenedDir,
+    ALL_RIGHTS,
 };
-use generational_arena::{Arena, Index as Inode};
-#[cfg(feature = "enable-serde")]
-use serde_derive::{Deserialize, Serialize};
-use std::borrow::{Borrow, Cow};
-use std::collections::{HashMap, HashSet};
-use std::ops::{Deref, DerefMut};
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, RwLock, RwLockWriteGuard};
-use tokio::io::AsyncWriteExt;
-use tracing::{debug, trace};
-use wasmer_vfs::host_fs::{Stderr, Stdin, Stdout};
-use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
-use wasmer_wasi_types::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
-use wasmer_wasi_types::wasi::{
-    Errno, Fd as WasiFd, Fdflags, Fdstat, Filesize, Filestat, Filetype, Preopentype, Prestat,
-    PrestatEnum, Rights,
-};
-
-use crate::syscalls::map_io_err;
 
 /// the fd value of the virtual root
 pub const VIRTUAL_ROOT_FD: WasiFd = 3;

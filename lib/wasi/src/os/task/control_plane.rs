@@ -1,8 +1,12 @@
-use crate::os::task::process::WasiProcessInner;
-use crate::{WasiProcess, WasiProcessId};
-use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc, Mutex, RwLock,
+    },
+};
+
+use crate::{os::task::process::WasiProcessInner, WasiProcess, WasiProcessId};
 
 #[derive(Debug, Clone)]
 pub struct WasiControlPlane {

@@ -1,11 +1,13 @@
-use crate::os::task::process::WasiProcessId;
-use crate::os::task::process::WasiProcessInner;
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+    sync::{Arc, Mutex, RwLock},
+};
+
 use bytes::{Bytes, BytesMut};
-use std::collections::HashMap;
-use std::ops::{Deref, DerefMut};
-use std::sync::{Arc, Mutex, RwLock};
-use wasmer_wasi_types::types::Signal;
-use wasmer_wasi_types::wasi::ExitCode;
+use wasmer_wasi_types::{types::Signal, wasi::ExitCode};
+
+use crate::os::task::process::{WasiProcessId, WasiProcessInner};
 
 /// Represents the ID of a WASI thread
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
