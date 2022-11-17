@@ -25,14 +25,14 @@ pub struct BinFactory {
     pub(crate) state: Arc<WasiState>,
     pub(crate) builtins: BuiltIns,
     runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
-    pub(crate) cache: Arc<CachedCompiledModules>,
+    pub(crate) cache: Arc<ModuleCache>,
     pub(crate) local: Arc<RwLock<HashMap<String, Option<BinaryPackage>>>>,
 }
 
 impl BinFactory {
     pub fn new(
         state: Arc<WasiState>,
-        compiled_modules: Arc<CachedCompiledModules>,
+        compiled_modules: Arc<ModuleCache>,
         runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
     ) -> BinFactory {
         BinFactory {

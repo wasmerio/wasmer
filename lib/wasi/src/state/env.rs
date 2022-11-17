@@ -247,7 +247,7 @@ impl WasiEnv {
 impl WasiEnv {
     pub fn new(
         state: WasiState,
-        compiled_modules: Arc<bin_factory::CachedCompiledModules>,
+        compiled_modules: Arc<bin_factory::ModuleCache>,
         process: WasiProcess,
         thread: WasiThreadHandle,
     ) -> Self {
@@ -258,7 +258,7 @@ impl WasiEnv {
 
     pub fn new_ext(
         state: Arc<WasiState>,
-        compiled_modules: Arc<bin_factory::CachedCompiledModules>,
+        compiled_modules: Arc<bin_factory::ModuleCache>,
         process: WasiProcess,
         thread: WasiThreadHandle,
         runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync>,

@@ -19,7 +19,7 @@ pub const DEFAULT_CACHE_TIME: u128 = std::time::Duration::from_secs(30).as_nanos
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct CachedCompiledModules {
+pub struct ModuleCache {
     #[cfg(feature = "sys")]
     pub(crate) cached_modules: RwLock<HashMap<String, Module>>,
     pub(crate) cache_compile_dir: String,
@@ -30,9 +30,9 @@ pub struct CachedCompiledModules {
     pub(crate) engine: Engine,
 }
 
-impl Default for CachedCompiledModules {
+impl Default for ModuleCache {
     fn default() -> Self {
-        CachedCompiledModules::new(None, None)
+        ModuleCache::new(None, None)
     }
 }
 
@@ -41,7 +41,7 @@ thread_local! {
         = RefCell::new(HashMap::new());
 }
 
-impl CachedCompiledModules {
+impl ModuleCache {
     #[cfg(feature = "sys")]
     fn new_engine() -> wasmer::Engine {
         // Build the features list
@@ -89,7 +89,7 @@ impl CachedCompiledModules {
     pub fn new(
         cache_compile_dir: Option<String>,
         cache_webc_dir: Option<String>,
-    ) -> CachedCompiledModules {
+    ) -> ModuleCache {
         let cache_compile_dir = shellexpand::tilde(
             cache_compile_dir
                 .as_ref()
@@ -111,7 +111,7 @@ impl CachedCompiledModules {
         #[cfg(feature = "sys")]
         let engine = Self::new_engine();
 
-        CachedCompiledModules {
+        ModuleCache {
             #[cfg(feature = "sys")]
             cached_modules: RwLock::new(HashMap::default()),
             cache_compile_dir,

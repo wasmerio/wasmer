@@ -19,7 +19,7 @@ use wasmer_vfs::{FileSystem, WasiPipe};
 
 use crate::bin_factory::spawn_exec;
 use crate::bin_factory::BinFactory;
-use crate::bin_factory::CachedCompiledModules;
+use crate::bin_factory::ModuleCache;
 use crate::runtime::RuntimeStderr;
 use crate::runtime::RuntimeStdout;
 use crate::WasiRuntimeImplementation;
@@ -47,14 +47,14 @@ pub struct Console {
     prompt: String,
     env: HashMap<String, String>,
     runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
-    compiled_modules: Arc<CachedCompiledModules>,
+    compiled_modules: Arc<ModuleCache>,
     stdin: Option<WasiPipe>,
 }
 
 impl Console {
     pub fn new(
         runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
-        compiled_modules: Arc<CachedCompiledModules>,
+        compiled_modules: Arc<ModuleCache>,
     ) -> Self {
         let mut uses = DEFAULT_BOOT_USES
             .iter()

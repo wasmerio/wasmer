@@ -1,6 +1,6 @@
 //! Builder system for configuring a [`WasiState`] and creating it.
 
-use crate::bin_factory::CachedCompiledModules;
+use crate::bin_factory::ModuleCache;
 use crate::state::{WasiFs, WasiFsRoot, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 use crate::{
@@ -52,7 +52,7 @@ pub struct WasiStateBuilder {
     #[cfg(feature = "sys")]
     map_commands: HashMap<String, PathBuf>,
     vfs_preopens: Vec<String>,
-    compiled_modules: Arc<CachedCompiledModules>,
+    compiled_modules: Arc<ModuleCache>,
     #[allow(clippy::type_complexity)]
     setup_fs_fn: Option<Box<dyn Fn(&mut WasiInodes, &mut WasiFs) -> Result<(), String> + Send>>,
     stdout_override: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
@@ -408,7 +408,7 @@ impl WasiStateBuilder {
 
     /// Sets the compiled modules to use with this builder (sharing the
     /// cached modules is better for performance and memory consumption)
-    pub fn compiled_modules(&mut self, compiled_modules: &Arc<CachedCompiledModules>) -> &mut Self {
+    pub fn compiled_modules(&mut self, compiled_modules: &Arc<ModuleCache>) -> &mut Self {
         let mut compiled_modules = compiled_modules.clone();
         std::mem::swap(&mut self.compiled_modules, &mut compiled_modules);
         self

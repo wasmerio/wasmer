@@ -14,7 +14,7 @@ use wasmer_vbus::{
 };
 use wasmer_wasi_types::wasi::Errno;
 
-use super::{BinFactory, BinaryPackage, CachedCompiledModules};
+use super::{BinFactory, BinaryPackage, ModuleCache};
 use crate::runtime::SpawnType;
 use crate::{
     import_object_for_all_wasi_versions, SpawnedMemory, WasiEnv, WasiError, WasiFunctionEnv,
@@ -27,7 +27,7 @@ pub fn spawn_exec(
     store: Store,
     config: SpawnOptionsConfig<WasiEnv>,
     runtime: &Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
-    compiled_modules: &CachedCompiledModules,
+    compiled_modules: &ModuleCache,
 ) -> wasmer_vbus::Result<BusSpawnedProcess> {
     // Load the module
     #[cfg(feature = "sys")]

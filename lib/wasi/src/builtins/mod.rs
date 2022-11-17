@@ -5,7 +5,7 @@ use wasmer_vbus::{BusSpawnedProcess, SpawnOptionsConfig};
 use wasmer_wasi_types::wasi::Errno;
 
 use crate::{
-    bin_factory::CachedCompiledModules, syscalls::stderr_write, WasiEnv, WasiRuntimeImplementation,
+    bin_factory::ModuleCache, syscalls::stderr_write, WasiEnv, WasiRuntimeImplementation,
 };
 mod cmd_wasmer;
 
@@ -31,7 +31,7 @@ pub struct BuiltIns {
 impl BuiltIns {
     pub(crate) fn new(
         runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
-        compiled_modules: Arc<CachedCompiledModules>,
+        compiled_modules: Arc<ModuleCache>,
     ) -> Self {
         let cmd_wasmer = cmd_wasmer::CmdWasmer::new(runtime.clone(), compiled_modules.clone());
         let mut commands: HashMap<String, Arc<dyn BuiltInCommand + Send + Sync + 'static>> =
