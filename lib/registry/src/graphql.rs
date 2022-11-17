@@ -110,6 +110,18 @@ pub fn whoami_distro() -> String {
     whoami::distro().to_lowercase()
 }
 
+fn setup_client() -> Result<Client, anyhow::Error> {
+    let builder = Client::builder();
+
+    let builder = if let Some(proxy) = proxy::maybe_set_up_proxy()? {
+        builder.proxy(proxy)
+    } else {
+        builder
+    };
+
+    builder.build().map_err(|e| e.into())
+}
+
 pub fn execute_query_modifier_inner_check_json<V, F>(
     registry_url: &str,
     login_token: &str,
@@ -121,16 +133,7 @@ where
     V: serde::Serialize,
     F: FnOnce(Form) -> Form,
 {
-    let client = {
-        let builder = Client::builder();
-
-        let builder = if let Some(proxy) = proxy::maybe_set_up_proxy()? {
-            builder.proxy(proxy)
-        } else {
-            builder
-        };
-        builder.build()?
-    };
+    let client = setup_client()?;
 
     let vars = serde_json::to_string(&query.variables).unwrap();
 
@@ -177,16 +180,7 @@ where
     V: serde::Serialize,
     F: FnOnce(Form) -> Form,
 {
-    let client = {
-        let builder = Client::builder();
-
-        let builder = if let Some(proxy) = proxy::maybe_set_up_proxy()? {
-            builder.proxy(proxy)
-        } else {
-            builder
-        };
-        builder.build()?
-    };
+    let client = setup_client()?;
 
     let vars = serde_json::to_string(&query.variables).unwrap();
 
