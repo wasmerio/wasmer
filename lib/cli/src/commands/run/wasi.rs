@@ -11,11 +11,12 @@ use wasmer_wasi::fs::{PassthruFileSystem, RootFileSystemBuilder, SpecialFile, Tt
 use wasmer_wasi::is_wasix_module;
 use wasmer_wasi::types::__WASI_STDIN_FILENO;
 use wasmer_wasi::{
-    default_fs_backing, get_wasi_versions, import_object_for_all_wasi_versions,
-    PluggableRuntimeImplementation, WasiEnv, WasiError, WasiState, WasiVersion,
+    get_wasi_versions, import_object_for_all_wasi_versions, PluggableRuntimeImplementation,
+    WasiEnv, WasiError, WasiState, WasiVersion,
 };
 
 use clap::Parser;
+use wasmer_wasi::os::fs::default_fs_backing;
 
 #[derive(Debug, Parser, Clone, Default)]
 /// WASI Options

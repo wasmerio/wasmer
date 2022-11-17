@@ -1,11 +1,3 @@
-use tokio::sync::mpsc;
-use wasmer_vfs::{AsyncRead, AsyncSeek, AsyncWrite};
-use wasmer_vnet::{net_error_into_io_err, NetworkError};
-use wasmer_wasi_types::wasi::{Event, EventFdReadwrite, EventUnion, Eventrwflags, Subscription};
-
-use crate::VirtualTaskManager;
-
-use super::*;
 use std::{
     future::Future,
     io::{IoSlice, SeekFrom},
@@ -13,6 +5,14 @@ use std::{
     sync::RwLockReadGuard,
     task::{Context, Poll},
 };
+use tokio::sync::mpsc;
+use wasmer_vfs::{AsyncRead, AsyncSeek, AsyncWrite};
+use wasmer_vnet::{net_error_into_io_err, NetworkError};
+use wasmer_wasi_types::wasi::{Event, EventFdReadwrite, EventUnion, Eventrwflags, Subscription};
+
+use crate::{os::fs::Kind, VirtualTaskManager};
+
+use super::*;
 
 pub(crate) enum InodeValFilePollGuardMode {
     File(Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>),

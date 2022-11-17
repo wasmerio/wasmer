@@ -1,10 +1,11 @@
 use crate::bin_factory::BinFactory;
 use crate::os::command::builtins::cmd_wasmer::CmdWasmer;
+use crate::os::fs::WasiInodes;
 use crate::os::task::process::{WasiProcess, WasiProcessId};
 use crate::os::task::thread::{WasiThread, WasiThreadHandle, WasiThreadId};
 use crate::syscalls::platform_clock_time_get;
 use crate::{
-    bin_factory, PluggableRuntimeImplementation, VirtualTaskManager, WasiError, WasiInodes,
+    bin_factory, PluggableRuntimeImplementation, VirtualTaskManager, WasiError,
     WasiRuntimeImplementation, WasiState, WasiStateCreationError, WasiVFork, DEFAULT_STACK_SIZE,
 };
 use derivative::Derivative;
@@ -510,7 +511,7 @@ impl WasiEnv {
         #[allow(unused_imports)]
         use wasmer_vfs::FileSystem;
 
-        use crate::state::WasiFsRoot;
+        use crate::os::fs::WasiFsRoot;
 
         let mut already: HashMap<String, Cow<'static, str>> = HashMap::new();
 
@@ -604,7 +605,7 @@ impl WasiEnv {
         #[allow(unused_imports)]
         use wasmer_vfs::FileSystem;
 
-        use crate::state::WasiFsRoot;
+        use crate::os::fs::WasiFsRoot;
 
         #[cfg(feature = "sys")]
         for (command, target) in map_commands.iter() {

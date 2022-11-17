@@ -5,11 +5,8 @@ use std::collections::{BTreeSet, VecDeque};
 use std::convert::TryInto;
 use std::io::{Read, Seek, SeekFrom, Write};
 use tracing::debug;
-use wasmer_wasi::{
-    types::{wasi::Filesize, *},
-    WasiInodes,
-};
-use wasmer_wasi::{Fd, VirtualFile, WasiFs, WasiFsError, ALL_RIGHTS, VIRTUAL_ROOT_FD};
+use wasmer_wasi::types::{wasi::Filesize, *};
+use wasmer_wasi::{VirtualFile, WasiFsError, ALL_RIGHTS};
 
 use minifb::{Key, KeyRepeat, MouseButton, Scale, Window, WindowOptions};
 
@@ -18,6 +15,8 @@ mod util;
 use util::*;
 
 use std::cell::RefCell;
+use wasmer_wasi::os::fs::fd::Fd;
+use wasmer_wasi::os::fs::{WasiFs, WasiInodes, VIRTUAL_ROOT_FD};
 std::thread_local! {
     pub(crate) static FRAMEBUFFER_STATE: RefCell<FrameBufferState> =
         RefCell::new(FrameBufferState::new()

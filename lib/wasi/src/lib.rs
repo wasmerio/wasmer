@@ -60,8 +60,8 @@ pub use wasmer_compiler_singlepass;
 use wasmer_wasi_types::wasi::{BusErrno, Errno, ExitCode};
 
 pub use crate::state::{
-    default_fs_backing, Fd, Pipe, WasiEnv, WasiEnvInner, WasiFs, WasiFunctionEnv, WasiInodes,
-    WasiState, WasiStateBuilder, WasiStateCreationError, ALL_RIGHTS, VIRTUAL_ROOT_FD,
+    Pipe, WasiEnv, WasiEnvInner, WasiFunctionEnv, WasiState, WasiStateBuilder,
+    WasiStateCreationError, ALL_RIGHTS,
 };
 pub use crate::syscalls::types;
 pub use crate::tty_file::TtyFile;
@@ -105,6 +105,8 @@ pub use runtime::{
     WasiThreadError, WasiTtyState, WebSocketAbi,
 };
 use std::sync::Arc;
+
+pub use crate::os::fs::{default_fs_backing, Fd, WasiFs, WasiInodes, VIRTUAL_ROOT_FD};
 
 /// This is returned in `RuntimeError`.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
