@@ -28,7 +28,7 @@ pub fn sock_connect<M: MemorySize>(
     let env = ctx.data();
     let net = env.net();
     let memory = env.memory_view(&ctx);
-    let addr = wasi_try!(crate::state::read_ip_port(&memory, addr));
+    let addr = wasi_try!(crate::net::read_ip_port(&memory, addr));
     let addr = SocketAddr::new(addr.0, addr.1);
 
     wasi_try!(__sock_upgrade(

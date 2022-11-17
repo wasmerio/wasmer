@@ -1,6 +1,3 @@
-use crate::state::{iterate_poll_events, InodeSocket, InodeSocketKind, PollEvent, PollEventSet};
-use crate::syscalls::map_io_err;
-use crate::{VirtualTaskManager, WasiInodes, WasiState};
 use std::collections::{HashMap, VecDeque};
 use std::future::Future;
 use std::io::{IoSlice, SeekFrom};
@@ -17,6 +14,13 @@ use wasmer_wasi_types::types::Eventtype;
 use wasmer_wasi_types::wasi;
 use wasmer_wasi_types::wasi::{
     Errno, Event, EventFdReadwrite, EventUnion, Eventrwflags, Subscription,
+};
+
+use crate::{
+    net::socket::{InodeSocket, InodeSocketKind},
+    state::{iterate_poll_events, PollEvent, PollEventSet},
+    syscalls::map_io_err,
+    VirtualTaskManager, WasiInodes, WasiState,
 };
 
 use super::Kind;

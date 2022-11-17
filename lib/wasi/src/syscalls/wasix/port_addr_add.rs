@@ -18,7 +18,7 @@ pub fn port_addr_add<M: MemorySize>(
     );
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-    let cidr = wasi_try!(crate::state::read_cidr(&memory, ip));
+    let cidr = wasi_try!(crate::net::read_cidr(&memory, ip));
     wasi_try!(env
         .net()
         .ip_add(cidr.ip, cidr.prefix)

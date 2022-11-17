@@ -41,7 +41,7 @@ pub fn port_addr_list<M: MemorySize>(
 
     for n in 0..addrs.len() {
         let nip = ref_addrs.index(n as u64);
-        crate::state::write_cidr(&memory, nip.as_ptr::<M>(), *addrs.get(n).unwrap());
+        crate::net::write_cidr(&memory, nip.as_ptr::<M>(), *addrs.get(n).unwrap());
     }
 
     Errno::Success

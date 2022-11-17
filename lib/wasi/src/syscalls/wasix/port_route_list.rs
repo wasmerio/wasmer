@@ -38,7 +38,7 @@ pub fn port_route_list<M: MemorySize>(
 
     for n in 0..routes.len() {
         let nroute = ref_routes.index(n as u64);
-        crate::state::write_route(
+        crate::net::write_route(
             &memory,
             nroute.as_ptr::<M>(),
             routes.get(n).unwrap().clone(),

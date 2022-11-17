@@ -19,7 +19,6 @@ mod builder;
 mod env;
 mod func_env;
 mod parking;
-mod socket;
 mod types;
 
 pub use self::{
@@ -27,7 +26,6 @@ pub use self::{
     env::{WasiEnv, WasiEnvInner},
     func_env::WasiFunctionEnv,
     parking::*,
-    socket::*,
     types::*,
 };
 
@@ -60,9 +58,7 @@ use wasmer_wasi_types::wasi::{Errno, Fd as WasiFd, Rights};
 use crate::fs::WasiStateFileGuard;
 use crate::{
     fs::{WasiFs, WasiFsRoot, WasiInodes},
-    os::{
-        task::process::WasiProcessId,
-    },
+    os::task::process::WasiProcessId,
     syscalls::types::*,
     WasiCallingId, WasiRuntimeImplementation,
 };

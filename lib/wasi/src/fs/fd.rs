@@ -1,4 +1,3 @@
-use crate::state::InodeSocket;
 use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
@@ -9,6 +8,8 @@ use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
 use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use wasmer_vfs::{VirtualFile, WasiPipe};
 use wasmer_wasi_types::wasi::{Fd as WasiFd, Fdflags, Filestat, Rights};
+
+use crate::net::socket::InodeSocket;
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]

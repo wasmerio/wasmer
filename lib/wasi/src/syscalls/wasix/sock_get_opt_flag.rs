@@ -23,7 +23,7 @@ pub fn sock_get_opt_flag<M: MemorySize>(
         opt
     );
 
-    let option: crate::state::WasiSocketOption = opt.into();
+    let option: crate::net::socket::WasiSocketOption = opt.into();
     let flag = wasi_try!(__sock_actor(
         &mut ctx,
         sock,

@@ -1,6 +1,6 @@
 use crate::bin_factory::BinFactory;
-use crate::os::command::builtins::cmd_wasmer::CmdWasmer;
 use crate::fs::WasiInodes;
+use crate::os::command::builtins::cmd_wasmer::CmdWasmer;
 use crate::os::task::process::{WasiProcess, WasiProcessId};
 use crate::os::task::thread::{WasiThread, WasiThreadHandle, WasiThreadId};
 use crate::syscalls::platform_clock_time_get;

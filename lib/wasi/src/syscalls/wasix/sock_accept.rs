@@ -58,7 +58,7 @@ pub fn sock_accept<M: MemorySize>(
     );
 
     wasi_try_mem_ok!(ro_fd.write(&memory, fd));
-    wasi_try_ok!(crate::state::write_ip_port(
+    wasi_try_ok!(crate::net::write_ip_port(
         &memory,
         ro_addr,
         addr.ip(),

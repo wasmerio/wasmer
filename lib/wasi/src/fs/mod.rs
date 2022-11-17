@@ -6,11 +6,12 @@ pub(crate) use self::inode_guard::{
     InodeValFilePollGuard, InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard,
 };
 
-use crate::bin_factory::BinaryPackage;
-use crate::state::{
-    fs_error_from_wasi_err, fs_error_into_wasi_err, InodeSocket, InodeSocketKind, PreopenedDir,
-};
 use crate::ALL_RIGHTS;
+use crate::{
+    bin_factory::BinaryPackage,
+    net::socket::{InodeSocket, InodeSocketKind},
+    state::{fs_error_from_wasi_err, fs_error_into_wasi_err, PreopenedDir},
+};
 use generational_arena::{Arena, Index as Inode};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};

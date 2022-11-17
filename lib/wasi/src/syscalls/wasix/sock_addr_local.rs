@@ -31,7 +31,7 @@ pub fn sock_addr_local<M: MemorySize>(
         move |socket| async move { socket.addr_local() }
     ));
     let memory = ctx.data().memory_view(&ctx);
-    wasi_try!(crate::state::write_ip_port(
+    wasi_try!(crate::net::write_ip_port(
         &memory,
         ret_addr,
         addr.ip(),

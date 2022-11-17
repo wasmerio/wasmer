@@ -57,7 +57,7 @@ pub fn resolve<M: MemorySize>(
     let memory = env.memory_view(&ctx);
     let addrs = wasi_try_mem!(addrs.slice(&memory, wasi_try!(to_offset::<M>(naddrs))));
     for found_ip in found_ips.iter().take(naddrs) {
-        crate::state::write_ip(&memory, addrs.index(idx).as_ptr::<M>(), *found_ip);
+        crate::net::write_ip(&memory, addrs.index(idx).as_ptr::<M>(), *found_ip);
         idx += 1;
     }
 

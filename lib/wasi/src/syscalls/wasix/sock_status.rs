@@ -22,7 +22,7 @@ pub fn sock_status<M: MemorySize>(
         move |socket| async move { socket.status() }
     ));
 
-    use crate::state::WasiSocketStatus;
+    use crate::net::socket::WasiSocketStatus;
     let status = match status {
         WasiSocketStatus::Opening => Sockstatus::Opening,
         WasiSocketStatus::Opened => Sockstatus::Opened,

@@ -24,7 +24,7 @@ pub fn sock_join_multicast_v6<M: MemorySize>(
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-    let multiaddr = wasi_try!(crate::state::read_ip_v6(&memory, multiaddr));
+    let multiaddr = wasi_try!(crate::net::read_ip_v6(&memory, multiaddr));
     wasi_try!(__sock_actor_mut(
         &mut ctx,
         sock,

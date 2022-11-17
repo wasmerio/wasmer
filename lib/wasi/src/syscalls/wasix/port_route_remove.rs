@@ -14,7 +14,7 @@ pub fn port_route_remove<M: MemorySize>(
     );
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-    let ip = wasi_try!(crate::state::read_ip(&memory, ip));
+    let ip = wasi_try!(crate::net::read_ip(&memory, ip));
     wasi_try!(env.net().route_remove(ip).map_err(net_error_into_wasi_err));
     Errno::Success
 }

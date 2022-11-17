@@ -33,7 +33,7 @@ pub fn sock_addr_peer<M: MemorySize>(
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-    wasi_try!(crate::state::write_ip_port(
+    wasi_try!(crate::net::write_ip_port(
         &memory,
         ro_addr,
         addr.ip(),

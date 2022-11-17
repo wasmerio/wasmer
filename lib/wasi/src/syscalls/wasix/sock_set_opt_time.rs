@@ -41,7 +41,7 @@ pub fn sock_set_opt_time<M: MemorySize>(
         _ => return Errno::Inval,
     };
 
-    let option: crate::state::WasiSocketOption = opt.into();
+    let option: crate::net::socket::WasiSocketOption = opt.into();
     wasi_try!(__sock_actor_mut(
         &mut ctx,
         sock,

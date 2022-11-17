@@ -168,7 +168,7 @@ pub fn proc_spawn_internal(
                         "pipe".into(),
                     );
 
-                    let rights = crate::state::all_socket_rights();
+                    let rights = crate::net::socket::all_socket_rights();
                     let pipe = ctx
                         .data()
                         .state

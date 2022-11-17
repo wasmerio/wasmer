@@ -42,6 +42,9 @@ compile_error!(
 mod macros;
 pub mod bin_factory;
 pub mod os;
+// TODO: should this be pub?
+pub mod net;
+// TODO: should this be pub?
 pub mod fs;
 pub mod runtime;
 mod state;

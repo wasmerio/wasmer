@@ -17,8 +17,8 @@ pub fn port_route_add<M: MemorySize>(
     );
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-    let cidr = wasi_try!(crate::state::read_cidr(&memory, cidr));
-    let via_router = wasi_try!(crate::state::read_ip(&memory, via_router));
+    let cidr = wasi_try!(crate::net::read_cidr(&memory, cidr));
+    let via_router = wasi_try!(crate::net::read_ip(&memory, via_router));
     let preferred_until = wasi_try_mem!(preferred_until.read(&memory));
     let preferred_until = match preferred_until.tag {
         OptionTag::None => None,

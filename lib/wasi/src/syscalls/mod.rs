@@ -37,23 +37,23 @@ pub(crate) use self::types::{
     *,
 };
 
-pub(crate) use crate::bin_factory::spawn_exec_module;
-pub(crate) use crate::runtime::SpawnType;
-pub(crate) use crate::state::{read_ip_port, write_ip_port};
-pub(crate) use crate::utils::map_io_err;
 pub(crate) use crate::{
-    current_caller_id, import_object_for_all_wasi_versions, VirtualTaskManager, WasiEnvInner,
-    WasiFunctionEnv, WasiRuntimeImplementation, WasiVFork, DEFAULT_STACK_SIZE,
-};
-pub(crate) use crate::{
-    mem_error_to_wasi,
+    bin_factory::spawn_exec_module,
+    current_caller_id, import_object_for_all_wasi_versions, mem_error_to_wasi,
+    net::{
+        read_ip_port,
+        socket::{InodeHttpSocketType, InodeSocket, InodeSocketKind},
+        write_ip_port,
+    },
+    runtime::SpawnType,
     state::{
         self, bus_errno_into_vbus_error, fs_error_into_wasi_err, iterate_poll_events,
-        net_error_into_wasi_err, vbus_error_into_bus_errno, Inode, InodeHttpSocketType,
-        InodeSocket, InodeSocketKind, PollEvent, PollEventBuilder, WasiBusCall, WasiDummyWaker,
-        WasiFutex, WasiParkingLot, WasiState, WasiThreadContext,
+        net_error_into_wasi_err, vbus_error_into_bus_errno, Inode, PollEvent, PollEventBuilder,
+        WasiBusCall, WasiDummyWaker, WasiFutex, WasiParkingLot, WasiState, WasiThreadContext,
     },
-    WasiEnv, WasiError,
+    utils::{self, map_io_err},
+    VirtualTaskManager, WasiEnv, WasiEnvInner, WasiError, WasiFunctionEnv,
+    WasiRuntimeImplementation, WasiVFork, DEFAULT_STACK_SIZE,
 };
 pub(crate) use bytes::{Bytes, BytesMut};
 pub(crate) use cooked_waker::IntoWaker;
@@ -184,6 +184,7 @@ pub(crate) fn read_bytes<T: Read, M: MemorySize>(
 }
 
 /// Writes data to the stderr
+
 pub async fn stderr_write(ctx: &FunctionEnvMut<'_, WasiEnv>, buf: &[u8]) -> Result<(), Errno> {
     let env = ctx.data();
     let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes_mut(ctx, 0);
@@ -301,7 +302,7 @@ pub(crate) fn __sock_actor<T, F, Fut>(
 ) -> Result<T, Errno>
 where
     T: 'static,
-    F: FnOnce(crate::state::InodeSocket) -> Fut + 'static,
+    F: FnOnce(crate::net::socket::InodeSocket) -> Fut + 'static,
     Fut: std::future::Future<Output = Result<T, Errno>>,
 {
     let env = ctx.data();
@@ -354,7 +355,7 @@ pub(crate) fn __sock_actor_mut<'a, T, F, Fut>(
 ) -> Result<T, Errno>
 where
     T: 'static,
-    F: FnOnce(crate::state::InodeSocket) -> Fut,
+    F: FnOnce(crate::net::socket::InodeSocket) -> Fut,
     Fut: std::future::Future<Output = Result<T, Errno>> + 'a,
 {
     let env = ctx.data();
@@ -409,8 +410,8 @@ pub(crate) fn __sock_upgrade<'a, F, Fut>(
     actor: F,
 ) -> Result<(), Errno>
 where
-    F: FnOnce(crate::state::InodeSocket) -> Fut,
-    Fut: std::future::Future<Output = Result<Option<crate::state::InodeSocket>, Errno>> + 'a,
+    F: FnOnce(crate::net::socket::InodeSocket) -> Fut,
+    Fut: std::future::Future<Output = Result<Option<crate::net::socket::InodeSocket>, Errno>> + 'a,
 {
     let env = ctx.data();
     let state = env.state.clone();

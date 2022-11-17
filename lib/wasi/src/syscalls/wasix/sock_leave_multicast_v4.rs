@@ -24,8 +24,8 @@ pub fn sock_leave_multicast_v4<M: MemorySize>(
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-    let multiaddr = wasi_try!(crate::state::read_ip_v4(&memory, multiaddr));
-    let iface = wasi_try!(crate::state::read_ip_v4(&memory, iface));
+    let multiaddr = wasi_try!(crate::net::read_ip_v4(&memory, multiaddr));
+    let iface = wasi_try!(crate::net::read_ip_v4(&memory, iface));
     wasi_try!(__sock_actor_mut(
         &mut ctx,
         sock,
