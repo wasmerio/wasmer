@@ -263,6 +263,14 @@
 <span id="257">257</span>
 <span id="258">258</span>
 <span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">graphql_client</span>::<span class="kw-2">*</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>))]</span>
 <span class="kw">use</span> <span class="ident">reqwest</span>::{
@@ -364,6 +372,14 @@
     <span class="ident">response_derives</span> <span class="op">=</span> <span class="string">&quot;Debug&quot;</span>
 )]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">TestIfRegistryPresent</span>;
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">GraphQLQuery</span>)]</span>
+<span class="attribute">#[<span class="ident">graphql</span>(
+    <span class="ident">schema_path</span> <span class="op">=</span> <span class="string">&quot;graphql/schema.graphql&quot;</span>,
+    <span class="ident">query_path</span> <span class="op">=</span> <span class="string">&quot;graphql/queries/get_bindings.graphql&quot;</span>,
+    <span class="ident">response_derives</span> <span class="op">=</span> <span class="string">&quot;Debug,Clone,PartialEq,Eq&quot;</span>
+)]</span>
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">GetBindingsQuery</span>;
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">whoami_distro</span>() -&gt; <span class="ident">String</span> {

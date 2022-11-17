@@ -494,6 +494,18 @@
 <span id="486">486</span>
 <span id="487">487</span>
 <span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The logic for the Wasmer CLI tool.</span>
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
@@ -506,10 +518,10 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands::CreateObj</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands::Wast</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands</span>::{<span class="ident">Cache</span>, <span class="ident">Config</span>, <span class="ident">Inspect</span>, <span class="ident">List</span>, <span class="ident">Login</span>, <span class="ident">Run</span>, <span class="ident">SelfUpdate</span>, <span class="ident">Validate</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands</span>::{<span class="ident">Add</span>, <span class="ident">Cache</span>, <span class="ident">Config</span>, <span class="ident">Inspect</span>, <span class="ident">List</span>, <span class="ident">Login</span>, <span class="ident">Run</span>, <span class="ident">SelfUpdate</span>, <span class="ident">Validate</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::PrettyError</span>;
 <span class="kw">use</span> <span class="ident">clap</span>::{<span class="ident">CommandFactory</span>, <span class="ident">ErrorKind</span>, <span class="ident">Parser</span>};
-<span class="kw">use</span> <span class="ident">std::fmt</span>;
+<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fmt</span>, <span class="ident">str::FromStr</span>};
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Parser</span>, <span class="ident">Debug</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(
@@ -646,6 +658,9 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;binfmt&quot;</span>)]</span>
     <span class="ident">Binfmt</span>(<span class="ident">Binfmt</span>),
+
+    <span class="doccomment">/// Add a WAPM package&#39;s bindings to your application.</span>
+    <span class="ident">Add</span>(<span class="ident">Add</span>),
 }
 
 <span class="kw">impl</span> <span class="ident">WasmerCLIOptions</span> {
@@ -669,6 +684,7 @@
             <span class="ident"><span class="self">Self</span>::Wast</span>(<span class="ident">wast</span>) =&gt; <span class="ident">wast</span>.<span class="ident">execute</span>(),
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
             <span class="ident"><span class="self">Self</span>::Binfmt</span>(<span class="ident">binfmt</span>) =&gt; <span class="ident">binfmt</span>.<span class="ident">execute</span>(),
+            <span class="ident"><span class="self">Self</span>::Add</span>(<span class="ident">install</span>) =&gt; <span class="ident">install</span>.<span class="ident">execute</span>(),
         }
     }
 }
@@ -720,7 +736,7 @@
         <span class="ident">WasmerCLIOptions::Run</span>(<span class="ident">Run::from_binfmt_args</span>())
     } <span class="kw">else</span> {
         <span class="kw">match</span> <span class="ident">command</span>.<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="string">&quot;&quot;</span>.<span class="ident">to_string</span>()).<span class="ident">as_ref</span>() {
-            <span class="string">&quot;cache&quot;</span> <span class="op">|</span> <span class="string">&quot;compile&quot;</span> <span class="op">|</span> <span class="string">&quot;config&quot;</span> <span class="op">|</span> <span class="string">&quot;create-exe&quot;</span> <span class="op">|</span> <span class="string">&quot;help&quot;</span> <span class="op">|</span> <span class="string">&quot;inspect&quot;</span> <span class="op">|</span> <span class="string">&quot;run&quot;</span>
+            <span class="string">&quot;add&quot;</span> <span class="op">|</span> <span class="string">&quot;cache&quot;</span> <span class="op">|</span> <span class="string">&quot;compile&quot;</span> <span class="op">|</span> <span class="string">&quot;config&quot;</span> <span class="op">|</span> <span class="string">&quot;create-exe&quot;</span> <span class="op">|</span> <span class="string">&quot;help&quot;</span> <span class="op">|</span> <span class="string">&quot;inspect&quot;</span> <span class="op">|</span> <span class="string">&quot;run&quot;</span>
             <span class="op">|</span> <span class="string">&quot;self-update&quot;</span> <span class="op">|</span> <span class="string">&quot;validate&quot;</span> <span class="op">|</span> <span class="string">&quot;wast&quot;</span> <span class="op">|</span> <span class="string">&quot;binfmt&quot;</span> <span class="op">|</span> <span class="string">&quot;list&quot;</span> <span class="op">|</span> <span class="string">&quot;login&quot;</span> =&gt; {
                 <span class="ident">WasmerCLIOptions::parse</span>()
             }
@@ -774,7 +790,7 @@
 <span class="attribute">#[<span class="ident">test</span>]</span>
 <span class="kw">fn</span> <span class="ident">test_split_version</span>() {
     <span class="macro">assert_eq!</span>(
-        <span class="ident">SplitVersion::new</span>(<span class="string">&quot;registry.wapm.io/graphql/python/python&quot;</span>).<span class="ident">unwrap</span>(),
+        <span class="ident">SplitVersion::parse</span>(<span class="string">&quot;registry.wapm.io/graphql/python/python&quot;</span>).<span class="ident">unwrap</span>(),
         <span class="ident">SplitVersion</span> {
             <span class="ident">original</span>: <span class="string">&quot;registry.wapm.io/graphql/python/python&quot;</span>.<span class="ident">to_string</span>(),
             <span class="ident">registry</span>: <span class="prelude-val">Some</span>(<span class="string">&quot;https://registry.wapm.io/graphql&quot;</span>.<span class="ident">to_string</span>()),
@@ -784,7 +800,7 @@
         }
     );
     <span class="macro">assert_eq!</span>(
-        <span class="ident">SplitVersion::new</span>(<span class="string">&quot;registry.wapm.io/python/python&quot;</span>).<span class="ident">unwrap</span>(),
+        <span class="ident">SplitVersion::parse</span>(<span class="string">&quot;registry.wapm.io/python/python&quot;</span>).<span class="ident">unwrap</span>(),
         <span class="ident">SplitVersion</span> {
             <span class="ident">original</span>: <span class="string">&quot;registry.wapm.io/python/python&quot;</span>.<span class="ident">to_string</span>(),
             <span class="ident">registry</span>: <span class="prelude-val">Some</span>(<span class="string">&quot;https://registry.wapm.io/graphql&quot;</span>.<span class="ident">to_string</span>()),
@@ -794,7 +810,7 @@
         }
     );
     <span class="macro">assert_eq!</span>(
-        <span class="ident">SplitVersion::new</span>(<span class="string">&quot;namespace/name@version:command&quot;</span>).<span class="ident">unwrap</span>(),
+        <span class="ident">SplitVersion::parse</span>(<span class="string">&quot;namespace/name@version:command&quot;</span>).<span class="ident">unwrap</span>(),
         <span class="ident">SplitVersion</span> {
             <span class="ident">original</span>: <span class="string">&quot;namespace/name@version:command&quot;</span>.<span class="ident">to_string</span>(),
             <span class="ident">registry</span>: <span class="prelude-val">None</span>,
@@ -804,7 +820,7 @@
         }
     );
     <span class="macro">assert_eq!</span>(
-        <span class="ident">SplitVersion::new</span>(<span class="string">&quot;namespace/name@version&quot;</span>).<span class="ident">unwrap</span>(),
+        <span class="ident">SplitVersion::parse</span>(<span class="string">&quot;namespace/name@version&quot;</span>).<span class="ident">unwrap</span>(),
         <span class="ident">SplitVersion</span> {
             <span class="ident">original</span>: <span class="string">&quot;namespace/name@version&quot;</span>.<span class="ident">to_string</span>(),
             <span class="ident">registry</span>: <span class="prelude-val">None</span>,
@@ -814,7 +830,7 @@
         }
     );
     <span class="macro">assert_eq!</span>(
-        <span class="ident">SplitVersion::new</span>(<span class="string">&quot;namespace/name&quot;</span>).<span class="ident">unwrap</span>(),
+        <span class="ident">SplitVersion::parse</span>(<span class="string">&quot;namespace/name&quot;</span>).<span class="ident">unwrap</span>(),
         <span class="ident">SplitVersion</span> {
             <span class="ident">original</span>: <span class="string">&quot;namespace/name&quot;</span>.<span class="ident">to_string</span>(),
             <span class="ident">registry</span>: <span class="prelude-val">None</span>,
@@ -824,7 +840,7 @@
         }
     );
     <span class="macro">assert_eq!</span>(
-        <span class="ident">SplitVersion::new</span>(<span class="string">&quot;registry.wapm.io/namespace/name&quot;</span>).<span class="ident">unwrap</span>(),
+        <span class="ident">SplitVersion::parse</span>(<span class="string">&quot;registry.wapm.io/namespace/name&quot;</span>).<span class="ident">unwrap</span>(),
         <span class="ident">SplitVersion</span> {
             <span class="ident">original</span>: <span class="string">&quot;registry.wapm.io/namespace/name&quot;</span>.<span class="ident">to_string</span>(),
             <span class="ident">registry</span>: <span class="prelude-val">Some</span>(<span class="string">&quot;https://registry.wapm.io/graphql&quot;</span>.<span class="ident">to_string</span>()),
@@ -834,13 +850,21 @@
         }
     );
     <span class="macro">assert_eq!</span>(
-        <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">SplitVersion::new</span>(<span class="string">&quot;namespace&quot;</span>).<span class="ident">unwrap_err</span>()),
+        <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">SplitVersion::parse</span>(<span class="string">&quot;namespace&quot;</span>).<span class="ident">unwrap_err</span>()),
         <span class="string">&quot;Invalid package version: \&quot;namespace\&quot;&quot;</span>.<span class="ident">to_string</span>(),
     );
 }
 
 <span class="kw">impl</span> <span class="ident">SplitVersion</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SplitVersion</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">parse</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SplitVersion</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+        <span class="ident">s</span>.<span class="ident">parse</span>()
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">FromStr</span> <span class="kw">for</span> <span class="ident">SplitVersion</span> {
+    <span class="kw">type</span> <span class="prelude-val">Err</span> <span class="op">=</span> <span class="ident">anyhow::Error</span>;
+
+    <span class="kw">fn</span> <span class="ident">from_str</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Err</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">command</span> <span class="op">=</span> <span class="ident">WasmerCLIOptions::command</span>();
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">prohibited_package_names</span> <span class="op">=</span> <span class="ident">command</span>.<span class="ident">get_subcommands</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">get_name</span>());
 
