@@ -1,9 +1,12 @@
+use std::{
+    future::Future,
+    io::{self, Write},
+    pin::Pin,
+    sync::Arc,
+    fmt,
+};
+
 use derivative::Derivative;
-use std::future::Future;
-use std::io::Write;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::{fmt, io};
 use thiserror::Error;
 use tracing::*;
 use wasmer::vm::VMMemory;
