@@ -16,11 +16,14 @@
 #![allow(clippy::cognitive_complexity, clippy::too_many_arguments)]
 
 mod builder;
+mod env;
 mod guard;
 mod parking;
 mod socket;
 mod thread;
 mod types;
+
+pub use self::env::{WasiEnv, WasiEnvInner};
 
 pub use self::builder::*;
 pub use self::guard::*;
