@@ -78,9 +78,9 @@ pub struct WasiThread {
     pub(crate) is_main: bool,
     pub(crate) pid: WasiProcessId,
     pub(crate) id: WasiThreadId,
-    finished: Arc<Mutex<(Option<ExitCode>, tokio::sync::broadcast::Sender<()>)>>,
+    pub(super) finished: Arc<Mutex<(Option<ExitCode>, tokio::sync::broadcast::Sender<()>)>>,
     pub(crate) signals: Arc<Mutex<(Vec<Signal>, tokio::sync::broadcast::Sender<()>)>>,
-    stack: Arc<Mutex<ThreadStack>>,
+    pub(super) stack: Arc<Mutex<ThreadStack>>,
 }
 
 impl WasiThread {
@@ -272,9 +272,9 @@ impl WasiThread {
 
 #[derive(Debug, Clone)]
 pub struct WasiThreadHandle {
-    id: Arc<WasiThreadId>,
-    thread: WasiThread,
-    inner: Arc<RwLock<WasiProcessInner>>,
+    pub(super) id: Arc<WasiThreadId>,
+    pub(super) thread: WasiThread,
+    pub(super) inner: Arc<RwLock<WasiProcessInner>>,
 }
 
 impl WasiThreadHandle {
