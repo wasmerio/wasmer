@@ -25,6 +25,37 @@ pub(crate) mod proxy {
         ConnectionError(String),
     }
 
+    pub fn maybe_set_up_proxy_blocking(
+        builder: reqwest::blocking::ClientBuilder,
+    ) -> anyhow::Result<reqwest::blocking::ClientBuilder> {
+        #[cfg(not(target_os = "wasi"))]
+        use anyhow::Context;
+        #[cfg(not(target_os = "wasi"))]
+        if let Some(proxy) = maybe_set_up_proxy_inner()
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .context("install_webc_package: failed to setup proxy for reqwest Client")?
+        {
+            return Ok(builder.proxy(proxy));
+        }
+        Ok(builder)
+    }
+
+    #[must_use]
+    pub fn maybe_set_up_proxy(
+        builder: reqwest::ClientBuilder,
+    ) -> anyhow::Result<reqwest::ClientBuilder> {
+        #[cfg(not(target_os = "wasi"))]
+        use anyhow::Context;
+        #[cfg(not(target_os = "wasi"))]
+        if let Some(proxy) = maybe_set_up_proxy_inner()
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .context("install_webc_package: failed to setup proxy for reqwest Client")?
+        {
+            return Ok(builder.proxy(proxy));
+        }
+        Ok(builder)
+    }
+
     /// Tries to set up a proxy
     ///
     /// This function reads from wapm config's `proxy.url` first, then checks
@@ -37,7 +68,7 @@ pub(crate) mod proxy {
     /// A return value of `Ok(None)` means that there was no attempt to set up a proxy,
     /// `Ok(Some(proxy))` means that the proxy was set up successfully, and `Err(e)` that
     /// there was a failure while attempting to set up the proxy.
-    pub fn maybe_set_up_proxy() -> anyhow::Result<Option<reqwest::Proxy>> {
+    fn maybe_set_up_proxy_inner() -> anyhow::Result<Option<reqwest::Proxy>> {
         use std::env;
         let proxy = if let Ok(proxy_url) = env::var("ALL_PROXY").or_else(|_| env::var("all_proxy"))
         {
@@ -120,13 +151,7 @@ pub fn whoami_distro() -> String {
 
 fn setup_client() -> Result<Client, anyhow::Error> {
     let builder = Client::builder();
-
-    let builder = if let Some(proxy) = proxy::maybe_set_up_proxy()? {
-        builder.proxy(proxy)
-    } else {
-        builder
-    };
-
+    let builder = proxy::maybe_set_up_proxy_blocking(builder)?;
     builder.build().map_err(|e| e.into())
 }
 

@@ -8,11 +8,11 @@
 //! curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
 //! ```
 
-use std::fmt;
+use crate::config::Registries;
 use anyhow::Context;
-use url::Url;
-use reqwest::header::{RANGE, ACCEPT};
 use core::ops::Range;
+use reqwest::header::{ACCEPT, RANGE};
+use std::fmt;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -20,6 +20,7 @@ use std::{
     collections::BTreeMap,
     fmt::{Display, Formatter},
 };
+use url::Url;
 
 pub mod config;
 pub mod graphql;
@@ -30,9 +31,6 @@ pub use crate::{
     config::{format_graphql, PartialWapmConfig},
     graphql::get_bindings_query::ProgrammingLanguage,
 };
-
-use crate::config::Registries;
-use anyhow::Context;
 
 pub static GLOBAL_CONFIG_FILE_NAME: &str = if cfg!(target_os = "wasi") {
     "/.private/wapm.toml"
@@ -1069,7 +1067,7 @@ pub fn get_remote_webc_manifest(url: &Url) -> Result<RemoteWebcInfo, anyhow::Err
     })
 }
 
-fn setup_webc_client(url: &Url) -> Result<reqwest::blocking::RequestBuilder, anyhow::Error> {    
+fn setup_webc_client(url: &Url) -> Result<reqwest::blocking::RequestBuilder, anyhow::Error> {
     let client = {
         let builder = reqwest::blocking::Client::builder();
         let builder = crate::graphql::proxy::maybe_set_up_proxy_blocking(builder)
