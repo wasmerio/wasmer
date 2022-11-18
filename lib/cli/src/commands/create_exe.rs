@@ -4,10 +4,6 @@ use super::ObjectFormat;
 use crate::store::CompilerOptions;
 use anyhow::{Context, Result};
 use clap::Parser;
-#[cfg(feature = "http")]
-use serde::{Deserialize, Serialize};
-#[cfg(feature = "http")]
-use std::collections::BTreeMap;
 use std::env;
 use std::fmt::Write as _;
 use std::fs;
@@ -372,7 +368,7 @@ impl CreateExe {
                 ));
             }
 
-            let target = if let Some(target_triple) = target_triple.clone() {
+            let target = if let Some(target_triple) = target_triple {
                 target_triple
             } else {
                 return Err(anyhow!(
@@ -1368,6 +1364,7 @@ mod http_fetch {
     use anyhow::{anyhow, Context, Result};
     use http_req::{request::Request, response::StatusCode, uri::Uri};
     use std::convert::TryFrom;
+    use target_lexicon::OperatingSystem;
 
     pub fn get_latest_release() -> Result<serde_json::Value> {
         let mut writer = Vec::new();
@@ -1456,11 +1453,23 @@ mod http_fetch {
             });
 
             if let Ok(mut entries) = paths {
-                entries.retain(|p| p.to_str().map(|p| check_arch(p)).unwrap_or(true));
-                entries.retain(|p| p.to_str().map(|p| check_vendor(p)).unwrap_or(true));
-                entries.retain(|p| p.to_str().map(|p| check_os(p)).unwrap_or(true));
-                entries.retain(|p| p.to_str().map(|p| check_env(p)).unwrap_or(true));
                 entries.retain(|p| p.to_str().map(|p| p.ends_with(".tar.gz")).unwrap_or(false));
+
+                // create-exe on Windows is special: we use the windows-gnu64.tar.gz (GNU ABI)
+                // to link, not the windows-amd64.tar.gz (MSVC ABI)
+                if target_triple.operating_system == OperatingSystem::Windows {
+                    entries.retain(|p| {
+                        p.to_str()
+                            .map(|p| p.contains("windows") && p.contains("gnu64"))
+                            .unwrap_or(false)
+                    });
+                } else {
+                    entries.retain(|p| p.to_str().map(|p| check_arch(p)).unwrap_or(true));
+                    entries.retain(|p| p.to_str().map(|p| check_vendor(p)).unwrap_or(true));
+                    entries.retain(|p| p.to_str().map(|p| check_os(p)).unwrap_or(true));
+                    entries.retain(|p| p.to_str().map(|p| check_env(p)).unwrap_or(true));
+                }
+
                 if !entries.is_empty() {
                     cache_path.push(&entries[0]);
                     if cache_path.exists() {
@@ -1483,36 +1492,48 @@ mod http_fetch {
             }
         };
 
-        assets.retain(|a| {
-            if let Some(name) = a["name"].as_str() {
-                check_arch(name)
-            } else {
-                false
-            }
-        });
-        assets.retain(|a| {
-            if let Some(name) = a["name"].as_str() {
-                check_vendor(name)
-            } else {
-                false
-            }
-        });
+        // create-exe on Windows is special: we use the windows-gnu64.tar.gz (GNU ABI)
+        // to link, not the windows-amd64.tar.gz (MSVC ABI)
+        if target_triple.operating_system == OperatingSystem::Windows {
+            assets.retain(|a| {
+                if let Some(name) = a["name"].as_str() {
+                    name.contains("windows") && name.contains("gnu64")
+                } else {
+                    false
+                }
+            });
+        } else {
+            assets.retain(|a| {
+                if let Some(name) = a["name"].as_str() {
+                    check_arch(name)
+                } else {
+                    false
+                }
+            });
+            assets.retain(|a| {
+                if let Some(name) = a["name"].as_str() {
+                    check_vendor(name)
+                } else {
+                    false
+                }
+            });
 
-        assets.retain(|a| {
-            if let Some(name) = a["name"].as_str() {
-                check_os(name)
-            } else {
-                false
-            }
-        });
+            assets.retain(|a| {
+                if let Some(name) = a["name"].as_str() {
+                    check_os(name)
+                } else {
+                    false
+                }
+            });
 
-        assets.retain(|a| {
-            if let Some(name) = a["name"].as_str() {
-                check_env(name)
-            } else {
-                false
-            }
-        });
+            assets.retain(|a| {
+                if let Some(name) = a["name"].as_str() {
+                    check_env(name)
+                } else {
+                    false
+                }
+            });
+        }
 
         if assets.len() != 1 {
             return Err(anyhow!(
