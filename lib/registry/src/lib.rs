@@ -8,6 +8,8 @@
 //! curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
 //! ```
 
+use crate::config::Registries;
+use anyhow::Context;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -15,9 +17,6 @@ use std::{
     collections::BTreeMap,
     fmt::{Display, Formatter},
 };
-use anyhow::Context;
-use serde::Deserialize;
-use serde::Serialize;
 
 pub mod config;
 pub mod graphql;
@@ -28,9 +27,6 @@ pub use crate::{
     config::{format_graphql, PartialWapmConfig},
     graphql::get_bindings_query::ProgrammingLanguage,
 };
-
-use crate::config::Registries;
-use anyhow::Context;
 
 pub static GLOBAL_CONFIG_FILE_NAME: &str = if cfg!(target_os = "wasi") {
     "/.private/wapm.toml"
