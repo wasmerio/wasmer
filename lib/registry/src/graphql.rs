@@ -40,7 +40,6 @@ pub(crate) mod proxy {
         Ok(builder)
     }
 
-    #[must_use]
     pub fn maybe_set_up_proxy(
         builder: reqwest::ClientBuilder,
     ) -> anyhow::Result<reqwest::ClientBuilder> {
