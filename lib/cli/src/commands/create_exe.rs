@@ -548,8 +548,6 @@ impl CreateExe {
             header_code_path = std::env::current_dir()?;
         }
 
-        println!("Output result to: {}", output_path.display());
-
         /* Compile main function */
         let compilation = {
             let mut include_dir = libwasmer_path.clone();
@@ -591,7 +589,8 @@ impl CreateExe {
                 cmd.arg(volume_obj.clone());
             }
 
-            println!("{:?}", cmd);
+            #[cfg(feature = "debug")]
+            log::debug!("{:?}", cmd);
             cmd.output().context("Could not execute `zig`")?
         };
         if !compilation.status.success() {
@@ -1387,7 +1386,8 @@ mod http_fetch {
             .context("Could not lookup wasmer repository on Github.")?;
 
         if response.status_code() != StatusCode::new(200) {
-            eprintln!(
+            #[cfg(feature = "debug")]
+            log::warn!(
                 "Warning: Github API replied with non-200 status code: {}. Response: {}",
                 response.status_code(),
                 String::from_utf8_lossy(&writer),
@@ -1565,32 +1565,30 @@ mod http_fetch {
             .to_string();
 
         let download_tempdir = tempdir::TempDir::new("wasmer-download")?;
-        let download_path = download_tempdir.path().to_path_buf().join(&filename);
+        let download_path = download_tempdir.path().join(&filename);
 
         let mut file = std::fs::File::create(&download_path)?;
-        eprintln!(
+        #[cfg(feature = "debug")]
+        log::debug!(
             "Downloading {} to {}",
             browser_download_url,
             download_path.display()
         );
 
-        let uri = Uri::try_from(browser_download_url.as_str())?;
-        let mut response = Request::new(&uri)
-            .header("User-Agent", "wasmer")
-            .send(&mut file)
+        let mut response = reqwest::blocking::Client::builder()
+            .redirect(reqwest::redirect::Policy::limited(10))
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .map_err(anyhow::Error::new)
+            .context("Could not lookup wasmer artifact on Github.")?
+            .get(browser_download_url.as_str())
+            .send()
             .map_err(anyhow::Error::new)
             .context("Could not lookup wasmer artifact on Github.")?;
-        if response.status_code() == StatusCode::new(302) {
-            let redirect_uri =
-                Uri::try_from(response.headers().get("Location").unwrap().as_str()).unwrap();
-            response = Request::new(&redirect_uri)
-                .header("User-Agent", "wasmer")
-                .send(&mut file)
-                .map_err(anyhow::Error::new)
-                .context("Could not lookup wasmer artifact on Github.")?;
-        }
 
-        let _ = response;
+        response
+            .copy_to(&mut file)
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
 
         match super::get_libwasmer_cache_path() {
             Ok(mut cache_path) => {
