@@ -10,10 +10,10 @@ use crate::commands::CreateExe;
 use crate::commands::CreateObj;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
-use crate::commands::{Cache, Config, Inspect, List, Login, Run, SelfUpdate, Validate};
+use crate::commands::{Add, Cache, Config, Inspect, List, Login, Run, SelfUpdate, Validate};
 use crate::error::PrettyError;
 use clap::{CommandFactory, ErrorKind, Parser};
-use std::fmt;
+use std::{fmt, str::FromStr};
 
 #[derive(Parser, Debug)]
 #[cfg_attr(
@@ -150,6 +150,9 @@ enum WasmerCLIOptions {
     #[cfg(target_os = "linux")]
     #[clap(name = "binfmt")]
     Binfmt(Binfmt),
+
+    /// Add a WAPM package's bindings to your application.
+    Add(Add),
 }
 
 impl WasmerCLIOptions {
@@ -173,6 +176,7 @@ impl WasmerCLIOptions {
             Self::Wast(wast) => wast.execute(),
             #[cfg(target_os = "linux")]
             Self::Binfmt(binfmt) => binfmt.execute(),
+            Self::Add(install) => install.execute(),
         }
     }
 }
@@ -224,7 +228,7 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
         WasmerCLIOptions::Run(Run::from_binfmt_args())
     } else {
         match command.unwrap_or(&"".to_string()).as_ref() {
-            "cache" | "compile" | "config" | "create-exe" | "help" | "inspect" | "run"
+            "add" | "cache" | "compile" | "config" | "create-exe" | "help" | "inspect" | "run"
             | "self-update" | "validate" | "wast" | "binfmt" | "list" | "login" => {
                 WasmerCLIOptions::parse()
             }
@@ -278,7 +282,7 @@ impl fmt::Display for SplitVersion {
 #[test]
 fn test_split_version() {
     assert_eq!(
-        SplitVersion::new("registry.wapm.io/graphql/python/python").unwrap(),
+        SplitVersion::parse("registry.wapm.io/graphql/python/python").unwrap(),
         SplitVersion {
             original: "registry.wapm.io/graphql/python/python".to_string(),
             registry: Some("https://registry.wapm.io/graphql".to_string()),
@@ -288,7 +292,7 @@ fn test_split_version() {
         }
     );
     assert_eq!(
-        SplitVersion::new("registry.wapm.io/python/python").unwrap(),
+        SplitVersion::parse("registry.wapm.io/python/python").unwrap(),
         SplitVersion {
             original: "registry.wapm.io/python/python".to_string(),
             registry: Some("https://registry.wapm.io/graphql".to_string()),
@@ -298,7 +302,7 @@ fn test_split_version() {
         }
     );
     assert_eq!(
-        SplitVersion::new("namespace/name@version:command").unwrap(),
+        SplitVersion::parse("namespace/name@version:command").unwrap(),
         SplitVersion {
             original: "namespace/name@version:command".to_string(),
             registry: None,
@@ -308,7 +312,7 @@ fn test_split_version() {
         }
     );
     assert_eq!(
-        SplitVersion::new("namespace/name@version").unwrap(),
+        SplitVersion::parse("namespace/name@version").unwrap(),
         SplitVersion {
             original: "namespace/name@version".to_string(),
             registry: None,
@@ -318,7 +322,7 @@ fn test_split_version() {
         }
     );
     assert_eq!(
-        SplitVersion::new("namespace/name").unwrap(),
+        SplitVersion::parse("namespace/name").unwrap(),
         SplitVersion {
             original: "namespace/name".to_string(),
             registry: None,
@@ -328,7 +332,7 @@ fn test_split_version() {
         }
     );
     assert_eq!(
-        SplitVersion::new("registry.wapm.io/namespace/name").unwrap(),
+        SplitVersion::parse("registry.wapm.io/namespace/name").unwrap(),
         SplitVersion {
             original: "registry.wapm.io/namespace/name".to_string(),
             registry: Some("https://registry.wapm.io/graphql".to_string()),
@@ -338,13 +342,21 @@ fn test_split_version() {
         }
     );
     assert_eq!(
-        format!("{}", SplitVersion::new("namespace").unwrap_err()),
+        format!("{}", SplitVersion::parse("namespace").unwrap_err()),
         "Invalid package version: \"namespace\"".to_string(),
     );
 }
 
 impl SplitVersion {
-    pub fn new(s: &str) -> Result<SplitVersion, anyhow::Error> {
+    pub fn parse(s: &str) -> Result<SplitVersion, anyhow::Error> {
+        s.parse()
+    }
+}
+
+impl FromStr for SplitVersion {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         let command = WasmerCLIOptions::command();
         let mut prohibited_package_names = command.get_subcommands().map(|s| s.get_name());
 

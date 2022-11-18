@@ -850,7 +850,7 @@ pub(crate) fn try_run_package_or_file(
     let package = format!("{}", r.path.display());
 
     let mut is_fake_sv = false;
-    let mut sv = match SplitVersion::new(&package) {
+    let mut sv = match SplitVersion::parse(&package) {
         Ok(o) => o,
         Err(_) => {
             let mut fake_sv = SplitVersion {

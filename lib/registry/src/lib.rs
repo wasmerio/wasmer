@@ -1,4 +1,13 @@
-use std::collections::BTreeMap;
+//! High-level interactions with the WAPM backend.
+//!
+//! The GraphQL schema can be updated by running `make` in the Wasmer repo's
+//! root directory.
+//!
+//! ```console
+//! $ make update-graphql-schema
+//! curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
+//! ```
+
 use std::fmt;
 use anyhow::Context;
 use url::Url;
@@ -7,15 +16,23 @@ use core::ops::Range;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use std::{
+    collections::BTreeMap,
+    fmt::{Display, Formatter},
+};
 
 pub mod config;
 pub mod graphql;
 pub mod login;
 pub mod utils;
 
-pub use crate::config::format_graphql;
+pub use crate::{
+    config::{format_graphql, PartialWapmConfig},
+    graphql::get_bindings_query::ProgrammingLanguage,
+};
+
 use crate::config::Registries;
-pub use config::PartialWapmConfig;
+use anyhow::Context;
 
 pub static GLOBAL_CONFIG_FILE_NAME: &str = if cfg!(target_os = "wasi") {
     "/.private/wapm.toml"
@@ -314,7 +331,7 @@ pub fn query_command_from_registry(
     })
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub enum QueryPackageError {
     ErrorSendingQuery(String),
     NoPackageFound {
@@ -324,7 +341,7 @@ pub enum QueryPackageError {
 }
 
 impl fmt::Display for QueryPackageError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             QueryPackageError::ErrorSendingQuery(q) => write!(f, "error sending query: {q}"),
             QueryPackageError::NoPackageFound { name, version } => {
@@ -334,7 +351,7 @@ impl fmt::Display for QueryPackageError {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub enum GetIfPackageHasNewVersionResult {
     // if version = Some(...) and the ~/.wasmer/checkouts/.../{version} exists, the package is already installed
     UseLocalAlreadyInstalled {
@@ -869,7 +886,7 @@ pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
     use graphql_client::GraphQLQuery;
 
     let q = TestIfRegistryPresent::build_query(test_if_registry_present::Variables {});
-    let _ = crate::graphql::execute_query_modifier_inner_check_json(
+    crate::graphql::execute_query_modifier_inner_check_json(
         registry,
         "",
         &q,
@@ -1158,4 +1175,91 @@ fn test_install_package() {
     }
 
     println!("ok, done");
+}
+
+/// A library that exposes bindings to a WAPM package.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Bindings {
+    /// A unique ID specifying this set of bindings.
+    pub id: String,
+    /// The URL which can be used to download the files that were generated
+    /// (typically as a `*.tar.gz` file).
+    pub url: String,
+    /// The programming language these bindings are written in.
+    pub language: graphql::get_bindings_query::ProgrammingLanguage,
+    /// The generator used to generate these bindings.
+    pub generator: BindingsGenerator,
+}
+
+/// The generator used to create [`Bindings`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BindingsGenerator {
+    /// A unique ID specifying this generator.
+    pub id: String,
+    /// The generator package's name (e.g. `wasmer/wasmer-pack`).
+    pub package_name: String,
+    /// The exact package version.
+    pub version: String,
+    /// The name of the command that was used for generating bindings.
+    pub command: String,
+}
+
+impl Display for BindingsGenerator {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let BindingsGenerator {
+            package_name,
+            version,
+            command,
+            ..
+        } = self;
+
+        write!(f, "{package_name}@{version}:{command}")?;
+
+        Ok(())
+    }
+}
+
+/// List all bindings associated with a particular package.
+///
+/// If a version number isn't provided, this will default to the most recently
+/// published version.
+pub fn list_bindings(
+    registry: &str,
+    name: &str,
+    version: Option<&str>,
+) -> Result<Vec<Bindings>, anyhow::Error> {
+    use crate::graphql::{
+        get_bindings_query::{ResponseData, Variables},
+        GetBindingsQuery,
+    };
+    use graphql_client::GraphQLQuery;
+
+    let variables = Variables {
+        name: name.to_string(),
+        version: version.map(String::from),
+    };
+
+    let q = GetBindingsQuery::build_query(variables);
+    let response: ResponseData = crate::graphql::execute_query(registry, "", &q)?;
+
+    let package_version = response.package_version.context("Package not found")?;
+
+    let mut bindings_packages = Vec::new();
+
+    for b in package_version.bindings.into_iter().flatten() {
+        let pkg = Bindings {
+            id: b.id,
+            url: b.url,
+            language: b.language,
+            generator: BindingsGenerator {
+                id: b.generator.package_version.id,
+                package_name: b.generator.package_version.package.name,
+                version: b.generator.package_version.version,
+                command: b.generator.command_name,
+            },
+        };
+        bindings_packages.push(pkg);
+    }
+
+    Ok(bindings_packages)
 }

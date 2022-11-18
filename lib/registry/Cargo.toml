@@ -28,3 +28,4 @@ lzma-rs = "0.2.0"
 webc = { version ="3.0.1", features = ["mmap"] }
 hex = "0.4.3"
 tokio = "1.21.2"
+log = "0.4.17"

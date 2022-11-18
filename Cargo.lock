@@ -4225,6 +4225,7 @@ dependencies = [
  "futures-util",
  "graphql_client",
  "hex",
+ "log",
  "lzma-rs",
  "rand 0.8.5",
  "reqwest",
