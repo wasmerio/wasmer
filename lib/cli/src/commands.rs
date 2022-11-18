@@ -10,6 +10,7 @@ mod config;
 mod create_exe;
 #[cfg(feature = "static-artifact-create")]
 mod create_obj;
+mod init;
 mod inspect;
 mod list;
 mod login;

@@ -135,6 +135,10 @@ enum WasmerCLIOptions {
     /// Inspect a WebAssembly file
     Inspect(Inspect),
 
+    /// Initializes a new wapm.toml file
+    #[clap(name = "init")]
+    Init(Init),
+
     /// Run spec testsuite
     #[cfg(feature = "wast")]
     Wast(Wast),
@@ -165,6 +169,7 @@ impl WasmerCLIOptions {
             Self::CreateObj(create_obj) => create_obj.execute(),
             Self::Config(config) => config.execute(),
             Self::Inspect(inspect) => inspect.execute(),
+            Self::Init(init) => init.execute(),
             Self::List(list) => list.execute(),
             Self::Login(login) => login.execute(),
             #[cfg(feature = "wast")]
