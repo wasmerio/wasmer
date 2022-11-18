@@ -1084,12 +1084,6 @@
 <span id="1078">1078</span>
 <span id="1079">1079</span>
 <span id="1080">1080</span>
-<span id="1081">1081</span>
-<span id="1082">1082</span>
-<span id="1083">1083</span>
-<span id="1084">1084</span>
-<span id="1085">1085</span>
-<span id="1086">1086</span>
 </pre><pre class="rust"><code><span class="doccomment">//! High-level interactions with the WAPM backend.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! The GraphQL schema can be updated by running `make` in the Wasmer repo&#39;s</span>
@@ -1802,12 +1796,6 @@
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">reqwest::blocking::get</span>(<span class="ident">url</span>)
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to download {url}: {e}&quot;</span>))<span class="question-mark">?</span>;
 
-    <span class="kw">if</span> <span class="op">!</span><span class="ident">target_targz_path</span>.<span class="ident">exists</span>() {
-        <span class="comment">// create all the parent paths, only remove the created directory, not the parent dirs</span>
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">target_targz_path</span>);
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::remove_dir</span>(<span class="kw-2">&amp;</span><span class="ident">target_targz_path</span>);
-    }
-
     {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">std::fs::File::create</span>(<span class="kw-2">&amp;</span><span class="ident">target_targz_path</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
             <span class="macro">anyhow::anyhow!</span>(
@@ -1821,7 +1809,7 @@
     }
 
     <span class="ident">try_unpack_targz</span>(<span class="ident">target_targz_path</span>.<span class="ident">as_path</span>(), <span class="ident">target_path</span>, <span class="ident">strip_toplevel</span>)
-        .<span class="ident">context</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not download {url}&quot;</span>))<span class="question-mark">?</span>;
+        .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not download {url}&quot;</span>))<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(<span class="ident">target_path</span>.<span class="ident">to_path_buf</span>())
 }
