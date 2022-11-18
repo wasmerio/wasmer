@@ -690,7 +690,7 @@ distribution-gnu: package-gnu
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
-	tar -C package -zcvf wasmer.tar.gz bin lib include winsdk LICENSE ATTRIBUTIONS
+	tar -C package -zcvf wasmer.tar.gz lib include winsdk LICENSE ATTRIBUTIONS
 	mv wasmer.tar.gz dist/
 
 distribution: package
