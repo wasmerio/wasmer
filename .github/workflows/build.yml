@@ -269,6 +269,10 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
+      - name: Install Windows-GNU linker
+        shell: bash
+        run: |
+          sudo apt install -y mingw-w64
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.61
