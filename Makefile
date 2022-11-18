@@ -785,3 +785,6 @@ install-local: package
 test-minimal-versions:
 	rm -f Cargo.lock
 	cargo +nightly build --tests -Z minimal-versions --all-features
+
+update-graphql-schema:
+	curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
