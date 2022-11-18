@@ -46,6 +46,10 @@ enum WasmerCLIOptions {
     /// Login into a wapm.io-like registry
     Login(Login),
 
+    /// Login into a wapm.io-like registry
+    #[clap(name = "publish")]
+    Publish(Publish),
+
     /// Wasmer cache
     #[clap(subcommand)]
     Cache(Cache),
@@ -172,6 +176,7 @@ impl WasmerCLIOptions {
             Self::Init(init) => init.execute(),
             Self::List(list) => list.execute(),
             Self::Login(login) => login.execute(),
+            Self::Publish(publish) => publish.execute(),
             #[cfg(feature = "wast")]
             Self::Wast(wast) => wast.execute(),
             #[cfg(target_os = "linux")]

@@ -14,6 +14,7 @@ mod init;
 mod inspect;
 mod list;
 mod login;
+mod publish;
 mod run;
 mod self_update;
 mod validate;
