@@ -710,12 +710,6 @@ pub fn download_and_unpack_targz(
     let mut resp = reqwest::blocking::get(url)
         .map_err(|e| anyhow::anyhow!("failed to download {url}: {e}"))?;
 
-    if !target_targz_path.exists() {
-        // create all the parent paths, only remove the created directory, not the parent dirs
-        let _ = std::fs::create_dir_all(&target_targz_path);
-        let _ = std::fs::remove_dir(&target_targz_path);
-    }
-
     {
         let mut file = std::fs::File::create(&target_targz_path).map_err(|e| {
             anyhow::anyhow!(
@@ -729,7 +723,7 @@ pub fn download_and_unpack_targz(
     }
 
     try_unpack_targz(target_targz_path.as_path(), target_path, strip_toplevel)
-        .context(anyhow::anyhow!("Could not download {url}"))?;
+        .with_context(|| anyhow::anyhow!("Could not download {url}"))?;
 
     Ok(target_path.to_path_buf())
 }
