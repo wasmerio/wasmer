@@ -1370,8 +1370,16 @@ mod http_fetch {
         let mut writer = Vec::new();
         let uri = Uri::try_from("https://api.github.com/repos/wasmerio/wasmer/releases").unwrap();
 
-        let response = Request::new(&uri)
-            .header("User-Agent", "wasmer")
+        // Increases rate-limiting in GitHub CI
+        let auth = std::env::var("GITHUB_TOKEN");
+        let mut response = Request::new(&uri);
+
+        if let Ok(token) = auth {
+            response.header("Authorization", &format!("Bearer {token}"));
+        }
+
+        let response = response
+            .header("User-Agent", "wasmerio")
             .header("Accept", "application/vnd.github.v3+json")
             .timeout(Some(std::time::Duration::new(30, 0)))
             .send(&mut writer)
