@@ -97,6 +97,9 @@ jobs:
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v3
+      - uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.10.0
       - name: Set up libstdc++ on Linux
         if: matrix.build == 'linux-x64'
         run: |
