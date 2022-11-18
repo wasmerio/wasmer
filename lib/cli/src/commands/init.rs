@@ -84,7 +84,7 @@ impl Init {
                 semver::Version::parse(toml.get("package")?.as_table()?.get("version")?.as_str()?)
                     .ok()
             })
-            .unwrap_or(semver::Version::parse("0.1.0").unwrap());
+            .unwrap_or_else(|| semver::Version::parse("0.1.0").unwrap());
 
         let license = cargo_toml.as_ref().and_then(|toml| {
             Some(
@@ -162,7 +162,7 @@ impl Init {
             _ => BinOrLib::Bin,
         };
 
-        let module_name = package_name.split("/").next().unwrap_or(&package_name);
+        let module_name = package_name.split('/').next().unwrap_or(&package_name);
 
         let modules = vec![wapm_toml::Module {
             name: module_name.to_string(),
@@ -203,13 +203,13 @@ impl Init {
         let default_manifest = wapm_toml::Manifest {
             package: wapm_toml::Package {
                 name: package_name.clone(),
-                version: version,
+                version,
                 description,
-                license: license,
-                license_file: license_file,
-                readme: readme,
-                repository: repository,
-                homepage: homepage,
+                license,
+                license_file,
+                readme,
+                repository,
+                homepage,
                 wasmer_extra_flags: None,
                 disable_command_rename: false,
                 rename_commands_to_raw_command_name: false,
@@ -271,7 +271,7 @@ impl Init {
             base_directory_path: target_file
                 .parent()
                 .map(|o| o.to_path_buf())
-                .unwrap_or(target_file.clone()),
+                .unwrap_or_else(|| target_file.clone()),
         };
 
         if let Some(parent) = target_file.parent() {
