@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::HashMap,
     future::Future,
     io::{IoSlice, SeekFrom},
     ops::{Deref, DerefMut},
@@ -28,7 +28,7 @@ use crate::{
     net::socket::{InodeSocket, InodeSocketKind},
     state::{iterate_poll_events, PollEvent, PollEventSet},
     syscalls::map_io_err,
-    VirtualTaskManager, WasiInodes, WasiState,
+    WasiInodes, WasiState,
 };
 
 pub(crate) enum InodeValFilePollGuardMode {
@@ -37,7 +37,6 @@ pub(crate) enum InodeValFilePollGuardMode {
         immediate: bool,
         waker: Mutex<mpsc::UnboundedReceiver<()>>,
         counter: Arc<AtomicU64>,
-        wakers: Arc<Mutex<VecDeque<tokio::sync::mpsc::UnboundedSender<()>>>>,
     },
     Socket(InodeSocket),
 }
@@ -46,7 +45,6 @@ pub(crate) struct InodeValFilePollGuard {
     pub(crate) fd: u32,
     pub(crate) mode: InodeValFilePollGuardMode,
     pub(crate) subscriptions: HashMap<PollEventSet, Subscription>,
-    pub(crate) tasks: Arc<dyn VirtualTaskManager + Send + Sync + 'static>,
 }
 
 impl<'a> InodeValFilePollGuard {
@@ -54,7 +52,6 @@ impl<'a> InodeValFilePollGuard {
         fd: u32,
         guard: &Kind,
         subscriptions: HashMap<PollEventSet, Subscription>,
-        tasks: Arc<dyn VirtualTaskManager + Send + Sync + 'static>,
     ) -> Option<Self> {
         let mode = match guard.deref() {
             Kind::EventNotifications {
@@ -75,7 +72,6 @@ impl<'a> InodeValFilePollGuard {
                     immediate,
                     waker: Mutex::new(rx),
                     counter: counter.clone(),
-                    wakers: wakers.clone(),
                 }
             }
             Kind::Socket { socket } => InodeValFilePollGuardMode::Socket(socket.clone()),
@@ -94,7 +90,6 @@ impl<'a> InodeValFilePollGuard {
             fd,
             mode,
             subscriptions,
-            tasks,
         })
     }
 }
@@ -143,7 +138,6 @@ impl InodeValFilePollGuard {
 struct InodeValFilePollGuardJoin<'a> {
     mode: &'a InodeValFilePollGuardMode,
     subscriptions: HashMap<PollEventSet, Subscription>,
-    tasks: Arc<dyn VirtualTaskManager + Send + Sync + 'static>,
 }
 
 impl<'a> InodeValFilePollGuardJoin<'a> {
@@ -151,7 +145,6 @@ impl<'a> InodeValFilePollGuardJoin<'a> {
         Self {
             mode: &guard.mode,
             subscriptions: guard.subscriptions.clone(),
-            tasks: guard.tasks.clone(),
         }
     }
 }
@@ -445,13 +438,11 @@ impl InodeValFileReadGuard {
         self,
         fd: u32,
         subscriptions: HashMap<PollEventSet, Subscription>,
-        tasks: Arc<dyn VirtualTaskManager + Send + Sync + 'static>,
     ) -> InodeValFilePollGuard {
         InodeValFilePollGuard {
             fd,
             subscriptions,
             mode: InodeValFilePollGuardMode::File(self.file),
-            tasks,
         }
     }
 }

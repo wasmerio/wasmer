@@ -187,19 +187,19 @@ pub(crate) fn poll_oneoff_internal(
                         __WASI_STDERR_FILENO => {
                             wasi_try_ok!(inodes
                                 .stderr(&state.fs.fd_map)
-                                .map(|g| g.into_poll_guard(fd, in_events, tasks.clone()))
+                                .map(|g| g.into_poll_guard(fd, in_events))
                                 .map_err(fs_error_into_wasi_err))
                         }
                         __WASI_STDIN_FILENO => {
                             wasi_try_ok!(inodes
                                 .stdin(&state.fs.fd_map)
-                                .map(|g| g.into_poll_guard(fd, in_events, tasks.clone()))
+                                .map(|g| g.into_poll_guard(fd, in_events))
                                 .map_err(fs_error_into_wasi_err))
                         }
                         __WASI_STDOUT_FILENO => {
                             wasi_try_ok!(inodes
                                 .stdout(&state.fs.fd_map)
-                                .map(|g| g.into_poll_guard(fd, in_events, tasks.clone()))
+                                .map(|g| g.into_poll_guard(fd, in_events))
                                 .map_err(fs_error_into_wasi_err))
                         }
                         _ => {
@@ -215,7 +215,6 @@ pub(crate) fn poll_oneoff_internal(
                                     fd,
                                     guard.deref(),
                                     in_events,
-                                    tasks.clone(),
                                 ) {
                                     guard
                                 } else {

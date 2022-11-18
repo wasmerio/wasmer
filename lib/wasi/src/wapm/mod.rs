@@ -137,7 +137,7 @@ pub(crate) fn fetch_webc(
                 None
             }
         };
-        tx.send(ret);
+        let _ = tx.send(ret);
     }));
     match rx.recv() {
         Ok(a) => a,
