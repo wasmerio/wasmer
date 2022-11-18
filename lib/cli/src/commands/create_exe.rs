@@ -580,7 +580,7 @@ impl CreateExe {
             cmd.arg(&format!("-femit-bin={}", output_path.display()));
 
             for o in object_paths {
-                cmd.args(o);
+                cmd.arg(o);
             }
             cmd.arg(&c_src_path);
             cmd.arg(libwasmer_path.join(&lib_filename));
