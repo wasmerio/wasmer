@@ -942,7 +942,7 @@ fn try_run_url(
         #[cfg(not(test))]
         let result = wasmer_registry::install_webc_package(url, &checksum);
 
-        let _ = result.map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
+        result.map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
 
         if let Some(sp) = sp {
             sp.close();
