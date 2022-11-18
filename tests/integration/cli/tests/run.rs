@@ -34,7 +34,7 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
         // TODO: this test depends on the latest release -gnu64.tar.gz
         // to be present, but we can't release the next release before
         // the integration tests are passing, so this test depends on itself
-        // 
+        //
         // We need to first release a version without -windows being tested
         // then do a second PR to test that Windows works.
         // "x86_64-windows-gnu",
