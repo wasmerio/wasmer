@@ -237,8 +237,8 @@ impl CreateExe {
             if let Some(setup) = cross_compilation.as_ref() {
                 self.compile_zig(
                     output_path,
-                    wasm_module_path,
-                    std::path::Path::new("static_defs.h").into(),
+                    &[wasm_module_path],
+                    &[std::path::Path::new("static_defs.h").into()],
                     setup,
                     &[],
                     None,
@@ -308,8 +308,8 @@ impl CreateExe {
                     if let Some(setup) = cross_compilation.as_ref() {
                         self.compile_zig(
                             output_path,
-                            object_file_path,
-                            std::path::Path::new("static_defs.h").into(),
+                            &[object_file_path],
+                            &[std::path::Path::new("static_defs.h").into()],
                             setup,
                             &[],
                             None,
@@ -503,8 +503,8 @@ impl CreateExe {
     fn compile_zig(
         &self,
         output_path: PathBuf,
-        object_path: PathBuf,
-        mut header_code_path: PathBuf,
+        object_paths: &[PathBuf],
+        header_code_paths: &[PathBuf],
         setup: &CrossCompileSetup,
         pirita_atoms: &[String],
         pirita_main_atom: Option<&str>,
@@ -540,12 +540,16 @@ impl CreateExe {
             std::fs::write(&c_src_path, WASMER_STATIC_MAIN_C_SOURCE)?;
         }
 
-        if !header_code_path.is_dir() {
-            header_code_path.pop();
-        }
+        let mut header_code_paths = header_code_paths.to_vec();
 
-        if header_code_path.display().to_string().is_empty() {
-            header_code_path = std::env::current_dir()?;
+        for h in header_code_paths.iter_mut() {
+            if !h.is_dir() {
+                h.pop();
+            }
+
+            if h.display().to_string().is_empty() {
+                *h = std::env::current_dir()?;
+            }
         }
 
         /* Compile main function */
@@ -559,7 +563,9 @@ impl CreateExe {
             cmd.arg("-target");
             cmd.arg(&zig_triple);
             cmd.arg(&format!("-I{}/", include_dir.display()));
-            cmd.arg(&format!("-I{}/", header_code_path.display()));
+            for h in header_code_paths {
+                cmd.arg(&format!("-I{}/", h.display()));
+            }
             if zig_triple.contains("windows") {
                 cmd.arg("-lc++");
             } else {
@@ -573,17 +579,21 @@ impl CreateExe {
             cmd.arg("-fno-compiler-rt");
             cmd.arg(&format!("-femit-bin={}", output_path.display()));
 
-            cmd.arg(&object_path);
+            for o in object_paths {
+                cmd.args(o);
+            }
             cmd.arg(&c_src_path);
             cmd.arg(libwasmer_path.join(&lib_filename));
             if zig_triple.contains("windows") {
                 let mut libwasmer_parent = libwasmer_path.clone();
                 libwasmer_parent.pop();
-                cmd.arg(libwasmer_parent.join("winsdk/ADVAPI32.lib"));
-                cmd.arg(libwasmer_parent.join("winsdk/BCRYPT.lib"));
-                cmd.arg(libwasmer_parent.join("winsdk/KERNEL32.lib"));
-                cmd.arg(libwasmer_parent.join("winsdk/USERENV.lib"));
-                cmd.arg(libwasmer_parent.join("winsdk/WS2_32.lib"));
+                let files_winsdk = std::fs::read_dir(libwasmer_parent.join("winsdk"))
+                    .ok()
+                    .map(|res| res.filter_map(|r| Some(r.ok()?.path())).collect::<Vec<_>>())
+                    .unwrap_or_default();
+                for f in files_winsdk {
+                    cmd.arg(f);
+                }
             }
             if let Some(volume_obj) = pirita_volume_path.as_ref() {
                 cmd.arg(volume_obj.clone());
@@ -770,8 +780,6 @@ impl CreateExe {
                 let volume_object_path =
                     Self::write_volume_obj(volume_bytes, target, tempdir_path)?;
 
-                link_objects.push(volume_object_path);
-
                 #[cfg(not(windows))]
                 let c_src_obj = working_dir.join("wasmer_main.o");
                 #[cfg(windows)]
@@ -791,66 +799,29 @@ impl CreateExe {
                 std::fs::write(&c_src_path, c_code.as_bytes())
                     .context("Failed to open C source code file")?;
 
+                // TODO: this branch is never hit because object format serialized +
+                // cross compilation doesn't work
                 if let Some(setup) = cross_compilation {
-                    let CrossCompileSetup {
-                        ref target,
-                        ref zig_binary_path,
-                        ref library,
-                    } = setup;
+                    // zig treats .o files the same as .c files
+                    link_objects.push(c_src_path);
 
-                    let mut libwasmer_path = library.to_path_buf();
-                    let zig_triple = triple_to_zig_triple(target);
-
-                    // Cross compilation is only possible with zig
-                    println!("Library Path: {}", libwasmer_path.display());
-                    println!("Using zig binary: {}", zig_binary_path.display());
-                    println!("Using zig target triple: {}", &zig_triple);
-
-                    let lib_filename = libwasmer_path
-                        .file_name()
-                        .unwrap()
-                        .to_str()
-                        .unwrap()
-                        .to_string();
-
-                    /* Compile main function */
-                    let compilation = {
-                        libwasmer_path.pop();
-                        let mut include_dir = libwasmer_path.clone();
-                        include_dir.pop();
-                        include_dir.push("include");
-                        let mut cmd = Command::new(zig_binary_path);
-                        let mut cmd_mut: &mut Command = cmd
-                            .arg("cc")
-                            .arg("--verbose")
-                            .arg("-target")
-                            .arg(&zig_triple)
-                            .arg(&format!("-I{}", include_dir.display()))
-                            .arg("-lc");
-                        if !zig_triple.contains("windows") {
-                            cmd_mut = cmd_mut.arg("-lunwind");
-                        }
-
-                        cmd_mut
-                            .args(link_objects.into_iter())
-                            .arg(&c_src_path)
-                            .arg(libwasmer_path.join(lib_filename))
-                            .arg("-o")
-                            .arg(&output_path)
-                            .output()
-                            .context("Could not execute `zig`")?
-                    };
-                    if !compilation.status.success() {
-                        return Err(anyhow::anyhow!(String::from_utf8_lossy(
-                            &compilation.stderr
-                        )
-                        .to_string()));
-                    }
+                    self.compile_zig(
+                        output_path,
+                        &link_objects,
+                        &[],
+                        &setup,
+                        &atom_names,
+                        Some(&entrypoint),
+                        Some(volume_object_path),
+                    )?;
                 } else {
+                    // compile with cc instead of zig
                     run_c_compile(c_src_path.as_path(), &c_src_obj, self.target_triple.clone())
                         .context("Failed to compile C source code")?;
 
                     link_objects.push(c_src_obj);
+                    link_objects.push(volume_object_path);
+
                     LinkCode {
                         object_paths: link_objects,
                         output_path,
@@ -873,8 +844,8 @@ impl CreateExe {
                 if let Some(setup) = cross_compilation.as_ref() {
                     self.compile_zig(
                         output_path,
-                        object_file_path,
-                        static_defs_file_path,
+                        &[object_file_path],
+                        &[static_defs_file_path],
                         setup,
                         &atom_names,
                         Some(&entrypoint),
