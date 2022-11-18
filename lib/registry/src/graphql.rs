@@ -9,7 +9,7 @@ use std::time::Duration;
 #[cfg(target_os = "wasi")]
 use {wasm_bus_reqwest::prelude::header::*, wasm_bus_reqwest::prelude::*};
 
-mod proxy {
+pub(crate) mod proxy {
     //! Code for dealing with setting things up to proxy network requests
     use thiserror::Error;
 

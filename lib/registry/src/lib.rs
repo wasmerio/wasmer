@@ -1,5 +1,9 @@
 use std::collections::BTreeMap;
 use std::fmt;
+use anyhow::Context;
+use url::Url;
+use reqwest::header::{RANGE, ACCEPT};
+use core::ops::Range;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -1048,7 +1052,7 @@ pub fn get_remote_webc_manifest(url: &Url) -> Result<RemoteWebcInfo, anyhow::Err
     })
 }
 
-fn setup_webc_client(url: &Url) -> Result<reqwest::blocking::RequestBuilder, anyhow::Error> {
+fn setup_webc_client(url: &Url) -> Result<reqwest::blocking::RequestBuilder, anyhow::Error> {    
     let client = {
         let builder = reqwest::blocking::Client::builder();
         let builder = crate::graphql::proxy::maybe_set_up_proxy_blocking(builder)
