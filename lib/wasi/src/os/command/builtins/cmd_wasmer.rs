@@ -1,7 +1,7 @@
 use std::{any::Any, ops::Deref, sync::Arc};
 
 use wasmer::{FunctionEnvMut, Store};
-use wasmer_vbus::{BusSpawnedProcess, SpawnOptionsConfig};
+use wasmer_vbus::{BusSpawnedProcess, SpawnOptions, VirtualBusError};
 use wasmer_wasi_types::wasi::Errno;
 
 use crate::{
@@ -55,12 +55,15 @@ impl CmdWasmer {
         &self,
         parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
         name: &str,
-        store: Store,
-        mut config: SpawnOptionsConfig<WasiEnv>,
+        store: &mut Option<Store>,
+        config: &mut Option<SpawnOptions<WasiEnv>>,
         what: Option<String>,
         mut args: Vec<String>,
     ) -> wasmer_vbus::Result<BusSpawnedProcess> {
         if let Some(what) = what {
+            let store = store.take().ok_or(VirtualBusError::UnknownError)?;
+            let mut config = config.take().ok_or(VirtualBusError::UnknownError)?.conf();
+
             // Set the arguments of the environment by replacing the state
             let mut state = config.env().state.fork();
             args.insert(0, what.clone());
@@ -108,11 +111,18 @@ impl VirtualCommand for CmdWasmer {
         &self,
         parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
         name: &str,
-        store: Store,
-        config: SpawnOptionsConfig<WasiEnv>,
+        store: &mut Option<Store>,
+        config: &mut Option<SpawnOptions<WasiEnv>>,
     ) -> wasmer_vbus::Result<BusSpawnedProcess> {
         // Read the command we want to run
-        let mut args = config.env().state.args.iter().map(|a| a.as_str());
+        let config_inner = config.as_ref().ok_or(VirtualBusError::UnknownError)?;
+        let mut args = config_inner
+            .conf_ref()
+            .env()
+            .state
+            .args
+            .iter()
+            .map(|a| a.as_str());
         let _alias = args.next();
         let cmd = args.next();
 

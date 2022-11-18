@@ -212,19 +212,38 @@ pub fn proc_spawn_internal(
     };
 
     // Create the new process
+    let bin_factory = Box::new(ctx.data().bin_factory.clone());
     let bus = env.runtime.bus();
     let child_pid = child_env.pid();
-    let child_work = bus.spawn(child_env).spawn(
-        Some(&ctx),
-        name.as_str(),
-        new_store,
-        &ctx.data().bin_factory,
-    );
-    // let mut process = __asyncify(&mut ctx, None, async move {
-    //     Ok(child_work.await.map_err(vbus_error_into_bus_errno))
-    // })
-    // .map_err(|err| BusErrno::Unknown)??;
-    let mut process = todo!();
+
+    let mut new_store = Some(new_store);
+    let mut builder = Some(bus.spawn(child_env));
+
+    // First we try the built in commands
+    let mut process =
+        match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut new_store, &mut builder) {
+            Ok(a) => a,
+            Err(err) => {
+                if err != VirtualBusError::NotFound {
+                    error!(
+                        "wasi[{}:{}]::proc_spawn - builtin failed - {}",
+                        ctx.data().pid(),
+                        ctx.data().tid(),
+                        err
+                    );
+                }
+                // Now we actually spawn the process
+                let child_work =
+                    builder
+                        .take()
+                        .unwrap()
+                        .spawn(name, new_store.take().unwrap(), bin_factory);
+                __asyncify(&mut ctx, None, async move {
+                    Ok(child_work.await.map_err(vbus_error_into_bus_errno))
+                })
+                .map_err(|err| BusErrno::Unknown)??
+            }
+        };
 
     // Add the process to the environment state
     {

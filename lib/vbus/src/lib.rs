@@ -5,7 +5,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use thiserror::Error;
 
-use wasmer::{FunctionEnvMut, Store};
+use wasmer::Store;
 pub use wasmer_vfs::StdioMode;
 use wasmer_vfs::VirtualFile;
 use wasmer_wasi_types::wasi::BusDataFormat;
@@ -48,22 +48,17 @@ pub trait VirtualBusSpawner<T> {
     /// Spawns a new WAPM process by its name
     fn spawn<'a>(
         &'a self,
-        parent_ctx: Option<&'a FunctionEnvMut<'a, T>>,
-        name: &'a str,
+        name: String,
         store: Store,
         config: SpawnOptionsConfig<T>,
-        fallback: &'a dyn VirtualBusSpawner<T>,
-    ) -> Pin<Box<dyn Future<Output = Result<BusSpawnedProcess>> + 'a>> {
+        fallback: Box<dyn VirtualBusSpawner<T>>,
+    ) -> Pin<Box<dyn Future<Output = Result<BusSpawnedProcess>> + 'a>>
+    where
+        T: 'static,
+    {
         Box::pin(async move {
-            fallback
-                .spawn(
-                    parent_ctx,
-                    name,
-                    store,
-                    config,
-                    &mut UnsupportedVirtualBusSpawner::default(),
-                )
-                .await
+            let fallback_inner = Box::new(UnsupportedVirtualBusSpawner::default());
+            fallback.spawn(name, store, config, fallback_inner).await
         })
     }
 }
@@ -71,14 +66,13 @@ pub trait VirtualBusSpawner<T> {
 #[derive(Debug, Default)]
 pub struct UnsupportedVirtualBusSpawner {}
 impl<T> VirtualBusSpawner<T> for UnsupportedVirtualBusSpawner {
-    fn spawn<'a>(
+    fn spawn(
         &self,
-        _parent_ctx: Option<&'a FunctionEnvMut<'a, T>>,
-        _name: &'a str,
+        _name: String,
         _store: Store,
         _config: SpawnOptionsConfig<T>,
-        _fallback: &'a dyn VirtualBusSpawner<T>,
-    ) -> Pin<Box<dyn Future<Output = Result<BusSpawnedProcess>> + 'a>> {
+        _fallback: Box<dyn VirtualBusSpawner<T>>,
+    ) -> Pin<Box<dyn Future<Output = Result<BusSpawnedProcess>>>> {
         Box::pin(async move { Err(VirtualBusError::Unsupported) })
     }
 }
@@ -155,24 +149,26 @@ where
         self.conf
     }
 
+    pub fn conf_ref(&self) -> &SpawnOptionsConfig<T> {
+        &self.conf
+    }
+
     pub fn options(mut self, options: SpawnOptionsConfig<T>) -> Self {
         self.conf = options;
         self
     }
 
     /// Spawns a new bus instance by its reference name
-    pub fn spawn<'a>(
+    pub fn spawn(
         self,
-        parent_ctx: Option<&'a FunctionEnvMut<'a, T>>,
-        name: &'a str,
+        name: String,
         store: Store,
-        fallback: &'a dyn VirtualBusSpawner<T>,
-    ) -> Pin<Box<dyn Future<Output = Result<BusSpawnedProcess>> + 'a>> {
-        Box::pin(async move {
-            self.spawner
-                .spawn(parent_ctx, name, store, self.conf, fallback)
-                .await
-        })
+        fallback: Box<dyn VirtualBusSpawner<T>>,
+    ) -> Pin<Box<dyn Future<Output = Result<BusSpawnedProcess>> + 'static>>
+    where
+        T: 'static,
+    {
+        Box::pin(async move { self.spawner.spawn(name, store, self.conf, fallback).await })
     }
 }
 

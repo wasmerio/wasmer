@@ -10,8 +10,8 @@ use tokio::sync::mpsc;
 use tracing::*;
 use wasmer::{FunctionEnvMut, Instance, Memory, Module, Store};
 use wasmer_vbus::{
-    BusSpawnedProcess, SpawnOptionsConfig, VirtualBusError, VirtualBusInvokable, VirtualBusProcess,
-    VirtualBusScope, VirtualBusSpawner,
+    BusSpawnedProcess, SpawnOptions, SpawnOptionsConfig, VirtualBusError, VirtualBusInvokable,
+    VirtualBusProcess, VirtualBusScope, VirtualBusSpawner,
 };
 use wasmer_wasi_types::wasi::Errno;
 
@@ -200,37 +200,56 @@ pub fn spawn_exec_module(
     })
 }
 
+impl BinFactory {
+    pub fn try_built_in(
+        &self,
+        name: String,
+        parent_ctx: Option<&FunctionEnvMut<'_, WasiEnv>>,
+        store: &mut Option<Store>,
+        builder: &mut Option<SpawnOptions<WasiEnv>>,
+    ) -> wasmer_vbus::Result<BusSpawnedProcess> {
+        // We check for built in commands
+        if let Some(parent_ctx) = parent_ctx {
+            if self.commands.exists(name.as_str()) {
+                return self
+                    .commands
+                    .exec(parent_ctx, name.as_str(), store, builder);
+            }
+        } else {
+            if self.commands.exists(name.as_str()) {
+                tracing::warn!("builtin command without a parent ctx - {}", name);
+            }
+        }
+        Err(VirtualBusError::NotFound)
+    }
+}
+
 impl VirtualBusSpawner<WasiEnv> for BinFactory {
     fn spawn<'a>(
         &'a self,
-        parent_ctx: Option<&'a FunctionEnvMut<'a, WasiEnv>>,
-        name: &'a str,
+        name: String,
         store: Store,
         config: SpawnOptionsConfig<WasiEnv>,
-        _fallback: &'a dyn VirtualBusSpawner<WasiEnv>,
+        _fallback: Box<dyn VirtualBusSpawner<WasiEnv>>,
     ) -> Pin<Box<dyn Future<Output = wasmer_vbus::Result<BusSpawnedProcess>> + 'a>> {
         Box::pin(async move {
             if config.remote_instance().is_some() {
                 return Err(VirtualBusError::Unsupported);
             }
 
-            // We check for built in commands
-            if let Some(parent_ctx) = parent_ctx {
-                if self.commands.exists(name) {
-                    return self.commands.exec(parent_ctx, name, store, config);
-                }
-            } else {
-                if self.commands.exists(name) {
-                    tracing::warn!("builtin command without a parent ctx - {}", name);
-                }
-            }
-
             // Find the binary (or die trying) and make the spawn type
             let binary = self
-                .get_binary(name)
+                .get_binary(name.as_str())
                 .await
                 .ok_or(VirtualBusError::NotFound)?;
-            spawn_exec(binary, name, store, config, &self.runtime, &self.cache)
+            spawn_exec(
+                binary,
+                name.as_str(),
+                store,
+                config,
+                &self.runtime,
+                &self.cache,
+            )
         })
     }
 }
