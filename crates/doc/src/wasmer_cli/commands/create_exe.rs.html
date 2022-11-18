@@ -1717,125 +1717,12 @@
 <span id="1709">1709</span>
 <span id="1710">1710</span>
 <span id="1711">1711</span>
-<span id="1712">1712</span>
-<span id="1713">1713</span>
-<span id="1714">1714</span>
-<span id="1715">1715</span>
-<span id="1716">1716</span>
-<span id="1717">1717</span>
-<span id="1718">1718</span>
-<span id="1719">1719</span>
-<span id="1720">1720</span>
-<span id="1721">1721</span>
-<span id="1722">1722</span>
-<span id="1723">1723</span>
-<span id="1724">1724</span>
-<span id="1725">1725</span>
-<span id="1726">1726</span>
-<span id="1727">1727</span>
-<span id="1728">1728</span>
-<span id="1729">1729</span>
-<span id="1730">1730</span>
-<span id="1731">1731</span>
-<span id="1732">1732</span>
-<span id="1733">1733</span>
-<span id="1734">1734</span>
-<span id="1735">1735</span>
-<span id="1736">1736</span>
-<span id="1737">1737</span>
-<span id="1738">1738</span>
-<span id="1739">1739</span>
-<span id="1740">1740</span>
-<span id="1741">1741</span>
-<span id="1742">1742</span>
-<span id="1743">1743</span>
-<span id="1744">1744</span>
-<span id="1745">1745</span>
-<span id="1746">1746</span>
-<span id="1747">1747</span>
-<span id="1748">1748</span>
-<span id="1749">1749</span>
-<span id="1750">1750</span>
-<span id="1751">1751</span>
-<span id="1752">1752</span>
-<span id="1753">1753</span>
-<span id="1754">1754</span>
-<span id="1755">1755</span>
-<span id="1756">1756</span>
-<span id="1757">1757</span>
-<span id="1758">1758</span>
-<span id="1759">1759</span>
-<span id="1760">1760</span>
-<span id="1761">1761</span>
-<span id="1762">1762</span>
-<span id="1763">1763</span>
-<span id="1764">1764</span>
-<span id="1765">1765</span>
-<span id="1766">1766</span>
-<span id="1767">1767</span>
-<span id="1768">1768</span>
-<span id="1769">1769</span>
-<span id="1770">1770</span>
-<span id="1771">1771</span>
-<span id="1772">1772</span>
-<span id="1773">1773</span>
-<span id="1774">1774</span>
-<span id="1775">1775</span>
-<span id="1776">1776</span>
-<span id="1777">1777</span>
-<span id="1778">1778</span>
-<span id="1779">1779</span>
-<span id="1780">1780</span>
-<span id="1781">1781</span>
-<span id="1782">1782</span>
-<span id="1783">1783</span>
-<span id="1784">1784</span>
-<span id="1785">1785</span>
-<span id="1786">1786</span>
-<span id="1787">1787</span>
-<span id="1788">1788</span>
-<span id="1789">1789</span>
-<span id="1790">1790</span>
-<span id="1791">1791</span>
-<span id="1792">1792</span>
-<span id="1793">1793</span>
-<span id="1794">1794</span>
-<span id="1795">1795</span>
-<span id="1796">1796</span>
-<span id="1797">1797</span>
-<span id="1798">1798</span>
-<span id="1799">1799</span>
-<span id="1800">1800</span>
-<span id="1801">1801</span>
-<span id="1802">1802</span>
-<span id="1803">1803</span>
-<span id="1804">1804</span>
-<span id="1805">1805</span>
-<span id="1806">1806</span>
-<span id="1807">1807</span>
-<span id="1808">1808</span>
-<span id="1809">1809</span>
-<span id="1810">1810</span>
-<span id="1811">1811</span>
-<span id="1812">1812</span>
-<span id="1813">1813</span>
-<span id="1814">1814</span>
-<span id="1815">1815</span>
-<span id="1816">1816</span>
-<span id="1817">1817</span>
-<span id="1818">1818</span>
-<span id="1819">1819</span>
-<span id="1820">1820</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::ObjectFormat</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store::CompilerOptions</span>;
 <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
 <span class="kw">use</span> <span class="ident">clap::Parser</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;http&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;http&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
 <span class="kw">use</span> <span class="ident">std::env</span>;
 <span class="kw">use</span> <span class="ident">std::fmt::Write</span> <span class="kw">as</span> <span class="kw">_</span>;
 <span class="kw">use</span> <span class="ident">std::fs</span>;
@@ -2200,7 +2087,7 @@
                 ));
             }
 
-            <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target_triple</span>) <span class="op">=</span> <span class="ident">target_triple</span>.<span class="ident">clone</span>() {
+            <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target_triple</span>) <span class="op">=</span> <span class="ident">target_triple</span> {
                 <span class="ident">target_triple</span>
             } <span class="kw">else</span> {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
@@ -2235,13 +2122,7 @@
                 <span class="ident">v</span>.<span class="ident">canonicalize</span>().<span class="ident">unwrap_or</span>(<span class="ident">v</span>)
             } <span class="kw">else</span> {
                 {
-                    <span class="kw">let</span> <span class="ident">libwasmer_path</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">target_triple</span>.<span class="ident">unwrap_or</span>(<span class="ident">Triple::host</span>()).<span class="ident">operating_system</span>
-                        <span class="op">==</span> <span class="ident">wasmer_types::OperatingSystem::Windows</span>
-                    {
-                        <span class="string">&quot;lib/wasmer.lib&quot;</span>
-                    } <span class="kw">else</span> {
-                        <span class="string">&quot;lib/libwasmer.a&quot;</span>
-                    };
+                    <span class="kw">let</span> <span class="ident">libwasmer_path</span> <span class="op">=</span> <span class="string">&quot;lib/libwasmer.a&quot;</span>;
                     <span class="kw">let</span> <span class="ident">tarball_dir</span>;
                     <span class="kw">let</span> <span class="ident">filename</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">local_tarball</span>) <span class="op">=</span> <span class="ident">cross_subc</span>.<span class="ident">tarball</span>.<span class="ident">as_ref</span>() {
                         <span class="kw">let</span> <span class="ident">target_file_path</span> <span class="op">=</span> <span class="ident">local_tarball</span>
@@ -2323,6 +2204,7 @@
 
         <span class="ident">run_c_compile</span>(<span class="kw-2">&amp;</span><span class="ident">c_src_path</span>, <span class="kw-2">&amp;</span><span class="ident">c_src_obj</span>, <span class="ident">target_triple</span>.<span class="ident">clone</span>())
             .<span class="ident">context</span>(<span class="string">&quot;Failed to compile C source code&quot;</span>)<span class="question-mark">?</span>;
+
         <span class="ident">LinkCode</span> {
             <span class="ident">object_paths</span>: <span class="macro">vec!</span>[<span class="ident">c_src_obj</span>, <span class="ident">wasm_object_path</span>],
             <span class="ident">output_path</span>,
@@ -2385,6 +2267,8 @@
             <span class="ident">header_code_path</span> <span class="op">=</span> <span class="ident">std::env::current_dir</span>()<span class="question-mark">?</span>;
         }
 
+        <span class="macro">println!</span>(<span class="string">&quot;Output result to: {}&quot;</span>, <span class="ident">output_path</span>.<span class="ident">display</span>());
+
         <span class="comment">/* Compile main function */</span>
         <span class="kw">let</span> <span class="ident">compilation</span> <span class="op">=</span> {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">include_dir</span> <span class="op">=</span> <span class="ident">libwasmer_path</span>.<span class="ident">clone</span>();
@@ -2392,28 +2276,42 @@
             <span class="ident">include_dir</span>.<span class="ident">push</span>(<span class="string">&quot;include&quot;</span>);
 
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="ident">Command::new</span>(<span class="ident">zig_binary_path</span>);
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd_mut</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Command</span> <span class="op">=</span> <span class="ident">cmd</span>
-                .<span class="ident">arg</span>(<span class="string">&quot;cc&quot;</span>)
-                .<span class="ident">arg</span>(<span class="string">&quot;-target&quot;</span>)
-                .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">zig_triple</span>)
-                .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-L{}&quot;</span>, <span class="ident">libwasmer_path</span>.<span class="ident">display</span>()))
-                .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-l:{}&quot;</span>, <span class="ident">lib_filename</span>))
-                .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-I{}&quot;</span>, <span class="ident">include_dir</span>.<span class="ident">display</span>()))
-                .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-I{}&quot;</span>, <span class="ident">header_code_path</span>.<span class="ident">display</span>()));
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">zig_triple</span>.<span class="ident">contains</span>(<span class="string">&quot;windows&quot;</span>) {
-                <span class="ident">cmd_mut</span> <span class="op">=</span> <span class="ident">cmd_mut</span>.<span class="ident">arg</span>(<span class="string">&quot;-lunwind&quot;</span>);
+            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;build-exe&quot;</span>);
+            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-target&quot;</span>);
+            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">zig_triple</span>);
+            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-I{}/&quot;</span>, <span class="ident">include_dir</span>.<span class="ident">display</span>()));
+            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-I{}/&quot;</span>, <span class="ident">header_code_path</span>.<span class="ident">display</span>()));
+            <span class="kw">if</span> <span class="ident">zig_triple</span>.<span class="ident">contains</span>(<span class="string">&quot;windows&quot;</span>) {
+                <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-lc++&quot;</span>);
+            } <span class="kw">else</span> {
+                <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-lc&quot;</span>);
             }
-            <span class="ident">cmd_mut</span> <span class="op">=</span> <span class="ident">cmd_mut</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">object_path</span>).<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">c_src_path</span>);
+            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-lunwind&quot;</span>);
+            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-OReleaseSafe&quot;</span>);
+            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-fstrip&quot;</span>);
+            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-dead_strip&quot;</span>);
+            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-dead_strip_dylibs&quot;</span>);
+            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-fno-compiler-rt&quot;</span>);
+            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-femit-bin={}&quot;</span>, <span class="ident">output_path</span>.<span class="ident">display</span>()));
 
+            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">object_path</span>);
+            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">c_src_path</span>);
+            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="ident">libwasmer_path</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">lib_filename</span>));
+            <span class="kw">if</span> <span class="ident">zig_triple</span>.<span class="ident">contains</span>(<span class="string">&quot;windows&quot;</span>) {
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">libwasmer_parent</span> <span class="op">=</span> <span class="ident">libwasmer_path</span>.<span class="ident">clone</span>();
+                <span class="ident">libwasmer_parent</span>.<span class="ident">pop</span>();
+                <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="ident">libwasmer_parent</span>.<span class="ident">join</span>(<span class="string">&quot;winsdk/ADVAPI32.lib&quot;</span>));
+                <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="ident">libwasmer_parent</span>.<span class="ident">join</span>(<span class="string">&quot;winsdk/BCRYPT.lib&quot;</span>));
+                <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="ident">libwasmer_parent</span>.<span class="ident">join</span>(<span class="string">&quot;winsdk/KERNEL32.lib&quot;</span>));
+                <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="ident">libwasmer_parent</span>.<span class="ident">join</span>(<span class="string">&quot;winsdk/USERENV.lib&quot;</span>));
+                <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="ident">libwasmer_parent</span>.<span class="ident">join</span>(<span class="string">&quot;winsdk/WS2_32.lib&quot;</span>));
+            }
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">volume_obj</span>) <span class="op">=</span> <span class="ident">pirita_volume_path</span>.<span class="ident">as_ref</span>() {
-                <span class="ident">cmd_mut</span> <span class="op">=</span> <span class="ident">cmd_mut</span>.<span class="ident">arg</span>(<span class="ident">volume_obj</span>.<span class="ident">clone</span>());
+                <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="ident">volume_obj</span>.<span class="ident">clone</span>());
             }
 
-            <span class="ident">cmd_mut</span>
-                .<span class="ident">arg</span>(<span class="string">&quot;-o&quot;</span>)
-                .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">output_path</span>)
-                .<span class="ident">output</span>()
-                .<span class="ident">context</span>(<span class="string">&quot;Could not execute `zig`&quot;</span>)<span class="question-mark">?</span>
+            <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">cmd</span>);
+            <span class="ident">cmd</span>.<span class="ident">output</span>().<span class="ident">context</span>(<span class="string">&quot;Could not execute `zig`&quot;</span>)<span class="question-mark">?</span>
         };
         <span class="kw">if</span> <span class="op">!</span><span class="ident">compilation</span>.<span class="ident">status</span>.<span class="ident">success</span>() {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="ident">String::from_utf8_lossy</span>(
@@ -2641,22 +2539,22 @@
                         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">include_dir</span> <span class="op">=</span> <span class="ident">libwasmer_path</span>.<span class="ident">clone</span>();
                         <span class="ident">include_dir</span>.<span class="ident">pop</span>();
                         <span class="ident">include_dir</span>.<span class="ident">push</span>(<span class="string">&quot;include&quot;</span>);
-                        <span class="macro">println!</span>(<span class="string">&quot;include dir: {}&quot;</span>, <span class="ident">include_dir</span>.<span class="ident">display</span>());
                         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="ident">Command::new</span>(<span class="ident">zig_binary_path</span>);
                         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd_mut</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Command</span> <span class="op">=</span> <span class="ident">cmd</span>
                             .<span class="ident">arg</span>(<span class="string">&quot;cc&quot;</span>)
                             .<span class="ident">arg</span>(<span class="string">&quot;--verbose&quot;</span>)
                             .<span class="ident">arg</span>(<span class="string">&quot;-target&quot;</span>)
                             .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">zig_triple</span>)
-                            .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-L{}&quot;</span>, <span class="ident">libwasmer_path</span>.<span class="ident">display</span>()))
-                            .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-l:{}&quot;</span>, <span class="ident">lib_filename</span>))
-                            .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-I{}&quot;</span>, <span class="ident">include_dir</span>.<span class="ident">display</span>()));
+                            .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-I{}&quot;</span>, <span class="ident">include_dir</span>.<span class="ident">display</span>()))
+                            .<span class="ident">arg</span>(<span class="string">&quot;-lc&quot;</span>);
                         <span class="kw">if</span> <span class="op">!</span><span class="ident">zig_triple</span>.<span class="ident">contains</span>(<span class="string">&quot;windows&quot;</span>) {
                             <span class="ident">cmd_mut</span> <span class="op">=</span> <span class="ident">cmd_mut</span>.<span class="ident">arg</span>(<span class="string">&quot;-lunwind&quot;</span>);
                         }
+
                         <span class="ident">cmd_mut</span>
                             .<span class="ident">args</span>(<span class="ident">link_objects</span>.<span class="ident">into_iter</span>())
                             .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">c_src_path</span>)
+                            .<span class="ident">arg</span>(<span class="ident">libwasmer_path</span>.<span class="ident">join</span>(<span class="ident">lib_filename</span>))
                             .<span class="ident">arg</span>(<span class="string">&quot;-o&quot;</span>)
                             .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">output_path</span>)
                             .<span class="ident">output</span>()
@@ -2870,8 +2768,6 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">libwasmer_path</span> <span class="op">=</span> <span class="ident">get_libwasmer_path</span>()<span class="question-mark">?</span>
             .<span class="ident">canonicalize</span>()
             .<span class="ident">context</span>(<span class="string">&quot;Failed to find libwasmer&quot;</span>)<span class="question-mark">?</span>;
-
-        <span class="macro">println!</span>(<span class="string">&quot;Using libwasmer file: {}&quot;</span>, <span class="ident">libwasmer_path</span>.<span class="ident">display</span>());
 
         <span class="kw">let</span> <span class="ident">lib_filename</span> <span class="op">=</span> <span class="ident">libwasmer_path</span>
             .<span class="ident">file_name</span>()
@@ -3185,19 +3081,24 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;http&quot;</span>)]</span>
 <span class="kw">mod</span> <span class="ident">http_fetch</span> {
     <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">anyhow</span>, <span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
-    <span class="kw">use</span> <span class="ident">http_req</span>::{
-        <span class="ident">request::Request</span>,
-        <span class="ident">response</span>::{<span class="ident">Response</span>, <span class="ident">StatusCode</span>},
-        <span class="ident">uri::Uri</span>,
-    };
+    <span class="kw">use</span> <span class="ident">http_req</span>::{<span class="ident">request::Request</span>, <span class="ident">response::StatusCode</span>, <span class="ident">uri::Uri</span>};
     <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
+    <span class="kw">use</span> <span class="ident">target_lexicon::OperatingSystem</span>;
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_latest_release</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">serde_json::Value</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
         <span class="kw">let</span> <span class="ident">uri</span> <span class="op">=</span> <span class="ident">Uri::try_from</span>(<span class="string">&quot;https://api.github.com/repos/wasmerio/wasmer/releases&quot;</span>).<span class="ident">unwrap</span>();
 
-        <span class="kw">let</span> <span class="ident">response</span> <span class="op">=</span> <span class="ident">Request::new</span>(<span class="kw-2">&amp;</span><span class="ident">uri</span>)
-            .<span class="ident">header</span>(<span class="string">&quot;User-Agent&quot;</span>, <span class="string">&quot;wasmer&quot;</span>)
+        <span class="comment">// Increases rate-limiting in GitHub CI</span>
+        <span class="kw">let</span> <span class="ident">auth</span> <span class="op">=</span> <span class="ident">std::env::var</span>(<span class="string">&quot;GITHUB_TOKEN&quot;</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">response</span> <span class="op">=</span> <span class="ident">Request::new</span>(<span class="kw-2">&amp;</span><span class="ident">uri</span>);
+
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">token</span>) <span class="op">=</span> <span class="ident">auth</span> {
+            <span class="ident">response</span>.<span class="ident">header</span>(<span class="string">&quot;Authorization&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;Bearer {token}&quot;</span>));
+        }
+
+        <span class="kw">let</span> <span class="ident">response</span> <span class="op">=</span> <span class="ident">response</span>
+            .<span class="ident">header</span>(<span class="string">&quot;User-Agent&quot;</span>, <span class="string">&quot;wasmerio&quot;</span>)
             .<span class="ident">header</span>(<span class="string">&quot;Accept&quot;</span>, <span class="string">&quot;application/vnd.github.v3+json&quot;</span>)
             .<span class="ident">timeout</span>(<span class="prelude-val">Some</span>(<span class="ident">std::time::Duration::new</span>(<span class="number">30</span>, <span class="number">0</span>)))
             .<span class="ident">send</span>(<span class="kw-2">&amp;mut</span> <span class="ident">writer</span>)
@@ -3205,10 +3106,11 @@
             .<span class="ident">context</span>(<span class="string">&quot;Could not lookup wasmer repository on Github.&quot;</span>)<span class="question-mark">?</span>;
 
         <span class="kw">if</span> <span class="ident">response</span>.<span class="ident">status_code</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">StatusCode::new</span>(<span class="number">200</span>) {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
-                <span class="string">&quot;Github API replied with non-200 status code: {}&quot;</span>,
-                <span class="ident">response</span>.<span class="ident">status_code</span>()
-            ));
+            <span class="macro">eprintln!</span>(
+                <span class="string">&quot;Warning: Github API replied with non-200 status code: {}. Response: {}&quot;</span>,
+                <span class="ident">response</span>.<span class="ident">status_code</span>(),
+                <span class="ident">String::from_utf8_lossy</span>(<span class="kw-2">&amp;</span><span class="ident">writer</span>),
+            );
         }
 
         <span class="kw">let</span> <span class="ident">v</span>: <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="ident">serde_json::Value</span>, <span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">serde_json::from_reader</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">writer</span>);
@@ -3271,31 +3173,64 @@
             }
         };
 
+        <span class="comment">// Test if file has been already downloaded</span>
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">cache_path</span>) <span class="op">=</span> <span class="ident"><span class="kw">super</span>::get_libwasmer_cache_path</span>() {
-            <span class="kw">match</span> <span class="ident">std::fs::read_dir</span>(<span class="kw-2">&amp;</span><span class="ident">cache_path</span>).<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> {
+            <span class="kw">let</span> <span class="ident">paths</span> <span class="op">=</span> <span class="ident">std::fs::read_dir</span>(<span class="kw-2">&amp;</span><span class="ident">cache_path</span>).<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> {
                 <span class="ident">r</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">res</span><span class="op">|</span> <span class="ident">res</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">path</span>()))
                     .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span>, <span class="ident">std::io::Error</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-            }) {
-                <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">entries</span>) =&gt; {
+            });
+
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">entries</span>) <span class="op">=</span> <span class="ident">paths</span> {
+                <span class="ident">entries</span>.<span class="ident">retain</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">to_str</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">ends_with</span>(<span class="string">&quot;.tar.gz&quot;</span>)).<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>));
+
+                <span class="comment">// create-exe on Windows is special: we use the windows-gnu64.tar.gz (GNU ABI)</span>
+                <span class="comment">// to link, not the windows-amd64.tar.gz (MSVC ABI)</span>
+                <span class="kw">if</span> <span class="ident">target_triple</span>.<span class="ident">operating_system</span> <span class="op">==</span> <span class="ident">OperatingSystem::Windows</span> {
+                    <span class="ident">entries</span>.<span class="ident">retain</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> {
+                        <span class="ident">p</span>.<span class="ident">to_str</span>()
+                            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">contains</span>(<span class="string">&quot;windows&quot;</span>) <span class="op">&amp;&amp;</span> <span class="ident">p</span>.<span class="ident">contains</span>(<span class="string">&quot;gnu64&quot;</span>))
+                            .<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>)
+                    });
+                } <span class="kw">else</span> {
                     <span class="ident">entries</span>.<span class="ident">retain</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">to_str</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">check_arch</span>(<span class="ident">p</span>)).<span class="ident">unwrap_or</span>(<span class="bool-val">true</span>));
                     <span class="ident">entries</span>.<span class="ident">retain</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">to_str</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">check_vendor</span>(<span class="ident">p</span>)).<span class="ident">unwrap_or</span>(<span class="bool-val">true</span>));
                     <span class="ident">entries</span>.<span class="ident">retain</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">to_str</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">check_os</span>(<span class="ident">p</span>)).<span class="ident">unwrap_or</span>(<span class="bool-val">true</span>));
                     <span class="ident">entries</span>.<span class="ident">retain</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">to_str</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">check_env</span>(<span class="ident">p</span>)).<span class="ident">unwrap_or</span>(<span class="bool-val">true</span>));
-                    <span class="kw">if</span> <span class="ident">entries</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">1</span> {
-                        <span class="ident">cache_path</span>.<span class="ident">push</span>(<span class="kw-2">&amp;</span><span class="ident">entries</span>[<span class="number">0</span>]);
-                        <span class="kw">if</span> <span class="ident">cache_path</span>.<span class="ident">exists</span>() {
-                            <span class="macro">eprintln!</span>(
-                                <span class="string">&quot;Using cached tarball to cache path `{}`.&quot;</span>,
-                                <span class="ident">cache_path</span>.<span class="ident">display</span>()
-                            );
-                            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">cache_path</span>);
-                        }
+                }
+
+                <span class="kw">if</span> <span class="op">!</span><span class="ident">entries</span>.<span class="ident">is_empty</span>() {
+                    <span class="ident">cache_path</span>.<span class="ident">push</span>(<span class="kw-2">&amp;</span><span class="ident">entries</span>[<span class="number">0</span>]);
+                    <span class="kw">if</span> <span class="ident">cache_path</span>.<span class="ident">exists</span>() {
+                        <span class="macro">eprintln!</span>(
+                            <span class="string">&quot;Using cached tarball to cache path `{}`.&quot;</span>,
+                            <span class="ident">cache_path</span>.<span class="ident">display</span>()
+                        );
+                        <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">cache_path</span>);
                     }
                 }
-                <span class="prelude-val">Err</span>(<span class="ident">_ioerr</span>) =&gt; {}
             }
         }
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">assets</span>) <span class="op">=</span> <span class="ident">release</span>[<span class="string">&quot;assets&quot;</span>].<span class="ident">as_array_mut</span>() {
+
+        <span class="kw">let</span> <span class="ident">assets</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">release</span>[<span class="string">&quot;assets&quot;</span>].<span class="ident">as_array_mut</span>() {
+            <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>,
+            <span class="prelude-val">None</span> =&gt; {
+                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
+                    <span class="string">&quot;GitHub API: no [assets] array in JSON response for latest releases&quot;</span>
+                ));
+            }
+        };
+
+        <span class="comment">// create-exe on Windows is special: we use the windows-gnu64.tar.gz (GNU ABI)</span>
+        <span class="comment">// to link, not the windows-amd64.tar.gz (MSVC ABI)</span>
+        <span class="kw">if</span> <span class="ident">target_triple</span>.<span class="ident">operating_system</span> <span class="op">==</span> <span class="ident">OperatingSystem::Windows</span> {
+            <span class="ident">assets</span>.<span class="ident">retain</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> {
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">name</span>) <span class="op">=</span> <span class="ident">a</span>[<span class="string">&quot;name&quot;</span>].<span class="ident">as_str</span>() {
+                    <span class="ident">name</span>.<span class="ident">contains</span>(<span class="string">&quot;windows&quot;</span>) <span class="op">&amp;&amp;</span> <span class="ident">name</span>.<span class="ident">contains</span>(<span class="string">&quot;gnu64&quot;</span>)
+                } <span class="kw">else</span> {
+                    <span class="bool-val">false</span>
+                }
+            });
+        } <span class="kw">else</span> {
             <span class="ident">assets</span>.<span class="ident">retain</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> {
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">name</span>) <span class="op">=</span> <span class="ident">a</span>[<span class="string">&quot;name&quot;</span>].<span class="ident">as_str</span>() {
                     <span class="ident">check_arch</span>(<span class="ident">name</span>)
@@ -3310,6 +3245,7 @@
                     <span class="bool-val">false</span>
                 }
             });
+
             <span class="ident">assets</span>.<span class="ident">retain</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> {
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">name</span>) <span class="op">=</span> <span class="ident">a</span>[<span class="string">&quot;name&quot;</span>].<span class="ident">as_str</span>() {
                     <span class="ident">check_os</span>(<span class="ident">name</span>)
@@ -3317,6 +3253,7 @@
                     <span class="bool-val">false</span>
                 }
             });
+
             <span class="ident">assets</span>.<span class="ident">retain</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> {
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">name</span>) <span class="op">=</span> <span class="ident">a</span>[<span class="string">&quot;name&quot;</span>].<span class="ident">as_str</span>() {
                     <span class="ident">check_env</span>(<span class="ident">name</span>)
@@ -3324,128 +3261,107 @@
                     <span class="bool-val">false</span>
                 }
             });
+        }
 
-            <span class="kw">if</span> <span class="ident">assets</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">1</span> {
-                <span class="kw">let</span> <span class="ident">browser_download_url</span> <span class="op">=</span>
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">url</span>) <span class="op">=</span> <span class="ident">assets</span>[<span class="number">0</span>][<span class="string">&quot;browser_download_url&quot;</span>].<span class="ident">as_str</span>() {
-                        <span class="ident">url</span>.<span class="ident">to_string</span>()
-                    } <span class="kw">else</span> {
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
-                            <span class="string">&quot;Could not get download url from Github API response.&quot;</span>
-                        ));
-                    };
-                <span class="kw">let</span> <span class="ident">filename</span> <span class="op">=</span> <span class="ident">browser_download_url</span>
-                    .<span class="ident">split</span>(<span class="string">&#39;/&#39;</span>)
-                    .<span class="ident">last</span>()
-                    .<span class="ident">unwrap_or</span>(<span class="string">&quot;output&quot;</span>)
-                    .<span class="ident">to_string</span>();
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">std::fs::File::create</span>(<span class="kw-2">&amp;</span><span class="ident">filename</span>)<span class="question-mark">?</span>;
-                <span class="macro">println!</span>(<span class="string">&quot;Downloading {} to {}&quot;</span>, <span class="ident">browser_download_url</span>, <span class="kw-2">&amp;</span><span class="ident">filename</span>);
-                <span class="kw">let</span> <span class="ident">download_thread</span>: <span class="ident">std::thread::JoinHandle</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Response</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span>
-                    <span class="ident">std::thread::spawn</span>(<span class="kw">move</span> <span class="op">|</span><span class="op">|</span> {
-                        <span class="kw">let</span> <span class="ident">uri</span> <span class="op">=</span> <span class="ident">Uri::try_from</span>(<span class="ident">browser_download_url</span>.<span class="ident">as_str</span>())<span class="question-mark">?</span>;
-                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">response</span> <span class="op">=</span> <span class="ident">Request::new</span>(<span class="kw-2">&amp;</span><span class="ident">uri</span>)
-                            .<span class="ident">header</span>(<span class="string">&quot;User-Agent&quot;</span>, <span class="string">&quot;wasmer&quot;</span>)
-                            .<span class="ident">send</span>(<span class="kw-2">&amp;mut</span> <span class="ident">file</span>)
-                            .<span class="ident">map_err</span>(<span class="ident">anyhow::Error::new</span>)
-                            .<span class="ident">context</span>(<span class="string">&quot;Could not lookup wasmer artifact on Github.&quot;</span>)<span class="question-mark">?</span>;
-                        <span class="kw">if</span> <span class="ident">response</span>.<span class="ident">status_code</span>() <span class="op">==</span> <span class="ident">StatusCode::new</span>(<span class="number">302</span>) {
-                            <span class="kw">let</span> <span class="ident">redirect_uri</span> <span class="op">=</span>
-                                <span class="ident">Uri::try_from</span>(<span class="ident">response</span>.<span class="ident">headers</span>().<span class="ident">get</span>(<span class="string">&quot;Location&quot;</span>).<span class="ident">unwrap</span>().<span class="ident">as_str</span>())
-                                    .<span class="ident">unwrap</span>();
-                            <span class="ident">response</span> <span class="op">=</span> <span class="ident">Request::new</span>(<span class="kw-2">&amp;</span><span class="ident">redirect_uri</span>)
-                                .<span class="ident">header</span>(<span class="string">&quot;User-Agent&quot;</span>, <span class="string">&quot;wasmer&quot;</span>)
-                                .<span class="ident">send</span>(<span class="kw-2">&amp;mut</span> <span class="ident">file</span>)
-                                .<span class="ident">map_err</span>(<span class="ident">anyhow::Error::new</span>)
-                                .<span class="ident">context</span>(<span class="string">&quot;Could not lookup wasmer artifact on Github.&quot;</span>)<span class="question-mark">?</span>;
-                        }
-                        <span class="prelude-val">Ok</span>(<span class="ident">response</span>)
-                    });
-                <span class="kw">match</span> <span class="ident"><span class="kw">super</span>::get_libwasmer_cache_path</span>() {
-                    <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">cache_path</span>) =&gt; {
-                        <span class="ident">cache_path</span>.<span class="ident">push</span>(<span class="kw-2">&amp;</span><span class="ident">filename</span>);
-                        <span class="kw">if</span> <span class="op">!</span><span class="ident">cache_path</span>.<span class="ident">exists</span>() {
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">std::fs::copy</span>(<span class="kw-2">&amp;</span><span class="ident">filename</span>, <span class="kw-2">&amp;</span><span class="ident">cache_path</span>) {
-                                <span class="macro">eprintln!</span>(
-                                    <span class="string">&quot;Could not store tarball to cache path `{}`: {}&quot;</span>,
-                                    <span class="ident">cache_path</span>.<span class="ident">display</span>(),
-                                    <span class="ident">err</span>
-                                );
-                            } <span class="kw">else</span> {
-                                <span class="macro">eprintln!</span>(
-                                    <span class="string">&quot;Cached tarball to cache path `{}`.&quot;</span>,
-                                    <span class="ident">cache_path</span>.<span class="ident">display</span>()
-                                );
-                            }
-                        }
-                    }
-                    <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                        <span class="macro">eprintln!</span>(
-                            <span class="string">&quot;Could not determine cache path for downloaded binaries.: {}&quot;</span>,
-                            <span class="ident">err</span>
-                        );
-                    }
+        <span class="kw">if</span> <span class="ident">assets</span>.<span class="ident">len</span>() <span class="op">!</span><span class="op">=</span> <span class="number">1</span> {
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
+                <span class="string">&quot;GitHub API: more that one release selected for target {target_triple}: {assets:?}&quot;</span>
+            ));
+        }
+
+        <span class="kw">let</span> <span class="ident">browser_download_url</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">url</span>) <span class="op">=</span> <span class="ident">assets</span>[<span class="number">0</span>][<span class="string">&quot;browser_download_url&quot;</span>].<span class="ident">as_str</span>() {
+            <span class="ident">url</span>.<span class="ident">to_string</span>()
+        } <span class="kw">else</span> {
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
+                <span class="string">&quot;Could not get download url from Github API response.&quot;</span>
+            ));
+        };
+
+        <span class="kw">let</span> <span class="ident">filename</span> <span class="op">=</span> <span class="ident">browser_download_url</span>
+            .<span class="ident">split</span>(<span class="string">&#39;/&#39;</span>)
+            .<span class="ident">last</span>()
+            .<span class="ident">unwrap_or</span>(<span class="string">&quot;output&quot;</span>)
+            .<span class="ident">to_string</span>();
+
+        <span class="kw">let</span> <span class="ident">download_tempdir</span> <span class="op">=</span> <span class="ident">tempdir::TempDir::new</span>(<span class="string">&quot;wasmer-download&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">download_path</span> <span class="op">=</span> <span class="ident">download_tempdir</span>.<span class="ident">path</span>().<span class="ident">to_path_buf</span>().<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">filename</span>);
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">std::fs::File::create</span>(<span class="kw-2">&amp;</span><span class="ident">download_path</span>)<span class="question-mark">?</span>;
+        <span class="macro">eprintln!</span>(
+            <span class="string">&quot;Downloading {} to {}&quot;</span>,
+            <span class="ident">browser_download_url</span>,
+            <span class="ident">download_path</span>.<span class="ident">display</span>()
+        );
+
+        <span class="kw">let</span> <span class="ident">uri</span> <span class="op">=</span> <span class="ident">Uri::try_from</span>(<span class="ident">browser_download_url</span>.<span class="ident">as_str</span>())<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">response</span> <span class="op">=</span> <span class="ident">Request::new</span>(<span class="kw-2">&amp;</span><span class="ident">uri</span>)
+            .<span class="ident">header</span>(<span class="string">&quot;User-Agent&quot;</span>, <span class="string">&quot;wasmer&quot;</span>)
+            .<span class="ident">send</span>(<span class="kw-2">&amp;mut</span> <span class="ident">file</span>)
+            .<span class="ident">map_err</span>(<span class="ident">anyhow::Error::new</span>)
+            .<span class="ident">context</span>(<span class="string">&quot;Could not lookup wasmer artifact on Github.&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">if</span> <span class="ident">response</span>.<span class="ident">status_code</span>() <span class="op">==</span> <span class="ident">StatusCode::new</span>(<span class="number">302</span>) {
+            <span class="kw">let</span> <span class="ident">redirect_uri</span> <span class="op">=</span>
+                <span class="ident">Uri::try_from</span>(<span class="ident">response</span>.<span class="ident">headers</span>().<span class="ident">get</span>(<span class="string">&quot;Location&quot;</span>).<span class="ident">unwrap</span>().<span class="ident">as_str</span>()).<span class="ident">unwrap</span>();
+            <span class="ident">response</span> <span class="op">=</span> <span class="ident">Request::new</span>(<span class="kw-2">&amp;</span><span class="ident">redirect_uri</span>)
+                .<span class="ident">header</span>(<span class="string">&quot;User-Agent&quot;</span>, <span class="string">&quot;wasmer&quot;</span>)
+                .<span class="ident">send</span>(<span class="kw-2">&amp;mut</span> <span class="ident">file</span>)
+                .<span class="ident">map_err</span>(<span class="ident">anyhow::Error::new</span>)
+                .<span class="ident">context</span>(<span class="string">&quot;Could not lookup wasmer artifact on Github.&quot;</span>)<span class="question-mark">?</span>;
+        }
+
+        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">response</span>;
+
+        <span class="kw">match</span> <span class="ident"><span class="kw">super</span>::get_libwasmer_cache_path</span>() {
+            <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">cache_path</span>) =&gt; {
+                <span class="ident">cache_path</span>.<span class="ident">push</span>(<span class="kw-2">&amp;</span><span class="ident">filename</span>);
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">std::fs::copy</span>(<span class="kw-2">&amp;</span><span class="ident">download_path</span>, <span class="kw-2">&amp;</span><span class="ident">cache_path</span>) {
+                    <span class="macro">eprintln!</span>(
+                        <span class="string">&quot;Could not store tarball to cache path `{}`: {}&quot;</span>,
+                        <span class="ident">cache_path</span>.<span class="ident">display</span>(),
+                        <span class="ident">err</span>
+                    );
+                    <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
+                        <span class="string">&quot;Could not copy from {} to {}&quot;</span>,
+                        <span class="ident">download_path</span>.<span class="ident">display</span>(),
+                        <span class="ident">cache_path</span>.<span class="ident">display</span>()
+                    ))
+                } <span class="kw">else</span> {
+                    <span class="macro">eprintln!</span>(<span class="string">&quot;Cached tarball to cache path `{}`.&quot;</span>, <span class="ident">cache_path</span>.<span class="ident">display</span>());
+                    <span class="prelude-val">Ok</span>(<span class="ident">cache_path</span>)
                 }
-                <span class="kw">let</span> <span class="ident">_response</span> <span class="op">=</span> <span class="ident">download_thread</span>
-                    .<span class="ident">join</span>()
-                    .<span class="ident">expect</span>(<span class="string">&quot;Could not join downloading thread&quot;</span>);
-                <span class="kw">match</span> <span class="ident"><span class="kw">super</span>::get_libwasmer_cache_path</span>() {
-                    <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">cache_path</span>) =&gt; {
-                        <span class="ident">cache_path</span>.<span class="ident">push</span>(<span class="kw-2">&amp;</span><span class="ident">filename</span>);
-                        <span class="kw">if</span> <span class="op">!</span><span class="ident">cache_path</span>.<span class="ident">exists</span>() {
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">std::fs::copy</span>(<span class="kw-2">&amp;</span><span class="ident">filename</span>, <span class="kw-2">&amp;</span><span class="ident">cache_path</span>) {
-                                <span class="macro">eprintln!</span>(
-                                    <span class="string">&quot;Could not store tarball to cache path `{}`: {}&quot;</span>,
-                                    <span class="ident">cache_path</span>.<span class="ident">display</span>(),
-                                    <span class="ident">err</span>
-                                );
-                            } <span class="kw">else</span> {
-                                <span class="macro">eprintln!</span>(
-                                    <span class="string">&quot;Cached tarball to cache path `{}`.&quot;</span>,
-                                    <span class="ident">cache_path</span>.<span class="ident">display</span>()
-                                );
-                            }
-                        }
-                    }
-                    <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-                        <span class="macro">eprintln!</span>(
-                            <span class="string">&quot;Could not determine cache path for downloaded binaries.: {}&quot;</span>,
-                            <span class="ident">err</span>
-                        );
-                    }
-                }
-                <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">filename</span>.<span class="ident">into</span>());
+            }
+            <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
+                <span class="macro">eprintln!</span>(
+                    <span class="string">&quot;Could not determine cache path for downloaded binaries.: {}&quot;</span>,
+                    <span class="ident">err</span>
+                );
+                <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">&quot;Could not determine libwasmer cache path&quot;</span>))
             }
         }
-        <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">&quot;Could not get release artifact.&quot;</span>))
     }
 }
 
 <span class="kw">fn</span> <span class="ident">untar</span>(<span class="ident">tarball</span>: <span class="ident">std::path::PathBuf</span>, <span class="ident">target</span>: <span class="ident">std::path::PathBuf</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">files</span> <span class="op">=</span> <span class="ident">std::process::Command::new</span>(<span class="string">&quot;tar&quot;</span>)
-        .<span class="ident">arg</span>(<span class="string">&quot;-tf&quot;</span>)
-        .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">tarball</span>)
-        .<span class="ident">output</span>()
-        .<span class="ident">expect</span>(<span class="string">&quot;failed to execute process&quot;</span>)
-        .<span class="ident">stdout</span>;
+    <span class="kw">use</span> <span class="ident">walkdir::WalkDir</span>;
 
-    <span class="kw">let</span> <span class="ident">files_s</span> <span class="op">=</span> <span class="ident">String::from_utf8</span>(<span class="ident">files</span>)<span class="question-mark">?</span>;
+    <span class="ident">wasmer_registry::try_unpack_targz</span>(<span class="kw-2">&amp;</span><span class="ident">tarball</span>, <span class="kw-2">&amp;</span><span class="ident">target</span>, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">files</span> <span class="op">=</span> <span class="ident">files_s</span>
-        .<span class="ident">lines</span>()
-        .<span class="ident">filter</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="op">!</span><span class="ident">p</span>.<span class="ident">ends_with</span>(<span class="string">&#39;/&#39;</span>))
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">to_string</span>())
-        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+    <span class="prelude-val">Ok</span>(<span class="ident">WalkDir::new</span>(<span class="kw-2">&amp;</span><span class="ident">target</span>)
+        .<span class="ident">into_iter</span>()
+        .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">ok</span>())
+        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">entry</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">entry</span>.<span class="ident">path</span>().<span class="ident">display</span>()))
+        .<span class="ident">collect</span>())
+}
 
-    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">target</span>);
-    <span class="kw">let</span> <span class="ident">_output</span> <span class="op">=</span> <span class="ident">std::process::Command::new</span>(<span class="string">&quot;tar&quot;</span>)
-        .<span class="ident">arg</span>(<span class="string">&quot;-xf&quot;</span>)
-        .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">tarball</span>)
-        .<span class="ident">arg</span>(<span class="string">&quot;-C&quot;</span>)
-        .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="ident">target</span>)
-        .<span class="ident">output</span>()
-        .<span class="ident">expect</span>(<span class="string">&quot;failed to execute process&quot;</span>);
-    <span class="prelude-val">Ok</span>(<span class="ident">files</span>)
+<span class="kw">fn</span> <span class="ident">get_zig_exe_str</span>() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> {
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
+    {
+        <span class="string">&quot;zig.exe&quot;</span>
+    }
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
+    {
+        <span class="string">&quot;zig&quot;</span>
+    }
 }
 
 <span class="kw">fn</span> <span class="ident">find_zig_binary</span>(<span class="ident">path</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
@@ -3478,24 +3394,13 @@
                 <span class="ident">OsStr::new</span>(<span class="string">&quot;&quot;</span>)
             },
         )) {
-            <span class="ident">p</span>.<span class="ident">push</span>(<span class="string">&quot;zig&quot;</span>);
+            <span class="ident">p</span>.<span class="ident">push</span>(<span class="ident">get_zig_exe_str</span>());
             <span class="kw">if</span> <span class="ident">p</span>.<span class="ident">exists</span>() {
                 <span class="ident">retval</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">p</span>);
                 <span class="kw">break</span>;
             }
         }
-        <span class="ident">retval</span>
-            .<span class="ident">or_else</span>(<span class="op">|</span><span class="op">|</span> {
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;http&quot;</span>)]</span>
-                {
-                    <span class="ident">try_autoinstall_zig</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">join</span>(<span class="string">&quot;zig&quot;</span>))
-                }
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;http&quot;</span>))]</span>
-                {
-                    <span class="prelude-val">None</span>
-                }
-            })
-            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow!</span>(<span class="string">&quot;Could not find `zig` binary in PATH.&quot;</span>))<span class="question-mark">?</span>
+        <span class="ident">retval</span>.<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow!</span>(<span class="string">&quot;Could not find `zig` binary in PATH.&quot;</span>))<span class="question-mark">?</span>
     };
 
     <span class="kw">let</span> <span class="ident">version</span> <span class="op">=</span> <span class="ident">std::process::Command::new</span>(<span class="kw-2">&amp;</span><span class="ident">retval</span>)
@@ -3522,129 +3427,6 @@
     } <span class="kw">else</span> {
         <span class="prelude-val">Ok</span>(<span class="ident">retval</span>)
     }
-}
-
-<span class="doccomment">/// Tries to auto-install zig into ~/.wasmer/utils/zig/{version}</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;http&quot;</span>)]</span>
-<span class="kw">fn</span> <span class="ident">try_autoinstall_zig</span>() -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">zig_dir</span> <span class="op">=</span> <span class="ident">wasmer_registry::get_wasmer_root_dir</span>()<span class="question-mark">?</span>
-        .<span class="ident">join</span>(<span class="string">&quot;utils&quot;</span>)
-        .<span class="ident">join</span>(<span class="string">&quot;zig&quot;</span>);
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">existing_version</span> <span class="op">=</span> <span class="prelude-val">None</span>;
-
-    <span class="kw">if</span> <span class="op">!</span><span class="ident">zig_dir</span>.<span class="ident">exists</span>() {
-        <span class="kw">return</span> <span class="ident">install_zig</span>(<span class="kw-2">&amp;</span><span class="ident">zig_dir</span>);
-    }
-
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="kw-2">mut</span> <span class="ident">rd</span>) <span class="op">=</span> <span class="ident">std::fs::read_dir</span>(<span class="kw-2">&amp;</span><span class="ident">zig_dir</span>) {
-        <span class="ident">existing_version</span> <span class="op">=</span> <span class="ident">rd</span>.<span class="ident">next</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">entry</span><span class="op">|</span> {
-            <span class="kw">let</span> <span class="ident">string</span> <span class="op">=</span> <span class="ident">entry</span>.<span class="ident">ok</span>()<span class="question-mark">?</span>.<span class="ident">file_name</span>().<span class="ident">to_str</span>()<span class="question-mark">?</span>.<span class="ident">to_string</span>();
-            <span class="kw">if</span> <span class="ident">zig_dir</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">string</span>).<span class="ident">join</span>(<span class="string">&quot;zig&quot;</span>).<span class="ident">exists</span>() {
-                <span class="prelude-val">Some</span>(<span class="ident">string</span>)
-            } <span class="kw">else</span> {
-                <span class="prelude-val">None</span>
-            }
-        })
-    }
-
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">exist</span>) <span class="op">=</span> <span class="ident">existing_version</span> {
-        <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">zig_dir</span>.<span class="ident">join</span>(<span class="ident">exist</span>));
-    }
-
-    <span class="ident">install_zig</span>(<span class="kw-2">&amp;</span><span class="ident">zig_dir</span>)
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;http&quot;</span>)]</span>
-<span class="kw">fn</span> <span class="ident">install_zig</span>(<span class="ident">target_targz_path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">reqwest::blocking::get</span>(<span class="string">&quot;https://ziglang.org/download/index.json&quot;</span>);
-    <span class="kw">let</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">resp</span>.<span class="ident">ok</span>()<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">resp</span>.<span class="ident">json</span>::<span class="op">&lt;</span><span class="ident">ZiglangOrgJson</span><span class="op">&gt;</span>();
-    <span class="kw">let</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">resp</span>.<span class="ident">ok</span>()<span class="question-mark">?</span>;
-
-    <span class="kw">let</span> <span class="ident">default_key</span> <span class="op">=</span> <span class="string">&quot;master&quot;</span>.<span class="ident">to_string</span>();
-    <span class="kw">let</span> (<span class="ident">latest_version</span>, <span class="ident">latest_version_json</span>) <span class="op">=</span> <span class="ident">resp</span>
-        .<span class="ident">versions</span>
-        .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">default_key</span>)
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> (<span class="kw-2">&amp;</span><span class="ident">default_key</span>, <span class="ident">v</span>))
-        .<span class="ident">or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">resp</span>.<span class="ident">versions</span>.<span class="ident">iter</span>().<span class="ident">next</span>())<span class="question-mark">?</span>;
-
-    <span class="kw">let</span> <span class="ident">latest_version</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">latest_version_json</span>.<span class="ident">version</span>.<span class="ident">as_ref</span>() {
-        <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>,
-        <span class="prelude-val">None</span> =&gt; <span class="ident">latest_version</span>,
-    };
-
-    <span class="kw">let</span> <span class="ident">install_dir</span> <span class="op">=</span> <span class="ident">target_targz_path</span>.<span class="ident">join</span>(<span class="ident">latest_version</span>);
-    <span class="kw">if</span> <span class="ident">install_dir</span>.<span class="ident">join</span>(<span class="string">&quot;zig&quot;</span>).<span class="ident">exists</span>() {
-        <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">install_dir</span>);
-    }
-
-    <span class="kw">let</span> <span class="ident">native_host_url</span> <span class="op">=</span> <span class="ident">latest_version_json</span>.<span class="ident">get_native_host_url</span>()<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">install_dir</span>);
-    <span class="ident">wasmer_registry::download_and_unpack_targz</span>(<span class="kw-2">&amp;</span><span class="ident">native_host_url</span>, <span class="kw-2">&amp;</span><span class="ident">install_dir</span>, <span class="bool-val">true</span>).<span class="ident">ok</span>()
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;http&quot;</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
-<span class="kw">struct</span> <span class="ident">ZiglangOrgJson</span> {
-    <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">flatten</span>)]</span>
-    <span class="ident">versions</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">ZiglangOrgJsonTarget</span><span class="op">&gt;</span>,
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;http&quot;</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
-<span class="kw">struct</span> <span class="ident">ZiglangOrgJsonTarget</span> {
-    <span class="ident">version</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="ident">date</span>: <span class="ident">String</span>,
-    <span class="ident">src</span>: <span class="ident">ZiglangOrgJsonBuildTarget</span>,
-    <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">rename</span> <span class="op">=</span> <span class="string">&quot;x86_64-freebsd&quot;</span>)]</span>
-    <span class="ident">x86_64_freebsd</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ZiglangOrgJsonBuildTarget</span><span class="op">&gt;</span>,
-    <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">rename</span> <span class="op">=</span> <span class="string">&quot;x86_64-macos&quot;</span>)]</span>
-    <span class="ident">x86_64_macos</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ZiglangOrgJsonBuildTarget</span><span class="op">&gt;</span>,
-    <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">rename</span> <span class="op">=</span> <span class="string">&quot;aarch64-macos&quot;</span>)]</span>
-    <span class="ident">aarch64_macos</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ZiglangOrgJsonBuildTarget</span><span class="op">&gt;</span>,
-    <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">rename</span> <span class="op">=</span> <span class="string">&quot;x86_64-windows&quot;</span>)]</span>
-    <span class="ident">x86_64_windows</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ZiglangOrgJsonBuildTarget</span><span class="op">&gt;</span>,
-    <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">rename</span> <span class="op">=</span> <span class="string">&quot;x86_64-linux&quot;</span>)]</span>
-    <span class="ident">x86_64_linux</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ZiglangOrgJsonBuildTarget</span><span class="op">&gt;</span>,
-    <span class="attribute">#[<span class="ident">serde</span>(<span class="ident">rename</span> <span class="op">=</span> <span class="string">&quot;aarch64-linux&quot;</span>)]</span>
-    <span class="ident">aarch64_linux</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ZiglangOrgJsonBuildTarget</span><span class="op">&gt;</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">ZiglangOrgJsonTarget</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_native_host_url</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">native_host</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">target_lexicon::HOST</span>);
-        <span class="kw">if</span> <span class="ident">native_host</span>.<span class="ident">starts_with</span>(<span class="string">&quot;x86_64&quot;</span>) {
-            <span class="kw">if</span> <span class="ident">native_host</span>.<span class="ident">contains</span>(<span class="string">&quot;freebsd&quot;</span>) {
-                <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">x86_64_freebsd</span>.<span class="ident">as_ref</span>()<span class="question-mark">?</span>.<span class="ident">tarball</span>.<span class="ident">clone</span>())
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">native_host</span>.<span class="ident">contains</span>(<span class="string">&quot;darwin&quot;</span>) <span class="op">|</span><span class="op">|</span> <span class="ident">native_host</span>.<span class="ident">contains</span>(<span class="string">&quot;macos&quot;</span>) {
-                <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">x86_64_macos</span>.<span class="ident">as_ref</span>()<span class="question-mark">?</span>.<span class="ident">tarball</span>.<span class="ident">clone</span>())
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">native_host</span>.<span class="ident">contains</span>(<span class="string">&quot;windows&quot;</span>) {
-                <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">x86_64_windows</span>.<span class="ident">as_ref</span>()<span class="question-mark">?</span>.<span class="ident">tarball</span>.<span class="ident">clone</span>())
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">native_host</span>.<span class="ident">contains</span>(<span class="string">&quot;linux&quot;</span>) {
-                <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">x86_64_linux</span>.<span class="ident">as_ref</span>()<span class="question-mark">?</span>.<span class="ident">tarball</span>.<span class="ident">clone</span>())
-            } <span class="kw">else</span> {
-                <span class="prelude-val">None</span>
-            }
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">native_host</span>.<span class="ident">starts_with</span>(<span class="string">&quot;aarch64&quot;</span>) {
-            <span class="kw">if</span> <span class="ident">native_host</span>.<span class="ident">contains</span>(<span class="string">&quot;darwin&quot;</span>) <span class="op">|</span><span class="op">|</span> <span class="ident">native_host</span>.<span class="ident">contains</span>(<span class="string">&quot;macos&quot;</span>) {
-                <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">aarch64_macos</span>.<span class="ident">as_ref</span>()<span class="question-mark">?</span>.<span class="ident">tarball</span>.<span class="ident">clone</span>())
-            } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">native_host</span>.<span class="ident">contains</span>(<span class="string">&quot;linux&quot;</span>) {
-                <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">aarch64_linux</span>.<span class="ident">as_ref</span>()<span class="question-mark">?</span>.<span class="ident">tarball</span>.<span class="ident">clone</span>())
-            } <span class="kw">else</span> {
-                <span class="prelude-val">None</span>
-            }
-        } <span class="kw">else</span> {
-            <span class="prelude-val">None</span>
-        }
-    }
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;http&quot;</span>)]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
-<span class="kw">struct</span> <span class="ident">ZiglangOrgJsonBuildTarget</span> {
-    <span class="ident">tarball</span>: <span class="ident">String</span>,
-    <span class="ident">shasum</span>: <span class="ident">String</span>,
-    <span class="ident">size</span>: <span class="ident">String</span>,
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.63.0 (4b91a6ea7 2022-08-08)" ></div>

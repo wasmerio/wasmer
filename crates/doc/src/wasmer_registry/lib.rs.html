@@ -1074,6 +1074,22 @@
 <span id="1068">1068</span>
 <span id="1069">1069</span>
 <span id="1070">1070</span>
+<span id="1071">1071</span>
+<span id="1072">1072</span>
+<span id="1073">1073</span>
+<span id="1074">1074</span>
+<span id="1075">1075</span>
+<span id="1076">1076</span>
+<span id="1077">1077</span>
+<span id="1078">1078</span>
+<span id="1079">1079</span>
+<span id="1080">1080</span>
+<span id="1081">1081</span>
+<span id="1082">1082</span>
+<span id="1083">1083</span>
+<span id="1084">1084</span>
+<span id="1085">1085</span>
+<span id="1086">1086</span>
 </pre><pre class="rust"><code><span class="doccomment">//! High-level interactions with the WAPM backend.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! The GraphQL schema can be updated by running `make` in the Wasmer repo&#39;s</span>
@@ -1084,6 +1100,8 @@
 <span class="doccomment">//! curl -sSfL https://registry.wapm.io/graphql/schema.graphql &gt; lib/registry/graphql/schema.graphql</span>
 <span class="doccomment">//! ```</span>
 
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::config::Registries</span>;
+<span class="kw">use</span> <span class="ident">anyhow::Context</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
 <span class="kw">use</span> <span class="ident">std::time::Duration</span>;
@@ -1101,9 +1119,6 @@
     <span class="ident">config</span>::{<span class="ident">format_graphql</span>, <span class="ident">PartialWapmConfig</span>},
     <span class="ident">graphql::get_bindings_query::ProgrammingLanguage</span>,
 };
-
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::config::Registries</span>;
-<span class="kw">use</span> <span class="ident">anyhow::Context</span>;
 
 <span class="kw">pub</span> <span class="kw">static</span> <span class="ident">GLOBAL_CONFIG_FILE_NAME</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>) {
     <span class="string">&quot;/.private/wapm.toml&quot;</span>
@@ -1719,16 +1734,73 @@
     <span class="prelude-val">Some</span>(<span class="ident">root_dir</span>.<span class="ident">join</span>(<span class="ident">registry_host</span>))
 }
 
+<span class="doccomment">/// Convenience function that will unpack .tar.gz files and .tar.bz</span>
+<span class="doccomment">/// files to a target directory (does NOT remove the original .tar.gz)</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_unpack_targz</span><span class="op">&lt;</span><span class="ident">P</span>: <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span><span class="op">&gt;</span>(
+    <span class="ident">target_targz_path</span>: <span class="ident">P</span>,
+    <span class="ident">target_path</span>: <span class="ident">P</span>,
+    <span class="ident">strip_toplevel</span>: <span class="ident">bool</span>,
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">target_targz_path</span> <span class="op">=</span> <span class="ident">target_targz_path</span>.<span class="ident">as_ref</span>();
+    <span class="kw">let</span> <span class="ident">target_path</span> <span class="op">=</span> <span class="ident">target_path</span>.<span class="ident">as_ref</span>();
+    <span class="kw">let</span> <span class="ident">open_file</span> <span class="op">=</span> <span class="op">|</span><span class="op">|</span> {
+        <span class="ident">std::fs::File::open</span>(<span class="kw-2">&amp;</span><span class="ident">target_targz_path</span>)
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to open {}: {e}&quot;</span>, <span class="ident">target_targz_path</span>.<span class="ident">display</span>()))
+    };
+
+    <span class="kw">let</span> <span class="ident">try_decode_gz</span> <span class="op">=</span> <span class="op">|</span><span class="op">|</span> {
+        <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">open_file</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">gz_decoded</span> <span class="op">=</span> <span class="ident">flate2::read::GzDecoder::new</span>(<span class="kw-2">&amp;</span><span class="ident">file</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ar</span> <span class="op">=</span> <span class="ident">tar::Archive::new</span>(<span class="ident">gz_decoded</span>);
+        <span class="kw">if</span> <span class="ident">strip_toplevel</span> {
+            <span class="ident">unpack_sans_parent</span>(<span class="ident">ar</span>, <span class="ident">target_path</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+                <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to unpack {}: {e}&quot;</span>, <span class="ident">target_targz_path</span>.<span class="ident">display</span>())
+            })
+        } <span class="kw">else</span> {
+            <span class="ident">ar</span>.<span class="ident">unpack</span>(<span class="ident">target_path</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+                <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to unpack {}: {e}&quot;</span>, <span class="ident">target_targz_path</span>.<span class="ident">display</span>())
+            })
+        }
+    };
+
+    <span class="kw">let</span> <span class="ident">try_decode_xz</span> <span class="op">=</span> <span class="op">|</span><span class="op">|</span> {
+        <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">open_file</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">decomp</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bufread</span> <span class="op">=</span> <span class="ident">std::io::BufReader::new</span>(<span class="kw-2">&amp;</span><span class="ident">file</span>);
+        <span class="ident">lzma_rs::xz_decompress</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bufread</span>, <span class="kw-2">&amp;mut</span> <span class="ident">decomp</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+            <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to unpack {}: {e}&quot;</span>, <span class="ident">target_targz_path</span>.<span class="ident">display</span>())
+        })<span class="question-mark">?</span>;
+
+        <span class="kw">let</span> <span class="ident">cursor</span> <span class="op">=</span> <span class="ident">std::io::Cursor::new</span>(<span class="ident">decomp</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ar</span> <span class="op">=</span> <span class="ident">tar::Archive::new</span>(<span class="ident">cursor</span>);
+        <span class="kw">if</span> <span class="ident">strip_toplevel</span> {
+            <span class="ident">unpack_sans_parent</span>(<span class="ident">ar</span>, <span class="ident">target_path</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+                <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to unpack {}: {e}&quot;</span>, <span class="ident">target_targz_path</span>.<span class="ident">display</span>())
+            })
+        } <span class="kw">else</span> {
+            <span class="ident">ar</span>.<span class="ident">unpack</span>(<span class="ident">target_path</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+                <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to unpack {}: {e}&quot;</span>, <span class="ident">target_targz_path</span>.<span class="ident">display</span>())
+            })
+        }
+    };
+
+    <span class="ident">try_decode_gz</span>().<span class="ident">or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">try_decode_xz</span>())<span class="question-mark">?</span>;
+
+    <span class="prelude-val">Ok</span>(<span class="ident">target_targz_path</span>.<span class="ident">to_path_buf</span>())
+}
+
 <span class="doccomment">/// Whether the top-level directory should be stripped</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">download_and_unpack_targz</span>(
     <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
     <span class="ident">target_path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
     <span class="ident">strip_toplevel</span>: <span class="ident">bool</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">target_targz_path</span> <span class="op">=</span> <span class="ident">target_path</span>.<span class="ident">to_path_buf</span>().<span class="ident">join</span>(<span class="string">&quot;package.tar.gz&quot;</span>);
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">tempdir</span> <span class="op">=</span> <span class="ident">tempdir::TempDir::new</span>(<span class="string">&quot;wasmer-download-targz&quot;</span>)<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resp</span> <span class="op">=</span>
-        <span class="ident">reqwest::blocking::get</span>(<span class="ident">url</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;failed to download {url}: {e}&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">target_targz_path</span> <span class="op">=</span> <span class="ident">tempdir</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;package.tar.gz&quot;</span>);
+
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resp</span> <span class="op">=</span> <span class="ident">reqwest::blocking::get</span>(<span class="ident">url</span>)
+        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to download {url}: {e}&quot;</span>))<span class="question-mark">?</span>;
 
     <span class="kw">if</span> <span class="op">!</span><span class="ident">target_targz_path</span>.<span class="ident">exists</span>() {
         <span class="comment">// create all the parent paths, only remove the created directory, not the parent dirs</span>
@@ -1738,58 +1810,18 @@
 
     {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">std::fs::File::create</span>(<span class="kw-2">&amp;</span><span class="ident">target_targz_path</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
-            <span class="macro">format!</span>(
+            <span class="macro">anyhow::anyhow!</span>(
                 <span class="string">&quot;failed to download {url} into {}: {e}&quot;</span>,
                 <span class="ident">target_targz_path</span>.<span class="ident">display</span>()
             )
         })<span class="question-mark">?</span>;
 
-        <span class="ident">resp</span>.<span class="ident">copy_to</span>(<span class="kw-2">&amp;mut</span> <span class="ident">file</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
+        <span class="ident">resp</span>.<span class="ident">copy_to</span>(<span class="kw-2">&amp;mut</span> <span class="ident">file</span>)
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
     }
 
-    <span class="kw">let</span> <span class="ident">open_file</span> <span class="op">=</span> <span class="op">|</span><span class="op">|</span> {
-        <span class="ident">std::fs::File::open</span>(<span class="kw-2">&amp;</span><span class="ident">target_targz_path</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
-            <span class="macro">format!</span>(
-                <span class="string">&quot;failed to download {url} into {}: {e}&quot;</span>,
-                <span class="ident">target_targz_path</span>.<span class="ident">display</span>()
-            )
-        })
-    };
-
-    <span class="kw">let</span> <span class="ident">try_decode_gz</span> <span class="op">=</span> <span class="op">|</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">open_file</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">gz_decoded</span> <span class="op">=</span> <span class="ident">flate2::read::GzDecoder::new</span>(<span class="kw-2">&amp;</span><span class="ident">file</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ar</span> <span class="op">=</span> <span class="ident">tar::Archive::new</span>(<span class="ident">gz_decoded</span>);
-        <span class="kw">if</span> <span class="ident">strip_toplevel</span> {
-            <span class="ident">unpack_sans_parent</span>(<span class="ident">ar</span>, <span class="ident">target_path</span>)
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;failed to unpack {}: {e}&quot;</span>, <span class="ident">target_targz_path</span>.<span class="ident">display</span>()))
-        } <span class="kw">else</span> {
-            <span class="ident">ar</span>.<span class="ident">unpack</span>(<span class="ident">target_path</span>)
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;failed to unpack {}: {e}&quot;</span>, <span class="ident">target_targz_path</span>.<span class="ident">display</span>()))
-        }
-    };
-
-    <span class="kw">let</span> <span class="ident">try_decode_xz</span> <span class="op">=</span> <span class="op">|</span><span class="op">|</span> {
-        <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">open_file</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">decomp</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bufread</span> <span class="op">=</span> <span class="ident">std::io::BufReader::new</span>(<span class="kw-2">&amp;</span><span class="ident">file</span>);
-        <span class="ident">lzma_rs::xz_decompress</span>(<span class="kw-2">&amp;mut</span> <span class="ident">bufread</span>, <span class="kw-2">&amp;mut</span> <span class="ident">decomp</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;failed to unpack {}: {e}&quot;</span>, <span class="ident">target_targz_path</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
-
-        <span class="kw">let</span> <span class="ident">cursor</span> <span class="op">=</span> <span class="ident">std::io::Cursor::new</span>(<span class="ident">decomp</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ar</span> <span class="op">=</span> <span class="ident">tar::Archive::new</span>(<span class="ident">cursor</span>);
-        <span class="kw">if</span> <span class="ident">strip_toplevel</span> {
-            <span class="ident">unpack_sans_parent</span>(<span class="ident">ar</span>, <span class="ident">target_path</span>)
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;failed to unpack {}: {e}&quot;</span>, <span class="ident">target_targz_path</span>.<span class="ident">display</span>()))
-        } <span class="kw">else</span> {
-            <span class="ident">ar</span>.<span class="ident">unpack</span>(<span class="ident">target_path</span>)
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;failed to unpack {}: {e}&quot;</span>, <span class="ident">target_targz_path</span>.<span class="ident">display</span>()))
-        }
-    };
-
-    <span class="ident">try_decode_gz</span>().<span class="ident">or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">try_decode_xz</span>())<span class="question-mark">?</span>;
-
-    <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::remove_file</span>(<span class="ident">target_targz_path</span>);
+    <span class="ident">try_unpack_targz</span>(<span class="ident">target_targz_path</span>.<span class="ident">as_path</span>(), <span class="ident">target_path</span>, <span class="ident">strip_toplevel</span>)
+        .<span class="ident">context</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not download {url}&quot;</span>))<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(<span class="ident">target_path</span>.<span class="ident">to_path_buf</span>())
 }
@@ -1935,7 +1967,7 @@
     <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">package_info</span>.<span class="ident">package</span>;
 
     <span class="kw">if</span> <span class="op">!</span><span class="ident">dir</span>.<span class="ident">join</span>(<span class="string">&quot;wapm.toml&quot;</span>).<span class="ident">exists</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">force_install</span> {
-        <span class="ident">download_and_unpack_targz</span>(<span class="kw-2">&amp;</span><span class="ident">package_info</span>.<span class="ident">url</span>, <span class="kw-2">&amp;</span><span class="ident">dir</span>, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
+        <span class="ident">download_and_unpack_targz</span>(<span class="kw-2">&amp;</span><span class="ident">package_info</span>.<span class="ident">url</span>, <span class="kw-2">&amp;</span><span class="ident">dir</span>, <span class="bool-val">false</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
     }
 
     <span class="prelude-val">Ok</span>((
