@@ -407,12 +407,7 @@ impl CreateExe {
                 v.canonicalize().unwrap_or(v)
             } else {
                 {
-                    let os = target_triple.unwrap_or(Triple::host()).operating_system;
-                    let libwasmer_path = if os == OperatingSystem::Windows {
-                        "lib/wasmer.lib"
-                    } else {
-                        "lib/libwasmer.a"
-                    };
+                    let libwasmer_path = "lib/libwasmer.a";
                     let tarball_dir;
                     let filename = if let Some(local_tarball) = cross_subc.tarball.as_ref() {
                         let target_file_path = local_tarball
@@ -571,23 +566,31 @@ impl CreateExe {
             cmd.arg(&zig_triple);
             cmd.arg(&format!("-I{}/", include_dir.display()));
             cmd.arg(&format!("-I{}/", header_code_path.display()));
-            cmd.arg("--library");
-            cmd.arg("c");
+            if zig_triple.contains("windows") {
+                cmd.arg("-lc++");
+            } else {
+                cmd.arg("-lc");
+            }
+            cmd.arg("-lunwind");
             cmd.arg("-OReleaseSafe");
             cmd.arg("-fstrip");
             cmd.arg("-dead_strip");
             cmd.arg("-dead_strip_dylibs");
-            cmd.arg("--verbose-cc");
+            cmd.arg("-fno-compiler-rt");
             cmd.arg(&format!("-femit-bin={}", output_path.display()));
-
-            if !zig_triple.contains("windows") {
-                cmd.arg("-lunwind");
-            }
 
             cmd.arg(&object_path);
             cmd.arg(&c_src_path);
-            cmd.arg(libwasmer_path.join(lib_filename));
-
+            cmd.arg(libwasmer_path.join(&lib_filename));
+            if zig_triple.contains("windows") {
+                let mut libwasmer_parent = libwasmer_path.clone();
+                libwasmer_parent.pop();
+                cmd.arg(libwasmer_parent.join("winsdk/ADVAPI32.lib"));
+                cmd.arg(libwasmer_parent.join("winsdk/BCRYPT.lib"));
+                cmd.arg(libwasmer_parent.join("winsdk/KERNEL32.lib"));
+                cmd.arg(libwasmer_parent.join("winsdk/USERENV.lib"));
+                cmd.arg(libwasmer_parent.join("winsdk/WS2_32.lib"));
+            }
             if let Some(volume_obj) = pirita_volume_path.as_ref() {
                 cmd.arg(volume_obj.clone());
             }

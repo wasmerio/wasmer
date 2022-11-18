@@ -37,14 +37,15 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
     for t in targets {
         let python_wasmer_path = temp_dir.path().join(format!("{t}-python"));
 
-        let output = Command::new(get_wasmer_path())
-            .arg("create-exe")
-            .arg(wasi_test_python_path())
-            .arg("--target")
-            .arg(t)
-            .arg("-o")
-            .arg(python_wasmer_path.clone())
-            .output()?;
+        let mut output = Command::new(get_wasmer_path());
+
+        output.arg("create-exe");
+        output.arg(wasi_test_python_path());
+        output.arg("--target");
+        output.arg(t);
+        output.arg("-o");
+        output.arg(python_wasmer_path.clone());
+        let output = output.output()?;
 
         let stdout = std::str::from_utf8(&output.stdout)
             .expect("stdout is not utf8! need to handle arbitrary bytes");
@@ -64,7 +65,10 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
                 .unwrap()
                 .filter_map(|e| Some(e.ok()?.path()))
                 .collect::<Vec<_>>();
-            panic!("target {t} was not compiled correctly {stdout} {stderr}, tempdir: {:#?}", p);
+            panic!(
+                "target {t} was not compiled correctly {stdout} {stderr}, tempdir: {:#?}",
+                p
+            );
         }
     }
 
