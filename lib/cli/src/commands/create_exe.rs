@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "http")]
 use std::collections::BTreeMap;
 use std::env;
+use std::fmt::Write as _;
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
@@ -920,7 +921,8 @@ impl CreateExe {
         for atom_name in atom_names.iter() {
             let atom_name = Self::normalize_atom_name(atom_name);
 
-            c_code_to_instantiate.push_str(&format!(
+            write!(
+                c_code_to_instantiate,
                 "
 
             wasm_module_t *atom_{atom_name} = wasmer_object_module_new(store, \"{atom_name}\");
@@ -931,11 +933,16 @@ impl CreateExe {
                 return -1;
             }}
             "
-            ));
-            deallocate_module.push_str(&format!("wasm_module_delete(atom_{atom_name});"));
+            )
+            .unwrap();
+            write!(deallocate_module, "wasm_module_delete(atom_{atom_name});").unwrap();
         }
 
-        c_code_to_instantiate.push_str(&format!("wasm_module_t *module = atom_{atom_to_run};"));
+        write!(
+            c_code_to_instantiate,
+            "wasm_module_t *module = atom_{atom_to_run};"
+        )
+        .unwrap();
 
         WASMER_STATIC_MAIN_C_SOURCE
             .replace("#define WASI", "#define WASI\r\n#define WASI_PIRITA")

@@ -110,7 +110,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.61
+          toolchain: 1.63
           target: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v1
         if: matrix.use_sccache != true
@@ -210,17 +210,19 @@ jobs:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
-      - name: Test integration CLI
-        if: matrix.run_test && matrix.os == 'windows-2019'
-        shell: bash
-        run: |
-          make && make build-wasmer && make build-capi && make package-capi && make package
-          export WASMER_DIR=`pwd`/package
-          make test-integration-cli
-        env:
-          TARGET: x86_64-pc-windows-msvc
-          TARGET_DIR: target/x86_64-pc-windows-msvc/release
-          CARGO_TARGET: --target x86_64-pc-windows-msvc
+          WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
+
+      #- name: Test integration CLI
+      #  if: matrix.run_test && matrix.os == 'windows-2019'
+      #  shell: bash
+      #  run: |
+      #    make && make build-wasmer && make build-capi && make package-capi && make package
+      #    export WASMER_DIR=`pwd`/package
+      #    make test-integration-cli
+      #  env:
+      #    TARGET: x86_64-pc-windows-msvc
+      #    TARGET_DIR: target/x86_64-pc-windows-msvc/release
+      #    CARGO_TARGET: --target x86_64-pc-windows-msvc
       - name: Test
         if: matrix.run_test && matrix.os != 'windows-2019'
         run: |

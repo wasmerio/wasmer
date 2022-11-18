@@ -5,6 +5,9 @@ edition = "2021"
 license = "MIT"
 description = "Crate to interact with the wasmer registry (wapm.io), download packages, etc."
 
+[dev-dependencies]
+rand = "0.8.5"
+
 [dependencies]
 dirs = "4.0.0"
 graphql_client = "0.11.0"
@@ -22,3 +25,4 @@ flate2 = "1.0.24"
 semver = "1.0.14"
 lzma-rs = "0.2.0"
 tempdir = "0.3.7"
+log = "0.4.17"
