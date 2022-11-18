@@ -661,11 +661,7 @@ package-docs: build-docs build-docs-capi
 
 package: package-wasmer package-minimal-headless-wasmer package-capi
 
-package-gnu: package-wasmer-gnu package-capi-gnu
-
-package-wasmer-gnu: 
-	mkdir -p "package/bin"
-	cp target/x86_64-pc-windows-gnu/release/wasmer.exe package/bin/
+package-gnu: package-capi-gnu
 
 package-capi-gnu:
 	mkdir -p "package/include"
@@ -674,7 +670,6 @@ package-capi-gnu:
 	cp lib/c-api/wasmer_wasm.h* package/include
 	cp lib/c-api/tests/wasm-c-api/include/wasm.h* package/include
 	cp lib/c-api/README.md package/include/README.md
-	
 	if [ -f target/x86_64-pc-windows-gnu/release/wasmer.dll ]; then \
 		cp target/x86_64-pc-windows-gnu/release/wasmer.dll package/lib/wasmer.dll ;\
 	fi
@@ -695,7 +690,7 @@ distribution-gnu: package-gnu
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
-	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
+	tar -C package -zcvf wasmer.tar.gz bin lib include winsdk LICENSE ATTRIBUTIONS
 	mv wasmer.tar.gz dist/
 
 distribution: package
