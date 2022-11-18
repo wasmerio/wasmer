@@ -12,7 +12,7 @@ pub struct Init {
     /// Initialize wapm.toml for a binary package
     #[clap(long, name = "bin")]
     pub bin: bool,
-    /// Initialize an empty wapm.toml 
+    /// Initialize an empty wapm.toml
     #[clap(long, name = "empty")]
     pub empty: bool,
     /// Path to the directory to init the wapm.toml in
@@ -39,7 +39,6 @@ enum BinOrLib {
 impl Init {
     /// `wasmer init` execution
     pub fn execute(&self) -> Result<(), anyhow::Error> {
-
         let target_file = match self.dir.as_ref() {
             None => std::env::current_dir()?.join("wapm.toml"),
             Some(s) => {
@@ -48,19 +47,29 @@ impl Init {
             }
         };
 
+        if target_file.exists() {
+            return Err(anyhow::anyhow!(
+                "wapm project already initialized in {}",
+                target_file.display()
+            ));
+        }
+
         let package_name = match self.package_name.as_ref() {
             None => {
-                if let Some(parent) = target_file.parent().and_then(|p| Some(p.file_stem()?.to_str()?.to_string())) {
+                if let Some(parent) = target_file
+                    .parent()
+                    .and_then(|p| Some(p.file_stem()?.to_str()?.to_string()))
+                {
                     parent
                 } else {
                     std::env::current_dir()?
-                    .file_stem()
-                    .ok_or_else(|| anyhow!("current dir has no file stem"))?
-                    .to_str()
-                    .ok_or_else(|| anyhow!("current dir has no file stem"))?
-                    .to_string()
+                        .file_stem()
+                        .ok_or_else(|| anyhow!("current dir has no file stem"))?
+                        .to_str()
+                        .ok_or_else(|| anyhow!("current dir has no file stem"))?
+                        .to_string()
                 }
-            },
+            }
             Some(s) => s.to_string(),
         };
 
@@ -137,18 +146,17 @@ impl Init {
             .unwrap_or_else(|| format!("Description of the package {package_name}"));
 
         let bin_or_lib = match (self.empty, self.bin, self.lib) {
-            (true, true, _) |
-            (true, _, true) => {
+            (true, true, _) | (true, _, true) => {
                 return Err(anyhow::anyhow!(
                     "cannot combine --empty with --bin or --lib"
                 ))
-            },
+            }
             (true, false, false) => BinOrLib::Empty,
             (_, true, true) => {
                 return Err(anyhow::anyhow!(
                     "cannot initialize a wapm manifest with both --bin and --lib, pick one"
                 ))
-            },
+            }
             (false, true, _) => BinOrLib::Bin,
             (false, _, true) => BinOrLib::Lib,
             _ => BinOrLib::Bin,
@@ -249,10 +257,7 @@ impl Init {
                         .iter()
                         .map(|path| {
                             if path == "." || path == "/" {
-                                (
-                                    "/".to_string(),
-                                    Path::new("/").to_path_buf(),
-                                )
+                                ("/".to_string(), Path::new("/").to_path_buf())
                             } else {
                                 (
                                     format!("./{path}"),
@@ -273,13 +278,68 @@ impl Init {
             let _ = std::fs::create_dir_all(parent);
         }
 
-        let toml_string = toml::to_string_pretty(&default_manifest)?
-        .replace("[dependencies]", "# See more keys and definitions at https://docs.wasmer.io/ecosystem/wapm/manifest\r\n\r\n[dependencies]")
-        .lines()
-        .collect::<Vec<_>>()
-        .join("\r\n");
+        let cargo_wapm_stdout = std::process::Command::new("cargo")
+            .arg("wapm")
+            .arg("--version")
+            .output()
+            .map(|s| String::from_utf8_lossy(&s.stdout).to_string())
+            .unwrap_or_default();
 
-        std::fs::write(target_file, &toml_string)?;
+        let cargo_wapm_present =
+            cargo_wapm_stdout.lines().count() == 1 && cargo_wapm_stdout.contains("cargo wapm");
+        let should_add_to_cargo_toml = cargo_toml.is_some() && cargo_wapm_present;
+
+        if !cargo_wapm_present && cargo_toml.is_some() {
+            eprintln!(
+                "Note: you seem to have a Cargo.toml file, but you haven't installed `cargo wapm`."
+            );
+            eprintln!("You can build and release Rust projects directly with `cargo wapm publish`: https://crates.io/crates/cargo-wapm");
+            eprintln!("Install it with:");
+            eprintln!("    cargo install cargo-wapm");
+            eprintln!();
+        }
+
+        if should_add_to_cargo_toml {
+            let toml_string = toml::to_string_pretty(&default_manifest)?;
+            let mut value = toml_string.parse::<toml::Value>().unwrap();
+            value.as_table_mut().unwrap().remove("package");
+
+            let mut new_table = toml::value::Table::new();
+            new_table.insert("wapm".to_string(), value);
+
+            let mut table_2 = toml::value::Table::new();
+            table_2.insert("metadata".to_string(), new_table.into());
+
+            let toml_string = toml::to_string_pretty(&table_2)?;
+
+            let cargo_toml_path = target_file.parent().unwrap().join("Cargo.toml");
+
+            let old_cargo = std::fs::read_to_string(&cargo_toml_path).unwrap();
+
+            if old_cargo.contains("metadata.wapm") {
+                return Err(anyhow::anyhow!(
+                    "wapm project already initialized in Cargo.toml file"
+                ));
+            } else {
+                eprintln!("You have cargo-wapm installed, added metadata to Cargo.toml instead of wapm.toml");
+                eprintln!("Build and publish your package with:");
+                eprintln!();
+                eprintln!("    cargo wapm publish");
+                eprintln!();
+                std::fs::write(
+                    &cargo_toml_path,
+                    &format!("{old_cargo}\r\n\r\n# See more keys and definitions at https://docs.wasmer.io/ecosystem/wapm/manifest\r\n\r\n{toml_string}"),
+                )?;
+            }
+        } else {
+            let toml_string = toml::to_string_pretty(&default_manifest)?
+            .replace("[dependencies]", "# See more keys and definitions at https://docs.wasmer.io/ecosystem/wapm/manifest\r\n\r\n[dependencies]")
+            .lines()
+            .collect::<Vec<_>>()
+            .join("\r\n");
+
+            std::fs::write(target_file, &toml_string)?;
+        }
 
         Ok(())
     }
