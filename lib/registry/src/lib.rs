@@ -874,7 +874,6 @@ pub fn install_package(
 
 pub fn whoami(registry: Option<&str>) -> Result<(String, String), anyhow::Error> {
     use crate::graphql::{who_am_i_query, WhoAmIQuery};
-    use anyhow::Context;
     use graphql_client::GraphQLQuery;
 
     let config = PartialWapmConfig::from_file()
