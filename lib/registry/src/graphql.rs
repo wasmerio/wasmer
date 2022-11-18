@@ -108,6 +108,14 @@ pub(crate) struct GetPackageByCommandQuery;
 )]
 pub(crate) struct TestIfRegistryPresent;
 
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "graphql/schema.graphql",
+    query_path = "graphql/queries/get_bindings.graphql",
+    response_derives = "Debug,Clone,PartialEq,Eq"
+)]
+pub(crate) struct GetBindingsQuery;
+
 #[cfg(target_os = "wasi")]
 pub fn whoami_distro() -> String {
     whoami::os().to_lowercase()

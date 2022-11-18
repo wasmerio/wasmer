@@ -4222,6 +4222,7 @@ dependencies = [
  "dirs 4.0.0",
  "flate2",
  "graphql_client",
+ "log",
  "lzma-rs",
  "rand 0.8.5",
  "reqwest",

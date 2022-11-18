@@ -1,4 +1,5 @@
 //! The commands available in the Wasmer binary.
+mod add;
 #[cfg(target_os = "linux")]
 mod binfmt;
 mod cache;
@@ -30,7 +31,7 @@ pub use create_obj::*;
 #[cfg(feature = "wast")]
 pub use wast::*;
 pub use {
-    cache::*, config::*, inspect::*, list::*, login::*, run::*, self_update::*, validate::*,
+    add::*, cache::*, config::*, inspect::*, list::*, login::*, run::*, self_update::*, validate::*,
     whoami::*,
 };
 
