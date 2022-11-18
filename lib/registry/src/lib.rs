@@ -21,6 +21,7 @@ use std::{
 pub mod config;
 pub mod graphql;
 pub mod login;
+pub mod publish;
 pub mod utils;
 
 pub use crate::{

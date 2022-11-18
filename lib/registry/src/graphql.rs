@@ -108,6 +108,22 @@ pub(crate) struct TestIfRegistryPresent;
 )]
 pub(crate) struct GetBindingsQuery;
 
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "graphql/schema.graphql",
+    query_path = "graphql/queries/publish_package_chunked.graphql",
+    response_derives = "Debug"
+)]
+pub(crate) struct PublishPackageMutationChunked;
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "graphql/schema.graphql",
+    query_path = "graphql/queries/get_signed_url.graphql",
+    response_derives = "Debug, Clone"
+)]
+pub(crate) struct GetSignedUrl;
+
 #[cfg(target_os = "wasi")]
 pub fn whoami_distro() -> String {
     whoami::os().to_lowercase()

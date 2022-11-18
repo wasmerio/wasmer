@@ -9,6 +9,12 @@ pub struct Publish {
     /// Registry to publish to
     #[clap(long, name = "registry")]
     pub registry: Option<String>,
+    /// Run the publish logic without sending anything to the registry server
+    #[clap(long, name = "dry-run")]
+    dry_run: bool,
+    /// Run the publish command without any output
+    #[clap(long, name = "quiet")]
+    quiet: bool,
 }
 
 impl Publish {

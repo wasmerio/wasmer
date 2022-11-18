@@ -1612,6 +1612,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "indicatif"
+version = "0.17.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4295cbb7573c16d310e99e713cf9e75101eb190ab31fccd35f2d2691b4352b19"
+dependencies = [
+ "console",
+ "number_prefix",
+ "portable-atomic",
+ "unicode-width",
+]
+
+[[package]]
 name = "inkwell"
 version = "0.1.0-beta.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2063,6 +2075,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "number_prefix"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
+
+[[package]]
 name = "object"
 version = "0.28.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2224,6 +2242,12 @@ checksum = "f9a81d2759aae1dae668f783c308bc5c8ebd191ff4184aaa1b37f65a6ae5a56f"
 dependencies = [
  "plotters-backend",
 ]
+
+[[package]]
+name = "portable-atomic"
+version = "0.3.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15eb2c6e362923af47e13c23ca5afb859e83d54452c55b0b9ac763b8f7c1ac16"
 
 [[package]]
 name = "ppv-lite86"
@@ -4220,9 +4244,11 @@ name = "wasmer-registry"
 version = "3.0.0-rc.2"
 dependencies = [
  "anyhow",
+ "console",
  "dirs 4.0.0",
  "flate2",
  "graphql_client",
+ "indicatif",
  "log",
  "lzma-rs",
  "rand 0.8.5",
