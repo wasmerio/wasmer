@@ -6,54 +6,62 @@ use std::path::PathBuf;
 /// CLI args for the `wasmer init` command
 #[derive(Debug, Parser)]
 pub struct Init {
-    /// Name of the package, defaults to the name of the init directory
-    #[clap(name = "PACKAGE_NAME")]
-    pub package_name: Option<String>,
+    /// Initialize wapm.toml for a library package
+    #[clap(long, name = "lib")]
+    pub lib: bool,
+    /// Initialize wapm.toml for a binary package
+    #[clap(long, name = "bin")]
+    pub bin: bool,
+    /// Initialize an empty wapm.toml 
+    #[clap(long, name = "empty")]
+    pub empty: bool,
     /// Path to the directory to init the wapm.toml in
     #[clap(long, name = "dir", env = "DIR", parse(from_os_str))]
     pub dir: Option<PathBuf>,
-    /// Initialize wapm.toml for a library package
-    #[clap(long, name = "lib")]
-    pub lib: Option<bool>,
-    /// Initialize wapm.toml for a binary package
-    #[clap(long, name = "bin")]
-    pub bin: Option<bool>,
     /// Add default dependencies for common packages (currently supported: `python`, `js`)
     #[clap(long, name = "template")]
     pub template: Option<String>,
     /// Include file paths into the target container filesystem
-    #[clap(long)]
     #[clap(long, name = "include")]
-    pub include: Vec<PathBuf>,
+    pub include: Vec<String>,
+    /// Name of the package, defaults to the name of the init directory
+    #[clap(name = "PACKAGE_NAME")]
+    pub package_name: Option<String>,
 }
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 enum BinOrLib {
     Bin,
     Lib,
+    Empty,
 }
 
 impl Init {
     /// `wasmer init` execution
     pub fn execute(&self) -> Result<(), anyhow::Error> {
-        let package_name = match self.package_name.as_ref() {
-            None => std::env::current_dir()?
-                .file_stem()
-                .ok_or_else(|| anyhow!("current dir has no file stem"))?
-                .to_str()
-                .ok_or_else(|| anyhow!("current dir has no file stem"))?
-                .to_string(),
-            Some(s) => s.to_string(),
-        };
 
         let target_file = match self.dir.as_ref() {
             None => std::env::current_dir()?.join("wapm.toml"),
             Some(s) => {
-                if !s.exists() {
-                    let _ = std::fs::create_dir_all(s);
-                }
+                let _ = std::fs::create_dir_all(s);
                 s.join("wapm.toml")
             }
+        };
+
+        let package_name = match self.package_name.as_ref() {
+            None => {
+                if let Some(parent) = target_file.parent().and_then(|p| Some(p.file_stem()?.to_str()?.to_string())) {
+                    parent
+                } else {
+                    std::env::current_dir()?
+                    .file_stem()
+                    .ok_or_else(|| anyhow!("current dir has no file stem"))?
+                    .to_str()
+                    .ok_or_else(|| anyhow!("current dir has no file stem"))?
+                    .to_string()
+                }
+            },
+            Some(s) => s.to_string(),
         };
 
         // See if the directory has a Cargo.toml file, if yes, copy the license / readme, etc.
@@ -128,14 +136,21 @@ impl Init {
             })
             .unwrap_or_else(|| format!("Description of the package {package_name}"));
 
-        let bin_or_lib = match (self.bin, self.lib) {
-            (Some(true), Some(true)) => {
+        let bin_or_lib = match (self.empty, self.bin, self.lib) {
+            (true, true, _) |
+            (true, _, true) => {
+                return Err(anyhow::anyhow!(
+                    "cannot combine --empty with --bin or --lib"
+                ))
+            },
+            (true, false, false) => BinOrLib::Empty,
+            (_, true, true) => {
                 return Err(anyhow::anyhow!(
                     "cannot initialize a wapm manifest with both --bin and --lib, pick one"
                 ))
-            }
-            (Some(true), _) => BinOrLib::Bin,
-            (_, Some(true)) => BinOrLib::Lib,
+            },
+            (false, true, _) => BinOrLib::Bin,
+            (false, _, true) => BinOrLib::Lib,
             _ => BinOrLib::Bin,
         };
 
@@ -144,14 +159,14 @@ impl Init {
         let modules = vec![wapm_toml::Module {
             name: module_name.to_string(),
             source: if cargo_toml.is_some() {
-                Path::new(&format!("target/release/wasm32-wasi/{module_name}.wasm")).to_path_buf()
+                Path::new(&format!("target/wasm32-wasi/release/{module_name}.wasm")).to_path_buf()
             } else {
                 Path::new(&format!("{module_name}.wasm")).to_path_buf()
             },
             kind: None,
             abi: wapm_toml::Abi::Wasi,
             bindings: match bin_or_lib {
-                BinOrLib::Bin => None,
+                BinOrLib::Bin | BinOrLib::Empty => None,
                 BinOrLib::Lib => target_file.parent().and_then(|parent| {
                     walkdir::WalkDir::new(parent)
                         .min_depth(1)
@@ -220,24 +235,30 @@ impl Init {
                         })
                         .collect(),
                 ),
-                BinOrLib::Lib => None,
+                BinOrLib::Lib | BinOrLib::Empty => None,
             },
-            module: Some(modules),
+            module: match bin_or_lib {
+                BinOrLib::Empty => None,
+                _ => Some(modules),
+            },
             fs: if self.include.is_empty() {
                 None
             } else {
                 Some(
                     self.include
                         .iter()
-                        .filter_map(|path| {
-                            let path = Path::new(path);
-                            if !path.exists() {
-                                return None;
+                        .map(|path| {
+                            if path == "." || path == "/" {
+                                (
+                                    "/".to_string(),
+                                    Path::new("/").to_path_buf(),
+                                )
+                            } else {
+                                (
+                                    format!("./{path}"),
+                                    Path::new(&format!("/{path}")).to_path_buf(),
+                                )
                             }
-                            Some((
-                                format!("{}", path.display()),
-                                Path::new(&format!("/{}", path.display())).to_path_buf(),
-                            ))
                         })
                         .collect(),
                 )
@@ -248,12 +269,17 @@ impl Init {
                 .unwrap_or(target_file.clone()),
         };
 
-        println!(
-            "package: {package_name:?} target: {} - {:?}, wapm_toml = {}",
-            target_file.display(),
-            self,
-            toml::to_string_pretty(&default_manifest).unwrap_or_default(),
-        );
+        if let Some(parent) = target_file.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+
+        let toml_string = toml::to_string_pretty(&default_manifest)?
+        .replace("[dependencies]", "# See more keys and definitions at https://docs.wasmer.io/ecosystem/wapm/manifest\r\n\r\n[dependencies]")
+        .lines()
+        .collect::<Vec<_>>()
+        .join("\r\n");
+
+        std::fs::write(target_file, &toml_string)?;
 
         Ok(())
     }
