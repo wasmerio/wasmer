@@ -273,6 +273,10 @@ jobs:
         with:
           toolchain: 1.61
           target: x86_64-pc-windows-gnu
+      - name: Install Windows-GNU target
+        shell: bash
+        run: |
+          rustup target add x86_64-pc-windows-gnu
       - name: Install Windows 10 SDK with xwin
         shell: bash
         run: |
