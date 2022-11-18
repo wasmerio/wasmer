@@ -937,8 +937,12 @@ fn try_run_url(
     if !packages.iter().any(|p| p.checksum == checksum) {
         let sp = start_spinner(format!("Installing {}", url));
 
-        wasmer_registry::install_webc_package(url, &checksum)
-            .map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
+        #[cfg(test)]
+        let result = wasmer_registry::install_webc_package(test_name, url, &checksum);
+        #[cfg(not(test))]
+        let result = wasmer_registry::install_webc_package(url, &checksum);
+
+        let _ = result.map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
 
         if let Some(sp) = sp {
             sp.close();

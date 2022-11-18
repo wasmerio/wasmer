@@ -926,12 +926,27 @@ pub struct RemoteWebcInfo {
     pub manifest: webc::Manifest,
 }
 
-pub fn install_webc_package(url: &Url, checksum: &str) -> Result<(), anyhow::Error> {
+pub fn install_webc_package(
+    #[cfg(test)] test_name: &str,
+    url: &Url,
+    checksum: &str,
+) -> Result<(), anyhow::Error> {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .unwrap()
-        .block_on(async { install_webc_package_inner(url, checksum).await })
+        .block_on(async {
+            {
+                #[cfg(test)]
+                {
+                    install_webc_package_inner(test_name, url, checksum).await
+                }
+                #[cfg(not(test))]
+                {
+                    install_webc_package_inner(url, checksum).await
+                }
+            }
+        })
 }
 
 async fn install_webc_package_inner(
