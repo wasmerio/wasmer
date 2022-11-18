@@ -1379,10 +1379,11 @@ mod http_fetch {
             .context("Could not lookup wasmer repository on Github.")?;
 
         if response.status_code() != StatusCode::new(200) {
-            return Err(anyhow!(
-                "Github API replied with non-200 status code: {}",
-                response.status_code()
-            ));
+            eprintln!(
+                "Warning: Github API replied with non-200 status code: {}. Response: {}",
+                response.status_code(),
+                String::from_utf8_lossy(&writer),
+            );
         }
 
         let v: std::result::Result<serde_json::Value, _> = serde_json::from_reader(&*writer);
