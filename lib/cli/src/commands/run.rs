@@ -822,6 +822,7 @@ fn test_fixup_args() {
 }
 
 pub(crate) fn try_run_package_or_file(
+    #[cfg(test)] test_name: &str,
     args: &[String],
     r: &Run,
     debug: bool,
@@ -829,7 +830,11 @@ pub(crate) fn try_run_package_or_file(
     let debug_msgs_allowed = isatty::stdout_isatty();
 
     if let Ok(url) = url::Url::parse(&format!("{}", r.path.display())) {
-        return try_run_url(&url, args, r, debug);
+        #[cfg(test)]
+        let result = try_run_url(test_name, &url, args, r, debug);
+        #[cfg(not(test))]
+        let result = try_run_url(&url, args, r, debug);
+        return result;
     }
 
     // Check "r.path" is a file or a package / command name
@@ -914,14 +919,22 @@ pub(crate) fn try_run_package_or_file(
     try_autoinstall_package(args, &sv, package_download_info, r.force_install)
 }
 
-fn try_run_url(url: &Url, _args: &[String], r: &Run, _debug: bool) -> Result<(), anyhow::Error> {
+fn try_run_url(
+    #[cfg(test)] test_name: &str,
+    url: &Url,
+    _args: &[String],
+    r: &Run,
+    _debug: bool,
+) -> Result<(), anyhow::Error> {
     let checksum = wasmer_registry::get_remote_webc_checksum(url)
         .map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
 
-    if !wasmer_registry::get_all_installed_webc_packages()
-        .iter()
-        .any(|p| p.checksum == checksum)
-    {
+    #[cfg(test)]
+    let packages = wasmer_registry::get_all_installed_webc_packages(test_name);
+    #[cfg(not(test))]
+    let packages = wasmer_registry::get_all_installed_webc_packages();
+
+    if !packages.iter().any(|p| p.checksum == checksum) {
         let sp = start_spinner(format!("Installing {}", url));
 
         wasmer_registry::install_webc_package(url, &checksum)
@@ -932,7 +945,12 @@ fn try_run_url(url: &Url, _args: &[String], r: &Run, _debug: bool) -> Result<(),
         }
     }
 
-    let webc_install_path = wasmer_registry::get_webc_dir()
+    #[cfg(not(test))]
+    let webc_dir = wasmer_registry::get_webc_dir();
+    #[cfg(test)]
+    let webc_dir = wasmer_registry::get_webc_dir(test_name);
+
+    let webc_install_path = webc_dir
         .context("Error installing package: no webc dir")?
         .join(checksum);
 

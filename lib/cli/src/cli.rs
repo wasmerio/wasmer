@@ -252,7 +252,11 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
         let debug = false;
         #[cfg(feature = "debug")]
         let debug = r.options.debug;
-        return crate::commands::try_run_package_or_file(&args, r, debug);
+        #[cfg(test)]
+        let result = crate::commands::try_run_package_or_file("wasmer_main_inner", &args, r, debug);
+        #[cfg(not(test))]
+        let result = crate::commands::try_run_package_or_file(&args, r, debug);
+        return result;
     }
 
     options.execute()

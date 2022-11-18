@@ -634,8 +634,12 @@ pub fn get_checkouts_dir(#[cfg(test)] test_name: &str) -> Option<PathBuf> {
     Some(root_dir.join("checkouts"))
 }
 
-pub fn get_webc_dir() -> Option<PathBuf> {
-    Some(get_wasmer_root_dir()?.join("webc"))
+pub fn get_webc_dir(#[cfg(test)] test_name: &str) -> Option<PathBuf> {
+    #[cfg(test)]
+    let root_dir = get_wasmer_root_dir(test_name)?;
+    #[cfg(not(test))]
+    let root_dir = get_wasmer_root_dir()?;
+    Some(root_dir.join("webc"))
 }
 
 /// Returs the path to the directory where all packages on this computer are being stored
@@ -930,9 +934,16 @@ pub fn install_webc_package(url: &Url, checksum: &str) -> Result<(), anyhow::Err
         .block_on(async { install_webc_package_inner(url, checksum).await })
 }
 
-async fn install_webc_package_inner(url: &Url, checksum: &str) -> Result<(), anyhow::Error> {
+async fn install_webc_package_inner(
+    #[cfg(test)] test_name: &str,
+    url: &Url,
+    checksum: &str,
+) -> Result<(), anyhow::Error> {
     use futures_util::StreamExt;
 
+    #[cfg(test)]
+    let path = get_webc_dir(test_name).ok_or_else(|| anyhow::anyhow!("no webc dir"))?;
+    #[cfg(not(test))]
     let path = get_webc_dir().ok_or_else(|| anyhow::anyhow!("no webc dir"))?;
 
     let _ = std::fs::create_dir_all(&path);
@@ -979,7 +990,24 @@ async fn install_webc_package_inner(url: &Url, checksum: &str) -> Result<(), any
 }
 
 /// Returns a list of all installed webc packages
+#[cfg(test)]
+pub fn get_all_installed_webc_packages(test_name: &str) -> Vec<RemoteWebcInfo> {
+    get_all_installed_webc_packages_inner(test_name)
+}
+
+#[cfg(not(test))]
 pub fn get_all_installed_webc_packages() -> Vec<RemoteWebcInfo> {
+    get_all_installed_webc_packages_inner("")
+}
+
+fn get_all_installed_webc_packages_inner(_test_name: &str) -> Vec<RemoteWebcInfo> {
+    #[cfg(test)]
+    let dir = match get_webc_dir(_test_name) {
+        Some(s) => s,
+        None => return Vec::new(),
+    };
+
+    #[cfg(not(test))]
     let dir = match get_webc_dir() {
         Some(s) => s,
         None => return Vec::new(),
