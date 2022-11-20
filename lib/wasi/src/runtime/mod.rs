@@ -272,21 +272,10 @@ where
     }
 
     /// Writes output to the log
-    #[cfg(feature = "tracing")]
     fn log(&self, text: String) -> Pin<Box<dyn Future<Output = io::Result<()>>>> {
         Box::pin(async move {
             tracing::info!("{}", text);
             Ok(())
-        })
-    }
-
-    /// Writes output to the log
-    #[cfg(not(feature = "tracing"))]
-    fn log(&self, text: String) -> Pin<Box<dyn Future<Output = io::Result<()>>>> {
-        Box::pin(async move {
-            let text = format!("{}\r\n", text);
-            let mut handle = io::stderr();
-            handle.write_all(text.as_bytes())
         })
     }
 
