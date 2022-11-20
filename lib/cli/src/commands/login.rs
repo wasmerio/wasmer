@@ -1,4 +1,5 @@
 use clap::Parser;
+#[cfg(not(test))]
 use dialoguer::Input;
 
 /// Subcommand for listing packages

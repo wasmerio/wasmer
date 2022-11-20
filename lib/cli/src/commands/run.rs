@@ -822,7 +822,6 @@ fn test_fixup_args() {
 }
 
 pub(crate) fn try_run_package_or_file(
-    #[cfg(test)] test_name: &str,
     args: &[String],
     r: &Run,
     debug: bool,
@@ -830,9 +829,6 @@ pub(crate) fn try_run_package_or_file(
     let debug_msgs_allowed = isatty::stdout_isatty();
 
     if let Ok(url) = url::Url::parse(&format!("{}", r.path.display())) {
-        #[cfg(test)]
-        let result = try_run_url(test_name, &url, args, r, debug);
-        #[cfg(not(test))]
         let result = try_run_url(&url, args, r, debug);
         return result;
     }
@@ -919,13 +915,7 @@ pub(crate) fn try_run_package_or_file(
     try_autoinstall_package(args, &sv, package_download_info, r.force_install)
 }
 
-fn try_run_url(
-    #[cfg(test)] test_name: &str,
-    url: &Url,
-    _args: &[String],
-    r: &Run,
-    _debug: bool,
-) -> Result<(), anyhow::Error> {
+fn try_run_url(url: &Url, _args: &[String], r: &Run, _debug: bool) -> Result<(), anyhow::Error> {
     let checksum = wasmer_registry::get_remote_webc_checksum(url)
         .map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
 
