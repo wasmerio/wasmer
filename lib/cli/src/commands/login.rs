@@ -17,27 +17,25 @@ impl Login {
         match self.token.as_ref() {
             Some(s) => Ok(s.clone()),
             None => {
-                let registry_host = url::Url::parse(&wasmer_registry::format_graphql(
-                    &self.registry,
-                ))
-                .map_err(|e| {
-                    std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!("Invalid registry for login {}: {e}", self.registry),
-                    )
-                })?;
-                let registry_host = registry_host.host_str().ok_or_else(|| {
-                    std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!("Invalid registry for login {}: no host", self.registry),
-                    )
-                })?;
-                Input::new()
-                    .with_prompt(&format!(
-                        "Please paste the login token from https://{}/me:\"",
-                        registry_host
-                    ))
-                    .interact_text()
+                let registry_host = wasmer_registry::format_graphql(&self.registry);
+                let registry_tld = tldextract::TldExtractor::new(tldextract::TldOption::default())
+                    .extract(&registry_host)
+                    .map_err(|e| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!("Invalid registry for login {}: {e}", self.registry),
+                        )
+                    })?;
+                let login_prompt = match (
+                    registry_tld.domain.as_deref(),
+                    registry_tld.suffix.as_deref(),
+                ) {
+                    (Some(d), Some(s)) => {
+                        format!("Please paste the login token for https://{d}.{s}/me")
+                    }
+                    _ => "Please paste the login token".to_string(),
+                };
+                Input::new().with_prompt(&login_prompt).interact_text()
             }
         }
     }
