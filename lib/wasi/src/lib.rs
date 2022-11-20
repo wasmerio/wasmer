@@ -62,16 +62,6 @@ use std::{
 
 #[allow(unused_imports)]
 use bytes::{Bytes, BytesMut};
-pub use os::task::{
-    control_plane::WasiControlPlane,
-    process::{WasiProcess, WasiProcessId},
-    thread::{WasiThread, WasiThreadHandle, WasiThreadId},
-};
-pub use os::WasiTtyState;
-pub use runtime::{
-    PluggableRuntimeImplementation, SpawnedMemory, VirtualTaskManager, WasiRuntimeImplementation,
-    WasiThreadError, WebSocketAbi,
-};
 use thiserror::Error;
 use tracing::error;
 // re-exports needed for OS
@@ -102,9 +92,25 @@ pub use wasmer_vnet;
 pub use wasmer_vnet::{UnsupportedVirtualNetworking, VirtualNetworking};
 use wasmer_wasi_types::wasi::{BusErrno, Errno, ExitCode};
 
-pub use crate::fs::{default_fs_backing, Fd, WasiFs, WasiInodes, VIRTUAL_ROOT_FD};
+pub use crate::{
+    fs::{default_fs_backing, Fd, WasiFs, WasiInodes, VIRTUAL_ROOT_FD},
+    os::{
+        task::{
+            control_plane::WasiControlPlane,
+            process::{WasiProcess, WasiProcessId},
+            thread::{WasiThread, WasiThreadHandle, WasiThreadId},
+        },
+        WasiTtyState,
+    },
+    runtime::{
+        PluggableRuntimeImplementation, SpawnedMemory, VirtualTaskManager,
+        WasiRuntimeImplementation, WasiThreadError, WebSocketAbi,
+    },
+};
+
 #[cfg(feature = "wasix")]
 pub use crate::utils::is_wasix_module;
+
 pub use crate::{
     state::{
         Pipe, WasiEnv, WasiEnvInner, WasiFunctionEnv, WasiState, WasiStateBuilder,
