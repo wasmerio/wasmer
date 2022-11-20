@@ -10,14 +10,14 @@ use crate::{WasiCallingId, WasiThreadError};
 use super::{SpawnType, VirtualTaskManager};
 
 #[derive(Debug)]
-pub struct DefaultTaskManager {
+pub struct ThreadTaskManager {
     /// This is the tokio runtime used for ASYNC operations that is
     /// used for non-javascript environments
     #[cfg(feature = "sys-thread")]
     runtime: std::sync::Arc<Runtime>,
 }
 
-impl Default for DefaultTaskManager {
+impl Default for ThreadTaskManager {
     #[cfg(feature = "sys-thread")]
     fn default() -> Self {
         let runtime: std::sync::Arc<Runtime> =
@@ -36,7 +36,7 @@ impl Default for DefaultTaskManager {
 
 #[allow(unused_variables)]
 #[cfg(not(feature = "sys-thread"))]
-impl VirtualTaskManager for DefaultTaskManager {
+impl VirtualTaskManager for ThreadTaskManager {
     /// Invokes whenever a WASM thread goes idle. In some runtimes (like singlethreaded
     /// execution environments) they will need to do asynchronous work whenever the main
     /// thread goes idle and this is the place to hook for that.
@@ -114,7 +114,7 @@ impl VirtualTaskManager for DefaultTaskManager {
 }
 
 #[cfg(feature = "sys-thread")]
-impl VirtualTaskManager for DefaultTaskManager {
+impl VirtualTaskManager for ThreadTaskManager {
     /// See [`VirtualTaskManager::sleep_now`].
     fn sleep_now(
         &self,

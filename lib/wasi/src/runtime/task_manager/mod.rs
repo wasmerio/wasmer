@@ -1,6 +1,6 @@
-mod default;
-
-pub use self::default::DefaultTaskManager;
+// TODO: should be behind a different , tokio specific feature flag.
+#[cfg(feature = "sys-thread")]
+pub mod tokio;
 
 use std::pin::Pin;
 
@@ -47,9 +47,11 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
 
     /// Starts an asynchronous task on the local thread (by running it in a runtime)
     // TODO: return output future?
+    // TODO: should be fallible
     fn block_on<'a>(&self, task: Pin<Box<dyn Future<Output = ()> + 'a>>);
 
     /// Starts an asynchronous task on the local thread (by running it in a runtime)
+    // TODO: should be fallible
     fn enter<'a>(&'a self) -> Box<dyn std::any::Any + 'a>;
 
     /// Starts an asynchronous task will will run on a dedicated thread
@@ -81,4 +83,76 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
 
     /// Returns the amount of parallelism that is possible on this platform
     fn thread_parallelism(&self) -> Result<usize, WasiThreadError>;
+}
+
+/// A no-op taskmanager that does not support any spawning operations.
+#[derive(Clone, Debug)]
+pub struct StubTaskManager;
+
+impl VirtualTaskManager for StubTaskManager {
+    #[allow(unused_variables)]
+    fn sleep_now(
+        &self,
+        id: WasiCallingId,
+        ms: u128,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>> {
+        if ms == 0 {
+            std::thread::yield_now();
+        } else {
+            std::thread::sleep(std::time::Duration::from_millis(ms as u64));
+        }
+        Box::pin(async move {})
+    }
+
+    #[allow(unused_variables)]
+    fn task_shared(
+        &self,
+        task: Box<
+            dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + Send + 'static>> + Send + 'static,
+        >,
+    ) -> Result<(), WasiThreadError> {
+        Err(WasiThreadError::Unsupported)
+    }
+
+    #[allow(unused_variables)]
+    fn block_on<'a>(&self, task: Pin<Box<dyn Future<Output = ()> + 'a>>) {
+        unimplemented!("asynchronous operations are not supported on this task manager");
+    }
+
+    #[allow(unused_variables)]
+    fn enter(&self) -> Box<dyn std::any::Any> {
+        unimplemented!("asynchronous operations are not supported on this task manager");
+    }
+
+    #[allow(unused_variables)]
+    fn task_wasm(
+        &self,
+        task: Box<dyn FnOnce(Store, Module, Option<VMMemory>) + Send + 'static>,
+        store: Store,
+        module: Module,
+        spawn_type: SpawnType,
+    ) -> Result<(), WasiThreadError> {
+        Err(WasiThreadError::Unsupported)
+    }
+
+    #[allow(unused_variables)]
+    fn task_dedicated(
+        &self,
+        task: Box<dyn FnOnce() + Send + 'static>,
+    ) -> Result<(), WasiThreadError> {
+        Err(WasiThreadError::Unsupported)
+    }
+
+    #[allow(unused_variables)]
+    fn task_dedicated_async(
+        &self,
+        task: Box<dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + 'static>> + Send + 'static>,
+    ) -> Result<(), WasiThreadError> {
+        Err(WasiThreadError::Unsupported)
+    }
+
+    #[allow(unused_variables)]
+    fn thread_parallelism(&self) -> Result<usize, WasiThreadError> {
+        Err(WasiThreadError::Unsupported)
+    }
 }
