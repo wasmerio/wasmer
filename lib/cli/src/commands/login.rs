@@ -35,7 +35,14 @@ impl Login {
                     }
                     _ => "Please paste the login token".to_string(),
                 };
-                Input::new().with_prompt(&login_prompt).interact_text()
+                #[cfg(test)]
+                {
+                    Ok(login_prompt)
+                }
+                #[cfg(not(test))]
+                {
+                    Input::new().with_prompt(&login_prompt).interact_text()
+                }
             }
         }
     }
@@ -46,4 +53,24 @@ impl Login {
         wasmer_registry::login::login_and_save_token(&self.registry, &token)
             .map_err(|e| anyhow::anyhow!("{e}"))
     }
+}
+
+#[test]
+fn test_login_2() {
+    let login = Login {
+        registry: "wapm.dev".to_string(),
+        token: None,
+    };
+
+    assert_eq!(
+        login.get_token_or_ask_user().unwrap(),
+        "Please paste the login token for https://wapm.dev/me"
+    );
+
+    let login = Login {
+        registry: "wapm.dev".to_string(),
+        token: Some("abc".to_string()),
+    };
+
+    assert_eq!(login.get_token_or_ask_user().unwrap(), "abc");
 }
