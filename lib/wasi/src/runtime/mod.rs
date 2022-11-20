@@ -4,7 +4,7 @@ pub use ws::*;
 mod stdio;
 pub use stdio::*;
 
-mod task_manager;
+pub mod task_manager;
 
 pub use self::{
     stdio::*,
