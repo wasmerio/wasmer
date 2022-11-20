@@ -929,17 +929,11 @@ fn try_run_url(
     let checksum = wasmer_registry::get_remote_webc_checksum(url)
         .map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
 
-    #[cfg(test)]
-    let packages = wasmer_registry::get_all_installed_webc_packages(test_name);
-    #[cfg(not(test))]
     let packages = wasmer_registry::get_all_installed_webc_packages();
 
     if !packages.iter().any(|p| p.checksum == checksum) {
         let sp = start_spinner(format!("Installing {}", url));
 
-        #[cfg(test)]
-        let result = wasmer_registry::install_webc_package(test_name, url, &checksum);
-        #[cfg(not(test))]
         let result = wasmer_registry::install_webc_package(url, &checksum);
 
         result.map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
@@ -949,10 +943,7 @@ fn try_run_url(
         }
     }
 
-    #[cfg(not(test))]
     let webc_dir = wasmer_registry::get_webc_dir();
-    #[cfg(test)]
-    let webc_dir = wasmer_registry::get_webc_dir(test_name);
 
     let webc_install_path = webc_dir
         .context("Error installing package: no webc dir")?
