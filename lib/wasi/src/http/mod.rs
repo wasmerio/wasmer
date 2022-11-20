@@ -1,3 +1,4 @@
+#[cfg(feature = "host-reqwest")]
 pub mod reqwest;
 
 use std::sync::Arc;
