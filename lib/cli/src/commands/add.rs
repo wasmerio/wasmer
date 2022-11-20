@@ -40,7 +40,7 @@ impl Add {
 
         let bindings = self.lookup_bindings(&registry)?;
 
-        let mut cmd = self.target().command(&bindings);
+        let mut cmd = self.target()?.command(&bindings)?;
 
         #[cfg(feature = "debug")]
         log::debug!("Running {cmd:?}");
@@ -67,7 +67,7 @@ impl Add {
         log::debug!("Querying WAPM for the bindings packages");
 
         let mut bindings_to_add = Vec::new();
-        let language = self.target().language();
+        let language = self.target()?.language();
 
         for pkg in &self.packages {
             let bindings = lookup_bindings_for_package(registry, pkg, &language)
@@ -90,14 +90,17 @@ impl Add {
         }
     }
 
-    fn target(&self) -> Target {
+    fn target(&self) -> Result<Target, Error> {
         match (self.pip, self.npm, self.yarn) {
-            (true, false, false) => Target::Pip,
-            (false, true, false) => Target::Npm { dev: self.dev },
-            (false, false, true) => Target::Yarn { dev: self.dev },
-            _ => unreachable!(
-                "Clap should ensure at least one item in the \"bindings\" group is specified"
-            ),
+            (false, false, false) => Err(anyhow::anyhow!(
+                "at least one of --npm, --pip or --yarn has to be specified"
+            )),
+            (true, false, false) => Ok(Target::Pip),
+            (false, true, false) => Ok(Target::Npm { dev: self.dev }),
+            (false, false, true) => Ok(Target::Yarn { dev: self.dev }),
+            _ => Err(anyhow::anyhow!(
+                "only one of --npm, --pip or --yarn has to be specified"
+            )),
         }
     }
 }
@@ -153,13 +156,43 @@ impl Target {
     /// `npm.cmd` or `yarn.ps1`).
     ///
     /// See <https://github.com/wasmerio/wapm-cli/issues/291> for more.
-    fn command(self, packages: &[Bindings]) -> Command {
+    fn command(self, packages: &[Bindings]) -> Result<Command, Error> {
         let command_line = match self {
-            Target::Pip => "pip install",
-            Target::Yarn { dev: true } => "yarn add --dev",
-            Target::Yarn { dev: false } => "yarn add",
-            Target::Npm { dev: true } => "npm install --dev",
-            Target::Npm { dev: false } => "npm install",
+            Target::Pip => {
+                if Command::new("pip").arg("--version").output().is_ok() {
+                    "pip install"
+                } else if Command::new("pip3").arg("--version").output().is_ok() {
+                    "pip3 install"
+                } else if Command::new("python").arg("--version").output().is_ok() {
+                    "python -m pip install"
+                } else if Command::new("python3").arg("--version").output().is_ok() {
+                    "python3 -m pip install"
+                } else {
+                    return Err(anyhow::anyhow!(
+                        "neither pip, pip3, python or python3 installed"
+                    ));
+                }
+            }
+            Target::Yarn { dev } => {
+                if Command::new("yarn").arg("--version").output().is_err() {
+                    return Err(anyhow::anyhow!("yarn not installed"));
+                }
+                if dev {
+                    "yarn add --dev"
+                } else {
+                    "yarn add"
+                }
+            }
+            Target::Npm { dev } => {
+                if Command::new("npm").arg("--version").output().is_err() {
+                    return Err(anyhow::anyhow!("yarn not installed"));
+                }
+                if dev {
+                    "npm install --dev"
+                } else {
+                    "npm install"
+                }
+            }
         };
         let mut command_line = command_line.to_string();
 
@@ -171,11 +204,11 @@ impl Target {
         if cfg!(windows) {
             let mut cmd = Command::new("cmd");
             cmd.arg("/C").arg(command_line);
-            cmd
+            Ok(cmd)
         } else {
             let mut cmd = Command::new("sh");
             cmd.arg("-c").arg(command_line);
-            cmd
+            Ok(cmd)
         }
     }
 }
