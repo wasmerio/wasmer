@@ -327,3 +327,34 @@ impl Tty {
         let _ = self.stdout.write(&data[..]);
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct WasiTtyState {
+    pub cols: u32,
+    pub rows: u32,
+    pub width: u32,
+    pub height: u32,
+    pub stdin_tty: bool,
+    pub stdout_tty: bool,
+    pub stderr_tty: bool,
+    pub echo: bool,
+    pub line_buffered: bool,
+    pub line_feeds: bool,
+}
+
+impl Default for WasiTtyState {
+    fn default() -> Self {
+        Self {
+            rows: 80,
+            cols: 25,
+            width: 800,
+            height: 600,
+            stdin_tty: true,
+            stdout_tty: true,
+            stderr_tty: true,
+            echo: false,
+            line_buffered: false,
+            line_feeds: true,
+        }
+    }
+}

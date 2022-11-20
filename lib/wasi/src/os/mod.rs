@@ -1,6 +1,6 @@
 pub mod common;
 mod console;
-mod tty;
+pub mod tty;
 
 pub mod command;
 pub mod task;

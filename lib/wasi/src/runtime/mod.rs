@@ -18,7 +18,7 @@ use wasmer_vbus::{DefaultVirtualBus, VirtualBus};
 use wasmer_vnet::VirtualNetworking;
 use wasmer_wasi_types::wasi::Errno;
 
-use crate::{WasiCallingId, WasiEnv};
+use crate::{os::tty::WasiTtyState, WasiCallingId, WasiEnv};
 
 mod ws;
 pub use ws::*;
@@ -53,37 +53,6 @@ impl From<WasiThreadError> for Errno {
             WasiThreadError::MethodNotFound => Errno::Inval,
             WasiThreadError::MemoryCreateFailed => Errno::Fault,
             WasiThreadError::InvalidWasmContext => Errno::Noexec,
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct WasiTtyState {
-    pub cols: u32,
-    pub rows: u32,
-    pub width: u32,
-    pub height: u32,
-    pub stdin_tty: bool,
-    pub stdout_tty: bool,
-    pub stderr_tty: bool,
-    pub echo: bool,
-    pub line_buffered: bool,
-    pub line_feeds: bool,
-}
-
-impl Default for WasiTtyState {
-    fn default() -> Self {
-        Self {
-            rows: 80,
-            cols: 25,
-            width: 800,
-            height: 600,
-            stdin_tty: true,
-            stdout_tty: true,
-            stderr_tty: true,
-            echo: false,
-            line_buffered: false,
-            line_feeds: true,
         }
     }
 }
@@ -567,9 +536,7 @@ impl VirtualTaskManager for DefaultTaskManager {
 
 #[cfg(feature = "sys-thread")]
 impl VirtualTaskManager for DefaultTaskManager {
-    /// Invokes whenever a WASM thread goes idle. In some runtimes (like singlethreaded
-    /// execution environments) they will need to do asynchronous work whenever the main
-    /// thread goes idle and this is the place to hook for that.
+    /// See [`VirtualTaskManager::sleep_now`].
     fn sleep_now(
         &self,
         _id: WasiCallingId,
@@ -600,7 +567,7 @@ impl VirtualTaskManager for DefaultTaskManager {
         Ok(())
     }
 
-    /// Starts an asynchronous task on the local thread (by running it in a runtime)
+    /// See [`VirtualTaskManager::block_on`].
     fn block_on<'a>(&self, task: Pin<Box<dyn Future<Output = ()> + 'a>>) {
         let _guard = self.runtime.enter();
         self.runtime.block_on(async move {
@@ -608,14 +575,12 @@ impl VirtualTaskManager for DefaultTaskManager {
         });
     }
 
-    /// Enters the task runtime
+    /// See [`VirtualTaskManager::enter`].
     fn enter<'a>(&'a self) -> Box<dyn std::any::Any + 'a> {
         Box::new(self.runtime.enter())
     }
 
-    /// Starts an asynchronous task will will run on a dedicated thread
-    /// pulled from the worker pool that has a stateful thread local variable
-    /// It is ok for this task to block execution and any async futures within its scope
+    /// See [`VirtualTaskManager::enter`].
     fn task_wasm(
         &self,
         task: Box<dyn FnOnce(Store, Module, Option<VMMemory>) + Send + 'static>,
@@ -645,9 +610,7 @@ impl VirtualTaskManager for DefaultTaskManager {
         Ok(())
     }
 
-    /// Starts an asynchronous task will will run on a dedicated thread
-    /// pulled from the worker pool. It is ok for this task to block execution
-    /// and any async futures within its scope
+    /// See [`VirtualTaskManager::task_dedicated`].
     fn task_dedicated(
         &self,
         task: Box<dyn FnOnce() + Send + 'static>,
@@ -658,9 +621,7 @@ impl VirtualTaskManager for DefaultTaskManager {
         Ok(())
     }
 
-    /// Starts an asynchronous task will will run on a dedicated thread
-    /// pulled from the worker pool. It is ok for this task to block execution
-    /// and any async futures within its scope
+    /// See [`VirtualTaskManager::task_dedicated_async`].
     fn task_dedicated_async(
         &self,
         task: Box<dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + 'static>> + Send + 'static>,
@@ -673,9 +634,7 @@ impl VirtualTaskManager for DefaultTaskManager {
         Ok(())
     }
 
-    /// Number of concurrent threads supported on this machine
-    /// in a stable way (ideally we should aim for this number
-    /// of background threads)
+    /// See [`VirtualTaskManager::thread_parallelism`].
     fn thread_parallelism(&self) -> Result<usize, WasiThreadError> {
         Ok(std::thread::available_parallelism()
             .map(|a| usize::from(a))

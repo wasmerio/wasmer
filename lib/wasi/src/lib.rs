@@ -66,9 +66,10 @@ pub use os::task::{
     process::{WasiProcess, WasiProcessId},
     thread::{WasiThread, WasiThreadHandle, WasiThreadId},
 };
+pub use os::WasiTtyState;
 pub use runtime::{
     PluggableRuntimeImplementation, SpawnedMemory, VirtualTaskManager, WasiRuntimeImplementation,
-    WasiThreadError, WasiTtyState, WebSocketAbi,
+    WasiThreadError, WebSocketAbi,
 };
 use thiserror::Error;
 use tracing::error;
