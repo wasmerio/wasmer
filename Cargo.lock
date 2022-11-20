@@ -676,22 +676,22 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-epoch"
-version = "0.9.11"
+version = "0.9.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f916dfc5d356b0ed9dae65f1db9fc9770aa2851d2662b988ccf4fe3516e86348"
+checksum = "96bf8df95e795db1a4aca2957ad884a2df35413b24bbeb3114422f3cc21498e8"
 dependencies = [
  "autocfg",
  "cfg-if 1.0.0",
  "crossbeam-utils",
- "memoffset",
+ "memoffset 0.7.1",
  "scopeguard",
 ]
 
 [[package]]
 name = "crossbeam-utils"
-version = "0.8.12"
+version = "0.8.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edbafec5fa1f196ca66527c1b12c2ec4745ca14b50f1ad8f9f6f720b55d11fac"
+checksum = "422f23e724af1240ec469ea1e834d87a4b59ce2efe2c6a96256b0c47e2fd86aa"
 dependencies = [
  "cfg-if 1.0.0",
 ]
@@ -1096,7 +1096,7 @@ version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e1c54951450cbd39f3dbcf1005ac413b49487dabf18a720ad2383eccfeffb92"
 dependencies = [
- "memoffset",
+ "memoffset 0.6.5",
  "rustc_version 0.3.3",
 ]
 
@@ -1871,7 +1871,7 @@ dependencies = [
 
 [[package]]
 name = "macro-wasmer-universal-test"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "proc-macro2",
  "proc-quote",
@@ -1914,6 +1914,15 @@ name = "memoffset"
 version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5aa361d4faea93603064a027415f07bd8e1d5c88c9fbf68bf56a285428fd79ce"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
+name = "memoffset"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5de893c32cde5f383baa4c04c5d6dbdd735cfd4a794b0debdb2bb1b421da5ff4"
 dependencies = [
  "autocfg",
 ]
@@ -2011,7 +2020,7 @@ dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
  "libc",
- "memoffset",
+ "memoffset 0.6.5",
 ]
 
 [[package]]
@@ -2024,7 +2033,7 @@ dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
  "libc",
- "memoffset",
+ "memoffset 0.6.5",
  "pin-utils",
 ]
 
@@ -3758,7 +3767,7 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
 name = "wasi-test-generator"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "glob",
  "gumdrop",
@@ -3890,7 +3899,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -3938,7 +3947,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "cbindgen",
  "cfg-if 1.0.0",
@@ -3966,7 +3975,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api-test-runner"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "cc",
  "regex",
@@ -3976,7 +3985,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "blake3",
  "criterion",
@@ -3990,7 +3999,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-capi-examples-runner"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "cc",
  "regex",
@@ -4000,7 +4009,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "anyhow",
  "atty",
@@ -4053,7 +4062,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "backtrace",
  "cfg-if 1.0.0",
@@ -4079,7 +4088,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cli"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "anyhow",
  "atty",
@@ -4101,7 +4110,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -4120,7 +4129,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "byteorder",
  "cc",
@@ -4142,7 +4151,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -4160,7 +4169,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error",
@@ -4172,7 +4181,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-emscripten"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "byteorder",
  "getrandom",
@@ -4214,7 +4223,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-cli"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "anyhow",
  "flate2",
@@ -4226,11 +4235,11 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-ios"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 
 [[package]]
 name = "wasmer-middlewares"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -4239,7 +4248,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-object"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "object 0.28.4",
  "thiserror",
@@ -4248,7 +4257,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-registry"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "anyhow",
  "dirs 4.0.0",
@@ -4276,12 +4285,12 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "enum-iterator",
  "enumset",
  "indexmap",
- "memoffset",
+ "memoffset 0.6.5",
  "more-asserts",
  "rkyv",
  "serde",
@@ -4292,7 +4301,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vbus"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "thiserror",
  "wasmer-vfs",
@@ -4300,7 +4309,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vfs"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "anyhow",
  "libc",
@@ -4314,7 +4323,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "backtrace",
  "cc",
@@ -4325,7 +4334,7 @@ dependencies = [
  "lazy_static",
  "libc",
  "mach",
- "memoffset",
+ "memoffset 0.6.5",
  "more-asserts",
  "region",
  "scopeguard",
@@ -4337,7 +4346,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vnet"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "bytes",
  "thiserror",
@@ -4346,7 +4355,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "anyhow",
  "bincode",
@@ -4378,7 +4387,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-experimental-io-devices"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "minifb",
  "nix 0.25.0",
@@ -4391,7 +4400,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-local-networking"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "bytes",
  "tracing",
@@ -4401,7 +4410,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-types"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "byteorder",
  "pretty_assertions",
@@ -4418,7 +4427,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wast"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "anyhow",
  "serde",
@@ -4499,7 +4508,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-workspace"
-version = "3.0.0-rc.4"
+version = "3.0.0"
 dependencies = [
  "anyhow",
  "build-deps",
