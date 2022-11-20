@@ -250,16 +250,27 @@ impl PluggableRuntimeImplementation {
 impl Default for PluggableRuntimeImplementation {
     fn default() -> Self {
         // TODO: the cfg flags below should instead be handled by separate implementations.
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "host-vnet")] {
+                let networking = Arc::new(wasmer_vnet::UnsupportedVirtualNetworking::default());
+            } else {
+                let networking = Arc::new(wasmer_wasi_local_networking::LocalNetworking::default());
+            }
+        }
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "host-reqwest")] {
+                let http_client = Some(Arc::new(
+                    crate::http::reqwest::ReqwestHttpClient::default()) as DynHttpClient
+                );
+            } else {
+                let http_client = None;
+            }
+        }
+
         Self {
-            #[cfg(not(feature = "host-vnet"))]
-            networking: Arc::new(wasmer_vnet::UnsupportedVirtualNetworking::default()),
-            #[cfg(feature = "host-vnet")]
-            networking: Arc::new(wasmer_wasi_local_networking::LocalNetworking::default()),
+            networking,
             bus: Arc::new(DefaultVirtualBus::default()),
-            #[cfg(feature = "host-reqwest")]
-            http_client: Some(Arc::new(crate::http::reqwest::ReqwestHttpClient::default())),
-            #[cfg(not(feature = "host-reqwest"))]
-            http_client: None,
+            http_client,
         }
     }
 }
