@@ -8,7 +8,6 @@ use std::{
     sync::Arc,
 };
 
-use derivative::Derivative;
 use thiserror::Error;
 use tracing::*;
 use wasmer::{vm::VMMemory, MemoryType, Module, Store};
@@ -28,7 +27,7 @@ pub use stdio::*;
 
 #[cfg(feature = "termios")]
 pub mod term;
-use crate::http::{HttpRequestOptions, HttpResponse};
+use crate::http::DynHttpClient;
 #[cfg(feature = "termios")]
 pub use term::*;
 #[cfg(feature = "sys-thread")]
@@ -94,6 +93,7 @@ pub trait VirtualTaskManager: fmt::Debug + Send + Sync + 'static {
     ) -> Result<(), WasiThreadError>;
 
     /// Starts an asynchronous task on the local thread (by running it in a runtime)
+    // TODO: return output future?
     fn block_on<'a>(&self, task: Pin<Box<dyn Future<Output = ()> + 'a>>);
 
     /// Starts an asynchronous task on the local thread (by running it in a runtime)
@@ -223,89 +223,7 @@ where
         }
     }
 
-    /// Performs a HTTP or HTTPS request to a destination URL
-    #[cfg(not(feature = "host-reqwest"))]
-    fn reqwest(
-        &self,
-        tasks: &dyn VirtualTaskManager,
-        url: &str,
-        method: &str,
-        options: HttpRequestOptions,
-        headers: Vec<(String, String)>,
-        data: Option<Vec<u8>>,
-    ) -> Pin<Box<dyn Future<Output = Result<HttpResponse, Errno>>>> {
-        Box::pin(async move { Err(Errno::Notsup) })
-    }
-
-    /// Performs a HTTP or HTTPS request to a destination URL
-    #[cfg(feature = "host-reqwest")]
-    fn reqwest(
-        &self,
-        tasks: &dyn VirtualTaskManager,
-        url: &str,
-        method: &str,
-        _options: HttpRequestOptions,
-        headers: Vec<(String, String)>,
-        data: Option<Vec<u8>>,
-    ) -> Pin<Box<dyn Future<Output = Result<HttpResponse, Errno>>>> {
-        use std::convert::TryFrom;
-
-        let url = url.to_string();
-        let method = method.to_string();
-
-        Box::pin(async move {
-            let method = reqwest::Method::try_from(method.as_str()).map_err(|err| {
-                debug!("failed to convert method ({}) - {}", method, err);
-                Errno::Io
-            })?;
-
-            let client = reqwest::ClientBuilder::default().build().map_err(|err| {
-                debug!("failed to build reqwest client - {}", err);
-                Errno::Io
-            })?;
-
-            let mut builder = client.request(method, url.as_str());
-            for (header, val) in headers {
-                if let Ok(header) = reqwest::header::HeaderName::from_bytes(header.as_bytes()) {
-                    builder = builder.header(header, val);
-                } else {
-                    debug!("failed to parse header - {}", header);
-                }
-            }
-
-            if let Some(data) = data {
-                builder = builder.body(reqwest::Body::from(data));
-            }
-
-            let request = builder.build().map_err(|err| {
-                debug!("failed to convert request (url={}) - {}", url.as_str(), err);
-                Errno::Io
-            })?;
-
-            let response = client.execute(request).await.map_err(|err| {
-                debug!("failed to execute reqest - {}", err);
-                Errno::Io
-            })?;
-
-            let status = response.status().as_u16();
-            let status_text = response.status().as_str().to_string();
-            let data = response.bytes().await.map_err(|err| {
-                debug!("failed to read response bytes - {}", err);
-                Errno::Io
-            })?;
-            let data = data.to_vec();
-
-            Ok(HttpResponse {
-                pos: 0usize,
-                ok: true,
-                status,
-                status_text,
-                redirected: false,
-                data: Some(data),
-                headers: Vec::new(),
-            })
-        })
-    }
+    fn http_client(&self) -> Option<&DynHttpClient>;
 
     /// Make a web socket connection to a particular URL
     #[cfg(not(feature = "host-ws"))]
@@ -381,11 +299,11 @@ where
     }
 }
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct PluggableRuntimeImplementation {
     pub bus: Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static>,
     pub networking: Arc<dyn VirtualNetworking + Send + Sync + 'static>,
+    pub http_client: Option<DynHttpClient>,
 }
 
 impl PluggableRuntimeImplementation {
@@ -406,12 +324,17 @@ impl PluggableRuntimeImplementation {
 
 impl Default for PluggableRuntimeImplementation {
     fn default() -> Self {
+        // TODO: the cfg flags below should instead be handled by separate implementations.
         Self {
             #[cfg(not(feature = "host-vnet"))]
             networking: Arc::new(wasmer_vnet::UnsupportedVirtualNetworking::default()),
             #[cfg(feature = "host-vnet")]
             networking: Arc::new(wasmer_wasi_local_networking::LocalNetworking::default()),
             bus: Arc::new(DefaultVirtualBus::default()),
+            #[cfg(feature = "host-reqwest")]
+            http_client: Some(Arc::new(crate::http::reqwest::ReqwestHttpClient::default())),
+            #[cfg(not(feature = "host-reqwest"))]
+            http_client: None,
         }
     }
 }
@@ -634,5 +557,9 @@ impl WasiRuntimeImplementation for PluggableRuntimeImplementation {
 
     fn networking<'a>(&'a self) -> Arc<dyn VirtualNetworking + Send + Sync + 'static> {
         self.networking.clone()
+    }
+
+    fn http_client(&self) -> Option<&DynHttpClient> {
+        self.http_client.as_ref()
     }
 }

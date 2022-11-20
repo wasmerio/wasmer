@@ -133,6 +133,7 @@ impl ModuleCache {
         wasmer::Store::default()
     }
 
+    // TODO: should return Result<_, anyhow::Error>
     pub fn get_webc(
         &self,
         webc: &str,
@@ -171,7 +172,9 @@ impl ModuleCache {
                 .map(|a| a.0)
                 .unwrap_or_else(|| name.as_str());
             let cache_webc_dir = self.cache_webc_dir.as_str();
-            if let Some(data) = crate::wapm::fetch_webc(cache_webc_dir, wapm_name, runtime, tasks) {
+            if let Ok(data) =
+                crate::wapm::fetch_webc_task(cache_webc_dir, wapm_name, runtime, tasks)
+            {
                 // If the package is the same then don't replace it
                 // as we don't want to duplicate the memory usage
                 if let Some(existing) = cache.get_mut(&name) {

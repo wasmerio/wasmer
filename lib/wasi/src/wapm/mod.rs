@@ -1,3 +1,4 @@
+use anyhow::{bail, Context};
 use std::{ops::Deref, path::PathBuf, sync::Arc};
 
 use tracing::*;
@@ -14,15 +15,46 @@ use crate::{
 mod manifest;
 mod pirita;
 
-use crate::http::HttpRequestOptions;
+use crate::http::{DynHttpClient, HttpRequest, HttpRequestOptions};
 use pirita::*;
 
-pub(crate) fn fetch_webc(
+pub(crate) fn fetch_webc_task(
     cache_dir: &str,
     webc: &str,
     runtime: &dyn WasiRuntimeImplementation,
     tasks: &dyn VirtualTaskManager,
-) -> Option<BinaryPackage> {
+) -> Result<BinaryPackage, anyhow::Error> {
+    let client = runtime
+        .http_client()
+        .context("no http client available")?
+        .clone();
+
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    let f = {
+        let cache_dir = cache_dir.to_string();
+        let webc = webc.to_string();
+        async move {
+            let out = fetch_webc(&cache_dir, &webc, client).await;
+            if let Err(error) = tx.send(out) {
+                tracing::warn!(?error, "could not send webc fetch result to output channel");
+            }
+        }
+    };
+
+    tasks.block_on(Box::pin(f));
+    let result = rx
+        .recv()
+        .context("webc fetch task has died")
+        .and_then(|x| x);
+    result.with_context(|| format!("could not fetch webc '{webc}'"))
+}
+
+async fn fetch_webc(
+    cache_dir: &str,
+    webc: &str,
+    client: DynHttpClient,
+) -> Result<BinaryPackage, anyhow::Error> {
     let name = webc.split_once(":").map(|a| a.0).unwrap_or_else(|| webc);
     let (name, version) = match name.split_once("@") {
         Some((name, version)) => (name, Some(version)),
@@ -39,109 +71,56 @@ pub(crate) fn fetch_webc(
         WAPM_WEBC_URL,
         urlencoding::encode(url_query.as_str())
     );
-    let options = HttpRequestOptions::default();
-    let headers = Default::default();
-    let data = None;
 
-    let (tx, rx) = std::sync::mpsc::channel();
-    let runtime = runtime.clone();
-    tasks.block_on(Box::pin(async move {
-        let ret = match runtime
-            .reqwest(tasks, url.as_str(), "POST", options, headers, data)
-            .await
-        {
-            Ok(wapm) => {
-                if wapm.status == 200 {
-                    if let Some(data) = wapm.data {
-                        match serde_json::from_slice::<'_, WapmWebQuery>(data.as_ref()) {
-                            Ok(query) => {
-                                if let Some(package) = query.data.get_package_version {
-                                    if let Some(pirita_download_url) =
-                                        package.distribution.pirita_download_url
-                                    {
-                                        let mut ret = download_webc(
-                                            cache_dir,
-                                            name,
-                                            pirita_download_url,
-                                            runtime,
-                                            tasks,
-                                        )
-                                        .await;
-                                        if let Some(ret) = ret.as_mut() {
-                                            ret.version = package.version.into();
-                                        }
-                                        ret
-                                    } else {
-                                        warn!(
-                                            "package ({}) has no pirita download URL: {}",
-                                            webc,
-                                            String::from_utf8_lossy(data.as_ref())
-                                        );
-                                        None
-                                    }
-                                } else if let Some(package) = query.data.get_package {
-                                    if let Some(pirita_download_url) =
-                                        package.last_version.distribution.pirita_download_url
-                                    {
-                                        let mut ret = download_webc(
-                                            cache_dir,
-                                            name,
-                                            pirita_download_url,
-                                            runtime,
-                                            tasks,
-                                        )
-                                        .await;
-                                        if let Some(ret) = ret.as_mut() {
-                                            ret.version = package.last_version.version.into();
-                                        }
-                                        ret
-                                    } else {
-                                        warn!(
-                                            "package ({}) has no pirita download URL: {}",
-                                            webc,
-                                            String::from_utf8_lossy(data.as_ref())
-                                        );
-                                        None
-                                    }
-                                } else {
-                                    warn!(
-                                        "failed to parse WAPM package ({}): {}",
-                                        name,
-                                        String::from_utf8_lossy(data.as_ref())
-                                    );
-                                    None
-                                }
-                            }
-                            Err(err) => {
-                                warn!("failed to deserialize WAPM response: {}", err);
-                                None
-                            }
-                        }
-                    } else {
-                        warn!(
-                            "failed to contact WAPM: http_code={}, http_response={}",
-                            wapm.status, wapm.status_text
-                        );
-                        None
-                    }
-                } else {
-                    warn!(
-                        "failed to contact WAPM: http_code={}, http_response={}",
-                        wapm.status, wapm.status_text
-                    );
-                    None
-                }
-            }
-            Err(code) => {
-                warn!("failed to contact WAPM: http_code={}", code);
-                None
-            }
-        };
-        let _ = tx.send(ret);
-    }));
-    match rx.recv() {
-        Ok(a) => a,
-        _ => return None,
+    let response = client
+        .request(HttpRequest {
+            url,
+            method: "POST".to_string(),
+            headers: vec![],
+            body: None,
+            options: HttpRequestOptions::default(),
+        })
+        .await?;
+
+    if response.status != 200 {
+        bail!(" http request failed with status {}", response.status);
+    }
+    let body = response.body.context("HTTP response with empty body")?;
+    let data: WapmWebQuery =
+        serde_json::from_slice(&body).context("Could not parse webc registry JSON data")?;
+    let PiritaVersionedDownload {
+        url: download_url,
+        version,
+    } = wapm_extract_version(&data).context("No pirita download URL available")?;
+    let mut pkg = download_webc(cache_dir, name, download_url, client).await?;
+    pkg.version = version.into();
+    Ok(pkg)
+}
+
+struct PiritaVersionedDownload {
+    url: String,
+    version: String,
+}
+
+fn wapm_extract_version(data: &WapmWebQuery) -> Option<PiritaVersionedDownload> {
+    if let Some(package) = &data.data.get_package_version {
+        let url = package.distribution.pirita_download_url.clone()?;
+        Some(PiritaVersionedDownload {
+            url,
+            version: package.version.clone(),
+        })
+    } else if let Some(package) = &data.data.get_package {
+        let url = package
+            .last_version
+            .distribution
+            .pirita_download_url
+            .clone()?;
+        Some(PiritaVersionedDownload {
+            url,
+            version: package.last_version.version.clone(),
+        })
+    } else {
+        None
     }
 }
 
@@ -149,9 +128,8 @@ async fn download_webc(
     cache_dir: &str,
     name: &str,
     pirita_download_url: String,
-    runtime: &dyn WasiRuntimeImplementation,
-    tasks: &dyn VirtualTaskManager,
-) -> Option<BinaryPackage> {
+    client: DynHttpClient,
+) -> Result<BinaryPackage, anyhow::Error> {
     let mut name_comps = pirita_download_url
         .split("/")
         .collect::<Vec<_>>()
@@ -175,23 +153,27 @@ async fn download_webc(
 
     // fast path
     let path = compute_path(cache_dir, name);
+
     #[cfg(feature = "sys")]
     if path.exists() {
         match webc::WebCMmap::parse(path.clone(), &options) {
             Ok(webc) => unsafe {
                 let webc = Arc::new(webc);
-                return parse_webc(webc.as_webc_ref(), webc.clone());
+                return parse_webc(webc.as_webc_ref(), webc.clone()).with_context(|| {
+                    format!("could not parse webc file at path : '{}'", path.display())
+                });
             },
             Err(err) => {
                 warn!("failed to parse WebC: {}", err);
             }
         }
     }
-    if let Ok(data) = std::fs::read(path) {
+    if let Ok(data) = std::fs::read(&path) {
         match webc::WebCOwned::parse(data, &options) {
             Ok(webc) => unsafe {
                 let webc = Arc::new(webc);
-                return parse_webc(webc.as_webc_ref(), webc.clone());
+                return parse_webc(webc.as_webc_ref(), webc.clone())
+                    .with_context(|| format!("Could not parse webc at {}", path.display()));
             },
             Err(err) => {
                 warn!("failed to parse WebC: {}", err);
@@ -202,90 +184,87 @@ async fn download_webc(
     // slow path
     let cache_dir = cache_dir.to_string();
     let name = name.to_string();
-    if let Some(data) = download_miss(pirita_download_url.as_str(), runtime, tasks).await {
-        let path = compute_path(cache_dir.as_str(), name.as_str());
-        let _ = std::fs::create_dir_all(path.parent().unwrap().clone());
 
-        let mut temp_path = path.clone();
-        let rand_128: u128 = rand::random();
-        temp_path = PathBuf::from(format!(
-            "{}.{}.temp",
-            temp_path.as_os_str().to_string_lossy(),
-            rand_128
-        ));
-
-        if let Err(err) = std::fs::write(temp_path.as_path(), &data[..]) {
-            debug!(
-                "failed to write webc cache file [{}] - {}",
-                temp_path.as_path().to_string_lossy(),
-                err
-            );
-        }
-        if let Err(err) = std::fs::rename(temp_path.as_path(), path.as_path()) {
-            debug!(
-                "failed to rename webc cache file [{}] - {}",
-                temp_path.as_path().to_string_lossy(),
-                err
-            );
-        }
-
-        #[cfg(feature = "sys")]
-        match webc::WebCMmap::parse(path, &options) {
-            Ok(webc) => unsafe {
-                let webc = Arc::new(webc);
-                return parse_webc(webc.as_webc_ref(), webc.clone());
-            },
-            Err(err) => {
-                warn!("failed to parse WebC: {}", err);
-            }
-        }
-
-        match webc::WebCOwned::parse(data, &options) {
-            Ok(webc) => unsafe {
-                let webc = Arc::new(webc);
-                return parse_webc(webc.as_webc_ref(), webc.clone());
-            },
-            Err(err) => {
-                warn!("failed to parse WebC: {}", err);
-            }
-        }
-    }
-
-    None
-}
-
-async fn download_miss(
-    download_url: &str,
-    runtime: &dyn WasiRuntimeImplementation,
-    tasks: &dyn VirtualTaskManager,
-) -> Option<Vec<u8>> {
-    let mut options = HttpRequestOptions::default();
-    options.gzip = true;
-
-    let headers = Default::default();
-    let data = None;
-
-    match runtime
-        .reqwest(tasks, download_url, "GET", options, headers, data)
+    let data = download_package(&pirita_download_url, client)
         .await
-    {
-        Ok(wapm) => {
-            if wapm.status == 200 {
-                return wapm.data;
-            } else {
-                warn!(
-                    "failed to download package: http_code={}, http_response={}",
-                    wapm.status, wapm.status_text
-                );
-            }
-        }
-        Err(code) => {
-            warn!("failed to download package: http_code={}", code);
+        .with_context(|| {
+            format!(
+                "Could not download webc package from '{}'",
+                pirita_download_url
+            )
+        })?;
+
+    let path = compute_path(cache_dir.as_str(), name.as_str());
+    let _ = std::fs::create_dir_all(path.parent().unwrap().clone());
+
+    let mut temp_path = path.clone();
+    let rand_128: u128 = rand::random();
+    temp_path = PathBuf::from(format!(
+        "{}.{}.temp",
+        temp_path.as_os_str().to_string_lossy(),
+        rand_128
+    ));
+
+    if let Err(err) = std::fs::write(temp_path.as_path(), &data[..]) {
+        debug!(
+            "failed to write webc cache file [{}] - {}",
+            temp_path.as_path().to_string_lossy(),
+            err
+        );
+    }
+    if let Err(err) = std::fs::rename(temp_path.as_path(), path.as_path()) {
+        debug!(
+            "failed to rename webc cache file [{}] - {}",
+            temp_path.as_path().to_string_lossy(),
+            err
+        );
+    }
+
+    #[cfg(feature = "sys")]
+    match webc::WebCMmap::parse(path.clone(), &options) {
+        Ok(webc) => unsafe {
+            let webc = Arc::new(webc);
+            return parse_webc(webc.as_webc_ref(), webc.clone())
+                .with_context(|| format!("Could not parse webc at path '{}'", path.display()));
+        },
+        Err(err) => {
+            warn!("failed to parse WebC: {}", err);
         }
     }
-    None
+
+    let webc_raw = webc::WebCOwned::parse(data, &options)
+        .with_context(|| format!("Failed to parse downloaded from '{pirita_download_url}'"))?;
+    let webc = Arc::new(webc_raw);
+    // FIXME: add SAFETY comment
+    let package = unsafe {
+        parse_webc(webc.as_webc_ref(), webc.clone()).context("Could not parse binary package")?
+    };
+
+    Ok(package)
 }
 
+async fn download_package(
+    download_url: &str,
+    client: DynHttpClient,
+) -> Result<Vec<u8>, anyhow::Error> {
+    let request = HttpRequest {
+        url: download_url.to_string(),
+        method: "GET".to_string(),
+        headers: vec![],
+        body: None,
+        options: HttpRequestOptions {
+            gzip: true,
+            cors_proxy: None,
+        },
+    };
+    let response = client.request(request).await?;
+    if response.status != 200 {
+        bail!("HTTP request failed with status {}", response.status);
+    }
+    response.body.context("HTTP response with empty body")
+}
+
+// TODO: should return Result<_, anyhow::Error>
 unsafe fn parse_webc<'a, 'b, T>(webc: webc::WebC<'a>, ownership: Arc<T>) -> Option<BinaryPackage>
 where
     T: std::fmt::Debug + Send + Sync + 'static,
