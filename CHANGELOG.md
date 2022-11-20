@@ -10,13 +10,51 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## Added
 
-- [#3317](https://github.com/wasmerio/wasmer/pull/3317) Add a `wasmer add` command for adding bindings for a WAPM package to your project (only Python and JavaScript are supported for now)
+## Changed
+
+## Fixed
+
+## 3.0.0-rc.4 - 19/11/2022
+
+## Added
+
 
 ## Changed
 
-- [#3318](https://github.com/wasmerio/wasmer/pull/3318) Bump the Minimum Supported Rust Version (MSRV) to 1.63
 
 ## Fixed
+
+
+
+
+## 3.0.0-rc.3 - 2022/11/18
+
+## Added
+
+- [#3314](https://github.com/wasmerio/wasmer/pull/3314) Add windows-gnu workflow
+- [#3317](https://github.com/wasmerio/wasmer/pull/3317) Add a `wasmer add` command for adding bindings to a WAPM package
+- [#3297](https://github.com/wasmerio/wasmer/pull/3297) Implement wasmer login
+- [#3311](https://github.com/wasmerio/wasmer/pull/3311) Export `Module::IoCompileError`
+
+## Changed
+
+- [#3319](https://github.com/wasmerio/wasmer/pull/3319) Disable 'Test integration CLI' on CI for the Windows platform as it's not working at all
+- [#3318](https://github.com/wasmerio/wasmer/pull/3318) Bump the MSRV to 1.63
+- [#3293](https://github.com/wasmerio/wasmer/pull/3293) Removed call to to_vec() on assembler.finalise()
+- [#3288](https://github.com/wasmerio/wasmer/pull/3288) Rollback all the TARGET_DIR changes
+- [#3284](https://github.com/wasmerio/wasmer/pull/3284) Makefile now handle TARGET_DIR env. var. for build too
+- [#3276](https://github.com/wasmerio/wasmer/pull/3276) Remove unnecessary checks to test internet connection
+- [#3275](https://github.com/wasmerio/wasmer/pull/3275) Disable printing "local package ... not found" in release mode
+- [#3273](https://github.com/wasmerio/wasmer/pull/3273) Undo Makefile commit
+
+## Fixed
+
+- [#3299](https://github.com/wasmerio/wasmer/pull/3299) Fix "create-exe" for windows-x86_64 target
+- [#3294](https://github.com/wasmerio/wasmer/pull/3294) Fix test sys yaml syntax
+- [#3287](https://github.com/wasmerio/wasmer/pull/3287) Fix Makefile with TARGET_DIR end with release folder, removing it
+- [#3286](https://github.com/wasmerio/wasmer/pull/3286) Fix Makefile with TARGET_DIR end with release folder
+- [#3285](https://github.com/wasmerio/wasmer/pull/3285) Fix CI to setup TARGET_DIR to target/release directly
+- [#3277](https://github.com/wasmerio/wasmer/pull/3277) Fix red CI on master
 
 ## 3.0.0-rc.2 - 2022/11/02
 

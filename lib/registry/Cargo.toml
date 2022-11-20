@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-registry"
-version = "3.0.0-rc.2"
+version = "3.0.0-rc.4"
 edition = "2021"
 license = "MIT"
 description = "Crate to interact with the wasmer registry (wapm.io), download packages, etc."
@@ -13,7 +13,8 @@ dirs = "4.0.0"
 graphql_client = "0.11.0"
 serde = { version = "1.0.145", features = ["derive"] }
 anyhow = "1.0.65" 
-reqwest = { version = "0.11.12", default-features = false, features = ["rustls-tls", "blocking", "multipart", "json"] }
+reqwest = { version = "0.11.12", default-features = false, features = ["rustls-tls", "blocking", "multipart", "json", "stream"] }
+futures-util = "0.3.25"
 whoami = "1.2.3" 
 serde_json = "1.0.85"
 url = "2.3.1"
@@ -24,6 +25,9 @@ tar = "0.4.38"
 flate2 = "1.0.24"
 semver = "1.0.14"
 lzma-rs = "0.2.0"
+webc = { version ="3.0.1", features = ["mmap"] }
+hex = "0.4.3"
+tokio = "1.21.2"
 tempdir = "0.3.7"
 log = "0.4.17"
 indicatif = "0.17.2"

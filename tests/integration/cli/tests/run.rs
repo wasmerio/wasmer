@@ -292,6 +292,32 @@ fn test_wasmer_run_pirita_works() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "webc_runner")]
+#[test]
+fn test_wasmer_run_pirita_url_works() -> anyhow::Result<()> {
+    let output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg("https://wapm.dev/syrusakbary/python")
+        .arg("--")
+        .arg("-c")
+        .arg("print(\"hello\")")
+        .output()?;
+
+    let stdout = std::str::from_utf8(&output.stdout)
+        .expect("stdout is not utf8! need to handle arbitrary bytes");
+
+    if stdout != "hello\n" {
+        bail!(
+            "1 running python.wasmer failed with: stdout: {}\n\nstderr: {}",
+            stdout,
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
+
+    Ok(())
+}
+
 #[test]
 fn test_wasmer_run_works_with_dir() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;
