@@ -186,6 +186,8 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
     }
 }
 
+pub type DynVirtualNetworking = Arc<dyn VirtualNetworking>;
+
 /// Holds the interface used to work with a pending HTTP request
 #[derive(Debug)]
 pub struct SocketHttpRequest {

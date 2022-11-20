@@ -14,7 +14,7 @@ use wasmer::{vm::VMMemory, MemoryType, Module, Store};
 #[cfg(feature = "sys")]
 use wasmer_types::MemoryStyle;
 use wasmer_vbus::{DefaultVirtualBus, VirtualBus};
-use wasmer_vnet::VirtualNetworking;
+use wasmer_vnet::{DynVirtualNetworking, VirtualNetworking};
 use wasmer_wasi_types::wasi::Errno;
 
 use crate::{os::tty::WasiTtyState, WasiCallingId, WasiEnv};
@@ -145,7 +145,7 @@ where
 
     /// Provides access to all the networking related functions such as sockets.
     /// By default networking is not implemented.
-    fn networking(&self) -> Arc<dyn VirtualNetworking + Send + Sync + 'static>;
+    fn networking(&self) -> DynVirtualNetworking;
 
     /// Create a new task management runtime
     fn new_task_manager(&self) -> Arc<dyn VirtualTaskManager + Send + Sync + 'static> {
@@ -291,7 +291,7 @@ where
 #[derive(Debug)]
 pub struct PluggableRuntimeImplementation {
     pub bus: Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static>,
-    pub networking: Arc<dyn VirtualNetworking + Send + Sync + 'static>,
+    pub networking: DynVirtualNetworking,
     pub http_client: Option<DynHttpClient>,
 }
 
@@ -544,7 +544,7 @@ impl WasiRuntimeImplementation for PluggableRuntimeImplementation {
         self.bus.clone()
     }
 
-    fn networking<'a>(&'a self) -> Arc<dyn VirtualNetworking + Send + Sync + 'static> {
+    fn networking<'a>(&'a self) -> DynVirtualNetworking {
         self.networking.clone()
     }
 

@@ -11,7 +11,7 @@ use bytes::{Buf, Bytes};
 use serde_derive::{Deserialize, Serialize};
 use wasmer_types::MemorySize;
 use wasmer_vnet::{
-    SocketHttpRequest, TimeType, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
+    DynVirtualNetworking, SocketHttpRequest, TimeType, VirtualIcmpSocket, VirtualRawSocket,
     VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket, VirtualWebSocket,
 };
 use wasmer_wasi_types::wasi::{
@@ -170,7 +170,7 @@ impl InodeSocket {
 
     pub async fn bind(
         &self,
-        net: Arc<dyn VirtualNetworking + Send + Sync + 'static>,
+        net: DynVirtualNetworking,
         set_addr: SocketAddr,
     ) -> Result<Option<InodeSocket>, Errno> {
         let mut inner = self.inner.write().unwrap();
@@ -228,7 +228,7 @@ impl InodeSocket {
 
     pub async fn listen(
         &self,
-        net: Arc<dyn VirtualNetworking + Send + Sync + 'static>,
+        net: DynVirtualNetworking,
         _backlog: usize,
     ) -> Result<Option<InodeSocket>, Errno> {
         let inner = self.inner.read().unwrap();
@@ -301,7 +301,7 @@ impl InodeSocket {
 
     pub async fn connect(
         &mut self,
-        net: Arc<dyn VirtualNetworking + Send + Sync + 'static>,
+        net: DynVirtualNetworking,
         peer: SocketAddr,
     ) -> Result<Option<InodeSocket>, Errno> {
         let mut inner = self.inner.write().unwrap();

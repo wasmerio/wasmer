@@ -9,7 +9,7 @@ use wasmer::{
     AsStoreMut, AsStoreRef, Exports, Global, Instance, Memory, MemoryView, Module, TypedFunction,
 };
 use wasmer_vbus::{SpawnEnvironmentIntrinsics, VirtualBus};
-use wasmer_vnet::VirtualNetworking;
+use wasmer_vnet::DynVirtualNetworking;
 use wasmer_wasi_types::{
     types::Signal,
     wasi::{Errno, Snapshot0Clockid},
@@ -428,7 +428,7 @@ impl WasiEnv {
     }
 
     /// Accesses the virtual networking implementation
-    pub fn net<'a>(&'a self) -> Arc<dyn VirtualNetworking + Send + Sync + 'static> {
+    pub fn net<'a>(&'a self) -> DynVirtualNetworking {
         self.runtime.networking()
     }
 
