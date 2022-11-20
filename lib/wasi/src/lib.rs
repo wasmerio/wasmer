@@ -66,6 +66,8 @@ use thiserror::Error;
 use tracing::error;
 // re-exports needed for OS
 pub use wasmer;
+pub use wasmer_wasi_types;
+
 use wasmer::{
     imports, namespace, AsStoreMut, Exports, FunctionEnv, Imports, Memory32, MemoryAccessError,
     MemorySize,
