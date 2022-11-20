@@ -916,6 +916,41 @@
 <span id="908">908</span>
 <span id="909">909</span>
 <span id="910">910</span>
+<span id="911">911</span>
+<span id="912">912</span>
+<span id="913">913</span>
+<span id="914">914</span>
+<span id="915">915</span>
+<span id="916">916</span>
+<span id="917">917</span>
+<span id="918">918</span>
+<span id="919">919</span>
+<span id="920">920</span>
+<span id="921">921</span>
+<span id="922">922</span>
+<span id="923">923</span>
+<span id="924">924</span>
+<span id="925">925</span>
+<span id="926">926</span>
+<span id="927">927</span>
+<span id="928">928</span>
+<span id="929">929</span>
+<span id="930">930</span>
+<span id="931">931</span>
+<span id="932">932</span>
+<span id="933">933</span>
+<span id="934">934</span>
+<span id="935">935</span>
+<span id="936">936</span>
+<span id="937">937</span>
+<span id="938">938</span>
+<span id="939">939</span>
+<span id="940">940</span>
+<span id="941">941</span>
+<span id="942">942</span>
+<span id="943">943</span>
+<span id="944">944</span>
+<span id="945">945</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::cli::SplitVersion</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::get_cache_dir</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
@@ -929,6 +964,7 @@
 <span class="kw">use</span> <span class="ident">std::ops::Deref</span>;
 <span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
 <span class="kw">use</span> <span class="ident">std::str::FromStr</span>;
+<span class="kw">use</span> <span class="ident">url::Url</span>;
 <span class="kw">use</span> <span class="ident">wasmer::FunctionEnv</span>;
 <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="kw-2">*</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
@@ -1745,6 +1781,11 @@
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">debug_msgs_allowed</span> <span class="op">=</span> <span class="ident">isatty::stdout_isatty</span>();
 
+    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">url</span>) <span class="op">=</span> <span class="ident">url::Url::parse</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">r</span>.<span class="ident">path</span>.<span class="ident">display</span>())) {
+        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">try_run_url</span>(<span class="kw-2">&amp;</span><span class="ident">url</span>, <span class="ident">args</span>, <span class="ident">r</span>, <span class="ident">debug</span>);
+        <span class="kw">return</span> <span class="ident">result</span>;
+    }
+
     <span class="comment">// Check &quot;r.path&quot; is a file or a package / command name</span>
     <span class="kw">if</span> <span class="ident">r</span>.<span class="ident">path</span>.<span class="ident">exists</span>() {
         <span class="kw">if</span> <span class="ident">r</span>.<span class="ident">path</span>.<span class="ident">is_dir</span>() <span class="op">&amp;&amp;</span> <span class="ident">r</span>.<span class="ident">path</span>.<span class="ident">join</span>(<span class="string">&quot;wapm.toml&quot;</span>).<span class="ident">exists</span>() {
@@ -1825,6 +1866,35 @@
 
     <span class="comment">// else: local package not found - try to download and install package</span>
     <span class="ident">try_autoinstall_package</span>(<span class="ident">args</span>, <span class="kw-2">&amp;</span><span class="ident">sv</span>, <span class="ident">package_download_info</span>, <span class="ident">r</span>.<span class="ident">force_install</span>)
+}
+
+<span class="kw">fn</span> <span class="ident">try_run_url</span>(<span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>, <span class="ident">_args</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>], <span class="ident">r</span>: <span class="kw-2">&amp;</span><span class="ident">Run</span>, <span class="ident">_debug</span>: <span class="ident">bool</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">checksum</span> <span class="op">=</span> <span class="ident">wasmer_registry::get_remote_webc_checksum</span>(<span class="ident">url</span>)
+        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;error fetching {url}: {e}&quot;</span>))<span class="question-mark">?</span>;
+
+    <span class="kw">let</span> <span class="ident">packages</span> <span class="op">=</span> <span class="ident">wasmer_registry::get_all_installed_webc_packages</span>();
+
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">packages</span>.<span class="ident">iter</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">checksum</span> <span class="op">==</span> <span class="ident">checksum</span>) {
+        <span class="kw">let</span> <span class="ident">sp</span> <span class="op">=</span> <span class="ident">start_spinner</span>(<span class="macro">format!</span>(<span class="string">&quot;Installing {}&quot;</span>, <span class="ident">url</span>));
+
+        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">wasmer_registry::install_webc_package</span>(<span class="ident">url</span>, <span class="kw-2">&amp;</span><span class="ident">checksum</span>);
+
+        <span class="ident">result</span>.<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;error fetching {url}: {e}&quot;</span>))<span class="question-mark">?</span>;
+
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">sp</span>) <span class="op">=</span> <span class="ident">sp</span> {
+            <span class="ident">sp</span>.<span class="ident">close</span>();
+        }
+    }
+
+    <span class="kw">let</span> <span class="ident">webc_dir</span> <span class="op">=</span> <span class="ident">wasmer_registry::get_webc_dir</span>();
+
+    <span class="kw">let</span> <span class="ident">webc_install_path</span> <span class="op">=</span> <span class="ident">webc_dir</span>
+        .<span class="ident">context</span>(<span class="string">&quot;Error installing package: no webc dir&quot;</span>)<span class="question-mark">?</span>
+        .<span class="ident">join</span>(<span class="ident">checksum</span>);
+
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">r</span> <span class="op">=</span> <span class="ident">r</span>.<span class="ident">clone</span>();
+    <span class="ident">r</span>.<span class="ident">path</span> <span class="op">=</span> <span class="ident">webc_install_path</span>;
+    <span class="ident">r</span>.<span class="ident">execute</span>()
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.63.0 (4b91a6ea7 2022-08-08)" ></div>
