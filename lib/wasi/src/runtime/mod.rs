@@ -28,6 +28,7 @@ pub use stdio::*;
 
 #[cfg(feature = "termios")]
 pub mod term;
+use crate::http::{HttpRequestOptions, HttpResponse};
 #[cfg(feature = "termios")]
 pub use term::*;
 #[cfg(feature = "sys-thread")]
@@ -69,22 +70,6 @@ pub enum SpawnType {
     Create,
     CreateWithType(SpawnedMemory),
     NewThread(VMMemory),
-}
-
-#[derive(Debug, Default)]
-pub struct ReqwestOptions {
-    pub gzip: bool,
-    pub cors_proxy: Option<String>,
-}
-
-pub struct ReqwestResponse {
-    pub pos: usize,
-    pub data: Option<Vec<u8>>,
-    pub ok: bool,
-    pub redirected: bool,
-    pub status: u16,
-    pub status_text: String,
-    pub headers: Vec<(String, String)>,
 }
 
 /// An implementation of task management
@@ -245,10 +230,10 @@ where
         tasks: &dyn VirtualTaskManager,
         url: &str,
         method: &str,
-        options: ReqwestOptions,
+        options: HttpRequestOptions,
         headers: Vec<(String, String)>,
         data: Option<Vec<u8>>,
-    ) -> Pin<Box<dyn Future<Output = Result<ReqwestResponse, Errno>>>> {
+    ) -> Pin<Box<dyn Future<Output = Result<HttpResponse, Errno>>>> {
         Box::pin(async move { Err(Errno::Notsup) })
     }
 
@@ -259,10 +244,10 @@ where
         tasks: &dyn VirtualTaskManager,
         url: &str,
         method: &str,
-        _options: ReqwestOptions,
+        _options: HttpRequestOptions,
         headers: Vec<(String, String)>,
         data: Option<Vec<u8>>,
-    ) -> Pin<Box<dyn Future<Output = Result<ReqwestResponse, Errno>>>> {
+    ) -> Pin<Box<dyn Future<Output = Result<HttpResponse, Errno>>>> {
         use std::convert::TryFrom;
 
         let url = url.to_string();
@@ -310,7 +295,7 @@ where
             })?;
             let data = data.to_vec();
 
-            Ok(ReqwestResponse {
+            Ok(HttpResponse {
                 pos: 0usize,
                 ok: true,
                 status,

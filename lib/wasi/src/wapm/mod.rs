@@ -7,7 +7,6 @@ use webc::{Annotation, FsEntryType, UrlOrManifest, WebC};
 
 use crate::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},
-    runtime::ReqwestOptions,
     VirtualTaskManager, WasiRuntimeImplementation,
 };
 
@@ -15,6 +14,7 @@ use crate::{
 mod manifest;
 mod pirita;
 
+use crate::http::HttpRequestOptions;
 use pirita::*;
 
 pub(crate) fn fetch_webc(
@@ -39,7 +39,7 @@ pub(crate) fn fetch_webc(
         WAPM_WEBC_URL,
         urlencoding::encode(url_query.as_str())
     );
-    let options = ReqwestOptions::default();
+    let options = HttpRequestOptions::default();
     let headers = Default::default();
     let data = None;
 
@@ -259,7 +259,7 @@ async fn download_miss(
     runtime: &dyn WasiRuntimeImplementation,
     tasks: &dyn VirtualTaskManager,
 ) -> Option<Vec<u8>> {
-    let mut options = ReqwestOptions::default();
+    let mut options = HttpRequestOptions::default();
     options.gzip = true;
 
     let headers = Default::default();
