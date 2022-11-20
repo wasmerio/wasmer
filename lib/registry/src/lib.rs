@@ -10,13 +10,17 @@
 
 use crate::config::Registries;
 use anyhow::Context;
+use core::ops::Range;
+use reqwest::header::{ACCEPT, RANGE};
 use std::fmt;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{
     collections::BTreeMap,
     fmt::{Display, Formatter},
 };
+use url::Url;
 
 pub mod config;
 pub mod graphql;
@@ -630,6 +634,14 @@ pub fn get_checkouts_dir(#[cfg(test)] test_name: &str) -> Option<PathBuf> {
     Some(root_dir.join("checkouts"))
 }
 
+pub fn get_webc_dir(#[cfg(test)] test_name: &str) -> Option<PathBuf> {
+    #[cfg(test)]
+    let root_dir = get_wasmer_root_dir(test_name)?;
+    #[cfg(not(test))]
+    let root_dir = get_wasmer_root_dir()?;
+    Some(root_dir.join("webc"))
+}
+
 /// Returs the path to the directory where all packages on this computer are being stored
 pub fn get_global_install_dir(
     #[cfg(test)] test_name: &str,
@@ -917,6 +929,231 @@ pub fn get_all_available_registries(#[cfg(test)] test_name: &str) -> Result<Vec<
         }
     }
     Ok(registries)
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct RemoteWebcInfo {
+    pub checksum: String,
+    pub manifest: webc::Manifest,
+}
+
+pub fn install_webc_package(
+    #[cfg(test)] test_name: &str,
+    url: &Url,
+    checksum: &str,
+) -> Result<(), anyhow::Error> {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            {
+                #[cfg(test)]
+                {
+                    install_webc_package_inner(test_name, url, checksum).await
+                }
+                #[cfg(not(test))]
+                {
+                    install_webc_package_inner(url, checksum).await
+                }
+            }
+        })
+}
+
+async fn install_webc_package_inner(
+    #[cfg(test)] test_name: &str,
+    url: &Url,
+    checksum: &str,
+) -> Result<(), anyhow::Error> {
+    use futures_util::StreamExt;
+
+    #[cfg(test)]
+    let path = get_webc_dir(test_name).ok_or_else(|| anyhow::anyhow!("no webc dir"))?;
+    #[cfg(not(test))]
+    let path = get_webc_dir().ok_or_else(|| anyhow::anyhow!("no webc dir"))?;
+
+    let _ = std::fs::create_dir_all(&path);
+
+    let webc_path = path.join(checksum);
+
+    let mut file = std::fs::File::create(&webc_path)
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context(anyhow::anyhow!("{}", webc_path.display()))?;
+
+    let client = {
+        let builder = reqwest::Client::builder();
+        let builder = crate::graphql::proxy::maybe_set_up_proxy(builder)?;
+        builder
+            .build()
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .context("install_webc_package: failed to build reqwest Client")?
+    };
+
+    let res = client
+        .get(url.clone())
+        .header(ACCEPT, "application/webc")
+        .send()
+        .await
+        .and_then(|response| response.error_for_status())
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context(anyhow::anyhow!("install_webc_package: failed to GET {url}"))?;
+
+    let mut stream = res.bytes_stream();
+
+    while let Some(item) = stream.next().await {
+        let item = item
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .context(anyhow::anyhow!("install_webc_package: failed to GET {url}"))?;
+        file.write_all(&item)
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .context(anyhow::anyhow!(
+                "install_webc_package: failed to write chunk to {}",
+                webc_path.display()
+            ))?;
+    }
+
+    Ok(())
+}
+
+/// Returns a list of all installed webc packages
+#[cfg(test)]
+pub fn get_all_installed_webc_packages(test_name: &str) -> Vec<RemoteWebcInfo> {
+    get_all_installed_webc_packages_inner(test_name)
+}
+
+#[cfg(not(test))]
+pub fn get_all_installed_webc_packages() -> Vec<RemoteWebcInfo> {
+    get_all_installed_webc_packages_inner("")
+}
+
+fn get_all_installed_webc_packages_inner(_test_name: &str) -> Vec<RemoteWebcInfo> {
+    #[cfg(test)]
+    let dir = match get_webc_dir(_test_name) {
+        Some(s) => s,
+        None => return Vec::new(),
+    };
+
+    #[cfg(not(test))]
+    let dir = match get_webc_dir() {
+        Some(s) => s,
+        None => return Vec::new(),
+    };
+
+    let read_dir = match std::fs::read_dir(dir) {
+        Ok(s) => s,
+        Err(_) => return Vec::new(),
+    };
+
+    read_dir
+        .filter_map(|r| Some(r.ok()?.path()))
+        .filter_map(|path| {
+            webc::WebCMmap::parse(
+                path,
+                &webc::ParseOptions {
+                    parse_atoms: false,
+                    parse_volumes: false,
+                    ..Default::default()
+                },
+            )
+            .ok()
+        })
+        .filter_map(|webc| {
+            let checksum = webc.checksum.as_ref().map(|s| &s.data)?.to_vec();
+            let hex_string = get_checksum_hash(&checksum);
+            Some(RemoteWebcInfo {
+                checksum: hex_string,
+                manifest: webc.manifest.clone(),
+            })
+        })
+        .collect()
+}
+
+/// The checksum of the webc file has a bunch of zeros at the end
+/// (it's currently encoded that way in the webc format). This function
+/// strips the zeros because otherwise the filename would become too long.
+///
+/// So:
+///
+/// `3ea47cb0000000000000` -> `3ea47cb`
+///
+pub fn get_checksum_hash(bytes: &[u8]) -> String {
+    let mut checksum = bytes.to_vec();
+    while checksum.last().copied() == Some(0) {
+        checksum.pop();
+    }
+    hex::encode(&checksum)
+}
+
+/// Returns the checksum of the .webc file, so that we can check whether the
+/// file is already installed before downloading it
+pub fn get_remote_webc_checksum(url: &Url) -> Result<String, anyhow::Error> {
+    let request_max_bytes = webc::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
+    let data = get_webc_bytes(url, Some(0..request_max_bytes)).context("get_webc_bytes failed")?;
+    let checksum = webc::WebC::get_checksum_bytes(&data)
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("get_checksum_bytes failed")?
+        .to_vec();
+    Ok(get_checksum_hash(&checksum))
+}
+
+/// Before fetching the entire file from a remote URL, just fetch the manifest
+/// so we can see if the package has already been installed
+pub fn get_remote_webc_manifest(url: &Url) -> Result<RemoteWebcInfo, anyhow::Error> {
+    // Request up unti manifest size / manifest len
+    let request_max_bytes = webc::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
+    let data = get_webc_bytes(url, Some(0..request_max_bytes))?;
+    let checksum = webc::WebC::get_checksum_bytes(&data)
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("WebC::get_checksum_bytes failed")?
+        .to_vec();
+    let hex_string = get_checksum_hash(&checksum);
+
+    let (manifest_start, manifest_len) = webc::WebC::get_manifest_offset_size(&data)
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("WebC::get_manifest_offset_size failed")?;
+    let data_with_manifest = get_webc_bytes(url, Some(0..manifest_start + manifest_len))?;
+    let manifest = webc::WebC::get_manifest(&data_with_manifest)
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("WebC::get_manifest failed")?;
+    Ok(RemoteWebcInfo {
+        checksum: hex_string,
+        manifest,
+    })
+}
+
+fn setup_webc_client(url: &Url) -> Result<reqwest::blocking::RequestBuilder, anyhow::Error> {
+    let client = {
+        let builder = reqwest::blocking::Client::builder();
+        let builder = crate::graphql::proxy::maybe_set_up_proxy_blocking(builder)
+            .context("setup_webc_client")?;
+        builder
+            .build()
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .context("setup_webc_client: builder.build() failed")?
+    };
+
+    Ok(client.get(url.clone()).header(ACCEPT, "application/webc"))
+}
+
+fn get_webc_bytes(url: &Url, range: Option<Range<usize>>) -> Result<Vec<u8>, anyhow::Error> {
+    // curl -r 0-500 -L https://wapm.dev/syrusakbary/python -H "Accept: application/webc" --output python.webc
+
+    let mut res = setup_webc_client(url)?;
+
+    if let Some(range) = range.as_ref() {
+        res = res.header(RANGE, format!("bytes={}-{}", range.start, range.end));
+    }
+
+    let res = res
+        .send()
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("send() failed")?;
+    let bytes = res
+        .bytes()
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("bytes() failed")?;
+
+    Ok(bytes.to_vec())
 }
 
 // TODO: this test is segfaulting only on linux-musl, no other OS
