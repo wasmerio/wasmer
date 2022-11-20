@@ -187,6 +187,39 @@
 <span id="179">179</span>
 <span id="180">180</span>
 <span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::process</span>::{<span class="ident">Command</span>, <span class="ident">Stdio</span>};
 
 <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="ident">Error</span>};
@@ -229,7 +262,7 @@
 
         <span class="kw">let</span> <span class="ident">bindings</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">lookup_bindings</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">target</span>().<span class="ident">command</span>(<span class="kw-2">&amp;</span><span class="ident">bindings</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">target</span>()<span class="question-mark">?</span>.<span class="ident">command</span>(<span class="kw-2">&amp;</span><span class="ident">bindings</span>)<span class="question-mark">?</span>;
 
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
         <span class="macro">log::debug!</span>(<span class="string">&quot;Running {cmd:?}&quot;</span>);
@@ -256,7 +289,7 @@
         <span class="macro">log::debug!</span>(<span class="string">&quot;Querying WAPM for the bindings packages&quot;</span>);
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bindings_to_add</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-        <span class="kw">let</span> <span class="ident">language</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">target</span>().<span class="ident">language</span>();
+        <span class="kw">let</span> <span class="ident">language</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">target</span>()<span class="question-mark">?</span>.<span class="ident">language</span>();
 
         <span class="kw">for</span> <span class="ident">pkg</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">packages</span> {
             <span class="kw">let</span> <span class="ident">bindings</span> <span class="op">=</span> <span class="ident">lookup_bindings_for_package</span>(<span class="ident">registry</span>, <span class="ident">pkg</span>, <span class="kw-2">&amp;</span><span class="ident">language</span>)
@@ -279,14 +312,17 @@
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">target</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Target</span> {
+    <span class="kw">fn</span> <span class="ident">target</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Target</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="self">self</span>.<span class="ident">pip</span>, <span class="self">self</span>.<span class="ident">npm</span>, <span class="self">self</span>.<span class="ident">yarn</span>) {
-            (<span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="ident">Target::Pip</span>,
-            (<span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="ident">Target::Npm</span> { <span class="ident">dev</span>: <span class="self">self</span>.<span class="ident">dev</span> },
-            (<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="ident">Target::Yarn</span> { <span class="ident">dev</span>: <span class="self">self</span>.<span class="ident">dev</span> },
-            <span class="kw">_</span> =&gt; <span class="macro">unreachable!</span>(
-                <span class="string">&quot;Clap should ensure at least one item in the \&quot;bindings\&quot; group is specified&quot;</span>
-            ),
+            (<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
+                <span class="string">&quot;at least one of --npm, --pip or --yarn has to be specified&quot;</span>
+            )),
+            (<span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Target::Pip</span>),
+            (<span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Target::Npm</span> { <span class="ident">dev</span>: <span class="self">self</span>.<span class="ident">dev</span> }),
+            (<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">Target::Yarn</span> { <span class="ident">dev</span>: <span class="self">self</span>.<span class="ident">dev</span> }),
+            <span class="kw">_</span> =&gt; <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
+                <span class="string">&quot;only one of --npm, --pip or --yarn has to be specified&quot;</span>
+            )),
         }
     }
 }
@@ -342,13 +378,43 @@
     <span class="doccomment">/// `npm.cmd` or `yarn.ps1`).</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// See &lt;https://github.com/wasmerio/wapm-cli/issues/291&gt; for more.</span>
-    <span class="kw">fn</span> <span class="ident">command</span>(<span class="self">self</span>, <span class="ident">packages</span>: <span class="kw-2">&amp;</span>[<span class="ident">Bindings</span>]) -&gt; <span class="ident">Command</span> {
+    <span class="kw">fn</span> <span class="ident">command</span>(<span class="self">self</span>, <span class="ident">packages</span>: <span class="kw-2">&amp;</span>[<span class="ident">Bindings</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Command</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">command_line</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">Target::Pip</span> =&gt; <span class="string">&quot;pip install&quot;</span>,
-            <span class="ident">Target::Yarn</span> { <span class="ident">dev</span>: <span class="bool-val">true</span> } =&gt; <span class="string">&quot;yarn add --dev&quot;</span>,
-            <span class="ident">Target::Yarn</span> { <span class="ident">dev</span>: <span class="bool-val">false</span> } =&gt; <span class="string">&quot;yarn add&quot;</span>,
-            <span class="ident">Target::Npm</span> { <span class="ident">dev</span>: <span class="bool-val">true</span> } =&gt; <span class="string">&quot;npm install --dev&quot;</span>,
-            <span class="ident">Target::Npm</span> { <span class="ident">dev</span>: <span class="bool-val">false</span> } =&gt; <span class="string">&quot;npm install&quot;</span>,
+            <span class="ident">Target::Pip</span> =&gt; {
+                <span class="kw">if</span> <span class="ident">Command::new</span>(<span class="string">&quot;pip&quot;</span>).<span class="ident">arg</span>(<span class="string">&quot;--version&quot;</span>).<span class="ident">output</span>().<span class="ident">is_ok</span>() {
+                    <span class="string">&quot;pip install&quot;</span>
+                } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">Command::new</span>(<span class="string">&quot;pip3&quot;</span>).<span class="ident">arg</span>(<span class="string">&quot;--version&quot;</span>).<span class="ident">output</span>().<span class="ident">is_ok</span>() {
+                    <span class="string">&quot;pip3 install&quot;</span>
+                } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">Command::new</span>(<span class="string">&quot;python&quot;</span>).<span class="ident">arg</span>(<span class="string">&quot;--version&quot;</span>).<span class="ident">output</span>().<span class="ident">is_ok</span>() {
+                    <span class="string">&quot;python -m pip install&quot;</span>
+                } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">Command::new</span>(<span class="string">&quot;python3&quot;</span>).<span class="ident">arg</span>(<span class="string">&quot;--version&quot;</span>).<span class="ident">output</span>().<span class="ident">is_ok</span>() {
+                    <span class="string">&quot;python3 -m pip install&quot;</span>
+                } <span class="kw">else</span> {
+                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
+                        <span class="string">&quot;neither pip, pip3, python or python3 installed&quot;</span>
+                    ));
+                }
+            }
+            <span class="ident">Target::Yarn</span> { <span class="ident">dev</span> } =&gt; {
+                <span class="kw">if</span> <span class="ident">Command::new</span>(<span class="string">&quot;yarn&quot;</span>).<span class="ident">arg</span>(<span class="string">&quot;--version&quot;</span>).<span class="ident">output</span>().<span class="ident">is_err</span>() {
+                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;yarn not installed&quot;</span>));
+                }
+                <span class="kw">if</span> <span class="ident">dev</span> {
+                    <span class="string">&quot;yarn add --dev&quot;</span>
+                } <span class="kw">else</span> {
+                    <span class="string">&quot;yarn add&quot;</span>
+                }
+            }
+            <span class="ident">Target::Npm</span> { <span class="ident">dev</span> } =&gt; {
+                <span class="kw">if</span> <span class="ident">Command::new</span>(<span class="string">&quot;npm&quot;</span>).<span class="ident">arg</span>(<span class="string">&quot;--version&quot;</span>).<span class="ident">output</span>().<span class="ident">is_err</span>() {
+                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;yarn not installed&quot;</span>));
+                }
+                <span class="kw">if</span> <span class="ident">dev</span> {
+                    <span class="string">&quot;npm install --dev&quot;</span>
+                } <span class="kw">else</span> {
+                    <span class="string">&quot;npm install&quot;</span>
+                }
+            }
         };
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">command_line</span> <span class="op">=</span> <span class="ident">command_line</span>.<span class="ident">to_string</span>();
 
@@ -360,11 +426,11 @@
         <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">windows</span>) {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="ident">Command::new</span>(<span class="string">&quot;cmd&quot;</span>);
             <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;/C&quot;</span>).<span class="ident">arg</span>(<span class="ident">command_line</span>);
-            <span class="ident">cmd</span>
+            <span class="prelude-val">Ok</span>(<span class="ident">cmd</span>)
         } <span class="kw">else</span> {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="ident">Command::new</span>(<span class="string">&quot;sh&quot;</span>);
             <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-c&quot;</span>).<span class="ident">arg</span>(<span class="ident">command_line</span>);
-            <span class="ident">cmd</span>
+            <span class="prelude-val">Ok</span>(<span class="ident">cmd</span>)
         }
     }
 }
