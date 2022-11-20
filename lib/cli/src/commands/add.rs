@@ -40,7 +40,7 @@ impl Add {
 
         let bindings = self.lookup_bindings(&registry)?;
 
-        let mut cmd = self.target().command(&bindings);
+        let mut cmd = self.target()?.command(&bindings);
 
         #[cfg(feature = "debug")]
         log::debug!("Running {cmd:?}");
@@ -67,7 +67,7 @@ impl Add {
         log::debug!("Querying WAPM for the bindings packages");
 
         let mut bindings_to_add = Vec::new();
-        let language = self.target().language();
+        let language = self.target()?.language();
 
         for pkg in &self.packages {
             let bindings = lookup_bindings_for_package(registry, pkg, &language)
@@ -90,14 +90,17 @@ impl Add {
         }
     }
 
-    fn target(&self) -> Target {
+    fn target(&self) -> Result<Target, Error> {
         match (self.pip, self.npm, self.yarn) {
-            (true, false, false) => Target::Pip,
-            (false, true, false) => Target::Npm { dev: self.dev },
-            (false, false, true) => Target::Yarn { dev: self.dev },
-            _ => unreachable!(
-                "Clap should ensure at least one item in the \"bindings\" group is specified"
-            ),
+            (false, false, false) => Err(anyhow::anyhow!(
+                "at least one of --npm, --pip or --yarn has to be specified"
+            )),
+            (true, false, false) => Ok(Target::Pip),
+            (false, true, false) => Ok(Target::Npm { dev: self.dev }),
+            (false, false, true) => Ok(Target::Yarn { dev: self.dev }),
+            _ => Err(anyhow::anyhow!(
+                "only one of --npm, --pip or --yarn has to be specified"
+            )),
         }
     }
 }
