@@ -8,6 +8,8 @@
 //! curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
 //! ```
 
+use crate::config::Registries;
+use anyhow::Context;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -25,9 +27,6 @@ pub use crate::{
     config::{format_graphql, PartialWapmConfig},
     graphql::get_bindings_query::ProgrammingLanguage,
 };
-
-use crate::config::Registries;
-use anyhow::Context;
 
 pub static GLOBAL_CONFIG_FILE_NAME: &str = if cfg!(target_os = "wasi") {
     "/.private/wapm.toml"
@@ -643,41 +642,18 @@ pub fn get_global_install_dir(
     Some(root_dir.join(registry_host))
 }
 
-/// Whether the top-level directory should be stripped
-pub fn download_and_unpack_targz(
-    url: &str,
-    target_path: &Path,
+/// Convenience function that will unpack .tar.gz files and .tar.bz
+/// files to a target directory (does NOT remove the original .tar.gz)
+pub fn try_unpack_targz<P: AsRef<Path>>(
+    target_targz_path: P,
+    target_path: P,
     strip_toplevel: bool,
-) -> Result<PathBuf, String> {
-    let target_targz_path = target_path.to_path_buf().join("package.tar.gz");
-
-    let mut resp =
-        reqwest::blocking::get(url).map_err(|e| format!("failed to download {url}: {e}"))?;
-
-    if !target_targz_path.exists() {
-        // create all the parent paths, only remove the created directory, not the parent dirs
-        let _ = std::fs::create_dir_all(&target_targz_path);
-        let _ = std::fs::remove_dir(&target_targz_path);
-    }
-
-    {
-        let mut file = std::fs::File::create(&target_targz_path).map_err(|e| {
-            format!(
-                "failed to download {url} into {}: {e}",
-                target_targz_path.display()
-            )
-        })?;
-
-        resp.copy_to(&mut file).map_err(|e| format!("{e}"))?;
-    }
-
+) -> Result<PathBuf, anyhow::Error> {
+    let target_targz_path = target_targz_path.as_ref();
+    let target_path = target_path.as_ref();
     let open_file = || {
-        std::fs::File::open(&target_targz_path).map_err(|e| {
-            format!(
-                "failed to download {url} into {}: {e}",
-                target_targz_path.display()
-            )
-        })
+        std::fs::File::open(&target_targz_path)
+            .map_err(|e| anyhow::anyhow!("failed to open {}: {e}", target_targz_path.display()))
     };
 
     let try_decode_gz = || {
@@ -685,11 +661,13 @@ pub fn download_and_unpack_targz(
         let gz_decoded = flate2::read::GzDecoder::new(&file);
         let mut ar = tar::Archive::new(gz_decoded);
         if strip_toplevel {
-            unpack_sans_parent(ar, target_path)
-                .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))
+            unpack_sans_parent(ar, target_path).map_err(|e| {
+                anyhow::anyhow!("failed to unpack {}: {e}", target_targz_path.display())
+            })
         } else {
-            ar.unpack(target_path)
-                .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))
+            ar.unpack(target_path).map_err(|e| {
+                anyhow::anyhow!("failed to unpack {}: {e}", target_targz_path.display())
+            })
         }
     };
 
@@ -697,23 +675,55 @@ pub fn download_and_unpack_targz(
         let file = open_file()?;
         let mut decomp: Vec<u8> = Vec::new();
         let mut bufread = std::io::BufReader::new(&file);
-        lzma_rs::xz_decompress(&mut bufread, &mut decomp)
-            .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))?;
+        lzma_rs::xz_decompress(&mut bufread, &mut decomp).map_err(|e| {
+            anyhow::anyhow!("failed to unpack {}: {e}", target_targz_path.display())
+        })?;
 
         let cursor = std::io::Cursor::new(decomp);
         let mut ar = tar::Archive::new(cursor);
         if strip_toplevel {
-            unpack_sans_parent(ar, target_path)
-                .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))
+            unpack_sans_parent(ar, target_path).map_err(|e| {
+                anyhow::anyhow!("failed to unpack {}: {e}", target_targz_path.display())
+            })
         } else {
-            ar.unpack(target_path)
-                .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))
+            ar.unpack(target_path).map_err(|e| {
+                anyhow::anyhow!("failed to unpack {}: {e}", target_targz_path.display())
+            })
         }
     };
 
     try_decode_gz().or_else(|_| try_decode_xz())?;
 
-    let _ = std::fs::remove_file(target_targz_path);
+    Ok(target_targz_path.to_path_buf())
+}
+
+/// Whether the top-level directory should be stripped
+pub fn download_and_unpack_targz(
+    url: &str,
+    target_path: &Path,
+    strip_toplevel: bool,
+) -> Result<PathBuf, anyhow::Error> {
+    let tempdir = tempdir::TempDir::new("wasmer-download-targz")?;
+
+    let target_targz_path = tempdir.path().join("package.tar.gz");
+
+    let mut resp = reqwest::blocking::get(url)
+        .map_err(|e| anyhow::anyhow!("failed to download {url}: {e}"))?;
+
+    {
+        let mut file = std::fs::File::create(&target_targz_path).map_err(|e| {
+            anyhow::anyhow!(
+                "failed to download {url} into {}: {e}",
+                target_targz_path.display()
+            )
+        })?;
+
+        resp.copy_to(&mut file)
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+
+    try_unpack_targz(target_targz_path.as_path(), target_path, strip_toplevel)
+        .with_context(|| anyhow::anyhow!("Could not download {url}"))?;
 
     Ok(target_path.to_path_buf())
 }
@@ -859,7 +869,7 @@ pub fn install_package(
     let name = package_info.package;
 
     if !dir.join("wapm.toml").exists() || force_install {
-        download_and_unpack_targz(&package_info.url, &dir, false)?;
+        download_and_unpack_targz(&package_info.url, &dir, false).map_err(|e| format!("{e}"))?;
     }
 
     Ok((
