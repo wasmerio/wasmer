@@ -3,11 +3,11 @@ use std::pin::Pin;
 use futures::Future;
 #[cfg(feature = "sys-thread")]
 use tokio::runtime::{Builder, Runtime};
-use wasmer::{Module, Store, vm::VMMemory};
+use wasmer::{vm::VMMemory, Module, Store};
 
 use crate::{WasiCallingId, WasiThreadError};
 
-use super::{VirtualTaskManager, SpawnType};
+use super::{SpawnType, VirtualTaskManager};
 
 #[derive(Debug)]
 pub struct DefaultTaskManager {
