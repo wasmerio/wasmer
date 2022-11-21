@@ -85,7 +85,7 @@ def make_release(version):
         fields = l.split("\t")
         pr_number = fields[1]
         pr_text = fields[3]
-        l = "  - (#" + pr_number + ")[https://github.com/wasmerio/wasmer/" + pr_number + "] " + pr_text
+        l = "  - [#" + pr_number + "](https://github.com/wasmerio/wasmer/pull/" + pr_number + ") " + pr_text
         release_notes_changed.append(l)
         if "add" in l.lower():
             added.append(l)
