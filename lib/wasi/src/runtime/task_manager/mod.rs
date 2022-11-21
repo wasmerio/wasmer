@@ -158,3 +158,31 @@ impl VirtualTaskManager for StubTaskManager {
         Err(WasiThreadError::Unsupported)
     }
 }
+
+impl dyn VirtualTaskManager {
+    /// See [`VirtualTaskManager::block_on`].
+    pub fn block_on<'a, A>(&self, task: impl Future<Output = A> + 'a) -> A {
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.block_on_generic(Box::pin(async move {
+            let ret = task.await;
+            tx.send(ret).unwrap();
+        }));
+        rx.recv().unwrap()
+    }
+}
+
+// TODO: remove impl.
+// This impl is superfuous, because the VirtualTaskManager already has Send+Sync bounds.
+// The impl is required for now because some code uses the VirtualTaskManager with + Send + Sync,
+// which can be removed.
+impl dyn VirtualTaskManager + Send + Sync {
+    /// See [`VirtualTaskManager::block_on`].
+    pub fn block_on<'a, A>(&self, task: impl Future<Output = A> + 'a) -> A {
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.block_on_generic(Box::pin(async move {
+            let ret = task.await;
+            tx.send(ret).unwrap();
+        }));
+        rx.recv().unwrap()
+    }
+}

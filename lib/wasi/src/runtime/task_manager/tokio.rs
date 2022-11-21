@@ -129,23 +129,3 @@ impl VirtualTaskManager for TokioTaskManager {
             .unwrap_or(8))
     }
 }
-
-pub trait VirtualTaskExecutor<T: ?Sized, A> {
-    /// See [`VirtualTaskManager::block_on`].
-    fn block_on<'a>(&self, task: impl Future<Output = A> + 'a) -> A;
-}
-
-impl<T, A> VirtualTaskExecutor<T, A> for T
-where
-    T: ?Sized + VirtualTaskManager,
-{
-    /// See [`VirtualTaskExecutor::block_on`].
-    fn block_on<'a>(&self, task: impl Future<Output = A> + 'a) -> A {
-        let (tx, rx) = std::sync::mpsc::channel();
-        self.block_on_generic(Box::pin(async move {
-            let ret = task.await;
-            tx.send(ret).unwrap();
-        }));
-        rx.recv().unwrap()
-    }
-}
