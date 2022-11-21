@@ -65,7 +65,6 @@ struct MiniCargoTomlPackage {
 impl Init {
     /// `wasmer init` execution
     pub fn execute(&self) -> Result<(), anyhow::Error> {
-
         let bin_or_lib = match (self.empty, self.bin, self.lib) {
             (true, true, _) | (true, _, true) => {
                 return Err(anyhow::anyhow!(
@@ -82,7 +81,7 @@ impl Init {
             (false, _, true) => BinOrLib::Lib,
             _ => BinOrLib::Bin,
         };
-        
+
         let target_file = match self.out.as_ref() {
             None => std::env::current_dir()?.join("wapm.toml"),
             Some(s) => {
