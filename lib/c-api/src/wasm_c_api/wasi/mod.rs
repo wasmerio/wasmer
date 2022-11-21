@@ -269,12 +269,12 @@ fn prepare_webc_env(
     let filesystem = Box::new(StaticFileSystem::init(slice, &package_name)?);
     let mut wasi_env = config.state_builder;
 
-    if let Some(s) = config.stdout {
-        wasi_env.stdout(s);
+    if config.inherit_stdout {
+        wasi_env.stdout(Box::new(Pipe::new()));
     }
 
-    if let Some(s) = config.stderr {
-        wasi_env.stderr(s);
+    if config.inherit_stderr {
+        wasi_env.stderr(Box::new(Pipe::new()));
     }
 
     wasi_env.set_fs(filesystem);
