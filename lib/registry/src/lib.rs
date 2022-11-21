@@ -922,8 +922,7 @@ pub fn whoami(
     let q = WhoAmIQuery::build_query(who_am_i_query::Variables {});
     let response: who_am_i_query::ResponseData =
         crate::graphql::execute_query(&registry, &login_token, &q)
-            .map_err(|e| anyhow::anyhow!("{e}"))
-            .context(anyhow::anyhow!("{registry:?}"))?;
+           .with_context(|| format!("{registry:?}"))?;
 
     let username = response
         .viewer
