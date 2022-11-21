@@ -4195,9 +4195,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-inline-c"
-version = "0.1.2"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c4e7a2a3363ceeb2ee60371af9460748f2bf53569b58627f1f640284ab07778"
+checksum = "e2405c99de49dc05338e5ed2eb397fe70b7128340d960507d0ba716f7d29a91a"
 dependencies = [
  "assert_cmd",
  "cc",
