@@ -16,9 +16,9 @@ pub struct Init {
     /// Initialize an empty wapm.toml
     #[clap(long, name = "empty")]
     pub empty: bool,
-    /// If the `manifest-dir` contains a Cargo.toml, use that file to initialize the wapm.toml
-    #[clap(long, name = "manifest-dir")]
-    pub manifest_dir: Option<PathBuf>,
+    /// If the `manifest-path` is a Cargo.toml, use that file to initialize the wapm.toml
+    #[clap(long, name = "manifest-path")]
+    pub manifest_path: Option<PathBuf>,
     /// Directory of the output file name. wasmer init will error in the target dir already contains a wapm.toml
     #[clap(long, short = 'o', name = "out")]
     pub out: Option<PathBuf>,
@@ -99,14 +99,8 @@ impl Init {
 
         // See if the directory has a Cargo.toml file, if yes, copy the license / readme, etc.
         let cargo_toml = MetadataCommand::new()
-            .manifest_path(match self.manifest_dir.as_ref() {
-                Some(s) => {
-                    if format!("{}", s.display()).ends_with("Cargo.toml") {
-                        s.clone()
-                    } else {
-                        s.join("Cargo.toml")
-                    }
-                }
+            .manifest_path(match self.manifest_path.as_ref() {
+                Some(s) => s.clone(),
                 None => Path::new("./Cargo.toml").to_path_buf(),
             })
             .features(CargoOpt::AllFeatures)
