@@ -15,11 +15,11 @@ use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice;
+#[cfg(feature = "webc_runner")]
+use wasmer_api::{AsStoreMut, Imports, Module};
 use wasmer_wasi::{
     get_wasi_version, Pipe, WasiFile, WasiFunctionEnv, WasiState, WasiStateBuilder, WasiVersion,
 };
-#[cfg(feature = "webc_runner")]
-use wasmer_api::{AsStoreMut, Imports, Module};
 
 #[derive(Debug)]
 #[allow(non_camel_case_types)]
