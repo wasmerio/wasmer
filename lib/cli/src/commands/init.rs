@@ -65,6 +65,24 @@ struct MiniCargoTomlPackage {
 impl Init {
     /// `wasmer init` execution
     pub fn execute(&self) -> Result<(), anyhow::Error> {
+
+        let bin_or_lib = match (self.empty, self.bin, self.lib) {
+            (true, true, _) | (true, _, true) => {
+                return Err(anyhow::anyhow!(
+                    "cannot combine --empty with --bin or --lib"
+                ))
+            }
+            (true, false, false) => BinOrLib::Empty,
+            (_, true, true) => {
+                return Err(anyhow::anyhow!(
+                    "cannot initialize a wapm manifest with both --bin and --lib, pick one"
+                ))
+            }
+            (false, true, _) => BinOrLib::Bin,
+            (false, _, true) => BinOrLib::Lib,
+            _ => BinOrLib::Bin,
+        };
+        
         let target_file = match self.out.as_ref() {
             None => std::env::current_dir()?.join("wapm.toml"),
             Some(s) => {
@@ -146,23 +164,6 @@ impl Init {
             .and_then(|t| t.description.clone())
             .unwrap_or(format!("Description for package {module_name}"));
 
-        let bin_or_lib = match (self.empty, self.bin, self.lib) {
-            (true, true, _) | (true, _, true) => {
-                return Err(anyhow::anyhow!(
-                    "cannot combine --empty with --bin or --lib"
-                ))
-            }
-            (true, false, false) => BinOrLib::Empty,
-            (_, true, true) => {
-                return Err(anyhow::anyhow!(
-                    "cannot initialize a wapm manifest with both --bin and --lib, pick one"
-                ))
-            }
-            (false, true, _) => BinOrLib::Bin,
-            (false, _, true) => BinOrLib::Lib,
-            _ => BinOrLib::Bin,
-        };
-
         let modules = vec![wapm_toml::Module {
             name: module_name.to_string(),
             source: cargo_toml
@@ -195,9 +196,10 @@ impl Init {
                                     wit_bindgen: semver::Version::parse("0.1.0").unwrap(),
                                 }))
                             } else if is_wai {
-                                Some(wapm_toml::Bindings::Wit(wapm_toml::WitBindings {
-                                    wit_exports: e.path().to_path_buf(),
-                                    wit_bindgen: semver::Version::parse("0.1.0").unwrap(),
+                                Some(wapm_toml::Bindings::Wai(wapm_toml::WaiBindings {
+                                    exports: None,
+                                    imports: vec![e.path().to_path_buf()],
+                                    wai_version: semver::Version::parse("0.1.0").unwrap(),
                                 }))
                             } else {
                                 None
