@@ -34,8 +34,7 @@ fn test_trap_return(config: crate::Config) -> Result<()> {
 
     let e = run_func
         .call(&mut store, &[])
-        .err()
-        .expect("error calling function");
+        .expect_err("error calling function");
 
     assert_eq!(e.message(), "test 123");
 
@@ -62,8 +61,7 @@ fn test_trap_trace(config: crate::Config) -> Result<()> {
 
     let e = run_func
         .call(&mut store, &[])
-        .err()
-        .expect("error calling function");
+        .expect_err("error calling function");
 
     let trace = e.trace();
     assert_eq!(trace.len(), 2);
@@ -113,8 +111,7 @@ fn test_trap_trace_cb(config: crate::Config) -> Result<()> {
 
     let e = run_func
         .call(&mut store, &[])
-        .err()
-        .expect("error calling function");
+        .expect_err("error calling function");
 
     let trace = e.trace();
     println!("Trace {:?}", trace);
@@ -148,8 +145,7 @@ fn test_trap_stack_overflow(config: crate::Config) -> Result<()> {
 
     let e = run_func
         .call(&mut store, &[])
-        .err()
-        .expect("error calling function");
+        .expect_err("error calling function");
 
     // We specifically don't check the stack trace here: stack traces after
     // stack overflows are not generally possible due to unreliable unwinding
@@ -181,8 +177,7 @@ fn trap_display_pretty(config: crate::Config) -> Result<()> {
 
     let e = run_func
         .call(&mut store, &[])
-        .err()
-        .expect("error calling function");
+        .expect_err("error calling function");
     assert_eq!(
         e.to_string(),
         "\
@@ -236,8 +231,7 @@ fn trap_display_multi_module(config: crate::Config) -> Result<()> {
 
     let e = bar2
         .call(&mut store, &[])
-        .err()
-        .expect("error calling function");
+        .expect_err("error calling function");
     assert_eq!(
         e.to_string(),
         "\
@@ -433,9 +427,7 @@ fn call_signature_mismatch(config: crate::Config) -> Result<()> {
     "#;
 
     let module = Module::new(&store, &binary)?;
-    let err = Instance::new(&mut store, &module, &imports! {})
-        .err()
-        .expect("expected error");
+    let err = Instance::new(&mut store, &module, &imports! {}).expect_err("expected error");
     assert_eq!(
         format!("{}", err),
         "\
@@ -461,9 +453,7 @@ fn start_trap_pretty(config: crate::Config) -> Result<()> {
     "#;
 
     let module = Module::new(&store, wat)?;
-    let err = Instance::new(&mut store, &module, &imports! {})
-        .err()
-        .expect("expected error");
+    let err = Instance::new(&mut store, &module, &imports! {}).expect_err("expected error");
 
     assert_eq!(
         format!("{}", err),

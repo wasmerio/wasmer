@@ -1,6 +1,4 @@
 #![deny(unused_mut)]
-#![doc(html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png")]
-#![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
 #![allow(non_camel_case_types, clippy::identity_op)]
 
 //! Wasmer's WASI types implementation.

@@ -661,6 +661,38 @@ package-docs: build-docs build-docs-capi
 
 package: package-wasmer package-minimal-headless-wasmer package-capi
 
+package-gnu: package-capi-gnu
+
+package-capi-gnu:
+	mkdir -p "package/include"
+	mkdir -p "package/lib"
+	cp lib/c-api/wasmer.h* package/include
+	cp lib/c-api/wasmer_wasm.h* package/include
+	cp lib/c-api/tests/wasm-c-api/include/wasm.h* package/include
+	cp lib/c-api/README.md package/include/README.md
+	if [ -f target/x86_64-pc-windows-gnu/release/wasmer.dll ]; then \
+		cp target/x86_64-pc-windows-gnu/release/wasmer.dll package/lib/wasmer.dll ;\
+	fi
+
+	if [ -f target/x86_64-pc-windows-gnu/release/wasmer.dll.lib ]; then \
+		cp target/x86_64-pc-windows-gnu/release/wasmer.dll.lib package/lib/wasmer.dll.lib ;\
+	fi
+
+	if [ -f target/x86_64-pc-windows-gnu/release/wasmer.lib ]; then \
+		cp target/x86_64-pc-windows-gnu/release/wasmer.lib package/lib/wasmer.lib ;\
+	fi
+
+	if [ -f target/x86_64-pc-windows-gnu/release/libwasmer.a ]; then \
+		cp target/x86_64-pc-windows-gnu/release/libwasmer.a package/lib/libwasmer.a ;\
+	fi
+
+distribution-gnu: package-gnu
+	cp LICENSE package/LICENSE
+	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
+	mkdir -p dist
+	tar -C package -zcvf wasmer.tar.gz lib include winsdk LICENSE ATTRIBUTIONS
+	mv wasmer.tar.gz dist/
+
 distribution: package
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
@@ -748,3 +780,6 @@ install-local: package
 test-minimal-versions:
 	rm -f Cargo.lock
 	cargo +nightly build --tests -Z minimal-versions --all-features
+
+update-graphql-schema:
+	curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql

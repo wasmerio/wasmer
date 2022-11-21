@@ -1,4 +1,5 @@
 //! The commands available in the Wasmer binary.
+mod add;
 #[cfg(target_os = "linux")]
 mod binfmt;
 mod cache;
@@ -11,11 +12,13 @@ mod create_exe;
 mod create_obj;
 mod inspect;
 mod list;
+mod login;
 mod run;
 mod self_update;
 mod validate;
 #[cfg(feature = "wast")]
 mod wast;
+mod whoami;
 
 #[cfg(target_os = "linux")]
 pub use binfmt::*;
@@ -27,7 +30,10 @@ pub use create_exe::*;
 pub use create_obj::*;
 #[cfg(feature = "wast")]
 pub use wast::*;
-pub use {cache::*, config::*, inspect::*, list::*, run::*, self_update::*, validate::*};
+pub use {
+    add::*, cache::*, config::*, inspect::*, list::*, login::*, run::*, self_update::*,
+    validate::*, whoami::*,
+};
 
 /// The kind of object format to emit.
 #[derive(Debug, Copy, Clone, clap::Parser)]
