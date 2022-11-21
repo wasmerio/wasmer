@@ -353,7 +353,7 @@
     <span class="doccomment">///   memory, i.e. `Self.instance_ptr` must have been allocated by</span>
     <span class="doccomment">///   `Self::new`.</span>
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">memory_definition_locations</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">num_memories</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">offsets</span>.<span class="ident">num_local_memories</span>;
+        <span class="kw">let</span> <span class="ident">num_memories</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">offsets</span>.<span class="ident">num_local_memories</span>();
         <span class="kw">let</span> <span class="ident">num_memories</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">num_memories</span>).<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">num_memories</span>);
 
@@ -387,7 +387,7 @@
     <span class="doccomment">///   memory, i.e. `Self.instance_ptr` must have been allocated by</span>
     <span class="doccomment">///   `Self::new`.</span>
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">table_definition_locations</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">num_tables</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">offsets</span>.<span class="ident">num_local_tables</span>;
+        <span class="kw">let</span> <span class="ident">num_tables</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">offsets</span>.<span class="ident">num_local_tables</span>();
         <span class="kw">let</span> <span class="ident">num_tables</span> <span class="op">=</span> <span class="ident">usize::try_from</span>(<span class="ident">num_tables</span>).<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">num_tables</span>);
 
