@@ -18,6 +18,7 @@ mod self_update;
 mod validate;
 #[cfg(feature = "wast")]
 mod wast;
+mod whoami;
 
 #[cfg(target_os = "linux")]
 pub use binfmt::*;
@@ -30,7 +31,8 @@ pub use create_obj::*;
 #[cfg(feature = "wast")]
 pub use wast::*;
 pub use {
-    add::*, cache::*, config::*, inspect::*, list::*, login::*, run::*, self_update::*, validate::*,
+    add::*, cache::*, config::*, inspect::*, list::*, login::*, run::*, self_update::*,
+    validate::*, whoami::*,
 };
 
 /// The kind of object format to emit.

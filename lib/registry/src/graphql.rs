@@ -117,6 +117,14 @@ pub(crate) struct GetPackageVersionQuery;
 #[derive(GraphQLQuery)]
 #[graphql(
     schema_path = "graphql/schema.graphql",
+    query_path = "graphql/queries/whoami.graphql",
+    response_derives = "Debug"
+)]
+pub(crate) struct WhoAmIQuery;
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "graphql/schema.graphql",
     query_path = "graphql/queries/get_package_by_command.graphql",
     response_derives = "Debug"
 )]
