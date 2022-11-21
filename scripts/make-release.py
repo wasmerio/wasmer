@@ -126,7 +126,7 @@ def make_release(version):
     already_released_str = ""
     for line in proc.stdout:
         line = line.decode("utf-8").rstrip()
-        if RELEASE_VERSION in line:
+        if RELEASE_VERSION + "\t" in line:
             already_released_str = line
             break
     
@@ -138,10 +138,12 @@ def make_release(version):
     github_link_line = ""
     for line in proc.stdout:
         line = line.decode("utf-8").rstrip()
-        if RELEASE_VERSION in line:
+        if "release-" + RELEASE_VERSION + "\t" in line:
             github_link_line = line
             break
     
+    print("github link line" + github_link_line)
+
     if github_link_line != "":
         proc = subprocess.Popen(['git','pull', "origin", "release-" + RELEASE_VERSION], stdout = subprocess.PIPE, cwd = temp_dir.name)
         proc.wait()
@@ -213,7 +215,7 @@ def make_release(version):
 
         for line in proc.stdout:
             line = line.decode("utf-8").rstrip()
-            if RELEASE_VERSION in line:
+            if "release-" + RELEASE_VERSION + "\t" in line:
                 github_link_line = line
                 break
 
@@ -342,7 +344,7 @@ def make_release(version):
         github_link_line = ""
         for line in proc.stdout:
             line = line.decode("utf-8").rstrip()
-            if RELEASE_VERSION in line:
+            if RELEASE_VERSION + "\t" in line:
                 github_link_line = line
                 break
                     
