@@ -8,11 +8,29 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+
 ## Added
+
 
 ## Changed
 
+
 ## Fixed
+
+
+## 3.0.0 - 20/11/2022
+
+## Added
+
+  - [#3338](https://github.com/wasmerio/wasmer/3338) Re-add codecov to get coverage reports
+  - [#3337](https://github.com/wasmerio/wasmer/3337) Add automation script to automate deploying releases on GitHub
+
+## Changed
+
+
+## Fixed
+
+  - [#3339](https://github.com/wasmerio/wasmer/3339) Fixes for wasmer login / wasmer add
 
 ## 3.0.0-rc.4 - 19/11/2022
 
