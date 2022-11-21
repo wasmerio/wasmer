@@ -105,8 +105,9 @@ pub use crate::{
         WasiTtyState,
     },
     runtime::{
-        PluggableRuntimeImplementation, SpawnedMemory, VirtualTaskManager,
-        WasiRuntimeImplementation, WasiThreadError, WebSocketAbi,
+        task_manager::{VirtualTaskManager, VirtualTaskManagerExt},
+        PluggableRuntimeImplementation, SpawnedMemory, WasiRuntimeImplementation, WasiThreadError,
+        WebSocketAbi,
     },
 };
 

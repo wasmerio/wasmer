@@ -174,13 +174,24 @@ impl dyn VirtualTaskManager {
     }
 }
 
-// TODO: remove impl.
-// This impl is superfuous, because the VirtualTaskManager already has Send+Sync bounds, so the
-// above impl should be sufficient.
-// The impl is required for now because some code uses the VirtualTaskManager with + Send + Sync,
-// which can be removed.
-impl dyn VirtualTaskManager + Send + Sync {
-    pub fn block_on<'a, A>(&self, task: impl Future<Output = A> + 'a) -> A {
+/// Generic utility methods for VirtualTaskManager
+pub trait VirtualTaskManagerExt {
+    fn block_on<'a, A>(&self, task: impl Future<Output = A> + 'a) -> A;
+}
+
+impl<'a, T: VirtualTaskManager> VirtualTaskManagerExt for &'a T {
+    fn block_on<'x, A>(&self, task: impl Future<Output = A> + 'x) -> A {
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.block_on_generic(Box::pin(async move {
+            let ret = task.await;
+            tx.send(ret).unwrap();
+        }));
+        rx.recv().unwrap()
+    }
+}
+
+impl<T: VirtualTaskManager + ?Sized> VirtualTaskManagerExt for std::sync::Arc<T> {
+    fn block_on<'x, A>(&self, task: impl Future<Output = A> + 'x) -> A {
         let (tx, rx) = std::sync::mpsc::channel();
         self.block_on_generic(Box::pin(async move {
             let ret = task.await;

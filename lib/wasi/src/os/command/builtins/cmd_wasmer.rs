@@ -7,7 +7,7 @@ use wasmer_wasi_types::wasi::Errno;
 use crate::{
     bin_factory::{spawn_exec, BinaryPackage, ModuleCache},
     syscalls::stderr_write,
-    VirtualTaskManager, WasiEnv, WasiRuntimeImplementation,
+    VirtualTaskManager, VirtualTaskManagerExt, WasiEnv, WasiRuntimeImplementation,
 };
 
 const HELP: &'static str = r#"USAGE:

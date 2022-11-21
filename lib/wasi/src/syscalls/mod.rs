@@ -102,7 +102,7 @@ pub(crate) use crate::{
         socket::{InodeHttpSocketType, InodeSocket, InodeSocketKind},
         write_ip_port,
     },
-    runtime::SpawnType,
+    runtime::{task_manager::VirtualTaskManagerExt, SpawnType},
     state::{
         self, bus_errno_into_vbus_error, iterate_poll_events, vbus_error_into_bus_errno, Inode,
         PollEvent, PollEventBuilder, WasiBusCall, WasiDummyWaker, WasiFutex, WasiState,
