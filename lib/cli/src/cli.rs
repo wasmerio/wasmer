@@ -39,28 +39,23 @@ use std::{fmt, str::FromStr};
 /// The options for the wasmer Command Line Interface
 enum WasmerCLIOptions {
     /// List all locally installed packages
-    #[clap(name = "list")]
     List(List),
 
     /// Run a WebAssembly file. Formats accepted: wasm, wat
-    #[clap(name = "run")]
     Run(Run),
 
     /// Login into a wapm.io-like registry
-    #[clap(name = "login")]
     Login(Login),
 
     /// Wasmer cache
-    #[clap(subcommand, name = "cache")]
+    #[clap(subcommand)]
     Cache(Cache),
 
     /// Validate a WebAssembly binary
-    #[clap(name = "validate")]
     Validate(Validate),
 
     /// Compile a WebAssembly binary
     #[cfg(feature = "compiler")]
-    #[clap(name = "compile")]
     Compile(Compile),
 
     /// Compile a WebAssembly binary into a native executable
@@ -132,7 +127,6 @@ enum WasmerCLIOptions {
 
     /// Get various configuration information needed
     /// to compile programs which use Wasmer
-    #[clap(name = "config")]
     Config(Config),
 
     /// Update wasmer to the latest version
@@ -140,21 +134,17 @@ enum WasmerCLIOptions {
     SelfUpdate(SelfUpdate),
 
     /// Inspect a WebAssembly file
-    #[clap(name = "inspect")]
     Inspect(Inspect),
 
     /// Run spec testsuite
     #[cfg(feature = "wast")]
-    #[clap(name = "wast")]
     Wast(Wast),
 
     /// Unregister and/or register wasmer as binfmt interpreter
     #[cfg(target_os = "linux")]
-    #[clap(name = "binfmt")]
     Binfmt(Binfmt),
 
     /// Shows the current logged in user for the current active registry
-    #[clap(name = "whoami")]
     Whoami(Whoami),
 
     /// Add a WAPM package's bindings to your application.
