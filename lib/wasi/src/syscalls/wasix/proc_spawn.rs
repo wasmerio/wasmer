@@ -116,7 +116,7 @@ pub fn proc_spawn_internal(
     // Fork the current environment and set the new arguments
     let (mut child_env, handle) = ctx.data().fork();
     if let Some(args) = args {
-        let mut child_state = env.state.fork();
+        let mut child_state = env.state.fork(true);
         child_state.args = args;
         child_env.state = Arc::new(child_state);
     }

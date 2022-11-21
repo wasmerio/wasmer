@@ -127,6 +127,11 @@ fn fd_write_internal<M: MemorySize>(
             match guard.deref_mut() {
                 Kind::File { handle, .. } => {
                     if let Some(handle) = handle {
+                        let handle = handle.clone();
+                        drop(inode);
+                        drop(guard);
+                        drop(inodes);
+
                         let buf_len: M::Offset = iovs_arr
                             .iter()
                             .filter_map(|a| a.read().ok())
@@ -137,10 +142,6 @@ fn fd_write_internal<M: MemorySize>(
                         let mut buf = Vec::with_capacity(buf_len);
                         wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
 
-                        let handle = handle.clone();
-                        drop(inode);
-                        drop(guard);
-                        drop(inodes);
                         wasi_try_ok!(__asyncify(
                             &mut ctx,
                             if is_non_blocking {
@@ -169,6 +170,10 @@ fn fd_write_internal<M: MemorySize>(
                     }
                 }
                 Kind::Socket { socket } => {
+                    let socket = socket.clone();
+                    drop(guard);
+                    drop(inodes);
+
                     let buf_len: M::Offset = iovs_arr
                         .iter()
                         .filter_map(|a| a.read().ok())
@@ -178,9 +183,6 @@ fn fd_write_internal<M: MemorySize>(
                     let mut buf = Vec::with_capacity(buf_len);
                     wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
 
-                    let socket = socket.clone();
-                    drop(guard);
-                    drop(inodes);
                     wasi_try_ok!(__asyncify(
                         &mut ctx,
                         None,

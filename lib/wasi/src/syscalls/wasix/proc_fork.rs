@@ -233,7 +233,7 @@ pub fn proc_fork<M: MemorySize>(
                     }
 
                     // Clean up the environment
-                    ctx.cleanup((&mut store));
+                    ctx.cleanup((&mut store), Some(ret as ExitCode));
 
                     // Send the result
                     let _ = exit_code_tx.send(ret as u32);

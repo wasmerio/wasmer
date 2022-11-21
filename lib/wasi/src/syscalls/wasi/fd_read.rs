@@ -187,6 +187,10 @@ fn fd_read_internal<M: MemorySize>(
                 }
                 Kind::Socket { socket } => {
                     let socket = socket.clone();
+
+                    drop(guard);
+                    drop(inodes);
+
                     let data = wasi_try_ok!(__asyncify(
                         &mut ctx,
                         if is_non_blocking {
@@ -212,6 +216,9 @@ fn fd_read_internal<M: MemorySize>(
                 }
                 Kind::Pipe { pipe } => {
                     let mut pipe = pipe.clone();
+
+                    drop(guard);
+                    drop(inodes);
 
                     let data = wasi_try_ok!(__asyncify(
                         &mut ctx,
@@ -264,6 +271,12 @@ fn fd_read_internal<M: MemorySize>(
                         let mut guard = wakers.lock().unwrap();
                         guard.push_front(tx);
                     }
+
+                    drop(ref_counter);
+                    drop(ref_is_semaphore);
+                    drop(ref_wakers);
+                    drop(guard);
+                    drop(inodes);
 
                     let ret;
                     loop {

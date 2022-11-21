@@ -16,6 +16,7 @@ tracing = { version = "0.1" }
 typetag = { version = "0.1", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 webc = { version = "3.0.1", optional = true }
+#webc = { path = "../../../pirita/crates/webc", optional = true }
 slab = { version = "0.4" }
 derivative = "2.2.0"
 anyhow = { version = "1.0.66", optional = true }

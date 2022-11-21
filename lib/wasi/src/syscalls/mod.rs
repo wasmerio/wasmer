@@ -87,9 +87,6 @@ pub(crate) use self::types::{
     },
     *,
 };
-use crate::fs::{
-    fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind, MAX_SYMLINKS,
-};
 pub(crate) use crate::os::task::{
     process::{WasiProcessId, WasiProcessWait},
     thread::{WasiThread, WasiThreadId},
@@ -111,6 +108,13 @@ pub(crate) use crate::{
     utils::{self, map_io_err},
     VirtualTaskManager, WasiEnv, WasiEnvInner, WasiError, WasiFunctionEnv,
     WasiRuntimeImplementation, WasiVFork, DEFAULT_STACK_SIZE,
+};
+use crate::{
+    fs::{
+        fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind,
+        MAX_SYMLINKS,
+    },
+    runtime::task_manager::tokio::VirtualTaskExecutor,
 };
 pub(crate) use crate::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 
@@ -255,29 +259,22 @@ where
 
     // Block on the work and process process
     let tasks_inner = tasks.clone();
-    let (tx_ret, mut rx_ret) = tokio::sync::mpsc::unbounded_channel();
-    tasks.block_on(Box::pin(async move {
+    tasks.block_on(async move {
         tokio::select! {
             // The main work we are doing
-            ret = work => {
-                let _ = tx_ret.send(ret);
-            },
+            ret = work => ret,
             // If a signaller is triggered then we interrupt the main process
             _ = signaler.recv() => {
                 if let Err(err) = ctx.data().clone().process_signals(ctx) {
-                    let _ = tx_ret.send(Err(err));
+                    Err(err)
+                } else {
+                    Err(Errno::Intr)
                 }
             },
             // Optional timeout
-            _ = timeout => {
-                let _ = tx_ret.send(Err(Errno::Timedout));
-            },
+            _ = timeout => Err(Errno::Timedout),
         }
-    }));
-
-    // If a signal is received then we need to process it and if
-    // we can not then fail with an interrupt error code
-    rx_ret.try_recv().map_err(|_| Errno::Intr)?
+    })
 }
 
 // This should be compiled away, it will simply wait forever however its never
@@ -873,7 +870,7 @@ pub(crate) fn handle_rewind<M: MemorySize>(ctx: &mut FunctionEnvMut<'_, WasiEnv>
 pub(crate) fn _prepare_wasi(wasi_env: &mut WasiEnv, args: Option<Vec<String>>) {
     // Swap out the arguments with the new ones
     if let Some(args) = args {
-        let mut wasi_state = wasi_env.state.fork();
+        let mut wasi_state = wasi_env.state.fork(false);
         wasi_state.args = args;
         wasi_env.state = Arc::new(wasi_state);
     }
@@ -902,12 +899,12 @@ pub(crate) fn _prepare_wasi(wasi_env: &mut WasiEnv, args: Option<Vec<String>>) {
     }
 }
 
-pub(crate) fn conv_bus_err_to_exit_code(err: VirtualBusError) -> u32 {
+pub(crate) fn conv_bus_err_to_exit_code(err: VirtualBusError) -> ExitCode {
     match err {
-        VirtualBusError::AccessDenied => -1i32 as u32,
-        VirtualBusError::NotFound => -2i32 as u32,
-        VirtualBusError::Unsupported => -22i32 as u32,
-        VirtualBusError::BadRequest | _ => -8i32 as u32,
+        VirtualBusError::AccessDenied => Errno::Access as ExitCode,
+        VirtualBusError::NotFound => Errno::Noent as ExitCode,
+        VirtualBusError::Unsupported => Errno::Noexec as ExitCode,
+        VirtualBusError::BadRequest | _ => Errno::Inval as ExitCode,
     }
 }
 

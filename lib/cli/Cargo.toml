@@ -32,7 +32,7 @@ wasmer-compiler-singlepass = { version = "=3.0.0-rc.2", path = "../compiler-sing
 wasmer-compiler-llvm = { version = "=3.0.0-rc.2", path = "../compiler-llvm", optional = true }
 wasmer-emscripten = { version = "=3.0.0-rc.2", path = "../emscripten", optional = true }
 wasmer-vm = { version = "=3.0.0-rc.2", path = "../vm", features = ["tracing"] }
-wasmer-wasi = { version = "=3.0.0-rc.2", path = "../wasi", optional = true }
+wasmer-wasi = { version = "=3.0.0-rc.2", path = "../wasi", optional = true, features = [ "host-vnet" ] }
 wasmer-wasi-experimental-io-devices = { version = "=3.0.0-rc.2", path = "../wasi-experimental-io-devices", optional = true, features = ["link_external_libs"] }
 wasmer-wast = { version = "=3.0.0-rc.2", path = "../../tests/lib/wast", optional = true }
 wasmer-cache = { version = "=3.0.0-rc.2", path = "../cache", optional = true }
@@ -70,6 +70,7 @@ url = "2.3.1"
 libc = { version = "^0.2", default-features = false }
 nuke-dir = { version = "0.1.0", optional = true }
 webc = { version = "3.0.1", optional = true }
+#webc = { path = "../../../pirita/crates/webc", optional = true }
 isatty = "0.1.9"
 
 [build-dependencies]

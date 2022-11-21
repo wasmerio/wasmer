@@ -6,17 +6,17 @@ use std::sync::Arc;
 use std::{collections::BTreeSet, path::Path};
 use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, RuntimeError, Value};
 use wasmer_vfs::FileSystem;
-use wasmer_wasi::fs::{PassthruFileSystem, RootFileSystemBuilder, SpecialFile, TtyFile};
+use wasmer_vfs::{PassthruFileSystem, RootFileSystemBuilder, SpecialFile};
 #[cfg(feature = "wasix")]
 use wasmer_wasi::is_wasix_module;
 use wasmer_wasi::types::__WASI_STDIN_FILENO;
+use wasmer_wasi::TtyFile;
 use wasmer_wasi::{
-    get_wasi_versions, import_object_for_all_wasi_versions, PluggableRuntimeImplementation,
-    WasiEnv, WasiError, WasiState, WasiVersion,
+    default_fs_backing, get_wasi_versions, import_object_for_all_wasi_versions,
+    PluggableRuntimeImplementation, WasiEnv, WasiError, WasiState, WasiVersion,
 };
 
 use clap::Parser;
-use wasmer_wasi::os::fs::default_fs_backing;
 
 #[derive(Debug, Parser, Clone, Default)]
 /// WASI Options

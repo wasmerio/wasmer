@@ -12,7 +12,7 @@ use wasmer_vbus::{SpawnEnvironmentIntrinsics, VirtualBus};
 use wasmer_vnet::DynVirtualNetworking;
 use wasmer_wasi_types::{
     types::Signal,
-    wasi::{Errno, Snapshot0Clockid},
+    wasi::{Errno, ExitCode, Snapshot0Clockid},
 };
 
 use crate::{
@@ -223,7 +223,7 @@ impl WasiEnv {
         let thread = handle.as_thread();
         thread.copy_stack_from(&self.thread);
 
-        let state = Arc::new(self.state.fork());
+        let state = Arc::new(self.state.fork(true));
 
         let bin_factory = {
             let mut bin_factory = self.bin_factory.clone();
@@ -647,6 +647,24 @@ impl WasiEnv {
             }
         }
         Ok(())
+    }
+
+    /// Cleans up all the open files (if this is the main thread)
+    pub fn cleanup(&self, exit_code: Option<ExitCode>) {
+        // If this is the main thread then also close all the files
+        if self.thread.is_main() {
+            trace!("wasi[{}]:: cleaning up open file handles", self.pid());
+
+            let inodes = self.state.inodes.read().unwrap();
+            self.state.fs.close_all(inodes.deref());
+
+            // Now send a signal that the thread is terminated
+            self.process.signal_process(Signal::Sigquit);
+
+            // Terminate the process
+            let exit_code = exit_code.unwrap_or(Errno::Canceled as ExitCode);
+            self.process.terminate(exit_code);
+        }
     }
 }
 

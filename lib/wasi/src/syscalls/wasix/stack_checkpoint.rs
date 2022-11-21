@@ -14,12 +14,20 @@ pub fn stack_checkpoint<M: MemorySize>(
         let env = ctx.data();
         let memory = env.memory_view(&ctx);
         let ret_val = wasi_try_mem_ok!(ret_val.read(&memory));
-        trace!(
-            "wasi[{}:{}]::stack_checkpoint - restored - (ret={})",
-            ctx.data().pid(),
-            ctx.data().tid(),
-            ret_val
-        );
+        if ret_val == 0 {
+            trace!(
+                "wasi[{}:{}]::stack_checkpoint - execution resumed",
+                ctx.data().pid(),
+                ctx.data().tid(),
+            );
+        } else {
+            trace!(
+                "wasi[{}:{}]::stack_checkpoint - restored - (ret={})",
+                ctx.data().pid(),
+                ctx.data().tid(),
+                ret_val
+            );
+        }
         return Ok(Errno::Success);
     }
     trace!(

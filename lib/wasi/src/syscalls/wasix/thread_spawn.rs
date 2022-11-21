@@ -133,7 +133,7 @@ pub fn thread_spawn<M: MemorySize>(
         // If we are NOT a reactor then we will only run once and need to clean up
         if reactor == Bool::False {
             // Clean up the environment
-            ctx.cleanup(store);
+            ctx.cleanup(store, Some(ret as ExitCode));
         }
 
         // Return the result

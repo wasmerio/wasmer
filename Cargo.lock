@@ -3962,73 +3962,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
-name = "wai-bindgen-gen-core"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27c779b29ab9bb82d1a2ac6218b5926cd3fb0392973ee0b4dfdb7e6d5bd4c87e"
-dependencies = [
- "anyhow",
- "wai-parser",
-]
-
-[[package]]
-name = "wai-bindgen-gen-rust"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7be9a8d43877a97d0eea17f95e79abc3870a590459352126354ee3991248c399"
-dependencies = [
- "heck 0.3.3",
- "wai-bindgen-gen-core",
-]
-
-[[package]]
-name = "wai-bindgen-gen-rust-wasm"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f33c72295f2fa33594e0efee829377c7c62a9b69d1e25fc402153e1d56ac4402"
-dependencies = [
- "heck 0.3.3",
- "wai-bindgen-gen-core",
- "wai-bindgen-gen-rust",
-]
-
-[[package]]
-name = "wai-bindgen-rust"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93957196c4344f2826023233b8354e0dd522af87f77e620992d6d1d4f52f1210"
-dependencies = [
- "async-trait",
- "bitflags",
- "wai-bindgen-rust-impl",
-]
-
-[[package]]
-name = "wai-bindgen-rust-impl"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab28580d6620f593c0501d88348b489338c2e4f5c0d81769fd1c0bbac3f884ec"
-dependencies = [
- "proc-macro2",
- "syn",
- "wai-bindgen-gen-core",
- "wai-bindgen-gen-rust-wasm",
-]
-
-[[package]]
-name = "wai-parser"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd8cc5a5c1a118c3c392bff93c548e6732d881daf92f23ac08466f7a22412f66"
-dependencies = [
- "anyhow",
- "id-arena",
- "pulldown-cmark",
- "unicode-normalization",
- "unicode-xid",
-]
-
-[[package]]
 name = "wait-timeout"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4778,7 +4711,6 @@ dependencies = [
  "pretty_assertions",
  "serde",
  "time",
- "wai-bindgen-rust",
  "wasmer",
  "wasmer-derive",
  "wasmer-types",
@@ -4795,6 +4727,7 @@ dependencies = [
  "serde",
  "tempfile",
  "thiserror",
+ "tokio",
  "wasmer",
  "wasmer-vfs",
  "wasmer-wasi",

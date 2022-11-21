@@ -83,6 +83,8 @@ pub struct WasiThread {
     pub(super) stack: Arc<Mutex<ThreadStack>>,
 }
 
+static NO_MORE_BYTES: [u8; 0] = [0u8; 0];
+
 impl WasiThread {
     /// Returns the process ID
     pub fn pid(&self) -> WasiProcessId {
@@ -157,7 +159,7 @@ impl WasiThread {
     pub fn add_snapshot(
         &self,
         mut memory_stack: &[u8],
-        memory_stack_corrected: &[u8],
+        mut memory_stack_corrected: &[u8],
         hash: u128,
         rewind_stack: &[u8],
         store_data: &[u8],
@@ -188,12 +190,15 @@ impl WasiThread {
                 new_stack.memory_stack = memory_stack.to_vec();
                 new_stack.memory_stack_corrected = memory_stack_corrected.to_vec();
                 std::mem::swap(pstack, &mut new_stack);
-                memory_stack = &memory_stack[memory_stack.len()..];
+                memory_stack = &NO_MORE_BYTES[..];
+                memory_stack_corrected = &NO_MORE_BYTES[..];
 
                 // Output debug info for the dead stack
                 let mut disown = Some(Box::new(new_stack));
-                if disown.is_some() {
-                    tracing::trace!("wasi[{}]::stacks forgotten (memory_stack_before={}, memory_stack_after={})", self.pid, memory_stack_before, memory_stack_after);
+                if let Some(disown) = disown.as_ref() {
+                    if disown.snapshots.is_empty() == false {
+                        tracing::trace!("wasi[{}]::stacks forgotten (memory_stack_before={}, memory_stack_after={})", self.pid, memory_stack_before, memory_stack_after);
+                    }
                 }
                 while let Some(disowned) = disown {
                     for hash in disowned.snapshots.keys() {
@@ -207,6 +212,8 @@ impl WasiThread {
                 }
             } else {
                 memory_stack = &memory_stack[pstack.memory_stack.len()..];
+                memory_stack_corrected =
+                    &memory_stack_corrected[pstack.memory_stack_corrected.len()..];
             }
 
             // If there is no more memory stack then we are done and can add the call stack
@@ -218,6 +225,7 @@ impl WasiThread {
             if pstack.next.is_none() {
                 let mut new_stack = ThreadStack::default();
                 new_stack.memory_stack = memory_stack.to_vec();
+                new_stack.memory_stack_corrected = memory_stack_corrected.to_vec();
                 pstack.next.replace(Box::new(new_stack));
             }
             pstack = pstack.next.as_mut().unwrap();

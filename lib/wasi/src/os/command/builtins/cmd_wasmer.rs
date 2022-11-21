@@ -6,6 +6,7 @@ use wasmer_wasi_types::wasi::Errno;
 
 use crate::{
     bin_factory::{spawn_exec, BinaryPackage, ModuleCache},
+    runtime::task_manager::tokio::VirtualTaskExecutor,
     syscalls::stderr_write,
     VirtualTaskManager, WasiEnv, WasiRuntimeImplementation,
 };
@@ -65,7 +66,7 @@ impl CmdWasmer {
             let mut config = config.take().ok_or(VirtualBusError::UnknownError)?.conf();
 
             // Set the arguments of the environment by replacing the state
-            let mut state = config.env().state.fork();
+            let mut state = config.env().state.fork(true);
             args.insert(0, what.clone());
             state.args = args;
             config.env_mut().state = Arc::new(state);
@@ -76,14 +77,19 @@ impl CmdWasmer {
                 // Now run the module
                 spawn_exec(binary, name, store, config, &self.runtime, &self.cache)
             } else {
-                let _ = stderr_write(
-                    parent_ctx,
-                    format!("package not found - {}\r\n", what).as_bytes(),
-                );
+                parent_ctx.data().tasks.clone().block_on(async move {
+                    let _ = stderr_write(
+                        parent_ctx,
+                        format!("package not found - {}\r\n", what).as_bytes(),
+                    )
+                    .await;
+                });
                 Ok(BusSpawnedProcess::exited_process(Errno::Noent as u32))
             }
         } else {
-            let _ = stderr_write(parent_ctx, HELP_RUN.as_bytes());
+            parent_ctx.data().tasks.clone().block_on(async move {
+                let _ = stderr_write(parent_ctx, HELP_RUN.as_bytes()).await;
+            });
             Ok(BusSpawnedProcess::exited_process(0))
         }
     }
@@ -134,7 +140,9 @@ impl VirtualCommand for CmdWasmer {
                 self.run(parent_ctx, name, store, config, what, args)
             }
             Some("--help") | None => {
-                let _ = stderr_write(parent_ctx, HELP.as_bytes());
+                parent_ctx.data().tasks.clone().block_on(async move {
+                    let _ = stderr_write(parent_ctx, HELP.as_bytes()).await;
+                });
                 Ok(BusSpawnedProcess::exited_process(0))
             }
             Some(what) => {

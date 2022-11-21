@@ -13,7 +13,7 @@ use wasmer_vbus::{
     BusSpawnedProcess, SpawnOptions, SpawnOptionsConfig, VirtualBusError, VirtualBusInvokable,
     VirtualBusProcess, VirtualBusScope, VirtualBusSpawner,
 };
-use wasmer_wasi_types::wasi::Errno;
+use wasmer_wasi_types::wasi::{Errno, ExitCode};
 
 use super::{BinFactory, BinaryPackage, ModuleCache};
 use crate::{
@@ -46,7 +46,11 @@ pub fn spawn_exec(
                     err
                 );
                 VirtualBusError::CompileError
-            })?;
+            });
+            if module.is_err() {
+                config.env.cleanup(Some(Errno::Noexec as ExitCode));
+            }
+            let module = module?;
             compiled_modules.set_compiled_module(binary.hash().as_str(), compiler, &module);
             module
         }
@@ -118,6 +122,9 @@ pub fn spawn_exec_module(
                         Ok(a) => a,
                         Err(err) => {
                             error!("wasi[{}]::wasm instantiate error ({})", pid, err);
+                            wasi_env
+                                .data(&store)
+                                .cleanup(Some(Errno::Noexec as ExitCode));
                             return;
                         }
                     };
@@ -125,6 +132,9 @@ pub fn spawn_exec_module(
                     // Initialize the WASI environment
                     if let Err(err) = wasi_env.initialize(&mut store, &instance) {
                         error!("wasi[{}]::wasi initialize error ({})", pid, err);
+                        wasi_env
+                            .data(&store)
+                            .cleanup(Some(Errno::Noexec as ExitCode));
                         return;
                     }
 
@@ -132,17 +142,20 @@ pub fn spawn_exec_module(
                     if let Ok(initialize) = instance.exports.get_function("_initialize") {
                         if let Err(e) = initialize.call(&mut store, &[]) {
                             let code = match e.downcast::<WasiError>() {
-                                Ok(WasiError::Exit(code)) => code,
+                                Ok(WasiError::Exit(code)) => code as ExitCode,
                                 Ok(WasiError::UnknownWasiVersion) => {
                                     debug!("wasi[{}]::exec-failed: unknown wasi version", pid);
-                                    Errno::Noexec as u32
+                                    Errno::Noexec as ExitCode
                                 }
                                 Err(err) => {
                                     debug!("wasi[{}]::exec-failed: runtime error - {}", pid, err);
-                                    9999u32
+                                    Errno::Noexec as ExitCode
                                 }
                             };
                             let _ = exit_code_tx.send(code);
+                            wasi_env
+                                .data(&store)
+                                .cleanup(Some(Errno::Noexec as ExitCode));
                             return;
                         }
                     }
@@ -172,6 +185,9 @@ pub fn spawn_exec_module(
                         Errno::Noexec as u32
                     };
                     debug!("wasi[{}]::main() has exited with {}", pid, ret);
+
+                    // Cleanup the environment
+                    wasi_env.data(&store).cleanup(Some(ret));
 
                     // Send the result
                     let _ = exit_code_tx.send(ret);
@@ -234,6 +250,7 @@ impl VirtualBusSpawner<WasiEnv> for BinFactory {
     ) -> Pin<Box<dyn Future<Output = wasmer_vbus::Result<BusSpawnedProcess>> + 'a>> {
         Box::pin(async move {
             if config.remote_instance().is_some() {
+                config.env.cleanup(Some(Errno::Inval as ExitCode));
                 return Err(VirtualBusError::Unsupported);
             }
 
@@ -241,7 +258,13 @@ impl VirtualBusSpawner<WasiEnv> for BinFactory {
             let binary = self
                 .get_binary(name.as_str())
                 .await
-                .ok_or(VirtualBusError::NotFound)?;
+                .ok_or(VirtualBusError::NotFound);
+            if binary.is_err() {
+                config.env.cleanup(Some(Errno::Noent as ExitCode));
+            }
+            let binary = binary?;
+
+            // Execute
             spawn_exec(
                 binary,
                 name.as_str(),
@@ -256,12 +279,12 @@ impl VirtualBusSpawner<WasiEnv> for BinFactory {
 
 #[derive(Debug)]
 pub(crate) struct SpawnedProcess {
-    pub exit_code: Mutex<Option<u32>>,
-    pub exit_code_rx: Mutex<mpsc::UnboundedReceiver<u32>>,
+    pub exit_code: Mutex<Option<ExitCode>>,
+    pub exit_code_rx: Mutex<mpsc::UnboundedReceiver<ExitCode>>,
 }
 
 impl VirtualBusProcess for SpawnedProcess {
-    fn exit_code(&self) -> Option<u32> {
+    fn exit_code(&self) -> Option<ExitCode> {
         let mut exit_code = self.exit_code.lock().unwrap();
         if let Some(exit_code) = exit_code.as_ref() {
             return Some(exit_code.clone());
@@ -273,7 +296,7 @@ impl VirtualBusProcess for SpawnedProcess {
                 Some(code)
             }
             Err(mpsc::error::TryRecvError::Disconnected) => {
-                let code = 9999;
+                let code = Errno::Canceled as ExitCode;
                 exit_code.replace(code);
                 Some(code)
             }
@@ -292,7 +315,7 @@ impl VirtualBusProcess for SpawnedProcess {
         let mut rx = Pin::new(rx.deref_mut());
         match rx.poll_recv(cx) {
             Poll::Ready(code) => {
-                let code = code.unwrap_or(9999);
+                let code = code.unwrap_or(Errno::Canceled as ExitCode);
                 {
                     let mut exit_code = self.exit_code.lock().unwrap();
                     exit_code.replace(code);

@@ -1,7 +1,6 @@
-use std::ops::Deref;
-
 use tracing::trace;
 use wasmer::{AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Module, Store};
+use wasmer_wasi_types::wasi::ExitCode;
 
 use crate::{
     state::WasiEnvInner,
@@ -161,7 +160,7 @@ impl WasiFunctionEnv {
         Ok(resolver)
     }
 
-    pub fn cleanup(&self, store: &mut Store) {
+    pub fn cleanup(&self, store: &mut Store, exit_code: Option<ExitCode>) {
         trace!(
             "wasi[{}]:: cleaning up local thread variables",
             self.data(store).pid()
@@ -208,15 +207,7 @@ impl WasiFunctionEnv {
             }
         }
 
-        // If this is the main thread then also close all the files
-        if self.data(store).thread.is_main() {
-            trace!(
-                "wasi[{}]:: cleaning up open file handles",
-                self.data(store).pid()
-            );
-
-            let inodes = self.data(store).state.inodes.read().unwrap();
-            self.data(store).state.fs.close_all(inodes.deref());
-        }
+        // Cleans up all the open files (if this is the main thread)
+        self.data(store).cleanup(exit_code);
     }
 }

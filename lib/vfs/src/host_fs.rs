@@ -482,9 +482,19 @@ impl AsyncSeek for File {
 
 /// A wrapper type around Stdout that implements `VirtualFile` and
 /// `Serialize` + `Deserialize`.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct Stdout;
+pub struct Stdout {
+    inner: tokio::io::Stdout,
+}
+
+impl Default for Stdout {
+    fn default() -> Self {
+        Self {
+            inner: tokio::io::stdout(),
+        }
+    }
+}
 
 //#[cfg_attr(feature = "enable-serde", typetag::serde)]
 #[async_trait::async_trait]
@@ -542,35 +552,35 @@ impl AsyncRead for Stdout {
 
 impl AsyncWrite for Stdout {
     fn poll_write(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        let mut inner = tokio::io::stdout();
-        let inner = Pin::new(&mut inner);
+        let inner = Pin::new(&mut self.inner);
         inner.poll_write(cx, buf)
     }
 
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let mut inner = tokio::io::stdout();
-        let inner = Pin::new(&mut inner);
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let inner = Pin::new(&mut self.inner);
         inner.poll_flush(cx)
     }
 
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let mut inner = tokio::io::stdout();
-        let inner = Pin::new(&mut inner);
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let inner = Pin::new(&mut self.inner);
         inner.poll_shutdown(cx)
     }
 
     fn poll_write_vectored(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         bufs: &[io::IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        let mut inner = tokio::io::stdout();
-        let inner = Pin::new(&mut inner);
+        let inner = Pin::new(&mut self.inner);
         inner.poll_write_vectored(cx, bufs)
+    }
+
+    fn is_write_vectored(&self) -> bool {
+        self.inner.is_write_vectored()
     }
 }
 
@@ -589,9 +599,18 @@ impl AsyncSeek for Stdout {
 
 /// A wrapper type around Stderr that implements `VirtualFile` and
 /// `Serialize` + `Deserialize`.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct Stderr;
+pub struct Stderr {
+    inner: tokio::io::Stderr,
+}
+impl Default for Stderr {
+    fn default() -> Self {
+        Self {
+            inner: tokio::io::stderr(),
+        }
+    }
+}
 
 impl AsyncRead for Stderr {
     fn poll_read(
@@ -608,35 +627,35 @@ impl AsyncRead for Stderr {
 
 impl AsyncWrite for Stderr {
     fn poll_write(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        let mut inner = tokio::io::stderr();
-        let inner = Pin::new(&mut inner);
+        let inner = Pin::new(&mut self.inner);
         inner.poll_write(cx, buf)
     }
 
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let mut inner = tokio::io::stderr();
-        let inner = Pin::new(&mut inner);
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let inner = Pin::new(&mut self.inner);
         inner.poll_flush(cx)
     }
 
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let mut inner = tokio::io::stderr();
-        let inner = Pin::new(&mut inner);
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let inner = Pin::new(&mut self.inner);
         inner.poll_shutdown(cx)
     }
 
     fn poll_write_vectored(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         bufs: &[io::IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        let mut inner = tokio::io::stderr();
-        let inner = Pin::new(&mut inner);
+        let inner = Pin::new(&mut self.inner);
         inner.poll_write_vectored(cx, bufs)
+    }
+
+    fn is_write_vectored(&self) -> bool {
+        self.inner.is_write_vectored()
     }
 }
 
@@ -700,18 +719,20 @@ impl VirtualFile for Stderr {
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stdin {
     read_buffer: Arc<std::sync::Mutex<Option<Bytes>>>,
+    inner: tokio::io::Stdin,
 }
 impl Default for Stdin {
     fn default() -> Self {
         Self {
             read_buffer: Arc::new(std::sync::Mutex::new(None)),
+            inner: tokio::io::stdin(),
         }
     }
 }
 
 impl AsyncRead for Stdin {
     fn poll_read(
-        self: Pin<&mut Self>,
+        mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
@@ -729,8 +750,7 @@ impl AsyncRead for Stdin {
             }
         }
 
-        let mut inner = tokio::io::stdin();
-        let inner = Pin::new(&mut inner);
+        let inner = Pin::new(&mut self.inner);
         inner.poll_read(cx, buf)
     }
 }

@@ -8,6 +8,7 @@ use webc::{Annotation, FsEntryType, UrlOrManifest, WebC};
 
 use crate::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},
+    runtime::task_manager::tokio::VirtualTaskExecutor,
     VirtualTaskManager, WasiRuntimeImplementation,
 };
 
@@ -29,24 +30,13 @@ pub(crate) fn fetch_webc_task(
         .context("no http client available")?
         .clone();
 
-    let (tx, rx) = std::sync::mpsc::channel();
-
     let f = {
         let cache_dir = cache_dir.to_string();
         let webc = webc.to_string();
-        async move {
-            let out = fetch_webc(&cache_dir, &webc, client).await;
-            if let Err(error) = tx.send(out) {
-                tracing::warn!(?error, "could not send webc fetch result to output channel");
-            }
-        }
+        async move { fetch_webc(&cache_dir, &webc, client).await }
     };
 
-    tasks.block_on(Box::pin(f));
-    let result = rx
-        .recv()
-        .context("webc fetch task has died")
-        .and_then(|x| x);
+    let result = tasks.block_on(f).context("webc fetch task has died");
     result.with_context(|| format!("could not fetch webc '{webc}'"))
 }
 

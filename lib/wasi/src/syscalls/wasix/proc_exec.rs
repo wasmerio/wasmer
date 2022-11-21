@@ -1,5 +1,5 @@
 use super::*;
-use crate::syscalls::*;
+use crate::{runtime::task_manager::tokio::VirtualTaskExecutor, syscalls::*};
 
 /// Replaces the current process with a new process
 ///
@@ -101,7 +101,6 @@ pub fn proc_exec<M: MemorySize>(
         let bus = ctx.data().bus();
 
         let mut process = {
-            let (tx, rx) = std::sync::mpsc::channel();
             let bin_factory = Box::new(ctx.data().bin_factory.clone());
             let tasks = wasi_env.tasks.clone();
 
@@ -123,7 +122,7 @@ pub fn proc_exec<M: MemorySize>(
                     let new_store = new_store.take().unwrap();
                     let config = config.take().unwrap();
 
-                    tasks.block_on(Box::pin(async move {
+                    let (process, c) = tasks.block_on(async move {
                         let name_inner = name.clone();
                         let ret = config
                             .spawn(
@@ -131,8 +130,10 @@ pub fn proc_exec<M: MemorySize>(
                                 new_store,
                                 bin_factory,
                             )
-                            .await
-                            .map_err(|err| {
+                            .await;
+                        match ret {
+                            Ok(ret) => (Some(ret), ctx),
+                            Err(err) => {
                                 err_exit_code = conv_bus_err_to_exit_code(err);
                                 warn!(
                                     "failed to execve as the process could not be spawned (vfork) - {}",
@@ -142,13 +143,11 @@ pub fn proc_exec<M: MemorySize>(
                                     &ctx,
                                     format!("wasm execute failed [{}] - {}\n", name.as_str(), err)
                                         .as_bytes(),
-                                );
-                                err
-                            })
-                            .ok();
-                        tx.send((ret, ctx));
-                    }));
-                    let (process, c) = rx.recv().unwrap();
+                                ).await;
+                                (None, ctx)
+                            }
+                        }
+                    });
                     ctx = c;
                     process
                 }
@@ -158,7 +157,15 @@ pub fn proc_exec<M: MemorySize>(
         // If no process was created then we create a dummy one so that an
         // exit code can be processed
         let process = match process {
-            Some(a) => a,
+            Some(a) => {
+                trace!(
+                    "wasi[{}:{}]::spawned sub-process (pid={})",
+                    ctx.data().pid(),
+                    ctx.data().tid(),
+                    child_pid.raw()
+                );
+                a
+            }
             None => {
                 debug!(
                     "wasi[{}:{}]::process failed with (err={})",
@@ -172,12 +179,6 @@ pub fn proc_exec<M: MemorySize>(
 
         // Add the process to the environment state
         {
-            trace!(
-                "wasi[{}:{}]::spawned sub-process (pid={})",
-                ctx.data().pid(),
-                ctx.data().tid(),
-                child_pid.raw()
-            );
             let mut inner = ctx.data().process.write();
             inner
                 .bus_processes

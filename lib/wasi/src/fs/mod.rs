@@ -276,10 +276,17 @@ pub struct WasiFs {
 
 impl WasiFs {
     /// Forking the WasiState is used when either fork or vfork is called
-    pub fn fork(&self) -> Self {
+    pub fn fork(&self, inc_refs: bool) -> Self {
         let fd_map = self.fd_map.read().unwrap().clone();
-        for fd in fd_map.values() {
-            fd.ref_cnt.fetch_add(1, Ordering::Relaxed);
+        if inc_refs {
+            for (id, fd) in fd_map.iter() {
+                tracing::trace!(
+                    "fd_fork(fd={}) ref-cnt-inc({}+1)",
+                    *id,
+                    fd.ref_cnt.load(Ordering::Relaxed)
+                );
+                fd.ref_cnt.fetch_add(1, Ordering::Relaxed);
+            }
         }
         Self {
             preopen_fds: RwLock::new(self.preopen_fds.read().unwrap().clone()),
@@ -1717,8 +1724,13 @@ impl WasiFs {
         fd: WasiFd,
     ) -> Result<(), Errno> {
         let pfd = fd_map.get(&fd).ok_or(Errno::Badf)?;
-        if pfd.ref_cnt.fetch_sub(1, Ordering::AcqRel) > 1 {
-            trace!("closing file descriptor({}) - ref-cnt", fd);
+        let ref_cnt = pfd.ref_cnt.fetch_sub(1, Ordering::AcqRel);
+        if ref_cnt > 1 {
+            trace!(
+                "closing file descriptor({}) - weak - ref-cnt={}",
+                fd,
+                ref_cnt
+            );
             fd_map.remove(&fd);
             return Ok(());
         }

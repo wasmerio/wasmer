@@ -159,7 +159,10 @@ where
         }
     }
 
-    fn http_client(&self) -> Option<&DynHttpClient>;
+    /// Returns a HTTP client
+    fn http_client(&self) -> Option<&DynHttpClient> {
+        None
+    }
 
     /// Make a web socket connection to a particular URL
     #[cfg(not(feature = "host-ws"))]
@@ -252,9 +255,9 @@ impl Default for PluggableRuntimeImplementation {
         // TODO: the cfg flags below should instead be handled by separate implementations.
         cfg_if::cfg_if! {
             if #[cfg(feature = "host-vnet")] {
-                let networking = Arc::new(wasmer_vnet::UnsupportedVirtualNetworking::default());
-            } else {
                 let networking = Arc::new(wasmer_wasi_local_networking::LocalNetworking::default());
+            } else {
+                let networking = Arc::new(wasmer_vnet::UnsupportedVirtualNetworking::default());
             }
         }
         cfg_if::cfg_if! {

@@ -48,7 +48,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     /// Starts an asynchronous task on the local thread (by running it in a runtime)
     // TODO: return output future?
     // TODO: should be fallible
-    fn block_on<'a>(&self, task: Pin<Box<dyn Future<Output = ()> + 'a>>);
+    fn block_on_generic<'a>(&self, task: Pin<Box<dyn Future<Output = ()> + 'a>>);
 
     /// Starts an asynchronous task on the local thread (by running it in a runtime)
     // TODO: should be fallible
@@ -115,7 +115,7 @@ impl VirtualTaskManager for StubTaskManager {
     }
 
     #[allow(unused_variables)]
-    fn block_on<'a>(&self, task: Pin<Box<dyn Future<Output = ()> + 'a>>) {
+    fn block_on_generic<'a>(&self, task: Pin<Box<dyn Future<Output = ()> + 'a>>) {
         unimplemented!("asynchronous operations are not supported on this task manager");
     }
 

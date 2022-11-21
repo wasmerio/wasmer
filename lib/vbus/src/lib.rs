@@ -8,7 +8,7 @@ use thiserror::Error;
 use wasmer::Store;
 pub use wasmer_vfs::StdioMode;
 use wasmer_vfs::VirtualFile;
-use wasmer_wasi_types::wasi::BusDataFormat;
+use wasmer_wasi_types::wasi::{BusDataFormat, ExitCode};
 
 pub type Result<T> = std::result::Result<T, VirtualBusError>;
 
@@ -183,7 +183,7 @@ impl BusSpawnedProcessJoin {
 }
 
 impl Future for BusSpawnedProcessJoin {
-    type Output = Option<u32>;
+    type Output = Option<ExitCode>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let inst = Pin::new(self.inst.as_mut());
@@ -218,7 +218,7 @@ pub struct BusSpawnedProcess {
 }
 
 impl BusSpawnedProcess {
-    pub fn exited_process(exit_code: u32) -> Self {
+    pub fn exited_process(exit_code: ExitCode) -> Self {
         Self {
             inst: Box::new(ExitedProcess { exit_code }),
             stdin: None,
@@ -287,7 +287,7 @@ pub trait VirtualBusProcess:
     VirtualBusScope + VirtualBusInvokable + fmt::Debug + Send + Sync + 'static
 {
     /// Returns the exit code if the instance has finished
-    fn exit_code(&self) -> Option<u32>;
+    fn exit_code(&self) -> Option<ExitCode>;
 
     /// Polls to check if the process is ready yet to receive commands
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()>;
@@ -533,11 +533,11 @@ pub enum VirtualBusError {
 
 #[derive(Debug)]
 pub struct ExitedProcess {
-    pub exit_code: u32,
+    pub exit_code: ExitCode,
 }
 
 impl VirtualBusProcess for ExitedProcess {
-    fn exit_code(&self) -> Option<u32> {
+    fn exit_code(&self) -> Option<ExitCode> {
         Some(self.exit_code.clone())
     }
 

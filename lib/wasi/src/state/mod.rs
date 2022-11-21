@@ -338,9 +338,9 @@ impl WasiState {
     }
 
     /// Forking the WasiState is used when either fork or vfork is called
-    pub fn fork(&self) -> Self {
+    pub fn fork(&self, inc_refs: bool) -> Self {
         WasiState {
-            fs: self.fs.fork(),
+            fs: self.fs.fork(inc_refs),
             secret: self.secret.clone(),
             inodes: self.inodes.clone(),
             threading: Default::default(),
