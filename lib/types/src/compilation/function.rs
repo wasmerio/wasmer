@@ -95,12 +95,12 @@ impl Dwarf {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Compilation {
     /// Compiled code for the function bodies.
-    functions: Functions,
+    pub functions: Functions,
 
     /// Custom sections for the module.
     /// It will hold the data, for example, for constants used in a
     /// function, global variables, rodata_64, hot/cold function partitioning, ...
-    custom_sections: CustomSections,
+    pub custom_sections: CustomSections,
 
     /// Trampolines to call a function defined locally in the wasm via a
     /// provided `Vec` of values.
@@ -111,7 +111,7 @@ pub struct Compilation {
     /// let func = instance.exports.get_function("my_func");
     /// func.call(&[Value::I32(1)]);
     /// ```
-    function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
+    pub function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
 
     /// Trampolines to call a dynamic function defined in
     /// a host, from a Wasm module.
@@ -132,118 +132,8 @@ pub struct Compilation {
     /// ```
     ///
     /// Note: Dynamic function trampolines are only compiled for imported function types.
-    dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
+    pub dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
 
     /// Section ids corresponding to the Dwarf debug info
-    debug: Option<Dwarf>,
-}
-
-impl Compilation {
-    /// Creates a compilation artifact from a contiguous function buffer and a set of ranges
-    pub fn new(
-        functions: Functions,
-        custom_sections: CustomSections,
-        function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
-        dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
-        debug: Option<Dwarf>,
-    ) -> Self {
-        Self {
-            functions,
-            custom_sections,
-            function_call_trampolines,
-            dynamic_function_trampolines,
-            debug,
-        }
-    }
-
-    /// Gets the bytes of a single function
-    pub fn get(&self, func: LocalFunctionIndex) -> &CompiledFunction {
-        &self.functions[func]
-    }
-
-    /// Gets the number of functions defined.
-    pub fn len(&self) -> usize {
-        self.functions.len()
-    }
-
-    /// Returns whether there are no functions defined.
-    pub fn is_empty(&self) -> bool {
-        self.functions.is_empty()
-    }
-
-    /// Gets functions relocations.
-    pub fn get_relocations(&self) -> PrimaryMap<LocalFunctionIndex, Vec<Relocation>> {
-        self.functions
-            .iter()
-            .map(|(_, func)| func.relocations.clone())
-            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
-    }
-
-    /// Gets functions bodies.
-    pub fn get_function_bodies(&self) -> PrimaryMap<LocalFunctionIndex, FunctionBody> {
-        self.functions
-            .iter()
-            .map(|(_, func)| func.body.clone())
-            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
-    }
-
-    /// Gets functions frame info.
-    pub fn get_frame_info(&self) -> PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo> {
-        self.functions
-            .iter()
-            .map(|(_, func)| func.frame_info.clone())
-            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
-    }
-
-    /// Gets function call trampolines.
-    pub fn get_function_call_trampolines(&self) -> PrimaryMap<SignatureIndex, FunctionBody> {
-        self.function_call_trampolines.clone()
-    }
-
-    /// Gets function call trampolines.
-    pub fn get_dynamic_function_trampolines(&self) -> PrimaryMap<FunctionIndex, FunctionBody> {
-        self.dynamic_function_trampolines.clone()
-    }
-
-    /// Gets custom section data.
-    pub fn get_custom_sections(&self) -> PrimaryMap<SectionIndex, CustomSection> {
-        self.custom_sections.clone()
-    }
-
-    /// Gets relocations that apply to custom sections.
-    pub fn get_custom_section_relocations(&self) -> PrimaryMap<SectionIndex, Vec<Relocation>> {
-        self.custom_sections
-            .iter()
-            .map(|(_, section)| section.relocations.clone())
-            .collect::<PrimaryMap<SectionIndex, _>>()
-    }
-
-    /// Returns the Dwarf info.
-    pub fn get_debug(&self) -> Option<Dwarf> {
-        self.debug.clone()
-    }
-}
-
-impl<'a> IntoIterator for &'a Compilation {
-    type IntoIter = Iter<'a>;
-    type Item = <Self::IntoIter as Iterator>::Item;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Iter {
-            iterator: self.functions.iter(),
-        }
-    }
-}
-
-/// `Functions` iterator.
-pub struct Iter<'a> {
-    iterator: <&'a Functions as IntoIterator>::IntoIter,
-}
-
-impl<'a> Iterator for Iter<'a> {
-    type Item = &'a CompiledFunction;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iterator.next().map(|(_, b)| b)
-    }
+    pub debug: Option<Dwarf>,
 }

@@ -21,6 +21,119 @@ fn test_no_start_wat_path() -> String {
     format!("{}/{}", ASSET_PATH, "no_start.wat")
 }
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[test]
+fn test_cross_compile_python_windows() -> anyhow::Result<()> {
+    let temp_dir = tempfile::TempDir::new()?;
+
+    let targets = &[
+        "aarch64-darwin",
+        "x86_64-darwin",
+        "x86_64-linux-gnu",
+        "aarch64-linux-gnu",
+        // TODO: this test depends on the latest release -gnu64.tar.gz
+        // to be present, but we can't release the next release before
+        // the integration tests are passing, so this test depends on itself
+        //
+        // We need to first release a version without -windows being tested
+        // then do a second PR to test that Windows works.
+        // "x86_64-windows-gnu",
+    ];
+
+    for t in targets {
+        let python_wasmer_path = temp_dir.path().join(format!("{t}-python"));
+
+        let mut output = Command::new(get_wasmer_path());
+
+        output.arg("create-exe");
+        output.arg(wasi_test_python_path());
+        output.arg("--target");
+        output.arg(t);
+        output.arg("-o");
+        output.arg(python_wasmer_path.clone());
+        let output = output.output()?;
+
+        let stdout = std::str::from_utf8(&output.stdout)
+            .expect("stdout is not utf8! need to handle arbitrary bytes");
+
+        let stderr = std::str::from_utf8(&output.stderr)
+            .expect("stderr is not utf8! need to handle arbitrary bytes");
+
+        if !output.status.success() {
+            bail!("linking failed with: stdout: {stdout}\n\nstderr: {stderr}");
+        }
+
+        println!("stdout: {stdout}");
+        println!("stderr: {stderr}");
+
+        if !python_wasmer_path.exists() {
+            let p = std::fs::read_dir(temp_dir.path())
+                .unwrap()
+                .filter_map(|e| Some(e.ok()?.path()))
+                .collect::<Vec<_>>();
+            panic!(
+                "target {t} was not compiled correctly {stdout} {stderr}, tempdir: {:#?}",
+                p
+            );
+        }
+    }
+
+    Ok(())
+}
+
+#[test]
+fn run_whoami_works() -> anyhow::Result<()> {
+    // running test locally: should always pass since
+    // developers don't have access to WAPM_DEV_TOKEN
+    if std::env::var("GITHUB_TOKEN").is_err() {
+        return Ok(());
+    }
+
+    let ciuser_token = std::env::var("WAPM_DEV_TOKEN").expect("no CIUSER / WAPM_DEV_TOKEN token");
+
+    let output = Command::new(get_wasmer_path())
+        .arg("login")
+        .arg("--registry")
+        .arg("wapm.dev")
+        .arg(ciuser_token)
+        .output()?;
+
+    if !output.status.success() {
+        bail!(
+            "wasmer login failed with: stdout: {}\n\nstderr: {}",
+            std::str::from_utf8(&output.stdout)
+                .expect("stdout is not utf8! need to handle arbitrary bytes"),
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
+
+    let output = Command::new(get_wasmer_path())
+        .arg("whoami")
+        .arg("--registry")
+        .arg("wapm.dev")
+        .output()?;
+
+    let stdout = std::str::from_utf8(&output.stdout)
+        .expect("stdout is not utf8! need to handle arbitrary bytes");
+
+    if !output.status.success() {
+        bail!(
+            "linking failed with: stdout: {}\n\nstderr: {}",
+            stdout,
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
+
+    assert_eq!(
+        stdout,
+        "logged into registry \"https://registry.wapm.dev/graphql\" as user \"ciuser\"\n"
+    );
+
+    Ok(())
+}
+
 #[test]
 fn run_wasi_works() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
@@ -212,6 +325,32 @@ fn test_wasmer_run_pirita_works() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
         .arg("run")
         .arg(python_wasmer_path)
+        .arg("--")
+        .arg("-c")
+        .arg("print(\"hello\")")
+        .output()?;
+
+    let stdout = std::str::from_utf8(&output.stdout)
+        .expect("stdout is not utf8! need to handle arbitrary bytes");
+
+    if stdout != "hello\n" {
+        bail!(
+            "1 running python.wasmer failed with: stdout: {}\n\nstderr: {}",
+            stdout,
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "webc_runner")]
+#[test]
+fn test_wasmer_run_pirita_url_works() -> anyhow::Result<()> {
+    let output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg("https://wapm.dev/syrusakbary/python")
         .arg("--")
         .arg("-c")
         .arg("print(\"hello\")")

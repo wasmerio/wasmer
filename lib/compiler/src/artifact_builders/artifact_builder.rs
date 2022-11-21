@@ -75,8 +75,6 @@ impl ArtifactBuild {
             translation.module_translation_state.as_ref().unwrap(),
             translation.function_body_inputs,
         )?;
-        let function_call_trampolines = compilation.get_function_call_trampolines();
-        let dynamic_function_trampolines = compilation.get_dynamic_function_trampolines();
 
         let data_initializers = translation
             .data_initializers
@@ -85,25 +83,35 @@ impl ArtifactBuild {
             .collect::<Vec<_>>()
             .into_boxed_slice();
 
-        let frame_infos = compilation.get_frame_info();
-
         // Synthesize a custom section to hold the libcall trampolines.
-        let mut custom_sections = compilation.get_custom_sections();
-        let mut custom_section_relocations = compilation.get_custom_section_relocations();
+        let mut function_frame_info = PrimaryMap::with_capacity(compilation.functions.len());
+        let mut function_bodies = PrimaryMap::with_capacity(compilation.functions.len());
+        let mut function_relocations = PrimaryMap::with_capacity(compilation.functions.len());
+        for (_, func) in compilation.functions.into_iter() {
+            function_bodies.push(func.body);
+            function_relocations.push(func.relocations);
+            function_frame_info.push(func.frame_info);
+        }
+        let mut custom_sections = compilation.custom_sections.clone();
+        let mut custom_section_relocations = compilation
+            .custom_sections
+            .iter()
+            .map(|(_, section)| section.relocations.clone())
+            .collect::<PrimaryMap<SectionIndex, _>>();
         let libcall_trampolines_section = make_libcall_trampolines(target);
         custom_section_relocations.push(libcall_trampolines_section.relocations.clone());
         let libcall_trampolines = custom_sections.push(libcall_trampolines_section);
         let libcall_trampoline_len = libcall_trampoline_len(target) as u32;
 
         let serializable_compilation = SerializableCompilation {
-            function_bodies: compilation.get_function_bodies(),
-            function_relocations: compilation.get_relocations(),
-            function_frame_info: frame_infos,
-            function_call_trampolines,
-            dynamic_function_trampolines,
+            function_bodies,
+            function_relocations,
+            function_frame_info,
+            function_call_trampolines: compilation.function_call_trampolines,
+            dynamic_function_trampolines: compilation.dynamic_function_trampolines,
             custom_sections,
             custom_section_relocations,
-            debug: compilation.get_debug(),
+            debug: compilation.debug,
             libcall_trampolines,
             libcall_trampoline_len,
         };

@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::str::FromStr;
+use url::Url;
 use wasmer::FunctionEnv;
 use wasmer::*;
 #[cfg(feature = "cache")]
@@ -827,6 +828,11 @@ pub(crate) fn try_run_package_or_file(
 ) -> Result<(), anyhow::Error> {
     let debug_msgs_allowed = isatty::stdout_isatty();
 
+    if let Ok(url) = url::Url::parse(&format!("{}", r.path.display())) {
+        let result = try_run_url(&url, args, r, debug);
+        return result;
+    }
+
     // Check "r.path" is a file or a package / command name
     if r.path.exists() {
         if r.path.is_dir() && r.path.join("wapm.toml").exists() {
@@ -845,7 +851,7 @@ pub(crate) fn try_run_package_or_file(
     let package = format!("{}", r.path.display());
 
     let mut is_fake_sv = false;
-    let mut sv = match SplitVersion::new(&package) {
+    let mut sv = match SplitVersion::parse(&package) {
         Ok(o) => o,
         Err(_) => {
             let mut fake_sv = SplitVersion {
@@ -907,4 +913,33 @@ pub(crate) fn try_run_package_or_file(
 
     // else: local package not found - try to download and install package
     try_autoinstall_package(args, &sv, package_download_info, r.force_install)
+}
+
+fn try_run_url(url: &Url, _args: &[String], r: &Run, _debug: bool) -> Result<(), anyhow::Error> {
+    let checksum = wasmer_registry::get_remote_webc_checksum(url)
+        .map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
+
+    let packages = wasmer_registry::get_all_installed_webc_packages();
+
+    if !packages.iter().any(|p| p.checksum == checksum) {
+        let sp = start_spinner(format!("Installing {}", url));
+
+        let result = wasmer_registry::install_webc_package(url, &checksum);
+
+        result.map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
+
+        if let Some(sp) = sp {
+            sp.close();
+        }
+    }
+
+    let webc_dir = wasmer_registry::get_webc_dir();
+
+    let webc_install_path = webc_dir
+        .context("Error installing package: no webc dir")?
+        .join(checksum);
+
+    let mut r = r.clone();
+    r.path = webc_install_path;
+    r.execute()
 }

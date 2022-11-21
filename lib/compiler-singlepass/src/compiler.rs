@@ -248,13 +248,13 @@ impl Compiler for SinglepassCompiler {
         #[cfg(not(feature = "unwind"))]
         let dwarf = None;
 
-        Ok(Compilation::new(
-            functions.into_iter().collect(),
+        Ok(Compilation {
+            functions: functions.into_iter().collect(),
             custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
-            dwarf,
-        ))
+            debug: dwarf,
+        })
     }
 }
 

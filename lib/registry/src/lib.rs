@@ -1,16 +1,36 @@
-use std::collections::BTreeMap;
+//! High-level interactions with the WAPM backend.
+//!
+//! The GraphQL schema can be updated by running `make` in the Wasmer repo's
+//! root directory.
+//!
+//! ```console
+//! $ make update-graphql-schema
+//! curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
+//! ```
+
+use crate::config::Registries;
+use anyhow::Context;
+use core::ops::Range;
+use reqwest::header::{ACCEPT, RANGE};
 use std::fmt;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use std::{
+    collections::BTreeMap,
+    fmt::{Display, Formatter},
+};
+use url::Url;
 
 pub mod config;
 pub mod graphql;
 pub mod login;
 pub mod utils;
 
-pub use crate::config::format_graphql;
-use crate::config::Registries;
-pub use config::PartialWapmConfig;
+pub use crate::{
+    config::{format_graphql, PartialWapmConfig},
+    graphql::get_bindings_query::ProgrammingLanguage,
+};
 
 pub static GLOBAL_CONFIG_FILE_NAME: &str = if cfg!(target_os = "wasi") {
     "/.private/wapm.toml"
@@ -309,7 +329,7 @@ pub fn query_command_from_registry(
     })
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub enum QueryPackageError {
     ErrorSendingQuery(String),
     NoPackageFound {
@@ -319,7 +339,7 @@ pub enum QueryPackageError {
 }
 
 impl fmt::Display for QueryPackageError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             QueryPackageError::ErrorSendingQuery(q) => write!(f, "error sending query: {q}"),
             QueryPackageError::NoPackageFound { name, version } => {
@@ -329,7 +349,7 @@ impl fmt::Display for QueryPackageError {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub enum GetIfPackageHasNewVersionResult {
     // if version = Some(...) and the ~/.wasmer/checkouts/.../{version} exists, the package is already installed
     UseLocalAlreadyInstalled {
@@ -614,6 +634,14 @@ pub fn get_checkouts_dir(#[cfg(test)] test_name: &str) -> Option<PathBuf> {
     Some(root_dir.join("checkouts"))
 }
 
+pub fn get_webc_dir(#[cfg(test)] test_name: &str) -> Option<PathBuf> {
+    #[cfg(test)]
+    let root_dir = get_wasmer_root_dir(test_name)?;
+    #[cfg(not(test))]
+    let root_dir = get_wasmer_root_dir()?;
+    Some(root_dir.join("webc"))
+}
+
 /// Returs the path to the directory where all packages on this computer are being stored
 pub fn get_global_install_dir(
     #[cfg(test)] test_name: &str,
@@ -626,41 +654,18 @@ pub fn get_global_install_dir(
     Some(root_dir.join(registry_host))
 }
 
-/// Whether the top-level directory should be stripped
-pub fn download_and_unpack_targz(
-    url: &str,
-    target_path: &Path,
+/// Convenience function that will unpack .tar.gz files and .tar.bz
+/// files to a target directory (does NOT remove the original .tar.gz)
+pub fn try_unpack_targz<P: AsRef<Path>>(
+    target_targz_path: P,
+    target_path: P,
     strip_toplevel: bool,
-) -> Result<PathBuf, String> {
-    let target_targz_path = target_path.to_path_buf().join("package.tar.gz");
-
-    let mut resp =
-        reqwest::blocking::get(url).map_err(|e| format!("failed to download {url}: {e}"))?;
-
-    if !target_targz_path.exists() {
-        // create all the parent paths, only remove the created directory, not the parent dirs
-        let _ = std::fs::create_dir_all(&target_targz_path);
-        let _ = std::fs::remove_dir(&target_targz_path);
-    }
-
-    {
-        let mut file = std::fs::File::create(&target_targz_path).map_err(|e| {
-            format!(
-                "failed to download {url} into {}: {e}",
-                target_targz_path.display()
-            )
-        })?;
-
-        resp.copy_to(&mut file).map_err(|e| format!("{e}"))?;
-    }
-
+) -> Result<PathBuf, anyhow::Error> {
+    let target_targz_path = target_targz_path.as_ref();
+    let target_path = target_path.as_ref();
     let open_file = || {
-        std::fs::File::open(&target_targz_path).map_err(|e| {
-            format!(
-                "failed to download {url} into {}: {e}",
-                target_targz_path.display()
-            )
-        })
+        std::fs::File::open(&target_targz_path)
+            .map_err(|e| anyhow::anyhow!("failed to open {}: {e}", target_targz_path.display()))
     };
 
     let try_decode_gz = || {
@@ -668,11 +673,13 @@ pub fn download_and_unpack_targz(
         let gz_decoded = flate2::read::GzDecoder::new(&file);
         let mut ar = tar::Archive::new(gz_decoded);
         if strip_toplevel {
-            unpack_sans_parent(ar, target_path)
-                .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))
+            unpack_sans_parent(ar, target_path).map_err(|e| {
+                anyhow::anyhow!("failed to unpack {}: {e}", target_targz_path.display())
+            })
         } else {
-            ar.unpack(target_path)
-                .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))
+            ar.unpack(target_path).map_err(|e| {
+                anyhow::anyhow!("failed to unpack {}: {e}", target_targz_path.display())
+            })
         }
     };
 
@@ -680,23 +687,55 @@ pub fn download_and_unpack_targz(
         let file = open_file()?;
         let mut decomp: Vec<u8> = Vec::new();
         let mut bufread = std::io::BufReader::new(&file);
-        lzma_rs::xz_decompress(&mut bufread, &mut decomp)
-            .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))?;
+        lzma_rs::xz_decompress(&mut bufread, &mut decomp).map_err(|e| {
+            anyhow::anyhow!("failed to unpack {}: {e}", target_targz_path.display())
+        })?;
 
         let cursor = std::io::Cursor::new(decomp);
         let mut ar = tar::Archive::new(cursor);
         if strip_toplevel {
-            unpack_sans_parent(ar, target_path)
-                .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))
+            unpack_sans_parent(ar, target_path).map_err(|e| {
+                anyhow::anyhow!("failed to unpack {}: {e}", target_targz_path.display())
+            })
         } else {
-            ar.unpack(target_path)
-                .map_err(|e| format!("failed to unpack {}: {e}", target_targz_path.display()))
+            ar.unpack(target_path).map_err(|e| {
+                anyhow::anyhow!("failed to unpack {}: {e}", target_targz_path.display())
+            })
         }
     };
 
     try_decode_gz().or_else(|_| try_decode_xz())?;
 
-    let _ = std::fs::remove_file(target_targz_path);
+    Ok(target_targz_path.to_path_buf())
+}
+
+/// Whether the top-level directory should be stripped
+pub fn download_and_unpack_targz(
+    url: &str,
+    target_path: &Path,
+    strip_toplevel: bool,
+) -> Result<PathBuf, anyhow::Error> {
+    let tempdir = tempdir::TempDir::new("wasmer-download-targz")?;
+
+    let target_targz_path = tempdir.path().join("package.tar.gz");
+
+    let mut resp = reqwest::blocking::get(url)
+        .map_err(|e| anyhow::anyhow!("failed to download {url}: {e}"))?;
+
+    {
+        let mut file = std::fs::File::create(&target_targz_path).map_err(|e| {
+            anyhow::anyhow!(
+                "failed to download {url} into {}: {e}",
+                target_targz_path.display()
+            )
+        })?;
+
+        resp.copy_to(&mut file)
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
+    }
+
+    try_unpack_targz(target_targz_path.as_path(), target_path, strip_toplevel)
+        .with_context(|| anyhow::anyhow!("Could not download {url}"))?;
 
     Ok(target_path.to_path_buf())
 }
@@ -842,7 +881,7 @@ pub fn install_package(
     let name = package_info.package;
 
     if !dir.join("wapm.toml").exists() || force_install {
-        download_and_unpack_targz(&package_info.url, &dir, false)?;
+        download_and_unpack_targz(&package_info.url, &dir, false).map_err(|e| format!("{e}"))?;
     }
 
     Ok((
@@ -855,12 +894,53 @@ pub fn install_package(
     ))
 }
 
+pub fn whoami(
+    #[cfg(test)] test_name: &str,
+    registry: Option<&str>,
+) -> Result<(String, String), anyhow::Error> {
+    use crate::graphql::{who_am_i_query, WhoAmIQuery};
+    use graphql_client::GraphQLQuery;
+
+    #[cfg(test)]
+    let config = PartialWapmConfig::from_file(test_name);
+    #[cfg(not(test))]
+    let config = PartialWapmConfig::from_file();
+
+    let config = config
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .with_context(|| format!("{registry:?}"))?;
+
+    let registry = match registry {
+        Some(s) => format_graphql(s),
+        None => config.registry.get_current_registry(),
+    };
+
+    let login_token = config
+        .registry
+        .get_login_token_for_registry(&registry)
+        .ok_or_else(|| anyhow::anyhow!("not logged into registry {:?}", registry))?;
+
+    let q = WhoAmIQuery::build_query(who_am_i_query::Variables {});
+    let response: who_am_i_query::ResponseData =
+        crate::graphql::execute_query(&registry, &login_token, &q)
+            .with_context(|| format!("{registry:?}"))?;
+
+    let username = response
+        .viewer
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("not logged into registry {:?}", registry))?
+        .username
+        .to_string();
+
+    Ok((registry, username))
+}
+
 pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
     use crate::graphql::{test_if_registry_present, TestIfRegistryPresent};
     use graphql_client::GraphQLQuery;
 
     let q = TestIfRegistryPresent::build_query(test_if_registry_present::Variables {});
-    let _ = crate::graphql::execute_query_modifier_inner_check_json(
+    crate::graphql::execute_query_modifier_inner_check_json(
         registry,
         "",
         &q,
@@ -890,6 +970,231 @@ pub fn get_all_available_registries(#[cfg(test)] test_name: &str) -> Result<Vec<
         }
     }
     Ok(registries)
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct RemoteWebcInfo {
+    pub checksum: String,
+    pub manifest: webc::Manifest,
+}
+
+pub fn install_webc_package(
+    #[cfg(test)] test_name: &str,
+    url: &Url,
+    checksum: &str,
+) -> Result<(), anyhow::Error> {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            {
+                #[cfg(test)]
+                {
+                    install_webc_package_inner(test_name, url, checksum).await
+                }
+                #[cfg(not(test))]
+                {
+                    install_webc_package_inner(url, checksum).await
+                }
+            }
+        })
+}
+
+async fn install_webc_package_inner(
+    #[cfg(test)] test_name: &str,
+    url: &Url,
+    checksum: &str,
+) -> Result<(), anyhow::Error> {
+    use futures_util::StreamExt;
+
+    #[cfg(test)]
+    let path = get_webc_dir(test_name).ok_or_else(|| anyhow::anyhow!("no webc dir"))?;
+    #[cfg(not(test))]
+    let path = get_webc_dir().ok_or_else(|| anyhow::anyhow!("no webc dir"))?;
+
+    let _ = std::fs::create_dir_all(&path);
+
+    let webc_path = path.join(checksum);
+
+    let mut file = std::fs::File::create(&webc_path)
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context(anyhow::anyhow!("{}", webc_path.display()))?;
+
+    let client = {
+        let builder = reqwest::Client::builder();
+        let builder = crate::graphql::proxy::maybe_set_up_proxy(builder)?;
+        builder
+            .build()
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .context("install_webc_package: failed to build reqwest Client")?
+    };
+
+    let res = client
+        .get(url.clone())
+        .header(ACCEPT, "application/webc")
+        .send()
+        .await
+        .and_then(|response| response.error_for_status())
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context(anyhow::anyhow!("install_webc_package: failed to GET {url}"))?;
+
+    let mut stream = res.bytes_stream();
+
+    while let Some(item) = stream.next().await {
+        let item = item
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .context(anyhow::anyhow!("install_webc_package: failed to GET {url}"))?;
+        file.write_all(&item)
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .context(anyhow::anyhow!(
+                "install_webc_package: failed to write chunk to {}",
+                webc_path.display()
+            ))?;
+    }
+
+    Ok(())
+}
+
+/// Returns a list of all installed webc packages
+#[cfg(test)]
+pub fn get_all_installed_webc_packages(test_name: &str) -> Vec<RemoteWebcInfo> {
+    get_all_installed_webc_packages_inner(test_name)
+}
+
+#[cfg(not(test))]
+pub fn get_all_installed_webc_packages() -> Vec<RemoteWebcInfo> {
+    get_all_installed_webc_packages_inner("")
+}
+
+fn get_all_installed_webc_packages_inner(_test_name: &str) -> Vec<RemoteWebcInfo> {
+    #[cfg(test)]
+    let dir = match get_webc_dir(_test_name) {
+        Some(s) => s,
+        None => return Vec::new(),
+    };
+
+    #[cfg(not(test))]
+    let dir = match get_webc_dir() {
+        Some(s) => s,
+        None => return Vec::new(),
+    };
+
+    let read_dir = match std::fs::read_dir(dir) {
+        Ok(s) => s,
+        Err(_) => return Vec::new(),
+    };
+
+    read_dir
+        .filter_map(|r| Some(r.ok()?.path()))
+        .filter_map(|path| {
+            webc::WebCMmap::parse(
+                path,
+                &webc::ParseOptions {
+                    parse_atoms: false,
+                    parse_volumes: false,
+                    ..Default::default()
+                },
+            )
+            .ok()
+        })
+        .filter_map(|webc| {
+            let checksum = webc.checksum.as_ref().map(|s| &s.data)?.to_vec();
+            let hex_string = get_checksum_hash(&checksum);
+            Some(RemoteWebcInfo {
+                checksum: hex_string,
+                manifest: webc.manifest.clone(),
+            })
+        })
+        .collect()
+}
+
+/// The checksum of the webc file has a bunch of zeros at the end
+/// (it's currently encoded that way in the webc format). This function
+/// strips the zeros because otherwise the filename would become too long.
+///
+/// So:
+///
+/// `3ea47cb0000000000000` -> `3ea47cb`
+///
+pub fn get_checksum_hash(bytes: &[u8]) -> String {
+    let mut checksum = bytes.to_vec();
+    while checksum.last().copied() == Some(0) {
+        checksum.pop();
+    }
+    hex::encode(&checksum)
+}
+
+/// Returns the checksum of the .webc file, so that we can check whether the
+/// file is already installed before downloading it
+pub fn get_remote_webc_checksum(url: &Url) -> Result<String, anyhow::Error> {
+    let request_max_bytes = webc::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
+    let data = get_webc_bytes(url, Some(0..request_max_bytes)).context("get_webc_bytes failed")?;
+    let checksum = webc::WebC::get_checksum_bytes(&data)
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("get_checksum_bytes failed")?
+        .to_vec();
+    Ok(get_checksum_hash(&checksum))
+}
+
+/// Before fetching the entire file from a remote URL, just fetch the manifest
+/// so we can see if the package has already been installed
+pub fn get_remote_webc_manifest(url: &Url) -> Result<RemoteWebcInfo, anyhow::Error> {
+    // Request up unti manifest size / manifest len
+    let request_max_bytes = webc::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
+    let data = get_webc_bytes(url, Some(0..request_max_bytes))?;
+    let checksum = webc::WebC::get_checksum_bytes(&data)
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("WebC::get_checksum_bytes failed")?
+        .to_vec();
+    let hex_string = get_checksum_hash(&checksum);
+
+    let (manifest_start, manifest_len) = webc::WebC::get_manifest_offset_size(&data)
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("WebC::get_manifest_offset_size failed")?;
+    let data_with_manifest = get_webc_bytes(url, Some(0..manifest_start + manifest_len))?;
+    let manifest = webc::WebC::get_manifest(&data_with_manifest)
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("WebC::get_manifest failed")?;
+    Ok(RemoteWebcInfo {
+        checksum: hex_string,
+        manifest,
+    })
+}
+
+fn setup_webc_client(url: &Url) -> Result<reqwest::blocking::RequestBuilder, anyhow::Error> {
+    let client = {
+        let builder = reqwest::blocking::Client::builder();
+        let builder = crate::graphql::proxy::maybe_set_up_proxy_blocking(builder)
+            .context("setup_webc_client")?;
+        builder
+            .build()
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .context("setup_webc_client: builder.build() failed")?
+    };
+
+    Ok(client.get(url.clone()).header(ACCEPT, "application/webc"))
+}
+
+fn get_webc_bytes(url: &Url, range: Option<Range<usize>>) -> Result<Vec<u8>, anyhow::Error> {
+    // curl -r 0-500 -L https://wapm.dev/syrusakbary/python -H "Accept: application/webc" --output python.webc
+
+    let mut res = setup_webc_client(url)?;
+
+    if let Some(range) = range.as_ref() {
+        res = res.header(RANGE, format!("bytes={}-{}", range.start, range.end));
+    }
+
+    let res = res
+        .send()
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("send() failed")?;
+    let bytes = res
+        .bytes()
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context("bytes() failed")?;
+
+    Ok(bytes.to_vec())
 }
 
 // TODO: this test is segfaulting only on linux-musl, no other OS
@@ -963,4 +1268,91 @@ fn test_install_package() {
     }
 
     println!("ok, done");
+}
+
+/// A library that exposes bindings to a WAPM package.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Bindings {
+    /// A unique ID specifying this set of bindings.
+    pub id: String,
+    /// The URL which can be used to download the files that were generated
+    /// (typically as a `*.tar.gz` file).
+    pub url: String,
+    /// The programming language these bindings are written in.
+    pub language: graphql::get_bindings_query::ProgrammingLanguage,
+    /// The generator used to generate these bindings.
+    pub generator: BindingsGenerator,
+}
+
+/// The generator used to create [`Bindings`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BindingsGenerator {
+    /// A unique ID specifying this generator.
+    pub id: String,
+    /// The generator package's name (e.g. `wasmer/wasmer-pack`).
+    pub package_name: String,
+    /// The exact package version.
+    pub version: String,
+    /// The name of the command that was used for generating bindings.
+    pub command: String,
+}
+
+impl Display for BindingsGenerator {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let BindingsGenerator {
+            package_name,
+            version,
+            command,
+            ..
+        } = self;
+
+        write!(f, "{package_name}@{version}:{command}")?;
+
+        Ok(())
+    }
+}
+
+/// List all bindings associated with a particular package.
+///
+/// If a version number isn't provided, this will default to the most recently
+/// published version.
+pub fn list_bindings(
+    registry: &str,
+    name: &str,
+    version: Option<&str>,
+) -> Result<Vec<Bindings>, anyhow::Error> {
+    use crate::graphql::{
+        get_bindings_query::{ResponseData, Variables},
+        GetBindingsQuery,
+    };
+    use graphql_client::GraphQLQuery;
+
+    let variables = Variables {
+        name: name.to_string(),
+        version: version.map(String::from),
+    };
+
+    let q = GetBindingsQuery::build_query(variables);
+    let response: ResponseData = crate::graphql::execute_query(registry, "", &q)?;
+
+    let package_version = response.package_version.context("Package not found")?;
+
+    let mut bindings_packages = Vec::new();
+
+    for b in package_version.bindings.into_iter().flatten() {
+        let pkg = Bindings {
+            id: b.id,
+            url: b.url,
+            language: b.language,
+            generator: BindingsGenerator {
+                id: b.generator.package_version.id,
+                package_name: b.generator.package_version.package.name,
+                version: b.generator.package_version.version,
+                command: b.generator.command_name,
+            },
+        };
+        bindings_packages.push(pkg);
+    }
+
+    Ok(bindings_packages)
 }
