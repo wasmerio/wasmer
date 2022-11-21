@@ -739,13 +739,13 @@
             .<span class="ident">into_iter</span>()
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
-        <span class="prelude-val">Ok</span>(<span class="ident">Compilation::new</span>(
+        <span class="prelude-val">Ok</span>(<span class="ident">Compilation</span> {
             <span class="ident">functions</span>,
-            <span class="ident">module_custom_sections</span>,
+            <span class="ident">custom_sections</span>: <span class="ident">module_custom_sections</span>,
             <span class="ident">function_call_trampolines</span>,
             <span class="ident">dynamic_function_trampolines</span>,
-            <span class="ident">dwarf</span>,
-        ))
+            <span class="ident">debug</span>: <span class="ident">dwarf</span>,
+        })
     }
 }
 </code></pre></div>

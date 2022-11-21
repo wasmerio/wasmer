@@ -460,6 +460,12 @@
 <span id="454">454</span>
 <span id="455">455</span>
 <span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::ObjectError</span>;
 <span class="kw">use</span> <span class="ident">object::write</span>::{
     <span class="ident">Object</span>, <span class="ident">Relocation</span>, <span class="ident">StandardSection</span>, <span class="ident">StandardSegment</span>, <span class="ident">Symbol</span> <span class="kw">as</span> <span class="ident">ObjSymbol</span>, <span class="ident">SymbolSection</span>,
@@ -594,14 +600,19 @@
     <span class="ident">symbol_registry</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">SymbolRegistry</span>,
     <span class="ident">triple</span>: <span class="kw-2">&amp;</span><span class="ident">Triple</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ObjectError</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">function_bodies</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">get_function_bodies</span>();
-    <span class="kw">let</span> <span class="ident">function_relocations</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">get_relocations</span>();
-    <span class="kw">let</span> <span class="ident">custom_sections</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">get_custom_sections</span>();
-    <span class="kw">let</span> <span class="ident">custom_section_relocations</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">get_custom_section_relocations</span>();
-    <span class="kw">let</span> <span class="ident">function_call_trampolines</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">get_function_call_trampolines</span>();
-    <span class="kw">let</span> <span class="ident">dynamic_function_trampolines</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">get_dynamic_function_trampolines</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">function_bodies</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">compilation</span>.<span class="ident">functions</span>.<span class="ident">len</span>());
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">function_relocations</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">compilation</span>.<span class="ident">functions</span>.<span class="ident">len</span>());
+    <span class="kw">for</span> (<span class="kw">_</span>, <span class="ident">func</span>) <span class="kw">in</span> <span class="ident">compilation</span>.<span class="ident">functions</span>.<span class="ident">into_iter</span>() {
+        <span class="ident">function_bodies</span>.<span class="ident">push</span>(<span class="ident">func</span>.<span class="ident">body</span>);
+        <span class="ident">function_relocations</span>.<span class="ident">push</span>(<span class="ident">func</span>.<span class="ident">relocations</span>);
+    }
+    <span class="kw">let</span> <span class="ident">custom_section_relocations</span> <span class="op">=</span> <span class="ident">compilation</span>
+        .<span class="ident">custom_sections</span>
+        .<span class="ident">iter</span>()
+        .<span class="ident">map</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">section</span>)<span class="op">|</span> <span class="ident">section</span>.<span class="ident">relocations</span>.<span class="ident">clone</span>())
+        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SectionIndex</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
-    <span class="kw">let</span> <span class="ident">debug_index</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">get_debug</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">d</span><span class="op">|</span> <span class="ident">d</span>.<span class="ident">eh_frame</span>);
+    <span class="kw">let</span> <span class="ident">debug_index</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">debug</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">d</span><span class="op">|</span> <span class="ident">d</span>.<span class="ident">eh_frame</span>);
 
     <span class="kw">let</span> <span class="ident">align</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">triple</span>.<span class="ident">architecture</span> {
         <span class="ident">Architecture::X86_64</span> =&gt; <span class="number">1</span>,
@@ -611,7 +622,8 @@
     };
 
     <span class="comment">// Add sections</span>
-    <span class="kw">let</span> <span class="ident">custom_section_ids</span> <span class="op">=</span> <span class="ident">custom_sections</span>
+    <span class="kw">let</span> <span class="ident">custom_section_ids</span> <span class="op">=</span> <span class="ident">compilation</span>
+        .<span class="ident">custom_sections</span>
         .<span class="ident">into_iter</span>()
         .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">section_index</span>, <span class="ident">custom_section</span>)<span class="op">|</span> {
             <span class="kw">if</span> <span class="ident">debug_index</span>.<span class="ident">map_or</span>(<span class="bool-val">false</span>, <span class="op">|</span><span class="ident">d</span><span class="op">|</span> <span class="ident">d</span> <span class="op">==</span> <span class="ident">section_index</span>) {
@@ -685,7 +697,7 @@
         .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
     <span class="comment">// Add function call trampolines</span>
-    <span class="kw">for</span> (<span class="ident">signature_index</span>, <span class="ident">function</span>) <span class="kw">in</span> <span class="ident">function_call_trampolines</span>.<span class="ident">into_iter</span>() {
+    <span class="kw">for</span> (<span class="ident">signature_index</span>, <span class="ident">function</span>) <span class="kw">in</span> <span class="ident">compilation</span>.<span class="ident">function_call_trampolines</span>.<span class="ident">into_iter</span>() {
         <span class="kw">let</span> <span class="ident">function_name</span> <span class="op">=</span>
             <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol::FunctionCallTrampoline</span>(<span class="ident">signature_index</span>));
         <span class="kw">let</span> <span class="ident">section_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">section_id</span>(<span class="ident">StandardSection::Text</span>);
@@ -703,7 +715,7 @@
     }
 
     <span class="comment">// Add dynamic function trampolines</span>
-    <span class="kw">for</span> (<span class="ident">func_index</span>, <span class="ident">function</span>) <span class="kw">in</span> <span class="ident">dynamic_function_trampolines</span>.<span class="ident">into_iter</span>() {
+    <span class="kw">for</span> (<span class="ident">func_index</span>, <span class="ident">function</span>) <span class="kw">in</span> <span class="ident">compilation</span>.<span class="ident">dynamic_function_trampolines</span>.<span class="ident">into_iter</span>() {
         <span class="kw">let</span> <span class="ident">function_name</span> <span class="op">=</span>
             <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol::DynamicFunctionTrampoline</span>(<span class="ident">func_index</span>));
         <span class="kw">let</span> <span class="ident">section_id</span> <span class="op">=</span> <span class="ident">obj</span>.<span class="ident">section_id</span>(<span class="ident">StandardSection::Text</span>);

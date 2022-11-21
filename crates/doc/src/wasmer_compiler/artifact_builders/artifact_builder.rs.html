@@ -229,6 +229,14 @@
 <span id="223">223</span>
 <span id="224">224</span>
 <span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `ArtifactBuild` to allow compiling and instantiating to be</span>
 <span class="doccomment">//! done as separate steps.</span>
 
@@ -306,8 +314,6 @@
             <span class="ident">translation</span>.<span class="ident">module_translation_state</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>(),
             <span class="ident">translation</span>.<span class="ident">function_body_inputs</span>,
         )<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">function_call_trampolines</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">get_function_call_trampolines</span>();
-        <span class="kw">let</span> <span class="ident">dynamic_function_trampolines</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">get_dynamic_function_trampolines</span>();
 
         <span class="kw">let</span> <span class="ident">data_initializers</span> <span class="op">=</span> <span class="ident">translation</span>
             .<span class="ident">data_initializers</span>
@@ -316,25 +322,35 @@
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
             .<span class="ident">into_boxed_slice</span>();
 
-        <span class="kw">let</span> <span class="ident">frame_infos</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">get_frame_info</span>();
-
         <span class="comment">// Synthesize a custom section to hold the libcall trampolines.</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">custom_sections</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">get_custom_sections</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">custom_section_relocations</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">get_custom_section_relocations</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">function_frame_info</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">compilation</span>.<span class="ident">functions</span>.<span class="ident">len</span>());
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">function_bodies</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">compilation</span>.<span class="ident">functions</span>.<span class="ident">len</span>());
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">function_relocations</span> <span class="op">=</span> <span class="ident">PrimaryMap::with_capacity</span>(<span class="ident">compilation</span>.<span class="ident">functions</span>.<span class="ident">len</span>());
+        <span class="kw">for</span> (<span class="kw">_</span>, <span class="ident">func</span>) <span class="kw">in</span> <span class="ident">compilation</span>.<span class="ident">functions</span>.<span class="ident">into_iter</span>() {
+            <span class="ident">function_bodies</span>.<span class="ident">push</span>(<span class="ident">func</span>.<span class="ident">body</span>);
+            <span class="ident">function_relocations</span>.<span class="ident">push</span>(<span class="ident">func</span>.<span class="ident">relocations</span>);
+            <span class="ident">function_frame_info</span>.<span class="ident">push</span>(<span class="ident">func</span>.<span class="ident">frame_info</span>);
+        }
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">custom_sections</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">custom_sections</span>.<span class="ident">clone</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">custom_section_relocations</span> <span class="op">=</span> <span class="ident">compilation</span>
+            .<span class="ident">custom_sections</span>
+            .<span class="ident">iter</span>()
+            .<span class="ident">map</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">section</span>)<span class="op">|</span> <span class="ident">section</span>.<span class="ident">relocations</span>.<span class="ident">clone</span>())
+            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SectionIndex</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
         <span class="kw">let</span> <span class="ident">libcall_trampolines_section</span> <span class="op">=</span> <span class="ident">make_libcall_trampolines</span>(<span class="ident">target</span>);
         <span class="ident">custom_section_relocations</span>.<span class="ident">push</span>(<span class="ident">libcall_trampolines_section</span>.<span class="ident">relocations</span>.<span class="ident">clone</span>());
         <span class="kw">let</span> <span class="ident">libcall_trampolines</span> <span class="op">=</span> <span class="ident">custom_sections</span>.<span class="ident">push</span>(<span class="ident">libcall_trampolines_section</span>);
         <span class="kw">let</span> <span class="ident">libcall_trampoline_len</span> <span class="op">=</span> <span class="ident">libcall_trampoline_len</span>(<span class="ident">target</span>) <span class="kw">as</span> <span class="ident">u32</span>;
 
         <span class="kw">let</span> <span class="ident">serializable_compilation</span> <span class="op">=</span> <span class="ident">SerializableCompilation</span> {
-            <span class="ident">function_bodies</span>: <span class="ident">compilation</span>.<span class="ident">get_function_bodies</span>(),
-            <span class="ident">function_relocations</span>: <span class="ident">compilation</span>.<span class="ident">get_relocations</span>(),
-            <span class="ident">function_frame_info</span>: <span class="ident">frame_infos</span>,
-            <span class="ident">function_call_trampolines</span>,
-            <span class="ident">dynamic_function_trampolines</span>,
+            <span class="ident">function_bodies</span>,
+            <span class="ident">function_relocations</span>,
+            <span class="ident">function_frame_info</span>,
+            <span class="ident">function_call_trampolines</span>: <span class="ident">compilation</span>.<span class="ident">function_call_trampolines</span>,
+            <span class="ident">dynamic_function_trampolines</span>: <span class="ident">compilation</span>.<span class="ident">dynamic_function_trampolines</span>,
             <span class="ident">custom_sections</span>,
             <span class="ident">custom_section_relocations</span>,
-            <span class="ident">debug</span>: <span class="ident">compilation</span>.<span class="ident">get_debug</span>(),
+            <span class="ident">debug</span>: <span class="ident">compilation</span>.<span class="ident">debug</span>,
             <span class="ident">libcall_trampolines</span>,
             <span class="ident">libcall_trampoline_len</span>,
         };

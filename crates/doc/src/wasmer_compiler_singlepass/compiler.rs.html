@@ -634,13 +634,13 @@
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>))]</span>
         <span class="kw">let</span> <span class="ident">dwarf</span> <span class="op">=</span> <span class="prelude-val">None</span>;
 
-        <span class="prelude-val">Ok</span>(<span class="ident">Compilation::new</span>(
-            <span class="ident">functions</span>.<span class="ident">into_iter</span>().<span class="ident">collect</span>(),
+        <span class="prelude-val">Ok</span>(<span class="ident">Compilation</span> {
+            <span class="ident">functions</span>: <span class="ident">functions</span>.<span class="ident">into_iter</span>().<span class="ident">collect</span>(),
             <span class="ident">custom_sections</span>,
             <span class="ident">function_call_trampolines</span>,
             <span class="ident">dynamic_function_trampolines</span>,
-            <span class="ident">dwarf</span>,
-        ))
+            <span class="ident">debug</span>: <span class="ident">dwarf</span>,
+        })
     }
 }
 
