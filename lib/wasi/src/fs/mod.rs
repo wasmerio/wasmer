@@ -344,8 +344,6 @@ pub fn default_fs_backing() -> Box<dyn wasmer_vfs::FileSystem + Send + Sync> {
             Box::new(wasmer_vfs::host_fs::FileSystem::default())
         } else if #[cfg(not(feature = "host-fs"))] {
             Box::new(wasmer_vfs::mem_fs::FileSystem::default())
-        } else {
-            Box::new(FallbackFileSystem::default())
         }
     }
 }
