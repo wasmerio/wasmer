@@ -380,13 +380,13 @@ impl Compiler for CraneliftCompiler {
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
 
-        Ok(Compilation::new(
-            functions.into_iter().collect(),
+        Ok(Compilation {
+            functions: functions.into_iter().collect(),
             custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
-            dwarf,
-        ))
+            debug: dwarf,
+        })
     }
 }
 
