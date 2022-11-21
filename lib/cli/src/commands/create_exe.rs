@@ -4,11 +4,8 @@ use super::ObjectFormat;
 use crate::store::CompilerOptions;
 use anyhow::{Context, Result};
 use clap::Parser;
-#[cfg(feature = "http")]
-use serde::{Deserialize, Serialize};
-#[cfg(feature = "http")]
-use std::collections::BTreeMap;
 use std::env;
+use std::fmt::Write as _;
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
@@ -240,8 +237,8 @@ impl CreateExe {
             if let Some(setup) = cross_compilation.as_ref() {
                 self.compile_zig(
                     output_path,
-                    wasm_module_path,
-                    std::path::Path::new("static_defs.h").into(),
+                    &[wasm_module_path],
+                    &[std::path::Path::new("static_defs.h").into()],
                     setup,
                     &[],
                     None,
@@ -311,8 +308,8 @@ impl CreateExe {
                     if let Some(setup) = cross_compilation.as_ref() {
                         self.compile_zig(
                             output_path,
-                            object_file_path,
-                            std::path::Path::new("static_defs.h").into(),
+                            &[object_file_path],
+                            &[std::path::Path::new("static_defs.h").into()],
                             setup,
                             &[],
                             None,
@@ -371,7 +368,7 @@ impl CreateExe {
                 ));
             }
 
-            let target = if let Some(target_triple) = target_triple.clone() {
+            let target = if let Some(target_triple) = target_triple {
                 target_triple
             } else {
                 return Err(anyhow!(
@@ -406,13 +403,7 @@ impl CreateExe {
                 v.canonicalize().unwrap_or(v)
             } else {
                 {
-                    let libwasmer_path = if target_triple.unwrap_or(Triple::host()).operating_system
-                        == wasmer_types::OperatingSystem::Windows
-                    {
-                        "lib/wasmer.lib"
-                    } else {
-                        "lib/libwasmer.a"
-                    };
+                    let libwasmer_path = "lib/libwasmer.a";
                     let tarball_dir;
                     let filename = if let Some(local_tarball) = cross_subc.tarball.as_ref() {
                         let target_file_path = local_tarball
@@ -494,6 +485,7 @@ impl CreateExe {
 
         run_c_compile(&c_src_path, &c_src_obj, target_triple.clone())
             .context("Failed to compile C source code")?;
+
         LinkCode {
             object_paths: vec![c_src_obj, wasm_object_path],
             output_path,
@@ -511,8 +503,8 @@ impl CreateExe {
     fn compile_zig(
         &self,
         output_path: PathBuf,
-        object_path: PathBuf,
-        mut header_code_path: PathBuf,
+        object_paths: &[PathBuf],
+        header_code_paths: &[PathBuf],
         setup: &CrossCompileSetup,
         pirita_atoms: &[String],
         pirita_main_atom: Option<&str>,
@@ -548,12 +540,16 @@ impl CreateExe {
             std::fs::write(&c_src_path, WASMER_STATIC_MAIN_C_SOURCE)?;
         }
 
-        if !header_code_path.is_dir() {
-            header_code_path.pop();
-        }
+        let mut header_code_paths = header_code_paths.to_vec();
 
-        if header_code_path.display().to_string().is_empty() {
-            header_code_path = std::env::current_dir()?;
+        for h in header_code_paths.iter_mut() {
+            if !h.is_dir() {
+                h.pop();
+            }
+
+            if h.display().to_string().is_empty() {
+                *h = std::env::current_dir()?;
+            }
         }
 
         /* Compile main function */
@@ -563,28 +559,49 @@ impl CreateExe {
             include_dir.push("include");
 
             let mut cmd = Command::new(zig_binary_path);
-            let mut cmd_mut: &mut Command = cmd
-                .arg("cc")
-                .arg("-target")
-                .arg(&zig_triple)
-                .arg(&format!("-L{}", libwasmer_path.display()))
-                .arg(&format!("-l:{}", lib_filename))
-                .arg(&format!("-I{}", include_dir.display()))
-                .arg(&format!("-I{}", header_code_path.display()));
-            if !zig_triple.contains("windows") {
-                cmd_mut = cmd_mut.arg("-lunwind");
+            cmd.arg("build-exe");
+            cmd.arg("-target");
+            cmd.arg(&zig_triple);
+            cmd.arg(&format!("-I{}/", include_dir.display()));
+            for h in header_code_paths {
+                cmd.arg(&format!("-I{}/", h.display()));
             }
-            cmd_mut = cmd_mut.arg(&object_path).arg(&c_src_path);
+            if zig_triple.contains("windows") {
+                cmd.arg("-lc++");
+            } else {
+                cmd.arg("-lc");
+            }
+            cmd.arg("-lunwind");
+            cmd.arg("-OReleaseSafe");
+            cmd.arg("-fstrip");
+            cmd.arg("-dead_strip");
+            cmd.arg("-dead_strip_dylibs");
+            cmd.arg("-fno-compiler-rt");
+            cmd.arg(&format!("-femit-bin={}", output_path.display()));
 
+            for o in object_paths {
+                cmd.arg(o);
+            }
+            cmd.arg(&c_src_path);
+            cmd.arg(libwasmer_path.join(&lib_filename));
+            if zig_triple.contains("windows") {
+                let mut libwasmer_parent = libwasmer_path.clone();
+                libwasmer_parent.pop();
+                let files_winsdk = std::fs::read_dir(libwasmer_parent.join("winsdk"))
+                    .ok()
+                    .map(|res| res.filter_map(|r| Some(r.ok()?.path())).collect::<Vec<_>>())
+                    .unwrap_or_default();
+                for f in files_winsdk {
+                    cmd.arg(f);
+                }
+            }
             if let Some(volume_obj) = pirita_volume_path.as_ref() {
-                cmd_mut = cmd_mut.arg(volume_obj.clone());
+                cmd.arg(volume_obj.clone());
             }
 
-            cmd_mut
-                .arg("-o")
-                .arg(&output_path)
-                .output()
-                .context("Could not execute `zig`")?
+            #[cfg(feature = "debug")]
+            log::debug!("{:?}", cmd);
+            cmd.output().context("Could not execute `zig`")?
         };
         if !compilation.status.success() {
             return Err(anyhow::anyhow!(String::from_utf8_lossy(
@@ -763,8 +780,6 @@ impl CreateExe {
                 let volume_object_path =
                     Self::write_volume_obj(volume_bytes, target, tempdir_path)?;
 
-                link_objects.push(volume_object_path);
-
                 #[cfg(not(windows))]
                 let c_src_obj = working_dir.join("wasmer_main.o");
                 #[cfg(windows)]
@@ -784,66 +799,29 @@ impl CreateExe {
                 std::fs::write(&c_src_path, c_code.as_bytes())
                     .context("Failed to open C source code file")?;
 
+                // TODO: this branch is never hit because object format serialized +
+                // cross compilation doesn't work
                 if let Some(setup) = cross_compilation {
-                    let CrossCompileSetup {
-                        ref target,
-                        ref zig_binary_path,
-                        ref library,
-                    } = setup;
+                    // zig treats .o files the same as .c files
+                    link_objects.push(c_src_path);
 
-                    let mut libwasmer_path = library.to_path_buf();
-                    let zig_triple = triple_to_zig_triple(target);
-
-                    // Cross compilation is only possible with zig
-                    println!("Library Path: {}", libwasmer_path.display());
-                    println!("Using zig binary: {}", zig_binary_path.display());
-                    println!("Using zig target triple: {}", &zig_triple);
-
-                    let lib_filename = libwasmer_path
-                        .file_name()
-                        .unwrap()
-                        .to_str()
-                        .unwrap()
-                        .to_string();
-
-                    /* Compile main function */
-                    let compilation = {
-                        libwasmer_path.pop();
-                        let mut include_dir = libwasmer_path.clone();
-                        include_dir.pop();
-                        include_dir.push("include");
-                        println!("include dir: {}", include_dir.display());
-                        let mut cmd = Command::new(zig_binary_path);
-                        let mut cmd_mut: &mut Command = cmd
-                            .arg("cc")
-                            .arg("--verbose")
-                            .arg("-target")
-                            .arg(&zig_triple)
-                            .arg(&format!("-L{}", libwasmer_path.display()))
-                            .arg(&format!("-l:{}", lib_filename))
-                            .arg(&format!("-I{}", include_dir.display()));
-                        if !zig_triple.contains("windows") {
-                            cmd_mut = cmd_mut.arg("-lunwind");
-                        }
-                        cmd_mut
-                            .args(link_objects.into_iter())
-                            .arg(&c_src_path)
-                            .arg("-o")
-                            .arg(&output_path)
-                            .output()
-                            .context("Could not execute `zig`")?
-                    };
-                    if !compilation.status.success() {
-                        return Err(anyhow::anyhow!(String::from_utf8_lossy(
-                            &compilation.stderr
-                        )
-                        .to_string()));
-                    }
+                    self.compile_zig(
+                        output_path,
+                        &link_objects,
+                        &[],
+                        &setup,
+                        &atom_names,
+                        Some(&entrypoint),
+                        Some(volume_object_path),
+                    )?;
                 } else {
+                    // compile with cc instead of zig
                     run_c_compile(c_src_path.as_path(), &c_src_obj, self.target_triple.clone())
                         .context("Failed to compile C source code")?;
 
                     link_objects.push(c_src_obj);
+                    link_objects.push(volume_object_path);
+
                     LinkCode {
                         object_paths: link_objects,
                         output_path,
@@ -866,8 +844,8 @@ impl CreateExe {
                 if let Some(setup) = cross_compilation.as_ref() {
                     self.compile_zig(
                         output_path,
-                        object_file_path,
-                        static_defs_file_path,
+                        &[object_file_path],
+                        &[static_defs_file_path],
                         setup,
                         &atom_names,
                         Some(&entrypoint),
@@ -912,7 +890,8 @@ impl CreateExe {
         for atom_name in atom_names.iter() {
             let atom_name = Self::normalize_atom_name(atom_name);
 
-            c_code_to_instantiate.push_str(&format!(
+            write!(
+                c_code_to_instantiate,
                 "
 
             wasm_module_t *atom_{atom_name} = wasmer_object_module_new(store, \"{atom_name}\");
@@ -923,11 +902,16 @@ impl CreateExe {
                 return -1;
             }}
             "
-            ));
-            deallocate_module.push_str(&format!("wasm_module_delete(atom_{atom_name});"));
+            )
+            .unwrap();
+            write!(deallocate_module, "wasm_module_delete(atom_{atom_name});").unwrap();
         }
 
-        c_code_to_instantiate.push_str(&format!("wasm_module_t *module = atom_{atom_to_run};"));
+        write!(
+            c_code_to_instantiate,
+            "wasm_module_t *module = atom_{atom_to_run};"
+        )
+        .unwrap();
 
         WASMER_STATIC_MAIN_C_SOURCE
             .replace("#define WASI", "#define WASI\r\n#define WASI_PIRITA")
@@ -1035,8 +1019,6 @@ impl CreateExe {
         let mut libwasmer_path = get_libwasmer_path()?
             .canonicalize()
             .context("Failed to find libwasmer")?;
-
-        println!("Using libwasmer file: {}", libwasmer_path.display());
 
         let lib_filename = libwasmer_path
             .file_name()
@@ -1350,19 +1332,24 @@ impl LinkCode {
 #[cfg(feature = "http")]
 mod http_fetch {
     use anyhow::{anyhow, Context, Result};
-    use http_req::{
-        request::Request,
-        response::{Response, StatusCode},
-        uri::Uri,
-    };
+    use http_req::{request::Request, response::StatusCode, uri::Uri};
     use std::convert::TryFrom;
+    use target_lexicon::OperatingSystem;
 
     pub fn get_latest_release() -> Result<serde_json::Value> {
         let mut writer = Vec::new();
         let uri = Uri::try_from("https://api.github.com/repos/wasmerio/wasmer/releases").unwrap();
 
-        let response = Request::new(&uri)
-            .header("User-Agent", "wasmer")
+        // Increases rate-limiting in GitHub CI
+        let auth = std::env::var("GITHUB_TOKEN");
+        let mut response = Request::new(&uri);
+
+        if let Ok(token) = auth {
+            response.header("Authorization", &format!("Bearer {token}"));
+        }
+
+        let response = response
+            .header("User-Agent", "wasmerio")
             .header("Accept", "application/vnd.github.v3+json")
             .timeout(Some(std::time::Duration::new(30, 0)))
             .send(&mut writer)
@@ -1370,10 +1357,12 @@ mod http_fetch {
             .context("Could not lookup wasmer repository on Github.")?;
 
         if response.status_code() != StatusCode::new(200) {
-            return Err(anyhow!(
-                "Github API replied with non-200 status code: {}",
-                response.status_code()
-            ));
+            #[cfg(feature = "debug")]
+            log::warn!(
+                "Warning: Github API replied with non-200 status code: {}. Response: {}",
+                response.status_code(),
+                String::from_utf8_lossy(&writer),
+            );
         }
 
         let v: std::result::Result<serde_json::Value, _> = serde_json::from_reader(&*writer);
@@ -1436,31 +1425,64 @@ mod http_fetch {
             }
         };
 
+        // Test if file has been already downloaded
         if let Ok(mut cache_path) = super::get_libwasmer_cache_path() {
-            match std::fs::read_dir(&cache_path).and_then(|r| {
+            let paths = std::fs::read_dir(&cache_path).and_then(|r| {
                 r.map(|res| res.map(|e| e.path()))
                     .collect::<Result<Vec<_>, std::io::Error>>()
-            }) {
-                Ok(mut entries) => {
+            });
+
+            if let Ok(mut entries) = paths {
+                entries.retain(|p| p.to_str().map(|p| p.ends_with(".tar.gz")).unwrap_or(false));
+
+                // create-exe on Windows is special: we use the windows-gnu64.tar.gz (GNU ABI)
+                // to link, not the windows-amd64.tar.gz (MSVC ABI)
+                if target_triple.operating_system == OperatingSystem::Windows {
+                    entries.retain(|p| {
+                        p.to_str()
+                            .map(|p| p.contains("windows") && p.contains("gnu64"))
+                            .unwrap_or(false)
+                    });
+                } else {
                     entries.retain(|p| p.to_str().map(|p| check_arch(p)).unwrap_or(true));
                     entries.retain(|p| p.to_str().map(|p| check_vendor(p)).unwrap_or(true));
                     entries.retain(|p| p.to_str().map(|p| check_os(p)).unwrap_or(true));
                     entries.retain(|p| p.to_str().map(|p| check_env(p)).unwrap_or(true));
-                    if entries.len() == 1 {
-                        cache_path.push(&entries[0]);
-                        if cache_path.exists() {
-                            eprintln!(
-                                "Using cached tarball to cache path `{}`.",
-                                cache_path.display()
-                            );
-                            return Ok(cache_path);
-                        }
+                }
+
+                if !entries.is_empty() {
+                    cache_path.push(&entries[0]);
+                    if cache_path.exists() {
+                        eprintln!(
+                            "Using cached tarball to cache path `{}`.",
+                            cache_path.display()
+                        );
+                        return Ok(cache_path);
                     }
                 }
-                Err(_ioerr) => {}
             }
         }
-        if let Some(assets) = release["assets"].as_array_mut() {
+
+        let assets = match release["assets"].as_array_mut() {
+            Some(s) => s,
+            None => {
+                return Err(anyhow!(
+                    "GitHub API: no [assets] array in JSON response for latest releases"
+                ));
+            }
+        };
+
+        // create-exe on Windows is special: we use the windows-gnu64.tar.gz (GNU ABI)
+        // to link, not the windows-amd64.tar.gz (MSVC ABI)
+        if target_triple.operating_system == OperatingSystem::Windows {
+            assets.retain(|a| {
+                if let Some(name) = a["name"].as_str() {
+                    name.contains("windows") && name.contains("gnu64")
+                } else {
+                    false
+                }
+            });
+        } else {
             assets.retain(|a| {
                 if let Some(name) = a["name"].as_str() {
                     check_arch(name)
@@ -1475,6 +1497,7 @@ mod http_fetch {
                     false
                 }
             });
+
             assets.retain(|a| {
                 if let Some(name) = a["name"].as_str() {
                     check_os(name)
@@ -1482,6 +1505,7 @@ mod http_fetch {
                     false
                 }
             });
+
             assets.retain(|a| {
                 if let Some(name) = a["name"].as_str() {
                     check_env(name)
@@ -1489,128 +1513,105 @@ mod http_fetch {
                     false
                 }
             });
+        }
 
-            if assets.len() == 1 {
-                let browser_download_url =
-                    if let Some(url) = assets[0]["browser_download_url"].as_str() {
-                        url.to_string()
-                    } else {
-                        return Err(anyhow!(
-                            "Could not get download url from Github API response."
-                        ));
-                    };
-                let filename = browser_download_url
-                    .split('/')
-                    .last()
-                    .unwrap_or("output")
-                    .to_string();
-                let mut file = std::fs::File::create(&filename)?;
-                println!("Downloading {} to {}", browser_download_url, &filename);
-                let download_thread: std::thread::JoinHandle<Result<Response, anyhow::Error>> =
-                    std::thread::spawn(move || {
-                        let uri = Uri::try_from(browser_download_url.as_str())?;
-                        let mut response = Request::new(&uri)
-                            .header("User-Agent", "wasmer")
-                            .send(&mut file)
-                            .map_err(anyhow::Error::new)
-                            .context("Could not lookup wasmer artifact on Github.")?;
-                        if response.status_code() == StatusCode::new(302) {
-                            let redirect_uri =
-                                Uri::try_from(response.headers().get("Location").unwrap().as_str())
-                                    .unwrap();
-                            response = Request::new(&redirect_uri)
-                                .header("User-Agent", "wasmer")
-                                .send(&mut file)
-                                .map_err(anyhow::Error::new)
-                                .context("Could not lookup wasmer artifact on Github.")?;
-                        }
-                        Ok(response)
-                    });
-                match super::get_libwasmer_cache_path() {
-                    Ok(mut cache_path) => {
-                        cache_path.push(&filename);
-                        if !cache_path.exists() {
-                            if let Err(err) = std::fs::copy(&filename, &cache_path) {
-                                eprintln!(
-                                    "Could not store tarball to cache path `{}`: {}",
-                                    cache_path.display(),
-                                    err
-                                );
-                            } else {
-                                eprintln!(
-                                    "Cached tarball to cache path `{}`.",
-                                    cache_path.display()
-                                );
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        eprintln!(
-                            "Could not determine cache path for downloaded binaries.: {}",
-                            err
-                        );
-                    }
+        if assets.len() != 1 {
+            return Err(anyhow!(
+                "GitHub API: more that one release selected for target {target_triple}: {assets:?}"
+            ));
+        }
+
+        let browser_download_url = if let Some(url) = assets[0]["browser_download_url"].as_str() {
+            url.to_string()
+        } else {
+            return Err(anyhow!(
+                "Could not get download url from Github API response."
+            ));
+        };
+
+        let filename = browser_download_url
+            .split('/')
+            .last()
+            .unwrap_or("output")
+            .to_string();
+
+        let download_tempdir = tempdir::TempDir::new("wasmer-download")?;
+        let download_path = download_tempdir.path().join(&filename);
+
+        let mut file = std::fs::File::create(&download_path)?;
+        #[cfg(feature = "debug")]
+        log::debug!(
+            "Downloading {} to {}",
+            browser_download_url,
+            download_path.display()
+        );
+
+        let mut response = reqwest::blocking::Client::builder()
+            .redirect(reqwest::redirect::Policy::limited(10))
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .map_err(anyhow::Error::new)
+            .context("Could not lookup wasmer artifact on Github.")?
+            .get(browser_download_url.as_str())
+            .send()
+            .map_err(anyhow::Error::new)
+            .context("Could not lookup wasmer artifact on Github.")?;
+
+        response
+            .copy_to(&mut file)
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+        match super::get_libwasmer_cache_path() {
+            Ok(mut cache_path) => {
+                cache_path.push(&filename);
+                if let Err(err) = std::fs::copy(&download_path, &cache_path) {
+                    eprintln!(
+                        "Could not store tarball to cache path `{}`: {}",
+                        cache_path.display(),
+                        err
+                    );
+                    Err(anyhow!(
+                        "Could not copy from {} to {}",
+                        download_path.display(),
+                        cache_path.display()
+                    ))
+                } else {
+                    eprintln!("Cached tarball to cache path `{}`.", cache_path.display());
+                    Ok(cache_path)
                 }
-                let _response = download_thread
-                    .join()
-                    .expect("Could not join downloading thread");
-                match super::get_libwasmer_cache_path() {
-                    Ok(mut cache_path) => {
-                        cache_path.push(&filename);
-                        if !cache_path.exists() {
-                            if let Err(err) = std::fs::copy(&filename, &cache_path) {
-                                eprintln!(
-                                    "Could not store tarball to cache path `{}`: {}",
-                                    cache_path.display(),
-                                    err
-                                );
-                            } else {
-                                eprintln!(
-                                    "Cached tarball to cache path `{}`.",
-                                    cache_path.display()
-                                );
-                            }
-                        }
-                    }
-                    Err(err) => {
-                        eprintln!(
-                            "Could not determine cache path for downloaded binaries.: {}",
-                            err
-                        );
-                    }
-                }
-                return Ok(filename.into());
+            }
+            Err(err) => {
+                eprintln!(
+                    "Could not determine cache path for downloaded binaries.: {}",
+                    err
+                );
+                Err(anyhow!("Could not determine libwasmer cache path"))
             }
         }
-        Err(anyhow!("Could not get release artifact."))
     }
 }
 
 fn untar(tarball: std::path::PathBuf, target: std::path::PathBuf) -> Result<Vec<String>> {
-    let files = std::process::Command::new("tar")
-        .arg("-tf")
-        .arg(&tarball)
-        .output()
-        .expect("failed to execute process")
-        .stdout;
+    use walkdir::WalkDir;
 
-    let files_s = String::from_utf8(files)?;
+    wasmer_registry::try_unpack_targz(&tarball, &target, false)?;
 
-    let files = files_s
-        .lines()
-        .filter(|p| !p.ends_with('/'))
-        .map(|s| s.to_string())
-        .collect::<Vec<String>>();
+    Ok(WalkDir::new(&target)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .map(|entry| format!("{}", entry.path().display()))
+        .collect())
+}
 
-    let _ = std::fs::create_dir_all(&target);
-    let _output = std::process::Command::new("tar")
-        .arg("-xf")
-        .arg(&tarball)
-        .arg("-C")
-        .arg(&target)
-        .output()
-        .expect("failed to execute process");
-    Ok(files)
+fn get_zig_exe_str() -> &'static str {
+    #[cfg(target_os = "windows")]
+    {
+        "zig.exe"
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        "zig"
+    }
 }
 
 fn find_zig_binary(path: Option<PathBuf>) -> Result<PathBuf> {
@@ -1643,24 +1644,13 @@ fn find_zig_binary(path: Option<PathBuf>) -> Result<PathBuf> {
                 OsStr::new("")
             },
         )) {
-            p.push("zig");
+            p.push(get_zig_exe_str());
             if p.exists() {
                 retval = Some(p);
                 break;
             }
         }
-        retval
-            .or_else(|| {
-                #[cfg(feature = "http")]
-                {
-                    try_autoinstall_zig().map(|p| p.join("zig"))
-                }
-                #[cfg(not(feature = "http"))]
-                {
-                    None
-                }
-            })
-            .ok_or_else(|| anyhow!("Could not find `zig` binary in PATH."))?
+        retval.ok_or_else(|| anyhow!("Could not find `zig` binary in PATH."))?
     };
 
     let version = std::process::Command::new(&retval)
@@ -1687,127 +1677,4 @@ fn find_zig_binary(path: Option<PathBuf>) -> Result<PathBuf> {
     } else {
         Ok(retval)
     }
-}
-
-/// Tries to auto-install zig into ~/.wasmer/utils/zig/{version}
-#[cfg(feature = "http")]
-fn try_autoinstall_zig() -> Option<PathBuf> {
-    let zig_dir = wasmer_registry::get_wasmer_root_dir()?
-        .join("utils")
-        .join("zig");
-    let mut existing_version = None;
-
-    if !zig_dir.exists() {
-        return install_zig(&zig_dir);
-    }
-
-    if let Ok(mut rd) = std::fs::read_dir(&zig_dir) {
-        existing_version = rd.next().and_then(|entry| {
-            let string = entry.ok()?.file_name().to_str()?.to_string();
-            if zig_dir.join(&string).join("zig").exists() {
-                Some(string)
-            } else {
-                None
-            }
-        })
-    }
-
-    if let Some(exist) = existing_version {
-        return Some(zig_dir.join(exist));
-    }
-
-    install_zig(&zig_dir)
-}
-
-#[cfg(feature = "http")]
-fn install_zig(target_targz_path: &Path) -> Option<PathBuf> {
-    let resp = reqwest::blocking::get("https://ziglang.org/download/index.json");
-    let resp = resp.ok()?;
-    let resp = resp.json::<ZiglangOrgJson>();
-    let resp = resp.ok()?;
-
-    let default_key = "master".to_string();
-    let (latest_version, latest_version_json) = resp
-        .versions
-        .get(&default_key)
-        .map(|v| (&default_key, v))
-        .or_else(|| resp.versions.iter().next())?;
-
-    let latest_version = match latest_version_json.version.as_ref() {
-        Some(s) => s,
-        None => latest_version,
-    };
-
-    let install_dir = target_targz_path.join(latest_version);
-    if install_dir.join("zig").exists() {
-        return Some(install_dir);
-    }
-
-    let native_host_url = latest_version_json.get_native_host_url()?;
-    let _ = std::fs::create_dir_all(&install_dir);
-    wasmer_registry::download_and_unpack_targz(&native_host_url, &install_dir, true).ok()
-}
-
-#[cfg(feature = "http")]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct ZiglangOrgJson {
-    #[serde(flatten)]
-    versions: BTreeMap<String, ZiglangOrgJsonTarget>,
-}
-
-#[cfg(feature = "http")]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct ZiglangOrgJsonTarget {
-    version: Option<String>,
-    date: String,
-    src: ZiglangOrgJsonBuildTarget,
-    #[serde(rename = "x86_64-freebsd")]
-    x86_64_freebsd: Option<ZiglangOrgJsonBuildTarget>,
-    #[serde(rename = "x86_64-macos")]
-    x86_64_macos: Option<ZiglangOrgJsonBuildTarget>,
-    #[serde(rename = "aarch64-macos")]
-    aarch64_macos: Option<ZiglangOrgJsonBuildTarget>,
-    #[serde(rename = "x86_64-windows")]
-    x86_64_windows: Option<ZiglangOrgJsonBuildTarget>,
-    #[serde(rename = "x86_64-linux")]
-    x86_64_linux: Option<ZiglangOrgJsonBuildTarget>,
-    #[serde(rename = "aarch64-linux")]
-    aarch64_linux: Option<ZiglangOrgJsonBuildTarget>,
-}
-
-impl ZiglangOrgJsonTarget {
-    pub fn get_native_host_url(&self) -> Option<String> {
-        let native_host = format!("{}", target_lexicon::HOST);
-        if native_host.starts_with("x86_64") {
-            if native_host.contains("freebsd") {
-                Some(self.x86_64_freebsd.as_ref()?.tarball.clone())
-            } else if native_host.contains("darwin") || native_host.contains("macos") {
-                Some(self.x86_64_macos.as_ref()?.tarball.clone())
-            } else if native_host.contains("windows") {
-                Some(self.x86_64_windows.as_ref()?.tarball.clone())
-            } else if native_host.contains("linux") {
-                Some(self.x86_64_linux.as_ref()?.tarball.clone())
-            } else {
-                None
-            }
-        } else if native_host.starts_with("aarch64") {
-            if native_host.contains("darwin") || native_host.contains("macos") {
-                Some(self.aarch64_macos.as_ref()?.tarball.clone())
-            } else if native_host.contains("linux") {
-                Some(self.aarch64_linux.as_ref()?.tarball.clone())
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-}
-
-#[cfg(feature = "http")]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct ZiglangOrgJsonBuildTarget {
-    tarball: String,
-    shasum: String,
-    size: String,
 }

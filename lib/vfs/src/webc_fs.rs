@@ -23,7 +23,7 @@ where
     pub memory: Arc<MemFileSystem>,
 }
 
-impl<'a, T> WebcFileSystem<T>
+impl<T> WebcFileSystem<T>
 where
     T: std::fmt::Debug + Send + Sync + 'static,
     T: Deref<Target = WebC<'static>>,
@@ -54,7 +54,7 @@ where
     pub memory: Arc<MemFileSystem>,
 }
 
-impl<'a, T> FileOpener for WebCFileOpener<T>
+impl<T> FileOpener for WebCFileOpener<T>
 where
     T: std::fmt::Debug + Send + Sync + 'static,
     T: Deref<Target = WebC<'static>>,

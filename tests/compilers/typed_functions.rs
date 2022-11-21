@@ -1,3 +1,5 @@
+#![allow(clippy::unnecessary_operation)] // We use x1 multiplies for clarity
+
 use anyhow::Result;
 use std::convert::Infallible;
 use std::sync::{Arc, Mutex};
