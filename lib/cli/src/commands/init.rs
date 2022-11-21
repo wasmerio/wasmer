@@ -1,3 +1,4 @@
+use cargo_metadata::{CargoOpt, MetadataCommand};
 use clap::Parser;
 use std::collections::HashMap;
 use std::path::Path;
@@ -15,9 +16,18 @@ pub struct Init {
     /// Initialize an empty wapm.toml
     #[clap(long, name = "empty")]
     pub empty: bool,
-    /// Path to the directory to init the wapm.toml in
-    #[clap(long, name = "dir", env = "DIR", parse(from_os_str))]
-    pub dir: Option<PathBuf>,
+    /// If the `manifest-dir` contains a Cargo.toml, use that file to initialize the wapm.toml
+    #[clap(long, name = "manifest-dir")]
+    pub manifest_dir: Option<PathBuf>,
+    /// Directory of the output file name. wasmer init will error in the target dir already contains a wapm.toml
+    #[clap(long, short = 'o', name = "out")]
+    pub out: Option<PathBuf>,
+    /// Force overwriting the wapm.toml, even if it already exists
+    #[clap(long, name = "overwrite")]
+    pub overwrite: bool,
+    /// Don't display debug output
+    #[clap(long, name = "quiet")]
+    pub quiet: bool,
     /// Add default dependencies for common packages (currently supported: `python`, `js`)
     #[clap(long, name = "template")]
     pub template: Option<String>,
@@ -36,10 +46,26 @@ enum BinOrLib {
     Empty,
 }
 
+// minimal version of the Cargo.toml [package] section
+struct MiniCargoTomlPackage {
+    name: String,
+    version: semver::Version,
+    description: Option<String>,
+    homepage: Option<String>,
+    repository: Option<String>,
+    license: Option<String>,
+    readme: Option<PathBuf>,
+    license_file: Option<PathBuf>,
+    #[allow(dead_code)]
+    workspace_root: PathBuf,
+    #[allow(dead_code)]
+    build_dir: PathBuf,
+}
+
 impl Init {
     /// `wasmer init` execution
     pub fn execute(&self) -> Result<(), anyhow::Error> {
-        let target_file = match self.dir.as_ref() {
+        let target_file = match self.out.as_ref() {
             None => std::env::current_dir()?.join("wapm.toml"),
             Some(s) => {
                 let _ = std::fs::create_dir_all(s);
@@ -47,14 +73,46 @@ impl Init {
             }
         };
 
-        if target_file.exists() {
+        if target_file.exists() && !self.overwrite {
             return Err(anyhow::anyhow!(
                 "wapm project already initialized in {}",
                 target_file.display()
             ));
         }
 
-        let package_name = match self.package_name.as_ref() {
+        // See if the directory has a Cargo.toml file, if yes, copy the license / readme, etc.
+        let cargo_toml = MetadataCommand::new()
+            .manifest_path(match self.manifest_dir.as_ref() {
+                Some(s) => {
+                    if format!("{}", s.display()).ends_with("Cargo.toml") {
+                        s.clone()
+                    } else {
+                        s.join("Cargo.toml")
+                    }
+                }
+                None => Path::new("./Cargo.toml").to_path_buf(),
+            })
+            .features(CargoOpt::AllFeatures)
+            .exec()
+            .ok();
+
+        let cargo_toml = cargo_toml.and_then(|metadata| {
+            let package = metadata.root_package()?;
+            Some(MiniCargoTomlPackage {
+                name: package.name.clone(),
+                version: package.version.clone(),
+                description: package.description.clone(),
+                homepage: package.homepage.clone(),
+                repository: package.repository.clone(),
+                license: package.license.clone(),
+                readme: package.readme.clone().map(|s| s.into_std_path_buf()),
+                license_file: package.license_file.clone().map(|f| f.into_std_path_buf()),
+                workspace_root: metadata.workspace_root.into_std_path_buf(),
+                build_dir: metadata.target_directory.into_std_path_buf(),
+            })
+        });
+
+        let package_name = match cargo_toml.as_ref() {
             None => {
                 if let Some(parent) = target_file
                     .parent()
@@ -70,80 +128,23 @@ impl Init {
                         .to_string()
                 }
             }
-            Some(s) => s.to_string(),
+            Some(s) => s.name.clone(),
         };
 
-        // See if the directory has a Cargo.toml file, if yes, copy the license / readme, etc.
-        let cargo_toml = target_file.parent().and_then(|p| {
-            let file = std::fs::read_to_string(p.join("Cargo.toml")).ok()?;
-            file.parse::<toml::Value>().ok()
-        });
+        let module_name = package_name.split('/').next().unwrap_or(&package_name);
         let version = cargo_toml
             .as_ref()
-            .and_then(|toml| {
-                semver::Version::parse(toml.get("package")?.as_table()?.get("version")?.as_str()?)
-                    .ok()
-            })
+            .map(|t| t.version.clone())
             .unwrap_or_else(|| semver::Version::parse("0.1.0").unwrap());
-
-        let license = cargo_toml.as_ref().and_then(|toml| {
-            Some(
-                toml.get("package")?
-                    .as_table()?
-                    .get("license")?
-                    .as_str()?
-                    .to_string(),
-            )
-        });
-
-        let license_file = cargo_toml.as_ref().and_then(|toml| {
-            Some(
-                Path::new(
-                    toml.get("package")?
-                        .as_table()?
-                        .get("license_file")?
-                        .as_str()?,
-                )
-                .to_path_buf(),
-            )
-        });
-
-        let readme = cargo_toml.as_ref().and_then(|toml| {
-            Some(Path::new(toml.get("package")?.as_table()?.get("readme")?.as_str()?).to_path_buf())
-        });
-
-        let repository = cargo_toml.as_ref().and_then(|toml| {
-            Some(
-                toml.get("package")?
-                    .as_table()?
-                    .get("repository")?
-                    .as_str()?
-                    .to_string(),
-            )
-        });
-
-        let homepage = cargo_toml.as_ref().and_then(|toml| {
-            Some(
-                toml.get("package")?
-                    .as_table()?
-                    .get("homepage")?
-                    .as_str()?
-                    .to_string(),
-            )
-        });
-
+        let license = cargo_toml.as_ref().and_then(|t| t.license.clone());
+        let license_file = cargo_toml.as_ref().and_then(|t| t.license_file.clone());
+        let readme = cargo_toml.as_ref().and_then(|t| t.readme.clone());
+        let repository = cargo_toml.as_ref().and_then(|t| t.repository.clone());
+        let homepage = cargo_toml.as_ref().and_then(|t| t.homepage.clone());
         let description = cargo_toml
             .as_ref()
-            .and_then(|toml| {
-                Some(
-                    toml.get("package")?
-                        .as_table()?
-                        .get("description")?
-                        .as_str()?
-                        .to_string(),
-                )
-            })
-            .unwrap_or_else(|| format!("Description of the package {package_name}"));
+            .and_then(|t| t.description.clone())
+            .unwrap_or(format!("Description for package {module_name}"));
 
         let bin_or_lib = match (self.empty, self.bin, self.lib) {
             (true, true, _) | (true, _, true) => {
@@ -162,15 +163,16 @@ impl Init {
             _ => BinOrLib::Bin,
         };
 
-        let module_name = package_name.split('/').next().unwrap_or(&package_name);
-
         let modules = vec![wapm_toml::Module {
             name: module_name.to_string(),
-            source: if cargo_toml.is_some() {
-                Path::new(&format!("target/wasm32-wasi/release/{module_name}.wasm")).to_path_buf()
-            } else {
-                Path::new(&format!("{module_name}.wasm")).to_path_buf()
-            },
+            source: cargo_toml
+                .as_ref()
+                .map(|p| {
+                    p.build_dir
+                        .join("release")
+                        .join(&format!("{module_name}.wasm"))
+                })
+                .unwrap_or_else(|| Path::new(&format!("{module_name}.wasm")).to_path_buf()),
             kind: None,
             abi: wapm_toml::Abi::Wasi,
             bindings: match bin_or_lib {
@@ -300,12 +302,13 @@ impl Init {
             cargo_wapm_stdout.lines().count() == 1 && cargo_wapm_stdout.contains("cargo wapm");
         let should_add_to_cargo_toml = cargo_toml.is_some() && cargo_wapm_present;
 
-        if !cargo_wapm_present && cargo_toml.is_some() {
+        if !cargo_wapm_present && cargo_toml.is_some() && !self.quiet {
             eprintln!(
                 "Note: you seem to have a Cargo.toml file, but you haven't installed `cargo wapm`."
             );
             eprintln!("You can build and release Rust projects directly with `cargo wapm publish`: https://crates.io/crates/cargo-wapm");
             eprintln!("Install it with:");
+            eprintln!();
             eprintln!("    cargo install cargo-wapm");
             eprintln!();
         }
@@ -327,16 +330,18 @@ impl Init {
 
             let old_cargo = std::fs::read_to_string(&cargo_toml_path).unwrap();
 
-            if old_cargo.contains("metadata.wapm") {
+            if old_cargo.contains("metadata.wapm") && !self.overwrite {
                 return Err(anyhow::anyhow!(
                     "wapm project already initialized in Cargo.toml file"
                 ));
             } else {
-                eprintln!("You have cargo-wapm installed, added metadata to Cargo.toml instead of wapm.toml");
-                eprintln!("Build and publish your package with:");
-                eprintln!();
-                eprintln!("    cargo wapm publish");
-                eprintln!();
+                if !self.quiet {
+                    eprintln!("You have cargo-wapm installed, added metadata to Cargo.toml instead of wapm.toml");
+                    eprintln!("Build and publish your package with:");
+                    eprintln!();
+                    eprintln!("    cargo wapm publish");
+                    eprintln!();
+                }
                 std::fs::write(
                     &cargo_toml_path,
                     &format!("{old_cargo}\r\n\r\n# See more keys and definitions at https://docs.wasmer.io/ecosystem/wapm/manifest\r\n\r\n{toml_string}"),
