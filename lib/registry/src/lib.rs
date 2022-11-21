@@ -907,8 +907,7 @@ pub fn whoami(
     let config = PartialWapmConfig::from_file();
 
     let config = config
-        .map_err(|e| anyhow::anyhow!("{e}"))
-        .context(anyhow::anyhow!("{registry:?}"))?;
+        .with_context(|| format!("{registry:?}"))?;
 
     let registry = match registry {
         Some(s) => format_graphql(s),
