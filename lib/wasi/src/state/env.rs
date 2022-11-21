@@ -212,6 +212,13 @@ pub struct WasiEnv {
     pub tasks: Arc<dyn VirtualTaskManager + Send + Sync + 'static>,
 }
 
+// FIXME: remove unsafe impls!
+// Added because currently WasiEnv can hold a wasm_bindgen::JsValue via wasmer::Module.
+#[cfg(feature = "js")]
+unsafe impl Send for WasiEnv {}
+#[cfg(feature = "js")]
+unsafe impl Sync for WasiEnv {}
+
 impl WasiEnv {
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> (Self, WasiThreadHandle) {

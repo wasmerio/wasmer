@@ -25,6 +25,14 @@ pub struct ModuleCache {
     pub(crate) compiler: DynCompiler,
 }
 
+// FIXME: remove impls!
+// Added as a stopgap to get the crate to compile again with the "js" feature.
+// wasmer::Module holds a JsValue, which makes it non-sync.
+#[cfg(feature = "js")]
+unsafe impl Send for ModuleCache {}
+#[cfg(feature = "js")]
+unsafe impl Sync for ModuleCache {}
+
 impl Default for ModuleCache {
     fn default() -> Self {
         ModuleCache::new(None, None, true)
