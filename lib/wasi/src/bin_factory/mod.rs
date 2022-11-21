@@ -4,7 +4,6 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use derivative::Derivative;
 use wasmer_vfs::AsyncReadExt;
 
 mod binary_package;
@@ -21,7 +20,7 @@ pub use self::{
 };
 use crate::{os::command::Commands, WasiRuntimeImplementation, WasiState};
 
-#[derive(Derivative, Clone)]
+#[derive(Debug, Clone)]
 pub struct BinFactory {
     pub(crate) state: Arc<WasiState>,
     pub(crate) commands: Commands,

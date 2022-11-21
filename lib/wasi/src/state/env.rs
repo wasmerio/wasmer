@@ -184,8 +184,7 @@ unsafe impl Send for WasiEnvInner {}
 unsafe impl Sync for WasiEnvInner {}
 
 /// The environment provided to the WASI imports.
-#[derive(Derivative, Clone)]
-#[derivative(Debug)]
+#[derive(Debug, Clone)]
 pub struct WasiEnv {
     /// Represents the process this environment is attached to
     pub process: WasiProcess,
@@ -201,7 +200,6 @@ pub struct WasiEnv {
     /// executing WASI program can see.
     pub state: Arc<WasiState>,
     /// Binary factory attached to this environment
-    #[derivative(Debug = "ignore")]
     pub bin_factory: BinFactory,
     /// Inner functions and references that are loaded before the environment starts
     pub inner: Option<WasiEnvInner>,
