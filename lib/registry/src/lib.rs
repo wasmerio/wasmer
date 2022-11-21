@@ -894,6 +894,47 @@ pub fn install_package(
     ))
 }
 
+pub fn whoami(
+    #[cfg(test)] test_name: &str,
+    registry: Option<&str>,
+) -> Result<(String, String), anyhow::Error> {
+    use crate::graphql::{who_am_i_query, WhoAmIQuery};
+    use graphql_client::GraphQLQuery;
+
+    #[cfg(test)]
+    let config = PartialWapmConfig::from_file(test_name);
+    #[cfg(not(test))]
+    let config = PartialWapmConfig::from_file();
+
+    let config = config
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .with_context(|| format!("{registry:?}"))?;
+
+    let registry = match registry {
+        Some(s) => format_graphql(s),
+        None => config.registry.get_current_registry(),
+    };
+
+    let login_token = config
+        .registry
+        .get_login_token_for_registry(&registry)
+        .ok_or_else(|| anyhow::anyhow!("not logged into registry {:?}", registry))?;
+
+    let q = WhoAmIQuery::build_query(who_am_i_query::Variables {});
+    let response: who_am_i_query::ResponseData =
+        crate::graphql::execute_query(&registry, &login_token, &q)
+            .with_context(|| format!("{registry:?}"))?;
+
+    let username = response
+        .viewer
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("not logged into registry {:?}", registry))?
+        .username
+        .to_string();
+
+    Ok((registry, username))
+}
+
 pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
     use crate::graphql::{test_if_registry_present, TestIfRegistryPresent};
     use graphql_client::GraphQLQuery;

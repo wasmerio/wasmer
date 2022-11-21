@@ -76,6 +76,59 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
 }
 
 #[test]
+fn run_whoami_works() -> anyhow::Result<()> {
+    // running test locally: should always pass since
+    // developers don't have access to WAPM_DEV_TOKEN
+    if std::env::var("GITHUB_TOKEN").is_err() {
+        return Ok(());
+    }
+
+    let ciuser_token = std::env::var("WAPM_DEV_TOKEN").expect("no CIUSER / WAPM_DEV_TOKEN token");
+
+    let output = Command::new(get_wasmer_path())
+        .arg("login")
+        .arg("--registry")
+        .arg("wapm.dev")
+        .arg(ciuser_token)
+        .output()?;
+
+    if !output.status.success() {
+        bail!(
+            "wasmer login failed with: stdout: {}\n\nstderr: {}",
+            std::str::from_utf8(&output.stdout)
+                .expect("stdout is not utf8! need to handle arbitrary bytes"),
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
+
+    let output = Command::new(get_wasmer_path())
+        .arg("whoami")
+        .arg("--registry")
+        .arg("wapm.dev")
+        .output()?;
+
+    let stdout = std::str::from_utf8(&output.stdout)
+        .expect("stdout is not utf8! need to handle arbitrary bytes");
+
+    if !output.status.success() {
+        bail!(
+            "linking failed with: stdout: {}\n\nstderr: {}",
+            stdout,
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
+
+    assert_eq!(
+        stdout,
+        "logged into registry \"https://registry.wapm.dev/graphql\" as user \"ciuser\"\n"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn run_wasi_works() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
         .arg("run")
