@@ -91,14 +91,14 @@ impl WasiBidirectionalPipePair {
             tx: Mutex::new(tx1),
             rx: Mutex::new(rx2),
             read_buffer: None,
-            block: true,
+            block: false,
         };
 
         let pipe2 = WasiPipe {
             tx: Mutex::new(tx2),
             rx: Mutex::new(rx1),
             read_buffer: None,
-            block: true,
+            block: false,
         };
 
         WasiBidirectionalPipePair {
