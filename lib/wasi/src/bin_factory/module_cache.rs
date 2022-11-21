@@ -1,11 +1,14 @@
 use std::{cell::RefCell, collections::HashMap, ops::DerefMut, path::PathBuf, sync::RwLock};
 
 use bytes::Bytes;
-use wasmer::{AsStoreRef, Engine, Module};
+use wasmer::{AsStoreRef, Module};
 use wasmer_wasi_types::wasi::Snapshot0Clockid;
 
 use super::BinaryPackage;
-use crate::{syscalls::platform_clock_time_get, VirtualTaskManager, WasiRuntimeImplementation};
+use crate::{
+    runtime::compiler::DynCompiler, syscalls::platform_clock_time_get, VirtualTaskManager,
+    WasiRuntimeImplementation,
+};
 
 pub const DEFAULT_COMPILED_PATH: &'static str = "~/.wasmer/compiled";
 pub const DEFAULT_WEBC_PATH: &'static str = "~/.wasmer/webc";
@@ -18,7 +21,8 @@ pub struct ModuleCache {
 
     pub(crate) cache_webc: RwLock<HashMap<String, BinaryPackage>>,
     pub(crate) cache_webc_dir: String,
-    pub(crate) engine: Option<Engine>,
+
+    pub(crate) compiler: DynCompiler,
 }
 
 impl Default for ModuleCache {
@@ -61,9 +65,17 @@ impl ModuleCache {
 
         // TODO: let users provide an optional engine via argument.
         #[cfg(feature = "sys")]
-        let engine = Some(Self::new_engine());
         #[cfg(not(feature = "sys"))]
         let engine = None;
+
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "sys")] {
+                let engine = Self::new_engine();
+                let compiler = std::sync::Arc::new(crate::runtime::compiler::engine::EngineCompiler::new(engine)) as DynCompiler;
+            } else {
+                let compiler = std::sync::Arc::new(crate::runtime::compiler::StubCompiler);
+            }
+        }
 
         let cached_modules = if use_shared_cache {
             Some(RwLock::new(HashMap::default()))
@@ -76,7 +88,7 @@ impl ModuleCache {
             cache_compile_dir,
             cache_webc: RwLock::new(HashMap::default()),
             cache_webc_dir,
-            engine,
+            compiler,
         }
     }
 
@@ -124,13 +136,8 @@ impl ModuleCache {
         panic!("wasmer not built with a compiler")
     }
 
-    pub fn new_store(&self) -> Option<wasmer::Store> {
-        self.engine.as_ref().map(|e| wasmer::Store::new(e.clone()))
-    }
-
-    #[cfg(not(feature = "sys"))]
     pub fn new_store(&self) -> wasmer::Store {
-        wasmer::Store::default()
+        self.compiler.new_store()
     }
 
     // TODO: should return Result<_, anyhow::Error>
