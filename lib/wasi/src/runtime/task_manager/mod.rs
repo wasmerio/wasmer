@@ -160,8 +160,11 @@ impl VirtualTaskManager for StubTaskManager {
 }
 
 impl dyn VirtualTaskManager {
-    /// See [`VirtualTaskManager::block_on`].
+    /// Execute a future and return the output.
+    /// This method blocks until the future is complete.
+    // This needs to be a generic impl on `dyn T` because it is generic, and hence not object-safe.
     pub fn block_on<'a, A>(&self, task: impl Future<Output = A> + 'a) -> A {
+        // TODO: evaluate if this is a reasonable default impl.
         let (tx, rx) = std::sync::mpsc::channel();
         self.block_on_generic(Box::pin(async move {
             let ret = task.await;
@@ -172,11 +175,11 @@ impl dyn VirtualTaskManager {
 }
 
 // TODO: remove impl.
-// This impl is superfuous, because the VirtualTaskManager already has Send+Sync bounds.
+// This impl is superfuous, because the VirtualTaskManager already has Send+Sync bounds, so the
+// above impl should be sufficient.
 // The impl is required for now because some code uses the VirtualTaskManager with + Send + Sync,
 // which can be removed.
 impl dyn VirtualTaskManager + Send + Sync {
-    /// See [`VirtualTaskManager::block_on`].
     pub fn block_on<'a, A>(&self, task: impl Future<Output = A> + 'a) -> A {
         let (tx, rx) = std::sync::mpsc::channel();
         self.block_on_generic(Box::pin(async move {
