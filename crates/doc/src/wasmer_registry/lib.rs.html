@@ -1321,6 +1321,47 @@
 <span id="1315">1315</span>
 <span id="1316">1316</span>
 <span id="1317">1317</span>
+<span id="1318">1318</span>
+<span id="1319">1319</span>
+<span id="1320">1320</span>
+<span id="1321">1321</span>
+<span id="1322">1322</span>
+<span id="1323">1323</span>
+<span id="1324">1324</span>
+<span id="1325">1325</span>
+<span id="1326">1326</span>
+<span id="1327">1327</span>
+<span id="1328">1328</span>
+<span id="1329">1329</span>
+<span id="1330">1330</span>
+<span id="1331">1331</span>
+<span id="1332">1332</span>
+<span id="1333">1333</span>
+<span id="1334">1334</span>
+<span id="1335">1335</span>
+<span id="1336">1336</span>
+<span id="1337">1337</span>
+<span id="1338">1338</span>
+<span id="1339">1339</span>
+<span id="1340">1340</span>
+<span id="1341">1341</span>
+<span id="1342">1342</span>
+<span id="1343">1343</span>
+<span id="1344">1344</span>
+<span id="1345">1345</span>
+<span id="1346">1346</span>
+<span id="1347">1347</span>
+<span id="1348">1348</span>
+<span id="1349">1349</span>
+<span id="1350">1350</span>
+<span id="1351">1351</span>
+<span id="1352">1352</span>
+<span id="1353">1353</span>
+<span id="1354">1354</span>
+<span id="1355">1355</span>
+<span id="1356">1356</span>
+<span id="1357">1357</span>
+<span id="1358">1358</span>
 </pre><pre class="rust"><code><span class="doccomment">//! High-level interactions with the WAPM backend.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! The GraphQL schema can be updated by running `make` in the Wasmer repo&#39;s</span>
@@ -2215,6 +2256,47 @@
         },
         <span class="ident">dir</span>,
     ))
+}
+
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">whoami</span>(
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+    <span class="ident">registry</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">String</span>), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql</span>::{<span class="ident">who_am_i_query</span>, <span class="ident">WhoAmIQuery</span>};
+    <span class="kw">use</span> <span class="ident">graphql_client::GraphQLQuery</span>;
+
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
+    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>(<span class="ident">test_name</span>);
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
+    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>();
+
+    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">config</span>
+        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+        .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;{registry:?}&quot;</span>))<span class="question-mark">?</span>;
+
+    <span class="kw">let</span> <span class="ident">registry</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">registry</span> {
+        <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="ident">format_graphql</span>(<span class="ident">s</span>),
+        <span class="prelude-val">None</span> =&gt; <span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">get_current_registry</span>(),
+    };
+
+    <span class="kw">let</span> <span class="ident">login_token</span> <span class="op">=</span> <span class="ident">config</span>
+        .<span class="ident">registry</span>
+        .<span class="ident">get_login_token_for_registry</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>)
+        .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;not logged into registry {:?}&quot;</span>, <span class="ident">registry</span>))<span class="question-mark">?</span>;
+
+    <span class="kw">let</span> <span class="ident">q</span> <span class="op">=</span> <span class="ident">WhoAmIQuery::build_query</span>(<span class="ident">who_am_i_query::Variables</span> {});
+    <span class="kw">let</span> <span class="ident">response</span>: <span class="ident">who_am_i_query::ResponseData</span> <span class="op">=</span>
+        <span class="ident"><span class="kw">crate</span>::graphql::execute_query</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>, <span class="kw-2">&amp;</span><span class="ident">login_token</span>, <span class="kw-2">&amp;</span><span class="ident">q</span>)
+            .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;{registry:?}&quot;</span>))<span class="question-mark">?</span>;
+
+    <span class="kw">let</span> <span class="ident">username</span> <span class="op">=</span> <span class="ident">response</span>
+        .<span class="ident">viewer</span>
+        .<span class="ident">as_ref</span>()
+        .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;not logged into registry {:?}&quot;</span>, <span class="ident">registry</span>))<span class="question-mark">?</span>
+        .<span class="ident">username</span>
+        .<span class="ident">to_string</span>();
+
+    <span class="prelude-val">Ok</span>((<span class="ident">registry</span>, <span class="ident">username</span>))
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">test_if_registry_present</span>(<span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span>, <span class="ident">String</span><span class="op">&gt;</span> {

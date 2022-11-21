@@ -503,9 +503,6 @@
 <span id="495">495</span>
 <span id="496">496</span>
 <span id="497">497</span>
-<span id="498">498</span>
-<span id="499">499</span>
-<span id="500">500</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The logic for the Wasmer CLI tool.</span>
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
@@ -518,7 +515,9 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands::CreateObj</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands::Wast</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands</span>::{<span class="ident">Add</span>, <span class="ident">Cache</span>, <span class="ident">Config</span>, <span class="ident">Inspect</span>, <span class="ident">List</span>, <span class="ident">Login</span>, <span class="ident">Run</span>, <span class="ident">SelfUpdate</span>, <span class="ident">Validate</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands</span>::{
+    <span class="ident">Add</span>, <span class="ident">Cache</span>, <span class="ident">Config</span>, <span class="ident">Inspect</span>, <span class="ident">List</span>, <span class="ident">Login</span>, <span class="ident">Run</span>, <span class="ident">SelfUpdate</span>, <span class="ident">Validate</span>, <span class="ident">Whoami</span>,
+};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::PrettyError</span>;
 <span class="kw">use</span> <span class="ident">clap</span>::{<span class="ident">CommandFactory</span>, <span class="ident">ErrorKind</span>, <span class="ident">Parser</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fmt</span>, <span class="ident">str::FromStr</span>};
@@ -545,28 +544,23 @@
 <span class="doccomment">/// The options for the wasmer Command Line Interface</span>
 <span class="kw">enum</span> <span class="ident">WasmerCLIOptions</span> {
     <span class="doccomment">/// List all locally installed packages</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;list&quot;</span>)]</span>
     <span class="ident">List</span>(<span class="ident">List</span>),
 
     <span class="doccomment">/// Run a WebAssembly file. Formats accepted: wasm, wat</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;run&quot;</span>)]</span>
     <span class="ident">Run</span>(<span class="ident">Run</span>),
 
     <span class="doccomment">/// Login into a wapm.io-like registry</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;login&quot;</span>)]</span>
     <span class="ident">Login</span>(<span class="ident">Login</span>),
 
     <span class="doccomment">/// Wasmer cache</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">subcommand</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">subcommand</span>)]</span>
     <span class="ident">Cache</span>(<span class="ident">Cache</span>),
 
     <span class="doccomment">/// Validate a WebAssembly binary</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;validate&quot;</span>)]</span>
     <span class="ident">Validate</span>(<span class="ident">Validate</span>),
 
     <span class="doccomment">/// Compile a WebAssembly binary</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;compile&quot;</span>)]</span>
     <span class="ident">Compile</span>(<span class="ident">Compile</span>),
 
     <span class="doccomment">/// Compile a WebAssembly binary into a native executable</span>
@@ -638,7 +632,6 @@
 
     <span class="doccomment">/// Get various configuration information needed</span>
     <span class="doccomment">/// to compile programs which use Wasmer</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;config&quot;</span>)]</span>
     <span class="ident">Config</span>(<span class="ident">Config</span>),
 
     <span class="doccomment">/// Update wasmer to the latest version</span>
@@ -646,18 +639,18 @@
     <span class="ident">SelfUpdate</span>(<span class="ident">SelfUpdate</span>),
 
     <span class="doccomment">/// Inspect a WebAssembly file</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;inspect&quot;</span>)]</span>
     <span class="ident">Inspect</span>(<span class="ident">Inspect</span>),
 
     <span class="doccomment">/// Run spec testsuite</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
     <span class="ident">Wast</span>(<span class="ident">Wast</span>),
 
     <span class="doccomment">/// Unregister and/or register wasmer as binfmt interpreter</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;binfmt&quot;</span>)]</span>
     <span class="ident">Binfmt</span>(<span class="ident">Binfmt</span>),
+
+    <span class="doccomment">/// Shows the current logged in user for the current active registry</span>
+    <span class="ident">Whoami</span>(<span class="ident">Whoami</span>),
 
     <span class="doccomment">/// Add a WAPM package&#39;s bindings to your application.</span>
     <span class="ident">Add</span>(<span class="ident">Add</span>),
@@ -684,6 +677,7 @@
             <span class="ident"><span class="self">Self</span>::Wast</span>(<span class="ident">wast</span>) =&gt; <span class="ident">wast</span>.<span class="ident">execute</span>(),
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
             <span class="ident"><span class="self">Self</span>::Binfmt</span>(<span class="ident">binfmt</span>) =&gt; <span class="ident">binfmt</span>.<span class="ident">execute</span>(),
+            <span class="ident"><span class="self">Self</span>::Whoami</span>(<span class="ident">whoami</span>) =&gt; <span class="ident">whoami</span>.<span class="ident">execute</span>(),
             <span class="ident"><span class="self">Self</span>::Add</span>(<span class="ident">install</span>) =&gt; <span class="ident">install</span>.<span class="ident">execute</span>(),
         }
     }
