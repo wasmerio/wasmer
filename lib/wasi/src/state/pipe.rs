@@ -91,14 +91,14 @@ impl WasiBidirectionalPipePair {
             tx: Mutex::new(tx1),
             rx: Mutex::new(rx2),
             read_buffer: None,
-            block: true,
+            block: false,
         };
 
         let pipe2 = WasiPipe {
             tx: Mutex::new(tx2),
             rx: Mutex::new(rx1),
             read_buffer: None,
-            block: true,
+            block: false,
         };
 
         WasiBidirectionalPipePair {
@@ -304,6 +304,8 @@ impl Seek for WasiPipe {
 
 impl Read for WasiPipe {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        buf.fill('A' as u8);
+        return Ok(buf.len());
         loop {
             if let Some(inner_buf) = self.read_buffer.as_mut() {
                 let buf_len = inner_buf.len();
@@ -342,12 +344,12 @@ impl Read for WasiPipe {
                         Vec::new()
                     } else {
                         // could not immediately receive bytes, so we need to block
-                        match rx.recv() {
+                        match rx.try_recv() {
                             Ok(o) => o,
                             // Errors can happen if the sender has been dropped already
                             // In this case, just return 0 to indicate that we can't read any
                             // bytes anymore
-                            Err(_) => {
+                            _ => {
                                 return Ok(0);
                             }
                         }
