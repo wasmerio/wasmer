@@ -1,10 +1,7 @@
-mod ws;
-pub use ws::*;
-
+pub mod compiler;
 mod stdio;
-pub use stdio::*;
-
 pub mod task_manager;
+mod ws;
 
 pub use self::{
     stdio::*,
@@ -82,8 +79,7 @@ where
             if #[cfg(feature = "sys-thread")] {
                 Arc::new(task_manager::tokio::TokioTaskManager::default())
             } else {
-                Ok(task_manager::StubTaskManager)
-
+                Arc::new(task_manager::StubTaskManager)
             }
         }
     }

@@ -9,7 +9,7 @@ use std::{
     time::Duration,
 };
 
-use tracing::log::trace;
+use tracing::trace;
 use wasmer_vbus::{BusSpawnedProcess, SignalHandlerAbi};
 use wasmer_wasi_types::{
     types::Signal,

@@ -6,7 +6,6 @@ use wasmer_wasi_types::wasi::Errno;
 
 use crate::{
     bin_factory::{spawn_exec, BinaryPackage, ModuleCache},
-    runtime::task_manager::tokio::VirtualTaskExecutor,
     syscalls::stderr_write,
     VirtualTaskManager, WasiEnv, WasiRuntimeImplementation,
 };

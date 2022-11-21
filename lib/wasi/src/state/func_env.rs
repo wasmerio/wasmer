@@ -4,7 +4,7 @@ use wasmer_wasi_types::wasi::ExitCode;
 
 use crate::{
     state::WasiEnvInner,
-    utils::{get_wasi_version, get_wasi_versions, is_wasix_module},
+    utils::{get_wasi_version, get_wasi_versions},
     WasiEnv, WasiError, DEFAULT_STACK_SIZE,
 };
 
@@ -119,7 +119,7 @@ impl WasiFunctionEnv {
 
         #[cfg(feature = "wasix")]
         env.state.fs.is_wasix.store(
-            is_wasix_module(instance.module()),
+            crate::utils::is_wasix_module(instance.module()),
             std::sync::atomic::Ordering::Release,
         );
 

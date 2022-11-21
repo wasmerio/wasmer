@@ -7,20 +7,20 @@ use std::{
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
+        atomic::{AtomicU32, AtomicU64, Ordering},
         Arc, Mutex, RwLock, RwLockWriteGuard,
     },
 };
+
+#[cfg(any(feature = "wasix", feature = "sync"))]
+use std::sync::atomic::AtomicBool;
 
 use generational_arena::{Arena, Index as Inode};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
-use wasmer_vfs::{
-    host_fs::{Stderr, Stdin, Stdout},
-    FileSystem, FsError, OpenOptions, VirtualFile,
-};
+use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
 use wasmer_wasi_types::{
     types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     wasi::{
@@ -28,6 +28,8 @@ use wasmer_wasi_types::{
         PrestatEnum, Rights,
     },
 };
+
+use crate::state::{Stderr, Stdin, Stdout};
 
 pub use self::fd::{Fd, InodeVal, Kind};
 pub(crate) use self::inode_guard::{

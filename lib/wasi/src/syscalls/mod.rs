@@ -87,6 +87,9 @@ pub(crate) use self::types::{
     },
     *,
 };
+use crate::fs::{
+    fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind, MAX_SYMLINKS,
+};
 pub(crate) use crate::os::task::{
     process::{WasiProcessId, WasiProcessWait},
     thread::{WasiThread, WasiThreadId},
@@ -108,13 +111,6 @@ pub(crate) use crate::{
     utils::{self, map_io_err},
     VirtualTaskManager, WasiEnv, WasiEnvInner, WasiError, WasiFunctionEnv,
     WasiRuntimeImplementation, WasiVFork, DEFAULT_STACK_SIZE,
-};
-use crate::{
-    fs::{
-        fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind,
-        MAX_SYMLINKS,
-    },
-    runtime::task_manager::tokio::VirtualTaskExecutor,
 };
 pub(crate) use crate::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 

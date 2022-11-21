@@ -7,15 +7,12 @@ use wasmer_wasi_types::wasi::Errno;
 
 pub use self::thread_parker::WasiParkingLot;
 
-#[allow(dead_code)]
 /// Check if a provided module is compiled for some version of WASI.
 /// Use [`get_wasi_version`] to find out which version of WASI the module is.
 pub fn is_wasi_module(module: &Module) -> bool {
     get_wasi_version(module, false).is_some()
 }
 
-#[allow(dead_code)]
-#[cfg(feature = "wasix")]
 /// Returns if the module is WASIX or not
 pub fn is_wasix_module(module: &Module) -> bool {
     match get_wasi_versions(module, false).ok_or(false) {

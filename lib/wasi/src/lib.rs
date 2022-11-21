@@ -110,7 +110,6 @@ pub use crate::{
     },
 };
 
-#[cfg(feature = "wasix")]
 pub use crate::utils::is_wasix_module;
 
 pub use crate::{

@@ -8,7 +8,6 @@ use webc::{Annotation, FsEntryType, UrlOrManifest, WebC};
 
 use crate::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},
-    runtime::task_manager::tokio::VirtualTaskExecutor,
     VirtualTaskManager, WasiRuntimeImplementation,
 };
 

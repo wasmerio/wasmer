@@ -1,5 +1,5 @@
 use super::*;
-use crate::{runtime::task_manager::tokio::VirtualTaskExecutor, syscalls::*};
+use crate::syscalls::*;
 
 /// Replaces the current process with a new process
 ///

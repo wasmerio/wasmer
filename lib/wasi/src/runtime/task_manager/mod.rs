@@ -6,6 +6,7 @@ use std::pin::Pin;
 
 use futures::Future;
 use wasmer::{vm::VMMemory, MemoryType, Module, Store};
+#[cfg(feature = "sys")]
 use wasmer_types::MemoryStyle;
 
 use crate::{WasiCallingId, WasiThreadError};
@@ -13,6 +14,7 @@ use crate::{WasiCallingId, WasiThreadError};
 #[derive(Debug)]
 pub struct SpawnedMemory {
     pub ty: MemoryType,
+    // TODO: don't put behind a feature (Option<MemoryStyle>?)
     #[cfg(feature = "sys")]
     pub style: MemoryStyle,
 }
