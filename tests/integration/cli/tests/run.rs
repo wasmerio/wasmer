@@ -186,7 +186,7 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     let native_target = target_lexicon::HOST;
     let root_path = get_repo_root_path().unwrap();
     let package_path = root_path.join("package");
-    if !package_path.exists() {
+    if !package_path.join("lib").join("libwasmer.a").exists() {
         let current_dir = std::env::current_dir().unwrap();
         println!("running make && make build-capi && make package-capi && make package...");
         println!("current dir = {}", current_dir.display());
