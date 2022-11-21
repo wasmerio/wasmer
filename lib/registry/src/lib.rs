@@ -907,6 +907,7 @@ pub fn whoami(
     let config = PartialWapmConfig::from_file();
 
     let config = config
+        .map_err(|e| anyhow::anyhow!("{e}"))
         .with_context(|| format!("{registry:?}"))?;
 
     let registry = match registry {
@@ -922,7 +923,7 @@ pub fn whoami(
     let q = WhoAmIQuery::build_query(who_am_i_query::Variables {});
     let response: who_am_i_query::ResponseData =
         crate::graphql::execute_query(&registry, &login_token, &q)
-           .with_context(|| format!("{registry:?}"))?;
+            .with_context(|| format!("{registry:?}"))?;
 
     let username = response
         .viewer

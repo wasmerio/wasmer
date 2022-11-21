@@ -83,6 +83,12 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
 
 #[test]
 fn run_whoami_works() -> anyhow::Result<()> {
+    // running test locally: should always pass since
+    // developers don't have access to WAPM_DEV_TOKEN
+    if std::env::var("GITHUB_TOKEN").is_err() {
+        return Ok(());
+    }
+
     let ciuser_token = std::env::var("WAPM_DEV_TOKEN").expect("no CIUSER / WAPM_DEV_TOKEN token");
 
     let output = Command::new(get_wasmer_path())
