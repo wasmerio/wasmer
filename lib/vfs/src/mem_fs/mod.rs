@@ -151,16 +151,3 @@ fn time() -> u64 {
         0
     }
 }
-
-// If the `host-fs` feature is not enabled, let's write a
-// `TryInto<i32>` implementation for `FileDescriptor`, otherwise on
-// Unix, it conflicts with `TryInto<RawFd>` (where `RawFd` is an alias
-// to `i32`).
-#[cfg(not(all(unix, feature = "host-fs")))]
-impl std::convert::TryInto<i32> for crate::FileDescriptor {
-    type Error = crate::FsError;
-
-    fn try_into(self) -> std::result::Result<i32, Self::Error> {
-        self.0.try_into().map_err(|_| crate::FsError::InvalidFd)
-    }
-}
