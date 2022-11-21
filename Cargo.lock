@@ -3009,6 +3009,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_yaml"
+version = "0.9.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d232d893b10de3eb7258ff01974d6ee20663d8e833263c99409d4b13a0209da"
+dependencies = [
+ "indexmap",
+ "itoa 1.0.4",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
+]
+
+[[package]]
 name = "serial_test"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3696,6 +3709,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "unsafe-libyaml"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1e5fa573d8ac5f1a856f8d7be41d390ee973daf97c806b2c1a465e4e1406e68"
+
+[[package]]
 name = "untrusted"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3773,7 +3792,23 @@ dependencies = [
  "serde_cbor",
  "serde_derive",
  "serde_json",
- "serde_yaml",
+ "serde_yaml 0.8.26",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
+name = "wapm-toml"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a52a44eb6e8ede075e12c491bbe0422beee61febb23b86dbafda4badcf8db576"
+dependencies = [
+ "anyhow",
+ "semver 1.0.14",
+ "serde",
+ "serde_cbor",
+ "serde_json",
+ "serde_yaml 0.9.14",
  "thiserror",
  "toml",
 ]
@@ -4086,7 +4121,7 @@ dependencies = [
  "unix_mode",
  "url",
  "walkdir",
- "wapm-toml",
+ "wapm-toml 0.3.2",
  "wasmer",
  "wasmer-cache",
  "wasmer-compiler",
@@ -4328,7 +4363,7 @@ dependencies = [
  "tokio",
  "toml",
  "url",
- "wapm-toml",
+ "wapm-toml 0.2.2",
  "webc",
  "whoami",
 ]

@@ -182,13 +182,24 @@ impl Init {
                         .follow_links(false)
                         .into_iter()
                         .filter_map(|e| e.ok())
-                        .filter(|e| {
-                            e.path().extension().and_then(|s| s.to_str()) == Some(".wit")
-                                || e.path().extension().and_then(|s| s.to_str()) == Some(".wai")
-                        })
-                        .map(|e| wapm_toml::Bindings {
-                            wit_exports: e.path().to_path_buf(),
-                            wit_bindgen: semver::Version::parse("0.1.0").unwrap(),
+                        .filter_map(|e| {
+                            let is_wit =
+                                e.path().extension().and_then(|s| s.to_str()) == Some(".wit");
+                            let is_wai =
+                                e.path().extension().and_then(|s| s.to_str()) == Some(".wai");
+                            if is_wit {
+                                Some(wapm_toml::Bindings::Wit(wapm_toml::WitBindings {
+                                    wit_exports: e.path().to_path_buf(),
+                                    wit_bindgen: semver::Version::parse("0.1.0").unwrap(),
+                                }))
+                            } else if is_wai {
+                                Some(wapm_toml::Bindings::Wit(wapm_toml::WitBindings {
+                                    wit_exports: e.path().to_path_buf(),
+                                    wit_bindgen: semver::Version::parse("0.1.0").unwrap(),
+                                }))
+                            } else {
+                                None
+                            }
                         })
                         .next()
                 }),
