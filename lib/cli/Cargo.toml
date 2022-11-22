@@ -69,8 +69,11 @@ toml = "0.5.9"
 url = "2.3.1"
 libc = { version = "^0.2", default-features = false }
 nuke-dir = { version = "0.1.0", optional = true }
-webc = { version = "3.0.1", optional = true }
-#webc = { path = "../../../pirita/crates/webc", optional = true }
+#webc = { version = "3.0.1", optional = true }
+# Something is still wrong with the webc version published on crates.io when attempting to
+# load a .webc from the registry (e.g. sharrattj/coreutils)
+# 780.main.js:652 panicked at 'range end index 76 out of range for slice of length 44', /home/john/.cargo/registry/src/github.com-1ecc6299db9ec823/webc-3.0.1/src/lib.rs:925:30
+webc = { path = "../../../pirita/crates/webc", optional = true }
 isatty = "0.1.9"
 
 [build-dependencies]

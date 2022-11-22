@@ -77,7 +77,7 @@ pub fn path_open<M: MemorySize>(
             path_string
         );
     }
-    debug!("=> path_open(): fd: {}, path: {}", dirfd, &path_string);
+    debug!("=> path_open(): dirfd: {}, path: {}", dirfd, &path_string);
 
     let path_arg = std::path::PathBuf::from(&path_string);
     let maybe_inode = state.fs.get_inode_at_path(
@@ -193,14 +193,21 @@ pub fn path_open<M: MemorySize>(
 
                 if let Some(handle) = handle {
                     let handle = handle.read().unwrap();
-                    if let Some(special_fd) = handle.get_special_fd() {
-                        // We close the file descriptor so that when its closed
+                    if let Some(fd) = handle.get_special_fd() {
+                        // We clone the file descriptor so that when its closed
                         // nothing bad happens
-                        let special_fd = wasi_try!(state.fs.clone_fd(special_fd));
+                        let dup_fd = wasi_try!(state.fs.clone_fd(fd));
+                        trace!(
+                            "wasi[{}:{}]::path_open [special_fd] (dup_fd: {}->{})",
+                            ctx.data().pid(),
+                            ctx.data().tid(),
+                            fd,
+                            dup_fd
+                        );
 
                         // some special files will return a constant FD rather than
                         // actually open the file (/dev/stdin, /dev/stdout, /dev/stderr)
-                        wasi_try_mem!(fd_ref.write(special_fd));
+                        wasi_try_mem!(fd_ref.write(dup_fd));
                         return Errno::Success;
                     }
                 }

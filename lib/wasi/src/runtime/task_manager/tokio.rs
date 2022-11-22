@@ -64,11 +64,6 @@ impl VirtualTaskManager for TokioTaskManager {
     }
 
     /// See [`VirtualTaskManager::enter`].
-    fn enter<'a>(&'a self) -> Box<dyn std::any::Any + 'a> {
-        Box::new(self.runtime.enter())
-    }
-
-    /// See [`VirtualTaskManager::enter`].
     fn task_wasm(
         &self,
         task: Box<dyn FnOnce(Store, Module, Option<VMMemory>) + Send + 'static>,

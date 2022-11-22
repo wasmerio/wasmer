@@ -10,11 +10,11 @@ use wasmer_vfs::{
     host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, AsyncRead, AsyncSeek, AsyncWrite,
     AsyncWriteExt, FileSystem, ReadBuf, RootFileSystemBuilder,
 };
-use wasmer_wasi::runtime::task_manager::tokio::{TokioTaskManager, VirtualTaskExecutor};
+use wasmer_wasi::runtime::task_manager::tokio::TokioTaskManager;
 use wasmer_wasi::types::wasi::{Filesize, Timestamp};
 use wasmer_wasi::{
     generate_import_object_from_env, get_wasi_version, FsError, VirtualFile,
-    WasiBidirectionalPipePair, WasiEnv, WasiFunctionEnv, WasiState, WasiVersion,
+    WasiBidirectionalPipePair, WasiEnv, WasiFunctionEnv, WasiState, WasiVersion, VirtualTaskManagerExt,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 
@@ -100,7 +100,7 @@ impl<'a> WasiTest<'a> {
             wasm_module.read_to_end(&mut out)?;
             out
         };
-        let runtime = TokioTaskManager::default();
+        let runtime = Arc::new(TokioTaskManager::default());
         let module = Module::new(store, wasm_bytes)?;
         let (mut env, _tempdirs, stdout_rx, stderr_rx) =
             { runtime.block_on(async { self.create_wasi_env(store, filesystem_kind).await }) }?;

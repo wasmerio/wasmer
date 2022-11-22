@@ -1,5 +1,5 @@
 use anyhow::{bail, Context};
-use std::{ops::Deref, path::PathBuf, sync::Arc};
+use std::{ops::Deref, sync::Arc};
 
 use tracing::*;
 #[allow(unused_imports)]
@@ -171,9 +171,6 @@ async fn download_webc(
     }
 
     // slow path
-    let cache_dir = cache_dir.to_string();
-    let name = name.to_string();
-
     let data = download_package(&pirita_download_url, client)
         .await
         .with_context(|| {
@@ -183,41 +180,45 @@ async fn download_webc(
             )
         })?;
 
-    let path = compute_path(cache_dir.as_str(), name.as_str());
-    let _ = std::fs::create_dir_all(path.parent().unwrap().clone());
-
-    let mut temp_path = path.clone();
-    let rand_128: u128 = rand::random();
-    temp_path = PathBuf::from(format!(
-        "{}.{}.temp",
-        temp_path.as_os_str().to_string_lossy(),
-        rand_128
-    ));
-
-    if let Err(err) = std::fs::write(temp_path.as_path(), &data[..]) {
-        debug!(
-            "failed to write webc cache file [{}] - {}",
-            temp_path.as_path().to_string_lossy(),
-            err
-        );
-    }
-    if let Err(err) = std::fs::rename(temp_path.as_path(), path.as_path()) {
-        debug!(
-            "failed to rename webc cache file [{}] - {}",
-            temp_path.as_path().to_string_lossy(),
-            err
-        );
-    }
-
     #[cfg(feature = "sys")]
-    match webc::WebCMmap::parse(path.clone(), &options) {
-        Ok(webc) => unsafe {
-            let webc = Arc::new(webc);
-            return parse_webc(webc.as_webc_ref(), webc.clone())
-                .with_context(|| format!("Could not parse webc at path '{}'", path.display()));
-        },
-        Err(err) => {
-            warn!("failed to parse WebC: {}", err);
+    {
+        let cache_dir = cache_dir.to_string();
+        let name = name.to_string();
+        let path = compute_path(cache_dir.as_str(), name.as_str());
+        let _ = std::fs::create_dir_all(path.parent().unwrap().clone());
+
+        let mut temp_path = path.clone();
+        let rand_128: u128 = rand::random();
+        temp_path = std::path::PathBuf::from(format!(
+            "{}.{}.temp",
+            temp_path.as_os_str().to_string_lossy(),
+            rand_128
+        ));
+
+        if let Err(err) = std::fs::write(temp_path.as_path(), &data[..]) {
+            debug!(
+                "failed to write webc cache file [{}] - {}",
+                temp_path.as_path().to_string_lossy(),
+                err
+            );
+        }
+        if let Err(err) = std::fs::rename(temp_path.as_path(), path.as_path()) {
+            debug!(
+                "failed to rename webc cache file [{}] - {}",
+                temp_path.as_path().to_string_lossy(),
+                err
+            );
+        }
+
+        match webc::WebCMmap::parse(path.clone(), &options) {
+            Ok(webc) => unsafe {
+                let webc = Arc::new(webc);
+                return parse_webc(webc.as_webc_ref(), webc.clone())
+                    .with_context(|| format!("Could not parse webc at path '{}'", path.display()));
+            },
+            Err(err) => {
+                warn!("failed to parse WebC: {}", err);
+            }
         }
     }
 

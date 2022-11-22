@@ -31,6 +31,7 @@ pub struct Fd {
     /// Used when reopening a [`VirtualFile`] during [`WasiState`] deserialization.
     pub open_flags: u16,
     pub inode: Inode,
+    pub is_stdio: bool,
 }
 
 impl Fd {

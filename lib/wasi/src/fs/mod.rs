@@ -7,20 +7,20 @@ use std::{
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicU32, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
         Arc, Mutex, RwLock, RwLockWriteGuard,
     },
 };
-
-#[cfg(any(feature = "wasix", feature = "sync"))]
-use std::sync::atomic::AtomicBool;
 
 use generational_arena::{Arena, Index as Inode};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
-use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
+use wasmer_vfs::{
+    host_fs::{Stderr, Stdin, Stdout},
+    FileSystem, FsError, OpenOptions, VirtualFile,
+};
 use wasmer_wasi_types::{
     types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     wasi::{
@@ -28,8 +28,6 @@ use wasmer_wasi_types::{
         PrestatEnum, Rights,
     },
 };
-
-use crate::state::{Stderr, Stdin, Stdout};
 
 pub use self::fd::{Fd, InodeVal, Kind};
 pub(crate) use self::inode_guard::{
@@ -344,6 +342,8 @@ pub fn default_fs_backing() -> Box<dyn wasmer_vfs::FileSystem + Send + Sync> {
             Box::new(wasmer_vfs::host_fs::FileSystem::default())
         } else if #[cfg(not(feature = "host-fs"))] {
             Box::new(wasmer_vfs::mem_fs::FileSystem::default())
+        } else {
+            Box::new(FallbackFileSystem::default())
         }
     }
 }
@@ -1510,6 +1510,12 @@ impl WasiFs {
         inode: Inode,
         idx: WasiFd,
     ) -> Result<(), Errno> {
+        let is_stdio = match idx {
+            __WASI_STDIN_FILENO => true,
+            __WASI_STDOUT_FILENO => true,
+            __WASI_STDERR_FILENO => true,
+            _ => false,
+        };
         self.fd_map.write().unwrap().insert(
             idx,
             Fd {
@@ -1520,6 +1526,7 @@ impl WasiFs {
                 offset: Arc::new(AtomicU64::new(0)),
                 open_flags,
                 inode,
+                is_stdio
             },
         );
         Ok(())
@@ -1539,6 +1546,7 @@ impl WasiFs {
                 offset: fd.offset.clone(),
                 open_flags: fd.open_flags,
                 inode: fd.inode,
+                is_stdio: fd.is_stdio,
             },
         );
         Ok(idx)
@@ -1643,6 +1651,7 @@ impl WasiFs {
                 open_flags: 0,
                 offset: Arc::new(AtomicU64::new(0)),
                 inode,
+                is_stdio: true
             },
         );
     }

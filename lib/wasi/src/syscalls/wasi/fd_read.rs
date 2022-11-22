@@ -105,14 +105,9 @@ fn fd_read_internal<M: MemorySize>(
     let state = env.state.clone();
     let inodes = state.inodes.clone();
 
-    let is_stdio = match fd {
-        __WASI_STDIN_FILENO => true,
-        __WASI_STDOUT_FILENO => return Ok(Errno::Inval),
-        __WASI_STDERR_FILENO => return Ok(Errno::Inval),
-        _ => false,
-    };
-
     let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
+    let is_stdio = fd_entry.is_stdio;
+
     let bytes_read = {
         if is_stdio == false {
             if !fd_entry.rights.contains(Rights::FD_READ) {
