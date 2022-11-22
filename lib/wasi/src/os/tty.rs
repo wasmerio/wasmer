@@ -213,7 +213,7 @@ impl Tty {
 
                 self.line.clear();
                 if echo {
-                    self.stdout.write("\n".as_bytes()).await;
+                    let _ = self.stdout.write("\n".as_bytes()).await;
                 }
                 let _ = self.stdin.write("\n".as_bytes()).await;
             }
@@ -386,13 +386,6 @@ impl Tty {
 
             // Now send it to the process
             let _ = self.stdin.write(data.as_ref()).await;
-            self
-        })
-    }
-
-    fn stdout(mut self, data: Cow<'static, [u8]>) -> BoxFuture<'static, Self> {
-        Box::pin(async move {
-            let _ = self.stdout.write(data.as_ref()).await;
             self
         })
     }

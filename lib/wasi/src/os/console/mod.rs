@@ -19,14 +19,15 @@ use tracing::{debug, error, info, trace, warn};
 #[cfg(feature = "sys")]
 use wasmer::Engine;
 use wasmer_vbus::{BusSpawnedProcess, SpawnOptionsConfig};
-use wasmer_vfs::{FileSystem, WasiPipe};
+use wasmer_vfs::{FileSystem, WasiPipe, RootFileSystemBuilder, SpecialFile};
+use wasmer_wasi_types::types::__WASI_STDIN_FILENO;
 
 use super::{cconst::ConsoleConst, common::*};
 use crate::{
     bin_factory::{spawn_exec, BinFactory, ModuleCache},
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
     runtime::{RuntimeStderr, RuntimeStdout},
-    VirtualTaskManagerExt, WasiEnv, WasiRuntimeImplementation, WasiState,
+    VirtualTaskManagerExt, WasiEnv, WasiRuntimeImplementation, WasiState, TtyFile,
 };
 
 //pub const DEFAULT_BOOT_WEBC: &'static str = "sharrattj/bash";
@@ -161,10 +162,19 @@ impl Console {
             state.stdin(Box::new(stdin));
         }
 
+        // If we preopen anything from the host then shallow copy it over
+        let root_fs = RootFileSystemBuilder::new()
+            .with_tty(Box::new(TtyFile::new(
+                self.runtime.clone(),
+                Box::new(SpecialFile::new(__WASI_STDIN_FILENO)),
+            )))
+            .build();
+
         // Open the root
         state
             .args(args.iter())
             .envs(envs.iter())
+            .set_sandbox_fs(root_fs)
             .preopen_dir(Path::new("/"))
             .unwrap()
             .map_dir(".", "/")
