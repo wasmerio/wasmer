@@ -4,7 +4,7 @@ version = "3.0.0-rc.2"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "CLI integration tests"
 repository = "https://github.com/wasmerio/wasmer"
-edition = "2018"
+edition = "2021"
 publish = false
 
 [dev-dependencies]
@@ -12,6 +12,10 @@ rand = "0.8.5"
 tar = "0.4.38"
 flate2 = "1.0.24"
 target-lexicon = "0.12.4"
+serde = { version = "1.0.147", features = ["derive"] }
+insta = { version = "1.21.1", features = ["json"] }
+md5 = "0.7.0"
+hex = "0.4.3"
 
 [dependencies]
 anyhow = "1"

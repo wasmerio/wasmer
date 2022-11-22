@@ -1,0 +1,24 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": null,
+    "wasm_hash": "7f838e4d318a694677b235d35418452a",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "cli_args": [],
+    "stdin": null,
+    "debug_output": false,
+    "enable_threads": true
+  },
+  "result": {
+    "Success": {
+      "stdout": "VAR1 in main before change: FirstEnum\nVAR1 in main after change: ThirdEnum(340282366920938463463374607431768211455)\nVAR1 in thread step 1: FirstEnum\nVAR1 in thread step 1: FirstEnum\nVAR1 in thread step 1: FirstEnum\nVAR1 in thread step 1: FirstEnum\nVAR1 in thread step 1: FirstEnum\nVAR1 in thread step 1: FirstEnum\nVAR1 in thread step 1: FirstEnum\nVAR1 in thread step 1: FirstEnum\nVAR1 in thread step 1: FirstEnum\nVAR1 in thread step 1: FirstEnum\nVAR1 in thread step 2: FirstEnum\nVAR1 in thread step 3: SecondEnum(4)\nVAR1 in thread step 2: FirstEnum\nVAR1 in thread step 3: SecondEnum(4)\nVAR1 in thread step 2: FirstEnum\nVAR1 in thread step 3: SecondEnum(4)\nVAR1 in thread step 1: FirstEnum\nVAR1 in thread step 2: FirstEnum\nVAR1 in thread step 3: SecondEnum(4)\nVAR1 in thread step 1: FirstEnum\nVAR1 in thread step 4: SecondEnum(4)\nVAR1 in thread step 4: SecondEnum(4)\nVAR1 in thread step 4: SecondEnum(4)\nVAR1 in thread step 2: FirstEnum\nVAR1 in thread step 3: SecondEnum(4)\nVAR1 in thread step 4: SecondEnum(4)\nVAR1 in thread step 2: FirstEnum\nVAR1 in thread step 3: SecondEnum(4)\nVAR1 in thread step 4: SecondEnum(4)\nVAR1 in thread step 2: FirstEnum\nVAR1 in thread step 3: SecondEnum(4)\nVAR1 in thread step 4: SecondEnum(4)\nVAR1 in thread step 2: FirstEnum\nVAR1 in thread step 3: SecondEnum(4)\nVAR1 in thread step 4: SecondEnum(4)\nVAR1 in thread step 2: FirstEnum\nVAR1 in thread step 3: SecondEnum(4)\nVAR1 in thread step 4: SecondEnum(4)\nVAR1 in thread step 2: FirstEnum\nVAR1 in thread step 3: SecondEnum(4)\nVAR1 in thread step 4: SecondEnum(4)\nVAR1 in thread step 2: FirstEnum\nVAR1 in thread step 3: SecondEnum(4)\nVAR1 in thread step 4: SecondEnum(4)\nVAR1 in thread step 2: FirstEnum\nVAR1 in thread step 3: SecondEnum(4)\nVAR1 in thread step 4: SecondEnum(4)\nVAR1 in thread step 4: SecondEnum(4)\nVAR1 in main after thread midpoint: SecondEnum(998877)\nVAR1 in main after thread join: SecondEnum(998877)\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}
