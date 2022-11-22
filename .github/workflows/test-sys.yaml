@@ -1,14 +1,15 @@
-name: Runtime tests
-
-env:
-  RUST_BACKTRACE: 1
+name: test-sys
 
 on:
   push:
     branches:
-      - '*'
-  pull_request:
-      types: [ synchronize ]
+      - '**'
+      - '!master'
+    pull_request:
+        types: [ synchronize ]
+
+env:
+  RUST_BACKTRACE: 1
 
 jobs:
 
