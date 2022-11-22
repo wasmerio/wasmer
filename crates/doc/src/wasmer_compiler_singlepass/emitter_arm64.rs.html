@@ -3551,13 +3551,11 @@
 <span id="3545">3545</span>
 <span id="3546">3546</span>
 <span id="3547">3547</span>
-<span id="3548">3548</span>
 </pre><pre class="rust"><code><span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::arm64_decl</span>::{<span class="ident">ARM64Register</span>, <span class="ident">ArgumentRegisterAllocator</span>, <span class="ident">GPR</span>, <span class="ident">NEON</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::codegen_error</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl::Size</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location</span>::{<span class="ident">Multiplier</span>, <span class="ident">Reg</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine::CodegenError</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine</span>::{<span class="ident">Label</span>, <span class="ident">Offset</span>};
 <span class="kw">use</span> <span class="ident">dynasm::dynasm</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">dynasmrt::aarch64</span>::{<span class="ident">encode_logical_immediate_32bit</span>, <span class="ident">encode_logical_immediate_64bit</span>};
@@ -3566,8 +3564,8 @@
     <span class="ident">VecAssembler</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
-    <span class="ident">CallingConvention</span>, <span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">FunctionBody</span>, <span class="ident">FunctionIndex</span>,
-    <span class="ident">FunctionType</span>, <span class="ident">SectionBody</span>, <span class="ident">Type</span>, <span class="ident">VMOffsets</span>,
+    <span class="ident">CallingConvention</span>, <span class="ident">CompileError</span>, <span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">FunctionBody</span>,
+    <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">SectionBody</span>, <span class="ident">Type</span>, <span class="ident">VMOffsets</span>,
 };
 
 <span class="kw">type</span> <span class="ident">Assembler</span> <span class="op">=</span> <span class="ident">VecAssembler</span><span class="op">&lt;</span><span class="ident">Aarch64Relocation</span><span class="op">&gt;</span>;
@@ -3646,43 +3644,43 @@
 
     <span class="kw">fn</span> <span class="ident">finalize_function</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>);
 
-    <span class="kw">fn</span> <span class="ident">emit_str</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">addr</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_ldr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">addr</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_str</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">addr</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_ldr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">addr</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_stur</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">reg</span>: <span class="ident">Location</span>,
         <span class="ident">addr</span>: <span class="ident">GPR</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_ldur</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">reg</span>: <span class="ident">Location</span>,
         <span class="ident">addr</span>: <span class="ident">GPR</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_strdb</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">reg</span>: <span class="ident">Location</span>,
         <span class="ident">addr</span>: <span class="ident">GPR</span>,
         <span class="ident">offset</span>: <span class="ident">u32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_stria</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">reg</span>: <span class="ident">Location</span>,
         <span class="ident">addr</span>: <span class="ident">GPR</span>,
         <span class="ident">offset</span>: <span class="ident">u32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_ldria</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">reg</span>: <span class="ident">Location</span>,
         <span class="ident">addr</span>: <span class="ident">GPR</span>,
         <span class="ident">offset</span>: <span class="ident">u32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_stpdb</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
@@ -3690,7 +3688,7 @@
         <span class="ident">reg2</span>: <span class="ident">Location</span>,
         <span class="ident">addr</span>: <span class="ident">GPR</span>,
         <span class="ident">offset</span>: <span class="ident">u32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_ldpia</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
@@ -3698,23 +3696,23 @@
         <span class="ident">reg2</span>: <span class="ident">Location</span>,
         <span class="ident">addr</span>: <span class="ident">GPR</span>,
         <span class="ident">offset</span>: <span class="ident">u32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
-    <span class="kw">fn</span> <span class="ident">emit_ldrb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_ldrh</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_ldrsb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_ldrsh</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_ldrsw</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_strb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_strh</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_ldrb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_ldrh</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_ldrsb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_ldrsh</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_ldrsw</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_strb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_strh</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
-    <span class="kw">fn</span> <span class="ident">emit_mov</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_mov</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
-    <span class="kw">fn</span> <span class="ident">emit_movn</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">val</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_movz</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">val</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_movk</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">val</span>: <span class="ident">u32</span>, <span class="ident">shift</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_movn</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">val</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_movz</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">val</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_movk</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">val</span>: <span class="ident">u32</span>, <span class="ident">shift</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
-    <span class="kw">fn</span> <span class="ident">emit_mov_imm</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">dst</span>: <span class="ident">Location</span>, <span class="ident">val</span>: <span class="ident">u64</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_mov_imm</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">dst</span>: <span class="ident">Location</span>, <span class="ident">val</span>: <span class="ident">u64</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
     <span class="kw">fn</span> <span class="ident">emit_add</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
@@ -3722,35 +3720,35 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_sub</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_mul</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_adds</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_subs</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
     <span class="kw">fn</span> <span class="ident">emit_add_lsl</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
@@ -3759,10 +3757,10 @@
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">lsl</span>: <span class="ident">u32</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
-    <span class="kw">fn</span> <span class="ident">emit_cmp</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_tst</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_cmp</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_tst</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
     <span class="kw">fn</span> <span class="ident">emit_lsl</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
@@ -3770,28 +3768,28 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_lsr</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_asr</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_ror</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
     <span class="kw">fn</span> <span class="ident">emit_or</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
@@ -3799,21 +3797,21 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_and</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_eor</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
     <span class="kw">fn</span> <span class="ident">emit_bfc</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
@@ -3821,7 +3819,7 @@
         <span class="ident">lsb</span>: <span class="ident">u32</span>,
         <span class="ident">width</span>: <span class="ident">u32</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_bfi</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">se</span>: <span class="ident">Size</span>,
@@ -3829,7 +3827,7 @@
         <span class="ident">lsb</span>: <span class="ident">u32</span>,
         <span class="ident">width</span>: <span class="ident">u32</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
     <span class="kw">fn</span> <span class="ident">emit_udiv</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
@@ -3837,14 +3835,14 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_sdiv</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// msub : c - a*b -&gt; dst</span>
     <span class="kw">fn</span> <span class="ident">emit_msub</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
@@ -3853,69 +3851,69 @@
         <span class="ident">b</span>: <span class="ident">Location</span>,
         <span class="ident">c</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
-    <span class="kw">fn</span> <span class="ident">emit_sxtb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_sxth</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_sxtw</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_uxtb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_uxth</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_sxtb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_sxth</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_sxtw</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_uxtb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_uxth</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
-    <span class="kw">fn</span> <span class="ident">emit_cset</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">dst</span>: <span class="ident">Location</span>, <span class="ident">cond</span>: <span class="ident">Condition</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_csetm</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">dst</span>: <span class="ident">Location</span>, <span class="ident">cond</span>: <span class="ident">Condition</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_cset</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">dst</span>: <span class="ident">Location</span>, <span class="ident">cond</span>: <span class="ident">Condition</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_csetm</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">dst</span>: <span class="ident">Location</span>, <span class="ident">cond</span>: <span class="ident">Condition</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_cinc</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">src</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
         <span class="ident">cond</span>: <span class="ident">Condition</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_clz</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_rbit</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_clz</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_rbit</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
-    <span class="kw">fn</span> <span class="ident">emit_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_load_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_b_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_load_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_b_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_cbz_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">label</span>: <span class="ident">Label</span>)
-        -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+        -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_cbnz_label</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">reg</span>: <span class="ident">Location</span>,
         <span class="ident">label</span>: <span class="ident">Label</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_tbz_label</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">reg</span>: <span class="ident">Location</span>,
         <span class="ident">n</span>: <span class="ident">u32</span>,
         <span class="ident">label</span>: <span class="ident">Label</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_tbnz_label</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">reg</span>: <span class="ident">Location</span>,
         <span class="ident">n</span>: <span class="ident">u32</span>,
         <span class="ident">label</span>: <span class="ident">Label</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_bcond_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">condition</span>: <span class="ident">Condition</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_bcond_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">condition</span>: <span class="ident">Condition</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_bcond_label_far</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">condition</span>: <span class="ident">Condition</span>,
         <span class="ident">label</span>: <span class="ident">Label</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_b_register</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_call_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_call_register</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_ret</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_b_register</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_call_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_call_register</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_ret</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
-    <span class="kw">fn</span> <span class="ident">emit_udf</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">payload</span>: <span class="ident">u16</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_dmb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_brk</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_udf</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">payload</span>: <span class="ident">u16</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_dmb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_brk</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
-    <span class="kw">fn</span> <span class="ident">emit_fcmp</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src1</span>: <span class="ident">Location</span>, <span class="ident">src2</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_fneg</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_fsqrt</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_fcmp</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src1</span>: <span class="ident">Location</span>, <span class="ident">src2</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_fneg</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_fsqrt</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
     <span class="kw">fn</span> <span class="ident">emit_fadd</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
@@ -3923,28 +3921,28 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_fsub</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_fmul</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_fdiv</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
     <span class="kw">fn</span> <span class="ident">emit_fmin</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
@@ -3952,19 +3950,19 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_fmax</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
-    <span class="kw">fn</span> <span class="ident">emit_frintz</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_frintn</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_frintm</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_frintp</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_frintz</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_frintn</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_frintm</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_frintp</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
     <span class="kw">fn</span> <span class="ident">emit_scvtf</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
@@ -3972,34 +3970,34 @@
         <span class="ident">src</span>: <span class="ident">Location</span>,
         <span class="ident">sz_out</span>: <span class="ident">Size</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_ucvtf</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz_in</span>: <span class="ident">Size</span>,
         <span class="ident">src</span>: <span class="ident">Location</span>,
         <span class="ident">sz_out</span>: <span class="ident">Size</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_fcvt</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz_in</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_fcvt</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz_in</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_fcvtzs</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz_in</span>: <span class="ident">Size</span>,
         <span class="ident">src</span>: <span class="ident">Location</span>,
         <span class="ident">sz_out</span>: <span class="ident">Size</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">emit_fcvtzu</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">sz_in</span>: <span class="ident">Size</span>,
         <span class="ident">src</span>: <span class="ident">Location</span>,
         <span class="ident">sz_out</span>: <span class="ident">Size</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
-    <span class="kw">fn</span> <span class="ident">emit_read_fpcr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_write_fpcr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_read_fpsr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">emit_write_fpsr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_read_fpcr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_write_fpcr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_read_fpsr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">emit_write_fpsr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
     <span class="kw">fn</span> <span class="ident">arch_supports_canonicalize_nan</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
         <span class="bool-val">true</span>
@@ -4012,7 +4010,7 @@
     <span class="kw">fn</span> <span class="ident">arch_emit_indirect_call_with_trampoline</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">_loc</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass arch_emit_indirect_call_with_trampoline unimplemented&quot;</span>)
     }
 }
@@ -4042,7 +4040,7 @@
         );
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_str</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">addr</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_str</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">addr</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">reg</span>, <span class="ident">addr</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg</span>), <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="ident">disp</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4114,7 +4112,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_ldr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">addr</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_ldr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">addr</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">reg</span>, <span class="ident">addr</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg</span>), <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="ident">disp</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4216,7 +4214,7 @@
         <span class="ident">reg</span>: <span class="ident">Location</span>,
         <span class="ident">addr</span>: <span class="ident">GPR</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">assert!</span>((<span class="op">-</span><span class="number">255</span>..<span class="op">=</span><span class="number">255</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">offset</span>));
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">reg</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg</span>)) =&gt; {
@@ -4255,7 +4253,7 @@
         <span class="ident">reg</span>: <span class="ident">Location</span>,
         <span class="ident">addr</span>: <span class="ident">GPR</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">assert!</span>((<span class="op">-</span><span class="number">255</span>..<span class="op">=</span><span class="number">255</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="ident">offset</span>));
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">reg</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg</span>)) =&gt; {
@@ -4295,7 +4293,7 @@
         <span class="ident">reg</span>: <span class="ident">Location</span>,
         <span class="ident">addr</span>: <span class="ident">GPR</span>,
         <span class="ident">offset</span>: <span class="ident">u32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">assert!</span>(<span class="ident">offset</span> <span class="op">&lt;</span><span class="op">=</span> <span class="number">255</span>);
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">reg</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg</span>)) =&gt; {
@@ -4318,7 +4316,7 @@
         <span class="ident">reg</span>: <span class="ident">Location</span>,
         <span class="ident">addr</span>: <span class="ident">GPR</span>,
         <span class="ident">offset</span>: <span class="ident">u32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">assert!</span>(<span class="ident">offset</span> <span class="op">&lt;</span><span class="op">=</span> <span class="number">255</span>);
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">reg</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg</span>)) =&gt; {
@@ -4341,7 +4339,7 @@
         <span class="ident">reg</span>: <span class="ident">Location</span>,
         <span class="ident">addr</span>: <span class="ident">GPR</span>,
         <span class="ident">offset</span>: <span class="ident">u32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">assert!</span>(<span class="ident">offset</span> <span class="op">&lt;</span><span class="op">=</span> <span class="number">255</span>);
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">reg</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg</span>)) =&gt; {
@@ -4366,7 +4364,7 @@
         <span class="ident">reg2</span>: <span class="ident">Location</span>,
         <span class="ident">addr</span>: <span class="ident">GPR</span>,
         <span class="ident">offset</span>: <span class="ident">u32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">assert!</span>(<span class="ident">offset</span> <span class="op">&lt;</span><span class="op">=</span> <span class="number">255</span>);
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">reg1</span>, <span class="ident">reg2</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg1</span>), <span class="ident">Location::GPR</span>(<span class="ident">reg2</span>)) =&gt; {
@@ -4386,7 +4384,7 @@
         <span class="ident">reg2</span>: <span class="ident">Location</span>,
         <span class="ident">addr</span>: <span class="ident">GPR</span>,
         <span class="ident">offset</span>: <span class="ident">u32</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">assert!</span>(<span class="ident">offset</span> <span class="op">&lt;</span><span class="op">=</span> <span class="number">255</span>);
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">reg1</span>, <span class="ident">reg2</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg1</span>), <span class="ident">Location::GPR</span>(<span class="ident">reg2</span>)) =&gt; {
@@ -4400,7 +4398,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_ldrb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_ldrb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">reg</span>, <span class="ident">dst</span>) {
             (<span class="ident">Location::GPR</span>(<span class="ident">reg</span>), <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="ident">offset</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4425,7 +4423,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_ldrh</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_ldrh</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">reg</span>, <span class="ident">dst</span>) {
             (<span class="ident">Location::GPR</span>(<span class="ident">reg</span>), <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="ident">offset</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4450,7 +4448,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_ldrsb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_ldrsb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">reg</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg</span>), <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="ident">offset</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4494,7 +4492,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_ldrsh</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_ldrsh</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">reg</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg</span>), <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="ident">offset</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4538,7 +4536,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_ldrsw</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_ldrsw</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">reg</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg</span>), <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="ident">offset</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4563,7 +4561,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_strb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_strb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">reg</span>, <span class="ident">dst</span>) {
             (<span class="ident">Location::GPR</span>(<span class="ident">reg</span>), <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="ident">offset</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4588,7 +4586,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_strh</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_strh</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">reg</span>, <span class="ident">dst</span>) {
             (<span class="ident">Location::GPR</span>(<span class="ident">reg</span>), <span class="ident">Location::Memory</span>(<span class="ident">addr</span>, <span class="ident">offset</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4614,7 +4612,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_mov</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_mov</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4691,7 +4689,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_movn</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">val</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_movn</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">val</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">reg</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4705,7 +4703,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_movz</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">val</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_movz</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">val</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="ident">reg</span> {
             <span class="ident">Location::GPR</span>(<span class="ident">reg</span>) =&gt; {
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4715,7 +4713,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_movk</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">val</span>: <span class="ident">u32</span>, <span class="ident">shift</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_movk</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">Location</span>, <span class="ident">val</span>: <span class="ident">u32</span>, <span class="ident">shift</span>: <span class="ident">u32</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="ident">reg</span> {
             <span class="ident">Location::GPR</span>(<span class="ident">reg</span>) =&gt; {
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4726,7 +4724,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_mov_imm</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">dst</span>: <span class="ident">Location</span>, <span class="ident">val</span>: <span class="ident">u64</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_mov_imm</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">dst</span>: <span class="ident">Location</span>, <span class="ident">val</span>: <span class="ident">u64</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="ident">dst</span> {
             <span class="ident">Location::GPR</span>(<span class="ident">dst</span>) =&gt; {
                 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4761,7 +4759,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">src2</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4831,7 +4829,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">src2</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4895,7 +4893,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">src2</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4925,7 +4923,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">src2</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -4985,7 +4983,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">src2</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5026,7 +5024,7 @@
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">lsl</span>: <span class="ident">u32</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">src2</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5046,7 +5044,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_cmp</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_cmp</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5092,7 +5090,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_tst</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_tst</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5136,7 +5134,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">src2</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5211,7 +5209,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">src2</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5286,7 +5284,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">src2</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5361,7 +5359,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">src2</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5429,7 +5427,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">src2</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5477,7 +5475,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">src2</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5525,7 +5523,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">src2</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5574,7 +5572,7 @@
         <span class="ident">lsb</span>: <span class="ident">u32</span>,
         <span class="ident">width</span>: <span class="ident">u32</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">bfc</span> <span class="ident">W</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u32</span>), <span class="ident">lsb</span>, <span class="ident">width</span>);
@@ -5593,7 +5591,7 @@
         <span class="ident">lsb</span>: <span class="ident">u32</span>,
         <span class="ident">width</span>: <span class="ident">u32</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">bfi</span> <span class="ident">W</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u32</span>), <span class="ident">W</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">u32</span>), <span class="ident">lsb</span>, <span class="ident">width</span>);
@@ -5612,7 +5610,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">src2</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5642,7 +5640,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">src2</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5675,7 +5673,7 @@
         <span class="ident">b</span>: <span class="ident">Location</span>,
         <span class="ident">c</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>, <span class="ident">dst</span>) {
             (
                 <span class="ident">Size::S32</span>,
@@ -5715,7 +5713,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_sxtb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_sxtb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5731,7 +5729,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_sxth</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_sxth</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5747,7 +5745,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_sxtw</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_sxtw</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5758,7 +5756,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_uxtb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_uxtb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5769,7 +5767,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_uxth</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_uxth</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5781,7 +5779,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_cset</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">dst</span>: <span class="ident">Location</span>, <span class="ident">cond</span>: <span class="ident">Condition</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_cset</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">dst</span>: <span class="ident">Location</span>, <span class="ident">cond</span>: <span class="ident">Condition</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span> <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5827,7 +5825,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_csetm</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">dst</span>: <span class="ident">Location</span>, <span class="ident">cond</span>: <span class="ident">Condition</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_csetm</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">dst</span>: <span class="ident">Location</span>, <span class="ident">cond</span>: <span class="ident">Condition</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span> <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5879,7 +5877,7 @@
         <span class="ident">src</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
         <span class="ident">cond</span>: <span class="ident">Condition</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5928,7 +5926,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_clz</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_clz</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5944,7 +5942,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_rbit</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_rbit</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5961,17 +5959,17 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; =&gt; <span class="ident">label</span>);
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_load_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_load_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">adr</span> <span class="ident">X</span>(<span class="ident">reg</span>), =&gt;<span class="ident">label</span>);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_b_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_b_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span> =&gt;<span class="ident">label</span>);
         <span class="prelude-val">Ok</span>(())
     }
@@ -5980,7 +5978,7 @@
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">reg</span>: <span class="ident">Location</span>,
         <span class="ident">label</span>: <span class="ident">Label</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">reg</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -5999,7 +5997,7 @@
         <span class="ident">sz</span>: <span class="ident">Size</span>,
         <span class="ident">reg</span>: <span class="ident">Location</span>,
         <span class="ident">label</span>: <span class="ident">Label</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">reg</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6019,7 +6017,7 @@
         <span class="ident">reg</span>: <span class="ident">Location</span>,
         <span class="ident">n</span>: <span class="ident">u32</span>,
         <span class="ident">label</span>: <span class="ident">Label</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">reg</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6045,7 +6043,7 @@
         <span class="ident">reg</span>: <span class="ident">Location</span>,
         <span class="ident">n</span>: <span class="ident">u32</span>,
         <span class="ident">label</span>: <span class="ident">Label</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">reg</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">reg</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">reg</span> <span class="op">=</span> <span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6065,7 +6063,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_bcond_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">condition</span>: <span class="ident">Condition</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_bcond_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">condition</span>: <span class="ident">Condition</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="ident">condition</span> {
             <span class="ident">Condition::Eq</span> =&gt; <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span>.<span class="ident">eq</span> =&gt; <span class="ident">label</span>),
             <span class="ident">Condition::Ne</span> =&gt; <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">b</span>.<span class="ident">ne</span> =&gt; <span class="ident">label</span>),
@@ -6089,7 +6087,7 @@
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">condition</span>: <span class="ident">Condition</span>,
         <span class="ident">label</span>: <span class="ident">Label</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">cont</span>: <span class="ident">Label</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_label</span>();
         <span class="kw">match</span> <span class="ident">condition</span> {
             <span class="comment">// if not condition than continue</span>
@@ -6113,37 +6111,37 @@
         <span class="self">self</span>.<span class="ident">emit_label</span>(<span class="ident">cont</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_b_register</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_b_register</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">br</span> <span class="ident">X</span>(<span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>));
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_call_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_call_label</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">bl</span> =&gt;<span class="ident">label</span>);
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_call_register</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_call_register</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">blr</span> <span class="ident">X</span>(<span class="ident">reg</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>));
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_ret</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_ret</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ret</span>);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_udf</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">payload</span>: <span class="ident">u16</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_udf</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">payload</span>: <span class="ident">u16</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">udf</span> (<span class="ident">payload</span> <span class="kw">as</span> <span class="ident">u32</span>));
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_dmb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_dmb</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">dmb</span> <span class="ident">ish</span>);
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_brk</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_brk</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">brk</span> <span class="number">0</span>);
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_fcmp</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src1</span>: <span class="ident">Location</span>, <span class="ident">src2</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_fcmp</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src1</span>: <span class="ident">Location</span>, <span class="ident">src2</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src1</span>), <span class="ident">Location::SIMD</span>(<span class="ident">src2</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6160,7 +6158,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_fneg</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_fneg</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src</span>), <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6176,7 +6174,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_fsqrt</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_fsqrt</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src</span>), <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6199,7 +6197,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src1</span>), <span class="ident">Location::SIMD</span>(<span class="ident">src2</span>), <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6229,7 +6227,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src1</span>), <span class="ident">Location::SIMD</span>(<span class="ident">src2</span>), <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6259,7 +6257,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src1</span>), <span class="ident">Location::SIMD</span>(<span class="ident">src2</span>), <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6289,7 +6287,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src1</span>), <span class="ident">Location::SIMD</span>(<span class="ident">src2</span>), <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6320,7 +6318,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src1</span>), <span class="ident">Location::SIMD</span>(<span class="ident">src2</span>), <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6350,7 +6348,7 @@
         <span class="ident">src1</span>: <span class="ident">Location</span>,
         <span class="ident">src2</span>: <span class="ident">Location</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src1</span>, <span class="ident">src2</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src1</span>), <span class="ident">Location::SIMD</span>(<span class="ident">src2</span>), <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6375,7 +6373,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_frintz</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_frintz</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src</span>), <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6391,7 +6389,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_frintn</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_frintn</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src</span>), <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6407,7 +6405,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_frintm</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_frintm</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src</span>), <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6423,7 +6421,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_frintp</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_frintp</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz</span>, <span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src</span>), <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6446,7 +6444,7 @@
         <span class="ident">src</span>: <span class="ident">Location</span>,
         <span class="ident">sz_out</span>: <span class="ident">Size</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz_in</span>, <span class="ident">src</span>, <span class="ident">sz_out</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6484,7 +6482,7 @@
         <span class="ident">src</span>: <span class="ident">Location</span>,
         <span class="ident">sz_out</span>: <span class="ident">Size</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz_in</span>, <span class="ident">src</span>, <span class="ident">sz_out</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6516,7 +6514,7 @@
         }
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_fcvt</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz_in</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_fcvt</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">sz_in</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz_in</span>, <span class="ident">src</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src</span>), <span class="ident">Location::SIMD</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6543,7 +6541,7 @@
         <span class="ident">src</span>: <span class="ident">Location</span>,
         <span class="ident">sz_out</span>: <span class="ident">Size</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz_in</span>, <span class="ident">src</span>, <span class="ident">sz_out</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src</span>), <span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6581,7 +6579,7 @@
         <span class="ident">src</span>: <span class="ident">Location</span>,
         <span class="ident">sz_out</span>: <span class="ident">Size</span>,
         <span class="ident">dst</span>: <span class="ident">Location</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> (<span class="ident">sz_in</span>, <span class="ident">src</span>, <span class="ident">sz_out</span>, <span class="ident">dst</span>) {
             (<span class="ident">Size::S32</span>, <span class="ident">Location::SIMD</span>(<span class="ident">src</span>), <span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">src</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6615,20 +6613,20 @@
     }
 
     <span class="comment">// 1 011 0100 0100 000 =&gt; fpcr</span>
-    <span class="kw">fn</span> <span class="ident">emit_read_fpcr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_read_fpcr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">mrs</span> <span class="ident">X</span>(<span class="ident">reg</span> <span class="kw">as</span> <span class="ident">u32</span>), <span class="number">0b1_011_0100_0100_000</span>);
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_write_fpcr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_write_fpcr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">msr</span> <span class="number">0b1_011_0100_0100_000</span>, <span class="ident">X</span>(<span class="ident">reg</span> <span class="kw">as</span> <span class="ident">u32</span>));
         <span class="prelude-val">Ok</span>(())
     }
     <span class="comment">// 1 011 0100 0100 001 =&gt; fpsr</span>
-    <span class="kw">fn</span> <span class="ident">emit_read_fpsr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_read_fpsr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">mrs</span> <span class="ident">X</span>(<span class="ident">reg</span> <span class="kw">as</span> <span class="ident">u32</span>), <span class="number">0b1_011_0100_0100_001</span>);
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">emit_write_fpsr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_write_fpsr</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">msr</span> <span class="number">0b1_011_0100_0100_001</span>, <span class="ident">X</span>(<span class="ident">reg</span> <span class="kw">as</span> <span class="ident">u32</span>));
         <span class="prelude-val">Ok</span>(())
     }
@@ -6637,7 +6635,7 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">gen_std_trampoline_arm64</span>(
     <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionType</span>,
     <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FunctionBody</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FunctionBody</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">Assembler::new</span>(<span class="number">0</span>);
 
     <span class="kw">let</span> <span class="ident">fptr</span> <span class="op">=</span> <span class="ident">GPR::X27</span>;
@@ -6764,7 +6762,7 @@
     <span class="ident">vmoffsets</span>: <span class="kw-2">&amp;</span><span class="ident">VMOffsets</span>,
     <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionType</span>,
     <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FunctionBody</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FunctionBody</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">Assembler::new</span>(<span class="number">0</span>);
     <span class="comment">// Allocate argument array.</span>
     <span class="kw">let</span> <span class="ident">stack_offset</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">16</span> <span class="op">*</span> <span class="ident">std::cmp::max</span>(<span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">len</span>(), <span class="ident">sig</span>.<span class="ident">results</span>().<span class="ident">len</span>());
@@ -6922,7 +6920,7 @@
     <span class="ident">index</span>: <span class="ident">FunctionIndex</span>,
     <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionType</span>,
     <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">CustomSection</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">CustomSection</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">Assembler::new</span>(<span class="number">0</span>);
 
     <span class="comment">// Singlepass internally treats all arguments as integers</span>

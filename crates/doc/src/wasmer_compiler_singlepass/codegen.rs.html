@@ -6035,12 +6035,14 @@
 <span id="6029">6029</span>
 <span id="6030">6030</span>
 <span id="6031">6031</span>
+<span id="6032">6032</span>
+<span id="6033">6033</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::address_map::get_function_address_map</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::codegen_error</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::dwarf::WriterRelocate</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location</span>::{<span class="ident">Location</span>, <span class="ident">Reg</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine</span>::{<span class="ident">CodegenError</span>, <span class="ident">Label</span>, <span class="ident">Machine</span>, <span class="ident">MachineStackOffset</span>, <span class="ident">NATIVE_PAGE_SIZE</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine</span>::{<span class="ident">Label</span>, <span class="ident">Machine</span>, <span class="ident">MachineStackOffset</span>, <span class="ident">NATIVE_PAGE_SIZE</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::unwind::UnwindFrame</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">common_decl</span>::<span class="kw-2">*</span>, <span class="ident">config::Singlepass</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
@@ -6054,7 +6056,7 @@
 <span class="kw">use</span> <span class="ident">wasmer_types::CompiledFunctionUnwindInfo</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>},
-    <span class="ident">CallingConvention</span>, <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalFunctionIndex</span>,
+    <span class="ident">CallingConvention</span>, <span class="ident">CompileError</span>, <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalFunctionIndex</span>,
     <span class="ident">LocalMemoryIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span>, <span class="ident">ModuleInfo</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationTarget</span>,
     <span class="ident">SectionIndex</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">TableStyle</span>, <span class="ident">TrapCode</span>, <span class="ident">Type</span>, <span class="ident">VMBuiltinFunctionIndex</span>,
     <span class="ident">VMOffsets</span>,
@@ -6165,7 +6167,7 @@
         }
     }
 
-    <span class="kw">fn</span> <span class="ident">promote</span>(<span class="self">self</span>, <span class="ident">depth</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FloatValue</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">promote</span>(<span class="self">self</span>, <span class="ident">depth</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FloatValue</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">FloatValue</span> {
             <span class="ident">canonicalization</span>: <span class="kw">match</span> <span class="self">self</span>.<span class="ident">canonicalization</span> {
                 <span class="prelude-val">Some</span>(<span class="ident">CanonicalizeType::F32</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">CanonicalizeType::F64</span>),
@@ -6177,7 +6179,7 @@
         <span class="prelude-val">Ok</span>(<span class="ident">ret</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">demote</span>(<span class="self">self</span>, <span class="ident">depth</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FloatValue</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">demote</span>(<span class="self">self</span>, <span class="ident">depth</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FloatValue</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">FloatValue</span> {
             <span class="ident">canonicalization</span>: <span class="kw">match</span> <span class="self">self</span>.<span class="ident">canonicalization</span> {
                 <span class="prelude-val">Some</span>(<span class="ident">CanonicalizeType::F64</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">CanonicalizeType::F32</span>),
@@ -6208,27 +6210,25 @@
 }
 
 <span class="kw">trait</span> <span class="ident">PopMany</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">peek1</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">T</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">pop1</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">pop2</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">T</span>, <span class="ident">T</span>), <span class="ident">CodegenError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">peek1</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">T</span>, <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">pop1</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">CompileError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">pop2</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">T</span>, <span class="ident">T</span>), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">PopMany</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">peek1</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">T</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">last</span>().<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">CodegenError</span> {
-            <span class="ident">message</span>: <span class="string">&quot;peek1() expects at least 1 element&quot;</span>.<span class="ident">into</span>(),
-        })
+    <span class="kw">fn</span> <span class="ident">peek1</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">T</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">last</span>()
+            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;peek1() expects at least 1 element&quot;</span>.<span class="ident">to_owned</span>()))
     }
-    <span class="kw">fn</span> <span class="ident">pop1</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">pop</span>().<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">CodegenError</span> {
-            <span class="ident">message</span>: <span class="string">&quot;pop1() expects at least 1 element&quot;</span>.<span class="ident">into</span>(),
-        })
+    <span class="kw">fn</span> <span class="ident">pop1</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">pop</span>()
+            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;pop1() expects at least 1 element&quot;</span>.<span class="ident">to_owned</span>()))
     }
-    <span class="kw">fn</span> <span class="ident">pop2</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">T</span>, <span class="ident">T</span>), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">pop2</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">T</span>, <span class="ident">T</span>), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">len</span>() <span class="op">&lt;</span> <span class="number">2</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                <span class="ident">message</span>: <span class="string">&quot;pop2() expects at least 2 elements&quot;</span>.<span class="ident">into</span>(),
-            });
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
+                <span class="string">&quot;pop2() expects at least 2 elements&quot;</span>.<span class="ident">to_owned</span>(),
+            ));
         }
 
         <span class="kw">let</span> <span class="ident">right</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop</span>().<span class="ident">unwrap</span>();
@@ -6300,7 +6300,7 @@
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">tys</span>: <span class="kw-2">&amp;</span>[(<span class="ident">WpType</span>, <span class="ident">MachineValue</span>)],
         <span class="ident">zeroed</span>: <span class="ident">bool</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">Location</span><span class="op">&lt;</span><span class="ident">M::GPR</span>, <span class="ident">M::SIMD</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">Location</span><span class="op">&lt;</span><span class="ident">M::GPR</span>, <span class="ident">M::SIMD</span><span class="op">&gt;</span>; <span class="number">1</span>]<span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="macro">smallvec!</span>[];
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">delta_stack_offset</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">0</span>;
 
@@ -6348,7 +6348,7 @@
     <span class="kw">fn</span> <span class="ident">release_locations</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">locs</span>: <span class="kw-2">&amp;</span>[<span class="ident">Location</span><span class="op">&lt;</span><span class="ident">M::GPR</span>, <span class="ident">M::SIMD</span><span class="op">&gt;</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">delta_stack_offset</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">0</span>;
 
         <span class="kw">for</span> <span class="ident">loc</span> <span class="kw">in</span> <span class="ident">locs</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
@@ -6378,16 +6378,18 @@
                         }
                         <span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> <span class="op">-</span><span class="op">=</span> <span class="number">8</span>;
                         <span class="ident">delta_stack_offset</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span>;
-                        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">pop</span>().<span class="ident">ok_or</span>(<span class="ident">CodegenError</span> {
-                            <span class="ident">message</span>: <span class="string">&quot;Empty stack_value&quot;</span>.<span class="ident">to_string</span>(),
-                        })<span class="question-mark">?</span>;
+                        <span class="self">self</span>.<span class="ident">state</span>
+                            .<span class="ident">stack_values</span>
+                            .<span class="ident">pop</span>()
+                            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;Empty stack_value&quot;</span>.<span class="ident">to_owned</span>()))<span class="question-mark">?</span>;
                     }
                 }
                 <span class="kw">_</span> =&gt; {}
             }
-            <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">wasm_stack</span>.<span class="ident">pop</span>().<span class="ident">ok_or</span>(<span class="ident">CodegenError</span> {
-                <span class="ident">message</span>: <span class="string">&quot;Pop with wasm stack empty&quot;</span>.<span class="ident">to_string</span>(),
-            })<span class="question-mark">?</span>;
+            <span class="self">self</span>.<span class="ident">state</span>
+                .<span class="ident">wasm_stack</span>
+                .<span class="ident">pop</span>()
+                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;Pop with wasm stack empty&quot;</span>.<span class="ident">to_owned</span>()))<span class="question-mark">?</span>;
         }
         <span class="kw">let</span> <span class="ident">delta_stack_offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">round_stack_adjust</span>(<span class="ident">delta_stack_offset</span>);
         <span class="kw">if</span> <span class="ident">delta_stack_offset</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
@@ -6396,7 +6398,7 @@
         <span class="prelude-val">Ok</span>(())
     }
     <span class="doccomment">/// Releases locations used for stack value.</span>
-    <span class="kw">fn</span> <span class="ident">release_locations_value</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">stack_depth</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">release_locations_value</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">stack_depth</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">delta_stack_offset</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">0</span>;
         <span class="kw">let</span> <span class="ident">locs</span>: <span class="kw-2">&amp;</span>[<span class="ident">Location</span><span class="op">&lt;</span><span class="ident">M::GPR</span>, <span class="ident">M::SIMD</span><span class="op">&gt;</span>] <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">value_stack</span>[<span class="ident">stack_depth</span>..];
 
@@ -6427,16 +6429,17 @@
                         }
                         <span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> <span class="op">-</span><span class="op">=</span> <span class="number">8</span>;
                         <span class="ident">delta_stack_offset</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span>;
-                        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">pop</span>().<span class="ident">ok_or</span>(<span class="ident">CodegenError</span> {
-                            <span class="ident">message</span>: <span class="string">&quot;Pop with values stack empty&quot;</span>.<span class="ident">to_string</span>(),
+                        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">pop</span>().<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
+                            <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;Pop with values stack empty&quot;</span>.<span class="ident">to_owned</span>())
                         })<span class="question-mark">?</span>;
                     }
                 }
                 <span class="kw">_</span> =&gt; {}
             }
-            <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">wasm_stack</span>.<span class="ident">pop</span>().<span class="ident">ok_or</span>(<span class="ident">CodegenError</span> {
-                <span class="ident">message</span>: <span class="string">&quot;Pop with wasm stack empty&quot;</span>.<span class="ident">to_string</span>(),
-            })<span class="question-mark">?</span>;
+            <span class="self">self</span>.<span class="ident">state</span>
+                .<span class="ident">wasm_stack</span>
+                .<span class="ident">pop</span>()
+                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;Pop with wasm stack empty&quot;</span>.<span class="ident">to_owned</span>()))<span class="question-mark">?</span>;
         }
 
         <span class="kw">let</span> <span class="ident">delta_stack_offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">round_stack_adjust</span>(<span class="ident">delta_stack_offset</span>);
@@ -6449,7 +6452,7 @@
     <span class="kw">fn</span> <span class="ident">release_locations_only_regs</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">locs</span>: <span class="kw-2">&amp;</span>[<span class="ident">Location</span><span class="op">&lt;</span><span class="ident">M::GPR</span>, <span class="ident">M::SIMD</span><span class="op">&gt;</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">for</span> <span class="ident">loc</span> <span class="kw">in</span> <span class="ident">locs</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
             <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">loc</span> {
                 <span class="ident">Location::GPR</span>(<span class="kw-2">ref</span> <span class="ident">x</span>) =&gt; {
@@ -6472,7 +6475,7 @@
     <span class="kw">fn</span> <span class="ident">release_locations_only_stack</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">locs</span>: <span class="kw-2">&amp;</span>[<span class="ident">Location</span><span class="op">&lt;</span><span class="ident">M::GPR</span>, <span class="ident">M::SIMD</span><span class="op">&gt;</span>],
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">delta_stack_offset</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">0</span>;
 
         <span class="kw">for</span> <span class="ident">loc</span> <span class="kw">in</span> <span class="ident">locs</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
@@ -6487,8 +6490,8 @@
                     }
                     <span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span> <span class="op">-</span><span class="op">=</span> <span class="number">8</span>;
                     <span class="ident">delta_stack_offset</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span>;
-                    <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">pop</span>().<span class="ident">ok_or</span>(<span class="ident">CodegenError</span> {
-                        <span class="ident">message</span>: <span class="string">&quot;Pop on empty value stack&quot;</span>.<span class="ident">to_string</span>(),
+                    <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">pop</span>().<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
+                        <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;Pop on empty value stack&quot;</span>.<span class="ident">to_owned</span>())
                     })<span class="question-mark">?</span>;
                 }
             }
@@ -6502,7 +6505,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">release_locations_only_osr_state</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">n</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">release_locations_only_osr_state</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">n</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">new_length</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">state</span>
             .<span class="ident">wasm_stack</span>
@@ -6513,7 +6516,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn</span> <span class="ident">release_locations_keep_state</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">stack_depth</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">release_locations_keep_state</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">stack_depth</span>: <span class="ident">usize</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">delta_stack_offset</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">0</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stack_offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stack_offset</span>.<span class="number">0</span>;
         <span class="kw">let</span> <span class="ident">locs</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">value_stack</span>[<span class="ident">stack_depth</span>..];
@@ -6547,7 +6550,7 @@
         <span class="ident">n</span>: <span class="ident">usize</span>,
         <span class="ident">sig</span>: <span class="ident">FunctionType</span>,
         <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Location</span><span class="op">&lt;</span><span class="ident">M::GPR</span>, <span class="ident">M::SIMD</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Location</span><span class="op">&lt;</span><span class="ident">M::GPR</span>, <span class="ident">M::SIMD</span><span class="op">&gt;</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="comment">// How many machine stack slots will all the locals use?</span>
         <span class="kw">let</span> <span class="ident">num_mem_slots</span> <span class="op">=</span> (<span class="number">0</span>..<span class="ident">n</span>)
             .<span class="ident">filter</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">x</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">is_local_on_stack</span>(<span class="ident">x</span>))
@@ -6702,7 +6705,7 @@
     <span class="kw">fn</span> <span class="ident">finalize_locals</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="comment">// Unwind stack to the &quot;save area&quot;.</span>
         <span class="self">self</span>.<span class="ident">machine</span>
             .<span class="ident">restore_saved_area</span>(<span class="self">self</span>.<span class="ident">save_area_offset</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>().<span class="number">0</span> <span class="kw">as</span> <span class="ident">i32</span>)<span class="question-mark">?</span>;
@@ -6733,20 +6736,20 @@
     <span class="kw">fn</span> <span class="ident">get_location_released</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">loc</span>: <span class="ident">Location</span><span class="op">&lt;</span><span class="ident">M::GPR</span>, <span class="ident">M::SIMD</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Location</span><span class="op">&lt;</span><span class="ident">M::GPR</span>, <span class="ident">M::SIMD</span><span class="op">&gt;</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Location</span><span class="op">&lt;</span><span class="ident">M::GPR</span>, <span class="ident">M::SIMD</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">release_locations</span>(<span class="kw-2">&amp;</span>[<span class="ident">loc</span>])<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">loc</span>)
     }
 
-    <span class="kw">fn</span> <span class="ident">pop_value_released</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Location</span><span class="op">&lt;</span><span class="ident">M::GPR</span>, <span class="ident">M::SIMD</span><span class="op">&gt;</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">pop</span>().<span class="ident">ok_or</span>(<span class="ident">CodegenError</span> {
-            <span class="ident">message</span>: <span class="string">&quot;pop_value_released: value stack is empty&quot;</span>.<span class="ident">to_string</span>(),
+    <span class="kw">fn</span> <span class="ident">pop_value_released</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Location</span><span class="op">&lt;</span><span class="ident">M::GPR</span>, <span class="ident">M::SIMD</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">pop</span>().<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
+            <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;pop_value_released: value stack is empty&quot;</span>.<span class="ident">to_owned</span>())
         })<span class="question-mark">?</span>;
         <span class="self">self</span>.<span class="ident">get_location_released</span>(<span class="ident">loc</span>)
     }
 
     <span class="doccomment">/// Prepare data for binary operator with 2 inputs and 1 output.</span>
-    <span class="kw">fn</span> <span class="ident">i2o1_prepare</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">ty</span>: <span class="ident">WpType</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">I2O1</span><span class="op">&lt;</span><span class="ident">M::GPR</span>, <span class="ident">M::SIMD</span><span class="op">&gt;</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">i2o1_prepare</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">ty</span>: <span class="ident">WpType</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">I2O1</span><span class="op">&lt;</span><span class="ident">M::GPR</span>, <span class="ident">M::SIMD</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">loc_b</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop_value_released</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">loc_a</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop_value_released</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">acquire_locations</span>(
@@ -6796,13 +6799,13 @@
     <span class="kw">fn</span> <span class="ident">emit_call_native</span><span class="op">&lt;</span>
         <span class="ident">I</span>: <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">Location</span><span class="op">&lt;</span><span class="ident">M::GPR</span>, <span class="ident">M::SIMD</span><span class="op">&gt;</span><span class="op">&gt;</span>,
         <span class="ident">J</span>: <span class="ident">Iterator</span><span class="op">&lt;</span><span class="ident">Item</span> <span class="op">=</span> <span class="ident">WpType</span><span class="op">&gt;</span>,
-        <span class="ident">F</span>: <span class="ident">FnOnce</span>(<span class="kw-2">&amp;mut</span> <span class="self">Self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span>,
+        <span class="ident">F</span>: <span class="ident">FnOnce</span>(<span class="kw-2">&amp;mut</span> <span class="self">Self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>,
     <span class="op">&gt;</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">cb</span>: <span class="ident">F</span>,
         <span class="ident">params</span>: <span class="ident">I</span>,
         <span class="ident">params_type</span>: <span class="ident">J</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="comment">// Values pushed in this function are above the shadow region.</span>
         <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">push</span>(<span class="ident">MachineValue::ExplicitShadow</span>);
 
@@ -6821,9 +6824,9 @@
         <span class="kw">for</span> <span class="ident">r</span> <span class="kw">in</span> <span class="ident">used_gprs</span>.<span class="ident">iter</span>() {
             <span class="kw">let</span> <span class="ident">content</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">index_from_gpr</span>(<span class="kw-2">*</span><span class="ident">r</span>).<span class="number">0</span>].<span class="ident">clone</span>();
             <span class="kw">if</span> <span class="ident">content</span> <span class="op">==</span> <span class="ident">MachineValue::Undefined</span> {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                    <span class="ident">message</span>: <span class="string">&quot;emit_call_native: Undefined used_gprs content&quot;</span>.<span class="ident">to_string</span>(),
-                });
+                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
+                    <span class="string">&quot;emit_call_native: Undefined used_gprs content&quot;</span>.<span class="ident">to_owned</span>(),
+                ));
             }
             <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">push</span>(<span class="ident">content</span>);
         }
@@ -6837,9 +6840,9 @@
                 <span class="kw">let</span> <span class="ident">content</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">register_values</span>[<span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">index_from_simd</span>(<span class="kw-2">*</span><span class="ident">r</span>).<span class="number">0</span>].<span class="ident">clone</span>();
                 <span class="kw">if</span> <span class="ident">content</span> <span class="op">==</span> <span class="ident">MachineValue::Undefined</span> {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                        <span class="ident">message</span>: <span class="string">&quot;emit_call_native: Undefined used_simds content&quot;</span>.<span class="ident">to_string</span>(),
-                    });
+                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
+                        <span class="string">&quot;emit_call_native: Undefined used_simds content&quot;</span>.<span class="ident">to_owned</span>(),
+                    ));
                 }
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">push</span>(<span class="ident">content</span>);
             }
@@ -6908,10 +6911,9 @@
                         }
                         <span class="ident">Location::Memory</span>(<span class="ident">reg</span>, <span class="ident">offset</span>) =&gt; {
                             <span class="kw">if</span> <span class="ident">reg</span> <span class="op">!</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">local_pointer</span>() {
-                                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                                    <span class="ident">message</span>: <span class="string">&quot;emit_call_native loc param: unreachable code&quot;</span>
-                                        .<span class="ident">to_string</span>(),
-                                });
+                                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
+                                    <span class="string">&quot;emit_call_native loc param: unreachable code&quot;</span>.<span class="ident">to_owned</span>(),
+                                ));
                             }
                             <span class="self">self</span>.<span class="ident">state</span>
                                 .<span class="ident">stack_values</span>
@@ -6926,9 +6928,9 @@
                         .<span class="ident">move_location_for_native</span>(<span class="ident">params_size</span>[<span class="ident">i</span>], <span class="kw-2">*</span><span class="ident">param</span>, <span class="ident">loc</span>)<span class="question-mark">?</span>;
                 }
                 <span class="kw">_</span> =&gt; {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                        <span class="ident">message</span>: <span class="string">&quot;emit_call_native loc: unreachable code&quot;</span>.<span class="ident">to_string</span>(),
-                    })
+                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
+                        <span class="string">&quot;emit_call_native loc: unreachable code&quot;</span>.<span class="ident">to_owned</span>(),
+                    ))
                 }
             }
         }
@@ -6984,14 +6986,15 @@
                     .<span class="ident">round_stack_adjust</span>(<span class="ident">stack_offset</span> <span class="op">+</span> <span class="ident">stack_padding</span>) <span class="kw">as</span> <span class="ident">u32</span>,
             )<span class="question-mark">?</span>;
             <span class="kw">if</span> (<span class="ident">stack_offset</span> <span class="op">%</span> <span class="number">8</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                    <span class="ident">message</span>: <span class="string">&quot;emit_call_native: Bad restoring stack alignement&quot;</span>.<span class="ident">to_string</span>(),
-                });
+                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
+                    <span class="string">&quot;emit_call_native: Bad restoring stack alignement&quot;</span>.<span class="ident">to_owned</span>(),
+                ));
             }
             <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">pushed_args</span> {
-                <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">pop</span>().<span class="ident">ok_or</span>(<span class="ident">CodegenError</span> {
-                    <span class="ident">message</span>: <span class="string">&quot;Pop an empty value stack&quot;</span>.<span class="ident">to_string</span>(),
-                })<span class="question-mark">?</span>;
+                <span class="self">self</span>.<span class="ident">state</span>
+                    .<span class="ident">stack_values</span>
+                    .<span class="ident">pop</span>()
+                    .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;Pop an empty value stack&quot;</span>.<span class="ident">to_owned</span>()))<span class="question-mark">?</span>;
             }
         }
 
@@ -6999,27 +7002,32 @@
         <span class="kw">if</span> <span class="op">!</span><span class="ident">used_simds</span>.<span class="ident">is_empty</span>() {
             <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">pop_used_simd</span>(<span class="kw-2">&amp;</span><span class="ident">used_simds</span>)<span class="question-mark">?</span>;
             <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="ident">used_simds</span>.<span class="ident">len</span>() {
-                <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">pop</span>().<span class="ident">ok_or</span>(<span class="ident">CodegenError</span> {
-                    <span class="ident">message</span>: <span class="string">&quot;Pop an empty value stack&quot;</span>.<span class="ident">to_string</span>(),
-                })<span class="question-mark">?</span>;
+                <span class="self">self</span>.<span class="ident">state</span>
+                    .<span class="ident">stack_values</span>
+                    .<span class="ident">pop</span>()
+                    .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;Pop an empty value stack&quot;</span>.<span class="ident">to_owned</span>()))<span class="question-mark">?</span>;
             }
         }
 
         <span class="comment">// Restore GPRs.</span>
         <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">pop_used_gpr</span>(<span class="kw-2">&amp;</span><span class="ident">used_gprs</span>)<span class="question-mark">?</span>;
         <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="ident">used_gprs</span>.<span class="ident">iter</span>().<span class="ident">rev</span>() {
-            <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">pop</span>().<span class="ident">ok_or</span>(<span class="ident">CodegenError</span> {
-                <span class="ident">message</span>: <span class="string">&quot;Pop an empty value stack&quot;</span>.<span class="ident">to_string</span>(),
-            })<span class="question-mark">?</span>;
+            <span class="self">self</span>.<span class="ident">state</span>
+                .<span class="ident">stack_values</span>
+                .<span class="ident">pop</span>()
+                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;Pop an empty value stack&quot;</span>.<span class="ident">to_owned</span>()))<span class="question-mark">?</span>;
         }
 
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">stack_values</span>.<span class="ident">pop</span>().<span class="ident">ok_or</span>(<span class="ident">CodegenError</span> {
-            <span class="ident">message</span>: <span class="string">&quot;Pop an empty value stack&quot;</span>.<span class="ident">to_string</span>(),
-        })<span class="question-mark">?</span> <span class="op">!</span><span class="op">=</span> <span class="ident">MachineValue::ExplicitShadow</span>
+        <span class="kw">if</span> <span class="self">self</span>
+            .<span class="ident">state</span>
+            .<span class="ident">stack_values</span>
+            .<span class="ident">pop</span>()
+            .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="string">&quot;Pop an empty value stack&quot;</span>.<span class="ident">to_owned</span>()))<span class="question-mark">?</span>
+            <span class="op">!</span><span class="op">=</span> <span class="ident">MachineValue::ExplicitShadow</span>
         {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                <span class="ident">message</span>: <span class="string">&quot;emit_call_native: Popped value is not ExplicitShadow&quot;</span>.<span class="ident">to_string</span>(),
-            });
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
+                <span class="string">&quot;emit_call_native: Popped value is not ExplicitShadow&quot;</span>.<span class="ident">to_owned</span>(),
+            ));
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -7033,7 +7041,7 @@
         <span class="ident">label</span>: <span class="ident">Label</span>,
         <span class="ident">params</span>: <span class="ident">I</span>,
         <span class="ident">params_type</span>: <span class="ident">J</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">emit_call_native</span>(
             <span class="op">|</span><span class="ident">this</span><span class="op">|</span> <span class="ident">this</span>.<span class="ident">machine</span>.<span class="ident">emit_call_label</span>(<span class="ident">label</span>),
             <span class="ident">params</span>,
@@ -7043,10 +7051,10 @@
     }
 
     <span class="doccomment">/// Emits a memory operation.</span>
-    <span class="kw">fn</span> <span class="ident">op_memory</span><span class="op">&lt;</span><span class="ident">F</span>: <span class="ident">FnOnce</span>(<span class="kw-2">&amp;mut</span> <span class="self">Self</span>, <span class="ident">bool</span>, <span class="ident">bool</span>, <span class="ident">i32</span>, <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span><span class="op">&gt;</span>(
+    <span class="kw">fn</span> <span class="ident">op_memory</span><span class="op">&lt;</span><span class="ident">F</span>: <span class="ident">FnOnce</span>(<span class="kw-2">&amp;mut</span> <span class="self">Self</span>, <span class="ident">bool</span>, <span class="ident">bool</span>, <span class="ident">i32</span>, <span class="ident">Label</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
         <span class="ident">cb</span>: <span class="ident">F</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">need_check</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>.<span class="ident">memory_styles</span>[<span class="ident">MemoryIndex::new</span>(<span class="number">0</span>)] {
             <span class="ident">MemoryStyle::Static</span> { .. } =&gt; <span class="bool-val">false</span>,
             <span class="ident">MemoryStyle::Dynamic</span> { .. } =&gt; <span class="bool-val">true</span>,
@@ -7082,7 +7090,7 @@
         <span class="ident">id</span>
     }
 
-    <span class="kw">fn</span> <span class="ident">emit_head</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">emit_head</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">emit_function_prolog</span>()<span class="question-mark">?</span>;
 
         <span class="comment">// Initialize locals.</span>
@@ -7127,9 +7135,9 @@
         <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">insert_stackoverflow</span>();
 
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">wasm_inst_offset</span> <span class="op">!</span><span class="op">=</span> <span class="ident">std::usize::MAX</span> {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                <span class="ident">message</span>: <span class="string">&quot;emit_head: wasm_inst_offset not std::usize::MAX&quot;</span>.<span class="ident">to_string</span>(),
-            });
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
+                <span class="string">&quot;emit_head: wasm_inst_offset not std::usize::MAX&quot;</span>.<span class="ident">to_owned</span>(),
+            ));
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -7145,7 +7153,7 @@
         <span class="ident">local_types_excluding_arguments</span>: <span class="kw-2">&amp;</span>[<span class="ident">WpType</span>],
         <span class="ident">machine</span>: <span class="ident">M</span>,
         <span class="ident">calling_convention</span>: <span class="ident">CallingConvention</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FuncGen</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">M</span><span class="op">&gt;</span>, <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">FuncGen</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">M</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">func_index</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">func_index</span>(<span class="ident">local_func_index</span>);
         <span class="kw">let</span> <span class="ident">sig_index</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">functions</span>[<span class="ident">func_index</span>];
         <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">signatures</span>[<span class="ident">sig_index</span>].<span class="ident">clone</span>();
@@ -7207,7 +7215,7 @@
         <span class="op">!</span><span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">is_empty</span>()
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">feed_operator</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">op</span>: <span class="ident">Operator</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">feed_operator</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">op</span>: <span class="ident">Operator</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="macro">assert!</span>(<span class="self">self</span>.<span class="ident">fp_stack</span>.<span class="ident">len</span>() <span class="op">&lt;</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">len</span>());
 
         <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">wasm_inst_offset</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">wasm_inst_offset</span>.<span class="ident">wrapping_add</span>(<span class="number">1</span>);
@@ -8976,9 +8984,9 @@
                         <span class="ident">WpTypeOrFuncType::Type</span>(<span class="ident">WpType::EmptyBlockType</span>) =&gt; <span class="macro">smallvec!</span>[],
                         <span class="ident">WpTypeOrFuncType::Type</span>(<span class="ident">inner_ty</span>) =&gt; <span class="macro">smallvec!</span>[<span class="ident">inner_ty</span>],
                         <span class="kw">_</span> =&gt; {
-                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                                <span class="ident">message</span>: <span class="string">&quot;If: multi-value returns not yet implemented&quot;</span>.<span class="ident">to_string</span>(),
-                            })
+                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
+                                <span class="string">&quot;If: multi-value returns not yet implemented&quot;</span>.<span class="ident">to_owned</span>(),
+                            ))
                         }
                     },
                     <span class="ident">value_stack_depth</span>: <span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">len</span>(),
@@ -9024,9 +9032,9 @@
                         <span class="ident">frame</span>.<span class="ident">if_else</span> <span class="op">=</span> <span class="ident">IfElseState::Else</span>;
                     }
                     <span class="kw">_</span> =&gt; {
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                            <span class="ident">message</span>: <span class="string">&quot;Else: frame.if_else unreachable code&quot;</span>.<span class="ident">to_string</span>(),
-                        })
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
+                            <span class="string">&quot;Else: frame.if_else unreachable code&quot;</span>.<span class="ident">to_owned</span>(),
+                        ))
                     }
                 }
             }
@@ -9099,10 +9107,9 @@
                         <span class="ident">WpTypeOrFuncType::Type</span>(<span class="ident">WpType::EmptyBlockType</span>) =&gt; <span class="macro">smallvec!</span>[],
                         <span class="ident">WpTypeOrFuncType::Type</span>(<span class="ident">inner_ty</span>) =&gt; <span class="macro">smallvec!</span>[<span class="ident">inner_ty</span>],
                         <span class="kw">_</span> =&gt; {
-                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                                <span class="ident">message</span>: <span class="string">&quot;Block: multi-value returns not yet implemented&quot;</span>
-                                    .<span class="ident">to_string</span>(),
-                            })
+                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
+                                <span class="string">&quot;Block: multi-value returns not yet implemented&quot;</span>.<span class="ident">to_owned</span>(),
+                            ))
                         }
                     },
                     <span class="ident">value_stack_depth</span>: <span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">len</span>(),
@@ -9126,10 +9133,9 @@
                         <span class="ident">WpTypeOrFuncType::Type</span>(<span class="ident">WpType::EmptyBlockType</span>) =&gt; <span class="macro">smallvec!</span>[],
                         <span class="ident">WpTypeOrFuncType::Type</span>(<span class="ident">inner_ty</span>) =&gt; <span class="macro">smallvec!</span>[<span class="ident">inner_ty</span>],
                         <span class="kw">_</span> =&gt; {
-                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                                <span class="ident">message</span>: <span class="string">&quot;Loop: multi-value returns not yet implemented&quot;</span>
-                                    .<span class="ident">to_string</span>(),
-                            })
+                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
+                                <span class="string">&quot;Loop: multi-value returns not yet implemented&quot;</span>.<span class="ident">to_owned</span>(),
+                            ))
                         }
                     },
                     <span class="ident">value_stack_depth</span>: <span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">len</span>(),
@@ -9863,9 +9869,9 @@
                 <span class="kw">let</span> <span class="ident">frame</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">control_stack</span>[<span class="number">0</span>];
                 <span class="kw">if</span> <span class="op">!</span><span class="ident">frame</span>.<span class="ident">returns</span>.<span class="ident">is_empty</span>() {
                     <span class="kw">if</span> <span class="ident">frame</span>.<span class="ident">returns</span>.<span class="ident">len</span>() <span class="op">!</span><span class="op">=</span> <span class="number">1</span> {
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                            <span class="ident">message</span>: <span class="string">&quot;Return: incorrect frame.returns&quot;</span>.<span class="ident">to_string</span>(),
-                        });
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
+                            <span class="string">&quot;Return: incorrect frame.returns&quot;</span>.<span class="ident">to_owned</span>(),
+                        ));
                     }
                     <span class="kw">let</span> <span class="ident">first_return</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">returns</span>[<span class="number">0</span>];
                     <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">last</span>().<span class="ident">unwrap</span>();
@@ -9892,9 +9898,9 @@
                     <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">control_stack</span>[<span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span> <span class="op">-</span> (<span class="ident">relative_depth</span> <span class="kw">as</span> <span class="ident">usize</span>)];
                 <span class="kw">if</span> <span class="op">!</span><span class="ident">frame</span>.<span class="ident">loop_like</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">frame</span>.<span class="ident">returns</span>.<span class="ident">is_empty</span>() {
                     <span class="kw">if</span> <span class="ident">frame</span>.<span class="ident">returns</span>.<span class="ident">len</span>() <span class="op">!</span><span class="op">=</span> <span class="number">1</span> {
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                            <span class="ident">message</span>: <span class="string">&quot;Br: incorrect frame.returns&quot;</span>.<span class="ident">to_string</span>(),
-                        });
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
+                            <span class="string">&quot;Br: incorrect frame.returns&quot;</span>.<span class="ident">to_owned</span>(),
+                        ));
                     }
                     <span class="kw">let</span> <span class="ident">first_return</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">returns</span>[<span class="number">0</span>];
                     <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="kw-2">*</span><span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">last</span>().<span class="ident">unwrap</span>();
@@ -9929,9 +9935,9 @@
                     <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">control_stack</span>[<span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span> <span class="op">-</span> (<span class="ident">relative_depth</span> <span class="kw">as</span> <span class="ident">usize</span>)];
                 <span class="kw">if</span> <span class="op">!</span><span class="ident">frame</span>.<span class="ident">loop_like</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">frame</span>.<span class="ident">returns</span>.<span class="ident">is_empty</span>() {
                     <span class="kw">if</span> <span class="ident">frame</span>.<span class="ident">returns</span>.<span class="ident">len</span>() <span class="op">!</span><span class="op">=</span> <span class="number">1</span> {
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                            <span class="ident">message</span>: <span class="string">&quot;BrIf: incorrect frame.returns&quot;</span>.<span class="ident">to_string</span>(),
-                        });
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
+                            <span class="string">&quot;BrIf: incorrect frame.returns&quot;</span>.<span class="ident">to_owned</span>(),
+                        ));
                     }
 
                     <span class="kw">let</span> <span class="ident">first_return</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">returns</span>[<span class="number">0</span>];
@@ -9960,9 +9966,7 @@
                 <span class="kw">let</span> <span class="ident">targets</span> <span class="op">=</span> <span class="ident">table</span>
                     .<span class="ident">targets</span>()
                     .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">CodegenError</span> {
-                        <span class="ident">message</span>: <span class="macro">format!</span>(<span class="string">&quot;BrTable read_table: {:?}&quot;</span>, <span class="ident">e</span>),
-                    })<span class="question-mark">?</span>;
+                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(<span class="string">&quot;BrTable read_table: {:?}&quot;</span>, <span class="ident">e</span>)))<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">default_target</span> <span class="op">=</span> <span class="ident">table</span>.<span class="ident">default</span>();
                 <span class="kw">let</span> <span class="ident">cond</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop_value_released</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">table_label</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">get_label</span>();
@@ -9985,12 +9989,10 @@
                         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">control_stack</span>[<span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span> <span class="op">-</span> (<span class="kw-2">*</span><span class="ident">target</span> <span class="kw">as</span> <span class="ident">usize</span>)];
                     <span class="kw">if</span> <span class="op">!</span><span class="ident">frame</span>.<span class="ident">loop_like</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">frame</span>.<span class="ident">returns</span>.<span class="ident">is_empty</span>() {
                         <span class="kw">if</span> <span class="ident">frame</span>.<span class="ident">returns</span>.<span class="ident">len</span>() <span class="op">!</span><span class="op">=</span> <span class="number">1</span> {
-                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                                <span class="ident">message</span>: <span class="macro">format!</span>(
-                                    <span class="string">&quot;BrTable: incorrect frame.returns for {:?}&quot;</span>,
-                                    <span class="ident">target</span>
-                                ),
-                            });
+                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(
+                                <span class="string">&quot;BrTable: incorrect frame.returns for {:?}&quot;</span>,
+                                <span class="ident">target</span>
+                            )));
                         }
 
                         <span class="kw">let</span> <span class="ident">first_return</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">returns</span>[<span class="number">0</span>];
@@ -10020,9 +10022,9 @@
                         [<span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span> <span class="op">-</span> (<span class="ident">default_target</span> <span class="kw">as</span> <span class="ident">usize</span>)];
                     <span class="kw">if</span> <span class="op">!</span><span class="ident">frame</span>.<span class="ident">loop_like</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">frame</span>.<span class="ident">returns</span>.<span class="ident">is_empty</span>() {
                         <span class="kw">if</span> <span class="ident">frame</span>.<span class="ident">returns</span>.<span class="ident">len</span>() <span class="op">!</span><span class="op">=</span> <span class="number">1</span> {
-                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                                <span class="ident">message</span>: <span class="string">&quot;BrTable: incorrect frame.returns&quot;</span>.<span class="ident">to_string</span>(),
-                            });
+                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
+                                <span class="string">&quot;BrTable: incorrect frame.returns&quot;</span>.<span class="ident">to_owned</span>(),
+                            ));
                         }
 
                         <span class="kw">let</span> <span class="ident">first_return</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">returns</span>[<span class="number">0</span>];
@@ -10106,9 +10108,9 @@
 
                     <span class="kw">if</span> <span class="op">!</span><span class="ident">frame</span>.<span class="ident">returns</span>.<span class="ident">is_empty</span>() {
                         <span class="kw">if</span> <span class="ident">frame</span>.<span class="ident">returns</span>.<span class="ident">len</span>() <span class="op">!</span><span class="op">=</span> <span class="number">1</span> {
-                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                                <span class="ident">message</span>: <span class="string">&quot;End: incorrect frame.returns&quot;</span>.<span class="ident">to_string</span>(),
-                            });
+                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
+                                <span class="string">&quot;End: incorrect frame.returns&quot;</span>.<span class="ident">to_owned</span>(),
+                            ));
                         }
                         <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">acquire_locations</span>(
                             <span class="kw-2">&amp;</span>[(
@@ -11934,9 +11936,10 @@
                 )<span class="question-mark">?</span>;
             }
             <span class="kw">_</span> =&gt; {
-                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CodegenError</span> {
-                    <span class="ident">message</span>: <span class="macro">format!</span>(<span class="string">&quot;not yet implemented: {:?}&quot;</span>, <span class="ident">op</span>),
-                });
+                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(
+                    <span class="string">&quot;not yet implemented: {:?}&quot;</span>,
+                    <span class="ident">op</span>
+                )));
             }
         }
 
@@ -11946,7 +11949,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finalize</span>(
         <span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionBodyData</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">CompiledFunction</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">UnwindFrame</span><span class="op">&gt;</span>), <span class="ident">CodegenError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">CompiledFunction</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">UnwindFrame</span><span class="op">&gt;</span>), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="comment">// Generate actual code for special labels.</span>
         <span class="self">self</span>.<span class="ident">machine</span>
             .<span class="ident">emit_label</span>(<span class="self">self</span>.<span class="ident">special_labels</span>.<span class="ident">integer_division_by_zero</span>)<span class="question-mark">?</span>;
@@ -12005,7 +12008,8 @@
         <span class="kw">let</span> <span class="ident">address_map</span> <span class="op">=</span>
             <span class="ident">get_function_address_map</span>(<span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">instructions_address_map</span>(), <span class="ident">data</span>, <span class="ident">body_len</span>);
         <span class="kw">let</span> <span class="ident">traps</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">collect_trap_information</span>();
-        <span class="kw">let</span> <span class="ident">body</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">assembler_finalize</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">body</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">assembler_finalize</span>();
+        <span class="ident">body</span>.<span class="ident">shrink_to_fit</span>();
 
         <span class="prelude-val">Ok</span>((
             <span class="ident">CompiledFunction</span> {
