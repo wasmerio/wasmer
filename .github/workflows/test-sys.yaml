@@ -54,7 +54,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-linux-musl
+          target: x86_64-unknown-linux-musl
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
