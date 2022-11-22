@@ -3,7 +3,7 @@ use crate::codegen_error;
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
 use crate::location::{Location, Reg};
-use crate::machine::{CodegenError, Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE};
+use crate::machine::{Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE};
 use crate::unwind::UnwindFrame;
 use crate::{common_decl::*, config::Singlepass};
 #[cfg(feature = "unwind")]
@@ -17,7 +17,7 @@ use wasmer_compiler::FunctionBodyData;
 use wasmer_types::CompiledFunctionUnwindInfo;
 use wasmer_types::{
     entity::{EntityRef, PrimaryMap},
-    CallingConvention, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex,
+    CallingConvention, CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex,
     LocalMemoryIndex, MemoryIndex, MemoryStyle, ModuleInfo, Relocation, RelocationTarget,
     SectionIndex, SignatureIndex, TableIndex, TableStyle, TrapCode, Type, VMBuiltinFunctionIndex,
     VMOffsets,
@@ -128,7 +128,7 @@ impl FloatValue {
         }
     }
 
-    fn promote(self, depth: usize) -> Result<FloatValue, CodegenError> {
+    fn promote(self, depth: usize) -> Result<FloatValue, CompileError> {
         let ret = FloatValue {
             canonicalization: match self.canonicalization {
                 Some(CanonicalizeType::F32) => Some(CanonicalizeType::F64),
@@ -140,7 +140,7 @@ impl FloatValue {
         Ok(ret)
     }
 
-    fn demote(self, depth: usize) -> Result<FloatValue, CodegenError> {
+    fn demote(self, depth: usize) -> Result<FloatValue, CompileError> {
         let ret = FloatValue {
             canonicalization: match self.canonicalization {
                 Some(CanonicalizeType::F64) => Some(CanonicalizeType::F32),
@@ -171,27 +171,25 @@ impl CanonicalizeType {
 }
 
 trait PopMany<T> {
-    fn peek1(&self) -> Result<&T, CodegenError>;
-    fn pop1(&mut self) -> Result<T, CodegenError>;
-    fn pop2(&mut self) -> Result<(T, T), CodegenError>;
+    fn peek1(&self) -> Result<&T, CompileError>;
+    fn pop1(&mut self) -> Result<T, CompileError>;
+    fn pop2(&mut self) -> Result<(T, T), CompileError>;
 }
 
 impl<T> PopMany<T> for Vec<T> {
-    fn peek1(&self) -> Result<&T, CodegenError> {
-        self.last().ok_or_else(|| CodegenError {
-            message: "peek1() expects at least 1 element".into(),
-        })
+    fn peek1(&self) -> Result<&T, CompileError> {
+        self.last()
+            .ok_or_else(|| CompileError::Codegen("peek1() expects at least 1 element".to_owned()))
     }
-    fn pop1(&mut self) -> Result<T, CodegenError> {
-        self.pop().ok_or_else(|| CodegenError {
-            message: "pop1() expects at least 1 element".into(),
-        })
+    fn pop1(&mut self) -> Result<T, CompileError> {
+        self.pop()
+            .ok_or_else(|| CompileError::Codegen("pop1() expects at least 1 element".to_owned()))
     }
-    fn pop2(&mut self) -> Result<(T, T), CodegenError> {
+    fn pop2(&mut self) -> Result<(T, T), CompileError> {
         if self.len() < 2 {
-            return Err(CodegenError {
-                message: "pop2() expects at least 2 elements".into(),
-            });
+            return Err(CompileError::Codegen(
+                "pop2() expects at least 2 elements".to_owned(),
+            ));
         }
 
         let right = self.pop().unwrap();
@@ -263,7 +261,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         &mut self,
         tys: &[(WpType, MachineValue)],
         zeroed: bool,
-    ) -> Result<SmallVec<[Location<M::GPR, M::SIMD>; 1]>, CodegenError> {
+    ) -> Result<SmallVec<[Location<M::GPR, M::SIMD>; 1]>, CompileError> {
         let mut ret = smallvec![];
         let mut delta_stack_offset: usize = 0;
 
@@ -311,7 +309,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     fn release_locations(
         &mut self,
         locs: &[Location<M::GPR, M::SIMD>],
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         let mut delta_stack_offset: usize = 0;
 
         for loc in locs.iter().rev() {
@@ -341,16 +339,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         }
                         self.stack_offset.0 -= 8;
                         delta_stack_offset += 8;
-                        self.state.stack_values.pop().ok_or(CodegenError {
-                            message: "Empty stack_value".to_string(),
-                        })?;
+                        self.state
+                            .stack_values
+                            .pop()
+                            .ok_or_else(|| CompileError::Codegen("Empty stack_value".to_owned()))?;
                     }
                 }
                 _ => {}
             }
-            self.state.wasm_stack.pop().ok_or(CodegenError {
-                message: "Pop with wasm stack empty".to_string(),
-            })?;
+            self.state
+                .wasm_stack
+                .pop()
+                .ok_or_else(|| CompileError::Codegen("Pop with wasm stack empty".to_owned()))?;
         }
         let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
@@ -359,7 +359,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
     /// Releases locations used for stack value.
-    fn release_locations_value(&mut self, stack_depth: usize) -> Result<(), CodegenError> {
+    fn release_locations_value(&mut self, stack_depth: usize) -> Result<(), CompileError> {
         let mut delta_stack_offset: usize = 0;
         let locs: &[Location<M::GPR, M::SIMD>] = &self.value_stack[stack_depth..];
 
@@ -390,16 +390,17 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         }
                         self.stack_offset.0 -= 8;
                         delta_stack_offset += 8;
-                        self.state.stack_values.pop().ok_or(CodegenError {
-                            message: "Pop with values stack empty".to_string(),
+                        self.state.stack_values.pop().ok_or_else(|| {
+                            CompileError::Codegen("Pop with values stack empty".to_owned())
                         })?;
                     }
                 }
                 _ => {}
             }
-            self.state.wasm_stack.pop().ok_or(CodegenError {
-                message: "Pop with wasm stack empty".to_string(),
-            })?;
+            self.state
+                .wasm_stack
+                .pop()
+                .ok_or_else(|| CompileError::Codegen("Pop with wasm stack empty".to_owned()))?;
         }
 
         let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
@@ -412,7 +413,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     fn release_locations_only_regs(
         &mut self,
         locs: &[Location<M::GPR, M::SIMD>],
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         for loc in locs.iter().rev() {
             match *loc {
                 Location::GPR(ref x) => {
@@ -435,7 +436,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     fn release_locations_only_stack(
         &mut self,
         locs: &[Location<M::GPR, M::SIMD>],
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         let mut delta_stack_offset: usize = 0;
 
         for loc in locs.iter().rev() {
@@ -450,8 +451,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     }
                     self.stack_offset.0 -= 8;
                     delta_stack_offset += 8;
-                    self.state.stack_values.pop().ok_or(CodegenError {
-                        message: "Pop on empty value stack".to_string(),
+                    self.state.stack_values.pop().ok_or_else(|| {
+                        CompileError::Codegen("Pop on empty value stack".to_owned())
                     })?;
                 }
             }
@@ -465,7 +466,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
-    fn release_locations_only_osr_state(&mut self, n: usize) -> Result<(), CodegenError> {
+    fn release_locations_only_osr_state(&mut self, n: usize) -> Result<(), CompileError> {
         let new_length = self
             .state
             .wasm_stack
@@ -476,7 +477,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
-    fn release_locations_keep_state(&mut self, stack_depth: usize) -> Result<(), CodegenError> {
+    fn release_locations_keep_state(&mut self, stack_depth: usize) -> Result<(), CompileError> {
         let mut delta_stack_offset: usize = 0;
         let mut stack_offset = self.stack_offset.0;
         let locs = &self.value_stack[stack_depth..];
@@ -510,7 +511,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         n: usize,
         sig: FunctionType,
         calling_convention: CallingConvention,
-    ) -> Result<Vec<Location<M::GPR, M::SIMD>>, CodegenError> {
+    ) -> Result<Vec<Location<M::GPR, M::SIMD>>, CompileError> {
         // How many machine stack slots will all the locals use?
         let num_mem_slots = (0..n)
             .filter(|&x| self.machine.is_local_on_stack(x))
@@ -665,7 +666,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     fn finalize_locals(
         &mut self,
         calling_convention: CallingConvention,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         // Unwind stack to the "save area".
         self.machine
             .restore_saved_area(self.save_area_offset.as_ref().unwrap().0 as i32)?;
@@ -696,20 +697,20 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     fn get_location_released(
         &mut self,
         loc: Location<M::GPR, M::SIMD>,
-    ) -> Result<Location<M::GPR, M::SIMD>, CodegenError> {
+    ) -> Result<Location<M::GPR, M::SIMD>, CompileError> {
         self.release_locations(&[loc])?;
         Ok(loc)
     }
 
-    fn pop_value_released(&mut self) -> Result<Location<M::GPR, M::SIMD>, CodegenError> {
-        let loc = self.value_stack.pop().ok_or(CodegenError {
-            message: "pop_value_released: value stack is empty".to_string(),
+    fn pop_value_released(&mut self) -> Result<Location<M::GPR, M::SIMD>, CompileError> {
+        let loc = self.value_stack.pop().ok_or_else(|| {
+            CompileError::Codegen("pop_value_released: value stack is empty".to_owned())
         })?;
         self.get_location_released(loc)
     }
 
     /// Prepare data for binary operator with 2 inputs and 1 output.
-    fn i2o1_prepare(&mut self, ty: WpType) -> Result<I2O1<M::GPR, M::SIMD>, CodegenError> {
+    fn i2o1_prepare(&mut self, ty: WpType) -> Result<I2O1<M::GPR, M::SIMD>, CompileError> {
         let loc_b = self.pop_value_released()?;
         let loc_a = self.pop_value_released()?;
         let ret = self.acquire_locations(
@@ -759,13 +760,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     fn emit_call_native<
         I: Iterator<Item = Location<M::GPR, M::SIMD>>,
         J: Iterator<Item = WpType>,
-        F: FnOnce(&mut Self) -> Result<(), CodegenError>,
+        F: FnOnce(&mut Self) -> Result<(), CompileError>,
     >(
         &mut self,
         cb: F,
         params: I,
         params_type: J,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         // Values pushed in this function are above the shadow region.
         self.state.stack_values.push(MachineValue::ExplicitShadow);
 
@@ -784,9 +785,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         for r in used_gprs.iter() {
             let content = self.state.register_values[self.machine.index_from_gpr(*r).0].clone();
             if content == MachineValue::Undefined {
-                return Err(CodegenError {
-                    message: "emit_call_native: Undefined used_gprs content".to_string(),
-                });
+                return Err(CompileError::Codegen(
+                    "emit_call_native: Undefined used_gprs content".to_owned(),
+                ));
             }
             self.state.stack_values.push(content);
         }
@@ -800,9 +801,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let content =
                     self.state.register_values[self.machine.index_from_simd(*r).0].clone();
                 if content == MachineValue::Undefined {
-                    return Err(CodegenError {
-                        message: "emit_call_native: Undefined used_simds content".to_string(),
-                    });
+                    return Err(CompileError::Codegen(
+                        "emit_call_native: Undefined used_simds content".to_owned(),
+                    ));
                 }
                 self.state.stack_values.push(content);
             }
@@ -871,10 +872,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         }
                         Location::Memory(reg, offset) => {
                             if reg != self.machine.local_pointer() {
-                                return Err(CodegenError {
-                                    message: "emit_call_native loc param: unreachable code"
-                                        .to_string(),
-                                });
+                                return Err(CompileError::Codegen(
+                                    "emit_call_native loc param: unreachable code".to_owned(),
+                                ));
                             }
                             self.state
                                 .stack_values
@@ -889,9 +889,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         .move_location_for_native(params_size[i], *param, loc)?;
                 }
                 _ => {
-                    return Err(CodegenError {
-                        message: "emit_call_native loc: unreachable code".to_string(),
-                    })
+                    return Err(CompileError::Codegen(
+                        "emit_call_native loc: unreachable code".to_owned(),
+                    ))
                 }
             }
         }
@@ -947,14 +947,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .round_stack_adjust(stack_offset + stack_padding) as u32,
             )?;
             if (stack_offset % 8) != 0 {
-                return Err(CodegenError {
-                    message: "emit_call_native: Bad restoring stack alignement".to_string(),
-                });
+                return Err(CompileError::Codegen(
+                    "emit_call_native: Bad restoring stack alignement".to_owned(),
+                ));
             }
             for _ in 0..pushed_args {
-                self.state.stack_values.pop().ok_or(CodegenError {
-                    message: "Pop an empty value stack".to_string(),
-                })?;
+                self.state
+                    .stack_values
+                    .pop()
+                    .ok_or_else(|| CompileError::Codegen("Pop an empty value stack".to_owned()))?;
             }
         }
 
@@ -962,27 +963,32 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         if !used_simds.is_empty() {
             self.machine.pop_used_simd(&used_simds)?;
             for _ in 0..used_simds.len() {
-                self.state.stack_values.pop().ok_or(CodegenError {
-                    message: "Pop an empty value stack".to_string(),
-                })?;
+                self.state
+                    .stack_values
+                    .pop()
+                    .ok_or_else(|| CompileError::Codegen("Pop an empty value stack".to_owned()))?;
             }
         }
 
         // Restore GPRs.
         self.machine.pop_used_gpr(&used_gprs)?;
         for _ in used_gprs.iter().rev() {
-            self.state.stack_values.pop().ok_or(CodegenError {
-                message: "Pop an empty value stack".to_string(),
-            })?;
+            self.state
+                .stack_values
+                .pop()
+                .ok_or_else(|| CompileError::Codegen("Pop an empty value stack".to_owned()))?;
         }
 
-        if self.state.stack_values.pop().ok_or(CodegenError {
-            message: "Pop an empty value stack".to_string(),
-        })? != MachineValue::ExplicitShadow
+        if self
+            .state
+            .stack_values
+            .pop()
+            .ok_or_else(|| CompileError::Codegen("Pop an empty value stack".to_owned()))?
+            != MachineValue::ExplicitShadow
         {
-            return Err(CodegenError {
-                message: "emit_call_native: Popped value is not ExplicitShadow".to_string(),
-            });
+            return Err(CompileError::Codegen(
+                "emit_call_native: Popped value is not ExplicitShadow".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -996,7 +1002,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         label: Label,
         params: I,
         params_type: J,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_call_native(
             |this| this.machine.emit_call_label(label),
             params,
@@ -1006,10 +1012,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     }
 
     /// Emits a memory operation.
-    fn op_memory<F: FnOnce(&mut Self, bool, bool, i32, Label) -> Result<(), CodegenError>>(
+    fn op_memory<F: FnOnce(&mut Self, bool, bool, i32, Label) -> Result<(), CompileError>>(
         &mut self,
         cb: F,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         let need_check = match self.memory_styles[MemoryIndex::new(0)] {
             MemoryStyle::Static { .. } => false,
             MemoryStyle::Dynamic { .. } => true,
@@ -1045,7 +1051,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         id
     }
 
-    fn emit_head(&mut self) -> Result<(), CodegenError> {
+    fn emit_head(&mut self) -> Result<(), CompileError> {
         self.machine.emit_function_prolog()?;
 
         // Initialize locals.
@@ -1090,9 +1096,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         self.machine.insert_stackoverflow();
 
         if self.state.wasm_inst_offset != std::usize::MAX {
-            return Err(CodegenError {
-                message: "emit_head: wasm_inst_offset not std::usize::MAX".to_string(),
-            });
+            return Err(CompileError::Codegen(
+                "emit_head: wasm_inst_offset not std::usize::MAX".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -1108,7 +1114,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         local_types_excluding_arguments: &[WpType],
         machine: M,
         calling_convention: CallingConvention,
-    ) -> Result<FuncGen<'a, M>, CodegenError> {
+    ) -> Result<FuncGen<'a, M>, CompileError> {
         let func_index = module.func_index(local_func_index);
         let sig_index = module.functions[func_index];
         let signature = module.signatures[sig_index].clone();
@@ -1170,7 +1176,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         !self.control_stack.is_empty()
     }
 
-    pub fn feed_operator(&mut self, op: Operator) -> Result<(), CodegenError> {
+    pub fn feed_operator(&mut self, op: Operator) -> Result<(), CompileError> {
         assert!(self.fp_stack.len() <= self.value_stack.len());
 
         self.state.wasm_inst_offset = self.state.wasm_inst_offset.wrapping_add(1);
@@ -2939,9 +2945,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
                         _ => {
-                            return Err(CodegenError {
-                                message: "If: multi-value returns not yet implemented".to_string(),
-                            })
+                            return Err(CompileError::Codegen(
+                                "If: multi-value returns not yet implemented".to_owned(),
+                            ))
                         }
                     },
                     value_stack_depth: self.value_stack.len(),
@@ -2987,9 +2993,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         frame.if_else = IfElseState::Else;
                     }
                     _ => {
-                        return Err(CodegenError {
-                            message: "Else: frame.if_else unreachable code".to_string(),
-                        })
+                        return Err(CompileError::Codegen(
+                            "Else: frame.if_else unreachable code".to_owned(),
+                        ))
                     }
                 }
             }
@@ -3062,10 +3068,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
                         _ => {
-                            return Err(CodegenError {
-                                message: "Block: multi-value returns not yet implemented"
-                                    .to_string(),
-                            })
+                            return Err(CompileError::Codegen(
+                                "Block: multi-value returns not yet implemented".to_owned(),
+                            ))
                         }
                     },
                     value_stack_depth: self.value_stack.len(),
@@ -3089,10 +3094,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         WpTypeOrFuncType::Type(WpType::EmptyBlockType) => smallvec![],
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
                         _ => {
-                            return Err(CodegenError {
-                                message: "Loop: multi-value returns not yet implemented"
-                                    .to_string(),
-                            })
+                            return Err(CompileError::Codegen(
+                                "Loop: multi-value returns not yet implemented".to_owned(),
+                            ))
                         }
                     },
                     value_stack_depth: self.value_stack.len(),
@@ -3826,9 +3830,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let frame = &self.control_stack[0];
                 if !frame.returns.is_empty() {
                     if frame.returns.len() != 1 {
-                        return Err(CodegenError {
-                            message: "Return: incorrect frame.returns".to_string(),
-                        });
+                        return Err(CompileError::Codegen(
+                            "Return: incorrect frame.returns".to_owned(),
+                        ));
                     }
                     let first_return = frame.returns[0];
                     let loc = *self.value_stack.last().unwrap();
@@ -3855,9 +3859,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
                 if !frame.loop_like && !frame.returns.is_empty() {
                     if frame.returns.len() != 1 {
-                        return Err(CodegenError {
-                            message: "Br: incorrect frame.returns".to_string(),
-                        });
+                        return Err(CompileError::Codegen(
+                            "Br: incorrect frame.returns".to_owned(),
+                        ));
                     }
                     let first_return = frame.returns[0];
                     let loc = *self.value_stack.last().unwrap();
@@ -3892,9 +3896,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
                 if !frame.loop_like && !frame.returns.is_empty() {
                     if frame.returns.len() != 1 {
-                        return Err(CodegenError {
-                            message: "BrIf: incorrect frame.returns".to_string(),
-                        });
+                        return Err(CompileError::Codegen(
+                            "BrIf: incorrect frame.returns".to_owned(),
+                        ));
                     }
 
                     let first_return = frame.returns[0];
@@ -3923,9 +3927,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let targets = table
                     .targets()
                     .collect::<Result<Vec<_>, _>>()
-                    .map_err(|e| CodegenError {
-                        message: format!("BrTable read_table: {:?}", e),
-                    })?;
+                    .map_err(|e| CompileError::Codegen(format!("BrTable read_table: {:?}", e)))?;
                 let default_target = table.default();
                 let cond = self.pop_value_released()?;
                 let table_label = self.machine.get_label();
@@ -3948,12 +3950,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
                     if !frame.loop_like && !frame.returns.is_empty() {
                         if frame.returns.len() != 1 {
-                            return Err(CodegenError {
-                                message: format!(
-                                    "BrTable: incorrect frame.returns for {:?}",
-                                    target
-                                ),
-                            });
+                            return Err(CompileError::Codegen(format!(
+                                "BrTable: incorrect frame.returns for {:?}",
+                                target
+                            )));
                         }
 
                         let first_return = frame.returns[0];
@@ -3983,9 +3983,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         [self.control_stack.len() - 1 - (default_target as usize)];
                     if !frame.loop_like && !frame.returns.is_empty() {
                         if frame.returns.len() != 1 {
-                            return Err(CodegenError {
-                                message: "BrTable: incorrect frame.returns".to_string(),
-                            });
+                            return Err(CompileError::Codegen(
+                                "BrTable: incorrect frame.returns".to_owned(),
+                            ));
                         }
 
                         let first_return = frame.returns[0];
@@ -4069,9 +4069,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                     if !frame.returns.is_empty() {
                         if frame.returns.len() != 1 {
-                            return Err(CodegenError {
-                                message: "End: incorrect frame.returns".to_string(),
-                            });
+                            return Err(CompileError::Codegen(
+                                "End: incorrect frame.returns".to_owned(),
+                            ));
                         }
                         let loc = self.acquire_locations(
                             &[(
@@ -5897,9 +5897,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             _ => {
-                return Err(CodegenError {
-                    message: format!("not yet implemented: {:?}", op),
-                });
+                return Err(CompileError::Codegen(format!(
+                    "not yet implemented: {:?}",
+                    op
+                )));
             }
         }
 
@@ -5909,7 +5910,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     pub fn finalize(
         mut self,
         data: &FunctionBodyData,
-    ) -> Result<(CompiledFunction, Option<UnwindFrame>), CodegenError> {
+    ) -> Result<(CompiledFunction, Option<UnwindFrame>), CompileError> {
         // Generate actual code for special labels.
         self.machine
             .emit_label(self.special_labels.integer_division_by_zero)?;
@@ -5968,7 +5969,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let address_map =
             get_function_address_map(self.machine.instructions_address_map(), data, body_len);
         let traps = self.machine.collect_trap_information();
-        let body = self.machine.assembler_finalize();
+        let mut body = self.machine.assembler_finalize();
+        body.shrink_to_fit();
 
         Ok((
             CompiledFunction {
