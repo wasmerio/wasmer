@@ -4960,6 +4960,7 @@ dependencies = [
 [[package]]
 name = "webc"
 version = "3.0.1"
+source = "git+https://github.com/wasmerio/pirita?branch=deploy#7db2952e312ef62b988dc920696bfad193a9bc30"
 dependencies = [
  "anyhow",
  "base64",
