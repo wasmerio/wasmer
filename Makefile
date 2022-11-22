@@ -527,6 +527,7 @@ test-capi-crate-%:
 		--no-default-features --features wat,compiler,wasi,middlewares,webc_runner $(capi_compiler_features) -- --nocapture
 
 test-capi-integration-%:
+	# note: you need to do make build-capi and make package-capi first!
 	# Test the Wasmer C API tests for C
 	cd lib/c-api/tests; WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make test
 	# Test the Wasmer C API examples

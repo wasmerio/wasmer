@@ -155,17 +155,35 @@ fn run_wasi_works() -> anyhow::Result<()> {
 }
 
 #[cfg(feature = "webc_runner")]
-fn package_directory(in_dir: &[(&str, PathBuf)], out: &PathBuf) {
-    use flate2::write::GzEncoder;
-    use flate2::Compression;
-    use std::fs::File;
-    let tar = File::create(out).unwrap();
-    let enc = GzEncoder::new(tar, Compression::default());
-    let mut a = tar::Builder::new(enc);
-    for (k, i) in in_dir {
-        a.append_dir_all(k, i).unwrap();
+fn package_directory(in_dir: &PathBuf, out: &PathBuf) {
+    #[cfg(unix)]
+    {
+        let mut o = std::process::Command::new("tar");
+        o.arg("-czvf");
+        o.arg(out);
+        o.arg("-C");
+        o.arg(in_dir);
+        o.arg("lib");
+        o.arg("bin");
+        o.arg("include");
+
+        println!("tar: {o:?}");
+
+        let o = o.output().unwrap();
+
+        assert!(o.status.success());
     }
-    a.finish().unwrap();
+    #[cfg(not(unix))]
+    {
+        use flate2::write::GzEncoder;
+        use flate2::Compression;
+        use std::fs::File;
+        let tar = File::create(out).unwrap();
+        let enc = GzEncoder::new(tar, Compression::none());
+        let mut a = tar::Builder::new(enc);
+        a.append_dir_all("", in_dir).unwrap();
+        a.finish().unwrap();
+    }
 }
 
 #[allow(dead_code)]

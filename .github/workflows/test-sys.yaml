@@ -202,20 +202,6 @@ jobs:
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
           echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
         shell: bash
-      - name: Test integration CLI
-        if: matrix.run_test && matrix.os != 'windows-2019'
-        shell: bash
-        run: |
-          make && make build-wasmer && make build-capi && make package-capi && make package
-          export WASMER_DIR=`pwd`/package
-          make test-integration-cli
-        env:
-          TARGET: ${{ matrix.target }}
-          TARGET_DIR: target/${{ matrix.target }}/release
-          CARGO_TARGET: --target ${{ matrix.target }}
-          WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       #- name: Test integration CLI
       #  if: matrix.run_test && matrix.os == 'windows-2019'
       #  shell: bash
@@ -261,6 +247,17 @@ jobs:
         shell: bash
         run: |
           export WASMER_DIR=`pwd`/package && make test-capi
+      - name: Test integration CLI
+        if: matrix.run_test && matrix.os != 'windows-2019'
+        shell: bash
+        run: |
+          make build-wasmer && make build-capi && make package-capi && make package && export WASMER_DIR=`pwd`/package && make test-integration-cli
+        env:
+          TARGET: ${{ matrix.target }}
+          TARGET_DIR: target/${{ matrix.target }}/release
+          CARGO_TARGET: --target ${{ matrix.target }}
+          WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build Doc
         if: matrix.run_build_docs
         run: |
