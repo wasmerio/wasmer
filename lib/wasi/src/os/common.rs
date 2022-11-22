@@ -1,7 +1,5 @@
 pub type Pid = u32;
 
-pub const MAX_MPSC: usize = std::usize::MAX >> 3;
-
 pub fn is_mobile(user_agent: &str) -> bool {
     user_agent.contains("Android")
         || user_agent.contains("BlackBerry")

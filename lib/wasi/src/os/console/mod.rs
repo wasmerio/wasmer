@@ -26,7 +26,7 @@ use crate::{
     bin_factory::{spawn_exec, BinFactory, ModuleCache},
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
     runtime::{RuntimeStderr, RuntimeStdout},
-    WasiEnv, WasiRuntimeImplementation, WasiState,
+    WasiEnv, WasiRuntimeImplementation, WasiState, VirtualTaskManagerExt,
 };
 
 //pub const DEFAULT_BOOT_WEBC: &'static str = "sharrattj/bash";
@@ -147,11 +147,6 @@ impl Console {
         };
         let envs = self.env.clone();
 
-        // Display the welcome message
-        if self.whitelabel == false && self.no_welcome == false {
-            self.draw_welcome();
-        }
-
         // Build a new store that will be passed to the thread
         let store = self.compiled_modules.new_store();
 
@@ -190,13 +185,23 @@ impl Console {
             self.runtime.clone(),
         );
 
+        // Display the welcome message
+        let tasks = env.tasks.clone();
+        if self.whitelabel == false && self.no_welcome == false {
+            tasks.block_on(async {
+                self.draw_welcome().await
+            });
+        }
+
         // Find the binary
         if let Some(binary) =
             self.compiled_modules
                 .get_webc(webc, self.runtime.deref(), env.tasks.deref())
         {
             if let Err(err) = env.uses(self.uses.clone()) {
-                let _ = self.runtime.stderr(format!("{}\r\n", err).as_bytes());
+                tasks.block_on(async {
+                    let _ = self.runtime.stderr(format!("{}\r\n", err).as_bytes()).await;
+                });
                 return Err(wasmer_vbus::VirtualBusError::BadRequest);
             }
 
@@ -222,14 +227,17 @@ impl Console {
             // Return the process
             Ok(process)
         } else {
-            let _ = self
-                .runtime
-                .stderr(format!("package not found [{}]\r\n", self.boot_cmd).as_bytes());
+            tasks.block_on(async {
+                let _ = self
+                    .runtime
+                    .stderr(format!("package not found [{}]\r\n", self.boot_cmd).as_bytes())
+                    .await;
+            });
             Err(wasmer_vbus::VirtualBusError::NotFound)
         }
     }
 
-    pub fn draw_welcome(&self) {
+    pub async fn draw_welcome(&self) {
         let welcome = match (self.is_mobile, self.is_ssh) {
             (true, _) => ConsoleConst::WELCOME_MEDIUM,
             (_, true) => ConsoleConst::WELCOME_SMALL,
@@ -241,6 +249,6 @@ impl Console {
             .replace("\\n", "\n");
         data.insert_str(0, ConsoleConst::TERM_NO_WRAPAROUND);
 
-        let _ = self.runtime.stdout(data.as_str().as_bytes());
+        let _ = self.runtime.stdout(data.as_str().as_bytes()).await;
     }
 }

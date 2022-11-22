@@ -181,7 +181,7 @@ impl Tty {
             let options = self.options.inner.lock().unwrap();
             if options.echo {
                 drop(options);
-                self.stdout("\n".as_bytes());
+                self.stdout("\n".as_bytes()).await;
             }
         }
 
@@ -189,7 +189,7 @@ impl Tty {
         let _ = self.stdin.write(data.as_bytes()).await;
     }
 
-    fn on_ctrl_c(&mut self, _data: &str) {
+    async fn on_ctrl_c(&mut self, _data: &str) {
         if let Some(signaler) = self.signaler.as_ref() {
             signaler.signal(Signal::Sigint as u8);
 
@@ -200,13 +200,13 @@ impl Tty {
 
             self.line.clear();
             if echo {
-                self.stdout("\n".as_bytes());
+                self.stdout("\n".as_bytes()).await;
             }
-            let _ = self.stdin.write("\n".as_bytes());
+            let _ = self.stdin.write("\n".as_bytes()).await;
         }
     }
 
-    fn on_backspace(&mut self, _data: &str) {
+    async fn on_backspace(&mut self, _data: &str) {
         // Remove a character (if there are none left we are done)
         if self.line.is_empty() {
             return;
@@ -219,54 +219,54 @@ impl Tty {
             let options = self.options.inner.lock().unwrap();
             if options.echo {
                 drop(options);
-                self.stdout("\u{0008} \u{0008}".as_bytes());
+                self.stdout("\u{0008} \u{0008}".as_bytes()).await;
             }
         }
     }
 
-    fn on_tab(&mut self, _data: &str) {}
+    async fn on_tab(&mut self, _data: &str) {}
 
-    fn on_cursor_left(&mut self, _data: &str) {}
+    async fn on_cursor_left(&mut self, _data: &str) {}
 
-    fn on_cursor_right(&mut self, _data: &str) {}
+    async fn on_cursor_right(&mut self, _data: &str) {}
 
-    fn on_cursor_up(&mut self, _data: &str) {}
+    async fn on_cursor_up(&mut self, _data: &str) {}
 
-    fn on_cursor_down(&mut self, _data: &str) {}
+    async fn on_cursor_down(&mut self, _data: &str) {}
 
-    fn on_home(&mut self, _data: &str) {}
+    async fn on_home(&mut self, _data: &str) {}
 
-    fn on_end(&mut self, _data: &str) {}
+    async fn on_end(&mut self, _data: &str) {}
 
-    fn on_ctrl_l(&mut self, _data: &str) {}
+    async fn on_ctrl_l(&mut self, _data: &str) {}
 
-    fn on_page_up(&mut self, _data: &str) {}
+    async fn on_page_up(&mut self, _data: &str) {}
 
-    fn on_page_down(&mut self, _data: &str) {}
+    async fn on_page_down(&mut self, _data: &str) {}
 
-    fn on_f1(&mut self, _data: &str) {}
+    async fn on_f1(&mut self, _data: &str) {}
 
-    fn on_f2(&mut self, _data: &str) {}
+    async fn on_f2(&mut self, _data: &str) {}
 
-    fn on_f3(&mut self, _data: &str) {}
+    async fn on_f3(&mut self, _data: &str) {}
 
-    fn on_f4(&mut self, _data: &str) {}
+    async fn on_f4(&mut self, _data: &str) {}
 
-    fn on_f5(&mut self, _data: &str) {}
+    async fn on_f5(&mut self, _data: &str) {}
 
-    fn on_f6(&mut self, _data: &str) {}
+    async fn on_f6(&mut self, _data: &str) {}
 
-    fn on_f7(&mut self, _data: &str) {}
+    async fn on_f7(&mut self, _data: &str) {}
 
-    fn on_f8(&mut self, _data: &str) {}
+    async fn on_f8(&mut self, _data: &str) {}
 
-    fn on_f9(&mut self, _data: &str) {}
+    async fn on_f9(&mut self, _data: &str) {}
 
-    fn on_f10(&mut self, _data: &str) {}
+    async fn on_f10(&mut self, _data: &str) {}
 
-    fn on_f11(&mut self, _data: &str) {}
+    async fn on_f11(&mut self, _data: &str) {}
 
-    fn on_f12(&mut self, _data: &str) {}
+    async fn on_f12(&mut self, _data: &str) {}
 
     async fn on_data(&mut self, data: &[u8]) {
         // If we are line buffering then we need to check for some special cases
@@ -278,33 +278,33 @@ impl Tty {
             let data = data.as_ref();
             return match data {
                 "\r" | "\u{000A}" => self.on_enter(data).await,
-                "\u{0003}" => self.on_ctrl_c(data),
-                "\u{007F}" => self.on_backspace(data),
-                "\u{0009}" => self.on_tab(data),
-                "\u{001B}\u{005B}\u{0044}" => self.on_cursor_left(data),
-                "\u{001B}\u{005B}\u{0043}" => self.on_cursor_right(data),
-                "\u{0001}" | "\u{001B}\u{005B}\u{0048}" => self.on_home(data),
-                "\u{001B}\u{005B}\u{0046}" => self.on_end(data),
-                "\u{001B}\u{005B}\u{0041}" => self.on_cursor_up(data),
-                "\u{001B}\u{005B}\u{0042}" => self.on_cursor_down(data),
-                "\u{000C}" => self.on_ctrl_l(data),
-                "\u{001B}\u{005B}\u{0035}\u{007E}" => self.on_page_up(data),
-                "\u{001B}\u{005B}\u{0036}\u{007E}" => self.on_page_down(data),
-                "\u{001B}\u{004F}\u{0050}" => self.on_f1(data),
-                "\u{001B}\u{004F}\u{0051}" => self.on_f2(data),
-                "\u{001B}\u{004F}\u{0052}" => self.on_f3(data),
-                "\u{001B}\u{004F}\u{0053}" => self.on_f4(data),
-                "\u{001B}\u{005B}\u{0031}\u{0035}\u{007E}" => self.on_f5(data),
-                "\u{001B}\u{005B}\u{0031}\u{0037}\u{007E}" => self.on_f6(data),
-                "\u{001B}\u{005B}\u{0031}\u{0038}\u{007E}" => self.on_f7(data),
-                "\u{001B}\u{005B}\u{0031}\u{0039}\u{007E}" => self.on_f8(data),
-                "\u{001B}\u{005B}\u{0032}\u{0030}\u{007E}" => self.on_f9(data),
-                "\u{001B}\u{005B}\u{0032}\u{0031}\u{007E}" => self.on_f10(data),
-                "\u{001B}\u{005B}\u{0032}\u{0033}\u{007E}" => self.on_f11(data),
-                "\u{001B}\u{005B}\u{0032}\u{0034}\u{007E}" => self.on_f12(data),
+                "\u{0003}" => self.on_ctrl_c(data).await,
+                "\u{007F}" => self.on_backspace(data).await,
+                "\u{0009}" => self.on_tab(data).await,
+                "\u{001B}\u{005B}\u{0044}" => self.on_cursor_left(data).await,
+                "\u{001B}\u{005B}\u{0043}" => self.on_cursor_right(data).await,
+                "\u{0001}" | "\u{001B}\u{005B}\u{0048}" => self.on_home(data).await,
+                "\u{001B}\u{005B}\u{0046}" => self.on_end(data).await,
+                "\u{001B}\u{005B}\u{0041}" => self.on_cursor_up(data).await,
+                "\u{001B}\u{005B}\u{0042}" => self.on_cursor_down(data).await,
+                "\u{000C}" => self.on_ctrl_l(data).await,
+                "\u{001B}\u{005B}\u{0035}\u{007E}" => self.on_page_up(data).await,
+                "\u{001B}\u{005B}\u{0036}\u{007E}" => self.on_page_down(data).await,
+                "\u{001B}\u{004F}\u{0050}" => self.on_f1(data).await,
+                "\u{001B}\u{004F}\u{0051}" => self.on_f2(data).await,
+                "\u{001B}\u{004F}\u{0052}" => self.on_f3(data).await,
+                "\u{001B}\u{004F}\u{0053}" => self.on_f4(data).await,
+                "\u{001B}\u{005B}\u{0031}\u{0035}\u{007E}" => self.on_f5(data).await,
+                "\u{001B}\u{005B}\u{0031}\u{0037}\u{007E}" => self.on_f6(data).await,
+                "\u{001B}\u{005B}\u{0031}\u{0038}\u{007E}" => self.on_f7(data).await,
+                "\u{001B}\u{005B}\u{0031}\u{0039}\u{007E}" => self.on_f8(data).await,
+                "\u{001B}\u{005B}\u{0032}\u{0030}\u{007E}" => self.on_f9(data).await,
+                "\u{001B}\u{005B}\u{0032}\u{0031}\u{007E}" => self.on_f10(data).await,
+                "\u{001B}\u{005B}\u{0032}\u{0033}\u{007E}" => self.on_f11(data).await,
+                "\u{001B}\u{005B}\u{0032}\u{0034}\u{007E}" => self.on_f12(data).await,
                 data => {
                     if echo == true {
-                        self.stdout(data.as_bytes());
+                        self.stdout(data.as_bytes()).await;
                     }
                     self.line.push_str(data);
                 }
@@ -314,17 +314,17 @@ impl Tty {
         // If the echo is enabled then write it to the terminal
         if options.echo == true {
             drop(options);
-            self.stdout(data);
+            self.stdout(data).await;
         } else {
             drop(options);
         }
 
         // Now send it to the process
-        let _ = self.stdin.write(data);
+        let _ = self.stdin.write(data).await;
     }
 
-    fn stdout(&mut self, data: &[u8]) {
-        let _ = self.stdout.write(&data[..]);
+    async fn stdout(&mut self, data: &[u8]) {
+        let _ = self.stdout.write(&data[..]).await;
     }
 }
 

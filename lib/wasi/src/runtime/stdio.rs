@@ -51,7 +51,11 @@ impl AsyncWrite for RuntimeStdout {
         if let Some((writing, buf2)) = self.writing.as_mut() {
             if *buf2 == buf_ptr {
                 let writing = writing.as_mut();
-                return match writing.poll(cx) {
+                let written = writing.poll(cx);
+                if written.is_ready() {
+                    self.writing.take();
+                }
+                return match written {
                     Poll::Pending => Poll::Pending,
                     Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
                     Poll::Ready(Ok(())) => Poll::Ready(Ok(buf.len())),
@@ -62,7 +66,11 @@ impl AsyncWrite for RuntimeStdout {
         self.writing.replace((stdout, buf_ptr));
         let (writing, _) = self.writing.as_mut().unwrap();
         let writing = writing.as_mut();
-        match writing.poll(cx) {
+        let written = writing.poll(cx);
+        if written.is_ready() {
+            self.writing.take();
+        }
+        match written {
             Poll::Pending => Poll::Pending,
             Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
             Poll::Ready(Ok(())) => Poll::Ready(Ok(buf.len())),
@@ -166,7 +174,11 @@ impl AsyncWrite for RuntimeStderr {
         if let Some((writing, buf2)) = self.writing.as_mut() {
             if *buf2 == buf_ptr {
                 let writing = writing.as_mut();
-                return match writing.poll(cx) {
+                let written = writing.poll(cx);
+                if written.is_ready() {
+                    self.writing.take();
+                }
+                return match written {
                     Poll::Pending => Poll::Pending,
                     Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
                     Poll::Ready(Ok(())) => Poll::Ready(Ok(buf.len())),
@@ -177,7 +189,11 @@ impl AsyncWrite for RuntimeStderr {
         self.writing.replace((stdout, buf_ptr));
         let (writing, _) = self.writing.as_mut().unwrap();
         let writing = writing.as_mut();
-        match writing.poll(cx) {
+        let written = writing.poll(cx);
+        if written.is_ready() {
+            self.writing.take();
+        }
+        match written {
             Poll::Pending => Poll::Pending,
             Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
             Poll::Ready(Ok(())) => Poll::Ready(Ok(buf.len())),
