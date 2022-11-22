@@ -5,7 +5,8 @@
 We should see these four directories by default
 
 ```sh
-cargo run --features compiler,cranelift -- /prog/deploy/wasmer-web/public/bin/coreutils.wasm ls
+cd ../../cli
+cargo run --features compiler,cranelift -- ../wasi/tests/coreutils.wasm ls
 ```
 
 Expected:
@@ -23,7 +24,8 @@ This test ensures that the dev character devices are working properly, there sho
 send it both to the console and to the file
 
 ```sh
-echo blah | cargo run --features compiler,cranelift -- /prog/deploy/wasmer-web/public/bin/coreutils.wasm tee /dev/stderr
+cd ../../cli
+echo blah | cargo run --features compiler,cranelift -- ../wasi/tests/coreutils.wasm tee /dev/stderr
 ```
 
 Expected:
@@ -39,7 +41,8 @@ When we convert this from syscalls to native language constructs in WASM this te
 needs to continue to pass.
 
 ```sh
-cargo run --features compiler,cranelift,debug -- /prog/deploy/wasmer-web/public/bin/example-condvar.wasm
+cd ../../cli
+cargo run --features compiler,cranelift,debug -- ../wasi/tests/example-condvar.wasm
 ```
 
 Expected:
@@ -64,7 +67,8 @@ all done
 Piping to cowsay should, well.... display a cow that says something
 
 ```sh
-echo blah | cargo run --features compiler,cranelift,debug -- /prog/deploy/wasmer-web/public/bin/cowsay.wasm
+cd ../../cli
+echo blah | cargo run --features compiler,cranelift,debug -- ../wasi/tests/cowsay.wasm
 ```
 
 Expected:
@@ -86,7 +90,8 @@ This test makes sure the event notifications works correctly `fd_event` - this c
 in `tokio` in order to wake up the main IO thread that is blocked on an `poll_oneoff`.
 
 ```sh
-cargo run --features compiler,cranelift,debug -- /prog/deploy/wasmer-web/public/bin/example-epoll.wasm
+cd ../../cli
+cargo run --features compiler,cranelift,debug -- ../wasi/tests/example-epoll.wasm
 ```
 
 Expected:
@@ -111,7 +116,8 @@ The ability to fork the current process and run a different image but retain the
 file handles (which is needed for stdin and stdout redirection)
 
 ```sh
-cargo run --features compiler,cranelift,debug -- --use sharrattj/coreutils --enable-threads /prog/deploy/wasmer-web/public/bin/example
+cd ../../cli
+cargo run --features compiler,cranelift,debug -- --use sharrattj/coreutils --enable-threads ../wasi/tests/example
 -execve.wasm
 ```
 
@@ -126,46 +132,14 @@ execve: echo hi-from-parent
 hi-from-parent
 ```
 
-## fork
-
-Simple fork example that is a crude multi-threading implementation - used by `dash`
-
-```sh
-cargo run --features compiler,cranelift,debug -- --enable-threads /prog/deploy/wasmer-web/public/bin/example-fork.wasm
-```
-
-Expected:
-
-```
-Parent has x = 0
-Child has x = 2
-Child(1) exited with 0
-```
-
-## fork and longjmp
-
-Performs a longjmp of a stack that was recorded before the fork - this test ensures that the stacks that have
-been recorded are preserved after a fork. The behavior is needed for `dash`
-
-```sh
-cargo run --features compiler,cranelift,debug -- --enable-threads /prog/deploy/wasmer-web/public/bin/example-fork-longjmp.wasm
-```
-
-Expected:
-
-```
-Parent has x = 0
-Child has x = 2
-Child(1) exited with 5
-```
-
 ## longjmp
 
 longjmp is used by C programs that save and restore the stack at specific points - this functionality
 is often used for exception handling
 
 ```sh
-cargo run --features compiler,cranelift,debug -- --enable-threads /prog/deploy/wasmer-web/public/bin/example-longjmp.wasm
+cd ../../cli
+cargo run --features compiler,cranelift,debug -- --enable-threads ../wasi/tests/example-longjmp.wasm
 ```
 
 Expected:
@@ -185,7 +159,8 @@ Expected:
 This one is initiated from `rust` code and thus has the risk of leaking memory but uses different interfaces
 
 ```sh
-cargo run --features compiler,cranelift,debug -- --enable-threads /prog/deploy/wasmer-web/public/bin/example-stack.wasm
+cd ../../cli
+cargo run --features compiler,cranelift,debug -- --enable-threads ../wasi/tests/example-stack.wasm
 ```
 
 Expected:
@@ -197,12 +172,48 @@ before long jump
 after long jump [val=20]
 ```
 
+## fork
+
+Simple fork example that is a crude multi-threading implementation - used by `dash`
+
+```sh
+cd ../../cli
+cargo run --features compiler,cranelift,debug -- --enable-threads ../wasi/tests/example-fork.wasm
+```
+
+Expected:
+
+```
+Parent has x = 0
+Child has x = 2
+Child(1) exited with 0
+```
+
+## fork and longjmp
+
+Performs a longjmp of a stack that was recorded before the fork - this test ensures that the stacks that have
+been recorded are preserved after a fork. The behavior is needed for `dash`
+
+```sh
+cd ../../cli
+cargo run --features compiler,cranelift,debug -- --enable-threads ../wasi/tests/example-fork-longjmp.wasm
+```
+
+Expected:
+
+```
+Parent has x = 0
+Child has x = 2
+Child(1) exited with 5
+```
+
 ### multi threading
 
 full multi-threading with shared memory and shared compiled modules
 
 ```sh
-cargo run --features compiler,cranelift,debug -- --enable-threads /prog/deploy/wasmer-web/public/bin/example-multi-threading.wasm
+cd ../../cli
+cargo run --features compiler,cranelift,debug -- --enable-threads ../wasi/tests/example-multi-threading.wasm
 ```
 
 Expected:
@@ -236,7 +247,8 @@ Uses the `fd_pipe` syscall to create a bidirection pipe with two file descriptor
 the process to write and read to this pipe.
 
 ```sh
-cargo run --features compiler,cranelift,debug -- --enable-threads /prog/deploy/wasmer-web/public/bin/example-pipe.wasm
+cd ../../cli
+cargo run --features compiler,cranelift,debug -- --enable-threads ../wasi/tests/example-pipe.wasm
 ```
 
 Expected:
@@ -251,7 +263,7 @@ this text should be printed by the parent
 Tests that signals can be received and processed by WASM applications
 
 ```sh
-cargo run --features compiler,cranelift,debug -- --enable-threads /prog/deploy/wasmer-web/public/bin/example-signal.wasm
+cargo run --features compiler,cranelift,debug -- --enable-threads ../wasi/tests/example-signal.wasm
 ```
 
 Note: This test requires that a signal is sent to the process asynchronously
@@ -272,7 +284,8 @@ received SIGHUP
 Puts the process to sleep for 50ms
 
 ```sh
-cargo run --features compiler,cranelift,debug -- --enable-threads /prog/deploy/wasmer-web/public/bin/example-sleep.wasm
+cd ../../cli
+cargo run --features compiler,cranelift,debug -- --enable-threads ../wasi/tests/example-sleep.wasm
 ```
 
 Expected:
@@ -285,7 +298,8 @@ Expected:
 Uses `posix_spawn` to launch a sub-process and wait on it to exit
 
 ```sh
-cargo run --features compiler,cranelift,debug -- --enable-threads --use sharrattj/coreutils /prog/deploy/wasmer-web/public/bin/example
+cd ../../cli
+cargo run --features compiler,cranelift,debug -- --enable-threads --use sharrattj/coreutils ../wasi/tests/example
 -spawn.wasm
 ```
 
@@ -302,7 +316,8 @@ Child status 0
 Connects to 8.8.8.8:53 over TCP to verify TCP clients work
 
 ```sh
-cargo run --features compiler,cranelift,debug -- --enable-threads /prog/deploy/wasmer-web/public/bin/example-tcp-client.wasm
+cd ../../cli
+cargo run --features compiler,cranelift,debug -- --enable-threads ../wasi/tests/example-tcp-client.wasm
 ```
 
 Expected:
@@ -317,7 +332,8 @@ Finished.
 Waits for a connection after listening on 127.0.0.1:7878
 
 ```sh
-cargo run --features compiler,cranelift,debug -- --enable-threads /prog/deploy/wasmer-web/public/bin/example-tcp-listener.wasm
+cd ../../cli
+cargo run --features compiler,cranelift,debug -- --enable-threads ../wasi/tests/example-tcp-listener.wasm
 ```
 
 In order to test this a curl command is needed below asynchronously and then it needs to be killed
@@ -338,7 +354,8 @@ Connection established!
 Tests that thread local variables work correctly
 
 ```sh
-cargo run --features compiler,cranelift,debug -- --enable-threads /prog/deploy/wasmer-web/public/bin/example-thread-local.wasm
+cd ../../cli
+cargo run --features compiler,cranelift,debug -- --enable-threads ../wasi/tests/example-thread-local.wasm
 ```
 
 Expected:
@@ -404,7 +421,8 @@ Tests that lightweight forking that does not copy the memory but retains the
 open file descriptors works correctly.
 
 ```sh
-cargo run --features compiler,cranelift,debug -- --enable-threads /prog/deploy/wasmer-web/public/bin/example-vfork.wasm
+cd ../../cli
+cargo run --features compiler,cranelift,debug -- --enable-threads ../wasi/tests/example-vfork.wasm
 ```
 
 Expected:
@@ -421,7 +439,8 @@ and mapped directories to serve HTTP content.
 
 
 ```sh
-cargo run --features compiler,cranelift,debug -- --enable-threads --mapdir /public:/prog/deploy/wasmer-web/public /prog/deploy/wasmer-web/public/bin/web-server.wasm -- --port 8080 --log-level trace
+cd ../../cli
+cargo run --features compiler,cranelift,debug -- --enable-threads --mapdir /public:/prog/deploy/wasmer-web/public ../wasi/tests/web-server.wasm -- --port 8080 --log-level trace
 ```
 
 Note: This requires that a curl command be made to the HTTP server asynchronously
