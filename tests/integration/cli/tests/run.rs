@@ -285,11 +285,7 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
         tmp_targz_path.display()
     );
     package_directory(
-        &[
-            ("bin", package_path.join("bin")),
-            ("include", package_path.join("include")),
-            ("lib", package_path.join("lib")),
-        ],
+        &package_path,
         &std::path::Path::new("./out.tar.gz").to_path_buf(),
     );
     std::fs::copy("./out.tar.gz", &tmp_targz_path).unwrap();
