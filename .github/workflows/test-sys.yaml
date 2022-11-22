@@ -10,8 +10,7 @@ on:
       - 'staging'
       - 'trying'
   pull_request:
-    paths:
-      - '**'
+      types: [ synchronize ]
 
 jobs:
 
