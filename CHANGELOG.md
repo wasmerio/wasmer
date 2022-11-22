@@ -97,6 +97,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## Fixed
 
+- [#3145](https://github.com/wasmerio/wasmer/pull/3145)  C-API: add functions to overwrite stdin / stdout / stderr handlers
 - [#3240](https://github.com/wasmerio/wasmer/pull/3240)  Fix filesystem rights on WASI, add integration test for file permissions
 - [#3238](https://github.com/wasmerio/wasmer/pull/3238)  Fixed main README ocaml homepage link and added ocaml in other language README
 - [#3229](https://github.com/wasmerio/wasmer/pull/3229)  Fixed version to nightly-2022-10-09 for the CI build Minimal Wasmer Headless again
