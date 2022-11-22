@@ -425,6 +425,14 @@ fn test_snapshot_dash() {
     assert_json_snapshot!(snapshot);
 }
 
+#[test]
+fn test_snapshot_catsay() {
+    let snapshot = TestBuilder::new()
+        .stdin_str("meoooww")
+        .run_wasm(include_bytes!("./wasm/catsay.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
 // FIXME: not working properly, some issue with stdin piping
 // #[test]
 // fn test_snapshot_quickjs() {

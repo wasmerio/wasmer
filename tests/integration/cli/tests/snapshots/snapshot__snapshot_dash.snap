@@ -22,7 +22,7 @@ expression: snapshot
   "result": {
     "Success": {
       "stdout": "2\n",
-      "stderr": "# # ",
+      "stderr": "# # \n",
       "exit_code": 0
     }
   }
