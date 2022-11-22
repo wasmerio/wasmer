@@ -172,9 +172,10 @@ mod tests {
             data: &[u8],
         ) -> Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync>> {
             let inner = self.data.clone();
+            let data = data.to_vec();
             Box::pin(async move {
                 let mut inner = inner.lock().unwrap();
-                inner.extend_from_slice(data);
+                inner.extend(data);
                 Ok(())
             })
         }
