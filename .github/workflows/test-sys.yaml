@@ -15,7 +15,6 @@ jobs:
   check_linux_x64:
     name: cargo check on linux-x86_64-gnu
     runs-on: ubuntu-latest
-    needs: setup
     env:
       TARGET: linux-x86_64-gnu
     steps: 
@@ -200,7 +199,6 @@ jobs:
   check_linux_musl:
     name: cargo check on linux-x86_64-musl
     runs-on: ubuntu-latest
-    needs: setup
     container: alpine:latest
 >>>>>>> 3e578e17a5 (Remove unnecessary CI runs)
     env:
