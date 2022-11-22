@@ -303,7 +303,6 @@ impl VirtualTcpSocket for LocalTcpStream {
             TimeType::ConnectTimeout => {
                 self.connect_timeout = timeout;
             }
-            #[cfg(feature = "wasix")]
             TimeType::Linger => {
                 self.linger_timeout = timeout.clone();
             }
@@ -366,21 +365,14 @@ impl VirtualTcpSocket for LocalTcpStream {
 #[async_trait::async_trait]
 impl VirtualConnectedSocket for LocalTcpStream {
     fn set_linger(&mut self, linger: Option<Duration>) -> Result<()> {
-        #[cfg(feature = "wasix")]
         self.stream
             .set_linger(linger)
             .map_err(io_err_into_net_error)?;
         Ok(())
     }
 
-    #[cfg(feature = "wasix")]
     fn linger(&self) -> Result<Option<Duration>> {
         self.stream.linger().map_err(io_err_into_net_error)
-    }
-
-    #[cfg(not(feature = "wasix"))]
-    fn linger(&self) -> Result<Option<Duration>> {
-        Ok(None)
     }
 
     async fn send(&mut self, data: Bytes) -> Result<usize> {

@@ -23,5 +23,4 @@ async-trait = { version = "^0.1" }
 
 [features]
 default = ["host_fs"]
-wasix = [ ]
 host_fs = ["wasmer-vnet/host_fs", "wasmer-vfs/host-fs"]

@@ -117,7 +117,6 @@ impl WasiFunctionEnv {
         let env = self.data_mut(store);
         env.inner.replace(new_inner);
 
-        #[cfg(feature = "wasix")]
         env.state.fs.is_wasix.store(
             crate::utils::is_wasix_module(instance.module()),
             std::sync::atomic::Ordering::Release,

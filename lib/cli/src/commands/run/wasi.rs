@@ -7,8 +7,6 @@ use std::{collections::BTreeSet, path::Path};
 use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, RuntimeError, Value};
 use wasmer_vfs::FileSystem;
 use wasmer_vfs::{PassthruFileSystem, RootFileSystemBuilder, SpecialFile};
-#[cfg(feature = "wasix")]
-use wasmer_wasi::is_wasix_module;
 use wasmer_wasi::types::__WASI_STDIN_FILENO;
 use wasmer_wasi::TtyFile;
 use wasmer_wasi::{
