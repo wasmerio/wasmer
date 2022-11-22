@@ -422,6 +422,16 @@ fn test_snapshot_dash() {
     let snapshot = TestBuilder::new()
         .stdin_str("echo 2")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
+    // TODO: more tests!
+    assert_json_snapshot!(snapshot);
+}
+
+#[test]
+fn test_snapshot_bash() {
+    let snapshot = TestBuilder::new()
+        .stdin_str("echo hello")
+        .run_wasm(include_bytes!("./wasm/bash.wasm"));
+    // TODO: more tests!
     assert_json_snapshot!(snapshot);
 }
 
