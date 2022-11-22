@@ -200,7 +200,8 @@ jobs:
         run: |
           cargo install cargo-xtask
       - name: cargo xtask build-wasmer
-        script: cargo xtaskci
+        run: |
+          cargo xtaskci
 
   check_linux_musl:
     name: cargo check on linux-x86_64-musl
@@ -224,4 +225,5 @@ jobs:
         run: |
           cargo install cargo-xtask
       - name: cargo xtask build-wasmer
-        script: cargo xtaskci
+        run: |
+          cargo xtaskci
