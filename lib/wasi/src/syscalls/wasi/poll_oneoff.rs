@@ -250,9 +250,6 @@ pub(crate) fn poll_oneoff_internal(
 
                 let triggered_events_tx = triggered_events_tx.clone();
                 let poll = Box::pin(async move {
-                    let mut flags = 0;
-                    let mut bytes_available = 0;
-
                     // Wait for it to trigger (or throw an error) then
                     // once it has triggered an event will be returned
                     // that we can give to the caller

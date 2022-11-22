@@ -831,17 +831,18 @@ impl VirtualFile for Stdin {
     fn get_special_fd(&self) -> Option<u32> {
         Some(0)
     }
-    fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
-        let mut read_buffer = self.read_buffer.lock().unwrap();
-        if let Some(read_buffer) = read_buffer.as_mut() {
-            let buf_len = read_buffer.len();
-            if buf_len > 0 {
-                return Poll::Ready(Ok(buf_len));
+    fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        {
+            let read_buffer = self.read_buffer.lock().unwrap();
+            if let Some(read_buffer) = read_buffer.as_ref() {
+                let buf_len = read_buffer.len();
+                if buf_len > 0 {
+                    return Poll::Ready(Ok(buf_len));
+                }
             }
         }
 
-        let mut inner = tokio::io::stdin();
-        let inner = Pin::new(&mut inner);
+        let inner = Pin::new(&mut self.inner);
 
         let mut buf = [0u8; 8192];
         let mut read_buf = ReadBuf::new(&mut buf[..]);
@@ -851,6 +852,8 @@ impl VirtualFile for Stdin {
             Poll::Ready(Ok(())) => {
                 let buf = read_buf.filled();
                 let buf_len = buf.len();
+                
+                let mut read_buffer = self.read_buffer.lock().unwrap();
                 read_buffer.replace(Bytes::from(buf.to_vec()));
                 Poll::Ready(Ok(buf_len))
             }
