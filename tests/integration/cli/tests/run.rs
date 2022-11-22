@@ -155,14 +155,16 @@ fn run_wasi_works() -> anyhow::Result<()> {
 }
 
 #[cfg(feature = "webc_runner")]
-fn package_directory(in_dir: &PathBuf, out: &PathBuf) {
+fn package_directory(in_dir: &[(&str, PathBuf)], out: &PathBuf) {
     use flate2::write::GzEncoder;
     use flate2::Compression;
     use std::fs::File;
     let tar = File::create(out).unwrap();
-    let enc = GzEncoder::new(tar, Compression::none());
+    let enc = GzEncoder::new(tar, Compression::default());
     let mut a = tar::Builder::new(enc);
-    a.append_dir_all("", in_dir).unwrap();
+    for (k, i) in in_dir {
+        a.append_dir_all(k, i).unwrap();
+    }
     a.finish().unwrap();
 }
 
@@ -264,8 +266,21 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
         "packaging /package to .tar.gz: {}",
         tmp_targz_path.display()
     );
-    package_directory(&package_path, &tmp_targz_path);
+    package_directory(
+        &[
+            ("bin", package_path.join("bin")),
+            ("include", package_path.join("include")),
+            ("lib", package_path.join("lib")),
+        ],
+        &std::path::Path::new("./out.tar.gz").to_path_buf(),
+    );
+    std::fs::copy("./out.tar.gz", &tmp_targz_path).unwrap();
     println!("packaging done");
+    println!(
+        "tmp tar gz path: {} - exists: {:?}",
+        tmp_targz_path.display(),
+        tmp_targz_path.exists()
+    );
 
     let mut cmd = Command::new(get_wasmer_path());
     cmd.arg("create-exe");
@@ -294,10 +309,24 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
         );
     }
 
-    let output = Command::new(&python_exe_output_path)
-        .arg("-c")
-        .arg("print(\"hello\")")
-        .output()?;
+    println!("compilation ok!");
+
+    if !python_exe_output_path.exists() {
+        return Err(anyhow::anyhow!(
+            "python_exe_output_path {} does not exist",
+            python_exe_output_path.display()
+        ));
+    }
+
+    println!("invoking command...");
+
+    let mut command = Command::new(&python_exe_output_path);
+    command.arg("-c");
+    command.arg("print(\"hello\")");
+
+    let output = command
+        .output()
+        .map_err(|e| anyhow::anyhow!("{e}: {command:?}"))?;
 
     let stdout = std::str::from_utf8(&output.stdout)
         .expect("stdout is not utf8! need to handle arbitrary bytes");
@@ -503,7 +532,7 @@ fn test_wasmer_run_works() -> anyhow::Result<()> {
 
     if stdout != "hello\n" {
         bail!(
-            "3 running python/python failed with: stdout: {}\n\nstderr: {}",
+            "4 running python/python failed with: stdout: {}\n\nstderr: {}",
             stdout,
             std::str::from_utf8(&output.stderr)
                 .expect("stderr is not utf8! need to handle arbitrary bytes")
