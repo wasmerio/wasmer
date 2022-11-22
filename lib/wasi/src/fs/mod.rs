@@ -12,15 +12,13 @@ use std::{
     },
 };
 
+use crate::state::{Stderr, Stdin, Stdout};
 use generational_arena::{Arena, Index as Inode};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
-use wasmer_vfs::{
-    FileSystem, FsError, OpenOptions, VirtualFile,
-};
-use crate::state::{Stderr, Stdin, Stdout};
+use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
 use wasmer_wasi_types::{
     types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     wasi::{
@@ -1519,7 +1517,7 @@ impl WasiFs {
                 offset: Arc::new(AtomicU64::new(0)),
                 open_flags,
                 inode,
-                is_stdio
+                is_stdio,
             },
         );
         Ok(())
@@ -1644,7 +1642,7 @@ impl WasiFs {
                 open_flags: 0,
                 offset: Arc::new(AtomicU64::new(0)),
                 inode,
-                is_stdio: true
+                is_stdio: true,
             },
         );
     }

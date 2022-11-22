@@ -852,7 +852,7 @@ impl VirtualFile for Stdin {
             Poll::Ready(Ok(())) => {
                 let buf = read_buf.filled();
                 let buf_len = buf.len();
-                
+
                 let mut read_buffer = self.read_buffer.lock().unwrap();
                 read_buffer.replace(Bytes::from(buf.to_vec()));
                 Poll::Ready(Ok(buf_len))

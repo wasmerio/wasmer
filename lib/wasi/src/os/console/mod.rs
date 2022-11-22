@@ -26,7 +26,7 @@ use crate::{
     bin_factory::{spawn_exec, BinFactory, ModuleCache},
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
     runtime::{RuntimeStderr, RuntimeStdout},
-    WasiEnv, WasiRuntimeImplementation, WasiState, VirtualTaskManagerExt,
+    VirtualTaskManagerExt, WasiEnv, WasiRuntimeImplementation, WasiState,
 };
 
 //pub const DEFAULT_BOOT_WEBC: &'static str = "sharrattj/bash";
@@ -188,9 +188,7 @@ impl Console {
         // Display the welcome message
         let tasks = env.tasks.clone();
         if self.whitelabel == false && self.no_welcome == false {
-            tasks.block_on(async {
-                self.draw_welcome().await
-            });
+            tasks.block_on(async { self.draw_welcome().await });
         }
 
         // Find the binary

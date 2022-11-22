@@ -125,7 +125,7 @@ fn fd_write_internal<M: MemorySize>(
                         drop(inode);
                         drop(guard);
                         drop(inodes);
-                        
+
                         let buf_len: M::Offset = iovs_arr
                             .iter()
                             .filter_map(|a| a.read().ok())

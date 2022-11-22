@@ -13,8 +13,8 @@ use wasmer_vfs::{
 use wasmer_wasi::runtime::task_manager::tokio::TokioTaskManager;
 use wasmer_wasi::types::wasi::{Filesize, Timestamp};
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, FsError, VirtualFile,
-    WasiBidirectionalPipePair, WasiEnv, WasiFunctionEnv, WasiState, WasiVersion, VirtualTaskManagerExt,
+    generate_import_object_from_env, get_wasi_version, FsError, VirtualFile, VirtualTaskManagerExt,
+    WasiBidirectionalPipePair, WasiEnv, WasiFunctionEnv, WasiState, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 
