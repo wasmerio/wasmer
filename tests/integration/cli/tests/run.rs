@@ -172,6 +172,79 @@ fn package_directory(in_dir: &PathBuf, out: &PathBuf) {
     a.finish().unwrap();
 }
 
+#[allow(dead_code)]
+#[cfg(test)]
+fn make_package(root_path: &PathBuf) -> anyhow::Result<()> {
+    let current_dir = std::env::current_dir().unwrap();
+    println!("running make && make build-capi && make package-capi && make package...");
+    println!("current dir = {}", current_dir.display());
+    println!("setting current dir = {}", root_path.display());
+    // make && make build-capi && make package-capi && make package
+    let mut c1 = std::process::Command::new("make");
+    c1.current_dir(&root_path);
+    let r = c1.output().unwrap();
+    if !r.status.success() {
+        let stdout = String::from_utf8_lossy(&r.stdout);
+        let stderr = String::from_utf8_lossy(&r.stdout);
+        println!("make failed: (stdout = {stdout}, stderr = {stderr})");
+    }
+    println!("make ok!");
+    let mut c1 = std::process::Command::new("make");
+    c1.arg("build-wasmer");
+    c1.current_dir(&root_path);
+    let r = c1.output().unwrap();
+    if !r.status.success() {
+        let stdout = String::from_utf8_lossy(&r.stdout);
+        let stderr = String::from_utf8_lossy(&r.stdout);
+        println!("make failed: (stdout = {stdout}, stderr = {stderr})");
+    }
+    println!("make build-wasmer ok!");
+    let mut c1 = std::process::Command::new("make");
+    c1.arg("build-capi");
+    c1.current_dir(&root_path);
+    let r = c1.output().unwrap();
+    if !r.status.success() {
+        let stdout = String::from_utf8_lossy(&r.stdout);
+        let stderr = String::from_utf8_lossy(&r.stdout);
+        println!("make build-capi failed: (stdout = {stdout}, stderr = {stderr})");
+    }
+    println!("make build-capi ok!");
+
+    let mut c1 = std::process::Command::new("make");
+    c1.arg("build-wasmer");
+    c1.current_dir(&root_path);
+    let r = c1.output().unwrap();
+    if !r.status.success() {
+        let stdout = String::from_utf8_lossy(&r.stdout);
+        let stderr = String::from_utf8_lossy(&r.stdout);
+        println!("make build-wasmer failed: (stdout = {stdout}, stderr = {stderr})");
+    }
+    println!("make build-wasmer ok!");
+
+    let mut c1 = std::process::Command::new("make");
+    c1.arg("package-capi");
+    c1.current_dir(&root_path);
+    let r = c1.output().unwrap();
+    if !r.status.success() {
+        let stdout = String::from_utf8_lossy(&r.stdout);
+        let stderr = String::from_utf8_lossy(&r.stdout);
+        println!("make package-capi: (stdout = {stdout}, stderr = {stderr})");
+    }
+    println!("make package-capi ok!");
+
+    let mut c1 = std::process::Command::new("make");
+    c1.arg("package");
+    c1.current_dir(&root_path);
+    let r = c1.output().unwrap();
+    if !r.status.success() {
+        let stdout = String::from_utf8_lossy(&r.stdout);
+        let stderr = String::from_utf8_lossy(&r.stdout);
+        println!("make package failed: (stdout = {stdout}, stderr = {stderr})");
+    }
+    println!("make package ok!");
+    Ok(())
+}
+
 /// TODO: on linux-musl, the packaging of libwasmer.a doesn't work properly
 /// Tracked in https://github.com/wasmerio/wasmer/issues/3271
 #[cfg(not(target_env = "musl"))]
@@ -186,75 +259,7 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     let native_target = target_lexicon::HOST;
     let root_path = get_repo_root_path().unwrap();
     let package_path = root_path.join("package");
-    if !package_path.join("lib").join("libwasmer.a").exists() {
-        let current_dir = std::env::current_dir().unwrap();
-        println!("running make && make build-capi && make package-capi && make package...");
-        println!("current dir = {}", current_dir.display());
-        println!("setting current dir = {}", root_path.display());
-        // make && make build-capi && make package-capi && make package
-        let mut c1 = std::process::Command::new("make");
-        c1.current_dir(&root_path);
-        let r = c1.output().unwrap();
-        if !r.status.success() {
-            let stdout = String::from_utf8_lossy(&r.stdout);
-            let stderr = String::from_utf8_lossy(&r.stdout);
-            println!("make failed: (stdout = {stdout}, stderr = {stderr})");
-        }
-        println!("make ok!");
-        let mut c1 = std::process::Command::new("make");
-        c1.arg("build-wasmer");
-        c1.current_dir(&root_path);
-        let r = c1.output().unwrap();
-        if !r.status.success() {
-            let stdout = String::from_utf8_lossy(&r.stdout);
-            let stderr = String::from_utf8_lossy(&r.stdout);
-            println!("make failed: (stdout = {stdout}, stderr = {stderr})");
-        }
-        println!("make build-wasmer ok!");
-        let mut c1 = std::process::Command::new("make");
-        c1.arg("build-capi");
-        c1.current_dir(&root_path);
-        let r = c1.output().unwrap();
-        if !r.status.success() {
-            let stdout = String::from_utf8_lossy(&r.stdout);
-            let stderr = String::from_utf8_lossy(&r.stdout);
-            println!("make build-capi failed: (stdout = {stdout}, stderr = {stderr})");
-        }
-        println!("make build-capi ok!");
-
-        let mut c1 = std::process::Command::new("make");
-        c1.arg("build-wasmer");
-        c1.current_dir(&root_path);
-        let r = c1.output().unwrap();
-        if !r.status.success() {
-            let stdout = String::from_utf8_lossy(&r.stdout);
-            let stderr = String::from_utf8_lossy(&r.stdout);
-            println!("make build-wasmer failed: (stdout = {stdout}, stderr = {stderr})");
-        }
-        println!("make build-wasmer ok!");
-
-        let mut c1 = std::process::Command::new("make");
-        c1.arg("package-capi");
-        c1.current_dir(&root_path);
-        let r = c1.output().unwrap();
-        if !r.status.success() {
-            let stdout = String::from_utf8_lossy(&r.stdout);
-            let stderr = String::from_utf8_lossy(&r.stdout);
-            println!("make package-capi: (stdout = {stdout}, stderr = {stderr})");
-        }
-        println!("make package-capi ok!");
-
-        let mut c1 = std::process::Command::new("make");
-        c1.arg("package");
-        c1.current_dir(&root_path);
-        let r = c1.output().unwrap();
-        if !r.status.success() {
-            let stdout = String::from_utf8_lossy(&r.stdout);
-            let stderr = String::from_utf8_lossy(&r.stdout);
-            println!("make package failed: (stdout = {stdout}, stderr = {stderr})");
-        }
-        println!("make package ok!");
-    }
+    make_package(&root_path)?;
     if !package_path.exists() {
         panic!("package path {} does not exist", package_path.display());
     }
