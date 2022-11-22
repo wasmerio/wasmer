@@ -60,3 +60,22 @@ jobs:
       - name: cargo xtask build-wasmer
         run: |
           cargo xtaskci
+
+  check_windows:
+    name: cargo check on windows-x64
+    runs-on: windows-2019
+    env:
+      TARGET: windows-x86_64-msvc
+    steps: 
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.63
+          target: x86_64-unknown-linux-musl
+      - name: Install cargo xtask
+        run: |
+          cargo install cargo-xtask
+      - name: cargo xtask build-wasmer
+        run: |
+          cargo xtaskci
