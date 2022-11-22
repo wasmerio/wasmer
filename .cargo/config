@@ -1,0 +1,2 @@
+[alias]
+xtaskci = "run --package xtask --"

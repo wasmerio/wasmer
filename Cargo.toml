@@ -26,6 +26,7 @@ cfg-if = "1.0"
 
 [workspace]
 members = [
+    "xtask",
     "lib/api",
     "lib/cache",
     "lib/c-api",

@@ -196,6 +196,11 @@ jobs:
     name: Audit
 =======
           target: linux-x86_64-gnu
+      - name: Install cargo xtask
+        run: |
+          cargo install cargo-xtask
+      - name: cargo xtask build-wasmer
+        script: cargo xtaskci
 
   check_linux_musl:
     name: cargo check on linux-x86_64-musl
@@ -215,3 +220,8 @@ jobs:
         with:
           toolchain: 1.63
           target: linux-x86_64-musl
+      - name: Install cargo xtask
+        run: |
+          cargo install cargo-xtask
+      - name: cargo xtask build-wasmer
+        script: cargo xtaskci
