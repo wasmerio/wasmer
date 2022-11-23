@@ -16,3 +16,5 @@ api-docs-repo/
 /avd
 /core
 out.txt
+build-capi.tar.gz
+build-wasmer.tar.gz

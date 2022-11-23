@@ -4974,10 +4974,18 @@ checksum = "d2d7d3948613f75c98fd9328cfdcc45acc4d360655289d0a7d4ec931392200a3"
 [[package]]
 name = "xtask-build-capi"
 version = "0.1.0"
+dependencies = [
+ "flate2",
+ "tar",
+]
 
 [[package]]
 name = "xtask-build-wasmer"
 version = "0.1.0"
+dependencies = [
+ "flate2",
+ "tar",
+]
 
 [[package]]
 name = "xtask-test-capi"
