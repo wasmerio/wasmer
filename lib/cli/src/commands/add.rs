@@ -41,21 +41,18 @@ impl Add {
         let bindings = self.lookup_bindings(&registry)?;
 
         let mut cmd = self.target()?.command(&bindings)?;
+        cmd.stdin(Stdio::null())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit());
 
-        #[cfg(feature = "debug")]
-        log::debug!("Running {cmd:?}");
+        println!("Running: {cmd:?}");
 
-        let status = cmd
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .status()
-            .with_context(|| {
-                format!(
-                    "Unable to start \"{:?}\". Is it installed?",
-                    cmd.get_program()
-                )
-            })?;
+        let status = cmd.status().with_context(|| {
+            format!(
+                "Unable to start \"{:?}\". Is it installed?",
+                cmd.get_program()
+            )
+        })?;
 
         anyhow::ensure!(status.success(), "Command failed: {:?}", cmd);
 
@@ -63,8 +60,7 @@ impl Add {
     }
 
     fn lookup_bindings(&self, registry: &str) -> Result<Vec<Bindings>, Error> {
-        #[cfg(feature = "debug")]
-        log::debug!("Querying WAPM for the bindings packages");
+        println!("Querying WAPM for package bindings");
 
         let mut bindings_to_add = Vec::new();
         let language = self.target()?.language();
