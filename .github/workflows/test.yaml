@@ -68,17 +68,15 @@ jobs:
           cargo install cargo-xtask
       - name: cargo xtask test-js
         run: |
-          cargo xtaskci test-js-core
+          cargo test-js-core
       - name: cargo xtask build-wasmer
         run: |
-          cargo xtaskci test-js-core
+          cargo test-js-core
 
   # build-wasmer: run build-wasmer and build-capi for every OS in parallel
   build_wasmer_linux_x64:
     name: cargo check on linux-x86_64-gnu
     runs-on: ubuntu-18.04
-    env:
-      TARGET: linux-x86_64-gnu
     steps: 
       - uses: actions/checkout@v3
       - name: Set up libstdc++ on Linux
@@ -90,20 +88,19 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-gnu
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask build-wasmer
         run: |
-          cargo xtaskci build-wasmer
+          cargo build-wasmer
+        env:
+          COMPILERS: cranelift,llvm,singlepass
 
   build_wasmer_linux_musl:
     name: cargo check on linux-x86_64-musl
     runs-on: ubuntu-latest
     container: alpine:latest
-    env:
-      TARGET: linux-x86_64-musl
     steps: 
       - uses: actions/checkout@v3
       - name: Set up base deps on musl
@@ -113,52 +110,50 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-musl
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask build-wasmer
         run: |
-          cargo xtaskci build-wasmer
-  
+          cargo build-wasmer
+        env:
+          COMPILERS: cranelift,llvm,singlepass
+
   build_wasmer_macos_x86:
     name: build wasmer on macos-x86
-    runs-on: osx-arm64
-    env:
-      TARGET: x86_64-apple-darwin
+    runs-on: macos-11 
     steps: 
       - uses: actions/checkout@v3
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-musl
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask build-wasmer
         run: |
-          cargo xtaskci build-wasmer
+          cargo build-wasmer
+        env:
+          COMPILERS: cranelift,llvm,singlepass
 
   build_wasmer_windows_x86:
     name: cargo check on windows-x64
     runs-on: windows-2019
-    env:
-      TARGET: windows-x86_64-msvc
     steps: 
       - uses: actions/checkout@v3
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-musl
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask build-wasmer
         run: |
-          cargo xtaskci build-wasmer
-
+          cargo build-wasmer
+        env:
+          COMPILERS: cranelift,llvm,singlepass
 
   # build-capi: run build-capi for every OS, does NOT depend on build-wasmer
   # (can run in parallel with build-wasmer step)
@@ -166,8 +161,6 @@ jobs:
   build_capi_linux_x64:
     name: build capi on linux-x86_64-gnu
     runs-on: ubuntu-18.04
-    env:
-      TARGET: linux-x86_64-gnu
     steps: 
       - uses: actions/checkout@v3
       - name: Set up libstdc++ on Linux
@@ -179,20 +172,19 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-gnu
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask build-capi
         run: |
-          cargo xtaskci build-capi
+          cargo build-capi
+        env:
+          COMPILERS: cranelift,llvm,singlepass
 
   build_capi_linux_musl:
     name: build capi on linux-x86_64-musl
     runs-on: ubuntu-latest
     container: alpine:latest
-    env:
-      TARGET: linux-x86_64-musl
     steps: 
       - uses: actions/checkout@v3
       - name: Set up base deps on musl
@@ -202,51 +194,50 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-musl
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask build-capi
         run: |
-          cargo xtaskci build-capi
-  
+          cargo build-capi
+        env:
+          COMPILERS: cranelift,llvm,singlepass
+
   build_capi_macos_x86:
-    name: build capi on macos-x86
-    runs-on: osx-arm64
-    env:
-      TARGET: x86_64-apple-darwin
+    name: build capi on macos-aarch64
+    runs-on: macos-11 
     steps: 
       - uses: actions/checkout@v3
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-musl
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask build-capi
         run: |
-          cargo xtaskci build-capi
+          cargo build-capi
+        env:
+          COMPILERS: cranelift,llvm,singlepass
 
   build_capi_windows_x86:
     name: build capi on windows-x64
     runs-on: windows-2019
-    env:
-      TARGET: windows-x86_64-msvc
     steps: 
       - uses: actions/checkout@v3
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-musl
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask build-capi
         run: |
-          cargo xtaskci build-capi
+          cargo build-capi
+        env:
+          COMPILERS: cranelift,llvm,singlepass
 
   # test-wasmer: run unit tests for wasmer, depends on build-wasmer step
   # (can run in parallel with build-capi step)
@@ -254,8 +245,6 @@ jobs:
     name: test wasmer on linux-x86_64-gnu
     runs-on: ubuntu-18.04
     needs: [build_wasmer_linux_x64]
-    env:
-      TARGET: linux-x86_64-gnu
     steps: 
       - uses: actions/checkout@v3
       - name: Set up libstdc++ on Linux
@@ -267,21 +256,20 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-gnu
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask test-wasmer
         run: |
-          cargo xtaskci test-wasmer
+          cargo test-wasmer
+        env:
+          COMPILERS: cranelift,llvm,singlepass
 
   test_wasmer_linux_musl:
     name: test wasmer on linux-x86_64-musl
     runs-on: ubuntu-latest
     needs: [build_wasmer_linux_musl]
     container: alpine:latest
-    env:
-      TARGET: linux-x86_64-musl
     steps: 
       - uses: actions/checkout@v3
       - name: Set up base deps on musl
@@ -291,54 +279,52 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-musl
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask test-wasmer
         run: |
-          cargo xtaskci test-wasmer
-  
+          cargo test-wasmer
+        env:
+          COMPILERS: cranelift,llvm,singlepass
+
   test_wasmer_macos_x86:
     name: test wasmer on macos-x86
-    runs-on: osx-arm64
+    runs-on: macos-11 
     needs: [build_wasmer_macos_x86]
-    env:
-      TARGET: x86_64-apple-darwin
     steps: 
       - uses: actions/checkout@v3
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-musl
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask test-wasmer
         run: |
-          cargo xtaskci test-wasmer
+          cargo test-wasmer
+      env:
+        COMPILERS: cranelift,llvm,singlepass
 
   test_wasmer_windows_x86:
     name: test wasmer on windows-x64
     runs-on: windows-2019
     needs: [build_wasmer_windows_x86]
-    env:
-      TARGET: windows-x86_64-msvc
     steps: 
       - uses: actions/checkout@v3
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-musl
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask test-wasmer
         run: |
-          cargo xtaskci test-wasmer
-
+          cargo test-wasmer
+      env:
+        COMPILERS: cranelift,llvm,singlepass
 
   # test-capi: run unit test for capi, depends on build-capi step
   # (can run in parallel with build-wasmer step)
@@ -346,8 +332,6 @@ jobs:
     name: test capi on linux-x86_64-gnu
     runs-on: ubuntu-18.04
     needs: [build_capi_linux_x64]
-    env:
-      TARGET: linux-x86_64-gnu
     steps: 
       - uses: actions/checkout@v3
       - name: Set up libstdc++ on Linux
@@ -359,21 +343,20 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-gnu
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask test-capi
         run: |
-          cargo xtaskci test-capi
+          cargo test-capi
+      env:
+        COMPILERS: cranelift,llvm,singlepass
 
   test_capi_linux_musl:
     name: test capi on linux-x86_64-musl
     runs-on: ubuntu-latest
     needs: [build_capi_linux_musl]
     container: alpine:latest
-    env:
-      TARGET: linux-x86_64-musl
     steps: 
       - uses: actions/checkout@v3
       - name: Set up base deps on musl
@@ -383,53 +366,52 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-musl
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask test-capi
         run: |
-          cargo xtaskci test-capi
-  
+          cargo test-capi
+        env:
+          COMPILERS: cranelift,llvm,singlepass
+
   test_capi_macos_x86:
     name: test capi on macos-x86
-    runs-on: osx-arm64
+    runs-on: macos-11 
     needs: [build_capi_macos_x86]
-    env:
-      TARGET: x86_64-apple-darwin
     steps: 
       - uses: actions/checkout@v3
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-musl
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask test-capi
         run: |
-          cargo xtaskci test-capi
+          cargo test-capi
+        env:
+          COMPILERS: cranelift,llvm,singlepass
 
   test_capi_windows_x86:
     name: test capi on windows-x64
     runs-on: windows-2019
     needs: [build_capi_windows_x86]
-    env:
-      TARGET: windows-x86_64-msvc
     steps: 
       - uses: actions/checkout@v3
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-musl
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask test-capi
         run: |
-          cargo xtaskci test-capi
+          cargo test-capi
+        env:
+          COMPILERS: cranelift,llvm,singlepass
 
   # test-integration-cli: run integration tests for wasmer, depends on build-capi and build-wasmer steps
   test_integration_linux_x64:
@@ -449,13 +431,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-gnu
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask test-integration
         run: |
-          cargo xtaskci test-integration
+          cargo test-integration
 
   test_integration_linux_musl:
     name: integration tests on linux-x86_64-musl
@@ -473,17 +454,16 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-musl
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask test-integration
         run: |
-          cargo xtaskci test-integration
+          cargo test-integration
   
   test_integration_macos_x86:
     name: integration tests on macos-x86
-    runs-on: osx-arm64
+    runs-on: macos-11 
     needs: [build_wasmer_linux_x64, build_capi_macos_x86]
     env:
       TARGET: x86_64-apple-darwin
@@ -493,13 +473,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-musl
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask test-integration
         run: |
-          cargo xtaskci test-integration
+          cargo test-integration
 
   test_integration_windows_x86:
     name: integration tests on windows-x64
@@ -513,10 +492,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: x86_64-unknown-linux-musl
       - name: Install cargo xtask
         run: |
           cargo install cargo-xtask
       - name: cargo xtask test-integration
         run: |
-          cargo xtaskci test-integration
+          cargo test-integration

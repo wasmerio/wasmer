@@ -4972,7 +4972,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2d7d3948613f75c98fd9328cfdcc45acc4d360655289d0a7d4ec931392200a3"
 
 [[package]]
-name = "xtask"
+name = "xtask-build-capi"
+version = "0.1.0"
+
+[[package]]
+name = "xtask-build-wasmer"
+version = "0.1.0"
+
+[[package]]
+name = "xtask-test-capi"
+version = "0.1.0"
+
+[[package]]
+name = "xtask-test-integration"
+version = "0.1.0"
+
+[[package]]
+name = "xtask-test-wasmer"
 version = "0.1.0"
 
 [[package]]
