@@ -268,8 +268,8 @@ jobs:
       - name: cargo xtask test-wasmer
         run: |
           cargo test-wasmer
-      env:
-        COMPILERS: cranelift,llvm,singlepass
+        env:
+          COMPILERS: cranelift,llvm,singlepass
 
   test_wasmer_windows_x86:
     name: test wasmer on windows-x64
@@ -284,8 +284,8 @@ jobs:
       - name: cargo xtask test-wasmer
         run: |
           cargo test-wasmer
-      env:
-        COMPILERS: cranelift,llvm,singlepass
+        env:
+          COMPILERS: cranelift,llvm,singlepass
 
   # test-capi: run unit test for capi, depends on build-capi step
   # (can run in parallel with build-wasmer step)
@@ -307,8 +307,8 @@ jobs:
       - name: cargo xtask test-capi
         run: |
           cargo test-capi
-      env:
-        COMPILERS: cranelift,llvm,singlepass
+        env:
+          COMPILERS: cranelift,llvm,singlepass
 
   test_capi_linux_musl:
     name: test capi on linux-x86_64-musl
