@@ -124,7 +124,7 @@ mod tests {
     use wasmer_vfs::{AsyncWriteExt, WasiBidirectionalPipePair};
     use wasmer_vnet::DynVirtualNetworking;
 
-    use crate::{VirtualNetworking, WasiEnv, WasiRuntimeImplementation};
+    use crate::{WasiEnv, WasiRuntimeImplementation};
 
     struct FakeRuntimeImplementation {
         pub data: Arc<Mutex<Vec<u8>>>,

@@ -200,14 +200,20 @@ impl WasiProcess {
 
     /// Signals all the threads in this process
     pub fn signal_process(&self, signal: Signal) {
-        if self.waiting.load(Ordering::Acquire) > 0 {
+        {
             let children = self.children.read().unwrap();
-            for pid in children.iter() {
-                if let Some(process) = self.compute.get_process(*pid) {
-                    process.signal_process(signal);
+            if self.waiting.load(Ordering::Acquire) > 0 {
+                let mut triggered = false;
+                for pid in children.iter() {
+                    if let Some(process) = self.compute.get_process(*pid) {
+                        process.signal_process(signal);
+                        triggered = true;
+                    }
+                }
+                if triggered {
+                    return;
                 }
             }
-            return;
         }
         let inner = self.inner.read().unwrap();
         for thread in inner.threads.values() {

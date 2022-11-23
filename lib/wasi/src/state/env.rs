@@ -422,6 +422,14 @@ impl WasiEnv {
 
     /// Returns an exit code if the thread or process has been forced to exit
     pub fn should_exit(&self) -> Option<u32> {
+        // If a signal handler has never been set then we need to handle signals
+        // manually using a convention
+        if self.inner().signal_set == false {
+            if self.thread.has_signal(&[Signal::Sigint, Signal::Sigquit, Signal::Sigkill]) {
+                return Some(Errno::Intr as u32);
+            }
+        }
+
         // Check for forced exit
         if let Some(forced_exit) = self.thread.try_join() {
             return Some(forced_exit);

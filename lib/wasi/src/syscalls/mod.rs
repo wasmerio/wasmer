@@ -245,7 +245,17 @@ where
 
     let mut signaler = {
         let signals = env.thread.signals.lock().unwrap();
-        signals.1.subscribe()
+        let signaler = signals.1.subscribe();
+        if signals.0.is_empty() == false {
+            drop(signals);
+            match ctx.data().clone().process_signals(ctx) {
+                Err(err) => return Err(err),
+                Ok(processed) if processed == true => return Err(Errno::Intr),
+                Ok(_) => { }
+            }
+            env = ctx.data();
+        }
+        signaler
     };
 
     // Check if we need to exit the asynchronous loop
