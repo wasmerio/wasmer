@@ -259,7 +259,7 @@ impl Compiler for SinglepassCompiler {
     }
 
     fn get_cpu_features_used(&self, cpu_features: &EnumSet<CpuFeature>) -> EnumSet<CpuFeature> {
-        let used = CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT;
+        let used = CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1;
         cpu_features.intersection(used)
     }
 }
