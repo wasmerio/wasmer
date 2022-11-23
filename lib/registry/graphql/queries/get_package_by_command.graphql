@@ -7,6 +7,7 @@ query GetPackageByCommandQuery ($commandName: String!) {
       manifest
       distribution {
         downloadUrl
+        piritaDownloadUrl
       }
       package {
         displayName
