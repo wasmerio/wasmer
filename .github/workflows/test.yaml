@@ -106,6 +106,17 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
+      - name: Install LLVM
+        shell: bash
+        run: |
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir -p ${LLVM_DIR}
+          curl --proto '=https' --tlsv1.2 -sSf "${{ env.LLVM_URL }}" -L -o - | tar xJv -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
+          LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-linux-amd64.tar.xz
       - name: cargo xtask build-wasmer
         run: |
           cargo build-wasmer
@@ -135,7 +146,7 @@ jobs:
         run: |
           cargo build-wasmer
         env:
-          COMPILERS: cranelift,llvm,singlepass
+          COMPILERS: cranelift,singlepass # no llvm
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -148,10 +159,27 @@ jobs:
     runs-on: macos-11 
     steps: 
       - uses: actions/checkout@v3
+      - name: Set up dependencies for Mac OS
+        run: |
+          brew install automake
+          # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
+          brew install gnu-tar
+          echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
+      - name: Install LLVM
+        shell: bash
+        run: |
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir -p ${LLVM_DIR}
+          curl --proto '=https' --tlsv1.2 -sSf "${{ env.LLVM_URL }}" -L -o - | tar xJv -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
+          LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-darwin-amd64.tar.xz
       - name: cargo xtask build-wasmer
         run: |
           cargo build-wasmer
@@ -173,6 +201,17 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
+      - name: Install LLVM
+        shell: bash
+        run: |
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir -p ${LLVM_DIR}
+          curl --proto '=https' --tlsv1.2 -sSf "${{ env.LLVM_URL }}" -L -o - | tar xJv -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
+          LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-windows-amd64.tar.xz
       - name: cargo xtask build-wasmer
         run: |
           cargo build-wasmer
@@ -206,7 +245,7 @@ jobs:
         run: |
           cargo build-capi
         env:
-          COMPILERS: cranelift,llvm,singlepass
+          COMPILERS: cranelift,singlepass
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -231,7 +270,7 @@ jobs:
         run: |
           cargo build-capi
         env:
-          COMPILERS: cranelift,llvm,singlepass
+          COMPILERS: cranelift,singlepass
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -252,7 +291,7 @@ jobs:
         run: |
           cargo build-capi
         env:
-          COMPILERS: cranelift,llvm,singlepass
+          COMPILERS: cranelift,singlepass
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -273,7 +312,7 @@ jobs:
         run: |
           cargo build-capi
         env:
-          COMPILERS: cranelift,llvm,singlepass
+          COMPILERS: cranelift,singlepass
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
