@@ -41,20 +41,18 @@ impl Add {
         let bindings = self.lookup_bindings(&registry)?;
 
         let mut cmd = self.target()?.command(&bindings)?;
+        cmd.stdin(Stdio::null())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit());
 
         println!("Running: {cmd:?}");
 
-        let status = cmd
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .status()
-            .with_context(|| {
-                format!(
-                    "Unable to start \"{:?}\". Is it installed?",
-                    cmd.get_program()
-                )
-            })?;
+        let status = cmd.status().with_context(|| {
+            format!(
+                "Unable to start \"{:?}\". Is it installed?",
+                cmd.get_program()
+            )
+        })?;
 
         anyhow::ensure!(status.success(), "Command failed: {:?}", cmd);
 
