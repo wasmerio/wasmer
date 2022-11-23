@@ -106,7 +106,6 @@ pub(crate) mod proxy {
     }
 }
 
-
 #[cfg(target_os = "wasi")]
 pub fn whoami_distro() -> String {
     whoami::os().to_lowercase()
