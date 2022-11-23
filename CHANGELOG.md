@@ -8,6 +8,11 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## Added
+
+- Preliminary FreeBSD support
+
+
 ## 3.0.1 - 23/11/2022
 
 ## Added

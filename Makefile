@@ -40,6 +40,7 @@ SHELL=/usr/bin/env bash
 
 IS_DARWIN := 0
 IS_LINUX := 0
+IS_FREEBSD := 0
 IS_WINDOWS := 0
 IS_AMD64 := 0
 IS_AARCH64 := 0
@@ -57,6 +58,8 @@ else
 		IS_DARWIN := 1
 	else ifeq ($(uname), Linux)
 		IS_LINUX := 1
+	else ifeq ($(uname), FreeBSD)
+		IS_FREEBSD := 1
 	else
 		# We use spaces instead of tabs to indent `$(error)`
 		# otherwise it's considered as a command outside a
@@ -67,7 +70,7 @@ else
 	# Architecture
 	uname := $(shell uname -m)
 
-	ifeq ($(uname), x86_64)
+	ifneq (, $(filter $(uname), x86_64 amd64))
 		IS_AMD64 := 1
 	else ifneq (, $(filter $(uname), aarch64 arm64))
 		IS_AARCH64 := 1
@@ -168,7 +171,7 @@ ifneq ($(ENABLE_SINGLEPASS), 0)
 	ifeq ($(ENABLE_SINGLEPASS), 1)
 		compilers += singlepass
 	# … otherwise, we try to check whether Singlepass works on this host.
-	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_WINDOWS)))
+	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD) $(IS_WINDOWS)))
 		ifeq ($(IS_AMD64), 1)
 			compilers += singlepass
 		endif
@@ -215,7 +218,7 @@ endif
 ##
 
 ifeq ($(ENABLE_LLVM), 1)
-	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX)))
+	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
 		ifeq ($(IS_AMD64), 1)
 			compilers_engines += llvm-universal
 		else ifeq ($(IS_AARCH64), 1)
@@ -229,7 +232,7 @@ endif
 ##
 
 ifeq ($(ENABLE_SINGLEPASS), 1)
-	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX)))
+	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
 		ifeq ($(IS_AMD64), 1)
 			compilers_engines += singlepass-universal
 		endif
@@ -274,7 +277,7 @@ capi_compilers_engines := $(filter-out $(capi_compilers_engines_exclude),$(compi
 #
 #####
 
-ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
 	bold := $(shell tput bold 2>/dev/null || echo -n '')
 	green := $(shell tput setaf 2 2>/dev/null || echo -n '')
 	yellow := $(shell tput setaf 3 2>/dev/null || echo -n '')
@@ -334,6 +337,8 @@ $(info )
 SEDI ?=
 
 ifeq ($(IS_DARWIN), 1)
+	SEDI := "-i ''"
+else ifeq ($(IS_FREEBSD), 1)
 	SEDI := "-i ''"
 else ifeq ($(IS_LINUX), 1)
 	SEDI := "-i"
@@ -561,7 +566,7 @@ generate-wasi-tests:
 
 package-wapm:
 	mkdir -p "package/bin"
-ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
 	if [ -d "wapm-cli" ]; then \
 		cp wapm-cli/$(TARGET_DIR)/wapm package/bin/ ;\
 		echo -e "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax ;\
