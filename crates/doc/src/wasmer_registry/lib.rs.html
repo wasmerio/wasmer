@@ -1362,6 +1362,10 @@
 <span id="1356">1356</span>
 <span id="1357">1357</span>
 <span id="1358">1358</span>
+<span id="1359">1359</span>
+<span id="1360">1360</span>
+<span id="1361">1361</span>
+<span id="1362">1362</span>
 </pre><pre class="rust"><code><span class="doccomment">//! High-level interactions with the WAPM backend.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! The GraphQL schema can be updated by running `make` in the Wasmer repo&#39;s</span>
@@ -1411,6 +1415,7 @@
     <span class="kw">pub</span> <span class="ident">commands</span>: <span class="ident">String</span>,
     <span class="kw">pub</span> <span class="ident">manifest</span>: <span class="ident">String</span>,
     <span class="kw">pub</span> <span class="ident">url</span>: <span class="ident">String</span>,
+    <span class="kw">pub</span> <span class="ident">pirita_url</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_package_local_dir</span>(
@@ -1681,6 +1686,7 @@
     <span class="kw">let</span> <span class="ident">package</span> <span class="op">=</span> <span class="ident">command</span>.<span class="ident">package_version</span>.<span class="ident">package</span>.<span class="ident">display_name</span>;
     <span class="kw">let</span> <span class="ident">version</span> <span class="op">=</span> <span class="ident">command</span>.<span class="ident">package_version</span>.<span class="ident">version</span>;
     <span class="kw">let</span> <span class="ident">url</span> <span class="op">=</span> <span class="ident">command</span>.<span class="ident">package_version</span>.<span class="ident">distribution</span>.<span class="ident">download_url</span>;
+    <span class="kw">let</span> <span class="ident">pirita_url</span> <span class="op">=</span> <span class="ident">command</span>.<span class="ident">package_version</span>.<span class="ident">distribution</span>.<span class="ident">pirita_download_url</span>;
 
     <span class="prelude-val">Ok</span>(<span class="ident">PackageDownloadInfo</span> {
         <span class="ident">registry</span>: <span class="ident">registry_url</span>.<span class="ident">to_string</span>(),
@@ -1690,6 +1696,7 @@
         <span class="ident">manifest</span>: <span class="ident">command</span>.<span class="ident">package_version</span>.<span class="ident">manifest</span>,
         <span class="ident">commands</span>: <span class="ident">command_name</span>.<span class="ident">to_string</span>(),
         <span class="ident">url</span>,
+        <span class="ident">pirita_url</span>,
     })
 }
 
@@ -1976,6 +1983,7 @@
             .<span class="ident">join</span>(<span class="string">&quot;, &quot;</span>),
 
         <span class="ident">url</span>: <span class="ident">v</span>.<span class="ident">distribution</span>.<span class="ident">download_url</span>.<span class="ident">clone</span>(),
+        <span class="ident">pirita_url</span>: <span class="ident">v</span>.<span class="ident">distribution</span>.<span class="ident">pirita_download_url</span>.<span class="ident">clone</span>(),
     })
 }
 
