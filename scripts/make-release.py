@@ -151,7 +151,7 @@ def make_release(version):
         proc = subprocess.Popen(['git','checkout', "-b", "release-" + RELEASE_VERSION], stdout = subprocess.PIPE, cwd = temp_dir.name)
         proc.wait()
         
-        proc = subprocess.Popen(['git','pull', "origin", "release-" + RELEASE_VERSION], stdout = subprocess.PIPE, cwd = temp_dir.name)
+        proc = subprocess.Popen(['git','pull', "origin", "release-" + RELEASE_VERSION, "--depth", "1"], stdout = subprocess.PIPE, cwd = temp_dir.name)
         proc.wait()
 
         proc = subprocess.Popen(['git','log', "--oneline"], stdout = subprocess.PIPE, cwd = temp_dir.name)
@@ -331,7 +331,7 @@ def make_release(version):
     while not(already_released):
 
         print("git pull origin master...")
-        proc = subprocess.Popen(['git','pull', "origin", "master"], stdout = subprocess.PIPE, cwd = temp_dir.name)
+        proc = subprocess.Popen(['git','pull', "origin", "master", "--depth", "1"], stdout = subprocess.PIPE, cwd = temp_dir.name)
         proc.wait()
         if proc.returncode != 0:
             for line in proc.stdout:
