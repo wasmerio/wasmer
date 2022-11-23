@@ -47,6 +47,7 @@ pub struct PackageDownloadInfo {
     pub commands: String,
     pub manifest: String,
     pub url: String,
+    pub pirita_url: Option<String>,
 }
 
 pub fn get_package_local_dir(
@@ -317,6 +318,7 @@ pub fn query_command_from_registry(
     let package = command.package_version.package.display_name;
     let version = command.package_version.version;
     let url = command.package_version.distribution.download_url;
+    let pirita_url = command.package_version.distribution.pirita_download_url;
 
     Ok(PackageDownloadInfo {
         registry: registry_url.to_string(),
@@ -326,6 +328,7 @@ pub fn query_command_from_registry(
         manifest: command.package_version.manifest,
         commands: command_name.to_string(),
         url,
+        pirita_url,
     })
 }
 
@@ -612,6 +615,7 @@ pub fn query_package_from_registry(
             .join(", "),
 
         url: v.distribution.download_url.clone(),
+        pirita_url: v.distribution.pirita_download_url.clone(),
     })
 }
 
