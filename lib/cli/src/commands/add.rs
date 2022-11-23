@@ -42,8 +42,7 @@ impl Add {
 
         let mut cmd = self.target()?.command(&bindings)?;
 
-        #[cfg(feature = "debug")]
-        log::debug!("Running {cmd:?}");
+        println!("Running: {cmd:?}");
 
         let status = cmd
             .stdin(Stdio::null())
@@ -63,8 +62,7 @@ impl Add {
     }
 
     fn lookup_bindings(&self, registry: &str) -> Result<Vec<Bindings>, Error> {
-        #[cfg(feature = "debug")]
-        log::debug!("Querying WAPM for the bindings packages");
+        println!("Querying WAPM for package bindings");
 
         let mut bindings_to_add = Vec::new();
         let language = self.target()?.language();
