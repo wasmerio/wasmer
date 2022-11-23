@@ -46,6 +46,11 @@ thread_local! {
 }
 
 impl ModuleCache {
+    /// Get the compiler used by this cache.
+    pub fn compiler(&self) -> &DynCompiler {
+        &self.compiler
+    }
+
     /// Create a new [`ModuleCache`].
     ///
     /// use_shared_cache enables a shared cache of modules in addition to a thread-local cache.
