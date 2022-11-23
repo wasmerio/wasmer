@@ -57,7 +57,7 @@ jobs:
         with:
           toolchain: 1.63
       - name: Install NodeJS
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v2
         with:
           node-version: 16
       - name: Install wasm-pack
