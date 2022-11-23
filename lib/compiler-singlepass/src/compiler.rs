@@ -14,6 +14,7 @@ use crate::machine_arm64::MachineARM64;
 use crate::machine_x64::MachineX86_64;
 #[cfg(feature = "unwind")]
 use crate::unwind::{create_systemv_cie, UnwindFrame};
+use enumset::EnumSet;
 #[cfg(feature = "unwind")]
 use gimli::write::{EhFrame, FrameTable};
 #[cfg(feature = "rayon")]
@@ -255,6 +256,11 @@ impl Compiler for SinglepassCompiler {
             dynamic_function_trampolines,
             debug: dwarf,
         })
+    }
+
+    fn get_cpu_features_used(&self, cpu_features: &EnumSet<CpuFeature>) -> EnumSet<CpuFeature> {
+        let used = CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT;
+        cpu_features.intersection(used)
     }
 }
 

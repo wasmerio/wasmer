@@ -102,6 +102,7 @@ impl ArtifactBuild {
         custom_section_relocations.push(libcall_trampolines_section.relocations.clone());
         let libcall_trampolines = custom_sections.push(libcall_trampolines_section);
         let libcall_trampoline_len = libcall_trampoline_len(target) as u32;
+        let cpu_features = compiler.get_cpu_features_used(target.cpu_features());
 
         let serializable_compilation = SerializableCompilation {
             function_bodies,
@@ -119,7 +120,7 @@ impl ArtifactBuild {
             compilation: serializable_compilation,
             compile_info,
             data_initializers,
-            cpu_features: target.cpu_features().as_u64(),
+            cpu_features: cpu_features.as_u64(),
         };
         Ok(Self { serializable })
     }
