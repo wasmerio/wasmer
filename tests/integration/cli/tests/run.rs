@@ -162,7 +162,9 @@ fn package_directory(in_dir: &PathBuf, out: &PathBuf) {
     let tar = File::create(out).unwrap();
     let enc = GzEncoder::new(tar, Compression::none());
     let mut a = tar::Builder::new(enc);
-    a.append_dir_all("", in_dir).unwrap();
+    a.append_dir_all("bin", in_dir.join("bin")).unwrap();
+    a.append_dir_all("lib", in_dir.join("lib")).unwrap();
+    a.append_dir_all("include", in_dir.join("include")).unwrap();
     a.finish().unwrap();
 }
 
@@ -181,75 +183,6 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     let root_path = get_repo_root_path().unwrap();
     let package_path = root_path.join("package");
     if !package_path.exists() {
-        let current_dir = std::env::current_dir().unwrap();
-        println!("running make && make build-capi && make package-capi && make package...");
-        println!("current dir = {}", current_dir.display());
-        println!("setting current dir = {}", root_path.display());
-        // make && make build-capi && make package-capi && make package
-        let mut c1 = std::process::Command::new("make");
-        c1.current_dir(&root_path);
-        let r = c1.output().unwrap();
-        if !r.status.success() {
-            let stdout = String::from_utf8_lossy(&r.stdout);
-            let stderr = String::from_utf8_lossy(&r.stdout);
-            println!("make failed: (stdout = {stdout}, stderr = {stderr})");
-        }
-        println!("make ok!");
-        let mut c1 = std::process::Command::new("make");
-        c1.arg("build-wasmer");
-        c1.current_dir(&root_path);
-        let r = c1.output().unwrap();
-        if !r.status.success() {
-            let stdout = String::from_utf8_lossy(&r.stdout);
-            let stderr = String::from_utf8_lossy(&r.stdout);
-            println!("make failed: (stdout = {stdout}, stderr = {stderr})");
-        }
-        println!("make build-wasmer ok!");
-        let mut c1 = std::process::Command::new("make");
-        c1.arg("build-capi");
-        c1.current_dir(&root_path);
-        let r = c1.output().unwrap();
-        if !r.status.success() {
-            let stdout = String::from_utf8_lossy(&r.stdout);
-            let stderr = String::from_utf8_lossy(&r.stdout);
-            println!("make build-capi failed: (stdout = {stdout}, stderr = {stderr})");
-        }
-        println!("make build-capi ok!");
-
-        let mut c1 = std::process::Command::new("make");
-        c1.arg("build-wasmer");
-        c1.current_dir(&root_path);
-        let r = c1.output().unwrap();
-        if !r.status.success() {
-            let stdout = String::from_utf8_lossy(&r.stdout);
-            let stderr = String::from_utf8_lossy(&r.stdout);
-            println!("make build-wasmer failed: (stdout = {stdout}, stderr = {stderr})");
-        }
-        println!("make build-wasmer ok!");
-
-        let mut c1 = std::process::Command::new("make");
-        c1.arg("package-capi");
-        c1.current_dir(&root_path);
-        let r = c1.output().unwrap();
-        if !r.status.success() {
-            let stdout = String::from_utf8_lossy(&r.stdout);
-            let stderr = String::from_utf8_lossy(&r.stdout);
-            println!("make package-capi: (stdout = {stdout}, stderr = {stderr})");
-        }
-        println!("make package-capi ok!");
-
-        let mut c1 = std::process::Command::new("make");
-        c1.arg("package");
-        c1.current_dir(&root_path);
-        let r = c1.output().unwrap();
-        if !r.status.success() {
-            let stdout = String::from_utf8_lossy(&r.stdout);
-            let stderr = String::from_utf8_lossy(&r.stdout);
-            println!("make package failed: (stdout = {stdout}, stderr = {stderr})");
-        }
-        println!("make package ok!");
-    }
-    if !package_path.exists() {
         panic!("package path {} does not exist", package_path.display());
     }
     let tmp_targz_path = tempfile::TempDir::new()?;
@@ -259,8 +192,17 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
         "packaging /package to .tar.gz: {}",
         tmp_targz_path.display()
     );
-    package_directory(&package_path, &tmp_targz_path);
+    package_directory(
+        &package_path,
+        &std::path::Path::new("./out.tar.gz").to_path_buf(),
+    );
+    std::fs::copy("./out.tar.gz", &tmp_targz_path).unwrap();
     println!("packaging done");
+    println!(
+        "tmp tar gz path: {} - exists: {:?}",
+        tmp_targz_path.display(),
+        tmp_targz_path.exists()
+    );
 
     let mut cmd = Command::new(get_wasmer_path());
     cmd.arg("create-exe");
@@ -289,10 +231,24 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
         );
     }
 
-    let output = Command::new(&python_exe_output_path)
-        .arg("-c")
-        .arg("print(\"hello\")")
-        .output()?;
+    println!("compilation ok!");
+
+    if !python_exe_output_path.exists() {
+        return Err(anyhow::anyhow!(
+            "python_exe_output_path {} does not exist",
+            python_exe_output_path.display()
+        ));
+    }
+
+    println!("invoking command...");
+
+    let mut command = Command::new(&python_exe_output_path);
+    command.arg("-c");
+    command.arg("print(\"hello\")");
+
+    let output = command
+        .output()
+        .map_err(|e| anyhow::anyhow!("{e}: {command:?}"))?;
 
     let stdout = std::str::from_utf8(&output.stdout)
         .expect("stdout is not utf8! need to handle arbitrary bytes");
@@ -498,7 +454,7 @@ fn test_wasmer_run_works() -> anyhow::Result<()> {
 
     if stdout != "hello\n" {
         bail!(
-            "3 running python/python failed with: stdout: {}\n\nstderr: {}",
+            "4 running python/python failed with: stdout: {}\n\nstderr: {}",
             stdout,
             std::str::from_utf8(&output.stderr)
                 .expect("stderr is not utf8! need to handle arbitrary bytes")

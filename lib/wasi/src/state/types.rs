@@ -3,7 +3,12 @@
 use serde::{Deserialize, Serialize};
 #[cfg(all(unix, feature = "sys-poll"))]
 use std::convert::TryInto;
-use std::time::Duration;
+use std::{
+    collections::VecDeque,
+    io::{self, Read, Seek, Write},
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 use wasmer_vbus::BusError;
 use wasmer_wasi_types::wasi::{BusErrno, Errno};
 
@@ -371,11 +376,79 @@ pub(crate) fn poll(
 
 pub trait WasiPath {}
 
-#[deprecated(
-    since = "3.0.0-beta.2",
-    note = "Moved to `wasmer_wasi::pipe::WasiBidirectionalSharedPipePair`, `Pipe` is only a transitional reexport"
-)]
-pub use crate::state::WasiBidirectionalSharedPipePair as Pipe;
+/// For piping stdio. Stores all output / input in a byte-vector.
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub struct Pipe {
+    buffer: Arc<Mutex<VecDeque<u8>>>,
+}
+
+impl Pipe {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Read for Pipe {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let mut buffer = self.buffer.lock().unwrap();
+        let amt = std::cmp::min(buf.len(), buffer.len());
+        let buf_iter = buffer.drain(..amt).enumerate();
+        for (i, byte) in buf_iter {
+            buf[i] = byte;
+        }
+        Ok(amt)
+    }
+}
+
+impl Write for Pipe {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let mut buffer = self.buffer.lock().unwrap();
+        buffer.extend(buf);
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+impl Seek for Pipe {
+    fn seek(&mut self, _pos: io::SeekFrom) -> io::Result<u64> {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not seek in a pipe",
+        ))
+    }
+}
+
+//#[cfg_attr(feature = "enable-serde", typetag::serde)]
+impl VirtualFile for Pipe {
+    fn last_accessed(&self) -> u64 {
+        0
+    }
+    fn last_modified(&self) -> u64 {
+        0
+    }
+    fn created_time(&self) -> u64 {
+        0
+    }
+    fn size(&self) -> u64 {
+        let buffer = self.buffer.lock().unwrap();
+        buffer.len() as u64
+    }
+    fn set_len(&mut self, len: u64) -> Result<(), FsError> {
+        let mut buffer = self.buffer.lock().unwrap();
+        buffer.resize(len as usize, 0);
+        Ok(())
+    }
+    fn unlink(&mut self) -> Result<(), FsError> {
+        Ok(())
+    }
+    fn bytes_available_read(&self) -> Result<Option<usize>, FsError> {
+        let buffer = self.buffer.lock().unwrap();
+        Ok(Some(buffer.len()))
+    }
+}
 
 /*
 TODO: Think about using this
