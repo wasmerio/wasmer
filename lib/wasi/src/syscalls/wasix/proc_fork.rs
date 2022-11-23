@@ -10,6 +10,8 @@ pub fn proc_fork<M: MemorySize>(
     mut copy_memory: Bool,
     pid_ptr: WasmPtr<Pid, M>,
 ) -> Result<Errno, WasiError> {
+    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
+    
     // If we were just restored then we need to return the value instead
     let fork_op = if copy_memory == Bool::True {
         "fork"

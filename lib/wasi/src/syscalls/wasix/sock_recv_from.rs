@@ -31,6 +31,8 @@ pub fn sock_recv_from<M: MemorySize>(
         sock
     );
 
+    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
+
     let mut env = ctx.data();
 
     let max_size = {

@@ -336,6 +336,7 @@ impl WasiEnv {
                 let signal_cnt = signals.len();
                 for sig in signals {
                     if sig == Signal::Sigint || sig == Signal::Sigquit || sig == Signal::Sigkill {
+                        self.thread.terminate(Errno::Intr as u32);
                         return Err(WasiError::Exit(Errno::Intr as u32));
                     } else {
                         trace!("wasi[{}]::signal-ignored: {:?}", self.pid(), sig);
@@ -352,15 +353,18 @@ impl WasiEnv {
             return Err(WasiError::Exit(forced_exit));
         }
 
-        Ok(self.process_signals(store))
+        Ok(self.process_signals(store)?)
     }
 
     /// Porcesses any signals that are batched up
-    pub fn process_signals(&self, store: &mut impl AsStoreMut) -> Result<bool, Errno> {
+    pub fn process_signals(&self, store: &mut impl AsStoreMut) -> Result<Result<bool, Errno>, WasiError> {
         // If a signal handler has never been set then we need to handle signals
         // differently
         if self.inner().signal_set == false {
-            return Ok(false);
+            if self.thread.has_signal(&[Signal::Sigint, Signal::Sigquit, Signal::Sigkill]) {
+                self.thread.terminate(Errno::Intr as u32);
+            }
+            return Ok(Ok(false));
         }
 
         // Check for any signals that we need to trigger
@@ -402,7 +406,7 @@ impl WasiEnv {
                         match err.downcast::<WasiError>() {
                             Ok(err) => {
                                 warn!("wasi[{}]::signal handler wasi error - {}", self.pid(), err);
-                                return Err(Errno::Intr);
+                                return Err(err);
                             }
                             Err(err) => {
                                 warn!(
@@ -410,26 +414,18 @@ impl WasiEnv {
                                     self.pid(),
                                     err
                                 );
-                                return Err(Errno::Intr);
+                                return Ok(Err(Errno::Intr));
                             }
                         }
                     }
                 }
             }
         }
-        Ok(true)
+        Ok(Ok(true))
     }
 
     /// Returns an exit code if the thread or process has been forced to exit
     pub fn should_exit(&self) -> Option<u32> {
-        // If a signal handler has never been set then we need to handle signals
-        // manually using a convention
-        if self.inner().signal_set == false {
-            if self.thread.has_signal(&[Signal::Sigint, Signal::Sigquit, Signal::Sigkill]) {
-                return Some(Errno::Intr as u32);
-            }
-        }
-
         // Check for forced exit
         if let Some(forced_exit) = self.thread.try_join() {
             return Some(forced_exit);

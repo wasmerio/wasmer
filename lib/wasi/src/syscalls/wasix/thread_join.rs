@@ -17,6 +17,8 @@ pub fn thread_join(mut ctx: FunctionEnvMut<'_, WasiEnv>, tid: Tid) -> Result<Err
         tid
     );
 
+    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
+
     let env = ctx.data();
     let tid: WasiThreadId = tid.into();
     let other_thread = env.process.get_thread(&tid);

@@ -27,6 +27,9 @@ pub fn fd_seek<M: MemorySize>(
         fd,
         offset
     );
+    
+    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
+
     let env = ctx.data();
     let state = env.state.clone();
     let (memory, _, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);

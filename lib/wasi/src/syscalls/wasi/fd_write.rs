@@ -26,7 +26,7 @@ pub fn fd_write<M: MemorySize>(
         "wasi[{}:{}]::fd_write: fd={}",
         ctx.data().pid(),
         ctx.data().tid(),
-        fd
+        fd,
     );
 
     let offset = {
@@ -96,6 +96,8 @@ fn fd_write_internal<M: MemorySize>(
     offset: usize,
     nwritten: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
+    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
+
     let mut env = ctx.data();
     let state = env.state.clone();
     let mut memory = env.memory_view(&ctx);

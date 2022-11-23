@@ -28,6 +28,9 @@ pub fn sock_send<M: MemorySize>(
         ctx.data().tid(),
         sock
     );
+
+    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
+    
     let mut env = ctx.data();
     let runtime = env.runtime.clone();
 

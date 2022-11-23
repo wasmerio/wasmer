@@ -248,7 +248,7 @@ where
         let signaler = signals.1.subscribe();
         if signals.0.is_empty() == false {
             drop(signals);
-            match ctx.data().clone().process_signals(ctx) {
+            match ctx.data().clone().process_signals(ctx).unwrap_or(Err(Errno::Intr)) {
                 Err(err) => return Err(err),
                 Ok(processed) if processed == true => return Err(Errno::Intr),
                 Ok(_) => { }
@@ -271,7 +271,7 @@ where
             ret = work => ret,
             // If a signaller is triggered then we interrupt the main process
             _ = signaler.recv() => {
-                if let Err(err) = ctx.data().clone().process_signals(ctx) {
+                if let Err(err) = ctx.data().clone().process_signals(ctx).unwrap_or(Err(Errno::Intr)) {
                     Err(err)
                 } else {
                     Err(Errno::Intr)

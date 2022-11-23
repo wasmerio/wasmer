@@ -20,6 +20,8 @@ pub fn poll_oneoff<M: MemorySize>(
     nsubscriptions: M::Offset,
     nevents: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
+    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
+    
     let mut env = ctx.data();
     let mut memory = env.memory_view(&ctx);
 
