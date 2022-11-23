@@ -44,7 +44,7 @@ jobs:
     name: cargo-deny
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: EmbarkStudios/cargo-deny-action@v1
 
   test_nodejs:
@@ -123,7 +123,7 @@ jobs:
   
   build_wasmer_macos_x86:
     name: build wasmer on macos-x86
-    runs-on: macos-11
+    runs-on: osx-arm64
     env:
       TARGET: x86_64-apple-darwin
     steps: 
@@ -212,7 +212,7 @@ jobs:
   
   build_capi_macos_x86:
     name: build capi on macos-x86
-    runs-on: macos-11
+    runs-on: osx-arm64
     env:
       TARGET: x86_64-apple-darwin
     steps: 
@@ -301,7 +301,7 @@ jobs:
   
   test_wasmer_macos_x86:
     name: test wasmer on macos-x86
-    runs-on: macos-11
+    runs-on: osx-arm64
     needs: [build_wasmer_macos_x86]
     env:
       TARGET: x86_64-apple-darwin
@@ -393,7 +393,7 @@ jobs:
   
   test_capi_macos_x86:
     name: test capi on macos-x86
-    runs-on: macos-11
+    runs-on: osx-arm64
     needs: [build_capi_macos_x86]
     env:
       TARGET: x86_64-apple-darwin
@@ -430,7 +430,6 @@ jobs:
       - name: cargo xtask test-capi
         run: |
           cargo xtaskci test-capi
-
 
   # test-integration-cli: run integration tests for wasmer, depends on build-capi and build-wasmer steps
   test_integration_linux_x64:
@@ -484,7 +483,7 @@ jobs:
   
   test_integration_macos_x86:
     name: integration tests on macos-x86
-    runs-on: macos-11
+    runs-on: osx-arm64
     needs: [build_wasmer_linux_x64, build_capi_macos_x86]
     env:
       TARGET: x86_64-apple-darwin
