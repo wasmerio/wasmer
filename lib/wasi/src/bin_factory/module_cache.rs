@@ -6,8 +6,9 @@ use wasmer_wasi_types::wasi::Snapshot0Clockid;
 
 use super::BinaryPackage;
 use crate::{
-    runtime::compiler::DynCompiler, syscalls::platform_clock_time_get, VirtualTaskManager,
-    WasiRuntimeImplementation,
+    runtime::compiler::{ArcTunables, DynCompiler},
+    syscalls::platform_clock_time_get,
+    VirtualTaskManager, WasiRuntimeImplementation,
 };
 
 pub const DEFAULT_COMPILED_PATH: &'static str = "~/.wasmer/compiled";
@@ -155,8 +156,8 @@ impl ModuleCache {
         panic!("wasmer not built with a compiler")
     }
 
-    pub fn new_store(&self) -> wasmer::Store {
-        self.compiler.new_store()
+    pub fn new_store(&self, tunables: Option<ArcTunables>) -> wasmer::Store {
+        self.compiler.new_store(tunables)
     }
 
     // TODO: should return Result<_, anyhow::Error>

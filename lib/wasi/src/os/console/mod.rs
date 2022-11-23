@@ -19,7 +19,7 @@ use tracing::{debug, error, info, trace, warn};
 #[cfg(feature = "sys")]
 use wasmer::Engine;
 use wasmer_vbus::{BusSpawnedProcess, SpawnOptionsConfig};
-use wasmer_vfs::{FileSystem, WasiPipe, RootFileSystemBuilder, SpecialFile};
+use wasmer_vfs::{FileSystem, RootFileSystemBuilder, SpecialFile, WasiPipe};
 use wasmer_wasi_types::types::__WASI_STDIN_FILENO;
 
 use super::{cconst::ConsoleConst, common::*};
@@ -27,7 +27,7 @@ use crate::{
     bin_factory::{spawn_exec, BinFactory, ModuleCache},
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
     runtime::{RuntimeStderr, RuntimeStdout},
-    VirtualTaskManagerExt, WasiEnv, WasiRuntimeImplementation, WasiState, TtyFile,
+    TtyFile, VirtualTaskManagerExt, WasiEnv, WasiRuntimeImplementation, WasiState,
 };
 
 //pub const DEFAULT_BOOT_WEBC: &'static str = "sharrattj/bash";
@@ -51,6 +51,8 @@ pub struct Console {
     runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
     compiled_modules: Arc<ModuleCache>,
     stdin: Option<WasiPipe>,
+    #[derivative(Debug = "ignore")]
+    tunables: Option<crate::runtime::compiler::ArcTunables>,
 }
 
 impl Console {
@@ -81,11 +83,20 @@ impl Console {
             prompt: "wasmer.sh".to_string(),
             compiled_modules,
             stdin: None,
+            tunables: None,
         }
     }
 
     pub fn with_stdin(mut self, stdin: WasiPipe) -> Self {
         self.stdin = Some(stdin);
+        self
+    }
+
+    pub fn with_tunables(
+        mut self,
+        tunables: impl wasmer::Tunables + Send + Sync + 'static,
+    ) -> Self {
+        self.tunables = Some(Arc::new(tunables));
         self
     }
 
@@ -149,7 +160,7 @@ impl Console {
         let envs = self.env.clone();
 
         // Build a new store that will be passed to the thread
-        let store = self.compiled_modules.new_store();
+        let store = self.compiled_modules.new_store(self.tunables.clone());
 
         // Create the control plane, process and thread
         let control_plane = WasiControlPlane::default();
