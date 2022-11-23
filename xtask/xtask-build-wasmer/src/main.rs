@@ -39,11 +39,11 @@ fn package_wasmer(out: &PathBuf) {
 }
 
 fn main() {
-    let compilers = env::var("COMPILERS").unwrap_or("cranelift".to_string());
+    let compilers = env::var("COMPILERS").unwrap_or_else(|_| "cranelift".to_string());
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     let mut compiler_features = compilers
-        .replace(" ", ",")
-        .split(",")
+        .replace(' ', ",")
+        .split(',')
         .collect::<Vec<_>>()
         .join(",");
     if !compiler_features.is_empty() {

@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 
 fn project_root() -> PathBuf {
     Path::new(&env!("CARGO_MANIFEST_DIR"))
@@ -10,5 +9,5 @@ fn project_root() -> PathBuf {
 }
 
 fn main() {
-    println!("Hello, world!");
+    println!("Hello, world! root = {}", project_root().display());
 }
