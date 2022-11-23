@@ -53,6 +53,31 @@ impl ModuleCache {
         cache_webc_dir: Option<String>,
         use_shared_cache: bool,
     ) -> ModuleCache {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "sys")] {
+                let engine = Self::new_engine();
+                let compiler = std::sync::Arc::new(crate::runtime::compiler::engine::EngineCompiler::new(engine)) as DynCompiler;
+            } else {
+                let compiler = std::sync::Arc::new(crate::runtime::compiler::StubCompiler);
+            }
+        }
+        Self::new_with_compiler(
+            cache_compile_dir,
+            cache_webc_dir,
+            use_shared_cache,
+            compiler,
+        )
+    }
+
+    /// Create a new [`ModuleCache`].
+    ///
+    /// use_shared_cache enables a shared cache of modules in addition to a thread-local cache.
+    pub fn new_with_compiler(
+        cache_compile_dir: Option<String>,
+        cache_webc_dir: Option<String>,
+        use_shared_cache: bool,
+        compiler: DynCompiler,
+    ) -> ModuleCache {
         let cache_compile_dir = shellexpand::tilde(
             cache_compile_dir
                 .as_ref()
@@ -70,20 +95,6 @@ impl ModuleCache {
         )
         .to_string();
         let _ = std::fs::create_dir_all(PathBuf::from(cache_webc_dir.clone()));
-
-        // TODO: let users provide an optional engine via argument.
-        #[cfg(feature = "sys")]
-        #[cfg(not(feature = "sys"))]
-        let engine = None;
-
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "sys")] {
-                let engine = Self::new_engine();
-                let compiler = std::sync::Arc::new(crate::runtime::compiler::engine::EngineCompiler::new(engine)) as DynCompiler;
-            } else {
-                let compiler = std::sync::Arc::new(crate::runtime::compiler::StubCompiler);
-            }
-        }
 
         let cached_modules = if use_shared_cache {
             Some(RwLock::new(HashMap::default()))
