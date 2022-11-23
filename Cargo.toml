@@ -26,6 +26,8 @@ cfg-if = "1.0"
 
 [workspace]
 members = [
+    "xtask/xtask-test-js",
+    "xtask/xtask-test-js-core",
     "xtask/xtask-build-capi",
     "xtask/xtask-build-wasmer",
     "xtask/xtask-test-capi",

@@ -4963,6 +4963,14 @@ name = "xtask-test-integration"
 version = "0.1.0"
 
 [[package]]
+name = "xtask-test-js"
+version = "0.1.0"
+
+[[package]]
+name = "xtask-test-js-core"
+version = "0.1.0"
+
+[[package]]
 name = "xtask-test-wasmer"
 version = "0.1.0"
 
