@@ -13,7 +13,7 @@ fn project_root() -> PathBuf {
 fn start_test(args: &[&str]) {
     let args = args.iter().map(|s| s.to_string()).collect::<Vec<_>>();
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
-    let compilers = env::var("COMPILERS").unwrap_or("cranelift".to_string());
+    let compilers = env::var("COMPILERS").unwrap_or_else(|_| "cranelift".to_string());
 
     let mut cmd = Command::new(&cargo);
     cmd.current_dir(project_root());
@@ -37,10 +37,10 @@ fn start_test(args: &[&str]) {
 }
 
 fn main() {
-    let compilers = env::var("COMPILERS").unwrap_or("cranelift".to_string());
+    let compilers = env::var("COMPILERS").unwrap_or_else(|_| "cranelift".to_string());
     let mut compiler_features = compilers
-        .replace(" ", ",")
-        .split(",")
+        .replace(' ', ",")
+        .split(',')
         .collect::<Vec<_>>()
         .join(",");
 
@@ -69,7 +69,7 @@ fn main() {
         "--features",
         "cranelift",
         "--features",
-        &format!("{compiler_features}"),
+        &compiler_features,
     ]);
 
     start_test(&[

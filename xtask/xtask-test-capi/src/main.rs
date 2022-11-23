@@ -1,5 +1,5 @@
+use std::env;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 
 fn project_root() -> PathBuf {
     Path::new(&env!("CARGO_MANIFEST_DIR"))
@@ -33,6 +33,9 @@ fn main() {
         --no-default-features --features wat,compiler,wasi,middlewares,webc_runner $(capi_compiler_features) -- --nocapture
     */
     // std::fs::read("./build-capi.tar.gz");
-    let compilers = std::env::var("COMPILERS").unwrap();
-    println!("test capi, compilers = {compilers}");
+    let compilers = env::var("COMPILERS").unwrap_or_else(|_| "cranelift".to_string());
+    println!(
+        "test capi, compilers = {compilers}, project root = {}",
+        project_root().display()
+    );
 }
