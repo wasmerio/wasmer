@@ -19,9 +19,8 @@ pub struct WasiPipe {
     /// Sends bytes down the pipe
     tx: Arc<Mutex<mpsc::UnboundedSender<Vec<u8>>>>,
     /// Receives bytes from the pipe
-    rx: Arc<Mutex<mpsc::UnboundedReceiver<Vec<u8>>>>,
-    /// Buffers the last read message from the pipe while its being consumed
-    read_buffer: Arc<std::sync::Mutex<Option<Bytes>>>,
+    /// Also, buffers the last read message from the pipe while its being consumed
+    rx: Arc<Mutex<(mpsc::UnboundedReceiver<Vec<u8>>, Option<Bytes>)>>,
     /// Whether the pipe should block or not block to wait for stdin reads
     block: bool,
 }
@@ -132,15 +131,13 @@ impl WasiBidirectionalPipePair {
 
         let pipe1 = WasiPipe {
             tx: Arc::new(Mutex::new(tx1)),
-            rx: Arc::new(Mutex::new(rx2)),
-            read_buffer: Arc::new(std::sync::Mutex::new(None)),
+            rx: Arc::new(Mutex::new((rx2, None))),
             block: true,
         };
 
         let pipe2 = WasiPipe {
             tx: Arc::new(Mutex::new(tx2)),
-            rx: Arc::new(Mutex::new(rx1)),
-            read_buffer: Arc::new(std::sync::Mutex::new(None)),
+            rx: Arc::new(Mutex::new((rx1, None))),
             block: true,
         };
 
@@ -182,7 +179,8 @@ impl WasiPipe {
 
     pub fn close(&self) {
         let (mut null_tx, _) = mpsc::unbounded_channel();
-        let (_, mut null_rx) = mpsc::unbounded_channel();
+        let (_, null_rx) = mpsc::unbounded_channel();
+        let mut null_rx = (null_rx, None);
         {
             let mut guard = self.rx.lock().unwrap();
             std::mem::swap(guard.deref_mut(), &mut null_rx);
@@ -190,10 +188,6 @@ impl WasiPipe {
         {
             let mut guard = self.tx.lock().unwrap();
             std::mem::swap(guard.deref_mut(), &mut null_tx);
-        }
-        {
-            let mut read_buffer = self.read_buffer.lock().unwrap();
-            read_buffer.take();
         }
     }
 }
@@ -207,11 +201,11 @@ impl Seek for WasiPipe {
 impl Read for WasiPipe {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let max_size = buf.len();
-        let mut no_more = None;
+
+        let mut rx = self.rx.lock().unwrap();
         loop {
             {
-                let mut read_buffer = self.read_buffer.lock().unwrap();
-                if let Some(read_buffer) = read_buffer.as_mut() {
+                if let Some(read_buffer) = rx.1.as_mut() {
                     let buf_len = read_buffer.len();
                     if buf_len > 0 {
                         let mut read = buf_len.min(max_size);
@@ -222,35 +216,26 @@ impl Read for WasiPipe {
                     }
                 }
             }
-            if let Some(no_more) = no_more.take() {
-                return no_more;
-            }
             let data = {
-                let mut rx = self.rx.lock().unwrap();
                 match self.block {
-                    true => match rx.blocking_recv() {
+                    true => match rx.0.blocking_recv() {
                         Some(a) => a,
                         None => {
-                            no_more = Some(Ok(0));
-                            continue;
+                            return Ok(0);
                         }
                     },
-                    false => match rx.try_recv() {
+                    false => match rx.0.try_recv() {
                         Ok(a) => a,
                         Err(TryRecvError::Empty) => {
-                            no_more = Some(Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock)));
-                            continue;
+                            return Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock));
                         }
                         Err(TryRecvError::Disconnected) => {
-                            no_more = Some(Ok(0));
-                            continue;
+                            return Ok(0);
                         }
                     },
                 }
             };
-
-            let mut read_buffer = self.read_buffer.lock().unwrap();
-            read_buffer.replace(Bytes::from(data));
+            rx.1.replace(Bytes::from(data));
         }
     }
 }
@@ -305,10 +290,10 @@ impl AsyncRead for WasiPipe {
         cx: &mut Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
+        let mut rx = self.rx.lock().unwrap();
         loop {
             {
-                let mut read_buffer = self.read_buffer.lock().unwrap();
-                if let Some(inner_buf) = read_buffer.as_mut() {
+                if let Some(inner_buf) = rx.1.as_mut() {
                     let buf_len = inner_buf.len();
                     if buf_len > 0 {
                         let read = buf_len.min(buf.remaining());
@@ -318,25 +303,21 @@ impl AsyncRead for WasiPipe {
                     }
                 }
             }
-            let data = {
-                let mut rx = self.rx.lock().unwrap();
-                let mut rx = Pin::new(rx.deref_mut());
-                match rx.poll_recv(cx) {
-                    Poll::Ready(Some(a)) => a,
-                    Poll::Ready(None) => return Poll::Ready(Ok(())),
-                    Poll::Pending => {
-                        return match self.block {
-                            true => Poll::Pending,
-                            false => {
-                                Poll::Ready(Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock)))
-                            }
+            let mut rx = Pin::new(rx.deref_mut());
+            let data = match rx.0.poll_recv(cx) {
+                Poll::Ready(Some(a)) => a,
+                Poll::Ready(None) => return Poll::Ready(Ok(())),
+                Poll::Pending => {
+                    return match self.block {
+                        true => Poll::Pending,
+                        false => {
+                            Poll::Ready(Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock)))
                         }
                     }
                 }
             };
 
-            let mut read_buffer = self.read_buffer.lock().unwrap();
-            read_buffer.replace(Bytes::from(data));
+            rx.1.replace(Bytes::from(data));
         }
     }
 }
@@ -384,35 +365,32 @@ impl VirtualFile for WasiPipe {
 
     /// Polls the file for when there is data to be read
     fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        let mut rx = self.rx.lock().unwrap();
         loop {
             {
-                let mut read_buffer = self.read_buffer.lock().unwrap();
-                if let Some(inner_buf) = read_buffer.as_mut() {
+                if let Some(inner_buf) = rx.1.as_mut() {
                     let buf_len = inner_buf.len();
                     if buf_len > 0 {
                         return Poll::Ready(Ok(buf_len));
                     }
                 }
             }
-            let data = {
-                let mut rx = self.rx.lock().unwrap();
-                let mut rx = Pin::new(rx.deref_mut());
-                match rx.poll_recv(cx) {
-                    Poll::Ready(Some(a)) => a,
-                    Poll::Ready(None) => return Poll::Ready(Ok(0)),
-                    Poll::Pending => {
-                        return match self.block {
-                            true => Poll::Pending,
-                            false => {
-                                Poll::Ready(Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock)))
-                            }
+            
+            let mut pinned_rx = Pin::new(&mut rx.0);
+            let data = match pinned_rx.poll_recv(cx) {
+                Poll::Ready(Some(a)) => a,
+                Poll::Ready(None) => return Poll::Ready(Ok(0)),
+                Poll::Pending => {
+                    return match self.block {
+                        true => Poll::Pending,
+                        false => {
+                            Poll::Ready(Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock)))
                         }
                     }
                 }
             };
 
-            let mut read_buffer = self.read_buffer.lock().unwrap();
-            read_buffer.replace(Bytes::from(data));
+            rx.1.replace(Bytes::from(data));
         }
     }
 
