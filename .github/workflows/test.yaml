@@ -63,9 +63,6 @@ jobs:
       - name: Install wasm-pack
         run: |
           curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask test-js
         run: |
           cargo test-js-core
@@ -88,9 +85,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask build-wasmer
         run: |
           cargo build-wasmer
@@ -110,9 +104,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask build-wasmer
         run: |
           cargo build-wasmer
@@ -128,9 +119,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask build-wasmer
         run: |
           cargo build-wasmer
@@ -146,9 +134,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask build-wasmer
         run: |
           cargo build-wasmer
@@ -172,9 +157,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask build-capi
         run: |
           cargo build-capi
@@ -194,9 +176,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask build-capi
         run: |
           cargo build-capi
@@ -212,9 +191,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask build-capi
         run: |
           cargo build-capi
@@ -230,9 +206,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask build-capi
         run: |
           cargo build-capi
@@ -256,9 +229,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask test-wasmer
         run: |
           cargo test-wasmer
@@ -279,9 +249,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask test-wasmer
         run: |
           cargo test-wasmer
@@ -298,9 +265,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask test-wasmer
         run: |
           cargo test-wasmer
@@ -317,9 +281,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask test-wasmer
         run: |
           cargo test-wasmer
@@ -343,9 +304,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask test-capi
         run: |
           cargo test-capi
@@ -366,9 +324,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask test-capi
         run: |
           cargo test-capi
@@ -385,9 +340,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask test-capi
         run: |
           cargo test-capi
@@ -404,9 +356,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask test-capi
         run: |
           cargo test-capi
@@ -431,9 +380,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask test-integration
         run: |
           cargo test-integration
@@ -454,9 +400,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask test-integration
         run: |
           cargo test-integration
@@ -473,9 +416,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask test-integration
         run: |
           cargo test-integration
@@ -492,9 +432,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install cargo xtask
-        run: |
-          cargo install cargo-xtask
       - name: cargo xtask test-integration
         run: |
           cargo test-integration
