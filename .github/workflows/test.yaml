@@ -72,7 +72,7 @@ jobs:
 
   # build-wasmer: run build-wasmer and build-capi for every OS in parallel
   build_wasmer_linux_x64:
-    name: cargo check on linux-x86_64-gnu
+    name: build wasmer on linux-x86_64-gnu
     runs-on: ubuntu-18.04
     steps: 
       - uses: actions/checkout@v3
@@ -92,7 +92,7 @@ jobs:
           COMPILERS: cranelift,llvm,singlepass
 
   build_wasmer_linux_musl:
-    name: cargo check on linux-x86_64-musl
+    name: build wasmer on linux-x86_64-musl
     runs-on: ubuntu-latest
     container: alpine:latest
     steps: 
@@ -126,7 +126,7 @@ jobs:
           COMPILERS: cranelift,llvm,singlepass
 
   build_wasmer_windows_x86:
-    name: cargo check on windows-x64
+    name: build wasmer on windows-x64
     runs-on: windows-2019
     steps: 
       - uses: actions/checkout@v3
