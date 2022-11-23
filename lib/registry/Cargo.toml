@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-registry"
-version = "3.0.0"
+version = "3.0.1"
 edition = "2021"
 license = "MIT"
 description = "Crate to interact with the wasmer registry (wapm.io), download packages, etc."
