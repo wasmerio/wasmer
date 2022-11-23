@@ -8,6 +8,22 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 3.0.1 - 23/11/2022
+
+## Added
+
+
+## Changed
+
+  - [#3344](https://github.com/wasmerio/wasmer/pull/3344) Revert #3145
+  - [#3341](https://github.com/wasmerio/wasmer/pull/3341) Update CHANGELOG.md
+
+## Fixed
+
+  - [#3342](https://github.com/wasmerio/wasmer/pull/3342) Fixes for 3.0.0 release
+
+
+
 ## 3.0.0 - 20/11/2022
 
 ## Added
