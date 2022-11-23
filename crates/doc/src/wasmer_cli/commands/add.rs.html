@@ -216,10 +216,6 @@
 <span id="208">208</span>
 <span id="209">209</span>
 <span id="210">210</span>
-<span id="211">211</span>
-<span id="212">212</span>
-<span id="213">213</span>
-<span id="214">214</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::process</span>::{<span class="ident">Command</span>, <span class="ident">Stdio</span>};
 
 <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="ident">Error</span>};
@@ -263,21 +259,18 @@
         <span class="kw">let</span> <span class="ident">bindings</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">lookup_bindings</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cmd</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">target</span>()<span class="question-mark">?</span>.<span class="ident">command</span>(<span class="kw-2">&amp;</span><span class="ident">bindings</span>)<span class="question-mark">?</span>;
+        <span class="ident">cmd</span>.<span class="ident">stdin</span>(<span class="ident">Stdio::null</span>())
+            .<span class="ident">stdout</span>(<span class="ident">Stdio::inherit</span>())
+            .<span class="ident">stderr</span>(<span class="ident">Stdio::inherit</span>());
 
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
-        <span class="macro">log::debug!</span>(<span class="string">&quot;Running {cmd:?}&quot;</span>);
+        <span class="macro">println!</span>(<span class="string">&quot;Running: {cmd:?}&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="ident">cmd</span>
-            .<span class="ident">stdin</span>(<span class="ident">Stdio::null</span>())
-            .<span class="ident">stdout</span>(<span class="ident">Stdio::piped</span>())
-            .<span class="ident">stderr</span>(<span class="ident">Stdio::piped</span>())
-            .<span class="ident">status</span>()
-            .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
-                <span class="macro">format!</span>(
-                    <span class="string">&quot;Unable to start \&quot;{:?}\&quot;. Is it installed?&quot;</span>,
-                    <span class="ident">cmd</span>.<span class="ident">get_program</span>()
-                )
-            })<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="ident">cmd</span>.<span class="ident">status</span>().<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> {
+            <span class="macro">format!</span>(
+                <span class="string">&quot;Unable to start \&quot;{:?}\&quot;. Is it installed?&quot;</span>,
+                <span class="ident">cmd</span>.<span class="ident">get_program</span>()
+            )
+        })<span class="question-mark">?</span>;
 
         <span class="macro">anyhow::ensure!</span>(<span class="ident">status</span>.<span class="ident">success</span>(), <span class="string">&quot;Command failed: {:?}&quot;</span>, <span class="ident">cmd</span>);
 
@@ -285,8 +278,7 @@
     }
 
     <span class="kw">fn</span> <span class="ident">lookup_bindings</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Bindings</span><span class="op">&gt;</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
-        <span class="macro">log::debug!</span>(<span class="string">&quot;Querying WAPM for the bindings packages&quot;</span>);
+        <span class="macro">println!</span>(<span class="string">&quot;Querying WAPM for package bindings&quot;</span>);
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bindings_to_add</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
         <span class="kw">let</span> <span class="ident">language</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">target</span>()<span class="question-mark">?</span>.<span class="ident">language</span>();
