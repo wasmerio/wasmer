@@ -828,11 +828,6 @@ pub(crate) fn try_run_package_or_file(
 ) -> Result<(), anyhow::Error> {
     let debug_msgs_allowed = isatty::stdout_isatty();
 
-    if let Ok(url) = url::Url::parse(&format!("{}", r.path.display())) {
-        let result = try_run_url(&url, args, r, debug);
-        return result;
-    }
-
     // Check "r.path" is a file or a package / command name
     if r.path.exists() {
         if r.path.is_dir() && r.path.join("wapm.toml").exists() {
@@ -846,6 +841,18 @@ pub(crate) fn try_run_package_or_file(
                 .execute();
         }
         return r.execute();
+    }
+
+    // c:// might be parsed as a URL on Windows
+    let url_string = format!("{}", r.path.display());
+    if url_string.starts_with("http") {
+        if let Ok(url) = url::Url::parse(&url_string) {
+            match try_run_url(&url, args, r, debug) {
+                Err(ExecuteLocalPackageError::BeforeExec(_)) => {}
+                Err(ExecuteLocalPackageError::DuringExec(e)) => return Err(e),
+                Ok(o) => return Ok(o),
+            }
+        }
     }
 
     let package = format!("{}", r.path.display());
@@ -915,9 +922,15 @@ pub(crate) fn try_run_package_or_file(
     try_autoinstall_package(args, &sv, package_download_info, r.force_install)
 }
 
-fn try_run_url(url: &Url, _args: &[String], r: &Run, _debug: bool) -> Result<(), anyhow::Error> {
-    let checksum = wasmer_registry::get_remote_webc_checksum(url)
-        .map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
+fn try_run_url(
+    url: &Url,
+    _args: &[String],
+    r: &Run,
+    _debug: bool,
+) -> Result<(), ExecuteLocalPackageError> {
+    let checksum = wasmer_registry::get_remote_webc_checksum(url).map_err(|e| {
+        ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("error fetching {url}: {e}"))
+    })?;
 
     let packages = wasmer_registry::get_all_installed_webc_packages();
 
@@ -926,7 +939,9 @@ fn try_run_url(url: &Url, _args: &[String], r: &Run, _debug: bool) -> Result<(),
 
         let result = wasmer_registry::install_webc_package(url, &checksum);
 
-        result.map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
+        result.map_err(|e| {
+            ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("error fetching {url}: {e}"))
+        })?;
 
         if let Some(sp) = sp {
             sp.close();
@@ -936,10 +951,11 @@ fn try_run_url(url: &Url, _args: &[String], r: &Run, _debug: bool) -> Result<(),
     let webc_dir = wasmer_registry::get_webc_dir();
 
     let webc_install_path = webc_dir
-        .context("Error installing package: no webc dir")?
+        .context("Error installing package: no webc dir")
+        .map_err(ExecuteLocalPackageError::BeforeExec)?
         .join(checksum);
 
     let mut r = r.clone();
     r.path = webc_install_path;
-    r.execute()
+    r.execute().map_err(ExecuteLocalPackageError::DuringExec)
 }

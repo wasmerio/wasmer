@@ -546,3 +546,42 @@ fn run_no_start_wasm_report_error() -> anyhow::Result<()> {
     assert_eq!(result.contains("Can not find any export functions."), true);
     Ok(())
 }
+
+
+// Test that changes to wapm run don't break wasmer run
+#[test]
+fn test_wapm_run_works() -> anyhow::Result<()> {
+    let output = Command::new("wapm")
+        .arg("install")
+        .arg("cowsay")
+        .output()?;
+
+    if !output.status.success() {
+        bail!(
+            "wapm install cowsay failed with: stdout: {}\n\nstderr: {}",
+            std::str::from_utf8(&output.stdout)
+                .expect("stdout is not utf8! need to handle arbitrary bytes"),
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
+
+    let output = Command::new("wapm")
+        .arg("run")
+        .arg("cowsay")
+        .arg("hello")
+        .env("WAPM_RUNTIME".to_string(), format!("{}", get_wasmer_path().display()))
+        .output()?;
+
+    if !output.status.success() {
+        bail!(
+            "wapm install cowsay failed with: stdout: {}\n\nstderr: {}",
+            std::str::from_utf8(&output.stdout)
+                .expect("stdout is not utf8! need to handle arbitrary bytes"),
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
+
+    Ok(())
+}
