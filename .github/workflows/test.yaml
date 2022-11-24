@@ -589,6 +589,22 @@ jobs:
         env:
           COMPILERS: cranelift,singlepass
 
+  test_capi_macos_arm:
+    name: test capi on macos-arm
+    runs-on: macos-11.0
+    steps: 
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.63
+          target: aarch64-apple-darwin
+      - name: cargo xtask test-capi
+        run: |
+          cargo test-capi
+        env:
+          COMPILERS: cranelift,singlepass
+
   test_capi_windows_x86:
     name: test capi on windows-x64
     runs-on: windows-2019

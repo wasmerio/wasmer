@@ -10,7 +10,8 @@ fn project_root() -> PathBuf {
         .to_path_buf()
 }
 
-fn start_test(args: &[&str]) {
+
+fn start_test(args: &[&str], env_vars: &[(&str, String)]) {
     let args = args.iter().map(|s| s.to_string()).collect::<Vec<_>>();
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     let compilers = env::var("COMPILERS").unwrap_or_else(|_| "cranelift".to_string());
@@ -21,6 +22,9 @@ fn start_test(args: &[&str]) {
     cmd.stdout(Stdio::inherit());
     cmd.stderr(Stdio::inherit());
     cmd.args(args);
+    for (k, v) in env_vars {
+        cmd.env(k, v);
+    }
 
     if let Ok(target) = std::env::var("CARGO_TARGET") {
         cmd.args(&["--target", &target]);
@@ -40,92 +44,89 @@ fn start_test(args: &[&str]) {
     println!("{cmd:?} succeeded, compilers = {compilers}");
 }
 
+
 fn main() {
-    /*
+    std::fs::create_dir_all(project_root().join("package")).expect("could not create package dir");
 
-    test-capi: build-capi package-capi $(foreach compiler_engine,$(capi_compilers_engines),test-capi-crate-$(compiler_engine) test-capi-integration-$(compiler_engine))
+    wasmer_registry::try_unpack_targz(
+        project_root().join("build-capi.tar.gz"),
+        project_root().join("package"),
+        false,
+    )
+    .expect("could not unpack build-capi.tar.gz, run cargo build-capi first!");
 
-    test-capi-crate-%:
-        WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) $(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-            --no-default-features --features wat,compiler,wasi,middlewares,webc_runner $(capi_compiler_features) -- --nocapture
-
-    test-capi-integration-%:
-        # note: you need to do make build-capi and make package-capi first!
-        # Test the Wasmer C API tests for C
-        cd lib/c-api/tests; WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make test
-        # Test the Wasmer C API examples
-        cd lib/c-api/examples; WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make run
-
-    */
     let compilers = env::var("COMPILERS").unwrap_or_else(|_| "cranelift".to_string());
-    let mut compiler_features = compilers
-        .replace(' ', ",")
-        .split(',')
-        .collect::<Vec<_>>()
-        .join(",");
-
-    if !compiler_features.is_empty() {
-        compiler_features.push(',');
-    };
-    let mut capi_compiler_features = compilers
+    let capi_compiler_features = compilers
         .replace(' ', ",")
         .split(',')
         .filter(|i| *i != "llvm")
-        .collect::<Vec<_>>()
-        .join(",");
-    if !capi_compiler_features.is_empty() {
-        capi_compiler_features.push(',');
-    };
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>();
 
-    let mut exclude_tests = vec![
-        "wasmer-c-api",
-        "wasmer-cli",
-        "wasmer-compiler-cli",
-        "wasmer-wasi-experimental-io-devices",
-        "wasmer-integration-tests-ios",
-    ];
+    // we only have one engine
+    let capi_compiler_engines = capi_compiler_features
+        .iter()
+        .map(|f| format!("{f}-universal"))
+        .collect::<Vec<_>>();
 
-    if !compiler_features.contains("llvm") {
-        exclude_tests.push("wasmer-compiler-llvm");
+    for engine in capi_compiler_engines {
+        let envs = &[
+            (
+                "WASMER_DIR",
+                format!("{}", project_root().join("package").display()),
+            ),
+            ("ROOT_DIR", format!("{}", project_root().display())),
+            ("WASMER_CAPI_CONFIG", engine.to_string()),
+        ];
+
+        // run capi test
+        start_test(
+            &[
+                "test",
+                "--manifest-path",
+                &format!("{}/lib/c-api/Cargo.toml", project_root().display()),
+                "--release",
+                "--no-default-features",
+                "--features",
+                "wat,compiler,wasi,middlewares,webc_runner",
+                "--features",
+                &capi_compiler_features.join(","),
+                "--",
+                "--nocapture"
+            ],
+            envs,
+        );
+
+        // run integration tests
+
+        // cargo test --manifest-path="lib/c-api/tests/wasmer-c-api-test-runner/Cargo.toml"
+        start_test(
+            &[
+                "test",
+                "--manifest-path",
+                &format!(
+                    "{}/lib/c-api/tests/wasmer-c-api-test-runner/Cargo.toml",
+                    project_root().display()
+                ),
+                "--",
+                "--nocapture"
+            ],
+            envs,
+        );
+
+        // cargo test --manifest-path="lib/c-api/examples/wasmer-capi-examples-runner/Cargo.toml"
+        start_test(
+            &[
+                "test",
+                "--manifest-path",
+                &format!(
+                    "{}/lib/c-api/examples/wasmer-capi-examples-runner/Cargo.toml",
+                    project_root().display()
+                ),
+                "--",
+                "--nocapture"
+            ],
+            envs,
+        );
     }
-
-    let exclude_tests = exclude_tests.join("--exclude ");
-
-    start_test(&[
-        "test",
-        "--release",
-        "--tests",
-        "--features",
-        "cranelift",
-        "--features",
-        &compiler_features,
-    ]);
-
-    start_test(&[
-        "test",
-        "--all",
-        "--release",
-        &exclude_tests,
-        "--features",
-        "cranelift",
-    ]);
-
-    start_test(&[
-        "test",
-        &compiler_features,
-        "--features",
-        "wasi,cranelift",
-        "--examples",
-    ]);
-
-    start_test(&[
-        "test",
-        &compiler_features,
-        "--features",
-        "wasi,cranelift",
-        "--examples",
-        "--release", // <-
-    ]);
-
-    start_test(&["test", "--doc", "--all", "--features", "cranelift,std"]);
 }
