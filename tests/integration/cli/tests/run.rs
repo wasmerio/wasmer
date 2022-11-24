@@ -550,7 +550,13 @@ fn run_no_start_wasm_report_error() -> anyhow::Result<()> {
 // Test that changes to wapm run don't break wasmer run
 #[test]
 fn test_wapm_run_works() -> anyhow::Result<()> {
-    let output = Command::new("wapm").arg("install").arg("cowsay").output()?;
+    let temp_dir = tempfile::tempdir()?;
+    let path = temp_dir.path();
+    let output = Command::new("wapm")
+        .arg("install")
+        .arg("cowsay")
+        .current_dir(&path)
+        .output()?;
 
     if !output.status.success() {
         bail!(
@@ -566,6 +572,7 @@ fn test_wapm_run_works() -> anyhow::Result<()> {
         .arg("run")
         .arg("cowsay")
         .arg("hello")
+        .current_dir(&path)
         .env(
             "WAPM_RUNTIME".to_string(),
             format!("{}", get_wasmer_path().display()),
