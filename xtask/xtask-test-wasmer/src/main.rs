@@ -38,6 +38,8 @@ fn start_test(args: &[&str]) {
 
 fn main() {
     let compilers = env::var("COMPILERS").unwrap_or_else(|_| "cranelift".to_string());
+    let stage = env::var("STAGE").unwrap_or_else(|_| "all".to_string());
+
     let mut compiler_features = compilers
         .replace(' ', ",")
         .split(',')
@@ -60,43 +62,91 @@ fn main() {
         exclude_tests.push("wasmer-compiler-llvm");
     }
 
-    let exclude_tests = exclude_tests.join("--exclude ");
+    let exclude_tests = exclude_tests.join(" --exclude ");
 
-    start_test(&[
-        "test",
-        "--release",
-        "--tests",
-        "--features",
-        "cranelift",
-        "--features",
-        &compiler_features,
-    ]);
+    // cargo test  --release --tests --features cranelift,singlepass,
+    // wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
+    if stage == "1" || stage == "all" {
+        start_test(&[
+            "test",
+            "--release",
+            "--tests",
+            "--features",
+            &format!("{compiler_features},wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load"),
+        ]);
+    }
 
-    start_test(&[
-        "test",
-        "--all",
-        "--release",
-        &exclude_tests,
-        "--features",
-        "cranelift",
-    ]);
+    if stage == "2" || stage == "all" {
+        // cargo test  --all --release --exclude wasmer-c-api --exclude wasmer-cli --exclude wasmer-compiler-cli --exclude wasmer-wasi-experimental-io-devices --exclude wasmer-integration-tests-cli
+        // --exclude wasmer-integration-tests-ios --exclude wasmer-compiler-llvm
+        let f = format!("{compiler_features},wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load");
+        let mut args = vec!["test", "--all", "--features", &f, "--release"];
+        for i in exclude_tests.split_whitespace() {
+            args.push(i);
+        }
+        start_test(&args);
+    }
 
-    start_test(&[
-        "test",
-        &compiler_features,
-        "--features",
-        "wasi,cranelift",
-        "--examples",
-    ]);
+    if stage == "3" || stage == "all" {
+        // cargo test  --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
+        // cargo test  --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
+        for compiler in compilers.split(',') {
+            start_test(&[
+                "test",
+                "--manifest-path",
+                &format!("lib/compiler-{compiler}/Cargo.toml"),
+                "--release",
+                "--no-default-features",
+                "--features=std",
+            ]);
+        }
+    }
 
-    start_test(&[
-        "test",
-        &compiler_features,
-        "--features",
-        "wasi,cranelift",
-        "--examples",
-        "--release", // <-
-    ]);
+    // cargo test  --manifest-path lib/cli/Cargo.toml --features cranelift,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load --release
+    if stage == "4" || stage == "all" {
+        start_test(&[
+            "test",
+            "--manifest-path",
+            "lib/cli/Cargo.toml",
+            "--features",
+            &format!("{compiler_features},wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load"),
+            "--features",
+            "wasi",
+            "--examples",
+        ]);
+    }
 
-    start_test(&["test", "--doc", "--all", "--features", "cranelift,std"]);
+    if stage == "5" || stage == "all" {
+        // cargo test  --features cranelift,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load --features wasi --examples
+        start_test(&[
+            "test",
+            "--features",
+            &format!("{compiler_features},wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load"),
+            "--features",
+            "wasi",
+            "--examples",
+        ]);
+    }
+
+    if stage == "6" || stage == "all" {
+        // cargo test  --release --features cranelift,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load --features wasi --examples
+        start_test(&[
+            "test",
+            &format!("{compiler_features},wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load"),
+            "--features",
+            "wasi",
+            "--examples",
+            "--release", // <-
+        ]);
+    }
+
+    if stage == "7" || stage == "all" {
+        start_test(&[
+            "test", 
+            "--doc", 
+            "--all", 
+            "--features", 
+            &format!("{compiler_features},wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load"),
+        ]);
+    }
 }

@@ -131,6 +131,7 @@ jobs:
           cargo build-wasmer
         env:
           COMPILERS: cranelift,llvm,singlepass
+          LLVM_SYS_120_PREFIX: ${{ env.LLVM_SYS_120_PREFIX }}
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -196,6 +197,7 @@ jobs:
           cargo build-wasmer
         env:
           COMPILERS: cranelift,llvm,singlepass
+          LLVM_SYS_120_PREFIX: ${{ env.LLVM_SYS_120_PREFIX }}
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -233,6 +235,7 @@ jobs:
         env:
           COMPILERS: cranelift,llvm,singlepass
           CARGO_TARGET: aarch64-apple-darwin
+          LLVM_SYS_120_PREFIX: ${{ env.LLVM_SYS_120_PREFIX }}
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -266,6 +269,7 @@ jobs:
           cargo build-wasmer
         env:
           COMPILERS: cranelift,llvm,singlepass
+          LLVM_SYS_120_PREFIX: ${{ env.LLVM_SYS_120_PREFIX }}
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -415,6 +419,9 @@ jobs:
   test_wasmer_linux_x64:
     name: test wasmer on linux-x86_64-gnu
     runs-on: ubuntu-18.04
+    strategy:
+      matrix:
+        stage: [1,2,3,4,5,6,7]
     steps: 
       - uses: actions/checkout@v3
       - name: Set up libstdc++ on Linux
@@ -442,11 +449,16 @@ jobs:
           cargo test-wasmer
         env:
           COMPILERS: cranelift,llvm,singlepass
+          STAGE: ${{ matrix.stage }}
+          LLVM_SYS_120_PREFIX: ${{ env.LLVM_SYS_120_PREFIX }}
 
   test_wasmer_linux_musl:
     name: test wasmer on linux-x86_64-musl
     runs-on: ubuntu-latest
     container: alpine:latest
+    strategy:
+      matrix:
+        stage: [1,2,3,4,5,6,7]
     steps: 
       - uses: actions/checkout@v3
       - name: Set up base deps on musl
@@ -461,36 +473,45 @@ jobs:
           cargo test-wasmer
         env:
           COMPILERS: cranelift,singlepass # no llvm
+          STAGE: ${{ matrix.stage }}
 
   test_wasmer_macos_x86:
     name: test wasmer on macos-x86
     runs-on: macos-11 
-    steps: 
-      - uses: actions/checkout@v3
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.63
-      - name: Install LLVM
-        shell: bash
-        run: |
-          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
-          mkdir -p ${LLVM_DIR}
-          curl --proto '=https' --tlsv1.2 -sSf "${{ env.LLVM_URL }}" -L -o - | tar xJv -C ${LLVM_DIR}
-          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
-        env:
-          LLVM_DIR: .llvm
-          LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-darwin-amd64.tar.xz
-      - name: cargo xtask test-wasmer
-        run: |
-          cargo test-wasmer
-        env:
-          COMPILERS: cranelift,llvm,singlepass
+    strategy:
+      matrix:
+        stage: [1,2,3,4,5,6,7]
+        steps: 
+          - uses: actions/checkout@v3
+          - name: Install Rust
+            uses: dtolnay/rust-toolchain@stable
+            with:
+              toolchain: 1.63
+          - name: Install LLVM
+            shell: bash
+            run: |
+              LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+              mkdir -p ${LLVM_DIR}
+              curl --proto '=https' --tlsv1.2 -sSf "${{ env.LLVM_URL }}" -L -o - | tar xJv -C ${LLVM_DIR}
+              echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+              echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+            env:
+              LLVM_DIR: .llvm
+              LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-darwin-amd64.tar.xz
+          - name: cargo xtask test-wasmer
+            run: |
+              cargo test-wasmer
+            env:
+              COMPILERS: cranelift,llvm,singlepass
+              STAGE: ${{ matrix.stage }}
+              LLVM_SYS_120_PREFIX: ${{ env.LLVM_SYS_120_PREFIX }}
 
   test_wasmer_macos_arm:
     name: test wasmer on macos-x86
     runs-on: macos-11 
+    strategy:
+      matrix:
+        stage: [1,2,3,4,5,6,7]
     steps: 
       - uses: actions/checkout@v3
       - name: Install Rust
@@ -510,10 +531,15 @@ jobs:
           cargo test-wasmer
         env:
           COMPILERS: cranelift,llvm,singlepass
+          STAGE: ${{ matrix.stage }}
+          LLVM_SYS_120_PREFIX: ${{ env.LLVM_SYS_120_PREFIX }}
 
   test_wasmer_windows_x86:
     name: test wasmer on windows-x64
     runs-on: windows-2019
+    strategy:
+      matrix:
+        stage: [1,2,3,4,5,6,7]
     steps: 
       - uses: actions/checkout@v3
       - name: Install Rust
@@ -536,6 +562,8 @@ jobs:
           cargo test-wasmer
         env:
           COMPILERS: cranelift,llvm,singlepass
+          STAGE: ${{ matrix.stage }}
+          LLVM_SYS_120_PREFIX: ${{ env.LLVM_SYS_120_PREFIX }}
 
   # test-capi: run unit test for capi, depends on build-capi step
   # (can run in parallel with build-wasmer step)
@@ -715,7 +743,7 @@ jobs:
           cargo test-integration
 
   test_integration_macos_arm:
-    name: integration tests on macos-x86
+    name: integration tests on macos-arm
     runs-on: macos-11 
     needs: [build_wasmer_macos_arm, build_capi_macos_arm]
     steps: 
@@ -724,6 +752,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
+          target: aarch64-apple-darwin
       - uses: actions/download-artifact@v3
         with:
           name: capi-aarch64-apple-darwin
@@ -733,6 +762,8 @@ jobs:
       - name: cargo xtask test-integration
         run: |
           cargo test-integration
+        env:
+          CARGO_TARGET: aarch64-apple-darwin
 
   test_integration_windows_x86:
     name: integration tests on windows-x64
