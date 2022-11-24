@@ -329,4 +329,17 @@ mod tests {
             error => panic!("Unexpected error: {:?}", error),
         };
     }
+
+    #[test]
+    fn errors_for_unsuported_cpufeatures() {
+        let compiler = SinglepassCompiler::new(Singlepass::default());
+        let mut features = CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1;
+        // simple test
+        assert!(compiler.get_cpu_features_used(&features).is_subset(CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1));
+        // check that an AVX build don't work on SSE4.2 only host
+        assert!(!compiler.get_cpu_features_used(&features).is_subset(CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1));
+        // check that having a host with AVX512 doesn't change anything
+        features.insert_all(CpuFeature::AVX512DQ | CpuFeature::AVX512F);
+        assert!(compiler.get_cpu_features_used(&features).is_subset(CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1));
+    }
 }
