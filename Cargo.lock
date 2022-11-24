@@ -4965,10 +4965,16 @@ dependencies = [
 [[package]]
 name = "xtask-test-capi"
 version = "0.1.0"
+dependencies = [
+ "wasmer-registry",
+]
 
 [[package]]
 name = "xtask-test-integration"
 version = "0.1.0"
+dependencies = [
+ "wasmer-registry",
+]
 
 [[package]]
 name = "xtask-test-js"
