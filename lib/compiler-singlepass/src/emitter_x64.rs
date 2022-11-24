@@ -969,6 +969,7 @@ impl EmitterX64 for AssemblerX64 {
         });
         Ok(())
     }
+
     fn arch_emit_tzcnt(
         &mut self,
         sz: Size,
