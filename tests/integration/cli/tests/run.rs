@@ -550,44 +550,27 @@ fn run_no_start_wasm_report_error() -> anyhow::Result<()> {
 // Test that wasmer can run a complex path
 #[test]
 fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
-    let temp_dir = tempfile::tempdir()?;
-    let path = temp_dir.path().to_path_buf();
-    let root = get_repo_root_path()
-        .unwrap()
-        .join("temp-wasmer-run-complex-url");
+    let wasm_test_path = wasi_test_wasm_path();
     #[cfg(target_os = "windows")]
     {
         // wasmer run used to fail on c:\Users\username\wapm_packages\ ...
-        let root_str = format!("{}", root.display());
         assert!(
-            root_str.starts_with("c:\\") || root_str.starts_with("C://"),
-            "windows path is not complex enough"
+            wasm_test_path.starts_with("c:\\") || wasm_test_path.starts_with("C://"),
+            "wasm_test_path path is not complex enough"
         );
     }
 
-    println!(
-        "copying from {} to {}",
-        wasi_test_wasm_path(),
-        root.join("qjs.wasm").display()
-    );
-    std::fs::create_dir_all(&root).unwrap();
-    println!("copying...");
-    std::fs::copy(wasi_test_wasm_path(), root.join("qjs.wasm")).unwrap();
-
-    println!(
-        "running wasmer run {} -- -q",
-        root.join("qjs.wasm").display()
-    );
+    println!("running wasmer run {wasm_test_path} -- -q");
 
     let mut cmd = Command::new("wasmer");
     cmd.arg("run");
-    cmd.arg(root.join("qjs.wasm"));
+    cmd.arg(&wasm_test_path);
     cmd.arg("--");
     cmd.arg("-q");
 
     println!("running command: {cmd:?}");
 
-    let output = cmd.current_dir(&root).output()?;
+    let output = cmd.output()?;
 
     if !output.status.success() {
         bail!(
