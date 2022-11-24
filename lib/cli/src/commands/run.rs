@@ -652,7 +652,7 @@ fn start_spinner(msg: String) -> Option<spinoff::Spinner> {
     #[cfg(target_os = "windows")]
     {
         use colored::control;
-        let _ = control::enable_virtual_terminal(true);
+        let _ = control::set_virtual_terminal(true);
     }
     Some(spinoff::Spinner::new(
         spinoff::Spinners::Dots,
@@ -846,8 +846,8 @@ pub(crate) fn try_run_package_or_file(
 
     // c:// might be parsed as a URL on Windows
     let url_string = format!("{}", r.path.display());
-    if url_string.starts_with("http") {
-        if let Ok(url) = url::Url::parse(&url_string) {
+    if let Ok(url) = url::Url::parse(&url_string) {
+        if url.scheme() == "http" || url.scheme() == "https" {
             match try_run_url(&url, args, r, debug) {
                 Err(ExecuteLocalPackageError::BeforeExec(_)) => {}
                 Err(ExecuteLocalPackageError::DuringExec(e)) => return Err(e),
