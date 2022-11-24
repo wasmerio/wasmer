@@ -22,6 +22,8 @@ pub fn get_username(#[cfg(test)] test_name: &str) -> anyhow::Result<Option<Strin
 
 pub fn get_username_registry_token(registry: &str, token: &str) -> anyhow::Result<Option<String>> {
     let q = WhoAmIQuery::build_query(who_am_i_query::Variables {});
+    println!("executing query whoami with token {token}, registry = {registry:?}");
     let response: who_am_i_query::ResponseData = execute_query(registry, token, &q)?;
+    println!("response: {:?}", response);
     Ok(response.viewer.map(|viewer| viewer.username))
 }
