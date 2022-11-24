@@ -1,7 +1,7 @@
 [package]
-name = 'wasmer'
+name = 'ciuser/wasmer'
 version = '0.1.0'
-description = 'Description for package wasmer'
+description = 'Description for package ciuser/wasmer'
 
 # See more keys and definitions at https://docs.wasmer.io/ecosystem/wapm/manifest
 

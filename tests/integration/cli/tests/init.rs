@@ -20,6 +20,25 @@ fn wasmer_init_works_1() -> anyhow::Result<()> {
     let path = tempdir.path();
     let path = path.join("testfirstproject");
     std::fs::create_dir_all(&path)?;
+
+    if std::env::var("GITHUB_TOKEN").is_err() {
+        return Ok(());
+    }
+    let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").expect("WAPM_DEV_TOKEN env var not set");
+    println!("wapm dev token ok...");
+
+    let output = Command::new(get_wasmer_path())
+    .arg("login")
+    .arg("--registry")
+    .arg("wapm.dev")
+    .arg(wapm_dev_token)
+    .stdout(Stdio::inherit())
+    .stderr(Stdio::inherit())
+    .stdin(Stdio::null())
+    .output()?;
+
+    println!("wasmer login ok!");
+
     let output = Command::new(get_wasmer_path())
         .arg("init")
         .current_dir(&path)
@@ -98,6 +117,9 @@ fn wasmer_init_works_3() -> anyhow::Result<()> {
 
     let output = Command::new(get_wasmer_path())
         .arg("init")
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .stdin(Stdio::null())
         .current_dir(&path)
         .output()?;
     check_output!(output);
@@ -110,6 +132,9 @@ fn wasmer_init_works_3() -> anyhow::Result<()> {
         .arg("--registry")
         .arg("wapm.dev")
         .arg(wapm_dev_token)
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .stdin(Stdio::null())
         .output()?;
 
     println!("wasmer login ok!");
@@ -117,6 +142,9 @@ fn wasmer_init_works_3() -> anyhow::Result<()> {
     let output = Command::new("cargo")
         .arg("wapm")
         .arg("publish")
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .stdin(Stdio::null())
         .current_dir(&path)
         .output()?;
 
@@ -141,6 +169,25 @@ fn wasmer_init_works_2() -> anyhow::Result<()> {
     )?;
     std::fs::create_dir_all(path.join("src"))?;
     std::fs::write(path.join("src").join("main.rs"), b"fn main() { }")?;
+
+    if std::env::var("GITHUB_TOKEN").is_err() {
+        return Ok(());
+    }
+    let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").expect("WAPM_DEV_TOKEN env var not set");
+    println!("wapm dev token ok...");
+
+    let output = Command::new(get_wasmer_path())
+    .arg("login")
+    .arg("--registry")
+    .arg("wapm.dev")
+    .arg(wapm_dev_token)
+    .stdout(Stdio::inherit())
+    .stderr(Stdio::inherit())
+    .stdin(Stdio::null())
+    .output()?;
+
+    println!("wasmer login ok!");
+    
     let output = Command::new(get_wasmer_path())
         .arg("init")
         .current_dir(&path)

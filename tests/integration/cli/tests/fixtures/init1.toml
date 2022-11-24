@@ -1,5 +1,5 @@
 [package]
-name = 'testfirstproject'
+name = 'ciuser/testfirstproject'
 version = '0.1.0'
 description = 'Description for package testfirstproject'
 
