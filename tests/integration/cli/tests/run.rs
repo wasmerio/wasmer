@@ -6,19 +6,23 @@ use std::process::Command;
 use wasmer_integration_tests_cli::{get_repo_root_path, get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
 
 fn wasi_test_python_path() -> String {
-    format!("{}/{}", C_ASSET_PATH, "python-0.1.0.wasmer")
+    let slash = if C_ASSET_PATH.ends_with('/') { "" } else { "/" };
+    format!("{}{slash}{}", C_ASSET_PATH, "python-0.1.0.wasmer")
 }
 
 fn wasi_test_wasm_path() -> String {
-    format!("{}/{}", C_ASSET_PATH, "qjs.wasm")
+    let slash = if C_ASSET_PATH.ends_with('/') { "" } else { "/" };
+    format!("{}{slash}{}", C_ASSET_PATH, "qjs.wasm")
 }
 
 fn test_no_imports_wat_path() -> String {
-    format!("{}/{}", ASSET_PATH, "fib.wat")
+    let slash = if ASSET_PATH.ends_with('/') { "" } else { "/" };
+    format!("{}{slash}{}", ASSET_PATH, "fib.wat")
 }
 
 fn test_no_start_wat_path() -> String {
-    format!("{}/{}", ASSET_PATH, "no_start.wat")
+    let slash = if ASSET_PATH.ends_with('/') { "" } else { "/" };
+    format!("{}{slash}{}", ASSET_PATH, "no_start.wat")
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -564,7 +568,7 @@ fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
 
     let mut cmd = Command::new("wasmer");
     cmd.arg("run");
-    cmd.arg(&wasm_test_path);
+    cmd.arg(wasi_test_wasm_path());
     cmd.arg("--");
     cmd.arg("-q");
 
