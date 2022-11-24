@@ -1,4 +1,3 @@
-pub mod compiler;
 mod stdio;
 pub mod task_manager;
 mod ws;
@@ -30,6 +29,9 @@ pub mod term;
 use crate::http::DynHttpClient;
 #[cfg(feature = "termios")]
 pub use term::*;
+
+#[cfg(feature = "sys")]
+pub type ArcTunables = std::sync::Arc<dyn wasmer::Tunables + Send + Sync>;
 
 #[derive(Error, Debug)]
 pub enum WasiThreadError {
@@ -90,23 +92,35 @@ where
         Default::default()
     }
 
-    /// Create a new [`wasmer::Store`].
-    // TODO: remove default implementation
-    // This should be implemented by concrete runtimes.
+    /// Get a [`wasmer::Engine`] for module compilation.
+    // TODO: remove default implementation This should be implemented by concrete runtimes.
     // The default impl is here to make migration easier.
-    fn new_store(&self, tunables: Option<self::compiler::ArcTunables>) -> wasmer::Store {
+    #[cfg(feature = "sys")]
+    fn engine(&self) -> wasmer::Engine {
+        // The default impl here is especially bad because it needs to construct
+        // a new engine each time.
+        build_engine()
+    }
+
+    /// Create a new [`wasmer::Store`].
+    // TODO: remove default implementation This should be implemented by concrete runtimes.
+    // The default impl is here to make migration easier.
+    fn new_store(&self) -> wasmer::Store {
         cfg_if::cfg_if! {
             if #[cfg(feature = "sys")] {
-                let engine = build_engine();
-                if let Some(tunables) = tunables {
-                    wasmer::Store::new_with_tunables(engine, tunables)
-                } else {
-                    wasmer::Store::new(engine)
-                }
+                wasmer::Store::new(self.engine())
             } else {
                 wasmer::Store::default()
             }
         }
+    }
+
+    /// Create a new [`wasmer::Store`].
+    // TODO: remove default implementation This should be implemented by concrete runtimes.
+    // The default impl is here to make migration easier.
+    #[cfg(feature = "sys")]
+    fn new_store_with_tunables(&self, tunables: ArcTunables) -> wasmer::Store {
+        wasmer::Store::new_with_tunables(self.engine(), tunables)
     }
 
     /// Sets the TTY state

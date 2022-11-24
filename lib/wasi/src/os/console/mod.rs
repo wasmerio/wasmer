@@ -51,8 +51,6 @@ pub struct Console {
     runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
     compiled_modules: Arc<ModuleCache>,
     stdin: Option<WasiPipe>,
-    #[derivative(Debug = "ignore")]
-    tunables: Option<crate::runtime::compiler::ArcTunables>,
 }
 
 impl Console {
@@ -83,20 +81,11 @@ impl Console {
             prompt: "wasmer.sh".to_string(),
             compiled_modules,
             stdin: None,
-            tunables: None,
         }
     }
 
     pub fn with_stdin(mut self, stdin: WasiPipe) -> Self {
         self.stdin = Some(stdin);
-        self
-    }
-
-    pub fn with_tunables(
-        mut self,
-        tunables: impl wasmer::Tunables + Send + Sync + 'static,
-    ) -> Self {
-        self.tunables = Some(Arc::new(tunables));
         self
     }
 
@@ -160,7 +149,7 @@ impl Console {
         let envs = self.env.clone();
 
         // Build a new store that will be passed to the thread
-        let store = self.runtime.new_store(self.tunables.clone());
+        let store = self.runtime.new_store();
 
         // Create the control plane, process and thread
         let control_plane = WasiControlPlane::default();

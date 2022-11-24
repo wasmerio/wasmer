@@ -1,8 +1,5 @@
 use wasmer::Tunables;
 
-// pub type BoxTunables = Box<dyn Tunables + Send + Sync>;
-pub type ArcTunables = std::sync::Arc<dyn Tunables + Send + Sync>;
-
 /// Abstracts the Webassembly compiler.
 // NOTE: currently only a stub, will be expanded with actual compilation capability in the future.
 pub trait Compiler: std::fmt::Debug {
