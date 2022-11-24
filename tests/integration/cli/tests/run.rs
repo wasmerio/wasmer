@@ -547,41 +547,34 @@ fn run_no_start_wasm_report_error() -> anyhow::Result<()> {
     Ok(())
 }
 
-// Test that changes to wapm run don't break wasmer run
+// Test that wasmer can run a complex path
 #[test]
 fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
-    // only run this test on the CI, not locally
-    if std::env::var("GITHUB_TOKEN").is_err() {
-        return Ok(());
-    }
-
     let temp_dir = tempfile::tempdir()?;
-    let path = temp_dir.path();
-    let output = Command::new("wapm")
-        .arg("install")
-        .arg("cowsay")
-        .current_dir(&path)
-        .output()?;
-
-    if !output.status.success() {
-        bail!(
-            "wapm install cowsay failed with: stdout: {}\n\nstderr: {}",
-            std::str::from_utf8(&output.stdout)
-                .expect("stdout is not utf8! need to handle arbitrary bytes"),
-            std::str::from_utf8(&output.stderr)
-                .expect("stderr is not utf8! need to handle arbitrary bytes")
+    let path = temp_dir.path().to_path_buf();
+    let root = std::env::home_dir().unwrap_or(path);
+    #[cfg(target_os = "windows")]
+    {
+        // wasmer run used to fail on c:\Users\username\wapm_packages\ ...
+        let root_str = format!("{}", root.display());
+        assert!(
+            root_str.starts_with("c:\\") || root_str.starts_with("C://"),
+            "windows path is not complex enough"
         );
     }
+    std::fs::copy(wasi_test_wasm_path(), root.join("qjs.wasm")).unwrap();
 
-    let output = Command::new("wapm")
+    println!(
+        "running wasmer run {} -- -q",
+        root.join("qjs.wasm").display()
+    );
+
+    let output = Command::new("wasmer")
         .arg("run")
-        .arg("cowsay")
-        .arg("hello")
-        .current_dir(&path)
-        .env(
-            "WAPM_RUNTIME".to_string(),
-            format!("{}", get_wasmer_path().display()),
-        )
+        .arg(root.join("qjs.wasm"))
+        .arg("--")
+        .arg("-q")
+        .current_dir(&root)
         .output()?;
 
     if !output.status.success() {
