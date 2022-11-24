@@ -122,16 +122,6 @@ ifneq ($(ENABLE_LLVM), 0)
 	ifeq ($(ENABLE_LLVM), 1)
 		LLVM_VERSION := $(shell llvm-config --version)
 		compilers += llvm
-	# … otherwise, we try to autodetect LLVM from `llvm-config`
-	else ifneq (, $(shell which llvm-config 2>/dev/null))
-		LLVM_VERSION := $(shell llvm-config --version)
-
-		# If findstring is not empty, then it have found the value
-		ifneq (, $(findstring 13,$(LLVM_VERSION)))
-			compilers += llvm
-		else ifneq (, $(findstring 12,$(LLVM_VERSION)))
-			compilers += llvm
-		endif
 	# … or try to autodetect LLVM from `llvm-config-<version>`.
 	else
 		ifneq (, $(shell which llvm-config-13 2>/dev/null))
@@ -140,6 +130,16 @@ ifneq ($(ENABLE_LLVM), 0)
 		else ifneq (, $(shell which llvm-config-12 2>/dev/null))
 			LLVM_VERSION := $(shell llvm-config-12 --version)
 			compilers += llvm
+		# … otherwise, we try to autodetect LLVM from `llvm-config`
+		else ifneq (, $(shell which llvm-config 2>/dev/null))
+			LLVM_VERSION := $(shell llvm-config --version)
+
+			# If findstring is not empty, then it have found the value
+			ifneq (, $(findstring 13,$(LLVM_VERSION)))
+				compilers += llvm
+			else ifneq (, $(findstring 12,$(LLVM_VERSION)))
+				compilers += llvm
+			endif
 		endif
 	endif
 endif
