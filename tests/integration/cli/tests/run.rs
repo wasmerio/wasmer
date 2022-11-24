@@ -555,6 +555,31 @@ fn test_wapm_run_works() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    if Command::new("wapm").arg("--version").output().is_err()
+        || !Command::new("wapm")
+            .arg("--version")
+            .output()
+            .unwrap()
+            .status
+            .success()
+    {
+        let _ = Command::new("cargo")
+            .arg("install")
+            .arg("wapm-cli")
+            .output();
+    }
+
+    if Command::new("wapm").arg("--version").output().is_err()
+        || !Command::new("wapm")
+            .arg("--version")
+            .output()
+            .unwrap()
+            .status
+            .success()
+    {
+        println!("warning: wapm is not installed even after running cargo install wapm-cli");
+    }
+
     let temp_dir = tempfile::tempdir()?;
     let path = temp_dir.path();
     let output = Command::new("wapm")
