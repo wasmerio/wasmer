@@ -250,29 +250,13 @@
 <span id="244">244</span>
 <span id="245">245</span>
 <span id="246">246</span>
-<span id="247">247</span>
-<span id="248">248</span>
-<span id="249">249</span>
-<span id="250">250</span>
-<span id="251">251</span>
-<span id="252">252</span>
-<span id="253">253</span>
-<span id="254">254</span>
-<span id="255">255</span>
-<span id="256">256</span>
-<span id="257">257</span>
-<span id="258">258</span>
-<span id="259">259</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">graphql_client</span>::<span class="kw-2">*</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>))]</span>
 <span class="kw">use</span> <span class="ident">reqwest</span>::{
     <span class="ident">blocking</span>::{<span class="ident">multipart::Form</span>, <span class="ident">Client</span>},
     <span class="ident">header::USER_AGENT</span>,
 };
 <span class="kw">use</span> <span class="ident">std::env</span>;
 <span class="kw">use</span> <span class="ident">std::time::Duration</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
-<span class="kw">use</span> {<span class="ident">wasm_bus_reqwest::prelude::header</span>::<span class="kw-2">*</span>, <span class="ident">wasm_bus_reqwest::prelude</span>::<span class="kw-2">*</span>};
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">proxy</span> {
     <span class="doccomment">//! Code for dealing with setting things up to proxy network requests</span>
@@ -293,9 +277,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">maybe_set_up_proxy_blocking</span>(
         <span class="ident">builder</span>: <span class="ident">reqwest::blocking::ClientBuilder</span>,
     ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">reqwest::blocking::ClientBuilder</span><span class="op">&gt;</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>))]</span>
         <span class="kw">use</span> <span class="ident">anyhow::Context</span>;
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>))]</span>
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">proxy</span>) <span class="op">=</span> <span class="ident">maybe_set_up_proxy_inner</span>()
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
             .<span class="ident">context</span>(<span class="string">&quot;install_webc_package: failed to setup proxy for reqwest Client&quot;</span>)<span class="question-mark">?</span>
@@ -308,9 +290,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">maybe_set_up_proxy</span>(
         <span class="ident">builder</span>: <span class="ident">reqwest::ClientBuilder</span>,
     ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">reqwest::ClientBuilder</span><span class="op">&gt;</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>))]</span>
         <span class="kw">use</span> <span class="ident">anyhow::Context</span>;
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>))]</span>
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">proxy</span>) <span class="op">=</span> <span class="ident">maybe_set_up_proxy_inner</span>()
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
             .<span class="ident">context</span>(<span class="string">&quot;install_webc_package: failed to setup proxy for reqwest Client&quot;</span>)<span class="question-mark">?</span>
@@ -371,12 +351,6 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">whoami_distro</span>() -&gt; <span class="ident">String</span> {
-    <span class="ident">whoami::os</span>().<span class="ident">to_lowercase</span>()
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>))]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">whoami_distro</span>() -&gt; <span class="ident">String</span> {
     <span class="ident">whoami::distro</span>().<span class="ident">to_lowercase</span>()
 }
