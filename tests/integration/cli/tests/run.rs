@@ -552,7 +552,7 @@ fn run_no_start_wasm_report_error() -> anyhow::Result<()> {
 fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let path = temp_dir.path().to_path_buf();
-    let root = std::env::home_dir().unwrap_or(path);
+    let root = get_repo_root_path().unwrap().join("temp-wasmer-run-complex-url");
     #[cfg(target_os = "windows")]
     {
         // wasmer run used to fail on c:\Users\username\wapm_packages\ ...
