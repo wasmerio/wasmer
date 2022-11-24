@@ -481,30 +481,30 @@ jobs:
     strategy:
       matrix:
         stage: [1,2,3,4,5,6,7]
-        steps: 
-          - uses: actions/checkout@v3
-          - name: Install Rust
-            uses: dtolnay/rust-toolchain@stable
-            with:
-              toolchain: 1.63
-          - name: Install LLVM
-            shell: bash
-            run: |
-              LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
-              mkdir -p ${LLVM_DIR}
-              curl --proto '=https' --tlsv1.2 -sSf "${{ env.LLVM_URL }}" -L -o - | tar xJv -C ${LLVM_DIR}
-              echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
-              echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
-            env:
-              LLVM_DIR: .llvm
-              LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-darwin-amd64.tar.xz
-          - name: cargo xtask test-wasmer
-            run: |
-              cargo test-wasmer
-            env:
-              COMPILERS: cranelift,llvm,singlepass
-              STAGE: ${{ matrix.stage }}
-              LLVM_SYS_120_PREFIX: ${{ env.LLVM_SYS_120_PREFIX }}
+    steps: 
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.63
+      - name: Install LLVM
+        shell: bash
+        run: |
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir -p ${LLVM_DIR}
+          curl --proto '=https' --tlsv1.2 -sSf "${{ env.LLVM_URL }}" -L -o - | tar xJv -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
+          LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-darwin-amd64.tar.xz
+      - name: cargo xtask test-wasmer
+        run: |
+          cargo test-wasmer
+        env:
+          COMPILERS: cranelift,llvm,singlepass
+          STAGE: ${{ matrix.stage }}
+          LLVM_SYS_120_PREFIX: ${{ env.LLVM_SYS_120_PREFIX }}
 
   test_wasmer_macos_arm:
     name: test wasmer on macos-x86
