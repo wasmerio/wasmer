@@ -39,6 +39,76 @@ fn wasmer_init_works_1() -> anyhow::Result<()> {
     Ok(())
 }
 
+// Test that wasmer init works with cargo wapm
+#[cfg(not(target_os = "macos"))]
+#[test]
+fn wasmer_init_works_3() -> anyhow::Result<()> {
+    // running test locally: should always pass since
+    // developers don't have access to WAPM_DEV_TOKEN
+    if std::env::var("GITHUB_TOKEN").is_err() {
+        return Ok(());
+    }
+    let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").expect("WAPM_DEV_TOKEN env var not set");
+
+    let cargo_wapm_stdout = std::process::Command::new("cargo")
+        .arg("wapm")
+        .arg("--version")
+        .output()
+        .map(|s| String::from_utf8_lossy(&s.stdout).to_string())
+        .unwrap_or_default();
+
+    let cargo_wapm_present =
+        cargo_wapm_stdout.lines().count() == 1 && cargo_wapm_stdout.contains("cargo wapm");
+
+    if !cargo_wapm_present {
+        // Install cargo wapm if not installed
+        let output = Command::new("cargo")
+            .arg("install")
+            .arg("cargo-wapm")
+            .output()?;
+
+        check_output!(output);
+    }
+
+    let tempdir = tempfile::tempdir()?;
+    let path = tempdir.path();
+    let path = path.join("testfirstproject");
+    std::fs::create_dir_all(&path)?;
+    std::fs::write(
+        path.join("Cargo.toml"),
+        include_str!("./fixtures/init5.toml")
+            .replace("RANDOMVERSION1", &format!("{}", rand::random::<u32>()))
+            .replace("RANDOMVERSION2", &format!("{}", rand::random::<u32>()))
+            .replace("RANDOMVERSION3", &format!("{}", rand::random::<u32>())),
+    )?;
+    std::fs::create_dir_all(path.join("src"))?;
+    std::fs::write(path.join("src").join("main.rs"), b"fn main() { }")?;
+
+    let output = Command::new(get_wasmer_path())
+        .arg("init")
+        .current_dir(&path)
+        .output()?;
+    check_output!(output);
+
+    // login to wapm.dev, prepare for publish
+    let output = Command::new(get_wasmer_path())
+        .arg("login")
+        .arg("--registry")
+        .arg("wapm.dev")
+        .arg(wapm_dev_token)
+        .output()?;
+
+    let output = Command::new("cargo")
+        .arg("wapm")
+        .arg("publish")
+        .current_dir(&path)
+        .output()?;
+
+    check_output!(output);
+
+    Ok(())
+}
+
 // Test that wasmer init adds to a Cargo.toml
 // instead of creating a new wapm.toml
 #[test]
@@ -81,6 +151,15 @@ fn wasmer_init_works_2() -> anyhow::Result<()> {
             .collect::<Vec<_>>()
             .join("\n");
         pretty_assertions::assert_eq!(read.trim(), target.trim());
+
+        // Install cargo wapm if not installed
+        let output = Command::new("cargo")
+            .arg("install")
+            .arg("cargo-wapm")
+            .current_dir(&path)
+            .output()?;
+
+        check_output!(output);
     } else {
         pretty_assertions::assert_eq!(
             std::fs::read_to_string(path.join("Cargo.toml")).unwrap(),

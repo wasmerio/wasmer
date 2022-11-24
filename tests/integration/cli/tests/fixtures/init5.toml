@@ -1,0 +1,6 @@
+[package]
+name = "test-wasmer-init"
+version = "RANDOMVERSION1.RANDOMVERSION2.RANDOMVERSION3"
+edition = "2021"
+
+[dependencies]
