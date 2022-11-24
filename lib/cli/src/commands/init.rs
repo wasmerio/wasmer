@@ -177,7 +177,7 @@ impl Init {
 
         let constructed_manifest = wapm_toml::Manifest {
             package: wapm_toml::Package {
-                name: package_name.clone(),
+                name: package_name,
                 version,
                 description,
                 license,
@@ -268,7 +268,7 @@ impl Init {
             wasmer_extra_flags: None,
             abi: default_abi,
             fs: constructed_manifest.fs,
-            bindings: bindings,
+            bindings,
         };
 
         let toml_string = toml::to_string_pretty(&metadata_wapm)?
@@ -358,24 +358,20 @@ impl Init {
     // Returns whether the template for the wapm.toml should be a binary, a library or an empty file
     fn get_bin_or_lib(&self) -> Result<BinOrLib, anyhow::Error> {
         match (self.empty, self.bin, self.lib) {
-            (true, true, _) | (true, _, true) => {
-                return Err(anyhow::anyhow!(
-                    "cannot combine --empty with --bin or --lib"
-                ))
-            }
+            (true, true, _) | (true, _, true) => Err(anyhow::anyhow!(
+                "cannot combine --empty with --bin or --lib"
+            )),
             (true, false, false) => Ok(BinOrLib::Empty),
-            (_, true, true) => {
-                return Err(anyhow::anyhow!(
-                    "cannot initialize a wapm manifest with both --bin and --lib, pick one"
-                ))
-            }
+            (_, true, true) => Err(anyhow::anyhow!(
+                "cannot initialize a wapm manifest with both --bin and --lib, pick one"
+            )),
             (false, true, _) => Ok(BinOrLib::Bin),
             (false, _, true) => Ok(BinOrLib::Lib),
             _ => Ok(BinOrLib::Bin),
         }
     }
 
-    fn get_bindings(target_file: &PathBuf, bin_or_lib: BinOrLib) -> Option<wapm_toml::Bindings> {
+    fn get_bindings(target_file: &Path, bin_or_lib: BinOrLib) -> Option<wapm_toml::Bindings> {
         match bin_or_lib {
             BinOrLib::Bin | BinOrLib::Empty => None,
             BinOrLib::Lib => target_file.parent().and_then(|parent| {
