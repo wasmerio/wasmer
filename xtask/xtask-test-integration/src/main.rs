@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
 use std::env;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 fn project_root() -> PathBuf {
@@ -62,16 +62,20 @@ fn main() {
     )
     .expect("could not unpack build-wasmer.tar.gz, run cargo build-wasmer first!");
 
-    start_test(&[
-        "test",
-        "--features",
-        "webc_runner",
-        "--no-fail-fast",
-        "-p",
-        "wasmer-integration-tests-cli",
-        "--",
-        "--nocapture"
-    ], &[
-        ("WASMER_DIR", format!("{}", project_root().join("package").display())),
-    ]);
+    start_test(
+        &[
+            "test",
+            "--features",
+            "webc_runner",
+            "--no-fail-fast",
+            "-p",
+            "wasmer-integration-tests-cli",
+            "--",
+            "--nocapture",
+        ],
+        &[(
+            "WASMER_DIR",
+            format!("{}", project_root().join("package").display()),
+        )],
+    );
 }

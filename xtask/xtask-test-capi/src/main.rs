@@ -10,7 +10,6 @@ fn project_root() -> PathBuf {
         .to_path_buf()
 }
 
-
 fn start_test(args: &[&str], env_vars: &[(&str, String)]) {
     let args = args.iter().map(|s| s.to_string()).collect::<Vec<_>>();
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
@@ -43,7 +42,6 @@ fn start_test(args: &[&str], env_vars: &[(&str, String)]) {
 
     println!("{cmd:?} succeeded, compilers = {compilers}");
 }
-
 
 fn main() {
     std::fs::create_dir_all(project_root().join("package")).expect("could not create package dir");
@@ -92,7 +90,7 @@ fn main() {
                 "--features",
                 &capi_compiler_features.join(","),
                 "--",
-                "--nocapture"
+                "--nocapture",
             ],
             envs,
         );
@@ -109,7 +107,7 @@ fn main() {
                     project_root().display()
                 ),
                 "--",
-                "--nocapture"
+                "--nocapture",
             ],
             envs,
         );
@@ -124,7 +122,7 @@ fn main() {
                     project_root().display()
                 ),
                 "--",
-                "--nocapture"
+                "--nocapture",
             ],
             envs,
         );
