@@ -160,9 +160,20 @@ impl Init {
             source: cargo_toml
                 .as_ref()
                 .map(|p| {
-                    p.build_dir
+                    // Normalize the path to /target/release to be relative to the parent of the Cargo.toml
+                    let outpath = p
+                        .build_dir
                         .join("release")
-                        .join(&format!("{module_name}.wasm"))
+                        .join(&format!("{module_name}.wasm"));
+                    let canonicalized_outpath = outpath.canonicalize().unwrap_or(outpath);
+                    let outpath_str = format!("{}", canonicalized_outpath.display());
+                    let manifest_canonicalized = manifest_path
+                        .parent()
+                        .and_then(|p| p.canonicalize().ok())
+                        .unwrap_or(manifest_path.clone());
+                    let manifest_str = format!("{}", manifest_canonicalized.display());
+                    let relative_str = outpath_str.replacen(&manifest_str, "", 1);
+                    Path::new(&relative_str).to_path_buf()
                 })
                 .unwrap_or_else(|| Path::new(&format!("{module_name}.wasm")).to_path_buf()),
             kind: None,
