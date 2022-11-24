@@ -132,7 +132,7 @@ impl Init {
         let username = wasmer_registry::whoami(None).ok().map(|o| o.1);
         let namespace = username
             .or_else(|| package_name.split('/').next().map(|s| s.to_string()))
-            .unwrap_or(package_name.clone());
+            .unwrap_or_else(|| package_name.clone());
         let module_name = package_name
             .split('/')
             .last()
@@ -150,7 +150,7 @@ impl Init {
         let description = cargo_toml
             .as_ref()
             .and_then(|t| t.description.clone())
-            .unwrap_or(format!("Description for package {module_name}"));
+            .unwrap_or_else(|| format!("Description for package {module_name}"));
 
         let default_abi = wapm_toml::Abi::Wasi;
         let bindings = Self::get_bindings(&target_file, bin_or_lib);

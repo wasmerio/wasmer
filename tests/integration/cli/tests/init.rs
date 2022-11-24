@@ -1,6 +1,6 @@
 use anyhow::bail;
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use wasmer_integration_tests_cli::{get_repo_root_path, get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
 
 macro_rules! check_output {
@@ -43,16 +43,21 @@ fn wasmer_init_works_1() -> anyhow::Result<()> {
 #[cfg(not(target_os = "macos"))]
 #[test]
 fn wasmer_init_works_3() -> anyhow::Result<()> {
+    println!("starting test...");
     // running test locally: should always pass since
     // developers don't have access to WAPM_DEV_TOKEN
     if std::env::var("GITHUB_TOKEN").is_err() {
         return Ok(());
     }
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").expect("WAPM_DEV_TOKEN env var not set");
+    println!("wapm dev token ok...");
 
     let cargo_wapm_stdout = std::process::Command::new("cargo")
         .arg("wapm")
         .arg("--version")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .output()
         .map(|s| String::from_utf8_lossy(&s.stdout).to_string())
         .unwrap_or_default();
@@ -61,10 +66,15 @@ fn wasmer_init_works_3() -> anyhow::Result<()> {
         cargo_wapm_stdout.lines().count() == 1 && cargo_wapm_stdout.contains("cargo wapm");
 
     if !cargo_wapm_present {
+        println!("cargo wapm not present");
+
         // Install cargo wapm if not installed
         let output = Command::new("cargo")
             .arg("install")
             .arg("cargo-wapm")
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .output()?;
 
         check_output!(output);
@@ -84,11 +94,15 @@ fn wasmer_init_works_3() -> anyhow::Result<()> {
     std::fs::create_dir_all(path.join("src"))?;
     std::fs::write(path.join("src").join("main.rs"), b"fn main() { }")?;
 
+    println!("project created");
+
     let output = Command::new(get_wasmer_path())
         .arg("init")
         .current_dir(&path)
         .output()?;
     check_output!(output);
+
+    println!("wasmer init ok!");
 
     // login to wapm.dev, prepare for publish
     let output = Command::new(get_wasmer_path())
@@ -98,6 +112,8 @@ fn wasmer_init_works_3() -> anyhow::Result<()> {
         .arg(wapm_dev_token)
         .output()?;
 
+    println!("wasmer login ok!");
+
     let output = Command::new("cargo")
         .arg("wapm")
         .arg("publish")
@@ -105,6 +121,8 @@ fn wasmer_init_works_3() -> anyhow::Result<()> {
         .output()?;
 
     check_output!(output);
+
+    println!("cargo wapm publish ok! test done.");
 
     Ok(())
 }
