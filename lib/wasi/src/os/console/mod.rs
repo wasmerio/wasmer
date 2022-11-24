@@ -160,7 +160,7 @@ impl Console {
         let envs = self.env.clone();
 
         // Build a new store that will be passed to the thread
-        let store = self.compiled_modules.new_store(self.tunables.clone());
+        let store = self.runtime.new_store(self.tunables.clone());
 
         // Create the control plane, process and thread
         let control_plane = WasiControlPlane::default();

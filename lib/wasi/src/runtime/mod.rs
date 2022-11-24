@@ -90,6 +90,25 @@ where
         Default::default()
     }
 
+    /// Create a new [`wasmer::Store`].
+    // TODO: remove default implementation
+    // This should be implemented by concrete runtimes.
+    // The default impl is here to make migration easier.
+    fn new_store(&self, tunables: Option<self::compiler::ArcTunables>) -> wasmer::Store {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "sys")] {
+                let engine = build_engine();
+                if let Some(tunables) = tunables {
+                    wasmer::Store::new_with_tunables(engine, tunables)
+                } else {
+                    wasmer::Store::new(engine)
+                }
+            } else {
+                wasmer::Store::default()
+            }
+        }
+    }
+
     /// Sets the TTY state
     #[cfg(not(feature = "host-termios"))]
     fn tty_set(&self, _tty_state: WasiTtyState) {}
@@ -221,6 +240,51 @@ where
             handle.write_all("\x1B[H\x1B[2J".as_bytes())
         })
     }
+}
+
+/// Create a new [`wasmer::Engine`] that can be used to compile new modules.
+#[cfg(feature = "sys")]
+fn build_engine() -> wasmer::Engine {
+    // Build the features list
+    let mut features = wasmer::Features::new();
+    features.threads(true);
+    features.memory64(true);
+    features.bulk_memory(true);
+    #[cfg(feature = "singlepass")]
+    features.multi_value(false);
+
+    // Choose the right compiler
+    #[cfg(feature = "compiler-cranelift")]
+    {
+        let compiler = wasmer_compiler_cranelift::Cranelift::default();
+        return wasmer_compiler::EngineBuilder::new(compiler)
+            .set_features(Some(features))
+            .engine();
+    }
+    #[cfg(all(not(feature = "compiler-cranelift"), feature = "compiler-llvm"))]
+    {
+        let compiler = wasmer_compiler_llvm::LLVM::default();
+        return wasmer_compiler::EngineBuilder::new(compiler)
+            .set_features(Some(features))
+            .engine();
+    }
+    #[cfg(all(
+        not(feature = "compiler-cranelift"),
+        not(feature = "compiler-singlepass"),
+        feature = "compiler-llvm"
+    ))]
+    {
+        let compiler = wasmer_compiler_singlepass::Singlepass::default();
+        return wasmer_compiler::EngineBuilder::new(compiler)
+            .set_features(Some(features))
+            .engine();
+    }
+    #[cfg(all(
+        not(feature = "compiler-cranelift"),
+        not(feature = "compiler-singlepass"),
+        not(feature = "compiler-llvm")
+    ))]
+    panic!("wasmer not built with a compiler")
 }
 
 #[derive(Debug)]
