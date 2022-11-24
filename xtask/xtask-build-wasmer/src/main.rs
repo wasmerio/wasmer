@@ -20,7 +20,10 @@ fn package_wasmer(out: &PathBuf) {
 
     let in_dir = project_root();
     let bin_dir = project_root().join("package").join("bin");
-    let release_dir = in_dir.join("target").join("release");
+    let release_dir = match std::env::var("CARGO_TARGET") {
+        Ok(o) => in_dir.join("target").join(o).join("release"),
+        Err(_) => in_dir.join("target").join("release"),
+    };
 
     std::fs::create_dir_all(&bin_dir).unwrap();
 
@@ -66,6 +69,10 @@ fn main() {
         "--bin",
         "wasmer",
     ]);
+
+    if let Ok(target) = std::env::var("CARGO_TARGET") {
+        cmd.args(&["--target", &target]);
+    }
 
     println!("running {cmd:?}");
 
