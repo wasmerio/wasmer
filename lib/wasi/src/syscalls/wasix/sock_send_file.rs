@@ -32,7 +32,7 @@ pub fn sock_send_file<M: MemorySize>(
     );
 
     wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
-    
+
     let mut env = ctx.data();
     let net = env.net();
     let tasks = env.tasks.clone();

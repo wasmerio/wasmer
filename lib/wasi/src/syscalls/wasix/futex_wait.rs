@@ -23,7 +23,7 @@ pub fn futex_wait<M: MemorySize>(
         ctx.data().tid(),
         futex_ptr.offset()
     );
-    
+
     wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
 
     let mut env = ctx.data();
