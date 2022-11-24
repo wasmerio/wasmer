@@ -538,6 +538,7 @@ jobs:
   test_capi_linux_x64:
     name: test capi on linux-x86_64-gnu
     runs-on: ubuntu-18.04
+    needs: [build_capi_linux_x64]
     steps: 
       - uses: actions/checkout@v3
       - name: Set up libstdc++ on Linux
@@ -549,6 +550,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
+      - uses: actions/download-artifact@v3
+        with:
+          name: capi-x86_64-unknown-linux-gnu
       - name: cargo xtask test-capi
         run: |
           cargo test-capi
@@ -558,6 +562,7 @@ jobs:
   test_capi_linux_musl:
     name: test capi on linux-x86_64-musl
     runs-on: ubuntu-latest
+    needs: [build_capi_linux_musl]
     container: alpine:latest
     steps: 
       - uses: actions/checkout@v3
@@ -568,6 +573,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
+      - uses: actions/download-artifact@v3
+        with:
+          name: capi-x86_64-unknown-linux-musl
       - name: cargo xtask test-capi
         run: |
           cargo test-capi
@@ -577,12 +585,16 @@ jobs:
   test_capi_macos_x86:
     name: test capi on macos-x86
     runs-on: macos-11 
+    needs: [build_capi_macos_x86]
     steps: 
       - uses: actions/checkout@v3
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
+      - uses: actions/download-artifact@v3
+        with:
+          name: capi-x86_64-apple-darwin
       - name: cargo xtask test-capi
         run: |
           cargo test-capi
@@ -592,6 +604,7 @@ jobs:
   test_capi_macos_arm:
     name: test capi on macos-arm
     runs-on: macos-11.0
+    needs: [build_capi_macos_arm]
     steps: 
       - uses: actions/checkout@v3
       - name: Install Rust
@@ -599,6 +612,9 @@ jobs:
         with:
           toolchain: 1.63
           target: aarch64-apple-darwin
+      - uses: actions/download-artifact@v3
+        with:
+          name: capi-aarch64-apple-darwin
       - name: cargo xtask test-capi
         run: |
           cargo test-capi
@@ -608,12 +624,16 @@ jobs:
   test_capi_windows_x86:
     name: test capi on windows-x64
     runs-on: windows-2019
+    needs: [build_capi_windows_x86]
     steps: 
       - uses: actions/checkout@v3
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
+      - uses: actions/download-artifact@v3
+        with:
+          name: capi-x86_64-pc-windows-msvc
       - name: cargo xtask test-capi
         run: |
           cargo test-capi
@@ -636,6 +656,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
+      - uses: actions/download-artifact@v3
+        with:
+          name: capi-x86_64-unknown-linux-gnu
+      - uses: actions/download-artifact@v3
+        with:
+          name: wasmer-cli-x86_64-unknown-linux-gnu
       - name: cargo xtask test-integration
         run: |
           cargo test-integration
@@ -654,6 +680,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
+      - uses: actions/download-artifact@v3
+        with:
+          name: capi-x86_64-unknown-linux-musl
+      - uses: actions/download-artifact@v3
+        with:
+          name: wasmer-cli-x86_64-unknown-linux-musl
       - name: cargo xtask test-integration
         run: |
           cargo test-integration
@@ -668,6 +700,32 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
+      - uses: actions/download-artifact@v3
+        with:
+          name: capi-x86_64-apple-darwin
+      - uses: actions/download-artifact@v3
+        with:
+          name: wasmer-cli-x86_64-apple-darwin
+      - name: cargo xtask test-integration
+        run: |
+          cargo test-integration
+
+  test_integration_macos_arm:
+    name: integration tests on macos-x86
+    runs-on: macos-11 
+    needs: [build_wasmer_macos_arm, build_capi_macos_arm]
+    steps: 
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.63
+      - uses: actions/download-artifact@v3
+        with:
+          name: capi-aarch64-apple-darwin
+      - uses: actions/download-artifact@v3
+        with:
+          name: wasmer-cli-aarch64-apple-darwin
       - name: cargo xtask test-integration
         run: |
           cargo test-integration
@@ -682,100 +740,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
+      - uses: actions/download-artifact@v3
+        with:
+          name: capi-x86_64-pc-windows-msvc
+      - uses: actions/download-artifact@v3
+        with:
+          name: wasmer-cli-x86_64-pc-windows-msvc
       - name: cargo xtask test-integration
         run: |
           cargo test-integration
-
-  # release step, only run if DOING_RELEASE is present
-  release:
-    # needs: [setup, build, linux_aarch64, windows_gnu]
-    runs-on: ubuntu-latest
-    if: needs.setup.outputs.DOING_RELEASE == '1' || github.event.inputs.release != ''
-    steps:
-      - name: Download the Artifacts
-        uses: actions/download-artifact@v2
-        with:
-          path: artifacts
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ needs.setup.outputs.VERSION }}
-          release_name: Release ${{ needs.setup.outputs.VERSION }}
-          draft: true
-          prerelease: false
-      - name: Upload Release Asset Windows Installer
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-windows-amd64/WasmerInstaller.exe
-          asset_name: wasmer-windows.exe
-          asset_content_type: application/vnd.microsoft.portable-executable
-      - name: Upload Release Asset Windows
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-windows-amd64/wasmer.tar.gz
-          asset_name: wasmer-windows-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Linux amd64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-linux-amd64/wasmer.tar.gz
-          asset_name: wasmer-linux-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Linux aarch64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-linux-aarch64/wasmer.tar.gz
-          asset_name: wasmer-linux-aarch64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Windows gnu64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-windows-gnu64/wasmer.tar.gz
-          asset_name: wasmer-windows-gnu64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Linux amd64 (musl)
-        id: upload-release-asset-linux-musl-amd64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-linux-musl-amd64/wasmer.tar.gz
-          asset_name: wasmer-linux-musl-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Mac amd64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-darwin-amd64/wasmer.tar.gz
-          asset_name: wasmer-darwin-amd64.tar.gz
-          asset_content_type: application/gzip
-      - name: Upload Release Asset Mac arm64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-darwin-arm64/wasmer.tar.gz
-          asset_name: wasmer-darwin-arm64.tar.gz
-          asset_content_type: application/gzip
