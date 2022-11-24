@@ -33,11 +33,7 @@ pub use crate::{
     queries::get_bindings_query::ProgrammingLanguage,
 };
 
-pub static GLOBAL_CONFIG_FILE_NAME: &str = if cfg!(target_os = "wasi") {
-    "/.private/wapm.toml"
-} else {
-    "wapm.toml"
-};
+pub static GLOBAL_CONFIG_FILE_NAME: &str = "wapm.toml";
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct PackageDownloadInfo {
