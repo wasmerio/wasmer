@@ -206,7 +206,7 @@ jobs:
         if: matrix.run_test && matrix.os != 'windows-2019'
         shell: bash
         run: |
-          make build-wasmer && make build-capi && make package-capi && make package && export WASMER_DIR=`pwd`/package && make test-integration-cli
+          curl https://get.wasmer.io -sSfL | sh && make build-wasmer && make build-capi && make package-capi && make package && export WASMER_DIR=`pwd`/package && make test-integration-cli
         env:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
