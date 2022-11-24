@@ -645,17 +645,20 @@ impl Run {
     }
 }
 
-fn start_spinner(msg: String) -> Option<spinner::SpinnerHandle> {
+fn start_spinner(msg: String) -> Option<spinoff::Spinner> {
     if !isatty::stdout_isatty() {
         return None;
     }
-    Some(
-        spinner::SpinnerBuilder::new(msg)
-            .spinner(vec![
-                "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷", " ", "⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈",
-            ])
-            .start(),
-    )
+    #[cfg(target_os = "windows")]
+    {
+        use colored::control;
+        let _ = control::enable_virtual_terminal(true);
+    }
+    Some(spinoff::Spinner::new(
+        spinoff::Spinners::Dots,
+        msg,
+        spinoff::Color::White,
+    ))
 }
 
 /// Before looking up a command from the registry, try to see if we have
@@ -706,8 +709,7 @@ pub(crate) fn try_autoinstall_package(
         force_install,
     );
     if let Some(sp) = sp.take() {
-        sp.close();
-        print!("\r");
+        sp.clear();
     }
     let _ = std::io::stdout().flush();
     let (_, package_dir) = match result {
@@ -765,8 +767,8 @@ fn try_lookup_command(sv: &mut SplitVersion) -> Result<PackageDownloadInfo, anyh
 
     for registry in wasmer_registry::get_all_available_registries().unwrap_or_default() {
         let result = wasmer_registry::query_command_from_registry(&registry, &sv.package);
-        if sp.is_some() {
-            print!("\r");
+        if let Some(s) = sp.take() {
+            s.clear();
         }
         let _ = std::io::stdout().flush();
         let command = sv.package.clone();
@@ -779,8 +781,7 @@ fn try_lookup_command(sv: &mut SplitVersion) -> Result<PackageDownloadInfo, anyh
     }
 
     if let Some(sp) = sp.take() {
-        sp.close();
-        print!("\r");
+        sp.clear();
     }
     let _ = std::io::stdout().flush();
     Err(anyhow::anyhow!("command {sv} not found"))
@@ -944,7 +945,7 @@ fn try_run_url(
         })?;
 
         if let Some(sp) = sp {
-            sp.close();
+            sp.clear();
         }
     }
 

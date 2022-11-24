@@ -593,7 +593,7 @@ pub fn query_package_from_registry(
 
     let v = response.package_version.as_ref().ok_or_else(|| {
         QueryPackageError::ErrorSendingQuery(format!(
-            "Invalid response for crate {name:?}: no manifest"
+            "Invalid response for crate {name:?}: no package version: {response:#?}"
         ))
     })?;
 
