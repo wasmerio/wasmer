@@ -795,8 +795,7 @@ impl Instance {
         // fetch the notifier
         let key = (index, dst);
         let mut conds = self.conditions.lock().unwrap();
-        conds.entry(key).or_insert_with(Vec::new);
-        let v = conds.get_mut(&key).unwrap();
+        let v = conds.entry(key).or_insert_with(Vec::new);
         v.push((current(), false));
         drop(conds);
         if timeout < 0 {
