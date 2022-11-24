@@ -552,7 +552,9 @@ fn run_no_start_wasm_report_error() -> anyhow::Result<()> {
 fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let path = temp_dir.path().to_path_buf();
-    let root = get_repo_root_path().unwrap().join("temp-wasmer-run-complex-url");
+    let root = get_repo_root_path()
+        .unwrap()
+        .join("temp-wasmer-run-complex-url");
     #[cfg(target_os = "windows")]
     {
         // wasmer run used to fail on c:\Users\username\wapm_packages\ ...
@@ -569,17 +571,19 @@ fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
         root.join("qjs.wasm").display()
     );
 
-    let output = Command::new("wasmer")
-        .arg("run")
-        .arg(root.join("qjs.wasm"))
-        .arg("--")
-        .arg("-q")
-        .current_dir(&root)
-        .output()?;
+    let mut cmd = Command::new("wasmer");
+    cmd.arg("run");
+    cmd.arg(root.join("qjs.wasm"));
+    cmd.arg("--");
+    cmd.arg("-q");
+
+    println!("running command: {cmd:?}");
+
+    let output = cmd.current_dir(&root).output()?;
 
     if !output.status.success() {
         bail!(
-            "wapm install cowsay failed with: stdout: {}\n\nstderr: {}",
+            "wasmer run qjs.wasm failed with: stdout: {}\n\nstderr: {}",
             std::str::from_utf8(&output.stdout)
                 .expect("stdout is not utf8! need to handle arbitrary bytes"),
             std::str::from_utf8(&output.stderr)
