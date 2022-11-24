@@ -223,7 +223,10 @@ jobs:
       - name: Install LLVM
         shell: bash
         run: |
-          brew install llvm
+          brew install llvm@13.0.0
+          LLVM_DIR=$(brew --cellar llvm)
+          echo "${LLVM_DIR}/13.0.0/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
       - name: cargo xtask build-wasmer
         run: |
           cargo build-wasmer
@@ -247,8 +250,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install LLVM (Choco - Windows)
-        if: matrix.llvm_choco_version
+      - name: Install LLVM
         shell: bash
         run: |
           choco install llvm --version ${{ env.LLVM_VERSION }} --allow-downgrade
@@ -422,6 +424,17 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
+      - name: Install LLVM
+        shell: bash
+        run: |
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir -p ${LLVM_DIR}
+          curl --proto '=https' --tlsv1.2 -sSf "${{ env.LLVM_URL }}" -L -o - | tar xJv -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
+          LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-linux-amd64.tar.xz
       - name: cargo xtask test-wasmer
         run: |
           cargo test-wasmer
@@ -445,7 +458,7 @@ jobs:
         run: |
           cargo test-wasmer
         env:
-          COMPILERS: cranelift,llvm,singlepass
+          COMPILERS: cranelift,singlepass # no llvm
 
   test_wasmer_macos_x86:
     name: test wasmer on macos-x86
@@ -456,6 +469,40 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
+      - name: Install LLVM
+        shell: bash
+        run: |
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir -p ${LLVM_DIR}
+          curl --proto '=https' --tlsv1.2 -sSf "${{ env.LLVM_URL }}" -L -o - | tar xJv -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
+          LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-darwin-amd64.tar.xz
+      - name: cargo xtask test-wasmer
+        run: |
+          cargo test-wasmer
+        env:
+          COMPILERS: cranelift,llvm,singlepass
+
+  test_wasmer_macos_arm:
+    name: test wasmer on macos-x86
+    runs-on: macos-11 
+    steps: 
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.63
+          target: aarch64-apple-darwin
+      - name: Install LLVM
+        shell: bash
+        run: |
+          brew install llvm@13.0.0
+          LLVM_DIR=$(brew --cellar llvm)
+          echo "${LLVM_DIR}/13.0.0/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
       - name: cargo xtask test-wasmer
         run: |
           cargo test-wasmer
@@ -471,6 +518,15 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
+      - name: Install LLVM
+        shell: bash
+        run: |
+          choco install llvm --version ${{ env.LLVM_VERSION }} --allow-downgrade
+          cd 'C:\Program Files\LLVM\'
+          LLVM_DIR=$(pwd)
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_VERSION: 13.0.0
       - name: cargo xtask test-wasmer
         run: |
           cargo test-wasmer
@@ -497,7 +553,7 @@ jobs:
         run: |
           cargo test-capi
         env:
-          COMPILERS: cranelift,llvm,singlepass
+          COMPILERS: cranelift,singlepass
 
   test_capi_linux_musl:
     name: test capi on linux-x86_64-musl
@@ -516,7 +572,7 @@ jobs:
         run: |
           cargo test-capi
         env:
-          COMPILERS: cranelift,llvm,singlepass
+          COMPILERS: cranelift,singlepass
 
   test_capi_macos_x86:
     name: test capi on macos-x86
@@ -531,7 +587,7 @@ jobs:
         run: |
           cargo test-capi
         env:
-          COMPILERS: cranelift,llvm,singlepass
+          COMPILERS: cranelift,singlepass
 
   test_capi_windows_x86:
     name: test capi on windows-x64
@@ -546,7 +602,7 @@ jobs:
         run: |
           cargo test-capi
         env:
-          COMPILERS: cranelift,llvm,singlepass
+          COMPILERS: cranelift,singlepass
 
   # test-integration-cli: run integration tests for wasmer, depends on build-capi and build-wasmer steps
   test_integration_linux_x64:
