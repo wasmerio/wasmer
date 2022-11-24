@@ -129,11 +129,10 @@ impl Init {
             })
             .ok_or_else(|| anyhow!("current dir has no file stem"))?;
 
-        let namespace = package_name
-            .split('/')
-            .next()
-            .unwrap_or(&package_name)
-            .to_string();
+        let username = wasmer_registry::whoami(None).ok().map(|o| o.1);
+        let namespace = username
+            .or_else(|| package_name.split('/').next().map(|s| s.to_string()))
+            .unwrap_or(package_name.clone());
         let module_name = package_name
             .split('/')
             .last()
@@ -170,8 +169,8 @@ impl Init {
                     let manifest_canonicalized = manifest_path
                         .parent()
                         .and_then(|p| p.canonicalize().ok())
-                        .unwrap_or(manifest_path.clone());
-                    let manifest_str = format!("{}", manifest_canonicalized.display());
+                        .unwrap_or_else(|| manifest_path.clone());
+                    let manifest_str = format!("{}/", manifest_canonicalized.display());
                     let relative_str = outpath_str.replacen(&manifest_str, "", 1);
                     Path::new(&relative_str).to_path_buf()
                 })
@@ -188,7 +187,7 @@ impl Init {
 
         let constructed_manifest = wapm_toml::Manifest {
             package: wapm_toml::Package {
-                name: package_name,
+                name: format!("{namespace}/{module_name}"),
                 version,
                 description,
                 license,
