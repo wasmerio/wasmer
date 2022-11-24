@@ -51,8 +51,11 @@ impl Login {
     /// execute [List]
     pub fn execute(&self) -> Result<(), anyhow::Error> {
         let token = self.get_token_or_ask_user()?;
-        wasmer_registry::login::login_and_save_token(&self.registry, &token)
-            .map_err(|e| anyhow::anyhow!("{e}"))
+        match wasmer_registry::login::login_and_save_token(&self.registry, &token)? {
+            Some(s) => println!("Login for WAPM user {:?} saved", s),
+            None => println!("Login for WAPM user saved"),
+        }
+        Ok(())
     }
 }
 
@@ -61,6 +64,7 @@ fn test_login_2() {
     let login = Login {
         registry: "wapm.dev".to_string(),
         token: None,
+        debug: false,
     };
 
     assert_eq!(
@@ -71,6 +75,7 @@ fn test_login_2() {
     let login = Login {
         registry: "wapm.dev".to_string(),
         token: Some("abc".to_string()),
+        debug: false,
     };
 
     assert_eq!(login.get_token_or_ask_user().unwrap(), "abc");
