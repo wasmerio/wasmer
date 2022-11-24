@@ -564,6 +564,14 @@ fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
             "windows path is not complex enough"
         );
     }
+
+    println!(
+        "copying from {} to {}",
+        wasi_test_wasm_path(),
+        root.join("qjs.wasm").display()
+    );
+    std::fs::create_dir_all(&root).unwrap();
+    println!("copying...");
     std::fs::copy(wasi_test_wasm_path(), root.join("qjs.wasm")).unwrap();
 
     println!(
