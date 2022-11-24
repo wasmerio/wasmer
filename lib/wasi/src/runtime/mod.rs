@@ -96,11 +96,7 @@ where
     // TODO: remove default implementation This should be implemented by concrete runtimes.
     // The default impl is here to make migration easier.
     #[cfg(feature = "sys")]
-    fn engine(&self) -> wasmer::Engine {
-        // The default impl here is especially bad because it needs to construct
-        // a new engine each time.
-        build_engine()
-    }
+    fn engine(&self) -> Option<wasmer::Engine>;
 
     /// Create a new [`wasmer::Store`].
     // TODO: remove default implementation This should be implemented by concrete runtimes.
@@ -108,19 +104,15 @@ where
     fn new_store(&self) -> wasmer::Store {
         cfg_if::cfg_if! {
             if #[cfg(feature = "sys")] {
-                wasmer::Store::new(self.engine())
+                if let Some(engine) = self.engine() {
+                    wasmer::Store::new(engine)
+                } else {
+                    wasmer::Store::default()
+                }
             } else {
                 wasmer::Store::default()
             }
         }
-    }
-
-    /// Create a new [`wasmer::Store`].
-    // TODO: remove default implementation This should be implemented by concrete runtimes.
-    // The default impl is here to make migration easier.
-    #[cfg(feature = "sys")]
-    fn new_store_with_tunables(&self, tunables: ArcTunables) -> wasmer::Store {
-        wasmer::Store::new_with_tunables(self.engine(), tunables)
     }
 
     /// Sets the TTY state
@@ -256,56 +248,13 @@ where
     }
 }
 
-/// Create a new [`wasmer::Engine`] that can be used to compile new modules.
-#[cfg(feature = "sys")]
-pub fn build_engine() -> wasmer::Engine {
-    // Build the features list
-    let mut features = wasmer::Features::new();
-    features.threads(true);
-    features.memory64(true);
-    features.bulk_memory(true);
-    #[cfg(feature = "singlepass")]
-    features.multi_value(false);
-
-    // Choose the right compiler
-    #[cfg(feature = "compiler-cranelift")]
-    {
-        let compiler = wasmer_compiler_cranelift::Cranelift::default();
-        return wasmer_compiler::EngineBuilder::new(compiler)
-            .set_features(Some(features))
-            .engine();
-    }
-    #[cfg(all(not(feature = "compiler-cranelift"), feature = "compiler-llvm"))]
-    {
-        let compiler = wasmer_compiler_llvm::LLVM::default();
-        return wasmer_compiler::EngineBuilder::new(compiler)
-            .set_features(Some(features))
-            .engine();
-    }
-    #[cfg(all(
-        not(feature = "compiler-cranelift"),
-        not(feature = "compiler-singlepass"),
-        feature = "compiler-llvm"
-    ))]
-    {
-        let compiler = wasmer_compiler_singlepass::Singlepass::default();
-        return wasmer_compiler::EngineBuilder::new(compiler)
-            .set_features(Some(features))
-            .engine();
-    }
-    #[cfg(all(
-        not(feature = "compiler-cranelift"),
-        not(feature = "compiler-singlepass"),
-        not(feature = "compiler-llvm")
-    ))]
-    panic!("wasmer not built with a compiler")
-}
-
 #[derive(Debug)]
 pub struct PluggableRuntimeImplementation {
     pub bus: Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static>,
     pub networking: DynVirtualNetworking,
     pub http_client: Option<DynHttpClient>,
+    #[cfg(feature = "sys")]
+    pub engine: Option<wasmer::Engine>,
 }
 
 impl PluggableRuntimeImplementation {
@@ -321,6 +270,11 @@ impl PluggableRuntimeImplementation {
         I: VirtualNetworking + Sync,
     {
         self.networking = Arc::new(net)
+    }
+
+    #[cfg(feature = "sys")]
+    pub fn set_engine(&mut self, engine: Option<wasmer::Engine>) {
+        self.engine = engine;
     }
 }
 
@@ -348,6 +302,8 @@ impl Default for PluggableRuntimeImplementation {
             networking,
             bus: Arc::new(DefaultVirtualBus::default()),
             http_client,
+            #[cfg(feature = "sys")]
+            engine: None,
         }
     }
 }
@@ -363,5 +319,10 @@ impl WasiRuntimeImplementation for PluggableRuntimeImplementation {
 
     fn http_client(&self) -> Option<&DynHttpClient> {
         self.http_client.as_ref()
+    }
+
+    #[cfg(feature = "sys")]
+    fn engine(&self) -> Option<wasmer::Engine> {
+        self.engine.clone()
     }
 }

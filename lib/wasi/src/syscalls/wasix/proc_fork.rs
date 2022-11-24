@@ -154,14 +154,7 @@ pub fn proc_fork<M: MemorySize>(
         };
         let fork_module = env.inner().module.clone();
 
-        #[cfg(feature = "compiler")]
-        let engine = ctx.as_store_ref().engine().clone();
-
-        // Build a new store that will be passed to the thread
-        #[cfg(feature = "compiler")]
-        let mut fork_store = Store::new(engine);
-        #[cfg(not(feature = "compiler"))]
-        let mut fork_store = Store::default();
+        let mut fork_store = ctx.data().runtime.new_store();
 
         // Now we use the environment and memory references
         let runtime = child_env.runtime.clone();

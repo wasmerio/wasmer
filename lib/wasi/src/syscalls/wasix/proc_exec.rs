@@ -71,13 +71,7 @@ pub fn proc_exec<M: MemorySize>(
         }
     };
 
-    // Build a new store that will be passed to the thread
-    #[cfg(feature = "compiler")]
-    let engine = ctx.as_store_ref().engine().clone();
-    #[cfg(feature = "compiler")]
-    let new_store = Store::new(engine);
-    #[cfg(not(feature = "compiler"))]
-    let new_store = Store::default();
+    let new_store = ctx.data().runtime.new_store();
 
     // If we are in a vfork we need to first spawn a subprocess of this type
     // with the forked WasiEnv, then do a longjmp back to the vfork point.

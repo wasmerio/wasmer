@@ -17,14 +17,6 @@
 #[cfg(all(not(feature = "sys"), not(feature = "js")))]
 compile_error!("At least the `sys` or the `js` feature must be enabled. Please, pick one.");
 
-#[cfg(feature = "compiler")]
-#[cfg(not(any(
-    feature = "compiler-cranelift",
-    feature = "compiler-llvm",
-    feature = "compiler-singlepass"
-)))]
-compile_error!("Either feature \"compiler_cranelift\", \"compiler_singlepass\" or \"compiler_llvm\" must be enabled when using \"compiler\".");
-
 #[cfg(all(feature = "sys", feature = "js"))]
 compile_error!(
     "Cannot have both `sys` and `js` features enabled at the same time. Please, pick one."
@@ -72,14 +64,7 @@ use wasmer::{
     imports, namespace, AsStoreMut, Exports, FunctionEnv, Imports, Memory32, MemoryAccessError,
     MemorySize,
 };
-#[cfg(feature = "compiler")]
-pub use wasmer_compiler;
-#[cfg(feature = "compiler-cranelift")]
-pub use wasmer_compiler_cranelift;
-#[cfg(feature = "compiler-llvm")]
-pub use wasmer_compiler_llvm;
-#[cfg(feature = "compiler-singlepass")]
-pub use wasmer_compiler_singlepass;
+
 pub use wasmer_vbus;
 pub use wasmer_vbus::{BusSpawnedProcessJoin, DefaultVirtualBus, VirtualBus};
 pub use wasmer_vfs;
