@@ -420,6 +420,7 @@ jobs:
     name: test wasmer on linux-x86_64-gnu
     runs-on: ubuntu-18.04
     strategy:
+      fail-fast: false
       matrix:
         stage: [1,2,3,4,5,6,7]
     steps: 
@@ -457,6 +458,7 @@ jobs:
     runs-on: ubuntu-latest
     container: alpine:latest
     strategy:
+      fail-fast: false
       matrix:
         stage: [1,2,3,4,5,6,7]
     steps: 
@@ -479,6 +481,7 @@ jobs:
     name: test wasmer on macos-x86
     runs-on: macos-11 
     strategy:
+      fail-fast: false
       matrix:
         stage: [1,2,3,4,5,6,7]
     steps: 
@@ -510,6 +513,7 @@ jobs:
     name: test wasmer on macos-x86
     runs-on: macos-11 
     strategy:
+      fail-fast: false
       matrix:
         stage: [1,2,3,4,5,6,7]
     steps: 
@@ -538,6 +542,7 @@ jobs:
     name: test wasmer on windows-x64
     runs-on: windows-2019
     strategy:
+      fail-fast: false
       matrix:
         stage: [1,2,3,4,5,6,7]
     steps: 
