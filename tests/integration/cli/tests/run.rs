@@ -550,6 +550,11 @@ fn run_no_start_wasm_report_error() -> anyhow::Result<()> {
 // Test that changes to wapm run don't break wasmer run
 #[test]
 fn test_wapm_run_works() -> anyhow::Result<()> {
+    // only run this test on the CI, not locally
+    if std::env::var("GITHUB_TOKEN").is_err() {
+        return Ok(());
+    }
+
     let temp_dir = tempfile::tempdir()?;
     let path = temp_dir.path();
     let output = Command::new("wapm")
