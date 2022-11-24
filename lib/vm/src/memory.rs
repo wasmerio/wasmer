@@ -497,9 +497,9 @@ impl VMMemory {
     /// are natively supported
     /// - VMOwnedMemory -> VMMemory
     /// - Box<dyn LinearMemory + 'static> -> VMMemory
-    pub fn from_custom<IntoVMMemory>(memory: IntoVMMemory) -> Self
+    pub fn from_custom<IntoVMMemory>(memory: IntoVMMemory) -> VMMemory
     where
-        IntoVMMemory: Into<Self>,
+        IntoVMMemory: Into<VMMemory>,
     {
         memory.into()
     }

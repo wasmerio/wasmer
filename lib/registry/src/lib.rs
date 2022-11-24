@@ -25,18 +25,15 @@ use url::Url;
 pub mod config;
 pub mod graphql;
 pub mod login;
+pub mod queries;
 pub mod utils;
 
 pub use crate::{
     config::{format_graphql, PartialWapmConfig},
-    graphql::get_bindings_query::ProgrammingLanguage,
+    queries::get_bindings_query::ProgrammingLanguage,
 };
 
-pub static GLOBAL_CONFIG_FILE_NAME: &str = if cfg!(target_os = "wasi") {
-    "/.private/wapm.toml"
-} else {
-    "wapm.toml"
-};
+pub static GLOBAL_CONFIG_FILE_NAME: &str = "wapm.toml";
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct PackageDownloadInfo {
@@ -47,6 +44,7 @@ pub struct PackageDownloadInfo {
     pub commands: String,
     pub manifest: String,
     pub url: String,
+    pub pirita_url: Option<String>,
 }
 
 pub fn get_package_local_dir(
@@ -300,7 +298,10 @@ pub fn query_command_from_registry(
     registry_url: &str,
     command_name: &str,
 ) -> Result<PackageDownloadInfo, String> {
-    use crate::graphql::{execute_query, get_package_by_command_query, GetPackageByCommandQuery};
+    use crate::{
+        graphql::execute_query,
+        queries::{get_package_by_command_query, GetPackageByCommandQuery},
+    };
     use graphql_client::GraphQLQuery;
 
     let q = GetPackageByCommandQuery::build_query(get_package_by_command_query::Variables {
@@ -317,6 +318,7 @@ pub fn query_command_from_registry(
     let package = command.package_version.package.display_name;
     let version = command.package_version.version;
     let url = command.package_version.distribution.download_url;
+    let pirita_url = command.package_version.distribution.pirita_download_url;
 
     Ok(PackageDownloadInfo {
         registry: registry_url.to_string(),
@@ -326,6 +328,7 @@ pub fn query_command_from_registry(
         manifest: command.package_version.manifest,
         commands: command_name.to_string(),
         url,
+        pirita_url,
     })
 }
 
@@ -572,7 +575,10 @@ pub fn query_package_from_registry(
     name: &str,
     version: Option<&str>,
 ) -> Result<PackageDownloadInfo, QueryPackageError> {
-    use crate::graphql::{execute_query, get_package_version_query, GetPackageVersionQuery};
+    use crate::{
+        graphql::execute_query,
+        queries::{get_package_version_query, GetPackageVersionQuery},
+    };
     use graphql_client::GraphQLQuery;
 
     let q = GetPackageVersionQuery::build_query(get_package_version_query::Variables {
@@ -612,6 +618,7 @@ pub fn query_package_from_registry(
             .join(", "),
 
         url: v.distribution.download_url.clone(),
+        pirita_url: v.distribution.pirita_download_url.clone(),
     })
 }
 
@@ -898,7 +905,7 @@ pub fn whoami(
     #[cfg(test)] test_name: &str,
     registry: Option<&str>,
 ) -> Result<(String, String), anyhow::Error> {
-    use crate::graphql::{who_am_i_query, WhoAmIQuery};
+    use crate::queries::{who_am_i_query, WhoAmIQuery};
     use graphql_client::GraphQLQuery;
 
     #[cfg(test)]
@@ -936,7 +943,7 @@ pub fn whoami(
 }
 
 pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
-    use crate::graphql::{test_if_registry_present, TestIfRegistryPresent};
+    use crate::queries::{test_if_registry_present, TestIfRegistryPresent};
     use graphql_client::GraphQLQuery;
 
     let q = TestIfRegistryPresent::build_query(test_if_registry_present::Variables {});
@@ -1279,7 +1286,7 @@ pub struct Bindings {
     /// (typically as a `*.tar.gz` file).
     pub url: String,
     /// The programming language these bindings are written in.
-    pub language: graphql::get_bindings_query::ProgrammingLanguage,
+    pub language: ProgrammingLanguage,
     /// The generator used to generate these bindings.
     pub generator: BindingsGenerator,
 }
@@ -1321,7 +1328,7 @@ pub fn list_bindings(
     name: &str,
     version: Option<&str>,
 ) -> Result<Vec<Bindings>, anyhow::Error> {
-    use crate::graphql::{
+    use crate::queries::{
         get_bindings_query::{ResponseData, Variables},
         GetBindingsQuery,
     };

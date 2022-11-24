@@ -946,6 +946,44 @@ impl EmitterX64 for AssemblerX64 {
         Ok(())
     }
 
+    fn arch_has_xzcnt(&self) -> bool {
+        match &self.target {
+            Some(target) => {
+                target.cpu_features().contains(CpuFeature::LZCNT)
+                    && target.cpu_features().contains(CpuFeature::BMI1)
+            }
+            None => false,
+        }
+    }
+
+    fn arch_emit_lzcnt(
+        &mut self,
+        sz: Size,
+        src: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        binop_gpr_gpr!(lzcnt, self, sz, src, dst, {
+            binop_mem_gpr!(lzcnt, self, sz, src, dst, {
+                codegen_error!("singlepass cannot emit lzcnt")
+            })
+        });
+        Ok(())
+    }
+
+    fn arch_emit_tzcnt(
+        &mut self,
+        sz: Size,
+        src: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        binop_gpr_gpr!(tzcnt, self, sz, src, dst, {
+            binop_mem_gpr!(tzcnt, self, sz, src, dst, {
+                codegen_error!("singlepass cannot emit tzcnt")
+            })
+        });
+        Ok(())
+    }
+
     fn emit_u64(&mut self, x: u64) -> Result<(), CompileError> {
         self.push_u64(x);
         Ok(())

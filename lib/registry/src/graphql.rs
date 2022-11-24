@@ -1,13 +1,10 @@
 use graphql_client::*;
-#[cfg(not(target_os = "wasi"))]
 use reqwest::{
     blocking::{multipart::Form, Client},
     header::USER_AGENT,
 };
 use std::env;
 use std::time::Duration;
-#[cfg(target_os = "wasi")]
-use {wasm_bus_reqwest::prelude::header::*, wasm_bus_reqwest::prelude::*};
 
 pub(crate) mod proxy {
     //! Code for dealing with setting things up to proxy network requests
@@ -28,9 +25,7 @@ pub(crate) mod proxy {
     pub fn maybe_set_up_proxy_blocking(
         builder: reqwest::blocking::ClientBuilder,
     ) -> anyhow::Result<reqwest::blocking::ClientBuilder> {
-        #[cfg(not(target_os = "wasi"))]
         use anyhow::Context;
-        #[cfg(not(target_os = "wasi"))]
         if let Some(proxy) = maybe_set_up_proxy_inner()
             .map_err(|e| anyhow::anyhow!("{e}"))
             .context("install_webc_package: failed to setup proxy for reqwest Client")?
@@ -43,9 +38,7 @@ pub(crate) mod proxy {
     pub fn maybe_set_up_proxy(
         builder: reqwest::ClientBuilder,
     ) -> anyhow::Result<reqwest::ClientBuilder> {
-        #[cfg(not(target_os = "wasi"))]
         use anyhow::Context;
-        #[cfg(not(target_os = "wasi"))]
         if let Some(proxy) = maybe_set_up_proxy_inner()
             .map_err(|e| anyhow::anyhow!("{e}"))
             .context("install_webc_package: failed to setup proxy for reqwest Client")?
@@ -106,52 +99,6 @@ pub(crate) mod proxy {
     }
 }
 
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "graphql/schema.graphql",
-    query_path = "graphql/queries/get_package_version.graphql",
-    response_derives = "Debug"
-)]
-pub(crate) struct GetPackageVersionQuery;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "graphql/schema.graphql",
-    query_path = "graphql/queries/whoami.graphql",
-    response_derives = "Debug"
-)]
-pub(crate) struct WhoAmIQuery;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "graphql/schema.graphql",
-    query_path = "graphql/queries/get_package_by_command.graphql",
-    response_derives = "Debug"
-)]
-pub(crate) struct GetPackageByCommandQuery;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "graphql/schema.graphql",
-    query_path = "graphql/queries/test_if_registry_present.graphql",
-    response_derives = "Debug"
-)]
-pub(crate) struct TestIfRegistryPresent;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "graphql/schema.graphql",
-    query_path = "graphql/queries/get_bindings.graphql",
-    response_derives = "Debug,Clone,PartialEq,Eq"
-)]
-pub(crate) struct GetBindingsQuery;
-
-#[cfg(target_os = "wasi")]
-pub fn whoami_distro() -> String {
-    whoami::os().to_lowercase()
-}
-
-#[cfg(not(target_os = "wasi"))]
 pub fn whoami_distro() -> String {
     whoami::distro().to_lowercase()
 }
