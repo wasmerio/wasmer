@@ -549,35 +549,10 @@ fn run_no_start_wasm_report_error() -> anyhow::Result<()> {
 
 // Test that changes to wapm run don't break wasmer run
 #[test]
-fn test_wapm_run_works() -> anyhow::Result<()> {
+fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
     // only run this test on the CI, not locally
     if std::env::var("GITHUB_TOKEN").is_err() {
         return Ok(());
-    }
-
-    if Command::new("wapm").arg("--version").output().is_err()
-        || !Command::new("wapm")
-            .arg("--version")
-            .output()
-            .unwrap()
-            .status
-            .success()
-    {
-        let _ = Command::new("cargo")
-            .arg("install")
-            .arg("wapm-cli")
-            .output();
-    }
-
-    if Command::new("wapm").arg("--version").output().is_err()
-        || !Command::new("wapm")
-            .arg("--version")
-            .output()
-            .unwrap()
-            .status
-            .success()
-    {
-        println!("warning: wapm is not installed even after running cargo install wapm-cli");
     }
 
     let temp_dir = tempfile::tempdir()?;
