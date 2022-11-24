@@ -67,7 +67,6 @@ fn test_login_2() {
     let login = Login {
         registry: "wapm.dev".to_string(),
         token: None,
-        debug: false,
     };
 
     assert_eq!(
@@ -78,7 +77,6 @@ fn test_login_2() {
     let login = Login {
         registry: "wapm.dev".to_string(),
         token: Some("abc".to_string()),
-        debug: false,
     };
 
     assert_eq!(login.get_token_or_ask_user().unwrap(), "abc");
