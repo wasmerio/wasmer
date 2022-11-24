@@ -201,17 +201,16 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: Install LLVM
+      - name: Install LLVM (Choco - Windows)
+        if: matrix.llvm_choco_version
         shell: bash
         run: |
-          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
-          mkdir -p ${LLVM_DIR}
-          curl --proto '=https' --tlsv1.2 -sSf "${{ env.LLVM_URL }}" -L -o - | tar xJv -C ${LLVM_DIR}
-          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          choco install llvm --version ${{ env.LLVM_VERSION }} --allow-downgrade
+          cd 'C:\Program Files\LLVM\'
+          LLVM_DIR=$(pwd)
           echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
-          LLVM_DIR: .llvm
-          LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-windows-amd64.tar.xz
+          LLVM_VERSION: 13.0.0
       - name: cargo xtask build-wasmer
         run: |
           cargo build-wasmer
