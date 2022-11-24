@@ -939,8 +939,7 @@ impl Instance {
         let key = (memory_index.as_u32(), dst);
         let mut conds = self.conditions.lock().unwrap();
         let mut cnt = 0u32;
-        if conds.contains_key(&key) {
-            let v = conds.get_mut(&key).unwrap();
+        if let Some(v) = conds.get_mut(&key) {
             for (t, b) in v {
                 if cnt < count {
                     *b = true; // mark as was waiked up
