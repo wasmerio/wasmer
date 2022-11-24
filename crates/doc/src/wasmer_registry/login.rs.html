@@ -37,9 +37,6 @@
 <span id="31">31</span>
 <span id="32">32</span>
 <span id="33">33</span>
-<span id="34">34</span>
-<span id="35">35</span>
-<span id="36">36</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::config</span>::{<span class="ident">format_graphql</span>, <span class="ident">UpdateRegistry</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::PartialWapmConfig</span>;
 
@@ -50,12 +47,14 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
     <span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
     <span class="ident">token</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">registry</span> <span class="op">=</span> <span class="ident">format_graphql</span>(<span class="ident">registry</span>);
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>(<span class="ident">test_name</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>(<span class="ident">test_name</span>)
+        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;config from file: {e}&quot;</span>))<span class="question-mark">?</span>;
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">config</span> <span class="op">=</span>
+        <span class="ident">PartialWapmConfig::from_file</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;config from file: {e}&quot;</span>))<span class="question-mark">?</span>;
     <span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">set_current_registry</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>);
     <span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">set_login_token_for_registry</span>(
         <span class="kw-2">&amp;</span><span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">get_current_registry</span>(),
@@ -63,18 +62,13 @@
         <span class="ident">UpdateRegistry::Update</span>,
     );
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span>
-        <span class="ident">PartialWapmConfig::get_file_location</span>(<span class="ident">test_name</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::get_file_location</span>(<span class="ident">test_name</span>)
+        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;get file location: {e}&quot;</span>))<span class="question-mark">?</span>;
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-    <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::get_file_location</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::get_file_location</span>()
+        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;get file location: {e}&quot;</span>))<span class="question-mark">?</span>;
     <span class="ident">config</span>.<span class="ident">save</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>)<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">username</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::utils::get_username_registry_token</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>, <span class="ident">token</span>);
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">s</span>) <span class="op">=</span> <span class="ident">username</span>.<span class="ident">ok</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">o</span><span class="op">|</span> <span class="ident">o</span>) {
-        <span class="macro">println!</span>(<span class="string">&quot;Login for WAPM user {:?} saved&quot;</span>, <span class="ident">s</span>);
-    } <span class="kw">else</span> {
-        <span class="macro">println!</span>(<span class="string">&quot;Login for WAPM user saved&quot;</span>);
-    }
-    <span class="prelude-val">Ok</span>(())
+    <span class="ident"><span class="kw">crate</span>::utils::get_username_registry_token</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>, <span class="ident">token</span>)
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_registry" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.63.0 (4b91a6ea7 2022-08-08)" ></div>

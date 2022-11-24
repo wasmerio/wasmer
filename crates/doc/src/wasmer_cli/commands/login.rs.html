@@ -83,6 +83,12 @@
 <span id="75">75</span>
 <span id="76">76</span>
 <span id="77">77</span>
+<span id="78">78</span>
+<span id="79">79</span>
+<span id="80">80</span>
+<span id="81">81</span>
+<span id="82">82</span>
+<span id="83">83</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
 <span class="kw">use</span> <span class="ident">dialoguer::Input</span>;
@@ -136,8 +142,14 @@
     <span class="doccomment">/// execute [List]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">token</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_token_or_ask_user</span>()<span class="question-mark">?</span>;
-        <span class="ident">wasmer_registry::login::login_and_save_token</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">registry</span>, <span class="kw-2">&amp;</span><span class="ident">token</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+        <span class="kw">match</span> <span class="ident">wasmer_registry::login::login_and_save_token</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">registry</span>, <span class="kw-2">&amp;</span><span class="ident">token</span>)<span class="question-mark">?</span> {
+            <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="macro">println!</span>(<span class="string">&quot;Login for WAPM user {:?} saved&quot;</span>, <span class="ident">s</span>),
+            <span class="prelude-val">None</span> =&gt; <span class="macro">println!</span>(
+                <span class="string">&quot;Error: no user found on registry {:?} with token {:?}. Token saved regardless.&quot;</span>,
+                <span class="self">self</span>.<span class="ident">registry</span>, <span class="ident">token</span>
+            ),
+        }
+        <span class="prelude-val">Ok</span>(())
     }
 }
 
