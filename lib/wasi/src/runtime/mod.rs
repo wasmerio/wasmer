@@ -258,7 +258,7 @@ where
 
 /// Create a new [`wasmer::Engine`] that can be used to compile new modules.
 #[cfg(feature = "sys")]
-fn build_engine() -> wasmer::Engine {
+pub fn build_engine() -> wasmer::Engine {
     // Build the features list
     let mut features = wasmer::Features::new();
     features.threads(true);
