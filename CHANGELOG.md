@@ -8,6 +8,10 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## Fixed
+ - [#3369](https://github.com/wasmerio/wasmer/pull/3369) Fix installing wasmer via cargo-binstall
+
+
 ## 3.0.1 - 23/11/2022
 
 ## Added
