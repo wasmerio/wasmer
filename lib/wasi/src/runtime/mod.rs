@@ -93,14 +93,10 @@ where
     }
 
     /// Get a [`wasmer::Engine`] for module compilation.
-    // TODO: remove default implementation This should be implemented by concrete runtimes.
-    // The default impl is here to make migration easier.
     #[cfg(feature = "sys")]
     fn engine(&self) -> Option<wasmer::Engine>;
 
     /// Create a new [`wasmer::Store`].
-    // TODO: remove default implementation This should be implemented by concrete runtimes.
-    // The default impl is here to make migration easier.
     fn new_store(&self) -> wasmer::Store {
         cfg_if::cfg_if! {
             if #[cfg(feature = "sys")] {
