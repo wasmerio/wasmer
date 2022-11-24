@@ -2,15 +2,7 @@ use graphql_client::GraphQLQuery;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::BTreeMap;
-#[cfg(not(test))]
-use std::env;
 use std::path::{Path, PathBuf};
-
-pub static GLOBAL_CONFIG_FILE_NAME: &str = if cfg!(target_os = "wasi") {
-    "/.private/wapm.toml"
-} else {
-    "wapm.toml"
-};
 
 #[derive(Deserialize, Default, Serialize, Debug, PartialEq, Eq)]
 pub struct PartialWapmConfig {
@@ -23,12 +15,10 @@ pub struct PartialWapmConfig {
     pub registry: Registries,
 
     /// Whether or not telemetry is enabled.
-    #[cfg(feature = "telemetry")]
     #[serde(default)]
     pub telemetry: Telemetry,
 
     /// Whether or not updated notifications are enabled.
-    #[cfg(feature = "update-notifications")]
     #[serde(default)]
     pub update_notifications: UpdateNotifications,
 
@@ -51,8 +41,7 @@ pub struct UpdateNotifications {
     pub enabled: String,
 }
 
-#[cfg(feature = "telemetry")]
-#[derive(Deserialize, Serialize, Debug, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Default)]
 pub struct Telemetry {
     pub enabled: String,
 }
@@ -284,7 +273,7 @@ impl PartialWapmConfig {
     #[cfg(not(test))]
     pub fn get_folder() -> Result<PathBuf, String> {
         Ok(
-            if let Some(folder_str) = env::var("WASMER_DIR").ok().filter(|s| !s.is_empty()) {
+            if let Some(folder_str) = std::env::var("WASMER_DIR").ok().filter(|s| !s.is_empty()) {
                 let folder = PathBuf::from(folder_str);
                 std::fs::create_dir_all(folder.clone())
                     .map_err(|e| format!("cannot create config directory: {e}"))?;
@@ -307,12 +296,12 @@ impl PartialWapmConfig {
 
     #[cfg(test)]
     pub fn get_file_location(test_name: &str) -> Result<PathBuf, String> {
-        Ok(Self::get_folder(test_name)?.join(GLOBAL_CONFIG_FILE_NAME))
+        Ok(Self::get_folder(test_name)?.join(crate::GLOBAL_CONFIG_FILE_NAME))
     }
 
     #[cfg(not(test))]
     pub fn get_file_location() -> Result<PathBuf, String> {
-        Ok(Self::get_folder()?.join(GLOBAL_CONFIG_FILE_NAME))
+        Ok(Self::get_folder()?.join(crate::GLOBAL_CONFIG_FILE_NAME))
     }
 }
 
