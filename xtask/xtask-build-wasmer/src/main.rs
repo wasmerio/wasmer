@@ -43,6 +43,10 @@ fn package_wasmer(out: &PathBuf) {
 
 fn main() {
     let compilers = env::var("COMPILERS").unwrap_or_else(|_| "cranelift".to_string());
+    if compilers.contains("llvm") && env::var("LLVM_SYS_120_PREFIX").is_err() {
+        // don't even try to compile anything, just fail early
+        panic!("LLVM_SYS_120_PREFIX not set");
+    }
     let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     let mut compiler_features = compilers
         .replace(' ', ",")
