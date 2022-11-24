@@ -499,7 +499,7 @@ jobs:
       - name: Install LLVM
         shell: bash
         run: |
-          brew install llvm@13.0.0
+          brew install llvm@13
           LLVM_DIR=$(brew --cellar llvm)
           echo "${LLVM_DIR}/13.0.0/bin" >> $GITHUB_PATH
           echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
