@@ -42,6 +42,20 @@ use wasmer_types::{
     MemoryIndex, ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer, VMOffsets,
 };
 
+#[derive(Hash, Eq, PartialEq, Clone, Copy)]
+struct NotifyLocation {
+    memory_index: u32,
+    address: u32,
+}
+
+struct NotifyWaiter {
+    thread: Thread,
+    notified: bool,
+}
+struct NotifyMap {
+    map: HashMap<NotifyLocation, Vec<NotifyWaiter>>,
+}
+
 /// A WebAssembly instance.
 ///
 /// The type is dynamically-sized. Indeed, the `vmctx` field can
@@ -92,7 +106,7 @@ pub(crate) struct Instance {
     imported_funcrefs: BoxedSlice<FunctionIndex, NonNull<VMCallerCheckedAnyfunc>>,
 
     /// The Hasmap with the Notify for the Notify/wait opcodes
-    conditions: Arc<Mutex<HashMap<(u32, u32), Vec<(Thread, bool)>>>>,
+    conditions: Arc<Mutex<NotifyMap>>,
 
     /// Additional context used by compiled WebAssembly code. This
     /// field is last, and represents a dynamically-sized array that
@@ -793,10 +807,16 @@ impl Instance {
     // because `park_timeout` doesn't gives any information on why it returns
     fn do_wait(&mut self, index: u32, dst: u32, timeout: i64) -> u32 {
         // fetch the notifier
-        let key = (index, dst);
+        let key = NotifyLocation {
+            memory_index: index,
+            address: dst,
+        };
         let mut conds = self.conditions.lock().unwrap();
-        let v = conds.entry(key).or_insert_with(Vec::new);
-        v.push((current(), false));
+        let v = conds.map.entry(key).or_insert_with(Vec::new);
+        v.push(NotifyWaiter {
+            thread: current(),
+            notified: false,
+        });
         drop(conds);
         if timeout < 0 {
             park();
@@ -804,19 +824,19 @@ impl Instance {
             park_timeout(std::time::Duration::from_nanos(timeout as u64));
         }
         let mut conds = self.conditions.lock().unwrap();
-        let v = conds.get_mut(&key).unwrap();
+        let v = conds.map.get_mut(&key).unwrap();
         let id = current().id();
         let mut ret = 0;
         v.retain(|cond| {
-            if cond.0.id() == id {
-                ret = if cond.1 { 0 } else { 2 };
+            if cond.thread.id() == id {
+                ret = if cond.notified { 0 } else { 2 };
                 false
             } else {
                 true
             }
         });
         if v.is_empty() {
-            conds.remove(&key);
+            conds.map.remove(&key);
         }
         ret
     }
@@ -936,14 +956,17 @@ impl Instance {
         //}
 
         // fetch the notifier
-        let key = (memory_index.as_u32(), dst);
+        let key = NotifyLocation {
+            memory_index: memory_index.as_u32(),
+            address: dst,
+        };
         let mut conds = self.conditions.lock().unwrap();
         let mut cnt = 0u32;
-        if let Some(v) = conds.get_mut(&key) {
-            for (t, b) in v {
+        if let Some(v) = conds.map.get_mut(&key) {
+            for waiter in v {
                 if cnt < count {
-                    *b = true; // mark as was waiked up
-                    t.unpark(); // wakeup!
+                    waiter.notified = true; // mark as was waiked up
+                    waiter.thread.unpark(); // wakeup!
                     cnt += 1;
                 }
             }
@@ -964,15 +987,18 @@ impl Instance {
         //}
 
         // fetch the notifier
-        let key = (memory_index.as_u32(), dst);
+        let key = NotifyLocation {
+            memory_index: memory_index.as_u32(),
+            address: dst,
+        };
         let mut conds = self.conditions.lock().unwrap();
         let mut cnt = 0u32;
-        if conds.contains_key(&key) {
-            let v = conds.get_mut(&key).unwrap();
-            for (t, b) in v {
+        if conds.map.contains_key(&key) {
+            let v = conds.map.get_mut(&key).unwrap();
+            for waiter in v {
                 if cnt < count {
-                    *b = true; // mark as was waiked up
-                    t.unpark(); // wakeup!
+                    waiter.notified = true; // mark as was waiked up
+                    waiter.thread.unpark(); // wakeup!
                     cnt += 1;
                 }
             }
@@ -1071,7 +1097,9 @@ impl InstanceHandle {
                 funcrefs,
                 imported_funcrefs,
                 vmctx: VMContext {},
-                conditions: Arc::new(Mutex::new(HashMap::new())),
+                conditions: Arc::new(Mutex::new(NotifyMap {
+                    map: HashMap::new(),
+                })),
             };
 
             let mut instance_handle = allocator.write_instance(instance);
