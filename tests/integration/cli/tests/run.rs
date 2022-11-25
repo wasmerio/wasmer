@@ -569,7 +569,7 @@ fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
     println!(
         "running {} run {} -- -q",
         get_wasmer_path().display(),
-        wasm_test_path.display()
+        wasm_test_path
     );
 
     let mut cmd = Command::new(get_wasmer_path());
