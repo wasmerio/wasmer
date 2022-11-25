@@ -180,6 +180,42 @@ impl<T: AsStoreMut> AsStoreMut for &'_ mut T {
     }
 }
 
+impl AsEngineRef for Store {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        EngineRef {
+            inner: &self.engine,
+            tunables: self.inner.tunables.as_ref(),
+        }
+    }
+}
+
+impl AsEngineRef for &Store {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        EngineRef {
+            inner: &self.engine,
+            tunables: self.inner.tunables.as_ref(),
+        }
+    }
+}
+
+impl AsEngineRef for StoreRef<'_> {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        EngineRef {
+            inner: &self.inner.engine,
+            tunables: self.inner.tunables.as_ref(),
+        }
+    }
+}
+
+impl AsEngineRef for StoreMut<'_> {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        EngineRef {
+            inner: &self.inner.engine,
+            tunables: self.inner.tunables.as_ref(),
+        }
+    }
+}
+
 pub use objects::*;
 
 mod objects {

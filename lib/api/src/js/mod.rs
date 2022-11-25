@@ -23,6 +23,7 @@ mod lib {
     }
 }
 
+mod engineref;
 pub(crate) mod error;
 mod export;
 mod exports;
@@ -43,6 +44,7 @@ mod types;
 mod value;
 mod wasm_bindgen_polyfill;
 
+pub use crate::js::engineref::{AsEngineRef, EngineRef};
 pub use crate::js::error::{DeserializeError, InstantiationError, SerializeError};
 pub use crate::js::export::Export;
 pub use crate::js::exports::{ExportError, Exportable, Exports, ExportsIterator};

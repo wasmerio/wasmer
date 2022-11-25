@@ -1,4 +1,5 @@
 use crate::sys::InstantiationError;
+use crate::AsEngineRef;
 use crate::AsStoreMut;
 use crate::AsStoreRef;
 use bytes::Bytes;
@@ -159,7 +160,7 @@ impl Module {
     /// # }
     /// ```
     #[allow(unreachable_code)]
-    pub fn new(store: &impl AsStoreRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
+    pub fn new(engine: &impl AsEngineRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
         #[cfg(feature = "wat")]
         let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
             CompileError::Wasm(WasmError::Generic(format!(
@@ -167,19 +168,19 @@ impl Module {
                 e
             )))
         })?;
-        Self::from_binary(store, bytes.as_ref())
+        Self::from_binary(engine, bytes.as_ref())
     }
 
     #[cfg(feature = "compiler")]
     /// Creates a new WebAssembly module from a file path.
     pub fn from_file(
-        store: &impl AsStoreRef,
+        engine: &impl AsEngineRef,
         file: impl AsRef<Path>,
     ) -> Result<Self, IoCompileError> {
         let file_ref = file.as_ref();
         let canonical = file_ref.canonicalize()?;
         let wasm_bytes = std::fs::read(file_ref)?;
-        let mut module = Self::new(store, &wasm_bytes)?;
+        let mut module = Self::new(engine, &wasm_bytes)?;
         // Set the module name to the absolute path of the filename.
         // This is useful for debugging the stack traces.
         let filename = canonical.as_path().to_str().unwrap();
@@ -193,9 +194,9 @@ impl Module {
     /// Opposed to [`Module::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
-    pub fn from_binary(store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError> {
-        Self::validate(store, binary)?;
-        unsafe { Self::from_binary_unchecked(store, binary) }
+    pub fn from_binary(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
+        Self::validate(engine, binary)?;
+        unsafe { Self::from_binary_unchecked(engine, binary) }
     }
 
     #[cfg(feature = "compiler")]
@@ -207,10 +208,10 @@ impl Module {
     /// in environments where the WebAssembly modules are trusted and validated
     /// beforehand.
     pub unsafe fn from_binary_unchecked(
-        store: &impl AsStoreRef,
+        engine: &impl AsEngineRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
-        let module = Self::compile(store, binary)?;
+        let module = Self::compile(engine, binary)?;
         Ok(module)
     }
 
@@ -221,16 +222,16 @@ impl Module {
     /// This validation is normally pretty fast and checks the enabled
     /// WebAssembly features in the Store Engine to assure deterministic
     /// validation of the Module.
-    pub fn validate(store: &impl AsStoreRef, binary: &[u8]) -> Result<(), CompileError> {
-        store.as_store_ref().engine().validate(binary)
+    pub fn validate(engine: &impl AsEngineRef, binary: &[u8]) -> Result<(), CompileError> {
+        engine.as_engine_ref().engine().validate(binary)
     }
 
     #[cfg(feature = "compiler")]
-    fn compile(store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError> {
-        let artifact = store
-            .as_store_ref()
+    fn compile(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
+        let artifact = engine
+            .as_engine_ref()
             .engine()
-            .compile(binary, store.as_store_ref().tunables())?;
+            .compile(binary, engine.as_engine_ref().tunables())?;
         Ok(Self::from_artifact(artifact))
     }
 

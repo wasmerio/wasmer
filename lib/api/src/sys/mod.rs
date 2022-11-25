@@ -1,3 +1,4 @@
+mod engineref;
 mod exports;
 mod extern_ref;
 mod externals;
@@ -13,6 +14,7 @@ mod store;
 mod tunables;
 mod value;
 
+pub use crate::sys::engineref::{AsEngineRef, EngineRef};
 pub use crate::sys::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::sys::extern_ref::ExternRef;
 pub use crate::sys::externals::{

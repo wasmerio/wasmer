@@ -1,3 +1,4 @@
+use crate::sys::engineref::{AsEngineRef, EngineRef};
 use crate::sys::tunables::BaseTunables;
 use std::fmt;
 use std::sync::{Arc, RwLock};
@@ -199,6 +200,42 @@ impl AsStoreMut for Store {
     }
     fn objects_mut(&mut self) -> &mut StoreObjects {
         &mut self.inner.objects
+    }
+}
+
+impl AsEngineRef for Store {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        EngineRef {
+            inner: &self.engine,
+            tunables: self.inner.tunables.as_ref(),
+        }
+    }
+}
+
+impl AsEngineRef for &Store {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        EngineRef {
+            inner: &self.engine,
+            tunables: self.inner.tunables.as_ref(),
+        }
+    }
+}
+
+impl AsEngineRef for StoreRef<'_> {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        EngineRef {
+            inner: &self.inner.engine,
+            tunables: self.inner.tunables.as_ref(),
+        }
+    }
+}
+
+impl AsEngineRef for StoreMut<'_> {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        EngineRef {
+            inner: &self.inner.engine,
+            tunables: self.inner.tunables.as_ref(),
+        }
     }
 }
 
