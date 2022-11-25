@@ -136,7 +136,7 @@ jobs:
             run_build_docs: false
           - build: windows-x64
             os: windows-2019
-            #target: x86_64-pc-windows-msvc commented because of bug in rust setup action
+            target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
             run_integration_tests: true
@@ -269,7 +269,7 @@ jobs:
             run_build_docs: false
           - build: windows-x64
             os: windows-2019
-            #target: x86_64-pc-windows-msvc commented because of bug in rust setup action
+            target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
             run_integration_tests: true
@@ -402,7 +402,7 @@ jobs:
             run_build_docs: false
           - build: windows-x64
             os: windows-2019
-            #target: x86_64-pc-windows-msvc commented because of bug in rust setup action
+            target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
             run_integration_tests: true
@@ -528,7 +528,7 @@ jobs:
             run_build_docs: false
           - build: windows-x64
             os: windows-2019
-            #target: x86_64-pc-windows-msvc commented because of bug in rust setup action
+            target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
             run_integration_tests: true
@@ -603,7 +603,7 @@ jobs:
             run_build_docs: false
           - build: windows-x64
             os: windows-2019
-            #target: x86_64-pc-windows-msvc commented because of bug in rust setup action
+            target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
             run_integration_tests: true
