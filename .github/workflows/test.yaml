@@ -118,7 +118,7 @@ jobs:
             run_integration_tests: true
             run_build_docs: true
             use_sccache: true
-         - build: macos-x64
+          - build: macos-x64
             os: macos-11
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
@@ -178,7 +178,7 @@ jobs:
             run_integration_tests: true
             run_build_docs: true
             use_sccache: true
-         - build: macos-x64
+          - build: macos-x64
             os: macos-11
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
@@ -238,7 +238,7 @@ jobs:
             run_integration_tests: true
             run_build_docs: true
             use_sccache: true
-         - build: macos-x64
+          - build: macos-x64
             os: macos-11
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
@@ -298,7 +298,7 @@ jobs:
             run_integration_tests: true
             run_build_docs: true
             use_sccache: true
-         - build: macos-x64
+          - build: macos-x64
             os: macos-11
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
