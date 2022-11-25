@@ -555,7 +555,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
         with:
-          name: capi-${{ matrix.target }}
+          name: capi-${{ matrix.build }}
       - name: Unzip Artifacts
         shell: bash
         run: |
