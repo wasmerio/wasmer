@@ -962,6 +962,21 @@ impl Instance {
         }
     }
 
+    fn do_notify(&mut self, key: NotifyLocation, count: u32) -> Result<u32, Trap> {
+        let mut conds = self.conditions.lock().unwrap();
+        let mut cnt = 0u32;
+        if let Some(v) = conds.map.get_mut(&key) {
+            for waiter in v {
+                if cnt < count {
+                    waiter.notified = true; // mark as was waiked up
+                    waiter.thread.unpark(); // wakeup!
+                    cnt += 1;
+                }
+            }
+        }
+        Ok(cnt)
+    }
+
     /// Perform an Atomic.Notify
     pub(crate) fn local_memory_notify(
         &mut self,
@@ -979,19 +994,9 @@ impl Instance {
             memory_index: memory_index.as_u32(),
             address: dst,
         };
-        let mut conds = self.conditions.lock().unwrap();
-        let mut cnt = 0u32;
-        if let Some(v) = conds.map.get_mut(&key) {
-            for waiter in v {
-                if cnt < count {
-                    waiter.notified = true; // mark as was waiked up
-                    waiter.thread.unpark(); // wakeup!
-                    cnt += 1;
-                }
-            }
-        }
-        Ok(cnt)
+        self.do_notify(key, count)
     }
+
     /// Perform an Atomic.Notify
     pub(crate) fn imported_memory_notify(
         &mut self,
@@ -1010,19 +1015,7 @@ impl Instance {
             memory_index: memory_index.as_u32(),
             address: dst,
         };
-        let mut conds = self.conditions.lock().unwrap();
-        let mut cnt = 0u32;
-        if conds.map.contains_key(&key) {
-            let v = conds.map.get_mut(&key).unwrap();
-            for waiter in v {
-                if cnt < count {
-                    waiter.notified = true; // mark as was waiked up
-                    waiter.thread.unpark(); // wakeup!
-                    cnt += 1;
-                }
-            }
-        }
-        Ok(cnt)
+        self.do_notify(key, count)
     }
 }
 
