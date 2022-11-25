@@ -609,9 +609,19 @@ endif
 package-wasmer:
 	mkdir -p "package/bin"
 ifeq ($(IS_WINDOWS), 1)
-	cp $(TARGET_DIR)/wasmer.exe package/bin/
+	if [ -f "$(TARGET_DIR)/wasmer.exe" ]; then \
+		cp $(TARGET_DIR)/wasmer.exe package/bin ;\
+	fi
+	if [ -f "target/$(HOST_TARGET)/release/wasmer.exe" ]; then \
+		cp "target/$(HOST_TARGET)/release/wasmer.exe package/bin ;\
+	fi
 else
-	cp $(TARGET_DIR)/wasmer package/bin/
+	if [ -f "$(TARGET_DIR)/wasmer" ]; then \
+		cp $(TARGET_DIR)/wasmer package/bin ;\
+	fi
+	if [ -f "target/$(HOST_TARGET)/release/wasmer" ]; then \
+		cp target/$(HOST_TARGET)/release/wasmer package/bin ;\
+	fi
 ifeq ($(IS_DARWIN), 1)
 	codesign -s - package/bin/wasmer || true
 endif
@@ -645,6 +655,28 @@ package-capi:
 	fi
 	if [ -f $(TARGET_DIR)/libwasmer.a ]; then \
 		cp $(TARGET_DIR)/libwasmer.a package/lib/libwasmer.a ;\
+	fi
+
+	if [ -f target/release/wasmer.dll ]; then \
+		cp target/release/wasmer.dll package/lib/wasmer.dll ;\
+	fi
+	
+	if [ -f target/release/wasmer.dll.lib ]; then \
+		cp target/release/wasmer.dll.lib package/lib/wasmer.dll.lib ;\
+	fi
+	if [ -f target/release/wasmer.lib ]; then \
+		cp target/release/wasmer.lib package/lib/wasmer.lib ;\
+	fi
+
+	if [ -f target/release/libwasmer.dylib ]; then \
+		cp target/release/libwasmer.dylib package/lib/libwasmer.dylib ;\
+	fi
+
+	if [ -f target/release/libwasmer.so ]; then \
+		cp target/release/libwasmer.so package/lib/libwasmer.so ;\
+	fi
+	if [ -f target/release/libwasmer.a ]; then \
+		cp target/release/libwasmer.a package/lib/libwasmer.a ;\
 	fi
 
 package-capi-headless: build-capi-headless
@@ -682,29 +714,6 @@ package-docs: build-docs build-docs-capi
 package: package-wasmer package-minimal-headless-wasmer package-capi
 
 package-gnu: package-capi-gnu
-
-package-capi-gnu:
-	mkdir -p "package/include"
-	mkdir -p "package/lib"
-	cp lib/c-api/wasmer.h* package/include
-	cp lib/c-api/wasmer_wasm.h* package/include
-	cp lib/c-api/tests/wasm-c-api/include/wasm.h* package/include
-	cp lib/c-api/README.md package/include/README.md
-	if [ -f target/x86_64-pc-windows-gnu/release/wasmer.dll ]; then \
-		cp target/x86_64-pc-windows-gnu/release/wasmer.dll package/lib/wasmer.dll ;\
-	fi
-
-	if [ -f target/x86_64-pc-windows-gnu/release/wasmer.dll.lib ]; then \
-		cp target/x86_64-pc-windows-gnu/release/wasmer.dll.lib package/lib/wasmer.dll.lib ;\
-	fi
-
-	if [ -f target/x86_64-pc-windows-gnu/release/wasmer.lib ]; then \
-		cp target/x86_64-pc-windows-gnu/release/wasmer.lib package/lib/wasmer.lib ;\
-	fi
-
-	if [ -f target/x86_64-pc-windows-gnu/release/libwasmer.a ]; then \
-		cp target/x86_64-pc-windows-gnu/release/libwasmer.a package/lib/libwasmer.a ;\
-	fi
 
 tar-capi:
 	tar -C package -zcvf build-capi.tar.gz lib include
