@@ -658,26 +658,26 @@ package-capi:
 		cp $(TARGET_DIR)/libwasmer.a package/lib/libwasmer.a ;\
 	fi
 
-	if [ -f target/$(HOST_TARGET)/wasmer.dll ]; then \
-		cp target/$(HOST_TARGET)/wasmer.dll package/lib/wasmer.dll ;\
+	if [ -f target/$(HOST_TARGET)/release/wasmer.dll ]; then \
+		cp target/$(HOST_TARGET)/release/wasmer.dll package/lib/wasmer.dll ;\
 	fi
 	
-	if [ -f target/$(HOST_TARGET)/wasmer.dll.lib ]; then \
-		cp target/$(HOST_TARGET)/wasmer.dll.lib package/lib/wasmer.dll.lib ;\
+	if [ -f target/$(HOST_TARGET)/release/wasmer.dll.lib ]; then \
+		cp target/$(HOST_TARGET)/release/wasmer.dll.lib package/lib/wasmer.dll.lib ;\
 	fi
-	if [ -f target/$(HOST_TARGET)/wasmer.lib ]; then \
-		cp target/$(HOST_TARGET)/wasmer.lib package/lib/wasmer.lib ;\
-	fi
-
-	if [ -f target/$(HOST_TARGET)/libwasmer.dylib ]; then \
-		cp target/$(HOST_TARGET)/libwasmer.dylib package/lib/libwasmer.dylib ;\
+	if [ -f target/$(HOST_TARGET)/release/wasmer.lib ]; then \
+		cp target/$(HOST_TARGET)/release/wasmer.lib package/lib/wasmer.lib ;\
 	fi
 
-	if [ -f target/$(HOST_TARGET)/libwasmer.so ]; then \
-		cp target/$(HOST_TARGET)/libwasmer.so package/lib/libwasmer.so ;\
+	if [ -f target/$(HOST_TARGET)/release/libwasmer.dylib ]; then \
+		cp target/$(HOST_TARGET)/release/libwasmer.dylib package/lib/libwasmer.dylib ;\
 	fi
-	if [ -f target/$(HOST_TARGET)/libwasmer.a ]; then \
-		cp target/$(HOST_TARGET)/libwasmer.a package/lib/libwasmer.a ;\
+
+	if [ -f target/$(HOST_TARGET)/release/libwasmer.so ]; then \
+		cp target/$(HOST_TARGET)/release/libwasmer.so package/lib/libwasmer.so ;\
+	fi
+	if [ -f target/$(HOST_TARGET)/release/libwasmer.a ]; then \
+		cp target/$(HOST_TARGET)/release/libwasmer.a package/lib/libwasmer.a ;\
 	fi
 
 package-capi-headless: build-capi-headless
