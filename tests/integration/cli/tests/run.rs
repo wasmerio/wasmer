@@ -192,11 +192,7 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
         "packaging /package to .tar.gz: {}",
         tmp_targz_path.display()
     );
-    package_directory(
-        &package_path,
-        &std::path::Path::new("./out.tar.gz").to_path_buf(),
-    );
-    std::fs::copy("./out.tar.gz", &tmp_targz_path).unwrap();
+    package_directory(&package_path, &tmp_targz_path);
     println!("packaging done");
     println!(
         "tmp tar gz path: {} - exists: {:?}",
