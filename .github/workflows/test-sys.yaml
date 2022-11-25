@@ -218,15 +218,11 @@ jobs:
         shell: bash
         run: |
           make build-wasmer && 
-          make build-capi && 
-          make package-capi && 
-          make package && 
-          export WASMER_DIR=`pwd`/package && 
           cargo test --package wasmer-integration-tests-cli --test run -- test_wasmer_run_complex_url --exact --nocapture
         env:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
-          CARGO_TARGET: --target ${{ matrix.target }}
+          CARGO_TARGET: --target x86_64-pc-windows-msvc
           WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # cargo test --package wasmer-integration-tests-cli --test run -- test_wasmer_run_complex_url --exact --nocapture
