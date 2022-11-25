@@ -84,12 +84,12 @@ jobs:
       - name: Install wasm-pack
         run: |
           curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-      - name: cargo xtask test-js
+      - name: make test-js
         run: |
-          cargo test-js-core
-      - name: cargo xtask build-wasmer
+          make test-js
+      - name: make test-js-core
         run: |
-          cargo test-js-core
+          make test-js-core
 
   test_wasm_build:
     name: Test wasm build
@@ -126,9 +126,9 @@ jobs:
         env:
           LLVM_DIR: .llvm
           LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-linux-amd64.tar.xz
-      - name: cargo xtask build-wasmer
+      - name: make build-wasmer
         run: |
-          cargo build-wasmer
+          make build-wasmer
         env:
           COMPILERS: cranelift,llvm,singlepass
           LLVM_SYS_120_PREFIX: ${{ env.LLVM_SYS_120_PREFIX }}
@@ -153,9 +153,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: cargo xtask build-wasmer
+      - name: make build-wasmer
         run: |
-          cargo build-wasmer
+          make build-wasmer
         env:
           COMPILERS: cranelift,singlepass # no llvm
       - name: Archive production artifacts
@@ -192,9 +192,9 @@ jobs:
         env:
           LLVM_DIR: .llvm
           LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-darwin-amd64.tar.xz
-      - name: cargo xtask build-wasmer
+      - name: make build-wasmer
         run: |
-          cargo build-wasmer
+          make build-wasmer
         env:
           COMPILERS: cranelift,llvm,singlepass
           LLVM_SYS_120_PREFIX: ${{ env.LLVM_SYS_120_PREFIX }}
@@ -229,9 +229,9 @@ jobs:
           LLVM_DIR=$(brew --cellar llvm)
           echo "${LLVM_DIR}/13.0.0/bin" >> $GITHUB_PATH
           echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
-      - name: cargo xtask build-wasmer
+      - name: make build-wasmer
         run: |
-          cargo build-wasmer
+          make build-wasmer
         env:
           COMPILERS: cranelift,llvm,singlepass
           CARGO_TARGET: aarch64-apple-darwin
@@ -264,9 +264,9 @@ jobs:
         env:
           LLVM_DIR: .llvm
           LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-windows-amd64.tar.xz
-      - name: cargo xtask build-wasmer
+      - name: make build-wasmer
         run: |
-          cargo build-wasmer
+          make build-wasmer
         env:
           COMPILERS: cranelift,llvm,singlepass
           LLVM_SYS_120_PREFIX: ${{ env.LLVM_SYS_120_PREFIX }}
@@ -297,9 +297,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: cargo xtask build-capi
+      - name: make build-capi
         run: |
-          cargo build-capi
+          make build-capi
         env:
           COMPILERS: cranelift,singlepass
       - name: Archive production artifacts
@@ -323,9 +323,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: cargo xtask build-capi
+      - name: make build-capi
         run: |
-          cargo build-capi
+          make build-capi
         env:
           COMPILERS: cranelift,singlepass
       - name: Archive production artifacts
@@ -345,9 +345,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: cargo xtask build-capi
+      - name: make build-capi
         run: |
-          cargo build-capi
+          make build-capi
         env:
           COMPILERS: cranelift,singlepass
       - name: Archive production artifacts
@@ -374,9 +374,9 @@ jobs:
         with:
           toolchain: 1.63
           target: aarch64-apple-darwin
-      - name: cargo xtask build-capi
+      - name: make build-capi
         run: |
-          cargo build-capi
+          make build-capi
         env:
           COMPILERS: cranelift,singlepass
           CARGO_TARGET: aarch64-apple-darwin
@@ -397,9 +397,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: cargo xtask build-capi
+      - name: make build-capi
         run: |
-          cargo build-capi
+          make build-capi
         env:
           COMPILERS: cranelift,singlepass
       - name: Archive production artifacts
@@ -410,7 +410,7 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
-  # test-wasmer: run unit tests for wasmer, depends on build-wasmer step
+  # make test: run unit tests for wasmer, depends on build-wasmer step
   # (can run in parallel with build-capi step)
 
   # NOTE: testing is decoupled from building because when we do a release
@@ -445,9 +445,9 @@ jobs:
         env:
           LLVM_DIR: .llvm
           LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-linux-amd64.tar.xz
-      - name: cargo xtask test-wasmer
+      - name: make test
         run: |
-          cargo test-wasmer
+          make test
         env:
           COMPILERS: cranelift,llvm,singlepass
           STAGE: ${{ matrix.stage }}
@@ -470,9 +470,9 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-      - name: cargo xtask test-wasmer
+      - name: make test
         run: |
-          cargo test-wasmer
+          make test
         env:
           COMPILERS: cranelift,singlepass # no llvm
           STAGE: ${{ matrix.stage }}
@@ -501,9 +501,9 @@ jobs:
         env:
           LLVM_DIR: .llvm
           LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-darwin-amd64.tar.xz
-      - name: cargo xtask test-wasmer
+      - name: make test
         run: |
-          cargo test-wasmer
+          make test
         env:
           COMPILERS: cranelift,llvm,singlepass
           STAGE: ${{ matrix.stage }}
@@ -530,9 +530,9 @@ jobs:
           LLVM_DIR=$(brew --cellar llvm)
           echo "${LLVM_DIR}/13.0.0/bin" >> $GITHUB_PATH
           echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
-      - name: cargo xtask test-wasmer
+      - name: make test
         run: |
-          cargo test-wasmer
+          make test
         env:
           COMPILERS: cranelift,llvm,singlepass
           STAGE: ${{ matrix.stage }}
@@ -562,9 +562,9 @@ jobs:
         env:
           LLVM_DIR: .llvm
           LLVM_URL: https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-windows-amd64.tar.xz
-      - name: cargo xtask test-wasmer
+      - name: make test
         run: |
-          cargo test-wasmer
+          make test
         env:
           COMPILERS: cranelift,llvm,singlepass
           STAGE: ${{ matrix.stage }}
@@ -590,9 +590,9 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: capi-x86_64-unknown-linux-gnu
-      - name: cargo xtask test-capi
+      - name: make test-capi
         run: |
-          cargo test-capi
+          make test-capi
         env:
           COMPILERS: cranelift,singlepass
 
@@ -613,9 +613,9 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: capi-x86_64-unknown-linux-musl
-      - name: cargo xtask test-capi
+      - name: make test-capi
         run: |
-          cargo test-capi
+          make test-capi
         env:
           COMPILERS: cranelift,singlepass
 
@@ -632,9 +632,9 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: capi-x86_64-apple-darwin
-      - name: cargo xtask test-capi
+      - name: make test-capi
         run: |
-          cargo test-capi
+          make test-capi
         env:
           COMPILERS: cranelift,singlepass
 
@@ -652,9 +652,9 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: capi-aarch64-apple-darwin
-      - name: cargo xtask test-capi
+      - name: make test-capi
         run: |
-          cargo test-capi
+          make test-capi
         env:
           COMPILERS: cranelift,singlepass
 
@@ -671,9 +671,9 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: capi-x86_64-pc-windows-msvc
-      - name: cargo xtask test-capi
+      - name: make test-capi
         run: |
-          cargo test-capi
+          make test-capi
         env:
           COMPILERS: cranelift,singlepass
 
@@ -699,9 +699,9 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: wasmer-cli-x86_64-unknown-linux-gnu
-      - name: cargo xtask test-integration
+      - name: make test-integration-cli
         run: |
-          cargo test-integration
+          make test-integration-cli
 
   test_integration_linux_musl:
     name: integration tests on linux-x86_64-musl
@@ -723,9 +723,9 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: wasmer-cli-x86_64-unknown-linux-musl
-      - name: cargo xtask test-integration
+      - name: make test-integration-cli
         run: |
-          cargo test-integration
+          make test-integration-cli
   
   test_integration_macos_x86:
     name: integration tests on macos-x86
@@ -743,9 +743,9 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: wasmer-cli-x86_64-apple-darwin
-      - name: cargo xtask test-integration
+      - name: make test-integration-cli
         run: |
-          cargo test-integration
+          make test-integration-cli
 
   test_integration_macos_arm:
     name: integration tests on macos-arm
@@ -764,9 +764,9 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: wasmer-cli-aarch64-apple-darwin
-      - name: cargo xtask test-integration
+      - name: make test-integration-cli
         run: |
-          cargo test-integration
+          make test-integration-cli
         env:
           CARGO_TARGET: aarch64-apple-darwin
 
@@ -786,6 +786,6 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: wasmer-cli-x86_64-pc-windows-msvc
-      - name: cargo xtask test-integration
+      - name: make test-integration-cli
         run: |
-          cargo test-integration
+          make test-integration-cli
