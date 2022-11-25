@@ -1,9 +1,0 @@
-[alias]
-build-wasmer = "run --package xtask-build-wasmer --"
-build-capi = "run --package xtask-build-capi --"
-test-wasmer = "run --package xtask-test-wasmer --"
-test-capi = "run --package xtask-test-capi --"
-test-integration = "run --package xtask-test-integration --"
-test-js = "run --package xtask-test-js --"
-test-js-core = "run --package xtask-test-js-core --"
-integration-tests = "run --package xtask-test-integration --"
