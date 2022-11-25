@@ -476,16 +476,31 @@ build-capi-headless-ios: capi-setup
 #
 #####
 
-test: test-compilers test-packages test-examples
-
-test-compilers:
+# test compilers
+test-stage-0:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release --tests $(compiler_features)
 
-test-packages:
+# test packages
+test-stage-1:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --all --release $(exclude_tests)
+test-stage-2:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
+test-stage:3:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
+test-stage:4:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
+
+# test examples 
+test-stage-5:
+	$(CARGO_BINARY) test $(CARGO_TARGET) $(compiler_features) --features wasi --examples
+test-stage-6:
+	$(CARGO_BINARY) test $(CARGO_TARGET) --release $(compiler_features) --features wasi --examples
+
+test: test-compilers test-packages test-examples
+
+test-compilers: test-stage-0
+
+test-packages: test-stage-1 test-stage-2 test-stage-3 test-stage-4
 
 test-js: test-js-api test-js-wasi
 
@@ -525,6 +540,8 @@ test-llvm: $(foreach llvm_engine,$(filter llvm-%,$(compilers_engines)),test-$(ll
 # compilers first
 test-capi: build-capi package-capi $(foreach compiler_engine,$(capi_compilers_engines),test-capi-crate-$(compiler_engine) test-capi-integration-$(compiler_engine))
 
+test-capi-ci: $(foreach compiler_engine,$(capi_compilers_engines),test-capi-crate-$(compiler_engine) test-capi-integration-$(compiler_engine))
+
 test-capi-crate-%:
 	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) $(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,wasi,middlewares,webc_runner $(capi_compiler_features) -- --nocapture
@@ -542,9 +559,7 @@ test-wasi-unit:
 test-wasi:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release --tests $(compiler_features) -- wasi::wasitests
 
-test-examples:
-	$(CARGO_BINARY) test $(CARGO_TARGET) $(compiler_features) --features wasi --examples
-	$(CARGO_BINARY) test $(CARGO_TARGET) --release $(compiler_features) --features wasi --examples
+test-examples: test-stage-5 test-stage-6
 
 test-integration-cli:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture
@@ -689,6 +704,18 @@ package-capi-gnu:
 	if [ -f target/x86_64-pc-windows-gnu/release/libwasmer.a ]; then \
 		cp target/x86_64-pc-windows-gnu/release/libwasmer.a package/lib/libwasmer.a ;\
 	fi
+
+tar-capi:
+	tar -C package -zcvf build-capi.tar.gz lib include
+
+untar-capi:
+	tar -C package -xf build-capi.tar.gz
+
+tar-wasmer:
+	tar -C package -zcvf build-wasmer.tar.gz bin
+
+untar-wasmer:
+	tar -C package -xf build-wasmer.tar.gz
 
 distribution-gnu: package-gnu
 	cp LICENSE package/LICENSE
