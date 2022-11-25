@@ -2,10 +2,22 @@ use crate::Tunables;
 use wasmer_compiler::Engine;
 
 /// A temporary handle to an [`Engine`] and [`Tunables`].
-/// EngineRef can be used to build a [`Module`]
+/// EngineRef can be used to build a [`Module`][crate::sys::Module]
 /// It can be created directly with an [`Engine`] and [`Tunables`]
 /// Or from anything implementing [`AsEngineRef`]
-/// like from [`Store`] typicaly
+/// like from [`Store`][crate::sys::Store] typicaly
+/// # Example
+///
+/// ```
+/// # use wasmer::{Cranelift, EngineBuilder, BaseTunables, EngineRef, Module};
+/// #
+/// # let compiler = Cranelift::default();
+/// # let engine = EngineBuilder::new(compiler).engine();
+/// # let tunables = BaseTunables::for_target(&engine.target());
+/// # let engineref = EngineRef::new(&engine, &tunables);
+///
+/// let module = Module::from_file(&engineref, "path/to/foo.wasm");
+/// ```
 pub struct EngineRef<'a> {
     /// The inner engine
     pub(crate) inner: &'a Engine,
