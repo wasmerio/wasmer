@@ -1,28 +1,24 @@
 //! Basic tests for the `run` subcommand
 
 use anyhow::bail;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use wasmer_integration_tests_cli::{get_repo_root_path, get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
 
-fn wasi_test_python_path() -> String {
-    let slash = if C_ASSET_PATH.ends_with('/') { "" } else { "/" };
-    format!("{}{slash}{}", C_ASSET_PATH, "python-0.1.0.wasmer")
+fn wasi_test_python_path() -> PathBuf {
+    Path::new(C_ASSET_PATH).join("python-0.1.0.wasmer")
 }
 
-fn wasi_test_wasm_path() -> String {
-    let slash = if C_ASSET_PATH.ends_with('/') { "" } else { "/" };
-    format!("{}{slash}{}", C_ASSET_PATH, "qjs.wasm")
+fn wasi_test_wasm_path() -> PathBuf {
+    Path::new(C_ASSET_PATH).join("qjs.wasm")
 }
 
-fn test_no_imports_wat_path() -> String {
-    let slash = if ASSET_PATH.ends_with('/') { "" } else { "/" };
-    format!("{}{slash}{}", ASSET_PATH, "fib.wat")
+fn test_no_imports_wat_path() -> PathBuf {
+    Path::new(ASSET_PATH).join("fib.wat")
 }
 
-fn test_no_start_wat_path() -> String {
-    let slash = if ASSET_PATH.ends_with('/') { "" } else { "/" };
-    format!("{}{slash}{}", ASSET_PATH, "no_start.wat")
+fn test_no_start_wat_path() -> PathBuf {
+    Path::new(ASSET_PATH).join("no_start.wat")
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -564,15 +560,17 @@ fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
         );
     }
 
-    println!("running wasmer run {wasm_test_path} -- -q");
+    println!(
+        "running {} run {} -- -q",
+        get_wasmer_path().display(),
+        wasm_test_path.display()
+    );
 
-    let mut cmd = Command::new("wasmer");
+    let mut cmd = Command::new(get_wasmer_path());
     cmd.arg("run");
     cmd.arg(wasi_test_wasm_path());
     cmd.arg("--");
     cmd.arg("-q");
-
-    println!("running command: {cmd:?}");
 
     let output = cmd.output()?;
 
