@@ -555,7 +555,7 @@ fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
     #[cfg(target_os = "windows")]
     {
         // wasmer run used to fail on c:\Users\username\wapm_packages\ ...
-        println!("wasm test path: {}", wasm_test_path.display());
+        println!("wasm test path: {wasm_test_path}");
         assert!(
             wasm_test_path.contains(":\\"),
             "wasm_test_path path is not complex enough"
