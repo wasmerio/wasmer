@@ -635,7 +635,6 @@ package-capi:
 	cp lib/c-api/wasmer_wasm.h* package/include
 	cp lib/c-api/tests/wasm-c-api/include/wasm.h* package/include
 	cp lib/c-api/README.md package/include/README.md
-	ls -R target
 	if [ -f $(TARGET_DIR)/wasmer.dll ]; then \
 		cp $(TARGET_DIR)/wasmer.dll package/lib/wasmer.dll ;\
 	fi
@@ -721,14 +720,14 @@ tar-capi:
 	tar -C package -zcvf build-capi.tar.gz lib include
 
 untar-capi:
-	tar -C package -xf build-capi.tar.gz
+	tar -C package -xf ./build-capi.tar.gz
 
 tar-wasmer:
 	ls -R package
 	tar -C package -zcvf build-wasmer.tar.gz bin
 
 untar-wasmer:
-	tar -C package -xf build-wasmer.tar.gz
+	tar -C package -xf ./build-wasmer.tar.gz
 
 distribution-gnu: package-gnu
 	cp LICENSE package/LICENSE
