@@ -484,7 +484,6 @@ jobs:
           EOF
         if: matrix.target
       - name: Test
-        if: matrix.run_test
         run: |
           make test-stage-0
         env:
@@ -559,7 +558,6 @@ jobs:
         run: |
           make untar-capi
       - name: Test C API
-        if: matrix.run_test_capi
         run: |
           make test-capi-ci
         env:
@@ -644,7 +642,7 @@ jobs:
         with:
           version: 0.10.0
       - name: Test integration CLI
-        if: matrix.run_test && matrix.os != 'windows-2019'
+        if: matrix.os != 'windows-2019'
         shell: bash
         run: |
           export WASMER_DIR=`pwd`/package && make test-integration-cli
