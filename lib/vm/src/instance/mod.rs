@@ -838,6 +838,9 @@ impl Instance {
         if v.is_empty() {
             conds.map.remove(&key);
         }
+        if conds.map.len() > 1 << 32 {
+            ret = 0xffff;
+        }
         ret
     }
 
@@ -859,6 +862,10 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 ret = self.do_wait(memory_index.as_u32(), dst, timeout);
+            }
+            if ret == 0xffff {
+                // ret is 0xffff if there is more than 2^32 waiter in queue
+                return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
             }
             Ok(ret)
         } else {
@@ -886,6 +893,10 @@ impl Instance {
             if ret == 0 {
                 ret = self.do_wait(memory_index.as_u32(), dst, timeout);
             }
+            if ret == 0xffff {
+                // ret is 0xffff if there is more than 2^32 waiter in queue
+                return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+            }
             Ok(ret)
         } else {
             ret
@@ -910,6 +921,10 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 ret = self.do_wait(memory_index.as_u32(), dst, timeout);
+            }
+            if ret == 0xffff {
+                // ret is 0xffff if there is more than 2^32 waiter in queue
+                return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
             }
             Ok(ret)
         } else {
@@ -936,6 +951,10 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 ret = self.do_wait(memory_index.as_u32(), dst, timeout);
+            }
+            if ret == 0xffff {
+                // ret is 0xffff if there is more than 2^32 waiter in queue
+                return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
             }
             Ok(ret)
         } else {
