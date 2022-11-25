@@ -210,6 +210,7 @@ jobs:
         env:
           LLVM_DIR: .llvm
       - name: Setup Rust target
+        shell: bash
         run: |
           mkdir -p .cargo
           cat << EOF > .cargo/config.toml
@@ -343,6 +344,7 @@ jobs:
         env:
           LLVM_DIR: .llvm
       - name: Setup Rust target
+        shell: bash
         run: |
           mkdir -p .cargo
           cat << EOF > .cargo/config.toml
@@ -476,6 +478,7 @@ jobs:
         env:
           LLVM_DIR: .llvm
       - name: Setup Rust target
+        shell: bash
         run: |
           mkdir -p .cargo
           cat << EOF > .cargo/config.toml
