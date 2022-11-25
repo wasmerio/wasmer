@@ -431,6 +431,10 @@ jobs:
         id: download
         with:
           name: capi-${{ matrix.build }}
+      - name: Set up base deps on musl
+        if: matrix.build == 'linux-musl-x64'
+        run: |
+            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: 'Echo download path'
         run: echo ${{steps.download.outputs.download-path}}
       - name: Display structure of downloaded files
