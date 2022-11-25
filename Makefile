@@ -616,7 +616,7 @@ ifeq ($(IS_WINDOWS), 1)
 		cp "$(TARGET_DIR)/wasmer.exe" package/bin ;\
 	fi
 	if [ -f "target/$(HOST_TARGET)/release/wasmer.exe" ]; then \
-		cp "target/$(HOST_TARGET)/release/wasmer.exe" package/bin" ;\
+		cp "target/$(HOST_TARGET)/release/wasmer.exe" package/bin ;\
 	fi
 else
 	if [ -f "$(TARGET_DIR)/wasmer" ]; then \
