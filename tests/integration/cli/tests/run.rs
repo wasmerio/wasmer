@@ -554,10 +554,13 @@ fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
     }
     #[cfg(target_os = "windows")]
     {
+        wasm_test_path = wasm_test_path.replace("D:\\", "D://");
+        wasm_test_path = wasm_test_path.replace("C:\\", "C://");
+        wasm_test_path = wasm_test_path.replace("c:\\", "c://");
         // wasmer run used to fail on c:\Users\username\wapm_packages\ ...
         println!("wasm test path: {wasm_test_path}");
         assert!(
-            wasm_test_path.contains(":\\"),
+            wasm_test_path.contains("://"),
             "wasm_test_path path is not complex enough"
         );
     }
