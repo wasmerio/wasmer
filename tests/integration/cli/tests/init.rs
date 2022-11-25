@@ -141,7 +141,6 @@ fn wasmer_init_works_3() -> anyhow::Result<()> {
 
     let output = Command::new("cargo")
         .arg("wapm")
-        .arg("publish")
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .stdin(Stdio::null())
