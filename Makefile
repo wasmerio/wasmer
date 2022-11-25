@@ -720,6 +720,7 @@ tar-capi:
 	tar -C package -zcvf build-capi.tar.gz lib include
 
 untar-capi:
+	mkdir -p package
 	tar -C package -xf ./build-capi.tar.gz
 
 tar-wasmer:
@@ -727,6 +728,7 @@ tar-wasmer:
 	tar -C package -zcvf build-wasmer.tar.gz bin
 
 untar-wasmer:
+	mkdir -p package
 	tar -C package -xf ./build-wasmer.tar.gz
 
 distribution-gnu: package-gnu
