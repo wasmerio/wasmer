@@ -381,7 +381,7 @@ pub(crate) unsafe fn memory_fill(
 ///
 /// # Errors
 ///
-/// Returns a `Trap` error if the memory range is out of bounds.
+/// Returns a `Trap` error if the memory range is out of bounds or 32bits unligned.
 ///
 /// # Safety
 /// memory access is unsafe
@@ -395,6 +395,9 @@ pub(crate) unsafe fn memory32_atomic_check32(
     }
 
     let dst = isize::try_from(dst).unwrap();
+    if dst & 0b11 != 0 {
+        return Err(Trap::lib(TrapCode::UnalignedAtomic));
+    }
 
     // Bounds and casts are checked above, by this point we know that
     // everything is safe.
@@ -409,7 +412,7 @@ pub(crate) unsafe fn memory32_atomic_check32(
 ///
 /// # Errors
 ///
-/// Returns a `Trap` error if the memory range is out of bounds.
+/// Returns a `Trap` error if the memory range is out of bounds or 64bits unaligned.
 ///
 /// # Safety
 /// memory access is unsafe
@@ -423,6 +426,9 @@ pub(crate) unsafe fn memory32_atomic_check64(
     }
 
     let dst = isize::try_from(dst).unwrap();
+    if dst & 0b111 != 0 {
+        return Err(Trap::lib(TrapCode::UnalignedAtomic));
+    }
 
     // Bounds and casts are checked above, by this point we know that
     // everything is safe.
