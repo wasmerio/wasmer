@@ -1,6 +1,6 @@
 //! Basic tests for the `run` subcommand
 
-use anyhow::bail;
+use anyhow::{bail, Context};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use wasmer_integration_tests_cli::{get_repo_root_path, get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
@@ -557,6 +557,7 @@ fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
         wasm_test_path = wasm_test_path.replace("D:\\", "D://");
         wasm_test_path = wasm_test_path.replace("C:\\", "C://");
         wasm_test_path = wasm_test_path.replace("c:\\", "c://");
+        wasm_test_path = wasm_test_path.replace("\\", "/");
         // wasmer run used to fail on c:\Users\username\wapm_packages\ ...
         println!("wasm test path: {wasm_test_path}");
         assert!(
@@ -571,13 +572,30 @@ fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
         wasm_test_path
     );
 
+    println!(
+        "current dir {:?}",
+        get_repo_root_path().map(|o| o.canonicalize())
+    );
+    println!(
+        "file exists: {:?}",
+        get_repo_root_path()
+            .map(|o| o.join("lib/c-api/examples/assets/qjs.wasm").exists())
+            .unwrap_or(false)
+    );
+
     let mut cmd = Command::new(get_wasmer_path());
     cmd.arg("run");
     cmd.arg(wasm_test_path);
     cmd.arg("--");
     cmd.arg("-q");
 
-    let output = cmd.output()?;
+    let cmd_str = format!("{cmd:?}");
+    let output = cmd.output().with_context(|| {
+        anyhow::anyhow!(
+            "failed to run {cmd_str} with {}",
+            get_wasmer_path().display()
+        )
+    })?;
 
     if !output.status.success() {
         bail!(
