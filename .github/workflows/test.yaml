@@ -101,6 +101,246 @@ jobs:
           make build-wasmer-wasm
 
   # build-wasmer: run build-wasmer and build-capi for every OS in parallel
+  build_wasmer: 
+    name: Build wasmer on ${{ matrix.build }}
+    runs-on: ${{ matrix.os }}
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build: linux-x64
+            os: ubuntu-18.04
+            target: x86_64-unknown-linux-gnu
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
+            run_test: true
+            run_test_capi: true
+            run_integration_tests: true
+            run_build_docs: true
+            use_sccache: true
+         - build: macos-x64
+            os: macos-11
+            target: x86_64-apple-darwin
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+            run_test: true
+            run_test_capi: true
+            use_sccache: true
+            run_integration_tests: true
+            run_ios_tests: true
+            run_build_docs: false
+          - build: macos-arm64
+            os: macos-11.0
+            target: aarch64-apple-darwin
+            use_sccache: true
+            run_test: false
+            run_test_capi: false
+            run_build_docs: false
+          - build: windows-x64
+            os: windows-2019
+            #target: x86_64-pc-windows-msvc commented because of bug in rust setup action
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
+            llvm_choco_version: 13.0.0
+            run_integration_tests: true
+            use_sccache: true
+            run_test: true
+            run_test_capi: false # We can't run yet the capi tests on Windows
+            run_build_docs: false
+          - build: linux-musl-x64
+            target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            container: alpine:latest
+            run_test: true
+            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
+            run_integration_tests: false
+            run_build_docs: false
+            use_sccache: false
+    container: ${{ matrix.container }}
+    env:
+      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
+      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
+    steps:
+      - uses: actions/checkout@v3
+
+  build_capi: 
+    name: Build wasmer on ${{ matrix.build }}
+    runs-on: ${{ matrix.os }}
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build: linux-x64
+            os: ubuntu-18.04
+            target: x86_64-unknown-linux-gnu
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
+            run_test: true
+            run_test_capi: true
+            run_integration_tests: true
+            run_build_docs: true
+            use_sccache: true
+         - build: macos-x64
+            os: macos-11
+            target: x86_64-apple-darwin
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+            run_test: true
+            run_test_capi: true
+            use_sccache: true
+            run_integration_tests: true
+            run_ios_tests: true
+            run_build_docs: false
+          - build: macos-arm64
+            os: macos-11.0
+            target: aarch64-apple-darwin
+            use_sccache: true
+            run_test: false
+            run_test_capi: false
+            run_build_docs: false
+          - build: windows-x64
+            os: windows-2019
+            #target: x86_64-pc-windows-msvc commented because of bug in rust setup action
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
+            llvm_choco_version: 13.0.0
+            run_integration_tests: true
+            use_sccache: true
+            run_test: true
+            run_test_capi: false # We can't run yet the capi tests on Windows
+            run_build_docs: false
+          - build: linux-musl-x64
+            target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            container: alpine:latest
+            run_test: true
+            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
+            run_integration_tests: false
+            run_build_docs: false
+            use_sccache: false
+    container: ${{ matrix.container }}
+    env:
+      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
+      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
+    steps:
+      - uses: actions/checkout@v3
+
+  test_capi: 
+    name: Build wasmer on ${{ matrix.build }}
+    runs-on: ${{ matrix.os }}
+    needs: build_capi
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build: linux-x64
+            os: ubuntu-18.04
+            target: x86_64-unknown-linux-gnu
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
+            run_test: true
+            run_test_capi: true
+            run_integration_tests: true
+            run_build_docs: true
+            use_sccache: true
+         - build: macos-x64
+            os: macos-11
+            target: x86_64-apple-darwin
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+            run_test: true
+            run_test_capi: true
+            use_sccache: true
+            run_integration_tests: true
+            run_ios_tests: true
+            run_build_docs: false
+          - build: macos-arm64
+            os: macos-11.0
+            target: aarch64-apple-darwin
+            use_sccache: true
+            run_test: false
+            run_test_capi: false
+            run_build_docs: false
+          - build: windows-x64
+            os: windows-2019
+            #target: x86_64-pc-windows-msvc commented because of bug in rust setup action
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
+            llvm_choco_version: 13.0.0
+            run_integration_tests: true
+            use_sccache: true
+            run_test: true
+            run_test_capi: false # We can't run yet the capi tests on Windows
+            run_build_docs: false
+          - build: linux-musl-x64
+            target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            container: alpine:latest
+            run_test: true
+            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
+            run_integration_tests: false
+            run_build_docs: false
+            use_sccache: false
+    container: ${{ matrix.container }}
+    env:
+      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
+      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
+    steps:
+      - uses: actions/checkout@v3
+
+  test_integration_cli: 
+    name: Build wasmer on ${{ matrix.build }}
+    runs-on: ${{ matrix.os }}
+    needs: [build_capi, build_wasmer]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build: linux-x64
+            os: ubuntu-18.04
+            target: x86_64-unknown-linux-gnu
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
+            run_test: true
+            run_test_capi: true
+            run_integration_tests: true
+            run_build_docs: true
+            use_sccache: true
+         - build: macos-x64
+            os: macos-11
+            target: x86_64-apple-darwin
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+            run_test: true
+            run_test_capi: true
+            use_sccache: true
+            run_integration_tests: true
+            run_ios_tests: true
+            run_build_docs: false
+          - build: macos-arm64
+            os: macos-11.0
+            target: aarch64-apple-darwin
+            use_sccache: true
+            run_test: false
+            run_test_capi: false
+            run_build_docs: false
+          - build: windows-x64
+            os: windows-2019
+            #target: x86_64-pc-windows-msvc commented because of bug in rust setup action
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
+            llvm_choco_version: 13.0.0
+            run_integration_tests: true
+            use_sccache: true
+            run_test: true
+            run_test_capi: false # We can't run yet the capi tests on Windows
+            run_build_docs: false
+          - build: linux-musl-x64
+            target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            container: alpine:latest
+            run_test: true
+            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
+            run_integration_tests: false
+            run_build_docs: false
+            use_sccache: false
+    container: ${{ matrix.container }}
+    env:
+      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
+      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
+    steps:
+      - uses: actions/checkout@v3
+
   build_wasmer_linux_x64:
     name: build wasmer on linux-x86_64-gnu
     runs-on: ubuntu-18.04
