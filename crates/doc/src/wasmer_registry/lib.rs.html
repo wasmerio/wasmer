@@ -1369,6 +1369,7 @@
 <span id="1363">1363</span>
 <span id="1364">1364</span>
 <span id="1365">1365</span>
+<span id="1366">1366</span>
 </pre><pre class="rust"><code><span class="doccomment">//! High-level interactions with the WAPM backend.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! The GraphQL schema can be updated by running `make` in the Wasmer repo&#39;s</span>
@@ -1964,7 +1965,7 @@
 
     <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="ident">response</span>.<span class="ident">package_version</span>.<span class="ident">as_ref</span>().<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
         <span class="ident">QueryPackageError::ErrorSendingQuery</span>(<span class="macro">format!</span>(
-            <span class="string">&quot;Invalid response for crate {name:?}: no manifest&quot;</span>
+            <span class="string">&quot;Invalid response for crate {name:?}: no package version: {response:#?}&quot;</span>
         ))
     })<span class="question-mark">?</span>;
 
@@ -2507,7 +2508,8 @@
 <span class="doccomment">/// file is already installed before downloading it</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_remote_webc_checksum</span>(<span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">request_max_bytes</span> <span class="op">=</span> <span class="ident">webc::WebC::get_signature_offset_start</span>() <span class="op">+</span> <span class="number">4</span> <span class="op">+</span> <span class="number">1024</span> <span class="op">+</span> <span class="number">8</span> <span class="op">+</span> <span class="number">8</span>;
-    <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">get_webc_bytes</span>(<span class="ident">url</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>..<span class="ident">request_max_bytes</span>)).<span class="ident">context</span>(<span class="string">&quot;get_webc_bytes failed&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">get_webc_bytes</span>(<span class="ident">url</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>..<span class="ident">request_max_bytes</span>))
+        .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;get_webc_bytes failed on {url}&quot;</span>))<span class="question-mark">?</span>;
     <span class="kw">let</span> <span class="ident">checksum</span> <span class="op">=</span> <span class="ident">webc::WebC::get_checksum_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>)
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
         .<span class="ident">context</span>(<span class="string">&quot;get_checksum_bytes failed&quot;</span>)<span class="question-mark">?</span>

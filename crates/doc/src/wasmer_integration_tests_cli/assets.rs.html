@@ -103,6 +103,43 @@
 <span id="97">97</span>
 <span id="98">98</span>
 <span id="99">99</span>
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::env</span>;
 <span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
 
@@ -168,21 +205,58 @@
         <span class="ident">ret</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="macro">format!</span>(<span class="string">&quot;{}wasmer&quot;</span>, <span class="ident">WASMER_TARGET_PATH2</span>));
     }
     <span class="kw">if</span> <span class="op">!</span><span class="ident">ret</span>.<span class="ident">exists</span>() {
-        <span class="kw">match</span> <span class="ident">get_repo_root_path</span>() {
+        <span class="ident">ret</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">get_repo_root_path</span>() {
             <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; {
                 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
                 {
-                    <span class="kw">return</span> <span class="ident">s</span>.<span class="ident">join</span>(<span class="string">&quot;target&quot;</span>).<span class="ident">join</span>(<span class="string">&quot;release&quot;</span>).<span class="ident">join</span>(<span class="string">&quot;wasmer.exe&quot;</span>);
+                    <span class="ident">s</span>.<span class="ident">join</span>(<span class="string">&quot;target&quot;</span>).<span class="ident">join</span>(<span class="string">&quot;release&quot;</span>).<span class="ident">join</span>(<span class="string">&quot;wasmer.exe&quot;</span>)
                 }
                 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
                 {
-                    <span class="kw">return</span> <span class="ident">s</span>.<span class="ident">join</span>(<span class="string">&quot;target&quot;</span>).<span class="ident">join</span>(<span class="string">&quot;release&quot;</span>).<span class="ident">join</span>(<span class="string">&quot;wasmer&quot;</span>);
+                    <span class="ident">s</span>.<span class="ident">join</span>(<span class="string">&quot;target&quot;</span>).<span class="ident">join</span>(<span class="string">&quot;release&quot;</span>).<span class="ident">join</span>(<span class="string">&quot;wasmer&quot;</span>)
                 }
             }
             <span class="prelude-val">None</span> =&gt; {
                 <span class="macro">panic!</span>(<span class="string">&quot;Could not find wasmer executable path! {:?}&quot;</span>, <span class="ident">ret</span>);
             }
+        };
+    }
+
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">ret</span>.<span class="ident">exists</span>() {
+        <span class="ident">ret</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">get_repo_root_path</span>() {
+            <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; {
+                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
+                {
+                    <span class="ident">s</span>.<span class="ident">join</span>(<span class="string">&quot;target&quot;</span>)
+                        .<span class="ident">join</span>(<span class="ident">target_lexicon::HOST</span>.<span class="ident">to_string</span>())
+                        .<span class="ident">join</span>(<span class="string">&quot;release&quot;</span>)
+                        .<span class="ident">join</span>(<span class="string">&quot;wasmer.exe&quot;</span>)
+                }
+                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
+                {
+                    <span class="ident">s</span>.<span class="ident">join</span>(<span class="string">&quot;target&quot;</span>)
+                        .<span class="ident">join</span>(<span class="ident">target_lexicon::HOST</span>.<span class="ident">to_string</span>())
+                        .<span class="ident">join</span>(<span class="string">&quot;release&quot;</span>)
+                        .<span class="ident">join</span>(<span class="string">&quot;wasmer&quot;</span>)
+                }
+            }
+            <span class="prelude-val">None</span> =&gt; {
+                <span class="macro">panic!</span>(<span class="string">&quot;Could not find wasmer executable path! {:?}&quot;</span>, <span class="ident">ret</span>);
+            }
+        };
+    }
+
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">ret</span>.<span class="ident">exists</span>() {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">root</span>) <span class="op">=</span> <span class="ident">get_repo_root_path</span>() {
+            <span class="kw">use</span> <span class="ident">std::process::Stdio</span>;
+            <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::process::Command::new</span>(<span class="string">&quot;ls&quot;</span>)
+                .<span class="ident">arg</span>(<span class="ident">root</span>.<span class="ident">join</span>(<span class="string">&quot;target&quot;</span>))
+                .<span class="ident">stdout</span>(<span class="ident">Stdio::inherit</span>())
+                .<span class="ident">stderr</span>(<span class="ident">Stdio::inherit</span>())
+                .<span class="ident">stdin</span>(<span class="ident">Stdio::null</span>())
+                .<span class="ident">output</span>();
         }
+        <span class="macro">panic!</span>(<span class="string">&quot;cannot find wasmer / wasmer.exe for integration test!&quot;</span>);
     }
     <span class="ident">ret</span>
 }
