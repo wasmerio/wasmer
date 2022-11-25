@@ -559,39 +559,12 @@ fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
         wasm_test_path = wasm_test_path.replace("c:\\", "c://");
         wasm_test_path = wasm_test_path.replace("\\", "/");
         // wasmer run used to fail on c:\Users\username\wapm_packages\ ...
-        println!("wasm test path: {wasm_test_path}");
         assert!(
             wasm_test_path.contains("://"),
             "wasm_test_path path is not complex enough"
         );
     }
 
-    println!(
-        "running {} run {} -- -q",
-        get_wasmer_path().display(),
-        wasm_test_path
-    );
-
-    println!(
-        "current dir {:?}",
-        get_repo_root_path().map(|o| o.canonicalize())
-    );
-    let expected_file = get_repo_root_path().map(|o| o.join("lib/c-api/examples/assets/qjs.wasm"));
-    println!(
-        "file {:?} exists: {:?}",
-        expected_file,
-        expected_file.as_ref().map(|o| o.exists()).unwrap_or(false)
-    );
-    println!(
-        "wasmer path {:?} exists: {:?}",
-        get_wasmer_path(),
-        get_wasmer_path().exists()
-    );
-    println!(
-        "qjs file path {:?} exists: {:?}",
-        Path::new(&wasm_test_path),
-        Path::new(&wasm_test_path).exists()
-    );
     let mut cmd = Command::new(get_wasmer_path());
     cmd.arg("run");
     cmd.arg(wasm_test_path);
