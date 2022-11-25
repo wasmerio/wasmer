@@ -375,6 +375,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        stage: [0,1,2,3,4,5,6]
         include:
           - build: linux-x64
             os: ubuntu-18.04
@@ -488,7 +489,7 @@ jobs:
         if: matrix.target
       - name: Test
         run: |
-          make test-stage-0
+          make test-stage-${{ matrix.stage }}
         env:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
