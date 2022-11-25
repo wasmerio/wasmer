@@ -551,9 +551,11 @@ fn run_no_start_wasm_report_error() -> anyhow::Result<()> {
 #[test]
 fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
     let wasm_test_path = wasi_test_wasm_path();
+    let wasm_test_path = wasm_test_path.canonicalize().unwrap_or(wasm_test_path);
     #[cfg(target_os = "windows")]
     {
         // wasmer run used to fail on c:\Users\username\wapm_packages\ ...
+        println!("wasm test path: {}", wasm_test_path.display());
         assert!(
             wasm_test_path.starts_with("c:\\") || wasm_test_path.starts_with("C://"),
             "wasm_test_path path is not complex enough"
@@ -568,7 +570,7 @@ fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
 
     let mut cmd = Command::new(get_wasmer_path());
     cmd.arg("run");
-    cmd.arg(wasi_test_wasm_path());
+    cmd.arg(wasm_test_path);
     cmd.arg("--");
     cmd.arg("-q");
 
