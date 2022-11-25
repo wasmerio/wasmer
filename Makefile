@@ -485,9 +485,9 @@ test-stage-1:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --all --release $(exclude_tests)
 test-stage-2:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
-test-stage:3:
+test-stage-3:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
-test-stage:4:
+test-stage-4:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
 
 # test examples 
