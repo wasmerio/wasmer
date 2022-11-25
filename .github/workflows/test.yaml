@@ -127,9 +127,9 @@ jobs:
             run_integration_tests: true
             run_ios_tests: true
             run_build_docs: false
-          - build: macos-arm64
+          - build: macos-x86_64
             os: macos-11.0
-            target: aarch64-apple-darwin
+            target: x86_64-apple-darwin
             use_sccache: true
             run_test: false
             run_test_capi: false
@@ -261,9 +261,9 @@ jobs:
             run_integration_tests: true
             run_ios_tests: true
             run_build_docs: false
-          - build: macos-arm64
+          - build: macos-x86_64
             os: macos-11.0
-            target: aarch64-apple-darwin
+            target: x86_64-apple-darwin
             use_sccache: true
             run_test: false
             run_test_capi: false
@@ -395,9 +395,9 @@ jobs:
             run_integration_tests: true
             run_ios_tests: true
             run_build_docs: false
-          - build: macos-arm64
+          - build: macos-x86_64
             os: macos-11.0
-            target: aarch64-apple-darwin
+            target: x86_64-apple-darwin
             use_sccache: true
             run_test: false
             run_test_capi: false
@@ -521,9 +521,9 @@ jobs:
             run_integration_tests: true
             run_ios_tests: true
             run_build_docs: false
-          - build: macos-arm64
+          - build: macos-x86_64
             os: macos-11.0
-            target: aarch64-apple-darwin
+            target: x86_64-apple-darwin
             use_sccache: true
             run_test: false
             run_test_capi: false
@@ -554,8 +554,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
+        id: download
         with:
           name: capi-${{ matrix.build }}
+      - name: 'Echo download path'
+        run: echo ${{steps.download.outputs.download-path}}
+      - name: Display structure of downloaded files
+        run: ls -R
       - name: Unzip Artifacts
         shell: bash
         run: |
@@ -595,9 +600,9 @@ jobs:
             run_integration_tests: true
             run_ios_tests: true
             run_build_docs: false
-          - build: macos-arm64
+          - build: macos-x86_64
             os: macos-11.0
-            target: aarch64-apple-darwin
+            target: x86_64-apple-darwin
             use_sccache: true
             run_test: false
             run_test_capi: false
@@ -628,11 +633,16 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v3
+        id: download
         with:
           name: capi-${{ matrix.build }}
       - uses: actions/download-artifact@v3
         with:
           name: wasmer-cli-${{ matrix.build }}
+      - name: 'Echo download path'
+        run: echo ${{steps.download.outputs.download-path}}
+      - name: Display structure of downloaded files
+        run: ls -R
       - name: Unzip Artifacts
         shell: bash
         run: |
