@@ -576,13 +576,22 @@ fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
         "current dir {:?}",
         get_repo_root_path().map(|o| o.canonicalize())
     );
+    let expected_file = get_repo_root_path().map(|o| o.join("lib/c-api/examples/assets/qjs.wasm"));
     println!(
-        "file exists: {:?}",
-        get_repo_root_path()
-            .map(|o| o.join("lib/c-api/examples/assets/qjs.wasm").exists())
-            .unwrap_or(false)
+        "file {:?} exists: {:?}",
+        expected_file,
+        expected_file.as_ref().map(|o| o.exists()).unwrap_or(false)
     );
-
+    println!(
+        "wasmer path {:?} exists: {:?}",
+        get_wasmer_path(),
+        get_wasmer_path().exists()
+    );
+    println!(
+        "qjs file path {:?} exists: {:?}",
+        Path::new(&wasm_test_path),
+        Path::new(&wasm_test_path).exists()
+    );
     let mut cmd = Command::new(get_wasmer_path());
     cmd.arg("run");
     cmd.arg(wasm_test_path);
