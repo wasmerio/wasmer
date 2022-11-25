@@ -18,18 +18,31 @@ fn login_works() -> anyhow::Result<()> {
         .arg(wapm_dev_token)
         .output()?;
 
+    let stdout = std::str::from_utf8(&output.stdout)
+        .expect("stdout is not utf8! need to handle arbitrary bytes");
+
+    let stderr = std::str::from_utf8(&output.stderr)
+        .expect("stderr is not utf8! need to handle arbitrary bytes");
+
     if !output.status.success() {
         bail!(
             "wasmer login failed with: stdout: {}\n\nstderr: {}",
-            std::str::from_utf8(&output.stdout)
-                .expect("stdout is not utf8! need to handle arbitrary bytes"),
-            std::str::from_utf8(&output.stderr)
-                .expect("stderr is not utf8! need to handle arbitrary bytes")
+            stdout,
+            stderr
         );
     }
 
     let stdout_output = std::str::from_utf8(&output.stdout).unwrap();
-    assert_eq!(stdout_output, "Login for WAPM user \"ciuser\" saved\n");
+    let expected = "Login for WAPM user \"ciuser\" saved\n";
+    if stdout_output != expected {
+        println!("expected:");
+        println!("{expected}");
+        println!("got:");
+        println!("{stdout}");
+        println!("-----");
+        println!("{stderr}");
+        panic!("stdout incorrect");
+    }
 
     Ok(())
 }

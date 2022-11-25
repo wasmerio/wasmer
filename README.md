@@ -80,7 +80,7 @@ curl https://get.wasmer.io -sSfL | sh
   * <a href="https://crates.io/crates/cargo-binstall/">Cargo binstall</a>
   
     ```sh
-    cargo binstall wasmer
+    cargo binstall wasmer-cli
     ```
 
   * <a href="https://crates.io/crates/wasmer-cli/">Cargo</a>
