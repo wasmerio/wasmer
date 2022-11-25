@@ -593,7 +593,7 @@ pub fn query_package_from_registry(
 
     let v = response.package_version.as_ref().ok_or_else(|| {
         QueryPackageError::ErrorSendingQuery(format!(
-            "Invalid response for crate {name:?}: no manifest"
+            "Invalid response for crate {name:?}: no package version: {response:#?}"
         ))
     })?;
 
@@ -1136,7 +1136,8 @@ pub fn get_checksum_hash(bytes: &[u8]) -> String {
 /// file is already installed before downloading it
 pub fn get_remote_webc_checksum(url: &Url) -> Result<String, anyhow::Error> {
     let request_max_bytes = webc::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
-    let data = get_webc_bytes(url, Some(0..request_max_bytes)).context("get_webc_bytes failed")?;
+    let data = get_webc_bytes(url, Some(0..request_max_bytes))
+        .with_context(|| format!("get_webc_bytes failed on {url}"))?;
     let checksum = webc::WebC::get_checksum_bytes(&data)
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("get_checksum_bytes failed")?

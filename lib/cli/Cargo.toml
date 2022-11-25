@@ -43,7 +43,7 @@ wasmer-vfs  = { version = "=3.0.1", path = "../vfs", default-features = false, f
 atty = "0.2"
 colored = "2.0"
 anyhow = "1.0"
-spinner = "0.5.0"
+spinoff = "0.5.4"
 clap = { version = "3.2.22", features = ["derive", "env"] }
 # For the function names autosuggestion
 distance = "0.4"
@@ -165,6 +165,12 @@ http = [
   "serde_json",
   "serde",
 ]
+
+[target.'cfg(target_os = "windows")'.dependencies]
+colored = "2.0.0"
+
+[package.metadata.binstall]
+pkg-fmt = "tgz"
 
 [package.metadata.binstall.overrides.aarch64-apple-darwin]
 pkg-url = "{ repo }/releases/download/v{ version }/wasmer-darwin-arm64.{ archive-format }"

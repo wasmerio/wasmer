@@ -16,6 +16,7 @@ target-lexicon = "0.12.4"
 [dependencies]
 anyhow = "1"
 tempfile = "3"
+target-lexicon = "0.12.5"
 
 [features]
 default = ["webc_runner"]
