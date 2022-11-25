@@ -721,7 +721,11 @@ tar-capi:
 
 untar-capi:
 	mkdir -p package
+	mkdir -p target/release
+	mkdir -p target/$(HOST_TARGET)/release
 	tar -C package -xf ./build-capi.tar.gz
+	cp package/lib/* target/release
+	cp package/lib/* target/$(HOST_TARGET)/release
 
 tar-wasmer:
 	ls -R package
@@ -729,7 +733,11 @@ tar-wasmer:
 
 untar-wasmer:
 	mkdir -p package
+	mkdir -p target/release
+	mkdir -p target/$(HOST_TARGET)/release
 	tar -C package -xf ./build-wasmer.tar.gz
+	cp package/bin/* target/release
+	cp package/bin/* target/$(HOST_TARGET)/release
 
 distribution-gnu: package-gnu
 	cp LICENSE package/LICENSE
