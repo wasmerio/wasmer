@@ -368,133 +368,6 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
-  test_wasmer: 
-    name: Test Wasmer on ${{ matrix.build }}
-    runs-on: ${{ matrix.os }}
-    needs: setup
-    strategy:
-      fail-fast: false
-      matrix:
-        stage: [0,1,2,3,4,5,6]
-        include:
-          - build: linux-x64
-            os: ubuntu-18.04
-            target: x86_64-unknown-linux-gnu
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
-            run_test: true
-            run_test_capi: true
-            run_integration_tests: true
-            run_build_docs: true
-            use_sccache: true
-          - build: macos-x64
-            os: macos-11
-            target: x86_64-apple-darwin
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
-            run_test: true
-            run_test_capi: true
-            use_sccache: true
-            run_integration_tests: true
-            run_ios_tests: true
-            run_build_docs: false
-          - build: macos-x86_64
-            os: macos-11.0
-            target: x86_64-apple-darwin
-            use_sccache: true
-            run_test: false
-            run_test_capi: false
-            run_build_docs: false
-          - build: windows-x64
-            os: windows-2019
-            target: x86_64-pc-windows-msvc
-            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
-            llvm_choco_version: 13.0.0
-            run_integration_tests: true
-            use_sccache: true
-            run_test: true
-            run_test_capi: false # We can't run yet the capi tests on Windows
-            run_build_docs: false
-          - build: linux-musl-x64
-            target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
-            container: alpine:latest
-            run_test: true
-            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
-            run_integration_tests: false
-            run_build_docs: false
-            use_sccache: false
-    container: ${{ matrix.container }}
-    env:
-      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
-      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up libstdc++ on Linux
-        if: matrix.build == 'linux-x64'
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
-          sudo apt-get install --reinstall g++-8
-      - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl-x64'
-        run: |
-            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
-      - name: Set up dependencies for Mac OS
-        run: |
-          brew install automake
-          # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
-          brew install gnu-tar
-          echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
-        if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.63
-          target: ${{ matrix.target }}
-      - name: Choco install LLVM
-        uses: crazy-max/ghaction-chocolatey@v2
-        if: matrix.llvm_choco_version
-        with:
-          args: install llvm --version ${{ matrix.llvm_choco_version }} --allow-downgrade
-      - name: Install LLVM (Choco - Windows)
-        if: matrix.llvm_choco_version
-        shell: bash
-        run: |
-          cd 'C:\Program Files\LLVM\'
-          LLVM_DIR=$(pwd)
-          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
-      - name: Install LLVM (macOS Apple Silicon)
-        if: matrix.os == 'macos-11.0' && !matrix.llvm_url
-        run: |
-          brew install llvm
-      - name: Install LLVM
-        if: matrix.llvm_url
-        shell: bash
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.xz
-          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
-          mkdir ${LLVM_DIR}
-          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
-          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
-        env:
-          LLVM_DIR: .llvm
-      - name: Setup Rust target
-        shell: bash
-        run: |
-          mkdir -p .cargo
-          cat << EOF > .cargo/config.toml
-          [build]
-          target = "${{ matrix.target }}"
-          EOF
-        if: matrix.target
-      - name: Test
-        run: |
-          make test-stage-${{ matrix.stage }}
-        env:
-          TARGET: ${{ matrix.target }}
-          TARGET_DIR: target/${{ matrix.target }}/release
-          CARGO_TARGET: --target ${{ matrix.target }}
-
   test_capi: 
     name: Test C-API on ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
@@ -666,3 +539,885 @@ jobs:
           CARGO_TARGET: --target ${{ matrix.target }}
           WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test_wasmer_stage_0: 
+    name: Test Wasmer Stage 0 on ${{ matrix.build }}
+    runs-on: ${{ matrix.os }}
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build: linux-x64
+            os: ubuntu-18.04
+            target: x86_64-unknown-linux-gnu
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
+            run_test: true
+            run_test_capi: true
+            run_integration_tests: true
+            run_build_docs: true
+            use_sccache: true
+          - build: macos-x64
+            os: macos-11
+            target: x86_64-apple-darwin
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+            run_test: true
+            run_test_capi: true
+            use_sccache: true
+            run_integration_tests: true
+            run_ios_tests: true
+            run_build_docs: false
+          - build: macos-x86_64
+            os: macos-11.0
+            target: x86_64-apple-darwin
+            use_sccache: true
+            run_test: false
+            run_test_capi: false
+            run_build_docs: false
+          - build: windows-x64
+            os: windows-2019
+            target: x86_64-pc-windows-msvc
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
+            llvm_choco_version: 13.0.0
+            run_integration_tests: true
+            use_sccache: true
+            run_test: true
+            run_test_capi: false # We can't run yet the capi tests on Windows
+            run_build_docs: false
+          - build: linux-musl-x64
+            target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            container: alpine:latest
+            run_test: true
+            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
+            run_integration_tests: false
+            run_build_docs: false
+            use_sccache: false
+    container: ${{ matrix.container }}
+    env:
+      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
+      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up libstdc++ on Linux
+        if: matrix.build == 'linux-x64'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install --reinstall g++-8
+      - name: Set up base deps on musl
+        if: matrix.build == 'linux-musl-x64'
+        run: |
+            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+      - name: Set up dependencies for Mac OS
+        run: |
+          brew install automake
+          # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
+          brew install gnu-tar
+          echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
+        if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.63
+          target: ${{ matrix.target }}
+      - name: Choco install LLVM
+        uses: crazy-max/ghaction-chocolatey@v2
+        if: matrix.llvm_choco_version
+        with:
+          args: install llvm --version ${{ matrix.llvm_choco_version }} --allow-downgrade
+      - name: Install LLVM (Choco - Windows)
+        if: matrix.llvm_choco_version
+        shell: bash
+        run: |
+          cd 'C:\Program Files\LLVM\'
+          LLVM_DIR=$(pwd)
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+      - name: Install LLVM (macOS Apple Silicon)
+        if: matrix.os == 'macos-11.0' && !matrix.llvm_url
+        run: |
+          brew install llvm
+      - name: Install LLVM
+        if: matrix.llvm_url
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
+      - name: Setup Rust target
+        shell: bash
+        run: |
+          mkdir -p .cargo
+          cat << EOF > .cargo/config.toml
+          [build]
+          target = "${{ matrix.target }}"
+          EOF
+        if: matrix.target
+      - name: Test
+        run: |
+          make test-stage-0
+        env:
+          TARGET: ${{ matrix.target }}
+          TARGET_DIR: target/${{ matrix.target }}/release
+          CARGO_TARGET: --target ${{ matrix.target }}
+
+  test_wasmer_stage_1: 
+    name: Test Wasmer Stage 1 on ${{ matrix.build }}
+    runs-on: ${{ matrix.os }}
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build: linux-x64
+            os: ubuntu-18.04
+            target: x86_64-unknown-linux-gnu
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
+            run_test: true
+            run_test_capi: true
+            run_integration_tests: true
+            run_build_docs: true
+            use_sccache: true
+          - build: macos-x64
+            os: macos-11
+            target: x86_64-apple-darwin
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+            run_test: true
+            run_test_capi: true
+            use_sccache: true
+            run_integration_tests: true
+            run_ios_tests: true
+            run_build_docs: false
+          - build: macos-x86_64
+            os: macos-11.0
+            target: x86_64-apple-darwin
+            use_sccache: true
+            run_test: false
+            run_test_capi: false
+            run_build_docs: false
+          - build: windows-x64
+            os: windows-2019
+            target: x86_64-pc-windows-msvc
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
+            llvm_choco_version: 13.0.0
+            run_integration_tests: true
+            use_sccache: true
+            run_test: true
+            run_test_capi: false # We can't run yet the capi tests on Windows
+            run_build_docs: false
+          - build: linux-musl-x64
+            target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            container: alpine:latest
+            run_test: true
+            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
+            run_integration_tests: false
+            run_build_docs: false
+            use_sccache: false
+    container: ${{ matrix.container }}
+    env:
+      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
+      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up libstdc++ on Linux
+        if: matrix.build == 'linux-x64'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install --reinstall g++-8
+      - name: Set up base deps on musl
+        if: matrix.build == 'linux-musl-x64'
+        run: |
+            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+      - name: Set up dependencies for Mac OS
+        run: |
+          brew install automake
+          # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
+          brew install gnu-tar
+          echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
+        if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.63
+          target: ${{ matrix.target }}
+      - name: Choco install LLVM
+        uses: crazy-max/ghaction-chocolatey@v2
+        if: matrix.llvm_choco_version
+        with:
+          args: install llvm --version ${{ matrix.llvm_choco_version }} --allow-downgrade
+      - name: Install LLVM (Choco - Windows)
+        if: matrix.llvm_choco_version
+        shell: bash
+        run: |
+          cd 'C:\Program Files\LLVM\'
+          LLVM_DIR=$(pwd)
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+      - name: Install LLVM (macOS Apple Silicon)
+        if: matrix.os == 'macos-11.0' && !matrix.llvm_url
+        run: |
+          brew install llvm
+      - name: Install LLVM
+        if: matrix.llvm_url
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
+      - name: Setup Rust target
+        shell: bash
+        run: |
+          mkdir -p .cargo
+          cat << EOF > .cargo/config.toml
+          [build]
+          target = "${{ matrix.target }}"
+          EOF
+        if: matrix.target
+      - name: Test
+        run: |
+          make test-stage-1
+        env:
+          TARGET: ${{ matrix.target }}
+          TARGET_DIR: target/${{ matrix.target }}/release
+          CARGO_TARGET: --target ${{ matrix.target }}
+
+  test_wasmer_stage_2: 
+    name: Test Wasmer Stage 2 on ${{ matrix.build }}
+    runs-on: ${{ matrix.os }}
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build: linux-x64
+            os: ubuntu-18.04
+            target: x86_64-unknown-linux-gnu
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
+            run_test: true
+            run_test_capi: true
+            run_integration_tests: true
+            run_build_docs: true
+            use_sccache: true
+          - build: macos-x64
+            os: macos-11
+            target: x86_64-apple-darwin
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+            run_test: true
+            run_test_capi: true
+            use_sccache: true
+            run_integration_tests: true
+            run_ios_tests: true
+            run_build_docs: false
+          - build: macos-x86_64
+            os: macos-11.0
+            target: x86_64-apple-darwin
+            use_sccache: true
+            run_test: false
+            run_test_capi: false
+            run_build_docs: false
+          - build: windows-x64
+            os: windows-2019
+            target: x86_64-pc-windows-msvc
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
+            llvm_choco_version: 13.0.0
+            run_integration_tests: true
+            use_sccache: true
+            run_test: true
+            run_test_capi: false # We can't run yet the capi tests on Windows
+            run_build_docs: false
+          - build: linux-musl-x64
+            target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            container: alpine:latest
+            run_test: true
+            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
+            run_integration_tests: false
+            run_build_docs: false
+            use_sccache: false
+    container: ${{ matrix.container }}
+    env:
+      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
+      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up libstdc++ on Linux
+        if: matrix.build == 'linux-x64'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install --reinstall g++-8
+      - name: Set up base deps on musl
+        if: matrix.build == 'linux-musl-x64'
+        run: |
+            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+      - name: Set up dependencies for Mac OS
+        run: |
+          brew install automake
+          # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
+          brew install gnu-tar
+          echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
+        if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.63
+          target: ${{ matrix.target }}
+      - name: Choco install LLVM
+        uses: crazy-max/ghaction-chocolatey@v2
+        if: matrix.llvm_choco_version
+        with:
+          args: install llvm --version ${{ matrix.llvm_choco_version }} --allow-downgrade
+      - name: Install LLVM (Choco - Windows)
+        if: matrix.llvm_choco_version
+        shell: bash
+        run: |
+          cd 'C:\Program Files\LLVM\'
+          LLVM_DIR=$(pwd)
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+      - name: Install LLVM (macOS Apple Silicon)
+        if: matrix.os == 'macos-11.0' && !matrix.llvm_url
+        run: |
+          brew install llvm
+      - name: Install LLVM
+        if: matrix.llvm_url
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
+      - name: Setup Rust target
+        shell: bash
+        run: |
+          mkdir -p .cargo
+          cat << EOF > .cargo/config.toml
+          [build]
+          target = "${{ matrix.target }}"
+          EOF
+        if: matrix.target
+      - name: Test
+        run: |
+          make test-stage-2
+        env:
+          TARGET: ${{ matrix.target }}
+          TARGET_DIR: target/${{ matrix.target }}/release
+          CARGO_TARGET: --target ${{ matrix.target }}
+
+  test_wasmer_stage_3: 
+    name: Test Wasmer Stage 3 on ${{ matrix.build }}
+    runs-on: ${{ matrix.os }}
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build: linux-x64
+            os: ubuntu-18.04
+            target: x86_64-unknown-linux-gnu
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
+            run_test: true
+            run_test_capi: true
+            run_integration_tests: true
+            run_build_docs: true
+            use_sccache: true
+          - build: macos-x64
+            os: macos-11
+            target: x86_64-apple-darwin
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+            run_test: true
+            run_test_capi: true
+            use_sccache: true
+            run_integration_tests: true
+            run_ios_tests: true
+            run_build_docs: false
+          - build: macos-x86_64
+            os: macos-11.0
+            target: x86_64-apple-darwin
+            use_sccache: true
+            run_test: false
+            run_test_capi: false
+            run_build_docs: false
+          - build: windows-x64
+            os: windows-2019
+            target: x86_64-pc-windows-msvc
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
+            llvm_choco_version: 13.0.0
+            run_integration_tests: true
+            use_sccache: true
+            run_test: true
+            run_test_capi: false # We can't run yet the capi tests on Windows
+            run_build_docs: false
+          - build: linux-musl-x64
+            target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            container: alpine:latest
+            run_test: true
+            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
+            run_integration_tests: false
+            run_build_docs: false
+            use_sccache: false
+    container: ${{ matrix.container }}
+    env:
+      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
+      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up libstdc++ on Linux
+        if: matrix.build == 'linux-x64'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install --reinstall g++-8
+      - name: Set up base deps on musl
+        if: matrix.build == 'linux-musl-x64'
+        run: |
+            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+      - name: Set up dependencies for Mac OS
+        run: |
+          brew install automake
+          # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
+          brew install gnu-tar
+          echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
+        if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.63
+          target: ${{ matrix.target }}
+      - name: Choco install LLVM
+        uses: crazy-max/ghaction-chocolatey@v2
+        if: matrix.llvm_choco_version
+        with:
+          args: install llvm --version ${{ matrix.llvm_choco_version }} --allow-downgrade
+      - name: Install LLVM (Choco - Windows)
+        if: matrix.llvm_choco_version
+        shell: bash
+        run: |
+          cd 'C:\Program Files\LLVM\'
+          LLVM_DIR=$(pwd)
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+      - name: Install LLVM (macOS Apple Silicon)
+        if: matrix.os == 'macos-11.0' && !matrix.llvm_url
+        run: |
+          brew install llvm
+      - name: Install LLVM
+        if: matrix.llvm_url
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
+      - name: Setup Rust target
+        shell: bash
+        run: |
+          mkdir -p .cargo
+          cat << EOF > .cargo/config.toml
+          [build]
+          target = "${{ matrix.target }}"
+          EOF
+        if: matrix.target
+      - name: Test
+        run: |
+          make test-stage-3
+        env:
+          TARGET: ${{ matrix.target }}
+          TARGET_DIR: target/${{ matrix.target }}/release
+          CARGO_TARGET: --target ${{ matrix.target }}
+
+  test_wasmer_stage_4: 
+    name: Test Wasmer Stage 4 on ${{ matrix.build }}
+    runs-on: ${{ matrix.os }}
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build: linux-x64
+            os: ubuntu-18.04
+            target: x86_64-unknown-linux-gnu
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
+            run_test: true
+            run_test_capi: true
+            run_integration_tests: true
+            run_build_docs: true
+            use_sccache: true
+          - build: macos-x64
+            os: macos-11
+            target: x86_64-apple-darwin
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+            run_test: true
+            run_test_capi: true
+            use_sccache: true
+            run_integration_tests: true
+            run_ios_tests: true
+            run_build_docs: false
+          - build: macos-x86_64
+            os: macos-11.0
+            target: x86_64-apple-darwin
+            use_sccache: true
+            run_test: false
+            run_test_capi: false
+            run_build_docs: false
+          - build: windows-x64
+            os: windows-2019
+            target: x86_64-pc-windows-msvc
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
+            llvm_choco_version: 13.0.0
+            run_integration_tests: true
+            use_sccache: true
+            run_test: true
+            run_test_capi: false # We can't run yet the capi tests on Windows
+            run_build_docs: false
+          - build: linux-musl-x64
+            target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            container: alpine:latest
+            run_test: true
+            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
+            run_integration_tests: false
+            run_build_docs: false
+            use_sccache: false
+    container: ${{ matrix.container }}
+    env:
+      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
+      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up libstdc++ on Linux
+        if: matrix.build == 'linux-x64'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install --reinstall g++-8
+      - name: Set up base deps on musl
+        if: matrix.build == 'linux-musl-x64'
+        run: |
+            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+      - name: Set up dependencies for Mac OS
+        run: |
+          brew install automake
+          # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
+          brew install gnu-tar
+          echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
+        if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.63
+          target: ${{ matrix.target }}
+      - name: Choco install LLVM
+        uses: crazy-max/ghaction-chocolatey@v2
+        if: matrix.llvm_choco_version
+        with:
+          args: install llvm --version ${{ matrix.llvm_choco_version }} --allow-downgrade
+      - name: Install LLVM (Choco - Windows)
+        if: matrix.llvm_choco_version
+        shell: bash
+        run: |
+          cd 'C:\Program Files\LLVM\'
+          LLVM_DIR=$(pwd)
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+      - name: Install LLVM (macOS Apple Silicon)
+        if: matrix.os == 'macos-11.0' && !matrix.llvm_url
+        run: |
+          brew install llvm
+      - name: Install LLVM
+        if: matrix.llvm_url
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
+      - name: Setup Rust target
+        shell: bash
+        run: |
+          mkdir -p .cargo
+          cat << EOF > .cargo/config.toml
+          [build]
+          target = "${{ matrix.target }}"
+          EOF
+        if: matrix.target
+      - name: Test
+        run: |
+          make test-stage-4
+        env:
+          TARGET: ${{ matrix.target }}
+          TARGET_DIR: target/${{ matrix.target }}/release
+          CARGO_TARGET: --target ${{ matrix.target }}
+
+  test_wasmer_stage_5: 
+    name: Test Wasmer Stage 5 on ${{ matrix.build }}
+    runs-on: ${{ matrix.os }}
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build: linux-x64
+            os: ubuntu-18.04
+            target: x86_64-unknown-linux-gnu
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
+            run_test: true
+            run_test_capi: true
+            run_integration_tests: true
+            run_build_docs: true
+            use_sccache: true
+          - build: macos-x64
+            os: macos-11
+            target: x86_64-apple-darwin
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+            run_test: true
+            run_test_capi: true
+            use_sccache: true
+            run_integration_tests: true
+            run_ios_tests: true
+            run_build_docs: false
+          - build: macos-x86_64
+            os: macos-11.0
+            target: x86_64-apple-darwin
+            use_sccache: true
+            run_test: false
+            run_test_capi: false
+            run_build_docs: false
+          - build: windows-x64
+            os: windows-2019
+            target: x86_64-pc-windows-msvc
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
+            llvm_choco_version: 13.0.0
+            run_integration_tests: true
+            use_sccache: true
+            run_test: true
+            run_test_capi: false # We can't run yet the capi tests on Windows
+            run_build_docs: false
+          - build: linux-musl-x64
+            target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            container: alpine:latest
+            run_test: true
+            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
+            run_integration_tests: false
+            run_build_docs: false
+            use_sccache: false
+    container: ${{ matrix.container }}
+    env:
+      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
+      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up libstdc++ on Linux
+        if: matrix.build == 'linux-x64'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install --reinstall g++-8
+      - name: Set up base deps on musl
+        if: matrix.build == 'linux-musl-x64'
+        run: |
+            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+      - name: Set up dependencies for Mac OS
+        run: |
+          brew install automake
+          # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
+          brew install gnu-tar
+          echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
+        if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.63
+          target: ${{ matrix.target }}
+      - name: Choco install LLVM
+        uses: crazy-max/ghaction-chocolatey@v2
+        if: matrix.llvm_choco_version
+        with:
+          args: install llvm --version ${{ matrix.llvm_choco_version }} --allow-downgrade
+      - name: Install LLVM (Choco - Windows)
+        if: matrix.llvm_choco_version
+        shell: bash
+        run: |
+          cd 'C:\Program Files\LLVM\'
+          LLVM_DIR=$(pwd)
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+      - name: Install LLVM (macOS Apple Silicon)
+        if: matrix.os == 'macos-11.0' && !matrix.llvm_url
+        run: |
+          brew install llvm
+      - name: Install LLVM
+        if: matrix.llvm_url
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
+      - name: Setup Rust target
+        shell: bash
+        run: |
+          mkdir -p .cargo
+          cat << EOF > .cargo/config.toml
+          [build]
+          target = "${{ matrix.target }}"
+          EOF
+        if: matrix.target
+      - name: Test
+        run: |
+          make test-stage-5
+        env:
+          TARGET: ${{ matrix.target }}
+          TARGET_DIR: target/${{ matrix.target }}/release
+          CARGO_TARGET: --target ${{ matrix.target }}
+
+  test_wasmer_stage_6: 
+    name: Test Wasmer Stage 6 on ${{ matrix.build }}
+    runs-on: ${{ matrix.os }}
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build: linux-x64
+            os: ubuntu-18.04
+            target: x86_64-unknown-linux-gnu
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
+            run_test: true
+            run_test_capi: true
+            run_integration_tests: true
+            run_build_docs: true
+            use_sccache: true
+          - build: macos-x64
+            os: macos-11
+            target: x86_64-apple-darwin
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+            run_test: true
+            run_test_capi: true
+            use_sccache: true
+            run_integration_tests: true
+            run_ios_tests: true
+            run_build_docs: false
+          - build: macos-x86_64
+            os: macos-11.0
+            target: x86_64-apple-darwin
+            use_sccache: true
+            run_test: false
+            run_test_capi: false
+            run_build_docs: false
+          - build: windows-x64
+            os: windows-2019
+            target: x86_64-pc-windows-msvc
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
+            llvm_choco_version: 13.0.0
+            run_integration_tests: true
+            use_sccache: true
+            run_test: true
+            run_test_capi: false # We can't run yet the capi tests on Windows
+            run_build_docs: false
+          - build: linux-musl-x64
+            target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            container: alpine:latest
+            run_test: true
+            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
+            run_integration_tests: false
+            run_build_docs: false
+            use_sccache: false
+    container: ${{ matrix.container }}
+    env:
+      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
+      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up libstdc++ on Linux
+        if: matrix.build == 'linux-x64'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install --reinstall g++-8
+      - name: Set up base deps on musl
+        if: matrix.build == 'linux-musl-x64'
+        run: |
+            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+      - name: Set up dependencies for Mac OS
+        run: |
+          brew install automake
+          # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
+          brew install gnu-tar
+          echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
+        if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.63
+          target: ${{ matrix.target }}
+      - name: Choco install LLVM
+        uses: crazy-max/ghaction-chocolatey@v2
+        if: matrix.llvm_choco_version
+        with:
+          args: install llvm --version ${{ matrix.llvm_choco_version }} --allow-downgrade
+      - name: Install LLVM (Choco - Windows)
+        if: matrix.llvm_choco_version
+        shell: bash
+        run: |
+          cd 'C:\Program Files\LLVM\'
+          LLVM_DIR=$(pwd)
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+      - name: Install LLVM (macOS Apple Silicon)
+        if: matrix.os == 'macos-11.0' && !matrix.llvm_url
+        run: |
+          brew install llvm
+      - name: Install LLVM
+        if: matrix.llvm_url
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
+      - name: Setup Rust target
+        shell: bash
+        run: |
+          mkdir -p .cargo
+          cat << EOF > .cargo/config.toml
+          [build]
+          target = "${{ matrix.target }}"
+          EOF
+        if: matrix.target
+      - name: Test
+        run: |
+          make test-stage-6
+        env:
+          TARGET: ${{ matrix.target }}
+          TARGET_DIR: target/${{ matrix.target }}/release
+          CARGO_TARGET: --target ${{ matrix.target }}
