@@ -703,7 +703,7 @@ install-capi-headers:
 
 # Currently implemented for linux only. TODO
 install-capi-lib:
-	pkgver=$$($(CARGO_BINARY) pkgid --manifest-path lib/c-api/Cargo.toml | sed --posix 's/^.*wasmer-c-api:\([0-9.]*\)$\/\1/') && \
+	pkgver=$$($(CARGO_BINARY) read-manifest --manifest-path lib/c-api/Cargo.toml | jq -r .version) && \
 	shortver="$${pkgver%.*}" && \
 	majorver="$${shortver%.*}" && \
 	install -Dm755 target/release/libwasmer.so "$(DESTDIR)/lib/libwasmer.so.$$pkgver" && \
@@ -715,7 +715,7 @@ install-misc:
 	install -Dm644 LICENSE "$(DESTDIR)"/share/licenses/wasmer/LICENSE
 
 install-capi-pkgconfig:
-	@pkgver=$$($(CARGO_BINARY) pkgid --manifest-path lib/c-api/Cargo.toml | sed --posix 's/^.*wasmer-c-api:\([0-9.]*\)$\/\1/') && \
+	@pkgver=$$($(CARGO_BINARY) read-manifest --manifest-path lib/c-api/Cargo.toml | jq -r .version) && \
 	printf "prefix=%s\nincludedir=\044{prefix}/include\nlibdir=\044{prefix}/lib\n\nName: wasmer\nDescription: The Wasmer library for running WebAssembly\nVersion: %s\nCflags: -I\044{prefix}/include\nLibs: -L\044{prefix}/lib -lwasmer\n" "$(DESTDIR)" "$${pkgver}" | install -Dm644 /dev/stdin "$(DESTDIR)"/lib/pkgconfig/wasmer.pc
 
 install-pkgconfig:
