@@ -1,4 +1,3 @@
-pub mod compiler;
 mod stdio;
 pub mod task_manager;
 mod ws;
@@ -30,6 +29,9 @@ pub mod term;
 use crate::http::DynHttpClient;
 #[cfg(feature = "termios")]
 pub use term::*;
+
+#[cfg(feature = "sys")]
+pub type ArcTunables = std::sync::Arc<dyn wasmer::Tunables + Send + Sync>;
 
 #[derive(Error, Debug)]
 pub enum WasiThreadError {
@@ -88,6 +90,25 @@ where
     #[cfg(not(feature = "host-termios"))]
     fn tty_get(&self) -> WasiTtyState {
         Default::default()
+    }
+
+    /// Get a [`wasmer::Engine`] for module compilation.
+    #[cfg(feature = "sys")]
+    fn engine(&self) -> Option<wasmer::Engine>;
+
+    /// Create a new [`wasmer::Store`].
+    fn new_store(&self) -> wasmer::Store {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "sys")] {
+                if let Some(engine) = self.engine() {
+                    wasmer::Store::new(engine)
+                } else {
+                    wasmer::Store::default()
+                }
+            } else {
+                wasmer::Store::default()
+            }
+        }
     }
 
     /// Sets the TTY state
@@ -228,6 +249,8 @@ pub struct PluggableRuntimeImplementation {
     pub bus: Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static>,
     pub networking: DynVirtualNetworking,
     pub http_client: Option<DynHttpClient>,
+    #[cfg(feature = "sys")]
+    pub engine: Option<wasmer::Engine>,
 }
 
 impl PluggableRuntimeImplementation {
@@ -243,6 +266,11 @@ impl PluggableRuntimeImplementation {
         I: VirtualNetworking + Sync,
     {
         self.networking = Arc::new(net)
+    }
+
+    #[cfg(feature = "sys")]
+    pub fn set_engine(&mut self, engine: Option<wasmer::Engine>) {
+        self.engine = engine;
     }
 }
 
@@ -270,6 +298,8 @@ impl Default for PluggableRuntimeImplementation {
             networking,
             bus: Arc::new(DefaultVirtualBus::default()),
             http_client,
+            #[cfg(feature = "sys")]
+            engine: None,
         }
     }
 }
@@ -285,5 +315,10 @@ impl WasiRuntimeImplementation for PluggableRuntimeImplementation {
 
     fn http_client(&self) -> Option<&DynHttpClient> {
         self.http_client.as_ref()
+    }
+
+    #[cfg(feature = "sys")]
+    fn engine(&self) -> Option<wasmer::Engine> {
+        self.engine.clone()
     }
 }

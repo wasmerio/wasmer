@@ -357,11 +357,17 @@ impl WasiEnv {
     }
 
     /// Porcesses any signals that are batched up
-    pub fn process_signals(&self, store: &mut impl AsStoreMut) -> Result<Result<bool, Errno>, WasiError> {
+    pub fn process_signals(
+        &self,
+        store: &mut impl AsStoreMut,
+    ) -> Result<Result<bool, Errno>, WasiError> {
         // If a signal handler has never been set then we need to handle signals
         // differently
         if self.inner().signal_set == false {
-            if self.thread.has_signal(&[Signal::Sigint, Signal::Sigquit, Signal::Sigkill]) {
+            if self
+                .thread
+                .has_signal(&[Signal::Sigint, Signal::Sigquit, Signal::Sigkill])
+            {
                 self.thread.terminate(Errno::Intr as u32);
             }
             return Ok(Ok(false));

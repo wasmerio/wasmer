@@ -5,10 +5,7 @@ use wasmer::{AsStoreRef, Module};
 use wasmer_wasi_types::wasi::Snapshot0Clockid;
 
 use super::BinaryPackage;
-use crate::{
-    runtime::compiler::DynCompiler, syscalls::platform_clock_time_get, VirtualTaskManager,
-    WasiRuntimeImplementation,
-};
+use crate::{syscalls::platform_clock_time_get, VirtualTaskManager, WasiRuntimeImplementation};
 
 pub const DEFAULT_COMPILED_PATH: &'static str = "~/.wasmer/compiled";
 pub const DEFAULT_WEBC_PATH: &'static str = "~/.wasmer/webc";
@@ -21,8 +18,6 @@ pub struct ModuleCache {
 
     pub(crate) cache_webc: RwLock<HashMap<String, BinaryPackage>>,
     pub(crate) cache_webc_dir: String,
-
-    pub(crate) compiler: DynCompiler,
 }
 
 // FIXME: remove impls!
@@ -71,20 +66,6 @@ impl ModuleCache {
         .to_string();
         let _ = std::fs::create_dir_all(PathBuf::from(cache_webc_dir.clone()));
 
-        // TODO: let users provide an optional engine via argument.
-        #[cfg(feature = "sys")]
-        #[cfg(not(feature = "sys"))]
-        let engine = None;
-
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "sys")] {
-                let engine = Self::new_engine();
-                let compiler = std::sync::Arc::new(crate::runtime::compiler::engine::EngineCompiler::new(engine)) as DynCompiler;
-            } else {
-                let compiler = std::sync::Arc::new(crate::runtime::compiler::StubCompiler);
-            }
-        }
-
         let cached_modules = if use_shared_cache {
             Some(RwLock::new(HashMap::default()))
         } else {
@@ -96,56 +77,7 @@ impl ModuleCache {
             cache_compile_dir,
             cache_webc: RwLock::new(HashMap::default()),
             cache_webc_dir,
-            compiler,
         }
-    }
-
-    #[cfg(feature = "sys")]
-    fn new_engine() -> wasmer::Engine {
-        // Build the features list
-        let mut features = wasmer::Features::new();
-        features.threads(true);
-        features.memory64(true);
-        features.bulk_memory(true);
-        #[cfg(feature = "singlepass")]
-        features.multi_value(false);
-
-        // Choose the right compiler
-        #[cfg(feature = "compiler-cranelift")]
-        {
-            let compiler = wasmer_compiler_cranelift::Cranelift::default();
-            return wasmer_compiler::EngineBuilder::new(compiler)
-                .set_features(Some(features))
-                .engine();
-        }
-        #[cfg(all(not(feature = "compiler-cranelift"), feature = "compiler-llvm"))]
-        {
-            let compiler = wasmer_compiler_llvm::LLVM::default();
-            return wasmer_compiler::EngineBuilder::new(compiler)
-                .set_features(Some(features))
-                .engine();
-        }
-        #[cfg(all(
-            not(feature = "compiler-cranelift"),
-            not(feature = "compiler-singlepass"),
-            feature = "compiler-llvm"
-        ))]
-        {
-            let compiler = wasmer_compiler_singlepass::Singlepass::default();
-            return wasmer_compiler::EngineBuilder::new(compiler)
-                .set_features(Some(features))
-                .engine();
-        }
-        #[cfg(all(
-            not(feature = "compiler-cranelift"),
-            not(feature = "compiler-singlepass"),
-            not(feature = "compiler-llvm")
-        ))]
-        panic!("wasmer not built with a compiler")
-    }
-
-    pub fn new_store(&self) -> wasmer::Store {
-        self.compiler.new_store()
     }
 
     // TODO: should return Result<_, anyhow::Error>

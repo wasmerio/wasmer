@@ -143,10 +143,7 @@ impl WasiThread {
     }
 
     /// Returns all the signals that are waiting to be processed
-    pub fn has_signal(
-        &self,
-        signals: &[Signal]
-    ) -> bool {
+    pub fn has_signal(&self, signals: &[Signal]) -> bool {
         let guard = self.signals.lock().unwrap();
         for s in guard.0.iter() {
             if signals.contains(s) {

@@ -248,10 +248,15 @@ where
         let signaler = signals.1.subscribe();
         if signals.0.is_empty() == false {
             drop(signals);
-            match ctx.data().clone().process_signals(ctx).unwrap_or(Err(Errno::Intr)) {
+            match ctx
+                .data()
+                .clone()
+                .process_signals(ctx)
+                .unwrap_or(Err(Errno::Intr))
+            {
                 Err(err) => return Err(err),
                 Ok(processed) if processed == true => return Err(Errno::Intr),
-                Ok(_) => { }
+                Ok(_) => {}
             }
             env = ctx.data();
         }

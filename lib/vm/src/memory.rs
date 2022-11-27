@@ -279,15 +279,21 @@ impl VMOwnedMemory {
             },
         })
     }
-}
 
-impl VMOwnedMemory {
     /// Converts this owned memory into shared memory
     pub fn to_shared(self) -> VMSharedMemory {
         VMSharedMemory {
             mmap: Arc::new(RwLock::new(self.mmap)),
             config: self.config,
         }
+    }
+
+    /// Copies this memory to a new memory
+    pub fn fork(&mut self) -> Result<Self, MemoryError> {
+        Ok(Self {
+            mmap: self.mmap.fork()?,
+            config: self.config.clone(),
+        })
     }
 }
 
@@ -328,10 +334,8 @@ impl LinearMemory for VMOwnedMemory {
 
     /// Copies this memory to a new memory
     fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
-        Ok(Box::new(Self {
-            mmap: self.mmap.fork()?,
-            config: self.config.clone(),
-        }))
+        let forked = VMOwnedMemory::fork(self)?;
+        Ok(Box::new(forked))
     }
 }
 
@@ -545,6 +549,15 @@ impl VMSharedMemory {
     ) -> Result<Self, MemoryError> {
         Ok(VMOwnedMemory::from_definition(memory, style, vm_memory_location)?.to_shared())
     }
+
+    /// Copies this memory to a new memory
+    pub fn fork(&mut self) -> Result<Self, MemoryError> {
+        let mut guard = self.mmap.write().unwrap();
+        Ok(Self {
+            mmap: Arc::new(RwLock::new(guard.fork()?)),
+            config: self.config.clone(),
+        })
+    }
 }
 
 impl LinearMemory for VMSharedMemory {
@@ -590,11 +603,8 @@ impl LinearMemory for VMSharedMemory {
 
     /// Copies this memory to a new memory
     fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
-        let mut guard = self.mmap.write().unwrap();
-        Ok(Box::new(Self {
-            mmap: Arc::new(RwLock::new(guard.fork()?)),
-            config: self.config.clone(),
-        }))
+        let forked = VMSharedMemory::fork(self)?;
+        Ok(Box::new(forked))
     }
 }
 

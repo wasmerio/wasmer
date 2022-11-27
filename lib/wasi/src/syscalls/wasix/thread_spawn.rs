@@ -53,14 +53,8 @@ pub fn thread_spawn<M: MemorySize>(
         error!("thread failed - the memory could not be cloned");
         Errno::Notcapable
     }));
-    #[cfg(feature = "compiler")]
-    let engine = ctx.as_store_ref().engine().clone();
 
-    // Build a new store that will be passed to the thread
-    #[cfg(feature = "compiler")]
-    let mut store = Store::new(engine);
-    #[cfg(not(feature = "compiler"))]
-    let mut store = Store::default();
+    let mut store = ctx.data().runtime.new_store();
 
     // This function takes in memory and a store and creates a context that
     // can be used to call back into the process

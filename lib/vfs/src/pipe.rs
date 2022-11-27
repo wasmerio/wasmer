@@ -375,7 +375,7 @@ impl VirtualFile for WasiPipe {
                     }
                 }
             }
-            
+
             let mut pinned_rx = Pin::new(&mut rx.0);
             let data = match pinned_rx.poll_recv(cx) {
                 Poll::Ready(Some(a)) => a,

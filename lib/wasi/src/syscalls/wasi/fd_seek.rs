@@ -27,7 +27,7 @@ pub fn fd_seek<M: MemorySize>(
         fd,
         offset
     );
-    
+
     wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
 
     let env = ctx.data();

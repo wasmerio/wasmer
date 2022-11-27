@@ -106,12 +106,7 @@ pub fn proc_spawn_internal(
     let env = ctx.data();
 
     // Build a new store that will be passed to the thread
-    #[cfg(feature = "compiler")]
-    let engine = ctx.as_store_ref().engine().clone();
-    #[cfg(feature = "compiler")]
-    let new_store = Store::new(engine);
-    #[cfg(not(feature = "compiler"))]
-    let new_store = Store::default();
+    let new_store = ctx.data().runtime.new_store();
 
     // Fork the current environment and set the new arguments
     let (mut child_env, handle) = ctx.data().fork();
