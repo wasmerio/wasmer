@@ -144,6 +144,10 @@ impl Tty {
         self.stdin.as_ref()
     }
 
+    pub fn stdin_mut(&mut self) -> &mut (dyn VirtualFile + Send + Sync + 'static) {
+        self.stdin.as_mut()
+    }
+
     pub fn options(&self) -> TtyOptions {
         self.options.clone()
     }
