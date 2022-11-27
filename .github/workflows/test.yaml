@@ -471,6 +471,11 @@ jobs:
         shell: bash
         run: |
           make untar-capi
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.63
+          target: ${{ matrix.target }}
       - name: Test C API
         run: |
           make test-capi-ci
@@ -560,6 +565,11 @@ jobs:
       - uses: goto-bus-stop/setup-zig@v2
         with:
           version: 0.10.0
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.63
+          target: ${{ matrix.target }}
       - name: Test integration CLI
         if: matrix.os != 'windows-2019'
         shell: bash
