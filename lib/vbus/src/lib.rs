@@ -192,7 +192,7 @@ impl BusSpawnedProcessJoin {
         }
     }
 
-    fn poll_finished(&self, cx: &mut Context<'_>) -> Poll<Option<ExitCode>> {
+    pub fn poll_finished(&self, cx: &mut Context<'_>) -> Poll<Option<ExitCode>> {
         let mut guard = self.inst.lock().unwrap();
         match guard.deref_mut() {
             BusSpawnedProcessJoinResult::Active(inst) => {
