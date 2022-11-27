@@ -167,6 +167,11 @@ mod tests {
             self.networking.clone()
         }
 
+        #[cfg(feature = "sys")]
+        fn engine(&self) -> Option<wasmer::Engine> {
+            None
+        }
+
         fn stdout(
             &self,
             data: &[u8],

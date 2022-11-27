@@ -74,7 +74,7 @@ pub(crate) fn bus_open_internal<M: MemorySize>(
         WasiStdioMode::Null,
         WasiStdioMode::Null,
         WasiStdioMode::Log
-    ));
+    )?);
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 

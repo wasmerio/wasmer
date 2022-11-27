@@ -94,7 +94,9 @@ where
 
     /// Get a [`wasmer::Engine`] for module compilation.
     #[cfg(feature = "sys")]
-    fn engine(&self) -> Option<wasmer::Engine>;
+    fn engine(&self) -> Option<wasmer::Engine> {
+        None
+    }
 
     /// Create a new [`wasmer::Store`].
     fn new_store(&self) -> wasmer::Store {

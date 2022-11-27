@@ -7,13 +7,14 @@ use tracing::{debug, info, metadata::LevelFilter};
 #[cfg(feature = "sys")]
 use tracing_subscriber::fmt::SubscriberBuilder;
 use wasmer::{Cranelift, EngineBuilder, Features, Instance, Module, Store};
+use wasmer_vfs::AsyncReadExt;
 use wasmer_wasi::{import_object_for_all_wasi_versions, Pipe, WasiError, WasiState};
 
 #[cfg(feature = "sys")]
 mod sys {
-    #[test]
-    fn test_coreutils() {
-        super::test_coreutils()
+    #[tokio::test]
+    async fn test_coreutils() {
+        super::test_coreutils().await
     }
 }
 
@@ -26,7 +27,7 @@ mod js {
     }
 }
 
-fn test_coreutils() {
+async fn test_coreutils() {
     let mut features = Features::new();
     features.threads(true);
 
@@ -60,13 +61,13 @@ fn test_coreutils() {
 
         // Run the test itself
         info!("Test Round {}", n);
-        run_test(store, module);
+        run_test(store, module).await;
     }
 }
 
-fn run_test(mut store: Store, module: Module) {
+async fn run_test(mut store: Store, module: Module) {
     // Create the `WasiEnv`.
-    let mut stdout = Pipe::new();
+    let mut stdout = Pipe::default();
     let mut wasi_state_builder = WasiState::new("echo");
     wasi_state_builder.args(&["apple"]);
 
@@ -99,7 +100,7 @@ fn run_test(mut store: Store, module: Module) {
     }
 
     let mut stdout_str = String::new();
-    stdout.read_to_string(&mut stdout_str).unwrap();
+    stdout.read_to_string(&mut stdout_str).await.unwrap();
     let stdout_as_str = stdout_str.as_str();
     assert_eq!(stdout_as_str, "apple\n");
 }

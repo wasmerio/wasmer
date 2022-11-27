@@ -71,7 +71,7 @@ pub fn sock_send_file<M: MemorySize>(
                                 buf.set_len(amt);
                             }
                             Ok(buf)
-                        }));
+                        })?);
                         env = ctx.data();
                         data
                     }
@@ -113,7 +113,7 @@ pub fn sock_send_file<M: MemorySize>(
                                                     buf.set_len(amt);
                                                 }
                                                 Ok(buf)
-                                            }));
+                                            })?);
                                         env = ctx.data();
                                         data
                                     } else {
@@ -132,7 +132,7 @@ pub fn sock_send_file<M: MemorySize>(
                                                 .recv(sub_count as usize)
                                                 .await
                                                 .map(|a| a.to_vec())
-                                        }));
+                                        })?);
                                     env = ctx.data();
                                     data
                                 }
@@ -152,7 +152,7 @@ pub fn sock_send_file<M: MemorySize>(
                                                 buf.set_len(amt);
                                             }
                                             Ok(buf)
-                                        }));
+                                        })?);
                                     env = ctx.data();
                                     data
                                 }

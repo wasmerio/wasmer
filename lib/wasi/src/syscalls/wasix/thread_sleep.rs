@@ -37,7 +37,7 @@ pub fn thread_sleep(
             unreachable!(
                 "the timeout or signals will wake up this thread even though it waits forever"
             )
-        }));
+        })?);
     }
     Ok(Errno::Success)
 }

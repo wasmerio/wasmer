@@ -156,7 +156,7 @@ fn fd_write_internal<M: MemorySize>(
 
                                 handle.write(&buf[..]).await.map_err(map_io_err)
                             }
-                        )
+                        )?
                         .map_err(|err| match err {
                             Errno::Timedout => Errno::Again,
                             a => a,
@@ -179,11 +179,9 @@ fn fd_write_internal<M: MemorySize>(
                     let mut buf = Vec::with_capacity(buf_len);
                     wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
 
-                    wasi_try_ok!(__asyncify(
-                        &mut ctx,
-                        None,
-                        async move { socket.send(buf).await }
-                    ))
+                    wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+                        socket.send(buf).await
+                    })?)
                 }
                 Kind::Pipe { pipe } => {
                     let buf_len: M::Offset = iovs_arr

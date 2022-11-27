@@ -1,20 +1,18 @@
-use std::io::{Read, Write};
-
 use wasmer::{Instance, Module, Store};
 use wasmer_wasi::{WasiBidirectionalSharedPipePair, WasiState};
 
 mod sys {
-    #[test]
+    #[tokio::test]
     fn test_stdout() {
         super::test_stdout()
     }
 
-    #[test]
+    #[tokio::test]
     fn test_stdin() {
         super::test_stdin()
     }
 
-    #[test]
+    #[tokio::test]
     fn test_env() {
         super::test_env()
     }
@@ -40,7 +38,7 @@ mod js {
     }
 }
 
-fn test_stdout() {
+async fn test_stdout() {
     let mut store = Store::default();
     let module = Module::new(&mut store, br#"
     (module
@@ -73,7 +71,7 @@ fn test_stdout() {
     "#).unwrap();
 
     // Create the `WasiEnv`.
-    let mut pipe = WasiBidirectionalSharedPipePair::new().with_blocking(false);
+    let mut pipe = WasiBidirectionalSharedPipePair::default().with_blocking(false);
     let wasi_env = WasiState::new("command-name")
         .args(&["Gordon"])
         .stdout(Box::new(pipe.clone()))
@@ -100,7 +98,7 @@ fn test_stdout() {
     assert_eq!(stdout_as_str, "hello world\n");
 }
 
-fn test_env() {
+async fn test_env() {
     let mut store = Store::default();
     let module = Module::new(&store, include_bytes!("envvar.wasm")).unwrap();
 
@@ -112,7 +110,7 @@ fn test_env() {
     });
 
     // Create the `WasiEnv`.
-    let mut pipe = WasiBidirectionalSharedPipePair::new().with_blocking(false);
+    let mut pipe = WasiBidirectionalSharedPipePair::default().with_blocking(false);
     let mut wasi_state_builder = WasiState::new("command-name");
     wasi_state_builder
         .args(&["Gordon"])
@@ -146,12 +144,12 @@ fn test_env() {
     assert_eq!(stdout_as_str, "Env vars:\nDOG=X\nTEST2=VALUE2\nTEST=VALUE\nDOG Ok(\"X\")\nDOG_TYPE Err(NotPresent)\nSET VAR Ok(\"HELLO\")\n");
 }
 
-fn test_stdin() {
+async fn test_stdin() {
     let mut store = Store::default();
     let module = Module::new(&store, include_bytes!("stdin-hello.wasm")).unwrap();
 
     // Create the `WasiEnv`.
-    let mut pipe = WasiBidirectionalSharedPipePair::new().with_blocking(false);
+    let mut pipe = WasiBidirectionalSharedPipePair::default().with_blocking(false);
 
     // Write to STDIN
     let buf = "Hello, stdin!\n".as_bytes().to_owned();

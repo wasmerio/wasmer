@@ -29,7 +29,7 @@ pub fn proc_join<M: MemorySize>(
         let mut process = ctx.data_mut().process.clone();
         let child_exit = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
             process.join_any_child().await
-        }));
+        })?);
         return match child_exit {
             Some((pid, exit_code)) => {
                 trace!(
@@ -71,7 +71,7 @@ pub fn proc_join<M: MemorySize>(
     if let Some(process) = process {
         let exit_code = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
             process.join().await.ok_or(Errno::Child)
-        }));
+        })?);
 
         trace!("child ({}) exited with {}", pid.raw(), exit_code);
         let env = ctx.data();

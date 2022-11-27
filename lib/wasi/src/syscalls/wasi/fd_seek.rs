@@ -81,7 +81,7 @@ pub fn fd_seek<M: MemorySize>(
                                 .offset
                                 .store((end as i64 + offset) as u64, Ordering::Release);
                             Ok(())
-                        }));
+                        })?);
                     } else {
                         return Ok(Errno::Inval);
                     }

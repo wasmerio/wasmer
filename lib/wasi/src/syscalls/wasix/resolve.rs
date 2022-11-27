@@ -27,12 +27,12 @@ pub fn resolve<M: MemorySize>(
     addrs: WasmPtr<__wasi_addr_t, M>,
     naddrs: M::Offset,
     ret_naddrs: WasmPtr<M::Offset, M>,
-) -> Errno {
-    let naddrs: usize = wasi_try!(naddrs.try_into().map_err(|_| Errno::Inval));
+) -> Result<Errno, WasiError> {
+    let naddrs: usize = wasi_try_ok!(naddrs.try_into().map_err(|_| Errno::Inval));
     let mut env = ctx.data();
     let host_str = {
         let memory = env.memory_view(&ctx);
-        unsafe { get_input_str!(&memory, host, host_len) }
+        unsafe { get_input_str_ok!(&memory, host, host_len) }
     };
 
     debug!(
@@ -46,23 +46,23 @@ pub fn resolve<M: MemorySize>(
 
     let net = env.net();
     let tasks = env.tasks.clone();
-    let found_ips = wasi_try!(__asyncify(&mut ctx, None, async move {
+    let found_ips = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
         net.resolve(host_str.as_str(), port, None)
             .await
             .map_err(net_error_into_wasi_err)
-    }));
+    })?);
     env = ctx.data();
 
     let mut idx = 0;
     let memory = env.memory_view(&ctx);
-    let addrs = wasi_try_mem!(addrs.slice(&memory, wasi_try!(to_offset::<M>(naddrs))));
+    let addrs = wasi_try_mem_ok!(addrs.slice(&memory, wasi_try_ok!(to_offset::<M>(naddrs))));
     for found_ip in found_ips.iter().take(naddrs) {
         crate::net::write_ip(&memory, addrs.index(idx).as_ptr::<M>(), *found_ip);
         idx += 1;
     }
 
-    let idx: M::Offset = wasi_try!(idx.try_into().map_err(|_| Errno::Overflow));
-    wasi_try_mem!(ret_naddrs.write(&memory, idx));
+    let idx: M::Offset = wasi_try_ok!(idx.try_into().map_err(|_| Errno::Overflow));
+    wasi_try_mem_ok!(ret_naddrs.write(&memory, idx));
 
-    Errno::Success
+    Ok(Errno::Success)
 }

@@ -2,7 +2,7 @@ use std::fmt;
 use std::future::Future;
 use std::ops::DerefMut;
 use std::pin::Pin;
-use std::sync::{Mutex, Arc};
+use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use thiserror::Error;
 
@@ -175,7 +175,7 @@ where
 
 enum BusSpawnedProcessJoinResult {
     Active(Box<dyn VirtualBusProcess + Sync + Unpin>),
-    Finished(Option<ExitCode>)
+    Finished(Option<ExitCode>),
 }
 
 #[derive(Clone)]
@@ -185,7 +185,11 @@ pub struct BusSpawnedProcessJoin {
 
 impl BusSpawnedProcessJoin {
     pub fn new(process: BusSpawnedProcess) -> Self {
-        Self { inst: Arc::new(Mutex::new(BusSpawnedProcessJoinResult::Active(process.inst))) }
+        Self {
+            inst: Arc::new(Mutex::new(BusSpawnedProcessJoinResult::Active(
+                process.inst,
+            ))),
+        }
     }
 }
 
@@ -203,13 +207,11 @@ impl Future for BusSpawnedProcessJoin {
                         let mut swap = BusSpawnedProcessJoinResult::Finished(exit_code);
                         std::mem::swap(guard.deref_mut(), &mut swap);
                         Poll::Ready(exit_code)
-                    },
+                    }
                     Poll::Pending => Poll::Pending,
                 }
-            },
-            BusSpawnedProcessJoinResult::Finished(exit_code) => {
-                Poll::Ready(*exit_code)
             }
+            BusSpawnedProcessJoinResult::Finished(exit_code) => Poll::Ready(*exit_code),
         }
     }
 }

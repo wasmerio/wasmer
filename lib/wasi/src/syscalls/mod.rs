@@ -204,7 +204,7 @@ pub(crate) fn __asyncify<T, Fut>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     timeout: Option<Duration>,
     work: Fut,
-) -> Result<T, Errno>
+) -> Result<Result<T, Errno>, WasiError>
 where
     T: 'static,
     Fut: std::future::Future<Output = Result<T, Errno>>,
@@ -248,14 +248,9 @@ where
         let signaler = signals.1.subscribe();
         if signals.0.is_empty() == false {
             drop(signals);
-            match ctx
-                .data()
-                .clone()
-                .process_signals(ctx)
-                .unwrap_or(Err(Errno::Intr))
-            {
-                Err(err) => return Err(err),
-                Ok(processed) if processed == true => return Err(Errno::Intr),
+            match ctx.data().clone().process_signals(ctx)? {
+                Err(err) => return Ok(Err(err)),
+                Ok(processed) if processed == true => return Ok(Err(Errno::Intr)),
                 Ok(_) => {}
             }
             env = ctx.data();
@@ -265,26 +260,23 @@ where
 
     // Check if we need to exit the asynchronous loop
     if env.should_exit().is_some() {
-        return Err(Errno::Intr);
+        return Ok(Err(Errno::Intr));
     }
 
     // Block on the work and process process
     let tasks_inner = tasks.clone();
     tasks.block_on(async move {
-        tokio::select! {
+        Ok(tokio::select! {
             // The main work we are doing
             ret = work => ret,
             // If a signaller is triggered then we interrupt the main process
             _ = signaler.recv() => {
-                if let Err(err) = ctx.data().clone().process_signals(ctx).unwrap_or(Err(Errno::Intr)) {
-                    Err(err)
-                } else {
-                    Err(Errno::Intr)
-                }
+                ctx.data().clone().process_signals(ctx)?;
+                Err(Errno::Intr)
             },
             // Optional timeout
             _ = timeout => Err(Errno::Timedout),
-        }
+        })
     })
 }
 

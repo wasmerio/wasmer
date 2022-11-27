@@ -27,7 +27,7 @@ pub fn http_request<M: MemorySize>(
     headers_len: M::Offset,
     gzip: Bool,
     ret_handles: WasmPtr<HttpHandles, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     debug!(
         "wasi[{}:{}]::http_request",
         ctx.data().pid(),
@@ -35,23 +35,23 @@ pub fn http_request<M: MemorySize>(
     );
     let mut env = ctx.data();
     let memory = env.memory_view(&ctx);
-    let url = unsafe { get_input_str!(&memory, url, url_len) };
-    let method = unsafe { get_input_str!(&memory, method, method_len) };
-    let headers = unsafe { get_input_str!(&memory, headers, headers_len) };
+    let url = unsafe { get_input_str_ok!(&memory, url, url_len) };
+    let method = unsafe { get_input_str_ok!(&memory, method, method_len) };
+    let headers = unsafe { get_input_str_ok!(&memory, headers, headers_len) };
 
     let gzip = match gzip {
         Bool::False => false,
         Bool::True => true,
-        _ => return Errno::Inval,
+        _ => return Ok(Errno::Inval),
     };
 
     let net = env.net();
     let tasks = env.tasks.clone();
-    let socket = wasi_try!(__asyncify(&mut ctx, None, async move {
+    let socket = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
         net.http_request(url.as_str(), method.as_str(), headers.as_str(), gzip)
             .await
             .map_err(net_error_into_wasi_err)
-    }));
+    })?);
     env = ctx.data();
 
     let socket_req = SocketHttpRequest {
@@ -115,18 +115,18 @@ pub fn http_request<M: MemorySize>(
     let rights = Rights::all_socket();
 
     let handles = HttpHandles {
-        req: wasi_try!(state
+        req: wasi_try_ok!(state
             .fs
             .create_fd(rights, rights, Fdflags::empty(), 0, inode_req)),
-        res: wasi_try!(state
+        res: wasi_try_ok!(state
             .fs
             .create_fd(rights, rights, Fdflags::empty(), 0, inode_res)),
-        hdr: wasi_try!(state
+        hdr: wasi_try_ok!(state
             .fs
             .create_fd(rights, rights, Fdflags::empty(), 0, inode_hdr)),
     };
 
-    wasi_try_mem!(ret_handles.write(&memory, handles));
+    wasi_try_mem_ok!(ret_handles.write(&memory, handles));
 
-    Errno::Success
+    Ok(Errno::Success)
 }

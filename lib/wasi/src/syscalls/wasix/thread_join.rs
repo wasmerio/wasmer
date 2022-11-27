@@ -26,7 +26,7 @@ pub fn thread_join(mut ctx: FunctionEnvMut<'_, WasiEnv>, tid: Tid) -> Result<Err
         wasi_try_ok!(__asyncify(&mut ctx, None, async move {
             other_thread.join().await;
             Ok(())
-        }));
+        })?);
         Ok(Errno::Success)
     } else {
         Ok(Errno::Success)

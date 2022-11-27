@@ -166,7 +166,7 @@ fn fd_read_internal<M: MemorySize>(
                                 unsafe { data.set_len(amt) };
                                 Ok(data)
                             }
-                        )
+                        )?
                         .map_err(|err| match err {
                             Errno::Timedout => Errno::Again,
                             a => a,
@@ -194,7 +194,7 @@ fn fd_read_internal<M: MemorySize>(
                             None
                         },
                         async move { socket.recv(max_size).await }
-                    )
+                    )?
                     .map_err(|err| match err {
                         Errno::Timedout => Errno::Again,
                         a => a,
@@ -231,7 +231,7 @@ fn fd_read_internal<M: MemorySize>(
                             unsafe { data.set_len(amt) };
                             Ok(data)
                         }
-                    )
+                    )?
                     .map_err(|err| match err {
                         Errno::Timedout => Errno::Again,
                         a => a,
@@ -302,7 +302,7 @@ fn fd_read_internal<M: MemorySize>(
                         rx = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
                             let _ = rx.recv().await;
                             Ok(rx)
-                        })
+                        })?
                         .map_err(|err| match err {
                             Errno::Timedout => Errno::Again,
                             a => a,

@@ -115,6 +115,12 @@ macro_rules! get_input_str {
     }};
 }
 
+macro_rules! get_input_str_ok {
+    ($memory:expr, $data:expr, $len:expr) => {{
+        wasi_try_mem_ok!($data.read_utf8_string($memory, $len))
+    }};
+}
+
 #[allow(unused_macros)]
 macro_rules! get_input_str_bus {
     ($memory:expr, $data:expr, $len:expr) => {{

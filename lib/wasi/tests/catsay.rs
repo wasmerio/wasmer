@@ -1,22 +1,20 @@
 #![cfg(feature = "sys")]
 #![cfg(target_os = "linux")]
-use std::{
-    io::{Read, Write},
-    time::Duration,
-};
+use std::time::Duration;
 
 #[allow(unused_imports)]
 use tracing::{debug, info, metadata::LevelFilter};
 #[cfg(feature = "sys")]
 use tracing_subscriber::fmt::SubscriberBuilder;
 use wasmer::{Cranelift, EngineBuilder, Instance, Module, Store};
+use wasmer_vfs::{AsyncReadExt, AsyncWriteExt};
 use wasmer_wasi::{import_object_for_all_wasi_versions, Pipe, WasiError, WasiState};
 
 #[cfg(feature = "sys")]
 mod sys {
-    #[test]
-    fn test_catsay() {
-        super::test_catsay()
+    #[tokio::test]
+    async fn test_catsay() {
+        super::test_catsay().await
     }
 }
 
@@ -29,7 +27,7 @@ mod js {
     }
 }
 
-fn test_catsay() {
+async fn test_catsay() {
     info!("Creating engine");
     let compiler = Cranelift::default();
     let engine = EngineBuilder::new(compiler.clone());
@@ -63,19 +61,19 @@ fn test_catsay() {
     // TODO: This version will SIGSEGV (users must reuse engines)
     for _ in 0..10 {
         let module = module.clone();
-        run_test(store, module);
+        run_test(store, module).await;
 
         let engine = EngineBuilder::new(compiler.clone());
         store = Store::new(engine);
     }
 }
 
-fn run_test(mut store: Store, module: Module) {
+async fn run_test(mut store: Store, module: Module) {
     // Create the `WasiEnv`.
-    let mut stdout = Pipe::new();
+    let mut stdout = Pipe::default();
     let mut wasi_state_builder = WasiState::new("catsay");
 
-    let mut stdin_pipe = Pipe::new();
+    let mut stdin_pipe = Pipe::default();
 
     let mut wasi_env = wasi_state_builder
         .stdin(Box::new(stdin_pipe.clone()))
@@ -86,24 +84,26 @@ fn run_test(mut store: Store, module: Module) {
 
     // Start a thread that will dump STDOUT to info
     #[cfg(feature = "sys")]
-    std::thread::spawn(move || loop {
-        let mut buf = [0u8; 8192];
-        if let Ok(amt) = stdout.read(&mut buf[..]) {
-            if amt > 0 {
-                let msg = String::from_utf8_lossy(&buf[0..amt]);
-                for line in msg.lines() {
-                    info!("{}", line);
+    tokio::task::spawn(async move {
+        loop {
+            let mut buf = [0u8; 8192];
+            if let Ok(amt) = stdout.read(&mut buf[..]).await {
+                if amt > 0 {
+                    let msg = String::from_utf8_lossy(&buf[0..amt]);
+                    for line in msg.lines() {
+                        info!("{}", line);
+                    }
+                } else {
+                    std::thread::sleep(Duration::from_millis(1));
                 }
             } else {
-                std::thread::sleep(Duration::from_millis(1));
+                break;
             }
-        } else {
-            break;
         }
     });
 
     // Write some text to catsay stdin
-    stdin_pipe.write_all("hi there".as_bytes()).unwrap();
+    stdin_pipe.write_all("hi there".as_bytes()).await.unwrap();
     drop(stdin_pipe);
 
     // Generate an `ImportObject`.

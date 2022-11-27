@@ -411,7 +411,11 @@ impl WasiEnv {
                     if let Err(err) = handler.call(store, signal as i32) {
                         match err.downcast::<WasiError>() {
                             Ok(wasi_err) => {
-                                warn!("wasi[{}]::signal handler wasi error - {}", self.pid(), wasi_err);
+                                warn!(
+                                    "wasi[{}]::signal handler wasi error - {}",
+                                    self.pid(),
+                                    wasi_err
+                                );
                                 return Err(wasi_err);
                             }
                             Err(runtime_err) => {

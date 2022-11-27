@@ -145,7 +145,7 @@ pub fn poll_oneoff(
     }
 
     // make the call
-    let triggered_events = syscalls::poll_oneoff_internal(&mut ctx, subscriptions);
+    let triggered_events = syscalls::poll_oneoff_internal(&mut ctx, subscriptions)?;
     let triggered_events = match triggered_events {
         Ok(a) => a,
         Err(err) => {

@@ -61,7 +61,7 @@ pub fn bus_subcall<M: MemorySize>(
                     );
                     Errno::Io
                 })
-            })
+            })?
             .map_err(|_| BusErrno::Invoke));
             env = ctx.data();
         }

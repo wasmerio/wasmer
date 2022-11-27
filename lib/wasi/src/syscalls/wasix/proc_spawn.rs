@@ -35,14 +35,14 @@ pub fn proc_spawn<M: MemorySize>(
     working_dir: WasmPtr<u8, M>,
     working_dir_len: M::Offset,
     ret_handles: WasmPtr<BusHandles, M>,
-) -> BusErrno {
+) -> Result<BusErrno, WasiError> {
     let env = ctx.data();
     let control_plane = env.process.control_plane();
     let memory = env.memory_view(&ctx);
-    let name = unsafe { get_input_str_bus!(&memory, name, name_len) };
-    let args = unsafe { get_input_str_bus!(&memory, args, args_len) };
-    let preopen = unsafe { get_input_str_bus!(&memory, preopen, preopen_len) };
-    let working_dir = unsafe { get_input_str_bus!(&memory, working_dir, working_dir_len) };
+    let name = unsafe { get_input_str_bus_ok!(&memory, name, name_len) };
+    let args = unsafe { get_input_str_bus_ok!(&memory, args, args_len) };
+    let preopen = unsafe { get_input_str_bus_ok!(&memory, preopen, preopen_len) };
+    let working_dir = unsafe { get_input_str_bus_ok!(&memory, working_dir, working_dir_len) };
     debug!(
         "wasi[{}:{}]::process_spawn (name={})",
         ctx.data().pid(),
@@ -56,7 +56,7 @@ pub fn proc_spawn<M: MemorySize>(
             ctx.data().pid(),
             ctx.data().tid()
         );
-        return BusErrno::Unsupported;
+        return Ok(BusErrno::Unsupported);
     }
 
     let args: Vec<_> = args
@@ -80,17 +80,17 @@ pub fn proc_spawn<M: MemorySize>(
         stdin,
         stdout,
         stderr,
-    ) {
+    )? {
         Ok(a) => a,
         Err(err) => {
-            return err;
+            return Ok(err);
         }
     };
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-    wasi_try_mem_bus!(ret_handles.write(&memory, handles));
-    BusErrno::Success
+    wasi_try_mem_bus_ok!(ret_handles.write(&memory, handles));
+    Ok(BusErrno::Success)
 }
 
 pub fn proc_spawn_internal(
@@ -102,7 +102,7 @@ pub fn proc_spawn_internal(
     stdin: WasiStdioMode,
     stdout: WasiStdioMode,
     stderr: WasiStdioMode,
-) -> Result<(BusHandles, FunctionEnvMut<'_, WasiEnv>), BusErrno> {
+) -> Result<Result<(BusHandles, FunctionEnvMut<'_, WasiEnv>), BusErrno>, WasiError> {
     let env = ctx.data();
 
     // Build a new store that will be passed to the thread
@@ -131,7 +131,7 @@ pub fn proc_spawn_internal(
                     preopen
                 );
             }
-            return Err(BusErrno::Unsupported);
+            return Ok(Err(BusErrno::Unsupported));
         }
     }
 
@@ -200,9 +200,18 @@ pub fn proc_spawn_internal(
                 }
             }
         };
-        let stdin = conv_stdio_mode(stdin, 0)?;
-        let stdout = conv_stdio_mode(stdout, 1)?;
-        let stderr = conv_stdio_mode(stderr, 2)?;
+        let stdin = match conv_stdio_mode(stdin, 0) {
+            Ok(a) => a,
+            Err(err) => return Ok(Err(err)),
+        };
+        let stdout = match conv_stdio_mode(stdout, 1) {
+            Ok(a) => a,
+            Err(err) => return Ok(Err(err)),
+        };
+        let stderr = match conv_stdio_mode(stderr, 2) {
+            Ok(a) => a,
+            Err(err) => return Ok(Err(err)),
+        };
         (stdin, stdout, stderr)
     };
 
@@ -233,10 +242,16 @@ pub fn proc_spawn_internal(
                         .take()
                         .unwrap()
                         .spawn(name, new_store.take().unwrap(), bin_factory);
-                __asyncify(&mut ctx, None, async move {
+
+                match __asyncify(&mut ctx, None, async move {
                     Ok(child_work.await.map_err(vbus_error_into_bus_errno))
-                })
-                .map_err(|err| BusErrno::Unknown)??
+                })?
+                .map_err(|err| BusErrno::Unknown)
+                {
+                    Ok(Ok(a)) => a,
+                    Ok(Err(err)) => return Ok(Err(err)),
+                    Err(err) => return Ok(Err(err)),
+                }
             }
         };
 
@@ -261,5 +276,5 @@ pub fn proc_spawn_internal(
         stdout,
         stderr,
     };
-    Ok((handles, ctx))
+    Ok(Ok((handles, ctx)))
 }

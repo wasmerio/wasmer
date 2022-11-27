@@ -33,7 +33,7 @@ pub fn poll_oneoff<M: MemorySize>(
     }
 
     // Poll and receive all the events that triggered
-    let triggered_events = poll_oneoff_internal(&mut ctx, subscriptions);
+    let triggered_events = poll_oneoff_internal(&mut ctx, subscriptions)?;
     let triggered_events = match triggered_events {
         Ok(a) => a,
         Err(err) => {
@@ -77,7 +77,7 @@ pub fn poll_oneoff<M: MemorySize>(
 pub(crate) fn poll_oneoff_internal(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     subs: Vec<Subscription>,
-) -> Result<Vec<Event>, Errno> {
+) -> Result<Result<Vec<Event>, Errno>, WasiError> {
     let pid = ctx.data().pid();
     let tid = ctx.data().tid();
     trace!(
@@ -107,9 +107,12 @@ pub(crate) fn poll_oneoff_internal(
                 match file_descriptor {
                     __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => (),
                     fd => {
-                        let fd_entry = state.fs.get_fd(fd)?;
+                        let fd_entry = match state.fs.get_fd(fd) {
+                            Ok(a) => a,
+                            Err(err) => return Ok(Err(err)),
+                        };
                         if !fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
-                            return Err(Errno::Access);
+                            return Ok(Err(Errno::Access));
                         }
                     }
                 }
@@ -121,9 +124,12 @@ pub(crate) fn poll_oneoff_internal(
                 match file_descriptor {
                     __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => (),
                     fd => {
-                        let fd_entry = state.fs.get_fd(fd)?;
+                        let fd_entry = match state.fs.get_fd(fd) {
+                            Ok(a) => a,
+                            Err(err) => return Ok(Err(err)),
+                        };
                         if !fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
-                            return Err(Errno::Access);
+                            return Ok(Err(Errno::Access));
                         }
                     }
                 }
@@ -142,7 +148,7 @@ pub(crate) fn poll_oneoff_internal(
                     continue;
                 } else {
                     error!("Polling not implemented for these clocks yet");
-                    return Err(Errno::Inval);
+                    return Ok(Err(Errno::Inval));
                 }
             }
         };
@@ -286,7 +292,7 @@ pub(crate) fn poll_oneoff_internal(
 
     // Block on the work and process process
     let mut env = ctx.data();
-    let mut ret = __asyncify(ctx, time_to_sleep, async move { work.await });
+    let mut ret = __asyncify(ctx, time_to_sleep, async move { work.await })?;
     env = ctx.data();
     memory = env.memory_view(&ctx);
 
@@ -317,9 +323,9 @@ pub(crate) fn poll_oneoff_internal(
         }
         ret = Ok(Errno::Success);
     }
-    let ret = ret?;
+    let ret = ret.unwrap_or_else(|a| a);
     if ret != Errno::Success {
-        return Err(ret);
+        return Ok(Err(ret));
     }
 
     // Process all the events that were triggered
@@ -333,5 +339,5 @@ pub(crate) fn poll_oneoff_internal(
         ctx.data().tid(),
         event_array.len()
     );
-    Ok(event_array)
+    Ok(Ok(event_array))
 }

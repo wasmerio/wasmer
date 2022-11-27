@@ -10,14 +10,14 @@ use crate::syscalls::*;
 /// TODO: figure out which errors this should return
 /// - `Errno::Perm`
 /// - `Errno::Notcapable`
-pub fn fd_sync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Errno {
+pub fn fd_sync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errno, WasiError> {
     debug!("wasi[{}:{}]::fd_sync", ctx.data().pid(), ctx.data().tid());
     debug!("=> fd={}", fd);
     let env = ctx.data();
     let (_, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
-    let fd_entry = wasi_try!(state.fs.get_fd(fd));
+    let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
     if !fd_entry.rights.contains(Rights::FD_SYNC) {
-        return Errno::Access;
+        return Ok(Errno::Access);
     }
     let inode = fd_entry.inode;
 
@@ -32,22 +32,22 @@ pub fn fd_sync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Errno {
                     drop(guard);
                     drop(inodes);
 
-                    wasi_try!(__asyncify(&mut ctx, None, async move {
+                    wasi_try_ok!(__asyncify(&mut ctx, None, async move {
                         let mut handle = handle.write().unwrap();
                         handle.flush().await.map_err(map_io_err)
-                    }))
+                    })?)
                 } else {
-                    return Errno::Inval;
+                    return Ok(Errno::Inval);
                 }
             }
-            Kind::Root { .. } | Kind::Dir { .. } => return Errno::Isdir,
+            Kind::Root { .. } | Kind::Dir { .. } => return Ok(Errno::Isdir),
             Kind::Buffer { .. }
             | Kind::Symlink { .. }
             | Kind::Socket { .. }
             | Kind::Pipe { .. }
-            | Kind::EventNotifications { .. } => return Errno::Inval,
+            | Kind::EventNotifications { .. } => return Ok(Errno::Inval),
         }
     }
 
-    Errno::Success
+    Ok(Errno::Success)
 }

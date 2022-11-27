@@ -94,7 +94,7 @@ pub fn futex_wait<M: MemorySize>(
         wasi_try_ok!(__asyncify(&mut ctx, sub_timeout, async move {
             let _ = rx.recv().await;
             Ok(())
-        }));
+        })?);
         env = ctx.data();
     }
 
