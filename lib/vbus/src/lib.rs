@@ -191,12 +191,8 @@ impl BusSpawnedProcessJoin {
             ))),
         }
     }
-}
 
-impl Future for BusSpawnedProcessJoin {
-    type Output = Option<ExitCode>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll_finished(&self, cx: &mut Context<'_>) -> Poll<Option<ExitCode>> {
         let mut guard = self.inst.lock().unwrap();
         match guard.deref_mut() {
             BusSpawnedProcessJoinResult::Active(inst) => {
@@ -213,6 +209,14 @@ impl Future for BusSpawnedProcessJoin {
             }
             BusSpawnedProcessJoinResult::Finished(exit_code) => Poll::Ready(*exit_code),
         }
+    }
+}
+
+impl Future for BusSpawnedProcessJoin {
+    type Output = Option<ExitCode>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        self.poll_finished(cx)
     }
 }
 
