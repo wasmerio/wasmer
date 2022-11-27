@@ -2,6 +2,7 @@ use std::fmt;
 use std::future::Future;
 use std::ops::DerefMut;
 use std::pin::Pin;
+use std::sync::{Mutex, Arc};
 use std::task::{Context, Poll};
 use thiserror::Error;
 
@@ -172,24 +173,43 @@ where
     }
 }
 
+enum BusSpawnedProcessJoinResult {
+    Active(Box<dyn VirtualBusProcess + Sync + Unpin>),
+    Finished(Option<ExitCode>)
+}
+
+#[derive(Clone)]
 pub struct BusSpawnedProcessJoin {
-    inst: Box<dyn VirtualBusProcess + Sync + Unpin>,
+    inst: Arc<Mutex<BusSpawnedProcessJoinResult>>,
 }
 
 impl BusSpawnedProcessJoin {
     pub fn new(process: BusSpawnedProcess) -> Self {
-        Self { inst: process.inst }
+        Self { inst: Arc::new(Mutex::new(BusSpawnedProcessJoinResult::Active(process.inst))) }
     }
 }
 
 impl Future for BusSpawnedProcessJoin {
     type Output = Option<ExitCode>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let inst = Pin::new(self.inst.as_mut());
-        match inst.poll_ready(cx) {
-            Poll::Ready(_) => Poll::Ready(self.inst.exit_code()),
-            Poll::Pending => Poll::Pending,
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut guard = self.inst.lock().unwrap();
+        match guard.deref_mut() {
+            BusSpawnedProcessJoinResult::Active(inst) => {
+                let pinned_inst = Pin::new(inst.as_mut());
+                match pinned_inst.poll_ready(cx) {
+                    Poll::Ready(_) => {
+                        let exit_code = inst.exit_code();
+                        let mut swap = BusSpawnedProcessJoinResult::Finished(exit_code);
+                        std::mem::swap(guard.deref_mut(), &mut swap);
+                        Poll::Ready(exit_code)
+                    },
+                    Poll::Pending => Poll::Pending,
+                }
+            },
+            BusSpawnedProcessJoinResult::Finished(exit_code) => {
+                Poll::Ready(*exit_code)
+            }
         }
     }
 }
