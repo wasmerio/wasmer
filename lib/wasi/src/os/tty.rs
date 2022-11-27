@@ -140,6 +140,10 @@ impl Tty {
         }
     }
 
+    pub fn stdin(&self) -> &(dyn VirtualFile + Send + Sync + 'static) {
+        &self.stdin
+    }
+
     pub fn options(&self) -> TtyOptions {
         self.options.clone()
     }
