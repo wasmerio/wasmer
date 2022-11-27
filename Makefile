@@ -713,8 +713,6 @@ package-docs: build-docs build-docs-capi
 
 package: package-wasmer package-minimal-headless-wasmer package-capi
 
-package-gnu: package-capi-gnu
-
 tar-capi:
 	ls -R package
 	tar -C package -zcvf build-capi.tar.gz lib include
@@ -739,7 +737,7 @@ untar-wasmer:
 	cp package/bin/* target/release
 	cp package/bin/* target/$(HOST_TARGET)/release
 
-distribution-gnu: package-gnu
+distribution-gnu: package-capi
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
