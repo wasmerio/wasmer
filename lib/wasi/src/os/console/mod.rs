@@ -128,7 +128,7 @@ impl Console {
         self
     }
 
-    pub fn run(&mut self) -> wasmer_vbus::Result<BusSpawnedProcess> {
+    pub fn run(&mut self) -> wasmer_vbus::Result<(BusSpawnedProcess, WasiProcess)> {
         // Extract the program name from the arguments
         let empty_args: Vec<&[u8]> = Vec::new();
         let (webc, prog, args) = match self.boot_cmd.split_once(" ") {
@@ -153,8 +153,8 @@ impl Console {
 
         // Create the control plane, process and thread
         let control_plane = WasiControlPlane::default();
-        let process = control_plane.new_process();
-        let thread = process.new_thread();
+        let wasi_process = control_plane.new_process();
+        let wasi_thread = wasi_process.new_thread();
 
         // Create the state
         let mut state = WasiState::new(prog);
@@ -190,8 +190,8 @@ impl Console {
         let env = WasiEnv::new_ext(
             Arc::new(state),
             self.compiled_modules.clone(),
-            process,
-            thread,
+            wasi_process.clone(),
+            wasi_thread,
             self.runtime.clone(),
         );
 
@@ -233,7 +233,7 @@ impl Console {
             .unwrap();
 
             // Return the process
-            Ok(process)
+            Ok((process, wasi_process))
         } else {
             tasks.block_on(async {
                 let _ = self
