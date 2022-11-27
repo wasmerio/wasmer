@@ -215,7 +215,8 @@ impl Tty {
                 if echo {
                     let _ = self.stdout.write("\n".as_bytes()).await;
                 }
-                let _ = self.stdin.write("\n".as_bytes()).await;
+            } else {
+                let _ = self.stdin.write("\u{0003}".as_bytes()).await;
             }
             self
         })
