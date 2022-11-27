@@ -701,7 +701,7 @@ jobs:
   test_wasmer_stage_1: 
     name: Test Wasmer Stage 1 on ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
-    needs: setup
+    needs: [setup, build_capi]
     strategy:
       fail-fast: false
       matrix:
@@ -757,6 +757,14 @@ jobs:
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        id: download
+        with:
+          name: capi-${{ matrix.build }}
+      - name: Unzip Artifacts
+        shell: bash
+        run: |
+          make untar-capi
       - name: Set up libstdc++ on Linux
         if: matrix.build == 'linux-x64'
         run: |
