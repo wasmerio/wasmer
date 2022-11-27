@@ -410,17 +410,17 @@ impl WasiEnv {
                     tracing::trace!("wasi[{}]::processing-signal: {:?}", self.pid(), signal);
                     if let Err(err) = handler.call(store, signal as i32) {
                         match err.downcast::<WasiError>() {
-                            Ok(err) => {
-                                warn!("wasi[{}]::signal handler wasi error - {}", self.pid(), err);
-                                return Err(err);
+                            Ok(wasi_err) => {
+                                warn!("wasi[{}]::signal handler wasi error - {}", self.pid(), wasi_err);
+                                return Err(wasi_err);
                             }
-                            Err(err) => {
+                            Err(runtime_err) => {
                                 warn!(
                                     "wasi[{}]::signal handler runtime error - {}",
                                     self.pid(),
-                                    err
+                                    runtime_err
                                 );
-                                return Ok(Err(Errno::Intr));
+                                return Err(WasiError::Exit(Errno::Intr as ExitCode));
                             }
                         }
                     }
