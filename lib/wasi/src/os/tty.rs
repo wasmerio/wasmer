@@ -141,7 +141,7 @@ impl Tty {
     }
 
     pub fn stdin(&self) -> &(dyn VirtualFile + Send + Sync + 'static) {
-        &self.stdin
+        self.stdin.as_ref()
     }
 
     pub fn options(&self) -> TtyOptions {
