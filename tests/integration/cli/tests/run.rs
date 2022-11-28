@@ -1,24 +1,24 @@
 //! Basic tests for the `run` subcommand
 
-use anyhow::bail;
-use std::path::PathBuf;
+use anyhow::{bail, Context};
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use wasmer_integration_tests_cli::{get_repo_root_path, get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
 
-fn wasi_test_python_path() -> String {
-    format!("{}/{}", C_ASSET_PATH, "python-0.1.0.wasmer")
+fn wasi_test_python_path() -> PathBuf {
+    Path::new(C_ASSET_PATH).join("python-0.1.0.wasmer")
 }
 
-fn wasi_test_wasm_path() -> String {
-    format!("{}/{}", C_ASSET_PATH, "qjs.wasm")
+fn wasi_test_wasm_path() -> PathBuf {
+    Path::new(C_ASSET_PATH).join("qjs.wasm")
 }
 
-fn test_no_imports_wat_path() -> String {
-    format!("{}/{}", ASSET_PATH, "fib.wat")
+fn test_no_imports_wat_path() -> PathBuf {
+    Path::new(ASSET_PATH).join("fib.wat")
 }
 
-fn test_no_start_wat_path() -> String {
-    format!("{}/{}", ASSET_PATH, "no_start.wat")
+fn test_no_start_wat_path() -> PathBuf {
+    Path::new(ASSET_PATH).join("no_start.wat")
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -192,11 +192,7 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
         "packaging /package to .tar.gz: {}",
         tmp_targz_path.display()
     );
-    package_directory(
-        &package_path,
-        &std::path::Path::new("./out.tar.gz").to_path_buf(),
-    );
-    std::fs::copy("./out.tar.gz", &tmp_targz_path).unwrap();
+    package_directory(&package_path, &tmp_targz_path);
     println!("packaging done");
     println!(
         "tmp tar gz path: {} - exists: {:?}",
@@ -544,5 +540,54 @@ fn run_no_start_wasm_report_error() -> anyhow::Result<()> {
     assert_eq!(output.status.success(), false);
     let result = std::str::from_utf8(&output.stderr).unwrap().to_string();
     assert_eq!(result.contains("Can not find any export functions."), true);
+    Ok(())
+}
+
+// Test that wasmer can run a complex path
+#[test]
+fn test_wasmer_run_complex_url() -> anyhow::Result<()> {
+    let wasm_test_path = wasi_test_wasm_path();
+    let wasm_test_path = wasm_test_path.canonicalize().unwrap_or(wasm_test_path);
+    let mut wasm_test_path = format!("{}", wasm_test_path.display());
+    if wasm_test_path.starts_with(r#"\\?\"#) {
+        wasm_test_path = wasm_test_path.replacen(r#"\\?\"#, "", 1);
+    }
+    #[cfg(target_os = "windows")]
+    {
+        wasm_test_path = wasm_test_path.replace("D:\\", "D://");
+        wasm_test_path = wasm_test_path.replace("C:\\", "C://");
+        wasm_test_path = wasm_test_path.replace("c:\\", "c://");
+        wasm_test_path = wasm_test_path.replace("\\", "/");
+        // wasmer run used to fail on c:\Users\username\wapm_packages\ ...
+        assert!(
+            wasm_test_path.contains("://"),
+            "wasm_test_path path is not complex enough"
+        );
+    }
+
+    let mut cmd = Command::new(get_wasmer_path());
+    cmd.arg("run");
+    cmd.arg(wasm_test_path);
+    cmd.arg("--");
+    cmd.arg("-q");
+
+    let cmd_str = format!("{cmd:?}");
+    let output = cmd.output().with_context(|| {
+        anyhow::anyhow!(
+            "failed to run {cmd_str} with {}",
+            get_wasmer_path().display()
+        )
+    })?;
+
+    if !output.status.success() {
+        bail!(
+            "wasmer run qjs.wasm failed with: stdout: {}\n\nstderr: {}",
+            std::str::from_utf8(&output.stdout)
+                .expect("stdout is not utf8! need to handle arbitrary bytes"),
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
+
     Ok(())
 }
