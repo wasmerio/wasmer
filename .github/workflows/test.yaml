@@ -51,6 +51,10 @@ jobs:
           tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-12
           echo '/opt/llvm-12/bin' >> $GITHUB_PATH
           echo 'LLVM_SYS_120_PREFIX=/opt/llvm-12' >> $GITHUB_ENV
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: wasmer-linux-x64
       - run: make lint
         env:
           ENABLE_CRANELIFT: "1"
@@ -471,10 +475,6 @@ jobs:
         id: download
         with:
           name: capi-${{ matrix.build }}
-      - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl-x64'
-        run: |
-            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: 'Echo download path'
         run: echo ${{steps.download.outputs.download-path}}
       - name: Display structure of downloaded files
