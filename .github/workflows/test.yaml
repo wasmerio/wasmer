@@ -254,7 +254,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-          shared-key: build-wasmer-${{ matrix.build }}
+          shared-key: wasmer-${{ matrix.build }}
       - name: Build wasmer-cli
         shell: bash
         run: |
