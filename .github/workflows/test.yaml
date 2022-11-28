@@ -576,6 +576,9 @@ jobs:
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v3
+      - uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.10.0
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
@@ -589,9 +592,6 @@ jobs:
           name: wasmer-cli-${{ matrix.build }}
       - name: 'Echo download path'
         run: echo ${{steps.download.outputs.download-path}}
-      - uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.10.0
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
