@@ -154,7 +154,7 @@ jobs:
             os: ubuntu-latest
             container: alpine:latest
             run_test: true
-            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
+            run_test_capi: false
             run_integration_tests: false
             run_build_docs: false
             use_sccache: false
@@ -510,6 +510,8 @@ jobs:
         run: |
           make untar-capi
       - name: Test C API
+        # musl can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
+        if: matrix.build != 'linux-musl-x64'
         run: |
           make test-capi-ci
         env:
