@@ -656,6 +656,9 @@
 <span id="648">648</span>
 <span id="649">649</span>
 <span id="650">650</span>
+<span id="651">651</span>
+<span id="652">652</span>
+<span id="653">653</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Unofficial API for WASI integrating with the standard Wasm C API.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This API will be superseded by a standard WASI API when/if such a standard is created.</span>
@@ -1207,6 +1210,7 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
     <span class="kw">use</span> <span class="ident">wasmer_inline_c::assert_c</span>;
 
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">coverage</span>, <span class="ident">ignore</span>)]</span>
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_wasi_get_wasi_version_snapshot0</span>() {
         (<span class="macro">assert_c!</span> {
@@ -1240,6 +1244,7 @@
         .<span class="ident">success</span>();
     }
 
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">coverage</span>, <span class="ident">ignore</span>)]</span>
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_wasi_get_wasi_version_snapshot1</span>() {
         (<span class="macro">assert_c!</span> {
@@ -1273,6 +1278,7 @@
         .<span class="ident">success</span>();
     }
 
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">coverage</span>, <span class="ident">ignore</span>)]</span>
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_wasi_get_wasi_version_invalid</span>() {
         (<span class="macro">assert_c!</span> {
