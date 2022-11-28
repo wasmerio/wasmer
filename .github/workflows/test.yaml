@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - '**'
-      - '!master'
     pull_request:
         types: [ synchronize ]
   workflow_dispatch:
@@ -132,9 +131,9 @@ jobs:
             run_integration_tests: true
             run_ios_tests: true
             run_build_docs: false
-          - build: macos-x86_64
+          - build: macos-arm
             os: macos-11.0
-            target: x86_64-apple-darwin
+            target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
             run_test_capi: false
@@ -270,9 +269,9 @@ jobs:
             run_integration_tests: true
             run_ios_tests: true
             run_build_docs: false
-          - build: macos-x86_64
+          - build: macos-arm
             os: macos-11.0
-            target: x86_64-apple-darwin
+            target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
             run_test_capi: false
@@ -453,9 +452,9 @@ jobs:
             run_integration_tests: true
             run_ios_tests: true
             run_build_docs: false
-          - build: macos-x86_64
+          - build: macos-arm
             os: macos-11.0
-            target: x86_64-apple-darwin
+            target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
             run_test_capi: false
@@ -546,9 +545,9 @@ jobs:
             run_integration_tests: true
             run_ios_tests: true
             run_build_docs: false
-          - build: macos-x86_64
+          - build: macos-arm
             os: macos-11.0
-            target: x86_64-apple-darwin
+            target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
             run_test_capi: false
@@ -651,9 +650,9 @@ jobs:
             run_integration_tests: true
             run_ios_tests: true
             run_build_docs: false
-          - build: macos-x86_64
+          - build: macos-arm
             os: macos-11.0
-            target: x86_64-apple-darwin
+            target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
             run_test_capi: false
@@ -782,9 +781,9 @@ jobs:
             run_integration_tests: true
             run_ios_tests: true
             run_build_docs: false
-          - build: macos-x86_64
+          - build: macos-arm
             os: macos-11.0
-            target: x86_64-apple-darwin
+            target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
             run_test_capi: false
@@ -924,9 +923,9 @@ jobs:
             run_integration_tests: true
             run_ios_tests: true
             run_build_docs: false
-          - build: macos-x86_64
+          - build: macos-arm
             os: macos-11.0
-            target: x86_64-apple-darwin
+            target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
             run_test_capi: false
@@ -1055,9 +1054,9 @@ jobs:
             run_integration_tests: true
             run_ios_tests: true
             run_build_docs: false
-          - build: macos-x86_64
+          - build: macos-arm
             os: macos-11.0
-            target: x86_64-apple-darwin
+            target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
             run_test_capi: false
@@ -1186,9 +1185,9 @@ jobs:
             run_integration_tests: true
             run_ios_tests: true
             run_build_docs: false
-          - build: macos-x86_64
+          - build: macos-arm
             os: macos-11.0
-            target: x86_64-apple-darwin
+            target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
             run_test_capi: false
@@ -1317,9 +1316,9 @@ jobs:
             run_integration_tests: true
             run_ios_tests: true
             run_build_docs: false
-          - build: macos-x86_64
+          - build: macos-arm
             os: macos-11.0
-            target: x86_64-apple-darwin
+            target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
             run_test_capi: false
@@ -1448,9 +1447,9 @@ jobs:
             run_integration_tests: true
             run_ios_tests: true
             run_build_docs: false
-          - build: macos-x86_64
+          - build: macos-arm
             os: macos-11.0
-            target: x86_64-apple-darwin
+            target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
             run_test_capi: false
