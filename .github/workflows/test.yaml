@@ -246,6 +246,10 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: build-wasmer-${{ matrix.build }}
       - name: Build wasmer-cli
         shell: bash
         run: |
@@ -380,6 +384,10 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: wasmer-${{ matrix.build }}
       - name: Build wasmer-cli
         shell: bash
         run: |
@@ -480,6 +488,10 @@ jobs:
         with:
           toolchain: 1.63
           target: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: wasmer-${{ matrix.build }}
       - name: Test C API
         run: |
           make test-capi-ci
@@ -578,6 +590,10 @@ jobs:
         with:
           toolchain: 1.63
           target: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: wasmer-${{ matrix.build }}
       - name: Test integration CLI
         if: matrix.os != 'windows-2019'
         shell: bash
@@ -708,6 +724,10 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: wasmer-${{ matrix.build }}
       - name: Test
         run: |
           make test-stage-0
@@ -846,6 +866,10 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: wasmer-${{ matrix.build }}
       - name: Test
         run: |
           make test-stage-1
@@ -972,6 +996,10 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: wasmer-${{ matrix.build }}
       - name: Test
         run: |
           make test-stage-2
@@ -1098,6 +1126,10 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: wasmer-${{ matrix.build }}
       - name: Test
         run: |
           make test-stage-3
@@ -1224,6 +1256,10 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: wasmer-${{ matrix.build }}
       - name: Test
         run: |
           make test-stage-4
@@ -1350,6 +1386,10 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: wasmer-${{ matrix.build }}
       - name: Test
         run: |
           make test-stage-5
@@ -1476,6 +1516,10 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: wasmer-${{ matrix.build }}
       - name: Test
         run: |
           make test-stage-6
