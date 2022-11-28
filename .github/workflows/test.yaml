@@ -512,7 +512,7 @@ jobs:
         run: |
           make untar-capi
       - name: Generate code coverage
-        run: cargo llvm-cov --workspace --lcov --output-path lcov.info --features cranelift,llvm,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load,webc_runner
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info --features cranelift,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load,webc_runner --exclude wasmer-integration-tests-ios
         env:
           WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

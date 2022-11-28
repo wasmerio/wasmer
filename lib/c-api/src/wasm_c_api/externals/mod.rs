@@ -137,6 +137,7 @@ mod tests {
     #[cfg(target_os = "windows")]
     use wasmer_inline_c::assert_c;
 
+    #[cfg_attr(coverage, ignore)] // run by test-runner in coverage tests
     #[test]
     fn test_extern_copy() {
         (assert_c! {

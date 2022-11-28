@@ -102,6 +102,7 @@ mod tests {
     #[cfg(target_os = "windows")]
     use wasmer_inline_c::assert_c;
 
+    #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_set_host_global_immutable() {
         (assert_c! {
@@ -134,6 +135,7 @@ mod tests {
         .success();
     }
 
+    #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_set_guest_global_immutable() {
         (assert_c! {
