@@ -79,7 +79,7 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
-        run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info --features cranelift,llvm,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load,webc_runner
         env:
           WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -455,6 +455,10 @@ jobs:
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v3
+      - name: Set up base deps on musl
+        if: matrix.build == 'linux-musl-x64'
+        run: |
+            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - uses: actions/download-artifact@v3
         id: download
         with:
@@ -543,6 +547,10 @@ jobs:
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v3
+      - name: Set up base deps on musl
+        if: matrix.build == 'linux-musl-x64'
+        run: |
+            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - uses: actions/download-artifact@v3
         id: download
         with:
@@ -767,6 +775,10 @@ jobs:
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v3
+      - name: Set up base deps on musl
+        if: matrix.build == 'linux-musl-x64'
+        run: |
+            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - uses: actions/download-artifact@v3
         id: download
         with:
