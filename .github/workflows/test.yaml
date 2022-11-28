@@ -55,6 +55,7 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: wasmer-linux-x64
+          save-if: false
       - run: make lint
         env:
           ENABLE_CRANELIFT: "1"
@@ -392,7 +393,8 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: wasmer-${{ matrix.build }}
-      - name: Build wasmer-cli
+          save-if: false
+      - name: Build C-API
         shell: bash
         run: |
           make build-capi && make package-capi
@@ -492,6 +494,7 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: wasmer-${{ matrix.build }}
+          save-if: false
       - name: Test C API
         run: |
           make test-capi-ci
@@ -594,6 +597,7 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: wasmer-${{ matrix.build }}
+          save-if: false
       - name: Test integration CLI
         if: matrix.os != 'windows-2019'
         shell: bash
@@ -728,6 +732,7 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: wasmer-${{ matrix.build }}
+          save-if: false
       - name: Test
         run: |
           make test-stage-0
@@ -870,6 +875,7 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: wasmer-${{ matrix.build }}
+          save-if: false
       - name: Test
         run: |
           make test-stage-1
@@ -1000,6 +1006,7 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: wasmer-${{ matrix.build }}
+          save-if: false
       - name: Test
         run: |
           make test-stage-2
@@ -1130,6 +1137,7 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: wasmer-${{ matrix.build }}
+          save-if: false
       - name: Test
         run: |
           make test-stage-3
@@ -1260,6 +1268,7 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: wasmer-${{ matrix.build }}
+          save-if: false
       - name: Test
         run: |
           make test-stage-4
@@ -1390,6 +1399,7 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: wasmer-${{ matrix.build }}
+          save-if: false
       - name: Test
         run: |
           make test-stage-5
@@ -1520,6 +1530,7 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: wasmer-${{ matrix.build }}
+          save-if: false
       - name: Test
         run: |
           make test-stage-6
