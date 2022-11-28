@@ -144,47 +144,22 @@ jobs:
             os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
-            run_test: true
-            run_test_capi: true
-            run_integration_tests: true
-            run_build_docs: true
-            use_sccache: true
           - build: macos-x64
             os: macos-11
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
-            run_test: true
-            run_test_capi: true
-            use_sccache: true
-            run_integration_tests: true
-            run_ios_tests: true
-            run_build_docs: false
           - build: macos-arm
             os: macos-11.0
             target: aarch64-apple-darwin
-            use_sccache: true
-            run_test: false
-            run_test_capi: false
-            run_build_docs: false
           - build: windows-x64
             os: windows-2019
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-            run_integration_tests: true
-            use_sccache: true
-            run_test: true
-            run_test_capi: false # We can't run yet the capi tests on Windows
-            run_build_docs: false
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             container: alpine:latest
-            run_test: true
-            run_test_capi: false
-            run_integration_tests: false
-            run_build_docs: false
-            use_sccache: false
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -254,54 +229,6 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: wasmer-${{ matrix.build }}
-      - uses: actions/cache@v2
-        if: matrix.use_sccache
-        with:
-          path: ${{ runner.tool_cache }}/cargo-sccache
-          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
-      - name: Install sccache
-        if: matrix.use_sccache
-        run: |
-          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
-            cargo install sccache --no-default-features --features=dist-client,azure --root '${{ runner.tool_cache }}/cargo-sccache'
-          fi
-        shell: bash
-      - name: Setup Rust target
-        run: |
-          mkdir -p .cargo
-          cat << EOF > .cargo/config.toml
-          [build]
-          target = "${{ matrix.target }}"
-          EOF
-        if: matrix.target
-      - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port
-        run: |
-          netstat -aln | awk '
-            $6 == "LISTEN" {
-              if ($4 ~ "[.:][0-9]+$") {
-                n = split($4, a, /[:.]/);
-                port = a[n];
-                p[port] = 1
-              }
-            }
-            END {
-              for (i = 3000; i < 65000 && p[i]; i++){};
-              if (i == 65000) {exit 1};
-              print "SCCACHE_SERVER_PORT=" i
-            }
-          ' >> $GITHUB_ENV
-          # echo "SCCACHE_SERVER_PORT=9000"
-          echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
-        shell: bash
-      - name: Start sccache
-        if: matrix.use_sccache
-        run: |
-          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
-          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
-          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
-          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
-        shell: bash
       - name: Build wasmer-cli
         shell: bash
         run: |
@@ -427,47 +354,22 @@ jobs:
             os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
-            run_test: true
-            run_test_capi: true
-            run_integration_tests: true
-            run_build_docs: true
-            use_sccache: true
           - build: macos-x64
             os: macos-11
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
-            run_test: true
-            run_test_capi: true
-            use_sccache: true
-            run_integration_tests: true
-            run_ios_tests: true
-            run_build_docs: false
           - build: macos-arm
             os: macos-11.0
             target: aarch64-apple-darwin
-            use_sccache: true
-            run_test: false
-            run_test_capi: false
-            run_build_docs: false
           - build: windows-x64
             os: windows-2019
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-            run_integration_tests: true
-            use_sccache: true
-            run_test: true
-            run_test_capi: false # We can't run yet the capi tests on Windows
-            run_build_docs: false
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             container: alpine:latest
-            run_test: true
-            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
-            run_integration_tests: false
-            run_build_docs: false
-            use_sccache: false
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -538,54 +440,6 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
-      - uses: actions/cache@v2
-        if: matrix.use_sccache
-        with:
-          path: ${{ runner.tool_cache }}/cargo-sccache
-          key: capi-${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
-      - name: Install sccache
-        if: matrix.use_sccache
-        run: |
-          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
-            cargo install sccache --no-default-features --features=dist-client,azure --root '${{ runner.tool_cache }}/cargo-sccache'
-          fi
-        shell: bash
-      - name: Setup Rust target
-        run: |
-          mkdir -p .cargo
-          cat << EOF > .cargo/config.toml
-          [build]
-          target = "${{ matrix.target }}"
-          EOF
-        if: matrix.target
-      - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port
-        run: |
-          netstat -aln | awk '
-            $6 == "LISTEN" {
-              if ($4 ~ "[.:][0-9]+$") {
-                n = split($4, a, /[:.]/);
-                port = a[n];
-                p[port] = 1
-              }
-            }
-            END {
-              for (i = 3000; i < 65000 && p[i]; i++){};
-              if (i == 65000) {exit 1};
-              print "SCCACHE_SERVER_PORT=" i
-            }
-          ' >> $GITHUB_ENV
-          # echo "SCCACHE_SERVER_PORT=9000"
-          echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
-        shell: bash
-      - name: Start sccache
-        if: matrix.use_sccache
-        run: |
-          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
-          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
-          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
-          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
-        shell: bash
       - name: Build C-API
         shell: bash
         run: |
@@ -665,40 +519,19 @@ jobs:
             os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
-            run_test: true
-            run_test_capi: true
-            run_integration_tests: true
-            run_build_docs: true
-            use_sccache: true
           - build: macos-x64
             os: macos-11
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
-            run_test: true
-            run_test_capi: true
-            use_sccache: true
-            run_integration_tests: true
-            run_ios_tests: true
-            run_build_docs: false
           - build: windows-x64
             os: windows-2019
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-            run_integration_tests: true
-            use_sccache: true
-            run_test: true
-            run_test_capi: false # We can't run yet the capi tests on Windows
-            run_build_docs: false
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             container: alpine:latest
-            run_test: true
-            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
-            run_integration_tests: false
-            run_build_docs: false
-            use_sccache: false
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -723,54 +556,6 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
-      - uses: actions/cache@v2
-        if: matrix.use_sccache
-        with:
-          path: ${{ runner.tool_cache }}/cargo-sccache
-          key: test-capi-${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
-      - name: Install sccache
-        if: matrix.use_sccache
-        run: |
-          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
-            cargo install sccache --no-default-features --features=dist-client,azure --root '${{ runner.tool_cache }}/cargo-sccache'
-          fi
-        shell: bash
-      - name: Setup Rust target
-        run: |
-          mkdir -p .cargo
-          cat << EOF > .cargo/config.toml
-          [build]
-          target = "${{ matrix.target }}"
-          EOF
-        if: matrix.target
-      - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port
-        run: |
-          netstat -aln | awk '
-            $6 == "LISTEN" {
-              if ($4 ~ "[.:][0-9]+$") {
-                n = split($4, a, /[:.]/);
-                port = a[n];
-                p[port] = 1
-              }
-            }
-            END {
-              for (i = 3000; i < 65000 && p[i]; i++){};
-              if (i == 65000) {exit 1};
-              print "SCCACHE_SERVER_PORT=" i
-            }
-          ' >> $GITHUB_ENV
-          # echo "SCCACHE_SERVER_PORT=9000"
-          echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
-        shell: bash
-      - name: Start sccache
-        if: matrix.use_sccache
-        run: |
-          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
-          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
-          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
-          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
-        shell: bash
       - name: 'Echo download path'
         run: echo ${{steps.download.outputs.download-path}}
       - name: Unzip Artifacts
@@ -799,40 +584,19 @@ jobs:
             os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
-            run_test: true
-            run_test_capi: true
-            run_integration_tests: true
-            run_build_docs: true
-            use_sccache: true
           - build: macos-x64
             os: macos-11
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
-            run_test: true
-            run_test_capi: true
-            use_sccache: true
-            run_integration_tests: true
-            run_ios_tests: true
-            run_build_docs: false
           - build: windows-x64
             os: windows-2019
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-            run_integration_tests: true
-            use_sccache: true
-            run_test: true
-            run_test_capi: false # We can't run yet the capi tests on Windows
-            run_build_docs: false
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             container: alpine:latest
-            run_test: true
-            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
-            run_integration_tests: false
-            run_build_docs: false
-            use_sccache: false
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -865,54 +629,6 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
-      - uses: actions/cache@v2
-        if: matrix.use_sccache
-        with:
-          path: ${{ runner.tool_cache }}/cargo-sccache
-          key: test-integration-${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
-      - name: Install sccache
-        if: matrix.use_sccache
-        run: |
-          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
-            cargo install sccache --no-default-features --features=dist-client,azure --root '${{ runner.tool_cache }}/cargo-sccache'
-          fi
-        shell: bash
-      - name: Setup Rust target
-        run: |
-          mkdir -p .cargo
-          cat << EOF > .cargo/config.toml
-          [build]
-          target = "${{ matrix.target }}"
-          EOF
-        if: matrix.target
-      - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port
-        run: |
-          netstat -aln | awk '
-            $6 == "LISTEN" {
-              if ($4 ~ "[.:][0-9]+$") {
-                n = split($4, a, /[:.]/);
-                port = a[n];
-                p[port] = 1
-              }
-            }
-            END {
-              for (i = 3000; i < 65000 && p[i]; i++){};
-              if (i == 65000) {exit 1};
-              print "SCCACHE_SERVER_PORT=" i
-            }
-          ' >> $GITHUB_ENV
-          # echo "SCCACHE_SERVER_PORT=9000"
-          echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
-        shell: bash
-      - name: Start sccache
-        if: matrix.use_sccache
-        run: |
-          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
-          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
-          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
-          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
-        shell: bash
       - name: Unzip Artifacts
         shell: bash
         run: |
@@ -945,40 +661,19 @@ jobs:
             os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
-            run_test: true
-            run_test_capi: true
-            run_integration_tests: true
-            run_build_docs: true
-            use_sccache: true
           - build: macos-x64
             os: macos-11
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
-            run_test: true
-            run_test_capi: true
-            use_sccache: true
-            run_integration_tests: true
-            run_ios_tests: true
-            run_build_docs: false
           - build: windows-x64
             os: windows-2019
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-            run_integration_tests: true
-            use_sccache: true
-            run_test: true
-            run_test_capi: false # We can't run yet the capi tests on Windows
-            run_build_docs: false
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             container: alpine:latest
-            run_test: true
-            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
-            run_integration_tests: false
-            run_build_docs: false
-            use_sccache: false
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -1069,40 +764,19 @@ jobs:
             os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
-            run_test: true
-            run_test_capi: true
-            run_integration_tests: true
-            run_build_docs: true
-            use_sccache: true
           - build: macos-x64
             os: macos-11
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
-            run_test: true
-            run_test_capi: true
-            use_sccache: true
-            run_integration_tests: true
-            run_ios_tests: true
-            run_build_docs: false
           - build: windows-x64
             os: windows-2019
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-            run_integration_tests: true
-            use_sccache: true
-            run_test: true
-            run_test_capi: false # We can't run yet the capi tests on Windows
-            run_build_docs: false
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             container: alpine:latest
-            run_test: true
-            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
-            run_integration_tests: false
-            run_build_docs: false
-            use_sccache: false
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -1180,54 +854,6 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: wasmer-stage-1-${{ matrix.build }}
-      - uses: actions/cache@v2
-        if: matrix.use_sccache
-        with:
-          path: ${{ runner.tool_cache }}/cargo-sccache
-          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
-      - name: Install sccache
-        if: matrix.use_sccache
-        run: |
-          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
-            cargo install sccache --no-default-features --features=dist-client,azure --root '${{ runner.tool_cache }}/cargo-sccache'
-          fi
-        shell: bash
-      - name: Setup Rust target
-        run: |
-          mkdir -p .cargo
-          cat << EOF > .cargo/config.toml
-          [build]
-          target = "${{ matrix.target }}"
-          EOF
-        if: matrix.target
-      - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port
-        run: |
-          netstat -aln | awk '
-            $6 == "LISTEN" {
-              if ($4 ~ "[.:][0-9]+$") {
-                n = split($4, a, /[:.]/);
-                port = a[n];
-                p[port] = 1
-              }
-            }
-            END {
-              for (i = 3000; i < 65000 && p[i]; i++){};
-              if (i == 65000) {exit 1};
-              print "SCCACHE_SERVER_PORT=" i
-            }
-          ' >> $GITHUB_ENV
-          # echo "SCCACHE_SERVER_PORT=9000"
-          echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
-        shell: bash
-      - name: Start sccache
-        if: matrix.use_sccache
-        run: |
-          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
-          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
-          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
-          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
-        shell: bash
       - name: Unzip Artifacts
         shell: bash
         run: |
@@ -1252,40 +878,19 @@ jobs:
             os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
-            run_test: true
-            run_test_capi: true
-            run_integration_tests: true
-            run_build_docs: true
-            use_sccache: true
           - build: macos-x64
             os: macos-11
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
-            run_test: true
-            run_test_capi: true
-            use_sccache: true
-            run_integration_tests: true
-            run_ios_tests: true
-            run_build_docs: false
           - build: windows-x64
             os: windows-2019
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-            run_integration_tests: true
-            use_sccache: true
-            run_test: true
-            run_test_capi: false # We can't run yet the capi tests on Windows
-            run_build_docs: false
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             container: alpine:latest
-            run_test: true
-            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
-            run_integration_tests: false
-            run_build_docs: false
-            use_sccache: false
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -1376,40 +981,19 @@ jobs:
             os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
-            run_test: true
-            run_test_capi: true
-            run_integration_tests: true
-            run_build_docs: true
-            use_sccache: true
           - build: macos-x64
             os: macos-11
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
-            run_test: true
-            run_test_capi: true
-            use_sccache: true
-            run_integration_tests: true
-            run_ios_tests: true
-            run_build_docs: false
           - build: windows-x64
             os: windows-2019
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-            run_integration_tests: true
-            use_sccache: true
-            run_test: true
-            run_test_capi: false # We can't run yet the capi tests on Windows
-            run_build_docs: false
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             container: alpine:latest
-            run_test: true
-            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
-            run_integration_tests: false
-            run_build_docs: false
-            use_sccache: false
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -1500,40 +1084,19 @@ jobs:
             os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
-            run_test: true
-            run_test_capi: true
-            run_integration_tests: true
-            run_build_docs: true
-            use_sccache: true
           - build: macos-x64
             os: macos-11
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
-            run_test: true
-            run_test_capi: true
-            use_sccache: true
-            run_integration_tests: true
-            run_ios_tests: true
-            run_build_docs: false
           - build: windows-x64
             os: windows-2019
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-            run_integration_tests: true
-            use_sccache: true
-            run_test: true
-            run_test_capi: false # We can't run yet the capi tests on Windows
-            run_build_docs: false
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             container: alpine:latest
-            run_test: true
-            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
-            run_integration_tests: false
-            run_build_docs: false
-            use_sccache: false
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -1624,40 +1187,19 @@ jobs:
             os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
-            run_test: true
-            run_test_capi: true
-            run_integration_tests: true
-            run_build_docs: true
-            use_sccache: true
           - build: macos-x64
             os: macos-11
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
-            run_test: true
-            run_test_capi: true
-            use_sccache: true
-            run_integration_tests: true
-            run_ios_tests: true
-            run_build_docs: false
           - build: windows-x64
             os: windows-2019
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-            run_integration_tests: true
-            use_sccache: true
-            run_test: true
-            run_test_capi: false # We can't run yet the capi tests on Windows
-            run_build_docs: false
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             container: alpine:latest
-            run_test: true
-            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
-            run_integration_tests: false
-            run_build_docs: false
-            use_sccache: false
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -1748,40 +1290,19 @@ jobs:
             os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
-            run_test: true
-            run_test_capi: true
-            run_integration_tests: true
-            run_build_docs: true
-            use_sccache: true
           - build: macos-x64
             os: macos-11
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
-            run_test: true
-            run_test_capi: true
-            use_sccache: true
-            run_integration_tests: true
-            run_ios_tests: true
-            run_build_docs: false
           - build: windows-x64
             os: windows-2019
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-            run_integration_tests: true
-            use_sccache: true
-            run_test: true
-            run_test_capi: false # We can't run yet the capi tests on Windows
-            run_build_docs: false
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             container: alpine:latest
-            run_test: true
-            run_test_capi: false # It can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
-            run_integration_tests: false
-            run_build_docs: false
-            use_sccache: false
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -1852,54 +1373,6 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
-      - uses: actions/cache@v2
-        if: matrix.use_sccache
-        with:
-          path: ${{ runner.tool_cache }}/cargo-sccache
-          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
-      - name: Install sccache
-        if: matrix.use_sccache
-        run: |
-          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
-            cargo install sccache --no-default-features --features=dist-client,azure --root '${{ runner.tool_cache }}/cargo-sccache'
-          fi
-        shell: bash
-      - name: Setup Rust target
-        run: |
-          mkdir -p .cargo
-          cat << EOF > .cargo/config.toml
-          [build]
-          target = "${{ matrix.target }}"
-          EOF
-        if: matrix.target
-      - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port
-        run: |
-          netstat -aln | awk '
-            $6 == "LISTEN" {
-              if ($4 ~ "[.:][0-9]+$") {
-                n = split($4, a, /[:.]/);
-                port = a[n];
-                p[port] = 1
-              }
-            }
-            END {
-              for (i = 3000; i < 65000 && p[i]; i++){};
-              if (i == 65000) {exit 1};
-              print "SCCACHE_SERVER_PORT=" i
-            }
-          ' >> $GITHUB_ENV
-          # echo "SCCACHE_SERVER_PORT=9000"
-          echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
-        shell: bash
-      - name: Start sccache
-        if: matrix.use_sccache
-        run: |
-          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
-          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
-          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
-          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
-        shell: bash
       - name: Test
         run: |
           make test-stage-6
