@@ -132,7 +132,7 @@ jobs:
             run_ios_tests: true
             run_build_docs: false
           - build: macos-arm
-            os: macos-11.0
+            os: macos-latest
             target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
@@ -368,7 +368,7 @@ jobs:
             run_ios_tests: true
             run_build_docs: false
           - build: macos-arm
-            os: macos-11.0
+            os: macos-latest
             target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
@@ -551,7 +551,7 @@ jobs:
             run_ios_tests: true
             run_build_docs: false
           - build: macos-arm
-            os: macos-11.0
+            os: macos-latest
             target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
@@ -644,7 +644,7 @@ jobs:
             run_ios_tests: true
             run_build_docs: false
           - build: macos-arm
-            os: macos-11.0
+            os: macos-latest
             target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
@@ -749,7 +749,7 @@ jobs:
             run_ios_tests: true
             run_build_docs: false
           - build: macos-arm
-            os: macos-11.0
+            os: macos-latest
             target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
@@ -880,7 +880,7 @@ jobs:
             run_ios_tests: true
             run_build_docs: false
           - build: macos-arm
-            os: macos-11.0
+            os: macos-latest
             target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
@@ -1022,7 +1022,7 @@ jobs:
             run_ios_tests: true
             run_build_docs: false
           - build: macos-arm
-            os: macos-11.0
+            os: macos-latest
             target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
@@ -1153,7 +1153,7 @@ jobs:
             run_ios_tests: true
             run_build_docs: false
           - build: macos-arm
-            os: macos-11.0
+            os: macos-latest
             target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
@@ -1284,7 +1284,7 @@ jobs:
             run_ios_tests: true
             run_build_docs: false
           - build: macos-arm
-            os: macos-11.0
+            os: macos-latest
             target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
@@ -1415,7 +1415,7 @@ jobs:
             run_ios_tests: true
             run_build_docs: false
           - build: macos-arm
-            os: macos-11.0
+            os: macos-latest
             target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
@@ -1546,7 +1546,7 @@ jobs:
             run_ios_tests: true
             run_build_docs: false
           - build: macos-arm
-            os: macos-11.0
+            os: macos-latest
             target: aarch64-apple-darwin
             use_sccache: true
             run_test: false
