@@ -480,7 +480,7 @@ jobs:
 
   coverage:
     runs-on: ubuntu-latest
-    needs: build_capi
+    needs: [build_capi, build_wasmer]
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -489,6 +489,9 @@ jobs:
         id: download
         with:
           name: capi-linux-x64
+      - uses: actions/download-artifact@v3
+        with:
+          name: wasmer-linux-x64
       - name: 'Echo download path'
         run: echo ${{steps.download.outputs.download-path}}
       - name: Install Rust
@@ -511,6 +514,10 @@ jobs:
         shell: bash
         run: |
           make untar-capi
+      - name: Unzip Artifacts
+        shell: bash
+        run: |
+          make untar-wasmer
       - name: Generate code coverage
         run: cargo llvm-cov --workspace --lcov --output-path lcov.info --features cranelift,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load,webc_runner --exclude wasmer-integration-tests-ios
         env:
