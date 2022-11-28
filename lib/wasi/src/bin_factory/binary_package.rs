@@ -121,6 +121,8 @@ impl BinaryPackage {
         if hash.is_none() {
             if let Some(entry) = self.entry.as_ref() {
                 hash.replace(hash_of_binary(entry.as_ref()));
+            } else {
+                hash.replace(hash_of_binary(self.package_name.as_ref()));
             }
         }
         hash.as_ref().unwrap().clone()
