@@ -201,7 +201,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -339,7 +339,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -472,7 +472,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - uses: actions/download-artifact@v3
         id: download
         with:
@@ -565,7 +565,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - uses: actions/download-artifact@v3
         id: download
         with:
@@ -678,7 +678,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -803,7 +803,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - uses: actions/download-artifact@v3
         id: download
         with:
@@ -821,7 +821,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -952,7 +952,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -1083,7 +1083,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -1214,7 +1214,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -1345,7 +1345,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -1476,7 +1476,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
