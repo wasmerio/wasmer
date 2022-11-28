@@ -276,18 +276,19 @@ where
                 warn!("unsupported runner - {}", cmd.runner);
                 return None;
             };
-            match webc.get_atom_name_for_command(api, entry.as_str()) {
+            let atom = webc.get_atom_name_for_command(api, entry.as_str());
+            match atom {
                 Ok(a) => Some(a),
                 Err(err) => {
                     warn!(
-                        "failed to find atom name for entry command({}) - {}",
+                        "failed to find atom name for entry command({}) - {} - falling back on the command name itself",
                         entry.as_str(),
                         err
                     );
                     for (name, atom) in webc.manifest.atoms.iter() {
                         tracing::debug!("found atom (name={}, kind={})", name, atom.kind);
                     }
-                    None
+                    Some(entry.clone())
                 }
             }
         })
