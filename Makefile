@@ -724,6 +724,8 @@ untar-capi:
 	tar -C package -xf ./build-capi.tar.gz
 	cp package/lib/* target/release
 	cp package/lib/* target/$(HOST_TARGET)/release
+	echo "untar capi"
+	ls -R target
 
 tar-wasmer:
 	ls -R package
@@ -736,6 +738,8 @@ untar-wasmer:
 	tar -C package -xf ./build-wasmer.tar.gz
 	cp package/bin/* target/release
 	cp package/bin/* target/$(HOST_TARGET)/release
+	echo "untar wasmer"
+	ls -R target
 
 distribution-gnu: package-capi
 	cp LICENSE package/LICENSE
