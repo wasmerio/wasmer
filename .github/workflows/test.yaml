@@ -53,7 +53,7 @@ jobs:
           echo 'LLVM_SYS_120_PREFIX=/opt/llvm-12' >> $GITHUB_ENV
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-on-failure: true
+          cache-on-failure: false
           shared-key: wasmer-linux-x64
           save-if: false
       - run: make lint
@@ -363,7 +363,7 @@ jobs:
         if: matrix.target
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-on-failure: true
+          cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - name: Build C-API
@@ -408,7 +408,7 @@ jobs:
         uses: taiki-e/install-action@cargo-llvm-cov
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-on-failure: true
+          cache-on-failure: false
           shared-key: wasmer-linux-x64
           save-if: false
       - name: Unzip Artifacts
@@ -500,7 +500,7 @@ jobs:
           target: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-on-failure: true
+          cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - name: 'Echo download path'
@@ -599,7 +599,7 @@ jobs:
           target: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-on-failure: true
+          cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - name: Unzip Artifacts
@@ -742,7 +742,7 @@ jobs:
         if: matrix.target
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-on-failure: true
+          cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - name: Test
@@ -882,8 +882,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-          shared-key: wasmer-${{ matrix.build }}
-          save-if: false
+          shared-key: wasmer-stage-1-${{ matrix.build }}
       - name: Unzip Artifacts
         shell: bash
         run: |
@@ -1016,7 +1015,7 @@ jobs:
         if: matrix.target
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-on-failure: true
+          cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - name: Test
@@ -1147,7 +1146,7 @@ jobs:
         if: matrix.target
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-on-failure: true
+          cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - name: Test
@@ -1278,7 +1277,7 @@ jobs:
         if: matrix.target
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-on-failure: true
+          cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - name: Test
@@ -1409,7 +1408,7 @@ jobs:
         if: matrix.target
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-on-failure: true
+          cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - name: Test
@@ -1540,7 +1539,7 @@ jobs:
         if: matrix.target
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-on-failure: true
+          cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - name: Test
