@@ -284,6 +284,9 @@ where
                         entry.as_str(),
                         err
                     );
+                    for (name, atom) in webc.manifest.atoms.iter() {
+                        tracing::debug!("found atom (name={}, kind={})", name, atom.kind);
+                    }
                     None
                 }
             }
