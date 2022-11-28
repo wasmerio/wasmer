@@ -338,7 +338,7 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
     <span class="kw">use</span> <span class="ident">wasmer_inline_c::assert_c</span>;
 
-    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">coverage</span>, <span class="ident">ignore</span>)]</span> <span class="comment">// run by test-runner in coverage tests</span>
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">coverage</span>, <span class="ident">ignore</span>)]</span>
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_extern_copy</span>() {
         (<span class="macro">assert_c!</span> {
