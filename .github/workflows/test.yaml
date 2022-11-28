@@ -66,34 +66,6 @@ jobs:
           git status
           ! [[ $(git status -s) ]]
 
-  coverage:
-    runs-on: ubuntu-latest
-    env:
-      CARGO_TERM_COLOR: always
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install Rust
-        run: rustup update stable
-      - name: Install LLVM (Linux)
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz -L -o llvm.tar.xz
-          mkdir -p /opt/llvm-10
-          tar xf llvm.tar.xz --strip-components=1 -C /opt/llvm-10
-          echo '/opt/llvm-10/bin' >> $GITHUB_PATH
-          echo 'LLVM_SYS_100_PREFIX=/opt/llvm-10' >> $GITHUB_ENV
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-      - name: Generate code coverage
-        run: cargo llvm-cov --workspace --lcov --output-path lcov.info --features cranelift,llvm,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load,webc_runner
-        env:
-          WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          files: lcov.info
-          fail_ci_if_error: true
-
   cargo_deny:
     name: cargo-deny
     runs-on: ubuntu-latest
@@ -409,6 +381,47 @@ jobs:
           path: build-capi.tar.gz
           if-no-files-found: error
           retention-days: 2
+
+  coverage:
+    runs-on: ubuntu-latest
+    needs: build_capi
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        id: download
+        with:
+          name: capi-linux-x64
+      - name: 'Echo download path'
+        run: echo ${{steps.download.outputs.download-path}}
+      - name: Display structure of downloaded files
+        run: ls -R
+      - name: Unzip Artifacts
+        shell: bash
+        run: |
+          make untar-capi
+      - name: Install Rust
+        run: rustup update stable
+      - name: Install LLVM (Linux)
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz -L -o llvm.tar.xz
+          mkdir -p /opt/llvm-10
+          tar xf llvm.tar.xz --strip-components=1 -C /opt/llvm-10
+          echo '/opt/llvm-10/bin' >> $GITHUB_PATH
+          echo 'LLVM_SYS_100_PREFIX=/opt/llvm-10' >> $GITHUB_ENV
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Generate code coverage
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info --features cranelift,llvm,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load,webc_runner
+        env:
+          WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: lcov.info
+          fail_ci_if_error: true
 
   test_capi: 
     name: Test C-API on ${{ matrix.build }}
