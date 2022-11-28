@@ -210,6 +210,7 @@ impl Console {
                 tasks.block_on(async {
                     let _ = self.runtime.stderr(format!("{}\r\n", err).as_bytes()).await;
                 });
+                tracing::debug!("failed to load used dependency - {}", err);
                 return Err(wasmer_vbus::VirtualBusError::BadRequest);
             }
 
@@ -241,6 +242,7 @@ impl Console {
                     .stderr(format!("package not found [{}]\r\n", self.boot_cmd).as_bytes())
                     .await;
             });
+            tracing::debug!("failed to get webc dependency - {}", self.boot_cmd);
             Err(wasmer_vbus::VirtualBusError::NotFound)
         }
     }
