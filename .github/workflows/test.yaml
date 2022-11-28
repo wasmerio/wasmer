@@ -395,12 +395,6 @@ jobs:
           name: capi-linux-x64
       - name: 'Echo download path'
         run: echo ${{steps.download.outputs.download-path}}
-      - name: Display structure of downloaded files
-        run: ls -R
-      - name: Unzip Artifacts
-        shell: bash
-        run: |
-          make untar-capi
       - name: Install Rust
         run: rustup update stable
       - name: Install LLVM (Linux)
@@ -412,6 +406,15 @@ jobs:
           echo 'LLVM_SYS_100_PREFIX=/opt/llvm-10' >> $GITHUB_ENV
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: wasmer-linux-x64
+          save-if: false
+      - name: Unzip Artifacts
+        shell: bash
+        run: |
+          make untar-capi
       - name: Generate code coverage
         run: cargo llvm-cov --workspace --lcov --output-path lcov.info --features cranelift,llvm,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load,webc_runner
         env:
@@ -490,14 +493,6 @@ jobs:
         id: download
         with:
           name: capi-${{ matrix.build }}
-      - name: 'Echo download path'
-        run: echo ${{steps.download.outputs.download-path}}
-      - name: Display structure of downloaded files
-        run: ls -R
-      - name: Unzip Artifacts
-        shell: bash
-        run: |
-          make untar-capi
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -508,6 +503,12 @@ jobs:
           cache-on-failure: true
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
+      - name: 'Echo download path'
+        run: echo ${{steps.download.outputs.download-path}}
+      - name: Unzip Artifacts
+        shell: bash
+        run: |
+          make untar-capi
       - name: Test C API
         run: |
           make test-capi-ci
@@ -588,16 +589,6 @@ jobs:
           name: wasmer-cli-${{ matrix.build }}
       - name: 'Echo download path'
         run: echo ${{steps.download.outputs.download-path}}
-      - name: Display structure of downloaded files
-        run: ls -R
-      - name: Unzip Artifacts
-        shell: bash
-        run: |
-          make untar-capi
-      - name: Unzip Artifacts
-        shell: bash
-        run: |
-          make untar-wasmer
       - uses: goto-bus-stop/setup-zig@v2
         with:
           version: 0.10.0
@@ -611,6 +602,14 @@ jobs:
           cache-on-failure: true
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
+      - name: Unzip Artifacts
+        shell: bash
+        run: |
+          make untar-capi
+      - name: Unzip Artifacts
+        shell: bash
+        run: |
+          make untar-wasmer
       - name: Test integration CLI
         if: matrix.os != 'windows-2019'
         shell: bash
@@ -821,10 +820,6 @@ jobs:
         id: download
         with:
           name: capi-${{ matrix.build }}
-      - name: Unzip Artifacts
-        shell: bash
-        run: |
-          make untar-capi
       - name: Set up libstdc++ on Linux
         if: matrix.build == 'linux-x64'
         run: |
@@ -889,6 +884,10 @@ jobs:
           cache-on-failure: true
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
+      - name: Unzip Artifacts
+        shell: bash
+        run: |
+          make untar-capi
       - name: Test
         run: |
           make test-stage-1
