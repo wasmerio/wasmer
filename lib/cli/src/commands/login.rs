@@ -51,8 +51,14 @@ impl Login {
     /// execute [List]
     pub fn execute(&self) -> Result<(), anyhow::Error> {
         let token = self.get_token_or_ask_user()?;
-        wasmer_registry::login::login_and_save_token(&self.registry, &token)
-            .map_err(|e| anyhow::anyhow!("{e}"))
+        match wasmer_registry::login::login_and_save_token(&self.registry, &token)? {
+            Some(s) => println!("Login for WAPM user {:?} saved", s),
+            None => println!(
+                "Error: no user found on registry {:?} with token {:?}. Token saved regardless.",
+                self.registry, token
+            ),
+        }
+        Ok(())
     }
 }
 

@@ -6,7 +6,28 @@
 
 Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/CHANGELOG.md).
 
+ 
 ## **Unreleased**
+
+## 3.0.2 - 25/11/2022
+
+## Added
+
+  - [#3364](https://github.com/wasmerio/wasmer/pull/3364) Added the actual LZCNT / TZCNT implementation
+  - [#3361](https://github.com/wasmerio/wasmer/pull/3361) Give users feedback when they are running "wasmer add ..."
+
+## Changed
+
+  - [#3368](https://github.com/wasmerio/wasmer/pull/3368) Remove wasi conditional compilation from wasmer-registry
+  - [#3367](https://github.com/wasmerio/wasmer/pull/3367) Change LLVM detection in Makefile
+  - [#3365](https://github.com/wasmerio/wasmer/pull/3365) Improve FreeBSD support
+  - [#3360](https://github.com/wasmerio/wasmer/pull/3360) Introduce a "wasmer_registry::queries" module with all GraphQL queries
+
+## Fixed
+
+  - [#3371](https://github.com/wasmerio/wasmer/pull/3371) Fix cargo binstall
+  - [#3370](https://github.com/wasmerio/wasmer/pull/3370) Fix wasmer run not interpreting URLs correctly + display fixes
+
 
 ## 3.0.1 - 23/11/2022
 
@@ -37,18 +58,6 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## Fixed
 
   - [#3339](https://github.com/wasmerio/wasmer/3339) Fixes for wasmer login / wasmer add
-
-## 3.0.0-rc.4 - 19/11/2022
-
-## Added
-
-
-## Changed
-
-
-## Fixed
-
-
 
 
 ## 3.0.0-rc.3 - 2022/11/18
