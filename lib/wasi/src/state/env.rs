@@ -605,7 +605,7 @@ impl WasiEnv {
 
                             // Add the binary package to the bin factory (zero copy the atom)
                             let mut package = package.clone();
-                            package.entry = command.atom.clone();
+                            package.entry = Some(command.atom.clone());
                             self.bin_factory
                                 .set_binary(path.as_os_str().to_string_lossy().as_ref(), package);
                         }

@@ -62,7 +62,7 @@ pub struct BinaryPackage {
     pub when_cached: u128,
     pub ownership: Option<Arc<dyn Any + Send + Sync + 'static>>,
     #[derivative(Debug = "ignore")]
-    pub entry: Cow<'static, [u8]>,
+    pub entry: Option<Cow<'static, [u8]>>,
     pub hash: Arc<Mutex<Option<String>>>,
     pub wapm: Option<String>,
     pub base_dir: Option<String>,
@@ -77,7 +77,7 @@ pub struct BinaryPackage {
 }
 
 impl BinaryPackage {
-    pub fn new(package_name: &str, entry: Cow<'static, [u8]>) -> Self {
+    pub fn new(package_name: &str, entry: Option<Cow<'static, [u8]>>) -> Self {
         let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
         let (package_name, version) = match package_name.split_once("@") {
             Some((a, b)) => (a.to_string(), b.to_string()),
@@ -104,14 +104,14 @@ impl BinaryPackage {
 
     pub unsafe fn new_with_ownership<'a, T>(
         package_name: &str,
-        entry: Cow<'a, [u8]>,
+        entry: Option<Cow<'a, [u8]>>,
         ownership: Arc<T>,
     ) -> Self
     where
         T: 'static,
     {
         let ownership: Arc<dyn Any> = ownership;
-        let mut ret = Self::new(package_name, std::mem::transmute(entry));
+        let mut ret = Self::new(package_name, entry.map(|a| std::mem::transmute(a)));
         ret.ownership = Some(std::mem::transmute(ownership));
         ret
     }
@@ -119,7 +119,9 @@ impl BinaryPackage {
     pub fn hash(&self) -> String {
         let mut hash = self.hash.lock().unwrap();
         if hash.is_none() {
-            hash.replace(hash_of_binary(self.entry.as_ref()));
+            if let Some(entry) = self.entry.as_ref() {
+                hash.replace(hash_of_binary(entry.as_ref()));
+            }
         }
         hash.as_ref().unwrap().clone()
     }

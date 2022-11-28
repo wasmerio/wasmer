@@ -84,7 +84,7 @@ impl BinFactory {
                 let mut data = Vec::with_capacity(file.size() as usize);
                 if let Ok(_) = file.read_to_end(&mut data).await {
                     let package_name = name.split("/").last().unwrap_or_else(|| name.as_str());
-                    let data = BinaryPackage::new(package_name, data.into());
+                    let data = BinaryPackage::new(package_name, Some(data.into()));
                     cache.insert(name, Some(data.clone()));
                     return Some(data);
                 }

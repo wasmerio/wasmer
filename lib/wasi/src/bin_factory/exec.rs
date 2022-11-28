@@ -35,14 +35,14 @@ pub fn spawn_exec(
     #[cfg(not(feature = "sys"))]
     let compiler = "generic";
     let module = compiled_modules.get_compiled_module(&store, binary.hash().as_str(), compiler);
-    let module = match module {
-        Some(a) => a,
-        None => {
-            let module = Module::new(&store, &binary.entry[..]).map_err(|err| {
+    let module = match (module, binary.entry.as_ref()) {
+        (Some(a), _) => a,
+        (None, Some(entry)) => {
+            let module = Module::new(&store, &entry[..]).map_err(|err| {
                 error!(
                     "failed to compile module [{}, len={}] - {}",
                     name,
-                    binary.entry.len(),
+                    entry.len(),
                     err
                 );
                 VirtualBusError::CompileError
@@ -53,6 +53,11 @@ pub fn spawn_exec(
             let module = module?;
             compiled_modules.set_compiled_module(binary.hash().as_str(), compiler, &module);
             module
+        }
+        (None, None) => {
+            error!("package has no entry [{}]", name,);
+            config.env.cleanup(Some(Errno::Noexec as ExitCode));
+            return Err(VirtualBusError::CompileError);
         }
     };
 

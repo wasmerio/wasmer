@@ -296,101 +296,112 @@ where
             }
         })
         .map(|atom| {
-            BinaryPackage::new_with_ownership(package_name.as_str(), atom.into(), ownership.clone())
+            BinaryPackage::new_with_ownership(
+                package_name.as_str(),
+                Some(atom.into()),
+                ownership.clone(),
+            )
         })
         .next();
 
-    if let Some(pck) = pck.as_mut() {
-        // Add all the dependencies
-        for uses in webc.manifest.use_map.values() {
-            let uses = match uses {
-                UrlOrManifest::Url(url) => Some(url.path().to_string()),
-                UrlOrManifest::Manifest(manifest) => manifest.origin.as_ref().map(|a| a.clone()),
-                UrlOrManifest::RegistryDependentUrl(url) => Some(url.clone()),
-            };
-            if let Some(uses) = uses {
-                pck.uses.push(uses);
-            }
-        }
+    // Otherwise add a package without an entry point
+    if pck.is_none() {
+        pck = Some(BinaryPackage::new_with_ownership(
+            package_name.as_str(),
+            None,
+            ownership.clone(),
+        ))
+    }
+    let mut pck = pck.take().unwrap();
 
-        // Set the version of this package
-        if let Some(Annotation::Map(wapm)) = webc.manifest.package.get("wapm") {
-            if let Some(Annotation::Text(version)) =
-                wapm.get(&Annotation::Text("version".to_string()))
-            {
-                pck.version = version.clone().into();
-            }
-        } else if let Some(Annotation::Text(version)) = webc.manifest.package.get("version") {
+    // Add all the dependencies
+    for uses in webc.manifest.use_map.values() {
+        let uses = match uses {
+            UrlOrManifest::Url(url) => Some(url.path().to_string()),
+            UrlOrManifest::Manifest(manifest) => manifest.origin.as_ref().map(|a| a.clone()),
+            UrlOrManifest::RegistryDependentUrl(url) => Some(url.clone()),
+        };
+        if let Some(uses) = uses {
+            pck.uses.push(uses);
+        }
+    }
+
+    // Set the version of this package
+    if let Some(Annotation::Map(wapm)) = webc.manifest.package.get("wapm") {
+        if let Some(Annotation::Text(version)) = wapm.get(&Annotation::Text("version".to_string()))
+        {
             pck.version = version.clone().into();
         }
+    } else if let Some(Annotation::Text(version)) = webc.manifest.package.get("version") {
+        pck.version = version.clone().into();
+    }
 
-        // Add all the file system files
-        let top_level_dirs = webc
-            .get_volumes_for_package(&package_name)
-            .into_iter()
-            .flat_map(|volume| {
-                webc.volumes
-                    .get(&volume)
-                    .unwrap()
-                    .header
-                    .top_level
-                    .iter()
-                    .filter(|e| e.fs_type == FsEntryType::Dir)
-                    .map(|e| e.text.to_string())
-            })
-            .collect::<Vec<_>>();
+    // Add all the file system files
+    let top_level_dirs = webc
+        .get_volumes_for_package(&package_name)
+        .into_iter()
+        .flat_map(|volume| {
+            webc.volumes
+                .get(&volume)
+                .unwrap()
+                .header
+                .top_level
+                .iter()
+                .filter(|e| e.fs_type == FsEntryType::Dir)
+                .map(|e| e.text.to_string())
+        })
+        .collect::<Vec<_>>();
 
-        pck.webc_fs = Some(Arc::new(wasmer_vfs::webc_fs::WebcFileSystem::init(
-            ownership.clone(),
-            &package_name,
-        )));
-        pck.webc_top_level_dirs = top_level_dirs;
+    pck.webc_fs = Some(Arc::new(wasmer_vfs::webc_fs::WebcFileSystem::init(
+        ownership.clone(),
+        &package_name,
+    )));
+    pck.webc_top_level_dirs = top_level_dirs;
 
-        let root_package = webc.get_package_name();
-        for (command, action) in webc.get_metadata().commands.iter() {
-            if let Some(Annotation::Map(annotations)) = action.annotations.get("wasi") {
-                let mut atom = None;
-                let mut package = root_package.clone();
-                for (k, v) in annotations {
-                    match (k, v) {
-                        (Annotation::Text(k), Annotation::Text(v)) if k == "atom" => {
-                            atom = Some(v.clone());
-                        }
-                        (Annotation::Text(k), Annotation::Text(v)) if k == "package" => {
-                            package = v.clone();
-                        }
-                        _ => {}
+    let root_package = webc.get_package_name();
+    for (command, action) in webc.get_metadata().commands.iter() {
+        if let Some(Annotation::Map(annotations)) = action.annotations.get("wasi") {
+            let mut atom = None;
+            let mut package = root_package.clone();
+            for (k, v) in annotations {
+                match (k, v) {
+                    (Annotation::Text(k), Annotation::Text(v)) if k == "atom" => {
+                        atom = Some(v.clone());
                     }
+                    (Annotation::Text(k), Annotation::Text(v)) if k == "package" => {
+                        package = v.clone();
+                    }
+                    _ => {}
                 }
+            }
 
-                // Load the atom as a command
-                if let Some(atom_name) = atom {
-                    match webc.get_atom(package.as_str(), atom_name.as_str()) {
-                        Ok(atom) => {
-                            trace!(
-                                "added atom (name={}, size={}) for command [{}]",
-                                atom_name,
-                                atom.len(),
-                                command
-                            );
-                            let mut commands = pck.commands.write().unwrap();
-                            commands.push(BinaryPackageCommand::new_with_ownership(
-                                command.clone(),
-                                atom.into(),
-                                ownership.clone(),
-                            ));
-                        }
-                        Err(err) => {
-                            warn!(
-                                "Failed to find atom [{}].[{}] - {}",
-                                package, atom_name, err
-                            );
-                        }
+            // Load the atom as a command
+            if let Some(atom_name) = atom {
+                match webc.get_atom(package.as_str(), atom_name.as_str()) {
+                    Ok(atom) => {
+                        trace!(
+                            "added atom (name={}, size={}) for command [{}]",
+                            atom_name,
+                            atom.len(),
+                            command
+                        );
+                        let mut commands = pck.commands.write().unwrap();
+                        commands.push(BinaryPackageCommand::new_with_ownership(
+                            command.clone(),
+                            atom.into(),
+                            ownership.clone(),
+                        ));
+                    }
+                    Err(err) => {
+                        warn!(
+                            "Failed to find atom [{}].[{}] - {}",
+                            package, atom_name, err
+                        );
                     }
                 }
             }
         }
     }
 
-    pck
+    Some(pck)
 }
