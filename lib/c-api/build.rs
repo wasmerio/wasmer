@@ -349,6 +349,8 @@ fn shared_object_dir() -> PathBuf {
         let target = env::var("TARGET").unwrap();
         if shared_object_dir.file_name() != Some(OsStr::new("llvm-cov-target")) {
             assert_eq!(shared_object_dir.file_name(), Some(OsStr::new(&target)));
+        } else {
+            shared_object_dir.set_file_name(&target);
         }
     }
 
