@@ -42,6 +42,11 @@ fn main() -> anyhow::Result<()> {
                 wast_processor,
             )?;
             test_directory_module(spectests, "tests/wast/spec/proposals/simd", wast_processor)?;
+            test_directory_module(
+                spectests,
+                "tests/wast/spec/proposals/threads",
+                wast_processor,
+            )?;
             // test_directory_module(spectests, "tests/wast/spec/proposals/bulk-memory-operations", wast_processor)?;
             Ok(())
         })?;

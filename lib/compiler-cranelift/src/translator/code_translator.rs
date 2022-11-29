@@ -1063,15 +1063,26 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             assert!(builder.func.dfg.value_type(expected) == implied_ty);
             // `fn translate_atomic_wait` can inspect the type of `expected` to figure out what
             // code it needs to generate, if it wants.
-            let res = environ.translate_atomic_wait(
+            match environ.translate_atomic_wait(
                 builder.cursor(),
                 heap_index,
                 heap,
                 addr,
                 expected,
                 timeout,
-            )?;
-            state.push1(res);
+            ) {
+                Ok(res) => {
+                    state.push1(res);
+                }
+                Err(wasmer_types::WasmError::Unsupported(_err)) => {
+                    // If multiple threads hit a mutex then the function will fail
+                    builder.ins().trap(ir::TrapCode::UnreachableCodeReached);
+                    state.reachable = false;
+                }
+                Err(err) => {
+                    return Err(err);
+                }
+            };
         }
         Operator::MemoryAtomicNotify { memarg } => {
             let heap_index = MemoryIndex::from_u32(memarg.memory);
@@ -1079,9 +1090,20 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let count = state.pop1(); // 32 (fixed)
             let addr = state.pop1(); // 32 (fixed)
             let addr = fold_atomic_mem_addr(addr, memarg, I32, builder);
-            let res =
-                environ.translate_atomic_notify(builder.cursor(), heap_index, heap, addr, count)?;
-            state.push1(res);
+            match environ.translate_atomic_notify(builder.cursor(), heap_index, heap, addr, count) {
+                Ok(res) => {
+                    state.push1(res);
+                }
+                Err(wasmer_types::WasmError::Unsupported(_err)) => {
+                    // Simple return a zero as this function is needed for the __wasi_init_memory function
+                    // but the equivalent notify.wait will not be called (as only one thread calls __start)
+                    // hence these atomic operations are not needed
+                    state.push1(builder.ins().iconst(I32, i64::from(0)));
+                }
+                Err(err) => {
+                    return Err(err);
+                }
+            };
         }
         Operator::I32AtomicLoad { memarg } => {
             translate_atomic_load(I32, I32, memarg, builder, state, environ)?
@@ -2386,11 +2408,24 @@ fn finalise_atomic_mem_addr<FE: FuncEnvironment + ?Sized>(
     state: &mut FuncTranslationState,
     environ: &mut FE,
 ) -> WasmResult<Value> {
-    // Check the alignment of `linear_mem_addr`.
     let access_ty_bytes = access_ty.bytes();
-    let final_lma = builder
-        .ins()
-        .iadd_imm(linear_mem_addr, memarg.offset as i64);
+    let final_lma = if memarg.offset > 0 {
+        assert!(builder.func.dfg.value_type(linear_mem_addr) == I32);
+        let linear_mem_addr = builder.ins().uextend(I64, linear_mem_addr);
+        let a = builder
+            .ins()
+            .iadd_imm(linear_mem_addr, memarg.offset as i64);
+        let cflags = builder.ins().ifcmp_imm(a, 0x1_0000_0000i64);
+        builder.ins().trapif(
+            IntCC::UnsignedGreaterThanOrEqual,
+            cflags,
+            ir::TrapCode::HeapOutOfBounds,
+        );
+        builder.ins().ireduce(I32, a)
+    } else {
+        linear_mem_addr
+    };
+    // Check the alignment of `linear_mem_addr`.
     if access_ty_bytes != 1 {
         assert!(access_ty_bytes == 2 || access_ty_bytes == 4 || access_ty_bytes == 8);
         let final_lma_misalignment = builder
