@@ -390,7 +390,7 @@
     <span class="doccomment">/// Create a new feature</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
-            <span class="ident">threads</span>: <span class="bool-val">false</span>,
+            <span class="ident">threads</span>: <span class="bool-val">true</span>,
             <span class="comment">// Reference types should be on by default</span>
             <span class="ident">reference_types</span>: <span class="bool-val">true</span>,
             <span class="comment">// SIMD should be on by default</span>
@@ -598,7 +598,7 @@
         <span class="macro">assert_eq!</span>(
             <span class="ident">default</span>,
             <span class="ident">Features</span> {
-                <span class="ident">threads</span>: <span class="bool-val">false</span>,
+                <span class="ident">threads</span>: <span class="bool-val">true</span>,
                 <span class="ident">reference_types</span>: <span class="bool-val">true</span>,
                 <span class="ident">simd</span>: <span class="bool-val">true</span>,
                 <span class="ident">bulk_memory</span>: <span class="bool-val">true</span>,

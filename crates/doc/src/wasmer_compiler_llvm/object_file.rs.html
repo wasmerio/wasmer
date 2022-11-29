@@ -371,6 +371,30 @@
 <span id="363">363</span>
 <span id="364">364</span>
 <span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">object</span>::{<span class="ident">Object</span>, <span class="ident">ObjectSection</span>, <span class="ident">ObjectSymbol</span>};
 
 <span class="kw">use</span> <span class="ident">std::collections</span>::{<span class="ident">HashMap</span>, <span class="ident">HashSet</span>};
@@ -469,6 +493,30 @@
     <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_memory32_init&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::Memory32Init</span>);
     <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_data_drop&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::DataDrop</span>);
     <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_raise_trap&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall::RaiseTrap</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
+        <span class="string">&quot;wasmer_vm_memory32_atomic_wait32&quot;</span>.<span class="ident">to_string</span>(),
+        <span class="ident">LibCall::Memory32AtomicWait32</span>,
+    );
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
+        <span class="string">&quot;wasmer_vm_imported_memory32_atomic_wait32&quot;</span>.<span class="ident">to_string</span>(),
+        <span class="ident">LibCall::ImportedMemory32AtomicWait32</span>,
+    );
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
+        <span class="string">&quot;wasmer_vm_memory32_atomic_wait64&quot;</span>.<span class="ident">to_string</span>(),
+        <span class="ident">LibCall::Memory32AtomicWait64</span>,
+    );
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
+        <span class="string">&quot;wasmer_vm_imported_memory32_atomic_wait64&quot;</span>.<span class="ident">to_string</span>(),
+        <span class="ident">LibCall::ImportedMemory32AtomicWait64</span>,
+    );
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
+        <span class="string">&quot;wasmer_vm_memory32_atomic_notify&quot;</span>.<span class="ident">to_string</span>(),
+        <span class="ident">LibCall::Memory32AtomicNotify</span>,
+    );
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
+        <span class="string">&quot;wasmer_vm_imported_memory32_atomic_notify&quot;</span>.<span class="ident">to_string</span>(),
+        <span class="ident">LibCall::ImportedMemory32AtomicNotify</span>,
+    );
 
     <span class="kw">let</span> <span class="ident">elf</span> <span class="op">=</span> <span class="ident">object::File::parse</span>(<span class="ident">contents</span>).<span class="ident">map_err</span>(<span class="ident">map_object_err</span>)<span class="question-mark">?</span>;
 

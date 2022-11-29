@@ -882,7 +882,7 @@
     <span class="kw">match</span> <span class="ident">trap</span> {
         <span class="ident">ir::TrapCode::StackOverflow</span> =&gt; <span class="ident">TrapCode::StackOverflow</span>,
         <span class="ident">ir::TrapCode::HeapOutOfBounds</span> =&gt; <span class="ident">TrapCode::HeapAccessOutOfBounds</span>,
-        <span class="ident">ir::TrapCode::HeapMisaligned</span> =&gt; <span class="ident">TrapCode::HeapMisaligned</span>,
+        <span class="ident">ir::TrapCode::HeapMisaligned</span> =&gt; <span class="ident">TrapCode::UnalignedAtomic</span>,
         <span class="ident">ir::TrapCode::TableOutOfBounds</span> =&gt; <span class="ident">TrapCode::TableAccessOutOfBounds</span>,
         <span class="ident">ir::TrapCode::IndirectCallToNull</span> =&gt; <span class="ident">TrapCode::IndirectCallToNull</span>,
         <span class="ident">ir::TrapCode::BadSignature</span> =&gt; <span class="ident">TrapCode::BadSignature</span>,

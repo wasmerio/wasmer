@@ -2422,6 +2422,92 @@
 <span id="2416">2416</span>
 <span id="2417">2417</span>
 <span id="2418">2418</span>
+<span id="2419">2419</span>
+<span id="2420">2420</span>
+<span id="2421">2421</span>
+<span id="2422">2422</span>
+<span id="2423">2423</span>
+<span id="2424">2424</span>
+<span id="2425">2425</span>
+<span id="2426">2426</span>
+<span id="2427">2427</span>
+<span id="2428">2428</span>
+<span id="2429">2429</span>
+<span id="2430">2430</span>
+<span id="2431">2431</span>
+<span id="2432">2432</span>
+<span id="2433">2433</span>
+<span id="2434">2434</span>
+<span id="2435">2435</span>
+<span id="2436">2436</span>
+<span id="2437">2437</span>
+<span id="2438">2438</span>
+<span id="2439">2439</span>
+<span id="2440">2440</span>
+<span id="2441">2441</span>
+<span id="2442">2442</span>
+<span id="2443">2443</span>
+<span id="2444">2444</span>
+<span id="2445">2445</span>
+<span id="2446">2446</span>
+<span id="2447">2447</span>
+<span id="2448">2448</span>
+<span id="2449">2449</span>
+<span id="2450">2450</span>
+<span id="2451">2451</span>
+<span id="2452">2452</span>
+<span id="2453">2453</span>
+<span id="2454">2454</span>
+<span id="2455">2455</span>
+<span id="2456">2456</span>
+<span id="2457">2457</span>
+<span id="2458">2458</span>
+<span id="2459">2459</span>
+<span id="2460">2460</span>
+<span id="2461">2461</span>
+<span id="2462">2462</span>
+<span id="2463">2463</span>
+<span id="2464">2464</span>
+<span id="2465">2465</span>
+<span id="2466">2466</span>
+<span id="2467">2467</span>
+<span id="2468">2468</span>
+<span id="2469">2469</span>
+<span id="2470">2470</span>
+<span id="2471">2471</span>
+<span id="2472">2472</span>
+<span id="2473">2473</span>
+<span id="2474">2474</span>
+<span id="2475">2475</span>
+<span id="2476">2476</span>
+<span id="2477">2477</span>
+<span id="2478">2478</span>
+<span id="2479">2479</span>
+<span id="2480">2480</span>
+<span id="2481">2481</span>
+<span id="2482">2482</span>
+<span id="2483">2483</span>
+<span id="2484">2484</span>
+<span id="2485">2485</span>
+<span id="2486">2486</span>
+<span id="2487">2487</span>
+<span id="2488">2488</span>
+<span id="2489">2489</span>
+<span id="2490">2490</span>
+<span id="2491">2491</span>
+<span id="2492">2492</span>
+<span id="2493">2493</span>
+<span id="2494">2494</span>
+<span id="2495">2495</span>
+<span id="2496">2496</span>
+<span id="2497">2497</span>
+<span id="2498">2498</span>
+<span id="2499">2499</span>
+<span id="2500">2500</span>
+<span id="2501">2501</span>
+<span id="2502">2502</span>
+<span id="2503">2503</span>
+<span id="2504">2504</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location</span>::{<span class="ident">Location</span>, <span class="ident">Reg</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine_arm64::MachineARM64</span>;
@@ -3093,6 +3179,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 load of an unsigned 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3105,6 +3192,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 load of an signed 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3117,6 +3205,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 load of an unsigned 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3129,6 +3218,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 load of an signed 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3141,6 +3231,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic load</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3153,6 +3244,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic load of an unsigned 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3165,6 +3257,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic load of an unsigned 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3177,6 +3270,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 save</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3189,6 +3283,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 save of the lower 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3201,6 +3296,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 save of the lower 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3213,6 +3309,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic save</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3225,6 +3322,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic save of a the lower 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3237,6 +3335,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic save of a the lower 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3249,6 +3348,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic Add with i32</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3262,6 +3362,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic Add with unsigned 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3275,6 +3376,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic Add with unsigned 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3288,6 +3390,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic Sub with i32</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3301,6 +3404,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic Sub with unsigned 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3314,6 +3418,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic Sub with unsigned 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3327,6 +3432,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic And with i32</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3340,6 +3446,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic And with unsigned 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3353,6 +3460,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic And with unsigned 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3366,6 +3474,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic Or with i32</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3379,6 +3488,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic Or with unsigned 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3392,6 +3502,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic Or with unsigned 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3405,6 +3516,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic Xor with i32</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3418,6 +3530,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic Xor with unsigned 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3431,6 +3544,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic Xor with unsigned 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3444,6 +3558,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic Exchange with i32</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3457,6 +3572,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic Exchange with u8</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3470,6 +3586,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic Exchange with u16</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3483,6 +3600,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic Compare and Exchange with i32</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3497,6 +3615,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic Compare and Exchange with u8</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3511,6 +3630,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i32 atomic Compare and Exchange with u16</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3525,6 +3645,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
     <span class="doccomment">/// emit a move function address to GPR ready for call, using appropriate relocation</span>
@@ -3745,6 +3866,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 load of an unsigned 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3757,6 +3879,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 load of an signed 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3769,6 +3892,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 load of an unsigned 32bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3781,6 +3905,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 load of an signed 32bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3793,6 +3918,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 load of an signed 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3805,6 +3931,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 load of an signed 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3817,6 +3944,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic load</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3829,6 +3957,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic load from unsigned 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3841,6 +3970,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic load from unsigned 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3853,6 +3983,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic load from unsigned 32bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3865,6 +3996,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 save</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3877,6 +4009,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 save of the lower 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3889,6 +4022,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 save of the lower 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3901,6 +4035,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 save of the lower 32bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3913,6 +4048,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic save</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3925,6 +4061,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic save of a the lower 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3937,6 +4074,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic save of a the lower 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3949,6 +4087,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic save of a the lower 32bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3961,6 +4100,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Add with i64</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3974,6 +4114,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Add with unsigned 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -3987,6 +4128,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Add with unsigned 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4000,6 +4142,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Add with unsigned 32bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4013,6 +4156,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Sub with i64</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4026,6 +4170,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Sub with unsigned 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4039,6 +4184,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Sub with unsigned 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4052,6 +4198,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Sub with unsigned 32bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4065,6 +4212,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic And with i64</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4078,6 +4226,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic And with unsigned 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4091,6 +4240,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic And with unsigned 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4104,6 +4254,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic And with unsigned 32bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4117,6 +4268,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Or with i64</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4130,6 +4282,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Or with unsigned 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4143,6 +4296,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Or with unsigned 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4156,6 +4310,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Or with unsigned 32bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4169,6 +4324,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Xor with i64</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4182,6 +4338,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Xor with unsigned 8bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4195,6 +4352,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Xor with unsigned 16bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4208,6 +4366,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Xor with unsigned 32bits</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4221,6 +4380,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Exchange with i64</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4234,6 +4394,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Exchange with u8</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4247,6 +4408,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Exchange with u16</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4260,6 +4422,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Exchange with u32</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4273,6 +4436,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Compare and Exchange with i32</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4287,6 +4451,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Compare and Exchange with u8</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4301,6 +4466,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Compare and Exchange with u16</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4315,6 +4481,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// i64 atomic Compare and Exchange with u32</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4329,6 +4496,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 
     <span class="doccomment">/// load an F32</span>
@@ -4342,6 +4510,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// f32 save</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4355,6 +4524,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// load an F64</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4367,6 +4537,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// f64 save</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::too_many_arguments</span>)]</span>
@@ -4380,6 +4551,7 @@
         <span class="ident">imported_memories</span>: <span class="ident">bool</span>,
         <span class="ident">offset</span>: <span class="ident">i32</span>,
         <span class="ident">heap_access_oob</span>: <span class="ident">Label</span>,
+        <span class="ident">unaligned_atomic</span>: <span class="ident">Label</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span>;
     <span class="doccomment">/// Convert a F64 from I64, signed or unsigned</span>
     <span class="kw">fn</span> <span class="ident">convert_f64_i64</span>(

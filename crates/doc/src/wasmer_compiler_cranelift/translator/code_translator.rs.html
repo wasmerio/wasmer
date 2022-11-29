@@ -3026,6 +3026,41 @@
 <span id="3020">3020</span>
 <span id="3021">3021</span>
 <span id="3022">3022</span>
+<span id="3023">3023</span>
+<span id="3024">3024</span>
+<span id="3025">3025</span>
+<span id="3026">3026</span>
+<span id="3027">3027</span>
+<span id="3028">3028</span>
+<span id="3029">3029</span>
+<span id="3030">3030</span>
+<span id="3031">3031</span>
+<span id="3032">3032</span>
+<span id="3033">3033</span>
+<span id="3034">3034</span>
+<span id="3035">3035</span>
+<span id="3036">3036</span>
+<span id="3037">3037</span>
+<span id="3038">3038</span>
+<span id="3039">3039</span>
+<span id="3040">3040</span>
+<span id="3041">3041</span>
+<span id="3042">3042</span>
+<span id="3043">3043</span>
+<span id="3044">3044</span>
+<span id="3045">3045</span>
+<span id="3046">3046</span>
+<span id="3047">3047</span>
+<span id="3048">3048</span>
+<span id="3049">3049</span>
+<span id="3050">3050</span>
+<span id="3051">3051</span>
+<span id="3052">3052</span>
+<span id="3053">3053</span>
+<span id="3054">3054</span>
+<span id="3055">3055</span>
+<span id="3056">3056</span>
+<span id="3057">3057</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -4091,15 +4126,26 @@
             <span class="macro">assert!</span>(<span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">value_type</span>(<span class="ident">expected</span>) <span class="op">==</span> <span class="ident">implied_ty</span>);
             <span class="comment">// `fn translate_atomic_wait` can inspect the type of `expected` to figure out what</span>
             <span class="comment">// code it needs to generate, if it wants.</span>
-            <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">translate_atomic_wait</span>(
+            <span class="kw">match</span> <span class="ident">environ</span>.<span class="ident">translate_atomic_wait</span>(
                 <span class="ident">builder</span>.<span class="ident">cursor</span>(),
                 <span class="ident">heap_index</span>,
                 <span class="ident">heap</span>,
                 <span class="ident">addr</span>,
                 <span class="ident">expected</span>,
                 <span class="ident">timeout</span>,
-            )<span class="question-mark">?</span>;
-            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
+            ) {
+                <span class="prelude-val">Ok</span>(<span class="ident">res</span>) =&gt; {
+                    <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
+                }
+                <span class="prelude-val">Err</span>(<span class="ident">wasmer_types::WasmError::Unsupported</span>(<span class="ident">_err</span>)) =&gt; {
+                    <span class="comment">// If multiple threads hit a mutex then the function will fail</span>
+                    <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">trap</span>(<span class="ident">ir::TrapCode::UnreachableCodeReached</span>);
+                    <span class="ident">state</span>.<span class="ident">reachable</span> <span class="op">=</span> <span class="bool-val">false</span>;
+                }
+                <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
+                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>);
+                }
+            };
         }
         <span class="ident">Operator::MemoryAtomicNotify</span> { <span class="ident">memarg</span> } =&gt; {
             <span class="kw">let</span> <span class="ident">heap_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memarg</span>.<span class="ident">memory</span>);
@@ -4107,9 +4153,20 @@
             <span class="kw">let</span> <span class="ident">count</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>(); <span class="comment">// 32 (fixed)</span>
             <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>(); <span class="comment">// 32 (fixed)</span>
             <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">fold_atomic_mem_addr</span>(<span class="ident">addr</span>, <span class="ident">memarg</span>, <span class="ident">I32</span>, <span class="ident">builder</span>);
-            <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span>
-                <span class="ident">environ</span>.<span class="ident">translate_atomic_notify</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">heap_index</span>, <span class="ident">heap</span>, <span class="ident">addr</span>, <span class="ident">count</span>)<span class="question-mark">?</span>;
-            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
+            <span class="kw">match</span> <span class="ident">environ</span>.<span class="ident">translate_atomic_notify</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">heap_index</span>, <span class="ident">heap</span>, <span class="ident">addr</span>, <span class="ident">count</span>) {
+                <span class="prelude-val">Ok</span>(<span class="ident">res</span>) =&gt; {
+                    <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
+                }
+                <span class="prelude-val">Err</span>(<span class="ident">wasmer_types::WasmError::Unsupported</span>(<span class="ident">_err</span>)) =&gt; {
+                    <span class="comment">// Simple return a zero as this function is needed for the __wasi_init_memory function</span>
+                    <span class="comment">// but the equivalent notify.wait will not be called (as only one thread calls __start)</span>
+                    <span class="comment">// hence these atomic operations are not needed</span>
+                    <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">iconst</span>(<span class="ident">I32</span>, <span class="ident">i64::from</span>(<span class="number">0</span>)));
+                }
+                <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
+                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>);
+                }
+            };
         }
         <span class="ident">Operator::I32AtomicLoad</span> { <span class="ident">memarg</span> } =&gt; {
             <span class="ident">translate_atomic_load</span>(<span class="ident">I32</span>, <span class="ident">I32</span>, <span class="ident">memarg</span>, <span class="ident">builder</span>, <span class="ident">state</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>
@@ -5414,11 +5471,24 @@
     <span class="ident">state</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FuncTranslationState</span>,
     <span class="ident">environ</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FE</span>,
 ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span> {
-    <span class="comment">// Check the alignment of `linear_mem_addr`.</span>
     <span class="kw">let</span> <span class="ident">access_ty_bytes</span> <span class="op">=</span> <span class="ident">access_ty</span>.<span class="ident">bytes</span>();
-    <span class="kw">let</span> <span class="ident">final_lma</span> <span class="op">=</span> <span class="ident">builder</span>
-        .<span class="ident">ins</span>()
-        .<span class="ident">iadd_imm</span>(<span class="ident">linear_mem_addr</span>, <span class="ident">memarg</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">i64</span>);
+    <span class="kw">let</span> <span class="ident">final_lma</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">memarg</span>.<span class="ident">offset</span> <span class="op">&gt;</span> <span class="number">0</span> {
+        <span class="macro">assert!</span>(<span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">value_type</span>(<span class="ident">linear_mem_addr</span>) <span class="op">==</span> <span class="ident">I32</span>);
+        <span class="kw">let</span> <span class="ident">linear_mem_addr</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">uextend</span>(<span class="ident">I64</span>, <span class="ident">linear_mem_addr</span>);
+        <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">builder</span>
+            .<span class="ident">ins</span>()
+            .<span class="ident">iadd_imm</span>(<span class="ident">linear_mem_addr</span>, <span class="ident">memarg</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">i64</span>);
+        <span class="kw">let</span> <span class="ident">cflags</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ifcmp_imm</span>(<span class="ident">a</span>, <span class="number">0x1_0000_0000i64</span>);
+        <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">trapif</span>(
+            <span class="ident">IntCC::UnsignedGreaterThanOrEqual</span>,
+            <span class="ident">cflags</span>,
+            <span class="ident">ir::TrapCode::HeapOutOfBounds</span>,
+        );
+        <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ireduce</span>(<span class="ident">I32</span>, <span class="ident">a</span>)
+    } <span class="kw">else</span> {
+        <span class="ident">linear_mem_addr</span>
+    };
+    <span class="comment">// Check the alignment of `linear_mem_addr`.</span>
     <span class="kw">if</span> <span class="ident">access_ty_bytes</span> <span class="op">!</span><span class="op">=</span> <span class="number">1</span> {
         <span class="macro">assert!</span>(<span class="ident">access_ty_bytes</span> <span class="op">==</span> <span class="number">2</span> <span class="op">|</span><span class="op">|</span> <span class="ident">access_ty_bytes</span> <span class="op">==</span> <span class="number">4</span> <span class="op">|</span><span class="op">|</span> <span class="ident">access_ty_bytes</span> <span class="op">==</span> <span class="number">8</span>);
         <span class="kw">let</span> <span class="ident">final_lma_misalignment</span> <span class="op">=</span> <span class="ident">builder</span>

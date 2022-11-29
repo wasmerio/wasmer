@@ -172,6 +172,30 @@
 <span id="166">166</span>
 <span id="167">167</span>
 <span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">enum_iterator::IntoEnumIterator</span>;
 <span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
@@ -289,6 +313,24 @@
     <span class="doccomment">/// probe for stack overflow. These are emitted for functions which need</span>
     <span class="doccomment">/// when the `enable_probestack` setting is true.</span>
     <span class="ident">Probestack</span>,
+
+    <span class="doccomment">/// memory.atomic.wait32 for local memories</span>
+    <span class="ident">Memory32AtomicWait32</span>,
+
+    <span class="doccomment">/// memory.atomic.wait32 for imported memories</span>
+    <span class="ident">ImportedMemory32AtomicWait32</span>,
+
+    <span class="doccomment">/// memory.atomic.wait64 for local memories</span>
+    <span class="ident">Memory32AtomicWait64</span>,
+
+    <span class="doccomment">/// memory.atomic.wait64 for imported memories</span>
+    <span class="ident">ImportedMemory32AtomicWait64</span>,
+
+    <span class="doccomment">/// memory.atomic.notify for local memories</span>
+    <span class="ident">Memory32AtomicNotify</span>,
+
+    <span class="doccomment">/// memory.atomic.botify for imported memories</span>
+    <span class="ident">ImportedMemory32AtomicNotify</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">LibCall</span> {
@@ -331,6 +373,12 @@
             <span class="ident"><span class="self">Self</span>::Probestack</span> =&gt; <span class="string">&quot;_wasmer_vm_probestack&quot;</span>,
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_vendor</span> <span class="op">=</span> <span class="string">&quot;apple&quot;</span>))]</span>
             <span class="ident"><span class="self">Self</span>::Probestack</span> =&gt; <span class="string">&quot;wasmer_vm_probestack&quot;</span>,
+            <span class="ident"><span class="self">Self</span>::Memory32AtomicWait32</span> =&gt; <span class="string">&quot;wasmer_vm_memory32_atomic_wait32&quot;</span>,
+            <span class="ident"><span class="self">Self</span>::ImportedMemory32AtomicWait32</span> =&gt; <span class="string">&quot;wasmer_vm_imported_memory32_atomic_wait32&quot;</span>,
+            <span class="ident"><span class="self">Self</span>::Memory32AtomicWait64</span> =&gt; <span class="string">&quot;wasmer_vm_memory32_atomic_wait64&quot;</span>,
+            <span class="ident"><span class="self">Self</span>::ImportedMemory32AtomicWait64</span> =&gt; <span class="string">&quot;wasmer_vm_imported_memory32_atomic_wait64&quot;</span>,
+            <span class="ident"><span class="self">Self</span>::Memory32AtomicNotify</span> =&gt; <span class="string">&quot;wasmer_vm_memory32_atomic_notify&quot;</span>,
+            <span class="ident"><span class="self">Self</span>::ImportedMemory32AtomicNotify</span> =&gt; <span class="string">&quot;wasmer_vm_imported_memory32_atomic_notify&quot;</span>,
         }
     }
 }

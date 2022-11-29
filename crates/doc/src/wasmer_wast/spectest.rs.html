@@ -52,6 +52,10 @@
 <span id="46">46</span>
 <span id="47">47</span>
 <span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">wasmer</span>::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Return an instance implementing the &quot;spectest&quot; interface used in the</span>
@@ -82,6 +86,9 @@
     <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="ident">MemoryType::new</span>(<span class="number">1</span>, <span class="prelude-val">Some</span>(<span class="number">2</span>), <span class="bool-val">false</span>);
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">Memory::new</span>(<span class="ident">store</span>, <span class="ident">ty</span>).<span class="ident">unwrap</span>();
 
+    <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="ident">MemoryType::new</span>(<span class="number">1</span>, <span class="prelude-val">Some</span>(<span class="number">2</span>), <span class="bool-val">true</span>);
+    <span class="kw">let</span> <span class="ident">shared_memory</span> <span class="op">=</span> <span class="ident">Memory::new</span>(<span class="ident">store</span>, <span class="ident">ty</span>).<span class="ident">unwrap</span>();
+
     <span class="macro">imports!</span> {
         <span class="string">&quot;spectest&quot;</span> =&gt; {
             <span class="string">&quot;print&quot;</span> =&gt; <span class="ident">print</span>,
@@ -97,6 +104,7 @@
             <span class="string">&quot;global_f64&quot;</span> =&gt; <span class="ident">global_f64</span>,
             <span class="string">&quot;table&quot;</span> =&gt; <span class="ident">table</span>,
             <span class="string">&quot;memory&quot;</span> =&gt; <span class="ident">memory</span>,
+            <span class="string">&quot;shared_memory&quot;</span> =&gt; <span class="ident">shared_memory</span>,
         },
     }
 }

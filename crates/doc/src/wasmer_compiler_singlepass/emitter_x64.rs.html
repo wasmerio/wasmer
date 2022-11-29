@@ -2398,6 +2398,23 @@
 <span id="2392">2392</span>
 <span id="2393">2393</span>
 <span id="2394">2394</span>
+<span id="2395">2395</span>
+<span id="2396">2396</span>
+<span id="2397">2397</span>
+<span id="2398">2398</span>
+<span id="2399">2399</span>
+<span id="2400">2400</span>
+<span id="2401">2401</span>
+<span id="2402">2402</span>
+<span id="2403">2403</span>
+<span id="2404">2404</span>
+<span id="2405">2405</span>
+<span id="2406">2406</span>
+<span id="2407">2407</span>
+<span id="2408">2408</span>
+<span id="2409">2409</span>
+<span id="2410">2410</span>
+<span id="2411">2411</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::codegen_error</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl::Size</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
@@ -3842,6 +3859,9 @@
             (<span class="ident">Size::S16</span>, <span class="ident">Location::Memory</span>(<span class="ident">src</span>, <span class="ident">disp</span>), <span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">movzx</span> <span class="ident">Rd</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), <span class="ident">WORD</span> [<span class="ident">Rq</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">disp</span>]);
             }
+            (<span class="ident">Size::S16</span>, <span class="ident">Location::Imm32</span>(<span class="ident">imm</span>), <span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
+                <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">mov</span> <span class="ident">Rd</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), <span class="ident">imm</span> <span class="kw">as</span> <span class="ident">i32</span>);
+            }
             (<span class="ident">Size::S8</span>, <span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">movzx</span> <span class="ident">Rq</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), <span class="ident">Rb</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">u8</span>));
             }
@@ -3853,6 +3873,20 @@
             }
             (<span class="ident">Size::S16</span>, <span class="ident">Location::Memory</span>(<span class="ident">src</span>, <span class="ident">disp</span>), <span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">movzx</span> <span class="ident">Rq</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), <span class="ident">WORD</span> [<span class="ident">Rq</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">disp</span>]);
+            }
+            (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">src</span>), <span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
+                <span class="kw">if</span> <span class="ident">src</span> <span class="op">!</span><span class="op">=</span> <span class="ident">dst</span> {
+                    <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">mov</span> <span class="ident">Rd</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), <span class="ident">Rd</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">u8</span>));
+                }
+            }
+            (<span class="ident">Size::S32</span>, <span class="ident">Location::Memory</span>(<span class="ident">src</span>, <span class="ident">disp</span>), <span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
+                <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">mov</span> <span class="ident">Rd</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), <span class="ident">DWORD</span> [<span class="ident">Rq</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">disp</span>]);
+            }
+            (<span class="ident">Size::S32</span>, <span class="ident">Location::Imm64</span>(<span class="ident">imm</span>), <span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
+                <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">mov</span> <span class="ident">Rq</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), <span class="ident">imm</span> <span class="kw">as</span> <span class="ident">i32</span>);
+            }
+            (<span class="ident">Size::S16</span>, <span class="ident">Location::Imm64</span>(<span class="ident">imm</span>), <span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
+                <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">mov</span> <span class="ident">Rq</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), <span class="ident">imm</span> <span class="kw">as</span> <span class="ident">i32</span>);
             }
             <span class="kw">_</span> =&gt; {
                 <span class="macro">codegen_error!</span>(

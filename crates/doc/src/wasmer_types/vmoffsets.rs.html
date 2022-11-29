@@ -764,6 +764,30 @@
 <span id="758">758</span>
 <span id="759">759</span>
 <span id="760">760</span>
+<span id="761">761</span>
+<span id="762">762</span>
+<span id="763">763</span>
+<span id="764">764</span>
+<span id="765">765</span>
+<span id="766">766</span>
+<span id="767">767</span>
+<span id="768">768</span>
+<span id="769">769</span>
+<span id="770">770</span>
+<span id="771">771</span>
+<span id="772">772</span>
+<span id="773">773</span>
+<span id="774">774</span>
+<span id="775">775</span>
+<span id="776">776</span>
+<span id="777">777</span>
+<span id="778">778</span>
+<span id="779">779</span>
+<span id="780">780</span>
+<span id="781">781</span>
+<span id="782">782</span>
+<span id="783">783</span>
+<span id="784">784</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -881,9 +905,33 @@
     <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_table_fill_index</span>() -&gt; <span class="self">Self</span> {
         <span class="self">Self</span>(<span class="number">23</span>)
     }
+    <span class="doccomment">/// Returns an index for wasm&#39;s local `memory.atomic.wait32` builtin function.</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_memory_atomic_wait32_index</span>() -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span>(<span class="number">24</span>)
+    }
+    <span class="doccomment">/// Returns an index for wasm&#39;s imported `memory.atomic.wait32` builtin function.</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_imported_memory_atomic_wait32_index</span>() -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span>(<span class="number">25</span>)
+    }
+    <span class="doccomment">/// Returns an index for wasm&#39;s local `memory.atomic.wait64` builtin function.</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_memory_atomic_wait64_index</span>() -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span>(<span class="number">26</span>)
+    }
+    <span class="doccomment">/// Returns an index for wasm&#39;s imported `memory.atomic.wait64` builtin function.</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_imported_memory_atomic_wait64_index</span>() -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span>(<span class="number">27</span>)
+    }
+    <span class="doccomment">/// Returns an index for wasm&#39;s local `memory.atomic.notify` builtin function.</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_memory_atomic_notify_index</span>() -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span>(<span class="number">28</span>)
+    }
+    <span class="doccomment">/// Returns an index for wasm&#39;s imported `memory.atomic.notify` builtin function.</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">get_imported_memory_atomic_notify_index</span>() -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span>(<span class="number">29</span>)
+    }
     <span class="doccomment">/// Returns the total number of builtin functions.</span>
     <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">builtin_functions_total_number</span>() -&gt; <span class="ident">u32</span> {
-        <span class="number">24</span>
+        <span class="number">30</span>
     }
 
     <span class="doccomment">/// Return the index as an u32 number.</span>

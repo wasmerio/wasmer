@@ -11301,6 +11301,73 @@
 <span id="11293">11293</span>
 <span id="11294">11294</span>
 <span id="11295">11295</span>
+<span id="11296">11296</span>
+<span id="11297">11297</span>
+<span id="11298">11298</span>
+<span id="11299">11299</span>
+<span id="11300">11300</span>
+<span id="11301">11301</span>
+<span id="11302">11302</span>
+<span id="11303">11303</span>
+<span id="11304">11304</span>
+<span id="11305">11305</span>
+<span id="11306">11306</span>
+<span id="11307">11307</span>
+<span id="11308">11308</span>
+<span id="11309">11309</span>
+<span id="11310">11310</span>
+<span id="11311">11311</span>
+<span id="11312">11312</span>
+<span id="11313">11313</span>
+<span id="11314">11314</span>
+<span id="11315">11315</span>
+<span id="11316">11316</span>
+<span id="11317">11317</span>
+<span id="11318">11318</span>
+<span id="11319">11319</span>
+<span id="11320">11320</span>
+<span id="11321">11321</span>
+<span id="11322">11322</span>
+<span id="11323">11323</span>
+<span id="11324">11324</span>
+<span id="11325">11325</span>
+<span id="11326">11326</span>
+<span id="11327">11327</span>
+<span id="11328">11328</span>
+<span id="11329">11329</span>
+<span id="11330">11330</span>
+<span id="11331">11331</span>
+<span id="11332">11332</span>
+<span id="11333">11333</span>
+<span id="11334">11334</span>
+<span id="11335">11335</span>
+<span id="11336">11336</span>
+<span id="11337">11337</span>
+<span id="11338">11338</span>
+<span id="11339">11339</span>
+<span id="11340">11340</span>
+<span id="11341">11341</span>
+<span id="11342">11342</span>
+<span id="11343">11343</span>
+<span id="11344">11344</span>
+<span id="11345">11345</span>
+<span id="11346">11346</span>
+<span id="11347">11347</span>
+<span id="11348">11348</span>
+<span id="11349">11349</span>
+<span id="11350">11350</span>
+<span id="11351">11351</span>
+<span id="11352">11352</span>
+<span id="11353">11353</span>
+<span id="11354">11354</span>
+<span id="11355">11355</span>
+<span id="11356">11356</span>
+<span id="11357">11357</span>
+<span id="11358">11358</span>
+<span id="11359">11359</span>
+<span id="11360">11360</span>
+<span id="11361">11361</span>
+<span id="11362">11362</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::{
     <span class="ident">intrinsics</span>::{
         <span class="ident">tbaa_label</span>, <span class="ident">type_to_llvm</span>, <span class="ident">CtxType</span>, <span class="ident">FunctionCache</span>, <span class="ident">GlobalCache</span>, <span class="ident">Intrinsics</span>, <span class="ident">MemoryCache</span>,
@@ -12477,8 +12544,10 @@
             .<span class="ident">into_pointer_value</span>())
     }
 
-    <span class="kw">fn</span> <span class="ident">trap_if_misaligned</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">memarg</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryImmediate</span>, <span class="ident">ptr</span>: <span class="ident">PointerValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>) {
-        <span class="kw">let</span> <span class="ident">align</span> <span class="op">=</span> <span class="ident">memarg</span>.<span class="ident">align</span>;
+    <span class="kw">fn</span> <span class="ident">trap_if_misaligned</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_memarg</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryImmediate</span>, <span class="ident">ptr</span>: <span class="ident">PointerValue</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">align</span>: <span class="ident">u8</span>) {
+        <span class="kw">if</span> <span class="ident">align</span> <span class="op">&lt;</span><span class="op">=</span> <span class="number">1</span> {
+            <span class="kw">return</span>;
+        }
         <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">builder</span>
             .<span class="ident">build_ptr_to_int</span>(<span class="ident">ptr</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i64_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -20265,7 +20334,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">4</span>);
                 <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_load</span>(<span class="ident">effective_address</span>, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let</span> <span class="ident">load</span> <span class="op">=</span> <span class="ident">result</span>.<span class="ident">as_instruction_value</span>().<span class="ident">unwrap</span>();
                 <span class="self">self</span>.<span class="ident">annotate_user_memaccess</span>(<span class="ident">memory_index</span>, <span class="ident">memarg</span>, <span class="number">4</span>, <span class="ident">load</span>)<span class="question-mark">?</span>;
@@ -20283,7 +20352,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">8</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">8</span>);
                 <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_load</span>(<span class="ident">effective_address</span>, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let</span> <span class="ident">load</span> <span class="op">=</span> <span class="ident">result</span>.<span class="ident">as_instruction_value</span>().<span class="ident">unwrap</span>();
                 <span class="self">self</span>.<span class="ident">annotate_user_memaccess</span>(<span class="ident">memory_index</span>, <span class="ident">memarg</span>, <span class="number">8</span>, <span class="ident">load</span>)<span class="question-mark">?</span>;
@@ -20301,7 +20370,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">1</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">1</span>);
                 <span class="kw">let</span> <span class="ident">narrow_result</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_load</span>(<span class="ident">effective_address</span>, <span class="string">&quot;&quot;</span>)
@@ -20325,7 +20394,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">2</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">2</span>);
                 <span class="kw">let</span> <span class="ident">narrow_result</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_load</span>(<span class="ident">effective_address</span>, <span class="string">&quot;&quot;</span>)
@@ -20349,7 +20418,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">1</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">1</span>);
                 <span class="kw">let</span> <span class="ident">narrow_result</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_load</span>(<span class="ident">effective_address</span>, <span class="string">&quot;&quot;</span>)
@@ -20373,7 +20442,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">2</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">2</span>);
                 <span class="kw">let</span> <span class="ident">narrow_result</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_load</span>(<span class="ident">effective_address</span>, <span class="string">&quot;&quot;</span>)
@@ -20397,7 +20466,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">4</span>);
                 <span class="kw">let</span> <span class="ident">narrow_result</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_load</span>(<span class="ident">effective_address</span>, <span class="string">&quot;&quot;</span>)
@@ -20422,7 +20491,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">4</span>);
                 <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_store</span>(<span class="ident">effective_address</span>, <span class="ident">value</span>);
                 <span class="self">self</span>.<span class="ident">annotate_user_memaccess</span>(<span class="ident">memory_index</span>, <span class="ident">memarg</span>, <span class="number">4</span>, <span class="ident">store</span>)<span class="question-mark">?</span>;
                 <span class="ident">store</span>
@@ -20440,7 +20509,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">8</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">8</span>);
                 <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_store</span>(<span class="ident">effective_address</span>, <span class="ident">value</span>);
                 <span class="self">self</span>.<span class="ident">annotate_user_memaccess</span>(<span class="ident">memory_index</span>, <span class="ident">memarg</span>, <span class="number">8</span>, <span class="ident">store</span>)<span class="question-mark">?</span>;
                 <span class="ident">store</span>
@@ -20458,7 +20527,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">1</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">1</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i8_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -20480,7 +20549,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">2</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">2</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i16_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -20501,7 +20570,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">4</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -20522,7 +20591,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">1</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">1</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i8_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -20557,7 +20626,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">2</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">2</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i16_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -20592,7 +20661,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">4</span>);
                 <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_atomicrmw</span>(
@@ -20621,7 +20690,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">1</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">1</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i8_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -20656,7 +20725,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">2</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">2</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i16_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -20691,7 +20760,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">4</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -20726,7 +20795,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">8</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">8</span>);
                 <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_atomicrmw</span>(
@@ -20755,7 +20824,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">1</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">1</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i8_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -20790,7 +20859,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">2</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">2</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i16_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -20825,7 +20894,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">4</span>);
                 <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_atomicrmw</span>(
@@ -20854,7 +20923,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">1</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">1</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i8_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -20889,7 +20958,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">2</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">2</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i16_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -20924,7 +20993,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">4</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -20959,7 +21028,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">8</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">8</span>);
                 <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_atomicrmw</span>(
@@ -20988,7 +21057,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">1</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">1</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i8_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21023,7 +21092,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">2</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">2</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i16_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21058,7 +21127,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">4</span>);
                 <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_atomicrmw</span>(
@@ -21087,7 +21156,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">1</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">1</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i8_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21122,7 +21191,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">2</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">2</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i16_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21157,7 +21226,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">4</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21192,7 +21261,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">8</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">8</span>);
                 <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_atomicrmw</span>(
@@ -21221,7 +21290,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">1</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">1</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i8_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21256,7 +21325,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">2</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">2</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i16_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21291,7 +21360,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">4</span>);
                 <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_atomicrmw</span>(
@@ -21323,7 +21392,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">1</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">1</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i8_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21358,7 +21427,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">2</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">2</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i16_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21393,7 +21462,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">4</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21428,7 +21497,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">8</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">8</span>);
                 <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_atomicrmw</span>(
@@ -21457,7 +21526,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">1</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">2</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i8_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21492,7 +21561,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">2</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">2</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i16_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21527,7 +21596,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">4</span>);
                 <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_atomicrmw</span>(
@@ -21556,7 +21625,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">1</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">1</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i8_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21591,7 +21660,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">2</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">2</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i16_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21626,7 +21695,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">4</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21661,7 +21730,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">8</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">8</span>);
                 <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_atomicrmw</span>(
@@ -21690,7 +21759,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">1</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">1</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i8_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21725,7 +21794,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">2</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">2</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i16_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21760,7 +21829,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">4</span>);
                 <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_atomicrmw</span>(
@@ -21789,7 +21858,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">1</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">1</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i8_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21824,7 +21893,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">2</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">2</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i16_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21859,7 +21928,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">4</span>);
                 <span class="kw">let</span> <span class="ident">narrow_value</span> <span class="op">=</span>
                     <span class="self">self</span>.<span class="ident">builder</span>
                         .<span class="ident">build_int_truncate</span>(<span class="ident">value</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21894,7 +21963,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">8</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">8</span>);
                 <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_atomicrmw</span>(
@@ -21926,7 +21995,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">1</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">1</span>);
                 <span class="kw">let</span> <span class="ident">narrow_cmp</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_int_truncate</span>(<span class="ident">cmp</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i8_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -21973,7 +22042,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">2</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">2</span>);
                 <span class="kw">let</span> <span class="ident">narrow_cmp</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_int_truncate</span>(<span class="ident">cmp</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i16_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -22020,7 +22089,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">4</span>);
                 <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_cmpxchg</span>(
@@ -22054,7 +22123,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">1</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">1</span>);
                 <span class="kw">let</span> <span class="ident">narrow_cmp</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_int_truncate</span>(<span class="ident">cmp</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i8_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -22101,7 +22170,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">2</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">2</span>);
                 <span class="kw">let</span> <span class="ident">narrow_cmp</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_int_truncate</span>(<span class="ident">cmp</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i16_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -22148,7 +22217,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">4</span>);
                 <span class="kw">let</span> <span class="ident">narrow_cmp</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_int_truncate</span>(<span class="ident">cmp</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>, <span class="string">&quot;&quot;</span>);
@@ -22195,7 +22264,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     <span class="ident">offset</span>,
                     <span class="number">8</span>,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>);
+                <span class="self">self</span>.<span class="ident">trap_if_misaligned</span>(<span class="ident">memarg</span>, <span class="ident">effective_address</span>, <span class="number">8</span>);
                 <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> <span class="self">self</span>
                     .<span class="ident">builder</span>
                     .<span class="ident">build_cmpxchg</span>(
@@ -22533,6 +22602,71 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     .<span class="ident">left</span>()
                     .<span class="ident">unwrap</span>();
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">size</span>);
+            }
+            <span class="ident">Operator::MemoryAtomicWait32</span> { <span class="ident">memarg</span> } =&gt; {
+                <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memarg</span>.<span class="ident">memory</span>);
+                <span class="kw">let</span> (<span class="ident">dst</span>, <span class="ident">val</span>, <span class="ident">timeout</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop3</span>()<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">wait32_fn_ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ctx</span>.<span class="ident">memory_wait32</span>(<span class="ident">memory_index</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>);
+                <span class="kw">let</span> <span class="ident">callable_func</span> <span class="op">=</span>
+                    <span class="ident">inkwell::values::CallableValue::try_from</span>(<span class="ident">wait32_fn_ptr</span>).<span class="ident">unwrap</span>();
+                <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_call</span>(
+                    <span class="ident">callable_func</span>,
+                    <span class="kw-2">&amp;</span>[
+                        <span class="ident">vmctx</span>.<span class="ident">as_basic_value_enum</span>().<span class="ident">into</span>(),
+                        <span class="self">self</span>.<span class="ident">intrinsics</span>
+                            .<span class="ident">i32_ty</span>
+                            .<span class="ident">const_int</span>(<span class="ident">memarg</span>.<span class="ident">memory</span> <span class="kw">as</span> <span class="ident">u64</span>, <span class="bool-val">false</span>)
+                            .<span class="ident">into</span>(),
+                        <span class="ident">dst</span>.<span class="ident">into</span>(),
+                        <span class="ident">val</span>.<span class="ident">into</span>(),
+                        <span class="ident">timeout</span>.<span class="ident">into</span>(),
+                    ],
+                    <span class="string">&quot;&quot;</span>,
+                );
+                <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">ret</span>.<span class="ident">try_as_basic_value</span>().<span class="ident">left</span>().<span class="ident">unwrap</span>());
+            }
+            <span class="ident">Operator::MemoryAtomicWait64</span> { <span class="ident">memarg</span> } =&gt; {
+                <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memarg</span>.<span class="ident">memory</span>);
+                <span class="kw">let</span> (<span class="ident">dst</span>, <span class="ident">val</span>, <span class="ident">timeout</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop3</span>()<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">wait64_fn_ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ctx</span>.<span class="ident">memory_wait64</span>(<span class="ident">memory_index</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>);
+                <span class="kw">let</span> <span class="ident">callable_func</span> <span class="op">=</span>
+                    <span class="ident">inkwell::values::CallableValue::try_from</span>(<span class="ident">wait64_fn_ptr</span>).<span class="ident">unwrap</span>();
+                <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_call</span>(
+                    <span class="ident">callable_func</span>,
+                    <span class="kw-2">&amp;</span>[
+                        <span class="ident">vmctx</span>.<span class="ident">as_basic_value_enum</span>().<span class="ident">into</span>(),
+                        <span class="self">self</span>.<span class="ident">intrinsics</span>
+                            .<span class="ident">i32_ty</span>
+                            .<span class="ident">const_int</span>(<span class="ident">memarg</span>.<span class="ident">memory</span> <span class="kw">as</span> <span class="ident">u64</span>, <span class="bool-val">false</span>)
+                            .<span class="ident">into</span>(),
+                        <span class="ident">dst</span>.<span class="ident">into</span>(),
+                        <span class="ident">val</span>.<span class="ident">into</span>(),
+                        <span class="ident">timeout</span>.<span class="ident">into</span>(),
+                    ],
+                    <span class="string">&quot;&quot;</span>,
+                );
+                <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">ret</span>.<span class="ident">try_as_basic_value</span>().<span class="ident">left</span>().<span class="ident">unwrap</span>());
+            }
+            <span class="ident">Operator::MemoryAtomicNotify</span> { <span class="ident">memarg</span> } =&gt; {
+                <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::from_u32</span>(<span class="ident">memarg</span>.<span class="ident">memory</span>);
+                <span class="kw">let</span> (<span class="ident">dst</span>, <span class="ident">count</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop2</span>()<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">notify_fn_ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ctx</span>.<span class="ident">memory_notify</span>(<span class="ident">memory_index</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>);
+                <span class="kw">let</span> <span class="ident">callable_func</span> <span class="op">=</span>
+                    <span class="ident">inkwell::values::CallableValue::try_from</span>(<span class="ident">notify_fn_ptr</span>).<span class="ident">unwrap</span>();
+                <span class="kw">let</span> <span class="ident">cnt</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_call</span>(
+                    <span class="ident">callable_func</span>,
+                    <span class="kw-2">&amp;</span>[
+                        <span class="ident">vmctx</span>.<span class="ident">as_basic_value_enum</span>().<span class="ident">into</span>(),
+                        <span class="self">self</span>.<span class="ident">intrinsics</span>
+                            .<span class="ident">i32_ty</span>
+                            .<span class="ident">const_int</span>(<span class="ident">memarg</span>.<span class="ident">memory</span> <span class="kw">as</span> <span class="ident">u64</span>, <span class="bool-val">false</span>)
+                            .<span class="ident">into</span>(),
+                        <span class="ident">dst</span>.<span class="ident">into</span>(),
+                        <span class="ident">count</span>.<span class="ident">into</span>(),
+                    ],
+                    <span class="string">&quot;&quot;</span>,
+                );
+                <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">cnt</span>.<span class="ident">try_as_basic_value</span>().<span class="ident">left</span>().<span class="ident">unwrap</span>());
             }
             <span class="kw">_</span> =&gt; {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(
