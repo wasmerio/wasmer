@@ -1,5 +1,7 @@
 #[cfg(test)]
 use std::error::Error;
+#[cfg(test)]
+use std::process::Stdio;
 
 #[cfg(test)]
 static INCLUDE_REGEX: &str = "#include \"(.*)\"";
@@ -278,6 +280,9 @@ fn test_ok() {
             println!("compile: {command:#?}");
             // compile
             let output = command
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::inherit())
+                .current_dir(find_wasmer_base_dir())
                 .output()
                 .expect(&format!("failed to compile {command:#?}"));
             if !output.status.success() {
@@ -317,6 +322,14 @@ fn print_wasmer_root_to_stdout(config: &Config) {
 
     use walkdir::WalkDir;
 
+    println!(
+        "wasmer dir: {}",
+        std::path::Path::new(&config.wasmer_dir)
+            .canonicalize()
+            .unwrap()
+            .display()
+    );
+
     for entry in WalkDir::new(&config.wasmer_dir)
         .into_iter()
         .filter_map(Result::ok)
@@ -324,6 +337,14 @@ fn print_wasmer_root_to_stdout(config: &Config) {
         let f_name = String::from(entry.path().canonicalize().unwrap().to_string_lossy());
         println!("{f_name}");
     }
+
+    println!(
+        "root dir: {}",
+        std::path::Path::new(&config.root_dir)
+            .canonicalize()
+            .unwrap()
+            .display()
+    );
 
     for entry in WalkDir::new(&config.root_dir)
         .into_iter()
