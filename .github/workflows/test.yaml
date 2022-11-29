@@ -17,7 +17,7 @@ jobs:
 
   setup:
     name: Set up
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-8-cores
     outputs:
       VERSION: ${{ steps.setup.outputs.VERSION }}
       DOING_RELEASE: ${{ steps.setup.outputs.DOING_RELEASE }}
@@ -35,7 +35,7 @@ jobs:
 
   lint:
     name: Code lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-8-cores
     steps:
       - uses: actions/checkout@v3
       - name: Install Rust
@@ -67,14 +67,14 @@ jobs:
 
   cargo_deny:
     name: cargo-deny
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-8-cores
     steps:
       - uses: actions/checkout@v3
       - uses: EmbarkStudios/cargo-deny-action@v1
 
   test_nodejs:
     name: Test on NodeJS
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-8-cores
     steps:
       - uses: actions/checkout@v3
       - name: Install Rust
@@ -97,7 +97,7 @@ jobs:
 
   test_wasm_build:
     name: Test wasm build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-8-cores
     steps:
       - uses: actions/checkout@v2
       - run: |
@@ -113,7 +113,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-18.04
+            os: ubuntu-latest-8-cores
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -124,13 +124,13 @@ jobs:
             os: macos-11.0
             target: aarch64-apple-darwin
           - build: windows-x64
-            os: windows-2019
+            os: windows-latest-8-cores
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-latest-8-cores
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -219,7 +219,7 @@ jobs:
 
   build_wasmer_linux_aarch64:
     name: Build wasmer on linux aarch64
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-8-cores
     steps:
       - uses: actions/checkout@v2
       - uses: dtolnay/rust-toolchain@stable
@@ -244,7 +244,7 @@ jobs:
 
   build_capi_linux_aarch64:
     name: Build C-API on linux aarch64
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-8-cores
     steps:
       - uses: actions/checkout@v2
       - uses: dtolnay/rust-toolchain@stable
@@ -269,7 +269,7 @@ jobs:
 
   build_capi_windows_gnu:
     name: Windows GNU
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest-8-cores
     steps:
       - uses: actions/checkout@v2
       - name: Install Windows-GNU linker
@@ -323,7 +323,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-18.04
+            os: ubuntu-latest-8-cores
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -334,13 +334,13 @@ jobs:
             os: macos-11.0
             target: aarch64-apple-darwin
           - build: windows-x64
-            os: windows-2019
+            os: windows-latest-8-cores
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-latest-8-cores
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -477,7 +477,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-18.04
+            os: ubuntu-latest-8-cores
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -485,13 +485,13 @@ jobs:
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
           - build: windows-x64
-            os: windows-2019
+            os: windows-latest-8-cores
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-latest-8-cores
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -582,7 +582,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-18.04
+            os: ubuntu-latest-8-cores
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -590,13 +590,13 @@ jobs:
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
           - build: windows-x64
-            os: windows-2019
+            os: windows-latest-8-cores
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-latest-8-cores
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -679,7 +679,7 @@ jobs:
         run: |
           make untar-wasmer
       - name: Test integration CLI
-        if: matrix.os != 'windows-2019'
+        if: matrix.os != 'windows-latest-8-cores'
         shell: bash
         run: |
           export WASMER_DIR=`pwd`/package && make test-integration-cli
@@ -699,7 +699,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-18.04
+            os: ubuntu-latest-8-cores
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -707,13 +707,13 @@ jobs:
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
           - build: windows-x64
-            os: windows-2019
+            os: windows-latest-8-cores
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-latest-8-cores
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -842,7 +842,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-18.04
+            os: ubuntu-latest-8-cores
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -850,13 +850,13 @@ jobs:
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
           - build: windows-x64
-            os: windows-2019
+            os: windows-latest-8-cores
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-latest-8-cores
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -996,7 +996,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-18.04
+            os: ubuntu-latest-8-cores
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -1004,13 +1004,13 @@ jobs:
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
           - build: windows-x64
-            os: windows-2019
+            os: windows-latest-8-cores
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-latest-8-cores
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -1139,7 +1139,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-18.04
+            os: ubuntu-latest-8-cores
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -1147,13 +1147,13 @@ jobs:
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
           - build: windows-x64
-            os: windows-2019
+            os: windows-latest-8-cores
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-latest-8-cores
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -1282,7 +1282,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-18.04
+            os: ubuntu-latest-8-cores
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -1290,13 +1290,13 @@ jobs:
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
           - build: windows-x64
-            os: windows-2019
+            os: windows-latest-8-cores
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-latest-8-cores
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -1425,7 +1425,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-18.04
+            os: ubuntu-latest-8-cores
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -1433,13 +1433,13 @@ jobs:
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
           - build: windows-x64
-            os: windows-2019
+            os: windows-latest-8-cores
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-latest-8-cores
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -1568,7 +1568,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-18.04
+            os: ubuntu-latest-8-cores
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -1576,13 +1576,13 @@ jobs:
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
           - build: windows-x64
-            os: windows-2019
+            os: windows-latest-8-cores
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
           - build: linux-musl-x64
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-latest-8-cores
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
