@@ -305,19 +305,19 @@
 (assert_trap (invoke "call" (i32.const 3)) "uninitialized element")
 (assert_trap (invoke "call" (i32.const 100)) "undefined element")
 
-
-(assert_invalid
-  (module (import "" "" (table 10 funcref)) (import "" "" (table 10 funcref)))
-  "multiple tables"
-)
-(assert_invalid
-  (module (import "" "" (table 10 funcref)) (table 10 funcref))
-  "multiple tables"
-)
-(assert_invalid
-  (module (table 10 funcref) (table 10 funcref))
-  "multiple tables"
-)
+;; No multiple table yet.
+;;(assert_invalid
+;;  (module (import "" "" (table 10 funcref)) (import "" "" (table 10 funcref)))
+;;  "multiple tables"
+;;)
+;;(assert_invalid
+;;  (module (import "" "" (table 10 funcref)) (table 10 funcref))
+;;  "multiple tables"
+;;)
+;;(assert_invalid
+;;  (module (table 10 funcref) (table 10 funcref))
+;;  "multiple tables"
+;;)
 
 (module (import "test" "table-10-inf" (table 10 funcref)))
 (module (import "test" "table-10-inf" (table 5 funcref)))

@@ -53,7 +53,9 @@ pub use crate::state::{
 pub use crate::syscalls::types;
 #[cfg(feature = "wasix")]
 pub use crate::utils::is_wasix_module;
+pub use crate::utils::wasi_import_shared_memory;
 pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};
+
 pub use wasmer_vbus::{UnsupportedVirtualBus, VirtualBus};
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
 pub use wasmer_vfs::FsError as WasiFsError;

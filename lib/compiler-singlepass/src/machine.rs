@@ -669,6 +669,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 load of an unsigned 8bits
     #[allow(clippy::too_many_arguments)]
@@ -681,6 +682,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 load of an signed 8bits
     #[allow(clippy::too_many_arguments)]
@@ -693,6 +695,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 load of an unsigned 16bits
     #[allow(clippy::too_many_arguments)]
@@ -705,6 +708,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 load of an signed 16bits
     #[allow(clippy::too_many_arguments)]
@@ -717,6 +721,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic load
     #[allow(clippy::too_many_arguments)]
@@ -729,6 +734,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic load of an unsigned 8bits
     #[allow(clippy::too_many_arguments)]
@@ -741,6 +747,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic load of an unsigned 16bits
     #[allow(clippy::too_many_arguments)]
@@ -753,6 +760,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 save
     #[allow(clippy::too_many_arguments)]
@@ -765,6 +773,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 save of the lower 8bits
     #[allow(clippy::too_many_arguments)]
@@ -777,6 +786,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 save of the lower 16bits
     #[allow(clippy::too_many_arguments)]
@@ -789,6 +799,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic save
     #[allow(clippy::too_many_arguments)]
@@ -801,6 +812,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic save of a the lower 8bits
     #[allow(clippy::too_many_arguments)]
@@ -813,6 +825,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic save of a the lower 16bits
     #[allow(clippy::too_many_arguments)]
@@ -825,6 +838,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic Add with i32
     #[allow(clippy::too_many_arguments)]
@@ -838,6 +852,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic Add with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
@@ -851,6 +866,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic Add with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
@@ -864,6 +880,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic Sub with i32
     #[allow(clippy::too_many_arguments)]
@@ -877,6 +894,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic Sub with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
@@ -890,6 +908,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic Sub with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
@@ -903,6 +922,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic And with i32
     #[allow(clippy::too_many_arguments)]
@@ -916,6 +936,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic And with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
@@ -929,6 +950,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic And with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
@@ -942,6 +964,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic Or with i32
     #[allow(clippy::too_many_arguments)]
@@ -955,6 +978,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic Or with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
@@ -968,6 +992,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic Or with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
@@ -981,6 +1006,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic Xor with i32
     #[allow(clippy::too_many_arguments)]
@@ -994,6 +1020,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic Xor with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
@@ -1007,6 +1034,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic Xor with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
@@ -1020,6 +1048,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic Exchange with i32
     #[allow(clippy::too_many_arguments)]
@@ -1033,6 +1062,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic Exchange with u8
     #[allow(clippy::too_many_arguments)]
@@ -1046,6 +1076,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic Exchange with u16
     #[allow(clippy::too_many_arguments)]
@@ -1059,6 +1090,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic Compare and Exchange with i32
     #[allow(clippy::too_many_arguments)]
@@ -1073,6 +1105,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic Compare and Exchange with u8
     #[allow(clippy::too_many_arguments)]
@@ -1087,6 +1120,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i32 atomic Compare and Exchange with u16
     #[allow(clippy::too_many_arguments)]
@@ -1101,6 +1135,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
 
     /// emit a move function address to GPR ready for call, using appropriate relocation
@@ -1321,6 +1356,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 load of an unsigned 8bits
     #[allow(clippy::too_many_arguments)]
@@ -1333,6 +1369,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 load of an signed 8bits
     #[allow(clippy::too_many_arguments)]
@@ -1345,6 +1382,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 load of an unsigned 32bits
     #[allow(clippy::too_many_arguments)]
@@ -1357,6 +1395,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 load of an signed 32bits
     #[allow(clippy::too_many_arguments)]
@@ -1369,6 +1408,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 load of an signed 16bits
     #[allow(clippy::too_many_arguments)]
@@ -1381,6 +1421,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 load of an signed 16bits
     #[allow(clippy::too_many_arguments)]
@@ -1393,6 +1434,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic load
     #[allow(clippy::too_many_arguments)]
@@ -1405,6 +1447,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic load from unsigned 8bits
     #[allow(clippy::too_many_arguments)]
@@ -1417,6 +1460,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic load from unsigned 16bits
     #[allow(clippy::too_many_arguments)]
@@ -1429,6 +1473,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic load from unsigned 32bits
     #[allow(clippy::too_many_arguments)]
@@ -1441,6 +1486,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 save
     #[allow(clippy::too_many_arguments)]
@@ -1453,6 +1499,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 save of the lower 8bits
     #[allow(clippy::too_many_arguments)]
@@ -1465,6 +1512,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 save of the lower 16bits
     #[allow(clippy::too_many_arguments)]
@@ -1477,6 +1525,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 save of the lower 32bits
     #[allow(clippy::too_many_arguments)]
@@ -1489,6 +1538,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic save
     #[allow(clippy::too_many_arguments)]
@@ -1501,6 +1551,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic save of a the lower 8bits
     #[allow(clippy::too_many_arguments)]
@@ -1513,6 +1564,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic save of a the lower 16bits
     #[allow(clippy::too_many_arguments)]
@@ -1525,6 +1577,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic save of a the lower 32bits
     #[allow(clippy::too_many_arguments)]
@@ -1537,6 +1590,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Add with i64
     #[allow(clippy::too_many_arguments)]
@@ -1550,6 +1604,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Add with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
@@ -1563,6 +1618,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Add with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
@@ -1576,6 +1632,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Add with unsigned 32bits
     #[allow(clippy::too_many_arguments)]
@@ -1589,6 +1646,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Sub with i64
     #[allow(clippy::too_many_arguments)]
@@ -1602,6 +1660,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Sub with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
@@ -1615,6 +1674,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Sub with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
@@ -1628,6 +1688,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Sub with unsigned 32bits
     #[allow(clippy::too_many_arguments)]
@@ -1641,6 +1702,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic And with i64
     #[allow(clippy::too_many_arguments)]
@@ -1654,6 +1716,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic And with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
@@ -1667,6 +1730,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic And with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
@@ -1680,6 +1744,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic And with unsigned 32bits
     #[allow(clippy::too_many_arguments)]
@@ -1693,6 +1758,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Or with i64
     #[allow(clippy::too_many_arguments)]
@@ -1706,6 +1772,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Or with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
@@ -1719,6 +1786,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Or with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
@@ -1732,6 +1800,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Or with unsigned 32bits
     #[allow(clippy::too_many_arguments)]
@@ -1745,6 +1814,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Xor with i64
     #[allow(clippy::too_many_arguments)]
@@ -1758,6 +1828,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Xor with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
@@ -1771,6 +1842,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Xor with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
@@ -1784,6 +1856,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Xor with unsigned 32bits
     #[allow(clippy::too_many_arguments)]
@@ -1797,6 +1870,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Exchange with i64
     #[allow(clippy::too_many_arguments)]
@@ -1810,6 +1884,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Exchange with u8
     #[allow(clippy::too_many_arguments)]
@@ -1823,6 +1898,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Exchange with u16
     #[allow(clippy::too_many_arguments)]
@@ -1836,6 +1912,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Exchange with u32
     #[allow(clippy::too_many_arguments)]
@@ -1849,6 +1926,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Compare and Exchange with i32
     #[allow(clippy::too_many_arguments)]
@@ -1863,6 +1941,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Compare and Exchange with u8
     #[allow(clippy::too_many_arguments)]
@@ -1877,6 +1956,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Compare and Exchange with u16
     #[allow(clippy::too_many_arguments)]
@@ -1891,6 +1971,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// i64 atomic Compare and Exchange with u32
     #[allow(clippy::too_many_arguments)]
@@ -1905,6 +1986,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
 
     /// load an F32
@@ -1918,6 +2000,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// f32 save
     #[allow(clippy::too_many_arguments)]
@@ -1931,6 +2014,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// load an F64
     #[allow(clippy::too_many_arguments)]
@@ -1943,6 +2027,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// f64 save
     #[allow(clippy::too_many_arguments)]
@@ -1956,6 +2041,7 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
     ) -> Result<(), CompileError>;
     /// Convert a F64 from I64, signed or unsigned
     fn convert_f64_i64(

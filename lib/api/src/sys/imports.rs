@@ -54,14 +54,24 @@ impl Imports {
     /// import_object.get_export("module", "name");
     /// ```
     pub fn get_export(&self, module: &str, name: &str) -> Option<Extern> {
-        if self
-            .map
-            .contains_key(&(module.to_string(), name.to_string()))
-        {
+        if self.exists(module, name) {
             let ext = &self.map[&(module.to_string(), name.to_string())];
             return Some(ext.clone());
         }
         None
+    }
+
+    /// Returns if an export exist for a given module and name.
+    ///
+    /// # Usage
+    /// ```no_run
+    /// # use wasmer::Imports;
+    /// let mut import_object = Imports::new();
+    /// import_object.exists("module", "name");
+    /// ```
+    pub fn exists(&self, module: &str, name: &str) -> bool {
+        self.map
+            .contains_key(&(module.to_string(), name.to_string()))
     }
 
     /// Returns true if the Imports contains namespace with the provided name.

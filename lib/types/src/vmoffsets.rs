@@ -115,9 +115,33 @@ impl VMBuiltinFunctionIndex {
     pub const fn get_table_fill_index() -> Self {
         Self(23)
     }
+    /// Returns an index for wasm's local `memory.atomic.wait32` builtin function.
+    pub const fn get_memory_atomic_wait32_index() -> Self {
+        Self(24)
+    }
+    /// Returns an index for wasm's imported `memory.atomic.wait32` builtin function.
+    pub const fn get_imported_memory_atomic_wait32_index() -> Self {
+        Self(25)
+    }
+    /// Returns an index for wasm's local `memory.atomic.wait64` builtin function.
+    pub const fn get_memory_atomic_wait64_index() -> Self {
+        Self(26)
+    }
+    /// Returns an index for wasm's imported `memory.atomic.wait64` builtin function.
+    pub const fn get_imported_memory_atomic_wait64_index() -> Self {
+        Self(27)
+    }
+    /// Returns an index for wasm's local `memory.atomic.notify` builtin function.
+    pub const fn get_memory_atomic_notify_index() -> Self {
+        Self(28)
+    }
+    /// Returns an index for wasm's imported `memory.atomic.notify` builtin function.
+    pub const fn get_imported_memory_atomic_notify_index() -> Self {
+        Self(29)
+    }
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        24
+        30
     }
 
     /// Return the index as an u32 number.
