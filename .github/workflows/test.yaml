@@ -412,6 +412,46 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
+      - uses: actions/cache@v2
+        if: matrix.use_sccache
+        with:
+          path: ${{ runner.tool_cache }}/cargo-sccache
+          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
+      - name: Install sccache
+        if: matrix.use_sccache
+        run: |
+          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
+            cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
+          fi
+        shell: bash
+      - name: Set sccache port
+        if: matrix.use_sccache && matrix.random_sccache_port
+        run: |
+          netstat -aln | awk '
+            $6 == "LISTEN" {
+              if ($4 ~ "[.:][0-9]+$") {
+                n = split($4, a, /[:.]/);
+                port = a[n];
+                p[port] = 1
+              }
+            }
+            END {
+              for (i = 3000; i < 65000 && p[i]; i++){};
+              if (i == 65000) {exit 1};
+              print "SCCACHE_SERVER_PORT=" i
+            }
+          ' >> $GITHUB_ENV
+          # echo "SCCACHE_SERVER_PORT=9000"
+          echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
+        shell: bash
+      - name: Start sccache
+        if: matrix.use_sccache
+        run: |
+          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
+          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
+        shell: bash
       - name: Build C-API
         shell: bash
         run: |
@@ -477,6 +517,46 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
+      - uses: actions/cache@v2
+        if: matrix.use_sccache
+        with:
+          path: ${{ runner.tool_cache }}/cargo-sccache
+          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
+      - name: Install sccache
+        if: matrix.use_sccache
+        run: |
+          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
+            cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
+          fi
+        shell: bash
+      - name: Set sccache port
+        if: matrix.use_sccache && matrix.random_sccache_port
+        run: |
+          netstat -aln | awk '
+            $6 == "LISTEN" {
+              if ($4 ~ "[.:][0-9]+$") {
+                n = split($4, a, /[:.]/);
+                port = a[n];
+                p[port] = 1
+              }
+            }
+            END {
+              for (i = 3000; i < 65000 && p[i]; i++){};
+              if (i == 65000) {exit 1};
+              print "SCCACHE_SERVER_PORT=" i
+            }
+          ' >> $GITHUB_ENV
+          # echo "SCCACHE_SERVER_PORT=9000"
+          echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
+        shell: bash
+      - name: Start sccache
+        if: matrix.use_sccache
+        run: |
+          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
+          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
+        shell: bash
       - name: 'Echo download path'
         run: echo ${{steps.download.outputs.download-path}}
       - name: Unzip Artifacts
@@ -550,6 +630,46 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
+      - uses: actions/cache@v2
+        if: matrix.use_sccache
+        with:
+          path: ${{ runner.tool_cache }}/cargo-sccache
+          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
+      - name: Install sccache
+        if: matrix.use_sccache
+        run: |
+          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
+            cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
+          fi
+        shell: bash
+      - name: Set sccache port
+        if: matrix.use_sccache && matrix.random_sccache_port
+        run: |
+          netstat -aln | awk '
+            $6 == "LISTEN" {
+              if ($4 ~ "[.:][0-9]+$") {
+                n = split($4, a, /[:.]/);
+                port = a[n];
+                p[port] = 1
+              }
+            }
+            END {
+              for (i = 3000; i < 65000 && p[i]; i++){};
+              if (i == 65000) {exit 1};
+              print "SCCACHE_SERVER_PORT=" i
+            }
+          ' >> $GITHUB_ENV
+          # echo "SCCACHE_SERVER_PORT=9000"
+          echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
+        shell: bash
+      - name: Start sccache
+        if: matrix.use_sccache
+        run: |
+          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
+          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
+        shell: bash
       - name: Unzip Artifacts
         shell: bash
         run: |
@@ -665,6 +785,46 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
+      - uses: actions/cache@v2
+        if: matrix.use_sccache
+        with:
+          path: ${{ runner.tool_cache }}/cargo-sccache
+          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
+      - name: Install sccache
+        if: matrix.use_sccache
+        run: |
+          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
+            cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
+          fi
+        shell: bash
+      - name: Set sccache port
+        if: matrix.use_sccache && matrix.random_sccache_port
+        run: |
+          netstat -aln | awk '
+            $6 == "LISTEN" {
+              if ($4 ~ "[.:][0-9]+$") {
+                n = split($4, a, /[:.]/);
+                port = a[n];
+                p[port] = 1
+              }
+            }
+            END {
+              for (i = 3000; i < 65000 && p[i]; i++){};
+              if (i == 65000) {exit 1};
+              print "SCCACHE_SERVER_PORT=" i
+            }
+          ' >> $GITHUB_ENV
+          # echo "SCCACHE_SERVER_PORT=9000"
+          echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
+        shell: bash
+      - name: Start sccache
+        if: matrix.use_sccache
+        run: |
+          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
+          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
+        shell: bash
       - name: Test
         run: |
           make test-stage-0
@@ -775,6 +935,46 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: wasmer-stage-1-${{ matrix.build }}
+      - uses: actions/cache@v2
+        if: matrix.use_sccache
+        with:
+          path: ${{ runner.tool_cache }}/cargo-sccache
+          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
+      - name: Install sccache
+        if: matrix.use_sccache
+        run: |
+          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
+            cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
+          fi
+        shell: bash
+      - name: Set sccache port
+        if: matrix.use_sccache && matrix.random_sccache_port
+        run: |
+          netstat -aln | awk '
+            $6 == "LISTEN" {
+              if ($4 ~ "[.:][0-9]+$") {
+                n = split($4, a, /[:.]/);
+                port = a[n];
+                p[port] = 1
+              }
+            }
+            END {
+              for (i = 3000; i < 65000 && p[i]; i++){};
+              if (i == 65000) {exit 1};
+              print "SCCACHE_SERVER_PORT=" i
+            }
+          ' >> $GITHUB_ENV
+          # echo "SCCACHE_SERVER_PORT=9000"
+          echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
+        shell: bash
+      - name: Start sccache
+        if: matrix.use_sccache
+        run: |
+          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
+          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
+        shell: bash
       - name: Unzip Artifacts
         shell: bash
         run: |
@@ -882,6 +1082,46 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
+      - uses: actions/cache@v2
+        if: matrix.use_sccache
+        with:
+          path: ${{ runner.tool_cache }}/cargo-sccache
+          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
+      - name: Install sccache
+        if: matrix.use_sccache
+        run: |
+          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
+            cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
+          fi
+        shell: bash
+      - name: Set sccache port
+        if: matrix.use_sccache && matrix.random_sccache_port
+        run: |
+          netstat -aln | awk '
+            $6 == "LISTEN" {
+              if ($4 ~ "[.:][0-9]+$") {
+                n = split($4, a, /[:.]/);
+                port = a[n];
+                p[port] = 1
+              }
+            }
+            END {
+              for (i = 3000; i < 65000 && p[i]; i++){};
+              if (i == 65000) {exit 1};
+              print "SCCACHE_SERVER_PORT=" i
+            }
+          ' >> $GITHUB_ENV
+          # echo "SCCACHE_SERVER_PORT=9000"
+          echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
+        shell: bash
+      - name: Start sccache
+        if: matrix.use_sccache
+        run: |
+          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
+          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
+        shell: bash
       - name: Test
         run: |
           make test-stage-2
@@ -985,6 +1225,46 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
+      - uses: actions/cache@v2
+        if: matrix.use_sccache
+        with:
+          path: ${{ runner.tool_cache }}/cargo-sccache
+          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
+      - name: Install sccache
+        if: matrix.use_sccache
+        run: |
+          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
+            cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
+          fi
+        shell: bash
+      - name: Set sccache port
+        if: matrix.use_sccache && matrix.random_sccache_port
+        run: |
+          netstat -aln | awk '
+            $6 == "LISTEN" {
+              if ($4 ~ "[.:][0-9]+$") {
+                n = split($4, a, /[:.]/);
+                port = a[n];
+                p[port] = 1
+              }
+            }
+            END {
+              for (i = 3000; i < 65000 && p[i]; i++){};
+              if (i == 65000) {exit 1};
+              print "SCCACHE_SERVER_PORT=" i
+            }
+          ' >> $GITHUB_ENV
+          # echo "SCCACHE_SERVER_PORT=9000"
+          echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
+        shell: bash
+      - name: Start sccache
+        if: matrix.use_sccache
+        run: |
+          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
+          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
+        shell: bash
       - name: Test
         run: |
           make test-stage-3
@@ -1088,6 +1368,46 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
+      - uses: actions/cache@v2
+        if: matrix.use_sccache
+        with:
+          path: ${{ runner.tool_cache }}/cargo-sccache
+          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
+      - name: Install sccache
+        if: matrix.use_sccache
+        run: |
+          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
+            cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
+          fi
+        shell: bash
+      - name: Set sccache port
+        if: matrix.use_sccache && matrix.random_sccache_port
+        run: |
+          netstat -aln | awk '
+            $6 == "LISTEN" {
+              if ($4 ~ "[.:][0-9]+$") {
+                n = split($4, a, /[:.]/);
+                port = a[n];
+                p[port] = 1
+              }
+            }
+            END {
+              for (i = 3000; i < 65000 && p[i]; i++){};
+              if (i == 65000) {exit 1};
+              print "SCCACHE_SERVER_PORT=" i
+            }
+          ' >> $GITHUB_ENV
+          # echo "SCCACHE_SERVER_PORT=9000"
+          echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
+        shell: bash
+      - name: Start sccache
+        if: matrix.use_sccache
+        run: |
+          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
+          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
+        shell: bash
       - name: Test
         run: |
           make test-stage-4
@@ -1191,6 +1511,46 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
+      - uses: actions/cache@v2
+        if: matrix.use_sccache
+        with:
+          path: ${{ runner.tool_cache }}/cargo-sccache
+          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
+      - name: Install sccache
+        if: matrix.use_sccache
+        run: |
+          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
+            cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
+          fi
+        shell: bash
+      - name: Set sccache port
+        if: matrix.use_sccache && matrix.random_sccache_port
+        run: |
+          netstat -aln | awk '
+            $6 == "LISTEN" {
+              if ($4 ~ "[.:][0-9]+$") {
+                n = split($4, a, /[:.]/);
+                port = a[n];
+                p[port] = 1
+              }
+            }
+            END {
+              for (i = 3000; i < 65000 && p[i]; i++){};
+              if (i == 65000) {exit 1};
+              print "SCCACHE_SERVER_PORT=" i
+            }
+          ' >> $GITHUB_ENV
+          # echo "SCCACHE_SERVER_PORT=9000"
+          echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
+        shell: bash
+      - name: Start sccache
+        if: matrix.use_sccache
+        run: |
+          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
+          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
+        shell: bash
       - name: Test
         run: |
           make test-stage-5
@@ -1294,6 +1654,46 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
+      - uses: actions/cache@v2
+        if: matrix.use_sccache
+        with:
+          path: ${{ runner.tool_cache }}/cargo-sccache
+          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
+      - name: Install sccache
+        if: matrix.use_sccache
+        run: |
+          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
+            cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
+          fi
+        shell: bash
+      - name: Set sccache port
+        if: matrix.use_sccache && matrix.random_sccache_port
+        run: |
+          netstat -aln | awk '
+            $6 == "LISTEN" {
+              if ($4 ~ "[.:][0-9]+$") {
+                n = split($4, a, /[:.]/);
+                port = a[n];
+                p[port] = 1
+              }
+            }
+            END {
+              for (i = 3000; i < 65000 && p[i]; i++){};
+              if (i == 65000) {exit 1};
+              print "SCCACHE_SERVER_PORT=" i
+            }
+          ' >> $GITHUB_ENV
+          # echo "SCCACHE_SERVER_PORT=9000"
+          echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
+        shell: bash
+      - name: Start sccache
+        if: matrix.use_sccache
+        run: |
+          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
+          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
+        shell: bash
       - name: Test
         run: |
           make test-stage-6
