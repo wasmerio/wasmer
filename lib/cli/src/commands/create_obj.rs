@@ -113,7 +113,11 @@ impl CreateObj {
             retval
         });
 
-        let header_output_path = starting_cd.join(&header_output);
+        let mut header_output_path = starting_cd.join(&header_output);
+        if header_output_path.is_dir() {
+            header_output_path = header_output_path.join("wasm.h");
+        }
+        println!("header output path: {}", header_output_path.display());
 
         match object_format {
             ObjectFormat::Serialized => {

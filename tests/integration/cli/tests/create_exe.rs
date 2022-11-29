@@ -29,7 +29,7 @@ struct WasmerCreateExe {
     /// Compiler with which to compile the Wasm.
     compiler: Compiler,
     /// Extra CLI flags
-    extra_cli_flags: Vec<&'static str>,
+    extra_cli_flags: Vec<String>,
 }
 
 impl Default for WasmerCreateExe {
@@ -90,6 +90,8 @@ struct WasmerCreateObj {
     wasm_path: PathBuf,
     /// Path to the object file produced by compiling the Wasm.
     output_object_path: PathBuf,
+    /// Path to write the static_defs.h file to
+    header_output_path: PathBuf,
     /// Compiler with which to compile the Wasm.
     compiler: Compiler,
     /// Extra CLI flags
@@ -107,6 +109,7 @@ impl Default for WasmerCreateObj {
             wasmer_path: get_wasmer_path(),
             wasm_path: PathBuf::from(create_exe_test_wasm_path()),
             output_object_path,
+            header_output_path: std::env::current_dir().unwrap(),
             compiler: Compiler::Cranelift,
             extra_cli_flags: vec![],
         }
@@ -119,6 +122,8 @@ impl WasmerCreateObj {
             .current_dir(&self.current_dir)
             .arg("create-obj")
             .arg(&self.wasm_path.canonicalize()?)
+            .arg("--output-header-path")
+            .arg(&self.header_output_path)
             .arg(&self.compiler.to_flag())
             .args(self.extra_cli_flags.iter())
             .arg("-o")
@@ -154,6 +159,7 @@ fn create_exe_works() -> anyhow::Result<()> {
         wasm_path,
         native_executable_path: executable_path.clone(),
         compiler: Compiler::Cranelift,
+        wasmer_dir: get_repo_root_path().unwrap().join("package"),
         ..Default::default()
     }
     .run()
@@ -247,7 +253,7 @@ fn create_exe_serialized_works() -> anyhow::Result<()> {
         wasm_path,
         native_executable_path: executable_path.clone(),
         compiler: Compiler::Cranelift,
-        extra_cli_flags: vec!["--object-format", "serialized"],
+        extra_cli_flags: vec!["--object-format".to_string(), "serialized".to_string()],
         ..Default::default()
     }
     .run()
@@ -348,12 +354,15 @@ fn create_exe_with_object_input(args: Vec<&'static str>) -> anyhow::Result<()> {
     #[cfg(windows)]
     let object_path = operating_dir.join("wasm.obj");
 
+    let static_defs_h_path = temp_dir.path().join("static_defs.h");
+
     WasmerCreateObj {
         current_dir: get_repo_root_path().unwrap(),
         wasm_path,
         output_object_path: object_path.clone(),
         compiler: Compiler::Cranelift,
         extra_cli_flags: args,
+        header_output_path: static_defs_h_path.clone(),
         ..Default::default()
     }
     .run()
@@ -377,12 +386,25 @@ fn create_exe_with_object_input(args: Vec<&'static str>) -> anyhow::Result<()> {
     #[cfg(windows)]
     let executable_path = operating_dir.join("wasm.exe");
 
+    /*
+        let wasm_h = get_repo_root_path()
+            .unwrap()
+            .join("lib")
+            .join("c-api")
+            .join("tests")
+            .join("wasm-c-api")
+            .join("include")
+            .join("wasm.h");
+    */
     WasmerCreateExe {
         current_dir: get_repo_root_path().unwrap(),
         wasm_path: object_path,
         native_executable_path: executable_path.clone(),
         compiler: Compiler::Cranelift,
-        extra_cli_flags: vec!["--header", "wasm.h"],
+        extra_cli_flags: vec![
+            "--header".to_string(),
+            format!("{}", static_defs_h_path.display()),
+        ],
         ..Default::default()
     }
     .run()

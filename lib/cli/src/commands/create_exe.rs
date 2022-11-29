@@ -231,33 +231,19 @@ impl CreateExe {
         if let Some(header_path) = self.header.as_ref() {
             /* In this case, since a header file is given, the input file is expected to be an
              * object created with `create-obj` subcommand */
-            let header_path = match std::env::var("WASMER_DIR") {
-                Ok(o) => Path::new(&o).join("include").join(&header_path),
-                Err(_) => starting_cd.join(&header_path),
-            };
-            std::fs::copy(&header_path, Path::new("static_defs.h")).context(anyhow!(
-                "Could not access given header file at {}",
-                header_path.display()
-            ))?;
+            let header_path = starting_cd.join(&header_path);
             if let Some(setup) = cross_compilation.as_ref() {
                 self.compile_zig(
                     output_path,
                     &[wasm_module_path],
-                    &[std::path::Path::new("static_defs.h").into()],
+                    &[header_path],
                     setup,
                     &[],
                     None,
                     None,
                 )?;
             } else {
-                self.link(
-                    output_path,
-                    wasm_module_path,
-                    std::path::Path::new("static_defs.h").into(),
-                    &[],
-                    None,
-                    None,
-                )?;
+                self.link(output_path, wasm_module_path, header_path, &[], None, None)?;
             }
         } else {
             match object_format {
@@ -299,22 +285,23 @@ impl CreateExe {
                         &*symbol_registry,
                         metadata_length,
                     );
+                    let temp_dir = tempdir::TempDir::new("temp-headers")?;
                     // Write object file with functions
-                    let object_file_path: std::path::PathBuf =
-                        std::path::Path::new("functions.o").into();
+                    let object_file_path = temp_dir.path().join("functions.o").into();
                     let mut writer = BufWriter::new(File::create(&object_file_path)?);
                     obj.write_stream(&mut writer)
                         .map_err(|err| anyhow::anyhow!(err.to_string()))?;
                     writer.flush()?;
                     // Write down header file that includes pointer arrays and the deserialize function
-                    let mut writer = BufWriter::new(File::create("static_defs.h")?);
+                    let static_defs_path = temp_dir.path().join("static_defs.h");
+                    let mut writer = BufWriter::new(File::create(&static_defs_path)?);
                     writer.write_all(header_file_src.as_bytes())?;
                     writer.flush()?;
                     if let Some(setup) = cross_compilation.as_ref() {
                         self.compile_zig(
                             output_path,
                             &[object_file_path],
-                            &[std::path::Path::new("static_defs.h").into()],
+                            &[static_defs_path],
                             setup,
                             &[],
                             None,
@@ -324,7 +311,7 @@ impl CreateExe {
                         self.link(
                             output_path,
                             object_file_path,
-                            std::path::Path::new("static_defs.h").into(),
+                            static_defs_path,
                             &[],
                             None,
                             None,
