@@ -1,5 +1,4 @@
 use crate::sys::InstantiationError;
-use crate::AsEngineRef;
 use crate::AsStoreMut;
 use crate::AsStoreRef;
 use bytes::Bytes;
@@ -11,6 +10,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use wasmer_compiler::Artifact;
 use wasmer_compiler::ArtifactCreate;
+use wasmer_compiler::AsEngineRef;
 #[cfg(feature = "wat")]
 use wasmer_types::WasmError;
 use wasmer_types::{
@@ -228,10 +228,7 @@ impl Module {
 
     #[cfg(feature = "compiler")]
     fn compile(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
-        let artifact = engine
-            .as_engine_ref()
-            .engine()
-            .compile(binary, engine.as_engine_ref().tunables())?;
+        let artifact = engine.as_engine_ref().engine().compile(binary)?;
         Ok(Self::from_artifact(artifact))
     }
 

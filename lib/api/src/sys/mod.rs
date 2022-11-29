@@ -1,4 +1,3 @@
-mod engineref;
 mod exports;
 mod extern_ref;
 mod externals;
@@ -14,7 +13,6 @@ mod store;
 mod tunables;
 mod value;
 
-pub use crate::sys::engineref::{AsEngineRef, EngineRef};
 pub use crate::sys::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::sys::extern_ref::ExternRef;
 pub use crate::sys::externals::{
@@ -76,9 +74,9 @@ pub use wasmer_compiler_cranelift::{Cranelift, CraneliftOptLevel};
 #[cfg(feature = "llvm")]
 pub use wasmer_compiler_llvm::{LLVMOptLevel, LLVM};
 
-pub use wasmer_compiler::Engine;
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::{Artifact, EngineBuilder};
+pub use wasmer_compiler::{AsEngineRef, Engine, EngineRef};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
