@@ -216,6 +216,7 @@ impl Engine {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl AsEngineRef for Engine {
     fn as_engine_ref(&self) -> EngineRef {
         EngineRef { inner: self }
