@@ -1,7 +1,6 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 use super::state::ModuleTranslationState;
-use crate::lib::std::borrow::ToOwned;
 use crate::lib::std::string::ToString;
 use crate::lib::std::{boxed::Box, string::String, vec::Vec};
 use crate::translate_module;
@@ -9,13 +8,13 @@ use crate::wasmparser::{Operator, Range, Type};
 use std::convert::{TryFrom, TryInto};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::FunctionType;
+use wasmer_types::WasmResult;
 use wasmer_types::{
     CustomSectionIndex, DataIndex, DataInitializer, DataInitializerLocation, ElemIndex,
     ExportIndex, FunctionIndex, GlobalIndex, GlobalInit, GlobalType, ImportIndex,
     LocalFunctionIndex, MemoryIndex, MemoryType, ModuleInfo, SignatureIndex, TableIndex,
     TableInitializer, TableType,
 };
-use wasmer_types::{WasmError, WasmResult};
 
 /// Contains function data: bytecode and its offset in the module.
 #[derive(Hash)]
@@ -254,11 +253,6 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     pub(crate) fn declare_memory(&mut self, memory: MemoryType) -> WasmResult<()> {
-        if memory.shared {
-            return Err(WasmError::Unsupported(
-                "shared memories are not supported yet".to_owned(),
-            ));
-        }
         self.module.memories.push(memory);
         Ok(())
     }

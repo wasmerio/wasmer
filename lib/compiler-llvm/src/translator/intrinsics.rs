@@ -240,6 +240,12 @@ pub struct Intrinsics<'ctx> {
     pub imported_memory_copy: FunctionValue<'ctx>,
     pub memory_fill: FunctionValue<'ctx>,
     pub imported_memory_fill: FunctionValue<'ctx>,
+    pub memory_wait32: FunctionValue<'ctx>,
+    pub imported_memory_wait32: FunctionValue<'ctx>,
+    pub memory_wait64: FunctionValue<'ctx>,
+    pub imported_memory_wait64: FunctionValue<'ctx>,
+    pub memory_notify: FunctionValue<'ctx>,
+    pub imported_memory_notify: FunctionValue<'ctx>,
 
     pub throw_trap: FunctionValue<'ctx>,
 
@@ -256,6 +262,12 @@ pub struct Intrinsics<'ctx> {
     pub imported_memory32_grow_ptr_ty: PointerType<'ctx>,
     pub memory32_size_ptr_ty: PointerType<'ctx>,
     pub imported_memory32_size_ptr_ty: PointerType<'ctx>,
+    pub memory32_wait32_ptr_ty: PointerType<'ctx>,
+    pub imported_memory32_wait32_ptr_ty: PointerType<'ctx>,
+    pub memory32_wait64_ptr_ty: PointerType<'ctx>,
+    pub imported_memory32_wait64_ptr_ty: PointerType<'ctx>,
+    pub memory32_notify_ptr_ty: PointerType<'ctx>,
+    pub imported_memory32_notify_ptr_ty: PointerType<'ctx>,
 
     // Pointer to the VM.
     pub ctx_ptr_ty: PointerType<'ctx>,
@@ -1007,6 +1019,78 @@ impl<'ctx> Intrinsics<'ctx> {
                 void_ty.fn_type(&[i32_ty_basic_md], false),
                 None,
             ),
+            memory_wait32: module.add_function(
+                "wasmer_vm_memory32_atomic_wait32",
+                i32_ty.fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i64_ty_basic_md,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            imported_memory_wait32: module.add_function(
+                "wasmer_vm_imported_memory32_atomic_wait32",
+                i32_ty.fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i64_ty_basic_md,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            memory_wait64: module.add_function(
+                "wasmer_vm_memory32_atomic_wait64",
+                i32_ty.fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i64_ty_basic_md,
+                        i64_ty_basic_md,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            imported_memory_wait64: module.add_function(
+                "wasmer_vm_imported_memory32_atomic_wait64",
+                i32_ty.fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i64_ty_basic_md,
+                        i64_ty_basic_md,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            memory_notify: module.add_function(
+                "wasmer_vm_memory32_atomic_notify",
+                i32_ty.fn_type(
+                    &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
+                    false,
+                ),
+                None,
+            ),
+            imported_memory_notify: module.add_function(
+                "wasmer_vm_imported_memory32_atomic_notify",
+                i32_ty.fn_type(
+                    &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
+                    false,
+                ),
+                None,
+            ),
 
             vmfunction_import_ptr_ty: context
                 .struct_type(&[i8_ptr_ty_basic, i8_ptr_ty_basic], false)
@@ -1037,6 +1121,76 @@ impl<'ctx> Intrinsics<'ctx> {
                 .ptr_type(AddressSpace::Generic),
             imported_memory32_size_ptr_ty: i32_ty
                 .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false)
+                .ptr_type(AddressSpace::Generic),
+            memory32_wait32_ptr_ty: i32_ty
+                .fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i64_ty_basic_md,
+                    ],
+                    false,
+                )
+                .ptr_type(AddressSpace::Generic),
+            imported_memory32_wait32_ptr_ty: i32_ty
+                .fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i64_ty_basic_md,
+                    ],
+                    false,
+                )
+                .ptr_type(AddressSpace::Generic),
+            memory32_wait64_ptr_ty: i32_ty
+                .fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i64_ty_basic_md,
+                        i64_ty_basic_md,
+                    ],
+                    false,
+                )
+                .ptr_type(AddressSpace::Generic),
+            imported_memory32_wait64_ptr_ty: i32_ty
+                .fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i64_ty_basic_md,
+                        i64_ty_basic_md,
+                    ],
+                    false,
+                )
+                .ptr_type(AddressSpace::Generic),
+            memory32_notify_ptr_ty: i32_ty
+                .fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
+                    false,
+                )
+                .ptr_type(AddressSpace::Generic),
+            imported_memory32_notify_ptr_ty: i32_ty
+                .fn_type(
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
+                    false,
+                )
                 .ptr_type(AddressSpace::Generic),
 
             ctx_ptr_ty,
@@ -1638,6 +1792,132 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 (
                     VMBuiltinFunctionIndex::get_imported_memory32_size_index(),
                     intrinsics.imported_memory32_size_ptr_ty,
+                )
+            };
+            let offset = offsets.vmctx_builtin_function(size_fn);
+            let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+            let size_fn_ptr_ptr = unsafe { cache_builder.build_gep(*ctx_ptr_value, &[offset], "") };
+
+            let size_fn_ptr_ptr = cache_builder
+                .build_bitcast(
+                    size_fn_ptr_ptr,
+                    size_fn_ty.ptr_type(AddressSpace::Generic),
+                    "",
+                )
+                .into_pointer_value();
+
+            cache_builder
+                .build_load(size_fn_ptr_ptr, "")
+                .into_pointer_value()
+        })
+    }
+
+    pub fn memory_wait32(
+        &mut self,
+        memory_index: MemoryIndex,
+        intrinsics: &Intrinsics<'ctx>,
+    ) -> PointerValue<'ctx> {
+        let (cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            &mut self.cached_memory_size,
+            &self.wasm_module,
+            &self.offsets,
+            &self.cache_builder,
+            &self.ctx_ptr_value,
+        );
+        *cached_memory_size.entry(memory_index).or_insert_with(|| {
+            let (size_fn, size_fn_ty) = if wasm_module.local_memory_index(memory_index).is_some() {
+                (
+                    VMBuiltinFunctionIndex::get_memory_atomic_wait32_index(),
+                    intrinsics.memory32_wait32_ptr_ty,
+                )
+            } else {
+                (
+                    VMBuiltinFunctionIndex::get_imported_memory_atomic_wait32_index(),
+                    intrinsics.imported_memory32_wait32_ptr_ty,
+                )
+            };
+            let offset = offsets.vmctx_builtin_function(size_fn);
+            let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+            let size_fn_ptr_ptr = unsafe { cache_builder.build_gep(*ctx_ptr_value, &[offset], "") };
+
+            let size_fn_ptr_ptr = cache_builder
+                .build_bitcast(
+                    size_fn_ptr_ptr,
+                    size_fn_ty.ptr_type(AddressSpace::Generic),
+                    "",
+                )
+                .into_pointer_value();
+
+            cache_builder
+                .build_load(size_fn_ptr_ptr, "")
+                .into_pointer_value()
+        })
+    }
+
+    pub fn memory_wait64(
+        &mut self,
+        memory_index: MemoryIndex,
+        intrinsics: &Intrinsics<'ctx>,
+    ) -> PointerValue<'ctx> {
+        let (cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            &mut self.cached_memory_size,
+            &self.wasm_module,
+            &self.offsets,
+            &self.cache_builder,
+            &self.ctx_ptr_value,
+        );
+        *cached_memory_size.entry(memory_index).or_insert_with(|| {
+            let (size_fn, size_fn_ty) = if wasm_module.local_memory_index(memory_index).is_some() {
+                (
+                    VMBuiltinFunctionIndex::get_memory_atomic_wait64_index(),
+                    intrinsics.memory32_wait64_ptr_ty,
+                )
+            } else {
+                (
+                    VMBuiltinFunctionIndex::get_imported_memory_atomic_wait64_index(),
+                    intrinsics.imported_memory32_wait64_ptr_ty,
+                )
+            };
+            let offset = offsets.vmctx_builtin_function(size_fn);
+            let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+            let size_fn_ptr_ptr = unsafe { cache_builder.build_gep(*ctx_ptr_value, &[offset], "") };
+
+            let size_fn_ptr_ptr = cache_builder
+                .build_bitcast(
+                    size_fn_ptr_ptr,
+                    size_fn_ty.ptr_type(AddressSpace::Generic),
+                    "",
+                )
+                .into_pointer_value();
+
+            cache_builder
+                .build_load(size_fn_ptr_ptr, "")
+                .into_pointer_value()
+        })
+    }
+
+    pub fn memory_notify(
+        &mut self,
+        memory_index: MemoryIndex,
+        intrinsics: &Intrinsics<'ctx>,
+    ) -> PointerValue<'ctx> {
+        let (cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            &mut self.cached_memory_size,
+            &self.wasm_module,
+            &self.offsets,
+            &self.cache_builder,
+            &self.ctx_ptr_value,
+        );
+        *cached_memory_size.entry(memory_index).or_insert_with(|| {
+            let (size_fn, size_fn_ty) = if wasm_module.local_memory_index(memory_index).is_some() {
+                (
+                    VMBuiltinFunctionIndex::get_memory_atomic_notify_index(),
+                    intrinsics.memory32_notify_ptr_ty,
+                )
+            } else {
+                (
+                    VMBuiltinFunctionIndex::get_imported_memory_atomic_notify_index(),
+                    intrinsics.imported_memory32_notify_ptr_ty,
                 )
             };
             let offset = offsets.vmctx_builtin_function(size_fn);

@@ -1174,8 +1174,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             .into_pointer_value())
     }
 
-    fn trap_if_misaligned(&self, memarg: &MemoryImmediate, ptr: PointerValue<'ctx>) {
-        let align = memarg.align;
+    fn trap_if_misaligned(&self, _memarg: &MemoryImmediate, ptr: PointerValue<'ctx>, align: u8) {
+        if align <= 1 {
+            return;
+        }
         let value = self
             .builder
             .build_ptr_to_int(ptr, self.intrinsics.i64_ty, "");
@@ -8962,7 +8964,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 4);
                 let result = self.builder.build_load(effective_address, "");
                 let load = result.as_instruction_value().unwrap();
                 self.annotate_user_memaccess(memory_index, memarg, 4, load)?;
@@ -8980,7 +8982,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 8);
                 let result = self.builder.build_load(effective_address, "");
                 let load = result.as_instruction_value().unwrap();
                 self.annotate_user_memaccess(memory_index, memarg, 8, load)?;
@@ -8998,7 +9000,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 1);
                 let narrow_result = self
                     .builder
                     .build_load(effective_address, "")
@@ -9022,7 +9024,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_result = self
                     .builder
                     .build_load(effective_address, "")
@@ -9046,7 +9048,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 1);
                 let narrow_result = self
                     .builder
                     .build_load(effective_address, "")
@@ -9070,7 +9072,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_result = self
                     .builder
                     .build_load(effective_address, "")
@@ -9094,7 +9096,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 4);
                 let narrow_result = self
                     .builder
                     .build_load(effective_address, "")
@@ -9119,7 +9121,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 4);
                 let store = self.builder.build_store(effective_address, value);
                 self.annotate_user_memaccess(memory_index, memarg, 4, store)?;
                 store
@@ -9137,7 +9139,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 8);
                 let store = self.builder.build_store(effective_address, value);
                 self.annotate_user_memaccess(memory_index, memarg, 8, store)?;
                 store
@@ -9155,7 +9157,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 1);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i8_ty, "");
@@ -9177,7 +9179,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i16_ty, "");
@@ -9198,7 +9200,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 4);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i32_ty, "");
@@ -9219,7 +9221,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 1);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i8_ty, "");
@@ -9254,7 +9256,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i16_ty, "");
@@ -9289,7 +9291,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 4);
                 let old = self
                     .builder
                     .build_atomicrmw(
@@ -9318,7 +9320,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 1);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i8_ty, "");
@@ -9353,7 +9355,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i16_ty, "");
@@ -9388,7 +9390,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 4);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i32_ty, "");
@@ -9423,7 +9425,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 8);
                 let old = self
                     .builder
                     .build_atomicrmw(
@@ -9452,7 +9454,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 1);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i8_ty, "");
@@ -9487,7 +9489,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i16_ty, "");
@@ -9522,7 +9524,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 4);
                 let old = self
                     .builder
                     .build_atomicrmw(
@@ -9551,7 +9553,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 1);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i8_ty, "");
@@ -9586,7 +9588,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i16_ty, "");
@@ -9621,7 +9623,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 4);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i32_ty, "");
@@ -9656,7 +9658,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 8);
                 let old = self
                     .builder
                     .build_atomicrmw(
@@ -9685,7 +9687,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 1);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i8_ty, "");
@@ -9720,7 +9722,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i16_ty, "");
@@ -9755,7 +9757,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 4);
                 let old = self
                     .builder
                     .build_atomicrmw(
@@ -9784,7 +9786,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 1);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i8_ty, "");
@@ -9819,7 +9821,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i16_ty, "");
@@ -9854,7 +9856,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 4);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i32_ty, "");
@@ -9889,7 +9891,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 8);
                 let old = self
                     .builder
                     .build_atomicrmw(
@@ -9918,7 +9920,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 1);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i8_ty, "");
@@ -9953,7 +9955,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i16_ty, "");
@@ -9988,7 +9990,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 4);
                 let old = self
                     .builder
                     .build_atomicrmw(
@@ -10020,7 +10022,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 1);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i8_ty, "");
@@ -10055,7 +10057,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i16_ty, "");
@@ -10090,7 +10092,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 4);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i32_ty, "");
@@ -10125,7 +10127,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 8);
                 let old = self
                     .builder
                     .build_atomicrmw(
@@ -10154,7 +10156,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i8_ty, "");
@@ -10189,7 +10191,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i16_ty, "");
@@ -10224,7 +10226,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 4);
                 let old = self
                     .builder
                     .build_atomicrmw(
@@ -10253,7 +10255,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 1);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i8_ty, "");
@@ -10288,7 +10290,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i16_ty, "");
@@ -10323,7 +10325,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 4);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i32_ty, "");
@@ -10358,7 +10360,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 8);
                 let old = self
                     .builder
                     .build_atomicrmw(
@@ -10387,7 +10389,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 1);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i8_ty, "");
@@ -10422,7 +10424,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i16_ty, "");
@@ -10457,7 +10459,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 4);
                 let old = self
                     .builder
                     .build_atomicrmw(
@@ -10486,7 +10488,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 1);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i8_ty, "");
@@ -10521,7 +10523,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i16_ty, "");
@@ -10556,7 +10558,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 4);
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i32_ty, "");
@@ -10591,7 +10593,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 8);
                 let old = self
                     .builder
                     .build_atomicrmw(
@@ -10623,7 +10625,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 1);
                 let narrow_cmp = self
                     .builder
                     .build_int_truncate(cmp, self.intrinsics.i8_ty, "");
@@ -10670,7 +10672,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_cmp = self
                     .builder
                     .build_int_truncate(cmp, self.intrinsics.i16_ty, "");
@@ -10717,7 +10719,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 4);
                 let old = self
                     .builder
                     .build_cmpxchg(
@@ -10751,7 +10753,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 1);
                 let narrow_cmp = self
                     .builder
                     .build_int_truncate(cmp, self.intrinsics.i8_ty, "");
@@ -10798,7 +10800,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_cmp = self
                     .builder
                     .build_int_truncate(cmp, self.intrinsics.i16_ty, "");
@@ -10845,7 +10847,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 4);
                 let narrow_cmp = self
                     .builder
                     .build_int_truncate(cmp, self.intrinsics.i32_ty, "");
@@ -10892,7 +10894,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                self.trap_if_misaligned(memarg, effective_address);
+                self.trap_if_misaligned(memarg, effective_address, 8);
                 let old = self
                     .builder
                     .build_cmpxchg(
@@ -11230,6 +11232,71 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .left()
                     .unwrap();
                 self.state.push1(size);
+            }
+            Operator::MemoryAtomicWait32 { memarg } => {
+                let memory_index = MemoryIndex::from_u32(memarg.memory);
+                let (dst, val, timeout) = self.state.pop3()?;
+                let wait32_fn_ptr = self.ctx.memory_wait32(memory_index, self.intrinsics);
+                let callable_func =
+                    inkwell::values::CallableValue::try_from(wait32_fn_ptr).unwrap();
+                let ret = self.builder.build_call(
+                    callable_func,
+                    &[
+                        vmctx.as_basic_value_enum().into(),
+                        self.intrinsics
+                            .i32_ty
+                            .const_int(memarg.memory as u64, false)
+                            .into(),
+                        dst.into(),
+                        val.into(),
+                        timeout.into(),
+                    ],
+                    "",
+                );
+                self.state.push1(ret.try_as_basic_value().left().unwrap());
+            }
+            Operator::MemoryAtomicWait64 { memarg } => {
+                let memory_index = MemoryIndex::from_u32(memarg.memory);
+                let (dst, val, timeout) = self.state.pop3()?;
+                let wait64_fn_ptr = self.ctx.memory_wait64(memory_index, self.intrinsics);
+                let callable_func =
+                    inkwell::values::CallableValue::try_from(wait64_fn_ptr).unwrap();
+                let ret = self.builder.build_call(
+                    callable_func,
+                    &[
+                        vmctx.as_basic_value_enum().into(),
+                        self.intrinsics
+                            .i32_ty
+                            .const_int(memarg.memory as u64, false)
+                            .into(),
+                        dst.into(),
+                        val.into(),
+                        timeout.into(),
+                    ],
+                    "",
+                );
+                self.state.push1(ret.try_as_basic_value().left().unwrap());
+            }
+            Operator::MemoryAtomicNotify { memarg } => {
+                let memory_index = MemoryIndex::from_u32(memarg.memory);
+                let (dst, count) = self.state.pop2()?;
+                let notify_fn_ptr = self.ctx.memory_notify(memory_index, self.intrinsics);
+                let callable_func =
+                    inkwell::values::CallableValue::try_from(notify_fn_ptr).unwrap();
+                let cnt = self.builder.build_call(
+                    callable_func,
+                    &[
+                        vmctx.as_basic_value_enum().into(),
+                        self.intrinsics
+                            .i32_ty
+                            .const_int(memarg.memory as u64, false)
+                            .into(),
+                        dst.into(),
+                        count.into(),
+                    ],
+                    "",
+                );
+                self.state.push1(cnt.try_as_basic_value().left().unwrap());
             }
             _ => {
                 return Err(CompileError::Codegen(format!(
