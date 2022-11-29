@@ -1,6 +1,5 @@
 #[cfg(test)]
 use std::error::Error;
-#[cfg(test)]
 use std::path::Path;
 #[cfg(test)]
 use std::process::Stdio;

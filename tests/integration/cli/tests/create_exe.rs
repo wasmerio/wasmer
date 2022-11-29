@@ -22,6 +22,8 @@ struct WasmerCreateExe {
     wasmer_path: PathBuf,
     /// Path to the Wasm file to compile.
     wasm_path: PathBuf,
+    /// WASMER_DIR environment variable
+    wasmer_dir: PathBuf,
     /// Path to the native executable produced by compiling the Wasm.
     native_executable_path: PathBuf,
     /// Compiler with which to compile the Wasm.
@@ -40,6 +42,7 @@ impl Default for WasmerCreateExe {
             current_dir: std::env::current_dir().unwrap(),
             wasmer_path: get_wasmer_path(),
             wasm_path: PathBuf::from(create_exe_test_wasm_path()),
+            wasmer_dir: get_repo_root_path().unwrap().join("package"),
             native_executable_path,
             compiler: Compiler::Cranelift,
             extra_cli_flags: vec![],
@@ -57,6 +60,7 @@ impl WasmerCreateExe {
         cmd.args(self.extra_cli_flags.iter());
         cmd.arg("-o");
         cmd.arg(&self.native_executable_path);
+        cmd.env("WASMER_DIR", &self.wasmer_dir);
 
         let cmd_str = format!("{:#?}", cmd);
 

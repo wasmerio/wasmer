@@ -231,7 +231,10 @@ impl CreateExe {
         if let Some(header_path) = self.header.as_ref() {
             /* In this case, since a header file is given, the input file is expected to be an
              * object created with `create-obj` subcommand */
-            let header_path = starting_cd.join(&header_path);
+            let header_path = match std::env::var("WASMER_DIR") {
+                Ok(o) => Path::new(&o).join("include").join(&header_path),
+                Err(_) => starting_cd.join(&header_path),
+            };
             std::fs::copy(&header_path, Path::new("static_defs.h")).context(anyhow!(
                 "Could not access given header file at {}",
                 header_path.display()
