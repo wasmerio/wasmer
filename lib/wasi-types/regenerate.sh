@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -xe
+
 BASEDIR=$(dirname "$0")
 
 rm -f \
@@ -8,8 +10,11 @@ rm -f \
 
 cat "$BASEDIR"/wit-clean/typenames.wit "$BASEDIR"/wit-clean/wasi_unstable.wit > "$BASEDIR"/wit-clean/output.wit
 
-cargo install --force wai-bindgen
-git pull origin force-generate-structs
+if ! command -v wai-bindgen &>/dev/null; then
+    echo "Error: wai-bindgen isn't installed."
+    echo 'Please install it with "cargo install wai-bindgen-cli --version 0.2.2" and try again.'
+    exit 1
+fi
 
 wai-bindgen rust-wasm \
     --import "$BASEDIR"/wit-clean/output.wit \
