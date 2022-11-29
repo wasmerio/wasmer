@@ -473,7 +473,7 @@ jobs:
         env:
           RUST_BACKTRACE: 1	
           RUSTFLAGS: "-Ccodegen-units=1 -Clink-dead-code -Coverflow-checks=off"
-          WASMER_DIR: ""
+          WASMER_DIR: ./package
           WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload coverage to Codecov

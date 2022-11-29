@@ -232,8 +232,10 @@ impl CreateExe {
             /* In this case, since a header file is given, the input file is expected to be an
              * object created with `create-obj` subcommand */
             let header_path = starting_cd.join(&header_path);
-            std::fs::copy(&header_path, Path::new("static_defs.h"))
-                .context("Could not access given header file")?;
+            std::fs::copy(&header_path, Path::new("static_defs.h")).context(anyhow!(
+                "Could not access given header file at {}",
+                header_path.display()
+            ))?;
             if let Some(setup) = cross_compilation.as_ref() {
                 self.compile_zig(
                     output_path,
@@ -1135,7 +1137,7 @@ fn triple_to_zig_triple(target_triple: &Triple) -> String {
 }
 
 fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
-    Ok(PathBuf::from(
+    let mut pathbuf = PathBuf::from(
         env::var("WASMER_DIR")
             .or_else(|e| {
                 option_env!("WASMER_INSTALL_PREFIX")
@@ -1143,7 +1145,11 @@ fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
                     .ok_or(e)
             })
             .context("Trying to read env var `WASMER_DIR`")?,
-    ))
+    );
+    if pathbuf.is_relative() {
+        pathbuf = std::env::current_dir().unwrap().join(pathbuf);
+    }
+    Ok(pathbuf)
 }
 
 fn get_wasmer_include_directory() -> anyhow::Result<PathBuf> {
@@ -1163,7 +1169,7 @@ fn get_wasmer_include_directory() -> anyhow::Result<PathBuf> {
 
 /// path to the static libwasmer
 fn get_libwasmer_path() -> anyhow::Result<PathBuf> {
-    let path = get_wasmer_dir()?;
+    let path = get_wasmer_dir().context(anyhow!("failed to get WASMER_DIR"))?;
 
     // TODO: prefer headless Wasmer if/when it's a separate library.
     #[cfg(not(windows))]
@@ -1171,10 +1177,22 @@ fn get_libwasmer_path() -> anyhow::Result<PathBuf> {
     #[cfg(windows)]
     let libwasmer_static_name = "libwasmer.lib";
 
-    if path.exists() && path.join(libwasmer_static_name).exists() {
-        Ok(path.join(libwasmer_static_name))
+    let target_lib = path.join(libwasmer_static_name);
+    let target_lib_2 = path.join("lib").join(libwasmer_static_name);
+    let target_lib_3 = path.join("package").join("lib").join(libwasmer_static_name);
+    if path.exists() && target_lib.exists() {
+        Ok(target_lib)
+    } else if target_lib_2.exists() {
+        Ok(target_lib_2)
+    } else if target_lib_3.exists() {
+        Ok(target_lib_3)
     } else {
-        Ok(path.join("lib").join(libwasmer_static_name))
+        Err(anyhow!(
+            "could not find libwasmer in either {} or {} or {}",
+            target_lib.display(),
+            target_lib_2.display(),
+            target_lib_3.display(),
+        ))
     }
 }
 

@@ -49,19 +49,22 @@ impl Default for WasmerCreateExe {
 
 impl WasmerCreateExe {
     fn run(&self) -> anyhow::Result<Vec<u8>> {
-        let output = Command::new(&self.wasmer_path)
-            .current_dir(&self.current_dir)
-            .arg("create-exe")
-            .arg(&self.wasm_path.canonicalize()?)
-            .arg(&self.compiler.to_flag())
-            .args(self.extra_cli_flags.iter())
-            .arg("-o")
-            .arg(&self.native_executable_path)
-            .output()?;
+        let mut cmd = Command::new(&self.wasmer_path);
+        cmd.current_dir(&self.current_dir);
+        cmd.arg("create-exe");
+        cmd.arg(&self.wasm_path.canonicalize()?);
+        cmd.arg(&self.compiler.to_flag());
+        cmd.args(self.extra_cli_flags.iter());
+        cmd.arg("-o");
+        cmd.arg(&self.native_executable_path);
+
+        let cmd_str = format!("{:#?}", cmd);
+
+        let output = cmd.output()?;
 
         if !output.status.success() {
             bail!(
-                "wasmer create-exe failed with: stdout: {}\n\nstderr: {}",
+                "wasmer create-exe failed with: {cmd_str}\r\nstdout: {}\n\nstderr: {}",
                 std::str::from_utf8(&output.stdout)
                     .expect("stdout is not utf8! need to handle arbitrary bytes"),
                 std::str::from_utf8(&output.stderr)
@@ -143,7 +146,7 @@ fn create_exe_works() -> anyhow::Result<()> {
     let executable_path = operating_dir.join("wasm.exe");
 
     WasmerCreateExe {
-        current_dir: operating_dir.clone(),
+        current_dir: get_repo_root_path().unwrap(),
         wasm_path,
         native_executable_path: executable_path.clone(),
         compiler: Compiler::Cranelift,
@@ -176,7 +179,7 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
     let executable_path = operating_dir.join("wasm.exe");
 
     WasmerCreateExe {
-        current_dir: operating_dir.clone(),
+        current_dir: get_repo_root_path().unwrap(),
         wasm_path,
         native_executable_path: executable_path.clone(),
         compiler: Compiler::Cranelift,
@@ -236,7 +239,7 @@ fn create_exe_serialized_works() -> anyhow::Result<()> {
     let executable_path = operating_dir.join("wasm.exe");
 
     let output: Vec<u8> = WasmerCreateExe {
-        current_dir: operating_dir.clone(),
+        current_dir: wasmer_integration_tests_cli::get_repo_root_path().unwrap(),
         wasm_path,
         native_executable_path: executable_path.clone(),
         compiler: Compiler::Cranelift,
@@ -277,7 +280,7 @@ fn create_obj(args: Vec<&'static str>, keyword_needle: &str, keyword: &str) -> a
     let object_path = operating_dir.join("wasm.obj");
 
     let output: Vec<u8> = WasmerCreateObj {
-        current_dir: operating_dir.clone(),
+        current_dir: wasmer_integration_tests_cli::get_repo_root_path().unwrap(),
         wasm_path,
         output_object_path: object_path.clone(),
         compiler: Compiler::Cranelift,
@@ -342,7 +345,7 @@ fn create_exe_with_object_input(args: Vec<&'static str>) -> anyhow::Result<()> {
     let object_path = operating_dir.join("wasm.obj");
 
     WasmerCreateObj {
-        current_dir: operating_dir.clone(),
+        current_dir: get_repo_root_path().unwrap(),
         wasm_path,
         output_object_path: object_path.clone(),
         compiler: Compiler::Cranelift,
@@ -371,7 +374,7 @@ fn create_exe_with_object_input(args: Vec<&'static str>) -> anyhow::Result<()> {
     let executable_path = operating_dir.join("wasm.exe");
 
     WasmerCreateExe {
-        current_dir: operating_dir.clone(),
+        current_dir: get_repo_root_path().unwrap(),
         wasm_path: object_path,
         native_executable_path: executable_path.clone(),
         compiler: Compiler::Cranelift,

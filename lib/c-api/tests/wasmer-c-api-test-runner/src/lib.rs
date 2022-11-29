@@ -1,6 +1,8 @@
 #[cfg(test)]
 use std::error::Error;
 #[cfg(test)]
+use std::path::Path;
+#[cfg(test)]
 use std::process::Stdio;
 
 #[cfg(test)]
@@ -26,10 +28,23 @@ impl Config {
             println!("manifest dir = {manifest_dir}, wasmer root dir = {wasmer_base_dir}");
             config.wasmer_dir = wasmer_base_dir.clone() + "/package";
             assert!(std::path::Path::new(&config.wasmer_dir).exists());
+        } else if Path::new(&config.wasmer_dir).is_relative() {
+            let canonicalized_wasmer_dir = Path::new(&find_wasmer_base_dir())
+                .join(&config.wasmer_dir)
+                .canonicalize()
+                .unwrap_or_else(|_| Path::new(&config.wasmer_dir).to_path_buf());
+            config.wasmer_dir = format!("{}", canonicalized_wasmer_dir.display());
         }
+
         if config.root_dir.is_empty() {
             config.root_dir = wasmer_base_dir + "/lib/c-api/tests";
         }
+
+        let canonicalized_root_dir = Path::new(&config.root_dir)
+            .canonicalize()
+            .unwrap_or_else(|_| Path::new(&config.root_dir).to_path_buf());
+
+        config.root_dir = format!("{}", canonicalized_root_dir.display());
 
         config
     }
@@ -123,7 +138,12 @@ fn test_ok() {
 
     let wasmer_dll_dir = format!("{}/lib", config.wasmer_dir);
     let libwasmer_so_path = format!("{}/lib/libwasmer.so", config.wasmer_dir);
-    let exe_dir = format!("{manifest_dir}/../wasm-c-api/example");
+    let exe_dir = std::path::Path::new(&find_wasmer_base_dir())
+        .join("lib")
+        .join("tests")
+        .join("waspm-c-api")
+        .join("example");
+    let exe_dir = format!("{}", exe_dir.display());
     let path = std::env::var("PATH").unwrap_or_default();
     let newpath = format!("{};{path}", format!("{wasmer_dll_dir}").replace("/", "\\"));
 
@@ -278,6 +298,9 @@ fn test_ok() {
             print_wasmer_root_to_stdout(&config);
 
             println!("compile: {command:#?}");
+            println!("wasmer base dir: {}", find_wasmer_base_dir());
+            println!("linking with rpath = {}", config.wasmer_dir);
+
             // compile
             let output = command
                 .stdout(Stdio::inherit())
@@ -292,18 +315,40 @@ fn test_ok() {
                 panic!("failed to compile {test}: {command:#?}");
             }
 
+            let command_path = std::path::Path::new(&find_wasmer_base_dir())
+                .join("lib")
+                .join("c-api")
+                .join("tests")
+                .join(test);
+
+            let command_path = command_path
+                .canonicalize()
+                .unwrap_or_else(|_| command_path.to_path_buf());
+
             // execute
-            let mut command = std::process::Command::new(&format!("{manifest_dir}/../{test}"));
+            let mut command = std::process::Command::new(command_path);
             command.env("LD_PRELOAD", libwasmer_so_path.clone());
             command.current_dir(exe_dir.clone());
             println!("execute: {command:#?}");
+
+            let base_path = std::path::Path::new(&find_wasmer_base_dir())
+                .join("lib")
+                .join("c-api")
+                .join("tests")
+                .join("wasm-c-api")
+                .join("example");
+            println!("base path: {}", base_path.display());
+
             let output = command
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::inherit())
+                .current_dir(base_path)
                 .output()
                 .expect(&format!("failed to run {command:#?}"));
             if !output.status.success() {
+                print_wasmer_root_to_stdout(&config);
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-                print_wasmer_root_to_stdout(&config);
                 panic!("failed to execute {test}: {command:#?}");
             }
         }
@@ -322,13 +367,9 @@ fn print_wasmer_root_to_stdout(config: &Config) {
 
     use walkdir::WalkDir;
 
-    println!(
-        "wasmer dir: {}",
-        std::path::Path::new(&config.wasmer_dir)
-            .canonicalize()
-            .unwrap()
-            .display()
-    );
+    if let Ok(wasmer_dir) = std::path::Path::new(&config.wasmer_dir).canonicalize() {
+        println!("wasmer dir: {}", wasmer_dir.display());
+    }
 
     for entry in WalkDir::new(&config.wasmer_dir)
         .into_iter()
@@ -338,13 +379,9 @@ fn print_wasmer_root_to_stdout(config: &Config) {
         println!("{f_name}");
     }
 
-    println!(
-        "root dir: {}",
-        std::path::Path::new(&config.root_dir)
-            .canonicalize()
-            .unwrap()
-            .display()
-    );
+    if let Ok(root_dir) = std::path::Path::new(&config.root_dir).canonicalize() {
+        println!("root dir: {}", root_dir.display());
+    }
 
     for entry in WalkDir::new(&config.root_dir)
         .into_iter()

@@ -1,5 +1,9 @@
 #[cfg(test)]
 use std::error::Error;
+#[cfg(test)]
+use std::path::Path;
+#[cfg(test)]
+use std::process::Stdio;
 
 #[cfg(test)]
 static INCLUDE_REGEX: &str = "#include \"(.*)\"";
@@ -82,49 +86,30 @@ impl Config {
             root_dir: std::env::var("ROOT_DIR").unwrap_or_default(),
         };
 
-        // resolve the path until the /wasmer root directory
-        let manifest_dir = env!("CARGO_MANIFEST_DIR");
         let wasmer_base_dir = find_wasmer_base_dir();
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
 
         if config.wasmer_dir.is_empty() {
             println!("manifest dir = {manifest_dir}, wasmer root dir = {wasmer_base_dir}");
             config.wasmer_dir = wasmer_base_dir.clone() + "/package";
-            if !std::path::Path::new(&config.wasmer_dir).exists() {
-                println!("running make build-capi...");
-                // run make build-capi
-                let mut cmd = std::process::Command::new("make");
-                cmd.arg("build-capi");
-                cmd.current_dir(wasmer_base_dir.clone());
-                let result = cmd.output();
-                println!("make build-capi: {result:#?}");
-
-                println!("running make package-capi...");
-                // run make package
-                let mut cmd = std::process::Command::new("make");
-                cmd.arg("package-capi");
-                cmd.current_dir(wasmer_base_dir.clone());
-                let result = cmd.output();
-                make_package();
-                println!("make package: {result:#?}");
-
-                println!("list {}", config.wasmer_dir);
-                match std::fs::read_dir(&config.wasmer_dir) {
-                    Ok(o) => {
-                        for entry in o {
-                            let entry = entry.unwrap();
-                            let path = entry.path();
-                            println!("    {:?}", path.file_name());
-                        }
-                    }
-                    Err(e) => {
-                        println!("error in reading config.wasmer_dir: {e}");
-                    }
-                };
-            }
+            assert!(std::path::Path::new(&config.wasmer_dir).exists());
+        } else if Path::new(&config.wasmer_dir).is_relative() {
+            let canonicalized_wasmer_dir = Path::new(&find_wasmer_base_dir())
+                .join(&config.wasmer_dir)
+                .canonicalize()
+                .unwrap_or_else(|_| Path::new(&config.wasmer_dir).to_path_buf());
+            config.wasmer_dir = format!("{}", canonicalized_wasmer_dir.display());
         }
+
         if config.root_dir.is_empty() {
-            config.root_dir = wasmer_base_dir + "/lib/c-api/examples";
+            config.root_dir = wasmer_base_dir + "/lib/c-api/tests";
         }
+
+        let canonicalized_root_dir = Path::new(&config.root_dir)
+            .canonicalize()
+            .unwrap_or_else(|_| Path::new(&config.root_dir).to_path_buf());
+
+        config.root_dir = format!("{}", canonicalized_root_dir.display());
 
         config
     }
@@ -348,6 +333,9 @@ fn test_run() {
             println!("compiling LINUX {command:#?}");
             // compile
             let output = command
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::inherit())
+                .current_dir(find_wasmer_base_dir())
                 .output()
                 .map_err(|e| format!("failed to compile {command:#?}: {e}"))
                 .unwrap();
@@ -358,12 +346,33 @@ fn test_run() {
                 panic!("failed to compile {test}: {command:#?}");
             }
 
+            let command_path = std::path::Path::new(&find_wasmer_base_dir())
+                .join("lib")
+                .join("c-api")
+                .join("examples")
+                .join(test);
+
+            let command_path = command_path
+                .canonicalize()
+                .unwrap_or_else(|_| command_path.to_path_buf());
+
             // execute
-            let mut command = std::process::Command::new(&format!("{manifest_dir}/../{test}"));
+            let mut command = std::process::Command::new(&command_path);
             command.env("LD_PRELOAD", libwasmer_so_path.clone());
             command.current_dir(exe_dir.clone());
             println!("execute: {command:#?}");
+
+            let base_path = std::path::Path::new(&find_wasmer_base_dir())
+                .join("lib")
+                .join("c-api")
+                .join("examples");
+
+            println!("base path: {}", base_path.display());
+
             let output = command
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::inherit())
+                .current_dir(base_path)
                 .output()
                 .expect(&format!("failed to run {command:#?}"));
             if !output.status.success() {
