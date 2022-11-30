@@ -3,13 +3,16 @@ use crate::syscalls::*;
 
 /// ### `port_route_clear()`
 /// Clears all the routes in the local port
-pub fn port_route_clear(ctx: FunctionEnvMut<'_, WasiEnv>) -> Errno {
+pub fn port_route_clear(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, WasiError> {
     debug!(
         "wasi[{}:{}]::port_route_clear",
         ctx.data().pid(),
         ctx.data().tid()
     );
     let env = ctx.data();
-    wasi_try!(env.net().route_clear().map_err(net_error_into_wasi_err));
-    Errno::Success
+    let net = env.net();
+    wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+        net.route_clear().await.map_err(net_error_into_wasi_err)
+    })?);
+    Ok(Errno::Success)
 }

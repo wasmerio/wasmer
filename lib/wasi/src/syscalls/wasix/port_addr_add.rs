@@ -8,9 +8,9 @@ use crate::syscalls::*;
 ///
 /// * `addr` - Address to be added
 pub fn port_addr_add<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     ip: WasmPtr<__wasi_cidr_t, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     debug!(
         "wasi[{}:{}]::port_addr_add",
         ctx.data().pid(),
@@ -18,10 +18,12 @@ pub fn port_addr_add<M: MemorySize>(
     );
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-    let cidr = wasi_try!(crate::net::read_cidr(&memory, ip));
-    wasi_try!(env
-        .net()
-        .ip_add(cidr.ip, cidr.prefix)
-        .map_err(net_error_into_wasi_err));
-    Errno::Success
+    let cidr = wasi_try_ok!(crate::net::read_cidr(&memory, ip));
+    let net = env.net();
+    wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+        net.ip_add(cidr.ip, cidr.prefix)
+            .await
+            .map_err(net_error_into_wasi_err)
+    })?);
+    Ok(Errno::Success)
 }

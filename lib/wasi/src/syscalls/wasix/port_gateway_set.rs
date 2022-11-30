@@ -8,9 +8,9 @@ use crate::syscalls::*;
 ///
 /// * `addr` - Address of the default gateway
 pub fn port_gateway_set<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     ip: WasmPtr<__wasi_addr_t, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     debug!(
         "wasi[{}:{}]::port_gateway_set",
         ctx.data().pid(),
@@ -18,8 +18,11 @@ pub fn port_gateway_set<M: MemorySize>(
     );
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-    let ip = wasi_try!(crate::net::read_ip(&memory, ip));
+    let ip = wasi_try_ok!(crate::net::read_ip(&memory, ip));
 
-    wasi_try!(env.net().gateway_set(ip).map_err(net_error_into_wasi_err));
-    Errno::Success
+    let net = env.net();
+    let addrs = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+        net.gateway_set(ip).await.map_err(net_error_into_wasi_err)
+    })?);
+    Ok(Errno::Success)
 }

@@ -58,12 +58,17 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
 
     /// Bridges this local network with a remote network, which is required in
     /// order to make lower level networking calls (such as UDP/TCP)
-    fn bridge(&self, network: &str, access_token: &str, security: StreamSecurity) -> Result<()> {
+    async fn bridge(
+        &self,
+        network: &str,
+        access_token: &str,
+        security: StreamSecurity,
+    ) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Disconnects from the remote network essentially unbridging it
-    fn unbridge(&self) -> Result<()> {
+    async fn unbridge(&self) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
@@ -73,37 +78,37 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
     }
 
     /// Adds a static IP address to the interface with a netmask prefix
-    fn ip_add(&self, ip: IpAddr, prefix: u8) -> Result<()> {
+    async fn ip_add(&self, ip: IpAddr, prefix: u8) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Removes a static (or dynamic) IP address from the interface
-    fn ip_remove(&self, ip: IpAddr) -> Result<()> {
+    async fn ip_remove(&self, ip: IpAddr) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Clears all the assigned IP addresses for this interface
-    fn ip_clear(&self) -> Result<()> {
+    async fn ip_clear(&self) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Lists all the IP addresses currently assigned to this interface
-    fn ip_list(&self) -> Result<Vec<IpCidr>> {
+    async fn ip_list(&self) -> Result<Vec<IpCidr>> {
         Err(NetworkError::Unsupported)
     }
 
     /// Returns the hardware MAC address for this interface
-    fn mac(&self) -> Result<[u8; 6]> {
+    async fn mac(&self) -> Result<[u8; 6]> {
         Err(NetworkError::Unsupported)
     }
 
     /// Adds a default gateway to the routing table
-    fn gateway_set(&self, ip: IpAddr) -> Result<()> {
+    async fn gateway_set(&self, ip: IpAddr) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Adds a specific route to the routing table
-    fn route_add(
+    async fn route_add(
         &self,
         cidr: IpCidr,
         via_router: IpAddr,
@@ -114,17 +119,17 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
     }
 
     /// Removes a routing rule from the routing table
-    fn route_remove(&self, cidr: IpAddr) -> Result<()> {
+    async fn route_remove(&self, cidr: IpAddr) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Clears the routing table for this interface
-    fn route_clear(&self) -> Result<()> {
+    async fn route_clear(&self) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Lists all the routes defined in the routing table for this interface
-    fn route_list(&self) -> Result<Vec<IpRoute>> {
+    async fn route_list(&self) -> Result<Vec<IpRoute>> {
         Err(NetworkError::Unsupported)
     }
 

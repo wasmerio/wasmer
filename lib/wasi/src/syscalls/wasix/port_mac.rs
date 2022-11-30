@@ -4,14 +4,21 @@ use crate::syscalls::*;
 /// ### `port_mac()`
 /// Returns the MAC address of the local port
 pub fn port_mac<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     ret_mac: WasmPtr<__wasi_hardwareaddress_t, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     debug!("wasi[{}:{}]::port_mac", ctx.data().pid(), ctx.data().tid());
-    let env = ctx.data();
-    let memory = env.memory_view(&ctx);
-    let mac = wasi_try!(env.net().mac().map_err(net_error_into_wasi_err));
+    let mut env = ctx.data();
+    let mut memory = env.memory_view(&ctx);
+
+    let net = env.net();
+    let mac = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+        net.mac().await.map_err(net_error_into_wasi_err)
+    })?);
+    env = ctx.data();
+    memory = env.memory_view(&ctx);
+
     let mac = __wasi_hardwareaddress_t { octs: mac };
-    wasi_try_mem!(ret_mac.write(&memory, mac));
-    Errno::Success
+    wasi_try_mem_ok!(ret_mac.write(&memory, mac));
+    Ok(Errno::Success)
 }
