@@ -94,6 +94,7 @@ struct SpecialLabelSet {
     table_access_oob: Label,
     indirect_call_null: Label,
     bad_signature: Label,
+    unaligned_atomic: Label,
 }
 
 /// Metadata about a floating-point value.
@@ -1012,7 +1013,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     }
 
     /// Emits a memory operation.
-    fn op_memory<F: FnOnce(&mut Self, bool, bool, i32, Label) -> Result<(), CompileError>>(
+    fn op_memory<
+        F: FnOnce(&mut Self, bool, bool, i32, Label, Label) -> Result<(), CompileError>,
+    >(
         &mut self,
         cb: F,
     ) -> Result<(), CompileError> {
@@ -1034,6 +1037,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.module.num_imported_memories != 0,
             offset as i32,
             self.special_labels.heap_access_oob,
+            self.special_labels.unaligned_atomic,
         )
     }
 
@@ -1134,6 +1138,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             table_access_oob: machine.get_label(),
             indirect_call_null: machine.get_label(),
             bad_signature: machine.get_label(),
+            unaligned_atomic: machine.get_label(),
         };
 
         let fsm = FunctionStateMap::new(
@@ -3370,7 +3375,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_load(
                             target,
                             memarg,
@@ -3379,6 +3389,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3393,7 +3404,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 1));
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.f32_load(
                             target,
                             memarg,
@@ -3402,6 +3418,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3414,7 +3431,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_load_8u(
                             target,
                             memarg,
@@ -3423,6 +3445,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3435,7 +3458,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_load_8s(
                             target,
                             memarg,
@@ -3444,6 +3472,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3456,7 +3485,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_load_16u(
                             target,
                             memarg,
@@ -3465,6 +3499,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3477,7 +3512,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_load_16s(
                             target,
                             memarg,
@@ -3486,6 +3526,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3494,7 +3535,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?;
                 let target_addr = self.pop_value_released()?;
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_save(
                             target_value,
                             memarg,
@@ -3503,6 +3549,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3513,7 +3560,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let fp = self.fp_stack.pop1()?;
                 let config_nan_canonicalization = self.config.enable_nan_canonicalization;
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.f32_save(
                             target_value,
                             memarg,
@@ -3523,6 +3575,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3531,7 +3584,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?;
                 let target_addr = self.pop_value_released()?;
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_save_8(
                             target_value,
                             memarg,
@@ -3540,6 +3598,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3548,7 +3607,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?;
                 let target_addr = self.pop_value_released()?;
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_save_16(
                             target_value,
                             memarg,
@@ -3557,6 +3621,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3569,7 +3634,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_load(
                             target,
                             memarg,
@@ -3578,6 +3648,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3592,7 +3663,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 1));
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.f64_load(
                             target,
                             memarg,
@@ -3601,6 +3677,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3613,7 +3690,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_load_8u(
                             target,
                             memarg,
@@ -3622,6 +3704,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3634,7 +3717,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_load_8s(
                             target,
                             memarg,
@@ -3643,6 +3731,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3655,7 +3744,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_load_16u(
                             target,
                             memarg,
@@ -3664,6 +3758,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3676,7 +3771,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_load_16s(
                             target,
                             memarg,
@@ -3685,6 +3785,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3697,7 +3798,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_load_32u(
                             target,
                             memarg,
@@ -3706,6 +3812,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3718,7 +3825,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_load_32s(
                             target,
                             memarg,
@@ -3727,6 +3839,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3736,7 +3849,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_addr = self.pop_value_released()?;
 
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_save(
                             target_value,
                             memarg,
@@ -3745,6 +3863,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3755,7 +3874,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let fp = self.fp_stack.pop1()?;
                 let config_nan_canonicalization = self.config.enable_nan_canonicalization;
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.f64_save(
                             target_value,
                             memarg,
@@ -3765,6 +3889,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3773,7 +3898,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?;
                 let target_addr = self.pop_value_released()?;
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_save_8(
                             target_value,
                             memarg,
@@ -3782,6 +3912,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3790,7 +3921,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?;
                 let target_addr = self.pop_value_released()?;
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_save_16(
                             target_value,
                             memarg,
@@ -3799,6 +3935,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -3807,7 +3944,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?;
                 let target_addr = self.pop_value_released()?;
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_save_32(
                             target_value,
                             memarg,
@@ -3816,6 +3958,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4112,7 +4255,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_load(
                             target,
                             memarg,
@@ -4121,6 +4269,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4133,7 +4282,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_load_8u(
                             target,
                             memarg,
@@ -4142,6 +4296,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4154,7 +4309,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_load_16u(
                             target,
                             memarg,
@@ -4163,6 +4323,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4171,7 +4332,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?;
                 let target_addr = self.pop_value_released()?;
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_save(
                             target_value,
                             memarg,
@@ -4180,6 +4346,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4188,7 +4355,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?;
                 let target_addr = self.pop_value_released()?;
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_save_8(
                             target_value,
                             memarg,
@@ -4197,6 +4369,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4205,7 +4378,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?;
                 let target_addr = self.pop_value_released()?;
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_save_16(
                             target_value,
                             memarg,
@@ -4214,6 +4392,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4226,7 +4405,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_load(
                             target,
                             memarg,
@@ -4235,6 +4419,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4247,7 +4432,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_load_8u(
                             target,
                             memarg,
@@ -4256,6 +4446,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4268,7 +4459,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_load_16u(
                             target,
                             memarg,
@@ -4277,6 +4473,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4289,7 +4486,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_load_32u(
                             target,
                             memarg,
@@ -4298,6 +4500,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4306,7 +4509,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?;
                 let target_addr = self.pop_value_released()?;
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_save(
                             target_value,
                             memarg,
@@ -4315,6 +4523,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4323,7 +4532,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?;
                 let target_addr = self.pop_value_released()?;
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_save_8(
                             target_value,
                             memarg,
@@ -4332,6 +4546,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4340,7 +4555,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?;
                 let target_addr = self.pop_value_released()?;
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_save_16(
                             target_value,
                             memarg,
@@ -4349,6 +4569,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4357,7 +4578,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let target_value = self.pop_value_released()?;
                 let target_addr = self.pop_value_released()?;
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_save_32(
                             target_value,
                             memarg,
@@ -4366,6 +4592,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4379,7 +4606,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_add(
                             loc,
                             target,
@@ -4389,6 +4621,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4402,7 +4635,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_add(
                             loc,
                             target,
@@ -4412,6 +4650,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4425,7 +4664,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_add_8u(
                             loc,
                             target,
@@ -4435,6 +4679,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4448,7 +4693,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_add_16u(
                             loc,
                             target,
@@ -4458,6 +4708,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4471,7 +4722,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_add_8u(
                             loc,
                             target,
@@ -4481,6 +4737,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4494,7 +4751,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_add_16u(
                             loc,
                             target,
@@ -4504,6 +4766,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4517,7 +4780,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_add_32u(
                             loc,
                             target,
@@ -4527,6 +4795,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4540,7 +4809,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_sub(
                             loc,
                             target,
@@ -4550,6 +4824,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4563,7 +4838,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_sub(
                             loc,
                             target,
@@ -4573,6 +4853,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4586,7 +4867,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_sub_8u(
                             loc,
                             target,
@@ -4596,6 +4882,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4609,7 +4896,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_sub_16u(
                             loc,
                             target,
@@ -4619,6 +4911,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4632,7 +4925,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_sub_8u(
                             loc,
                             target,
@@ -4642,6 +4940,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4655,7 +4954,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_sub_16u(
                             loc,
                             target,
@@ -4665,6 +4969,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4678,7 +4983,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_sub_32u(
                             loc,
                             target,
@@ -4688,6 +4998,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4701,7 +5012,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_and(
                             loc,
                             target,
@@ -4711,6 +5027,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4724,7 +5041,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_and(
                             loc,
                             target,
@@ -4734,6 +5056,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4747,7 +5070,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_and_8u(
                             loc,
                             target,
@@ -4757,6 +5085,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4770,7 +5099,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_and_16u(
                             loc,
                             target,
@@ -4780,6 +5114,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4793,7 +5128,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_and_8u(
                             loc,
                             target,
@@ -4803,6 +5143,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4816,7 +5157,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_and_16u(
                             loc,
                             target,
@@ -4826,6 +5172,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4839,7 +5186,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_and_32u(
                             loc,
                             target,
@@ -4849,6 +5201,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4862,7 +5215,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_or(
                             loc,
                             target,
@@ -4872,6 +5230,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4885,7 +5244,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_or(
                             loc,
                             target,
@@ -4895,6 +5259,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4908,7 +5273,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_or_8u(
                             loc,
                             target,
@@ -4918,6 +5288,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4931,7 +5302,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_or_16u(
                             loc,
                             target,
@@ -4941,6 +5317,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4954,7 +5331,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_or_8u(
                             loc,
                             target,
@@ -4964,6 +5346,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -4977,7 +5360,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_or_16u(
                             loc,
                             target,
@@ -4987,6 +5375,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5000,7 +5389,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_or_32u(
                             loc,
                             target,
@@ -5010,6 +5404,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5023,7 +5418,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_xor(
                             loc,
                             target,
@@ -5033,6 +5433,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5046,7 +5447,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_xor(
                             loc,
                             target,
@@ -5056,6 +5462,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5069,7 +5476,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_xor_8u(
                             loc,
                             target,
@@ -5079,6 +5491,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5092,7 +5505,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_xor_16u(
                             loc,
                             target,
@@ -5102,6 +5520,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5115,7 +5534,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_xor_8u(
                             loc,
                             target,
@@ -5125,6 +5549,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5138,7 +5563,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_xor_16u(
                             loc,
                             target,
@@ -5148,6 +5578,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5161,7 +5592,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_xor_32u(
                             loc,
                             target,
@@ -5171,6 +5607,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5184,7 +5621,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_xchg(
                             loc,
                             target,
@@ -5194,6 +5636,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5207,7 +5650,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_xchg(
                             loc,
                             target,
@@ -5217,6 +5665,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5230,7 +5679,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_xchg_8u(
                             loc,
                             target,
@@ -5240,6 +5694,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5253,7 +5708,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_xchg_16u(
                             loc,
                             target,
@@ -5263,6 +5723,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5276,7 +5737,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_xchg_8u(
                             loc,
                             target,
@@ -5286,6 +5752,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5299,7 +5766,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_xchg_16u(
                             loc,
                             target,
@@ -5309,6 +5781,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5322,7 +5795,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_xchg_32u(
                             loc,
                             target,
@@ -5332,6 +5810,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5346,7 +5825,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_cmpxchg(
                             new,
                             cmp,
@@ -5357,6 +5841,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5371,7 +5856,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_cmpxchg(
                             new,
                             cmp,
@@ -5382,6 +5872,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5396,7 +5887,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_cmpxchg_8u(
                             new,
                             cmp,
@@ -5407,6 +5903,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5421,7 +5918,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i32_atomic_cmpxchg_16u(
                             new,
                             cmp,
@@ -5432,6 +5934,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5446,7 +5949,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_cmpxchg_8u(
                             new,
                             cmp,
@@ -5457,6 +5965,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5471,7 +5980,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_cmpxchg_16u(
                             new,
                             cmp,
@@ -5482,6 +5996,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5496,7 +6011,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?[0];
                 self.value_stack.push(ret);
                 self.op_memory(
-                    |this, need_check, imported_memories, offset, heap_access_oob| {
+                    |this,
+                     need_check,
+                     imported_memories,
+                     offset,
+                     heap_access_oob,
+                     unaligned_atomic| {
                         this.machine.i64_atomic_cmpxchg_32u(
                             new,
                             cmp,
@@ -5507,6 +6027,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             imported_memories,
                             offset,
                             heap_access_oob,
+                            unaligned_atomic,
                         )
                     },
                 )?;
@@ -5896,6 +6417,184 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [WpType::I32].iter().cloned(),
                 )?;
             }
+            Operator::MemoryAtomicWait32 { ref memarg } => {
+                let timeout = self.value_stack.pop().unwrap();
+                let val = self.value_stack.pop().unwrap();
+                let dst = self.value_stack.pop().unwrap();
+                self.release_locations_only_regs(&[timeout, val, dst])?;
+
+                let memory_index = MemoryIndex::new(memarg.memory as usize);
+                let (memory_atomic_wait32, memory_index) =
+                    if self.module.local_memory_index(memory_index).is_some() {
+                        (
+                            VMBuiltinFunctionIndex::get_memory_atomic_wait32_index(),
+                            memory_index,
+                        )
+                    } else {
+                        (
+                            VMBuiltinFunctionIndex::get_imported_memory_atomic_wait32_index(),
+                            memory_index,
+                        )
+                    };
+
+                self.machine.move_location(
+                    Size::S64,
+                    Location::Memory(
+                        self.machine.get_vmctx_reg(),
+                        self.vmoffsets.vmctx_builtin_function(memory_atomic_wait32) as i32,
+                    ),
+                    Location::GPR(self.machine.get_grp_for_call()),
+                )?;
+
+                // TODO: should this be 3?
+                self.release_locations_only_osr_state(1)?;
+
+                self.emit_call_native(
+                    |this| {
+                        this.machine
+                            .emit_call_register(this.machine.get_grp_for_call())
+                    },
+                    // [vmctx, memory_index, dst, src, timeout]
+                    [
+                        Location::Imm32(memory_index.index() as u32),
+                        dst,
+                        val,
+                        timeout,
+                    ]
+                    .iter()
+                    .cloned(),
+                    [WpType::I32, WpType::I32, WpType::I32, WpType::I64]
+                        .iter()
+                        .cloned(),
+                )?;
+                self.release_locations_only_stack(&[dst, val, timeout])?;
+                let ret = self.acquire_locations(
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )?[0];
+                self.value_stack.push(ret);
+                self.machine.move_location(
+                    Size::S32,
+                    Location::GPR(self.machine.get_gpr_for_ret()),
+                    ret,
+                )?;
+            }
+            Operator::MemoryAtomicWait64 { ref memarg } => {
+                let timeout = self.value_stack.pop().unwrap();
+                let val = self.value_stack.pop().unwrap();
+                let dst = self.value_stack.pop().unwrap();
+                self.release_locations_only_regs(&[timeout, val, dst])?;
+
+                let memory_index = MemoryIndex::new(memarg.memory as usize);
+                let (memory_atomic_wait64, memory_index) =
+                    if self.module.local_memory_index(memory_index).is_some() {
+                        (
+                            VMBuiltinFunctionIndex::get_memory_atomic_wait64_index(),
+                            memory_index,
+                        )
+                    } else {
+                        (
+                            VMBuiltinFunctionIndex::get_imported_memory_atomic_wait64_index(),
+                            memory_index,
+                        )
+                    };
+
+                self.machine.move_location(
+                    Size::S64,
+                    Location::Memory(
+                        self.machine.get_vmctx_reg(),
+                        self.vmoffsets.vmctx_builtin_function(memory_atomic_wait64) as i32,
+                    ),
+                    Location::GPR(self.machine.get_grp_for_call()),
+                )?;
+
+                // TODO: should this be 3?
+                self.release_locations_only_osr_state(1)?;
+
+                self.emit_call_native(
+                    |this| {
+                        this.machine
+                            .emit_call_register(this.machine.get_grp_for_call())
+                    },
+                    // [vmctx, memory_index, dst, src, timeout]
+                    [
+                        Location::Imm32(memory_index.index() as u32),
+                        dst,
+                        val,
+                        timeout,
+                    ]
+                    .iter()
+                    .cloned(),
+                    [WpType::I32, WpType::I32, WpType::I64, WpType::I64]
+                        .iter()
+                        .cloned(),
+                )?;
+                self.release_locations_only_stack(&[dst, val, timeout])?;
+                let ret = self.acquire_locations(
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )?[0];
+                self.value_stack.push(ret);
+                self.machine.move_location(
+                    Size::S32,
+                    Location::GPR(self.machine.get_gpr_for_ret()),
+                    ret,
+                )?;
+            }
+            Operator::MemoryAtomicNotify { ref memarg } => {
+                let cnt = self.value_stack.pop().unwrap();
+                let dst = self.value_stack.pop().unwrap();
+                self.release_locations_only_regs(&[cnt, dst])?;
+
+                let memory_index = MemoryIndex::new(memarg.memory as usize);
+                let (memory_atomic_notify, memory_index) =
+                    if self.module.local_memory_index(memory_index).is_some() {
+                        (
+                            VMBuiltinFunctionIndex::get_memory_atomic_notify_index(),
+                            memory_index,
+                        )
+                    } else {
+                        (
+                            VMBuiltinFunctionIndex::get_imported_memory_atomic_notify_index(),
+                            memory_index,
+                        )
+                    };
+
+                self.machine.move_location(
+                    Size::S64,
+                    Location::Memory(
+                        self.machine.get_vmctx_reg(),
+                        self.vmoffsets.vmctx_builtin_function(memory_atomic_notify) as i32,
+                    ),
+                    Location::GPR(self.machine.get_grp_for_call()),
+                )?;
+
+                // TODO: should this be 3?
+                self.release_locations_only_osr_state(1)?;
+
+                self.emit_call_native(
+                    |this| {
+                        this.machine
+                            .emit_call_register(this.machine.get_grp_for_call())
+                    },
+                    // [vmctx, memory_index, dst, src, timeout]
+                    [Location::Imm32(memory_index.index() as u32), dst]
+                        .iter()
+                        .cloned(),
+                    [WpType::I32, WpType::I32].iter().cloned(),
+                )?;
+                self.release_locations_only_stack(&[dst, cnt])?;
+                let ret = self.acquire_locations(
+                    &[(WpType::I32, MachineValue::WasmStack(self.value_stack.len()))],
+                    false,
+                )?[0];
+                self.value_stack.push(ret);
+                self.machine.move_location(
+                    Size::S32,
+                    Location::GPR(self.machine.get_gpr_for_ret()),
+                    ret,
+                )?;
+            }
             _ => {
                 return Err(CompileError::Codegen(format!(
                     "not yet implemented: {:?}",
@@ -5937,6 +6636,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         self.machine.emit_label(self.special_labels.bad_signature)?;
         self.machine.emit_illegal_op(TrapCode::BadSignature)?;
+
+        self.machine
+            .emit_label(self.special_labels.unaligned_atomic)?;
+        self.machine.emit_illegal_op(TrapCode::UnalignedAtomic)?;
 
         // Notify the assembler backend to generate necessary code at end of function.
         self.machine.finalize_function()?;
