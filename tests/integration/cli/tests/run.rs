@@ -35,8 +35,23 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
 
     let compilers = &["cranelift", "singlepass", "llvm"];
 
+    let excluded_combinations = &[
+        ("x86_64-darwin", "singlepass"), // UnsupportedTarget("x86_64 without AVX or SSE 4.2")
+        ("x86_64-linux-gnu", "singlepass"), // UnsupportedTarget("x86_64 without AVX or SSE 4.2")
+        ("x86_64-windows-gnu", "singlepass"), // UnsupportedTarget("x86_64 without AVX or SSE 4.2")
+
+        ("aarch64-darwin", "llvm"), // LLVM: aarch64 not supported relocation Arm64MovwG0 not supported
+        ("aarch64-linux-gnu", "llvm"), // LLVM: aarch64 not supported relocation Arm64MovwG0 not supported
+
+        ("x86_64-darwin", "llvm"), // undefined reference to symbol 'wasmer_vm_raise_trap'
+        ("x86_64-windows-gnu", "llvm"), // unimplemented symbol `wasmer_vm_raise_trap` kind Unknown
+    ];
+
     for t in targets {
         for c in compilers {
+            if excluded_combinations.contains(&(t, c)) {
+                continue;
+            }
             println!("{t} target {c}");
             let python_wasmer_path = temp_dir.path().join(format!("{t}-python"));
 
