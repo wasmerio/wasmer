@@ -142,7 +142,7 @@ jobs:
         if: matrix.build == 'linux-x64'
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
@@ -352,7 +352,7 @@ jobs:
         if: matrix.build == 'linux-x64'
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
@@ -716,7 +716,7 @@ jobs:
         if: matrix.build == 'linux-x64'
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
@@ -864,7 +864,7 @@ jobs:
         if: matrix.build == 'linux-x64'
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
@@ -1007,7 +1007,7 @@ jobs:
         if: matrix.build == 'linux-x64'
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
@@ -1147,7 +1147,7 @@ jobs:
         if: matrix.build == 'linux-x64'
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
@@ -1287,7 +1287,7 @@ jobs:
         if: matrix.build == 'linux-x64'
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
@@ -1427,7 +1427,7 @@ jobs:
         if: matrix.build == 'linux-x64'
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
@@ -1567,7 +1567,7 @@ jobs:
         if: matrix.build == 'linux-x64'
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
