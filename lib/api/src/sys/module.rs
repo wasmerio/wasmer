@@ -18,6 +18,7 @@ use wasmer_types::{
 use wasmer_types::{ExportType, ImportType};
 use wasmer_vm::InstanceHandle;
 
+/// IO Error on a Module Compilation
 #[derive(Error, Debug)]
 pub enum IoCompileError {
     /// An IO error

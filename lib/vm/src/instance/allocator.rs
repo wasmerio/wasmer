@@ -130,7 +130,7 @@ impl InstanceAllocator {
     ///   memory, i.e. `Self.instance_ptr` must have been allocated by
     ///   `Self::new`.
     unsafe fn memory_definition_locations(&self) -> Vec<NonNull<VMMemoryDefinition>> {
-        let num_memories = self.offsets.num_local_memories;
+        let num_memories = self.offsets.num_local_memories();
         let num_memories = usize::try_from(num_memories).unwrap();
         let mut out = Vec::with_capacity(num_memories);
 
@@ -164,7 +164,7 @@ impl InstanceAllocator {
     ///   memory, i.e. `Self.instance_ptr` must have been allocated by
     ///   `Self::new`.
     unsafe fn table_definition_locations(&self) -> Vec<NonNull<VMTableDefinition>> {
-        let num_tables = self.offsets.num_local_tables;
+        let num_tables = self.offsets.num_local_tables();
         let num_tables = usize::try_from(num_tables).unwrap();
         let mut out = Vec::with_capacity(num_tables);
 

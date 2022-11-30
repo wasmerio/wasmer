@@ -23,7 +23,7 @@ pub use crate::sys::function_env::{FunctionEnv, FunctionEnvMut};
 pub use crate::sys::imports::Imports;
 pub use crate::sys::instance::{Instance, InstantiationError};
 pub use crate::sys::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
-pub use crate::sys::module::Module;
+pub use crate::sys::module::{IoCompileError, Module};
 pub use crate::sys::native::TypedFunction;
 pub use crate::sys::native_type::NativeWasmTypeInto;
 pub use crate::sys::store::{AsStoreMut, AsStoreRef, StoreMut, StoreRef};
@@ -57,8 +57,8 @@ pub mod vm {
     //! The `vm` module re-exports wasmer-vm types.
 
     pub use wasmer_vm::{
-        MemoryError, MemoryStyle, TableStyle, VMExtern, VMMemory, VMMemoryDefinition, VMTable,
-        VMTableDefinition,
+        MemoryError, MemoryStyle, TableStyle, VMExtern, VMMemory, VMMemoryDefinition,
+        VMOwnedMemory, VMSharedMemory, VMTable, VMTableDefinition,
     };
 }
 

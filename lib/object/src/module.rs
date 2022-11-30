@@ -137,14 +137,19 @@ pub fn emit_compilation(
     symbol_registry: &impl SymbolRegistry,
     triple: &Triple,
 ) -> Result<(), ObjectError> {
-    let function_bodies = compilation.get_function_bodies();
-    let function_relocations = compilation.get_relocations();
-    let custom_sections = compilation.get_custom_sections();
-    let custom_section_relocations = compilation.get_custom_section_relocations();
-    let function_call_trampolines = compilation.get_function_call_trampolines();
-    let dynamic_function_trampolines = compilation.get_dynamic_function_trampolines();
+    let mut function_bodies = PrimaryMap::with_capacity(compilation.functions.len());
+    let mut function_relocations = PrimaryMap::with_capacity(compilation.functions.len());
+    for (_, func) in compilation.functions.into_iter() {
+        function_bodies.push(func.body);
+        function_relocations.push(func.relocations);
+    }
+    let custom_section_relocations = compilation
+        .custom_sections
+        .iter()
+        .map(|(_, section)| section.relocations.clone())
+        .collect::<PrimaryMap<SectionIndex, _>>();
 
-    let debug_index = compilation.get_debug().map(|d| d.eh_frame);
+    let debug_index = compilation.debug.map(|d| d.eh_frame);
 
     let align = match triple.architecture {
         Architecture::X86_64 => 1,
@@ -154,7 +159,8 @@ pub fn emit_compilation(
     };
 
     // Add sections
-    let custom_section_ids = custom_sections
+    let custom_section_ids = compilation
+        .custom_sections
         .into_iter()
         .map(|(section_index, custom_section)| {
             if debug_index.map_or(false, |d| d == section_index) {
@@ -228,7 +234,7 @@ pub fn emit_compilation(
         .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
     // Add function call trampolines
-    for (signature_index, function) in function_call_trampolines.into_iter() {
+    for (signature_index, function) in compilation.function_call_trampolines.into_iter() {
         let function_name =
             symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(signature_index));
         let section_id = obj.section_id(StandardSection::Text);
@@ -246,7 +252,7 @@ pub fn emit_compilation(
     }
 
     // Add dynamic function trampolines
-    for (func_index, function) in dynamic_function_trampolines.into_iter() {
+    for (func_index, function) in compilation.dynamic_function_trampolines.into_iter() {
         let function_name =
             symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
         let section_id = obj.section_id(StandardSection::Text);
@@ -397,7 +403,7 @@ pub fn emit_compilation(
 /// ```rust
 /// # use wasmer_types::SymbolRegistry;
 /// # use wasmer_types::{Compilation, Triple};
-/// # use wasmer_object::ObjectError;
+/// # use wasmer_object::{ObjectError, emit_serialized};
 /// use wasmer_object::{get_object_for_target, emit_compilation};
 ///
 /// # fn emit_compilation_into_object(
@@ -405,8 +411,9 @@ pub fn emit_compilation(
 /// #     compilation: Compilation,
 /// #     symbol_registry: impl SymbolRegistry,
 /// # ) -> Result<(), ObjectError> {
+/// let bytes = &[ /* compilation bytes */];
 /// let mut object = get_object_for_target(&triple)?;
-/// emit_compilation(&mut object, compilation, &symbol_registry, &triple)?;
+/// emit_serialized(&mut object, bytes, &triple, "WASMER_MODULE")?;
 /// # Ok(())
 /// # }
 /// ```
@@ -414,11 +421,12 @@ pub fn emit_serialized(
     obj: &mut Object,
     sercomp: &[u8],
     triple: &Triple,
+    object_name: &str,
 ) -> Result<(), ObjectError> {
     obj.set_mangling(object::write::Mangling::None);
     //let module_name = module.compile_info.module.name.clone();
-    let len_name = "WASMER_MODULE_LENGTH";
-    let data_name = "WASMER_MODULE_DATA";
+    let len_name = format!("{}_LENGTH", object_name);
+    let data_name = format!("{}_DATA", object_name);
     //let metadata_name = "WASMER_MODULE_METADATA";
 
     let align = match triple.architecture {

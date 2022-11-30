@@ -380,13 +380,13 @@ impl Compiler for CraneliftCompiler {
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
 
-        Ok(Compilation::new(
-            functions.into_iter().collect(),
+        Ok(Compilation {
+            functions: functions.into_iter().collect(),
             custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
-            dwarf,
-        ))
+            debug: dwarf,
+        })
     }
 }
 
@@ -430,7 +430,7 @@ fn translate_ir_trapcode(trap: ir::TrapCode) -> TrapCode {
     match trap {
         ir::TrapCode::StackOverflow => TrapCode::StackOverflow,
         ir::TrapCode::HeapOutOfBounds => TrapCode::HeapAccessOutOfBounds,
-        ir::TrapCode::HeapMisaligned => TrapCode::HeapMisaligned,
+        ir::TrapCode::HeapMisaligned => TrapCode::UnalignedAtomic,
         ir::TrapCode::TableOutOfBounds => TrapCode::TableAccessOutOfBounds,
         ir::TrapCode::IndirectCallToNull => TrapCode::IndirectCallToNull,
         ir::TrapCode::BadSignature => TrapCode::BadSignature,

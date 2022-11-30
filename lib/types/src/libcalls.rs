@@ -115,6 +115,24 @@ pub enum LibCall {
     /// probe for stack overflow. These are emitted for functions which need
     /// when the `enable_probestack` setting is true.
     Probestack,
+
+    /// memory.atomic.wait32 for local memories
+    Memory32AtomicWait32,
+
+    /// memory.atomic.wait32 for imported memories
+    ImportedMemory32AtomicWait32,
+
+    /// memory.atomic.wait64 for local memories
+    Memory32AtomicWait64,
+
+    /// memory.atomic.wait64 for imported memories
+    ImportedMemory32AtomicWait64,
+
+    /// memory.atomic.notify for local memories
+    Memory32AtomicNotify,
+
+    /// memory.atomic.botify for imported memories
+    ImportedMemory32AtomicNotify,
 }
 
 impl LibCall {
@@ -157,6 +175,12 @@ impl LibCall {
             Self::Probestack => "_wasmer_vm_probestack",
             #[cfg(not(target_vendor = "apple"))]
             Self::Probestack => "wasmer_vm_probestack",
+            Self::Memory32AtomicWait32 => "wasmer_vm_memory32_atomic_wait32",
+            Self::ImportedMemory32AtomicWait32 => "wasmer_vm_imported_memory32_atomic_wait32",
+            Self::Memory32AtomicWait64 => "wasmer_vm_memory32_atomic_wait64",
+            Self::ImportedMemory32AtomicWait64 => "wasmer_vm_imported_memory32_atomic_wait64",
+            Self::Memory32AtomicNotify => "wasmer_vm_memory32_atomic_notify",
+            Self::ImportedMemory32AtomicNotify => "wasmer_vm_imported_memory32_atomic_notify",
         }
     }
 }

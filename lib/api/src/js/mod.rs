@@ -54,7 +54,7 @@ pub use crate::js::function_env::{FunctionEnv, FunctionEnvMut};
 pub use crate::js::imports::Imports;
 pub use crate::js::instance::Instance;
 pub use crate::js::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
-pub use crate::js::module::{Module, ModuleTypeHints};
+pub use crate::js::module::{IoCompileError, Module, ModuleTypeHints};
 pub use crate::js::native::TypedFunction;
 pub use crate::js::native_type::NativeWasmTypeInto;
 pub use crate::js::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
@@ -73,7 +73,6 @@ pub use crate::js::value::Value as Val;
 
 pub mod vm {
     //! The `vm` module re-exports wasmer-vm types.
-
     pub use crate::js::export::VMMemory;
 }
 

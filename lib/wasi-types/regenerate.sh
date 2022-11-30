@@ -8,13 +8,10 @@ rm -f \
 
 cat "$BASEDIR"/wit-clean/typenames.wit "$BASEDIR"/wit-clean/wasi_unstable.wit > "$BASEDIR"/wit-clean/output.wit
 
-git clone https://github.com/wasmerio/wit-bindgen --branch force-generate-structs --single-branch
+cargo install --force wai-bindgen
 git pull origin force-generate-structs
-cd wit-bindgen
-cargo build
-cd ..
 
-./wit-bindgen/target/debug/wit-bindgen rust-wasm \
+wai-bindgen rust-wasm \
     --import "$BASEDIR"/wit-clean/output.wit \
     --force-generate-structs \
     --out-dir "$BASEDIR"/src/wasi \
@@ -27,7 +24,7 @@ rm src/wasi/bindings2.rs
 cd ./wasi-types-generator-extra
 cargo build
 pwd
-../../../target/debug/wasi-types-generator-extra
+`pwd`/target/debug/wasi-types-generator-extra
 cd ..
 
 cargo fmt --all

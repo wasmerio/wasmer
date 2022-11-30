@@ -78,6 +78,11 @@ impl StoreObjects {
         self.id
     }
 
+    /// Sets the ID of this store
+    pub fn set_id(&mut self, id: StoreId) {
+        self.id = id;
+    }
+
     /// Returns a pair of mutable references from two handles.
     ///
     /// Panics if both handles point to the same object.
@@ -261,8 +266,8 @@ impl<T> MaybeInstanceOwned<T> {
     /// Returns underlying pointer to the VM data.
     pub fn as_ptr(&self) -> NonNull<T> {
         match self {
-            MaybeInstanceOwned::Host(p) => unsafe { NonNull::new_unchecked(p.get()) },
-            MaybeInstanceOwned::Instance(p) => *p,
+            Self::Host(p) => unsafe { NonNull::new_unchecked(p.get()) },
+            Self::Instance(p) => *p,
         }
     }
 }
@@ -273,12 +278,12 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MaybeInstanceOwned::Host(p) => {
+            Self::Host(p) => {
                 write!(f, "host(")?;
                 p.as_ref().fmt(f)?;
                 write!(f, ")")
             }
-            MaybeInstanceOwned::Instance(p) => {
+            Self::Instance(p) => {
                 write!(f, "instance(")?;
                 unsafe { p.as_ref().fmt(f)? };
                 write!(f, ")")

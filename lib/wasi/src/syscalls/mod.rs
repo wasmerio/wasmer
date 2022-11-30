@@ -43,7 +43,7 @@ use crate::{
     state::{
         self, fs_error_into_wasi_err, iterate_poll_events, net_error_into_wasi_err, poll,
         virtual_file_type_to_wasi_file_type, Inode, InodeSocket, InodeSocketKind, InodeVal, Kind,
-        PollEvent, PollEventBuilder, WasiBidirectionalPipePair, WasiState, MAX_SYMLINKS,
+        PollEvent, PollEventBuilder, WasiPipe, WasiState, MAX_SYMLINKS,
     },
     Fd, WasiEnv, WasiError, WasiThread, WasiThreadId,
 };
@@ -370,7 +370,7 @@ pub fn args_sizes_get<M: MemorySize>(
 ///     The resolution of the clock in nanoseconds
 pub fn clock_res_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    clock_id: Clockid,
+    clock_id: Snapshot0Clockid,
     resolution: WasmPtr<Timestamp, M>,
 ) -> Errno {
     trace!("wasi::clock_res_get");
@@ -378,10 +378,7 @@ pub fn clock_res_get<M: MemorySize>(
     let memory = env.memory_view(&ctx);
 
     let out_addr = resolution.deref(&memory);
-    let t_out = wasi_try!(platform_clock_res_get(
-        Snapshot0Clockid::from(clock_id),
-        out_addr
-    ));
+    let t_out = wasi_try!(platform_clock_res_get(clock_id, out_addr));
     wasi_try_mem!(resolution.write(&memory, t_out as Timestamp));
     Errno::Success
 }
@@ -398,7 +395,7 @@ pub fn clock_res_get<M: MemorySize>(
 ///     The value of the clock in nanoseconds
 pub fn clock_time_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    clock_id: Clockid,
+    clock_id: Snapshot0Clockid,
     precision: Timestamp,
     time: WasmPtr<Timestamp, M>,
 ) -> Errno {
@@ -409,10 +406,7 @@ pub fn clock_time_get<M: MemorySize>(
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 
-    let t_out = wasi_try!(platform_clock_time_get(
-        Snapshot0Clockid::from(clock_id),
-        precision
-    ));
+    let t_out = wasi_try!(platform_clock_time_get(clock_id, precision));
     wasi_try_mem!(time.write(&memory, t_out as Timestamp));
 
     let result = Errno::Success;
@@ -1804,9 +1798,7 @@ pub fn fd_pipe<M: MemorySize>(
     let env = ctx.data();
     let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
 
-    let pipes = WasiBidirectionalPipePair::new();
-    let pipe1 = pipes.send;
-    let pipe2 = pipes.recv;
+    let (pipe1, pipe2) = WasiPipe::new();
 
     let inode1 = state.fs.create_inode_with_default_stat(
         inodes.deref_mut(),
@@ -2277,9 +2269,10 @@ pub fn path_open<M: MemorySize>(
     if !working_dir.rights.contains(Rights::PATH_OPEN) {
         return Errno::Access;
     }
+
     let path_string = unsafe { get_input_str!(&memory, path, path_len) };
 
-    debug!("=> fd: {}, path: {}", dirfd, &path_string);
+    debug!("=> path_open(): fd: {}, path: {}", dirfd, &path_string);
 
     let path_arg = std::path::PathBuf::from(&path_string);
     let maybe_inode = state.fs.get_inode_at_path(
@@ -2293,8 +2286,61 @@ pub fn path_open<M: MemorySize>(
     // TODO: traverse rights of dirs properly
     // COMMENTED OUT: WASI isn't giving appropriate rights here when opening
     //              TODO: look into this; file a bug report if this is a bug
+    //
+    // Maximum rights: should be the working dir rights
+    // Minimum rights: whatever rights are provided
     let adjusted_rights = /*fs_rights_base &*/ working_dir_rights_inheriting;
     let mut open_options = state.fs_new_open_options();
+
+    let target_rights = match maybe_inode {
+        Ok(_) => {
+            let write_permission = adjusted_rights.contains(Rights::FD_WRITE);
+
+            // append, truncate, and create all require the permission to write
+            let (append_permission, truncate_permission, create_permission) = if write_permission {
+                (
+                    fs_flags.contains(Fdflags::APPEND),
+                    o_flags.contains(Oflags::TRUNC),
+                    o_flags.contains(Oflags::CREATE),
+                )
+            } else {
+                (false, false, false)
+            };
+
+            wasmer_vfs::OpenOptionsConfig {
+                read: fs_rights_base.contains(Rights::FD_READ),
+                write: write_permission,
+                create_new: create_permission && o_flags.contains(Oflags::EXCL),
+                create: create_permission,
+                append: append_permission,
+                truncate: truncate_permission,
+            }
+        }
+        Err(_) => wasmer_vfs::OpenOptionsConfig {
+            append: fs_flags.contains(Fdflags::APPEND),
+            write: fs_rights_base.contains(Rights::FD_WRITE),
+            read: fs_rights_base.contains(Rights::FD_READ),
+            create_new: o_flags.contains(Oflags::CREATE) && o_flags.contains(Oflags::EXCL),
+            create: o_flags.contains(Oflags::CREATE),
+            truncate: o_flags.contains(Oflags::TRUNC),
+        },
+    };
+
+    let parent_rights = wasmer_vfs::OpenOptionsConfig {
+        read: working_dir.rights.contains(Rights::FD_READ),
+        write: working_dir.rights.contains(Rights::FD_WRITE),
+        // The parent is a directory, which is why these options
+        // aren't inherited from the parent (append / truncate doesn't work on directories)
+        create_new: true,
+        create: true,
+        append: true,
+        truncate: true,
+    };
+
+    let minimum_rights = target_rights.minimum_rights(&parent_rights);
+
+    open_options.options(minimum_rights.clone());
+
     let inode = if let Ok(inode) = maybe_inode {
         // Happy path, we found the file we're trying to open
         let mut guard = inodes.arena[inode].write();
@@ -2318,42 +2364,36 @@ pub fn path_open<M: MemorySize>(
                     return Errno::Exist;
                 }
 
-                let write_permission = adjusted_rights.contains(Rights::FD_WRITE);
-                // append, truncate, and create all require the permission to write
-                let (append_permission, truncate_permission, create_permission) =
-                    if write_permission {
-                        (
-                            fs_flags.contains(Fdflags::APPEND),
-                            o_flags.contains(Oflags::TRUNC),
-                            o_flags.contains(Oflags::CREATE),
-                        )
-                    } else {
-                        (false, false, false)
-                    };
                 let open_options = open_options
-                    .read(true)
-                    // TODO: ensure these rights are actually valid given parent, etc.
-                    .write(write_permission)
-                    .create(create_permission)
-                    .append(append_permission)
-                    .truncate(truncate_permission);
-                open_flags |= Fd::READ;
-                if adjusted_rights.contains(Rights::FD_WRITE) {
+                    .write(minimum_rights.write)
+                    .create(minimum_rights.create)
+                    .append(minimum_rights.append)
+                    .truncate(minimum_rights.truncate);
+
+                if minimum_rights.read {
+                    open_flags |= Fd::READ;
+                }
+                if minimum_rights.write {
                     open_flags |= Fd::WRITE;
                 }
-                if o_flags.contains(Oflags::CREATE) {
+                if minimum_rights.create {
                     open_flags |= Fd::CREATE;
                 }
-                if o_flags.contains(Oflags::TRUNC) {
+                if minimum_rights.truncate {
                     open_flags |= Fd::TRUNCATE;
                 }
+
                 *handle = Some(wasi_try!(open_options
                     .open(&path)
                     .map_err(fs_error_into_wasi_err)));
             }
             Kind::Buffer { .. } => unimplemented!("wasi::path_open for Buffer type files"),
+            Kind::Root { .. } => {
+                if !o_flags.contains(Oflags::DIRECTORY) {
+                    return Errno::Notcapable;
+                }
+            }
             Kind::Dir { .. }
-            | Kind::Root { .. }
             | Kind::Socket { .. }
             | Kind::Pipe { .. }
             | Kind::EventNotifications { .. } => {}
@@ -2393,7 +2433,11 @@ pub fn path_open<M: MemorySize>(
                         new_path.push(&new_entity_name);
                         new_path
                     }
-                    Kind::Root { .. } => return Errno::Access,
+                    Kind::Root { .. } => {
+                        let mut new_path = std::path::PathBuf::new();
+                        new_path.push(&new_entity_name);
+                        new_path
+                    }
                     _ => return Errno::Inval,
                 }
             };
@@ -2401,13 +2445,23 @@ pub fn path_open<M: MemorySize>(
             // todo: extra check that opening with write access is okay
             let handle = {
                 let open_options = open_options
-                    .read(true)
-                    .append(fs_flags.contains(Fdflags::APPEND))
-                    // TODO: ensure these rights are actually valid given parent, etc.
-                    // write access is required for creating a file
-                    .write(true)
-                    .create_new(true);
-                open_flags |= Fd::READ | Fd::WRITE | Fd::CREATE | Fd::TRUNCATE;
+                    .read(minimum_rights.read)
+                    .append(minimum_rights.append)
+                    .write(minimum_rights.write)
+                    .create_new(minimum_rights.create_new);
+
+                if minimum_rights.read {
+                    open_flags |= Fd::READ;
+                }
+                if minimum_rights.write {
+                    open_flags |= Fd::WRITE;
+                }
+                if minimum_rights.create_new {
+                    open_flags |= Fd::CREATE;
+                }
+                if minimum_rights.truncate {
+                    open_flags |= Fd::TRUNCATE;
+                }
 
                 Some(wasi_try!(open_options.open(&new_file_host_path).map_err(
                     |e| {

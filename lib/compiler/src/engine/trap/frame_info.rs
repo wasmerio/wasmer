@@ -259,6 +259,23 @@ pub struct FrameInfo {
 }
 
 impl FrameInfo {
+    /// Creates a new [FrameInfo], useful for testing.
+    pub fn new(
+        module_name: String,
+        func_index: u32,
+        function_name: Option<String>,
+        func_start: SourceLoc,
+        instr: SourceLoc,
+    ) -> Self {
+        Self {
+            module_name,
+            func_index,
+            function_name,
+            func_start,
+            instr,
+        }
+    }
+
     /// Returns the WebAssembly function index for this frame.
     ///
     /// This function index is the index in the function index space of the

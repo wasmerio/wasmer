@@ -1,0 +1,17 @@
+query GetPackageByCommandQuery ($commandName: String!) {
+  getCommand(name: $commandName) {
+    command
+    packageVersion {
+      version
+      isLastVersion
+      manifest
+      distribution {
+        downloadUrl
+        piritaDownloadUrl
+      }
+      package {
+        displayName
+      }
+    }
+  }
+}

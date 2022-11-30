@@ -9,7 +9,7 @@ use std::fmt::Debug;
 pub use wasmer_compiler::wasmparser::MemoryImmediate;
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_types::{
-    Architecture, CallingConvention, CpuFeature, CustomSection, FunctionBody, FunctionIndex,
+    Architecture, CallingConvention, CompileError, CustomSection, FunctionBody, FunctionIndex,
     FunctionType, InstructionAddressMap, Relocation, RelocationTarget, Target, TrapCode,
     TrapInformation, VMOffsets,
 };
@@ -27,14 +27,9 @@ pub enum Value {
     F64(f64),
 }
 
-#[derive(Debug)]
-pub struct CodegenError {
-    pub message: String,
-}
-
 #[macro_export]
 macro_rules! codegen_error {
-    ($($arg:tt)*) => {return Err(CodegenError{message : format!($($arg)*)})}
+    ($($arg:tt)*) => {return Err(CompileError::Codegen(format!($($arg)*)))}
 }
 
 pub trait MaybeImmediate {
@@ -88,9 +83,9 @@ pub trait Machine {
     /// reserve a GPR
     fn reserve_gpr(&mut self, gpr: Self::GPR);
     /// Push used gpr to the stack. Return the bytes taken on the stack
-    fn push_used_gpr(&mut self, grps: &[Self::GPR]) -> Result<usize, CodegenError>;
+    fn push_used_gpr(&mut self, grps: &[Self::GPR]) -> Result<usize, CompileError>;
     /// Pop used gpr to the stack
-    fn pop_used_gpr(&mut self, grps: &[Self::GPR]) -> Result<(), CodegenError>;
+    fn pop_used_gpr(&mut self, grps: &[Self::GPR]) -> Result<(), CompileError>;
     /// Picks an unused SIMD register.
     ///
     /// This method does not mark the register as used
@@ -106,9 +101,9 @@ pub trait Machine {
     /// Releases a temporary XMM register.
     fn release_simd(&mut self, simd: Self::SIMD);
     /// Push used simd regs to the stack. Return bytes taken on the stack
-    fn push_used_simd(&mut self, simds: &[Self::SIMD]) -> Result<usize, CodegenError>;
+    fn push_used_simd(&mut self, simds: &[Self::SIMD]) -> Result<usize, CompileError>;
     /// Pop used simd regs to the stack
-    fn pop_used_simd(&mut self, simds: &[Self::SIMD]) -> Result<(), CodegenError>;
+    fn pop_used_simd(&mut self, simds: &[Self::SIMD]) -> Result<(), CompileError>;
     /// Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)
     fn round_stack_adjust(&self, value: usize) -> usize;
     /// Set the source location of the Wasm to the given offset.
@@ -133,19 +128,19 @@ pub trait Machine {
     fn local_on_stack(&mut self, stack_offset: i32) -> Location<Self::GPR, Self::SIMD>;
     /// Adjust stack for locals
     /// Like assembler.emit_sub(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
-    fn adjust_stack(&mut self, delta_stack_offset: u32) -> Result<(), CodegenError>;
+    fn adjust_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError>;
     /// restore stack
     /// Like assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
-    fn restore_stack(&mut self, delta_stack_offset: u32) -> Result<(), CodegenError>;
+    fn restore_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError>;
     /// Pop stack of locals
     /// Like assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
-    fn pop_stack_locals(&mut self, delta_stack_offset: u32) -> Result<(), CodegenError>;
+    fn pop_stack_locals(&mut self, delta_stack_offset: u32) -> Result<(), CompileError>;
     /// Zero a location taht is 32bits
     fn zero_location(
         &mut self,
         size: Size,
         location: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// GPR Reg used for local pointer on the stack
     fn local_pointer(&self) -> Self::GPR;
     /// push a value on the stack for a native call
@@ -154,7 +149,7 @@ pub trait Machine {
         size: Size,
         loc: Location<Self::GPR, Self::SIMD>,
         dest: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Determine whether a local should be allocated on the stack.
     fn is_local_on_stack(&self, idx: usize) -> bool;
     /// Determine a local's location.
@@ -169,7 +164,7 @@ pub trait Machine {
         &mut self,
         stack_offset: i32,
         location: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// List of register to save, depending on the CallingConvention
     fn list_to_save(
         &self,
@@ -203,7 +198,7 @@ pub trait Machine {
         size: Size,
         source: Location<Self::GPR, Self::SIMD>,
         dest: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// move a location to another, with zero or sign extension
     fn move_location_extend(
         &mut self,
@@ -212,7 +207,7 @@ pub trait Machine {
         source: Location<Self::GPR, Self::SIMD>,
         size_op: Size,
         dest: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Load a memory value to a register, zero extending to 64bits.
     /// Panic if gpr is not a Location::GPR or if mem is not a Memory(2)
     fn load_address(
@@ -220,20 +215,20 @@ pub trait Machine {
         size: Size,
         gpr: Location<Self::GPR, Self::SIMD>,
         mem: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Init the stack loc counter
     fn init_stack_loc(
         &mut self,
         init_stack_loc_cnt: u64,
         last_stack_loc: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Restore save_area
-    fn restore_saved_area(&mut self, saved_area_offset: i32) -> Result<(), CodegenError>;
+    fn restore_saved_area(&mut self, saved_area_offset: i32) -> Result<(), CompileError>;
     /// Pop a location
     fn pop_location(
         &mut self,
         location: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Create a new `MachineState` with default values.
     fn new_machine_state(&self) -> MachineState;
 
@@ -244,21 +239,21 @@ pub trait Machine {
     fn get_offset(&self) -> Offset;
 
     /// finalize a function
-    fn finalize_function(&mut self) -> Result<(), CodegenError>;
+    fn finalize_function(&mut self) -> Result<(), CompileError>;
 
     /// emit native function prolog (depending on the calling Convention, like "PUSH RBP / MOV RSP, RBP")
-    fn emit_function_prolog(&mut self) -> Result<(), CodegenError>;
+    fn emit_function_prolog(&mut self) -> Result<(), CompileError>;
     /// emit native function epilog (depending on the calling Convention, like "MOV RBP, RSP / POP RBP")
-    fn emit_function_epilog(&mut self) -> Result<(), CodegenError>;
+    fn emit_function_epilog(&mut self) -> Result<(), CompileError>;
     /// handle return value, with optionnal cannonicalization if wanted
     fn emit_function_return_value(
         &mut self,
         ty: WpType,
         cannonicalize: bool,
         loc: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Handle copy to SIMD register from ret value (if needed by the arch/calling convention)
-    fn emit_function_return_float(&mut self) -> Result<(), CodegenError>;
+    fn emit_function_return_float(&mut self) -> Result<(), CompileError>;
     /// Is NaN canonicalization supported
     fn arch_supports_canonicalize_nan(&self) -> bool;
     /// Cannonicalize a NaN (or panic if not supported)
@@ -267,40 +262,40 @@ pub trait Machine {
         sz: Size,
         input: Location<Self::GPR, Self::SIMD>,
         output: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
 
     /// emit an Illegal Opcode, associated with a trapcode
-    fn emit_illegal_op(&mut self, trp: TrapCode) -> Result<(), CodegenError>;
+    fn emit_illegal_op(&mut self, trp: TrapCode) -> Result<(), CompileError>;
     /// create a new label
     fn get_label(&mut self) -> Label;
     /// emit a label
-    fn emit_label(&mut self, label: Label) -> Result<(), CodegenError>;
+    fn emit_label(&mut self, label: Label) -> Result<(), CompileError>;
 
     /// get the gpr use for call. like RAX on x86_64
     fn get_grp_for_call(&self) -> Self::GPR;
     /// Emit a call using the value in register
-    fn emit_call_register(&mut self, register: Self::GPR) -> Result<(), CodegenError>;
+    fn emit_call_register(&mut self, register: Self::GPR) -> Result<(), CompileError>;
     /// Emit a call to a label
-    fn emit_call_label(&mut self, label: Label) -> Result<(), CodegenError>;
+    fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError>;
     /// Does an trampoline is neededfor indirect call
     fn arch_requires_indirect_call_trampoline(&self) -> bool;
     /// indirect call with trampoline
     fn arch_emit_indirect_call_with_trampoline(
         &mut self,
         location: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// emit a call to a location
     fn emit_call_location(
         &mut self,
         location: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// get the gpr for the return of generic values
     fn get_gpr_for_ret(&self) -> Self::GPR;
     /// get the simd for the return of float/double values
     fn get_simd_for_ret(&self) -> Self::SIMD;
 
     /// Emit a debug breakpoint
-    fn emit_debug_breakpoint(&mut self) -> Result<(), CodegenError>;
+    fn emit_debug_breakpoint(&mut self) -> Result<(), CompileError>;
 
     /// load the address of a memory location (will panic if src is not a memory)
     /// like LEA opcode on x86_64
@@ -309,7 +304,7 @@ pub trait Machine {
         size: Size,
         source: Location<Self::GPR, Self::SIMD>,
         dest: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
 
     /// And src & dst -> dst (with or without flags)
     fn location_and(
@@ -318,7 +313,7 @@ pub trait Machine {
         source: Location<Self::GPR, Self::SIMD>,
         dest: Location<Self::GPR, Self::SIMD>,
         flags: bool,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Xor src & dst -> dst (with or without flags)
     fn location_xor(
         &mut self,
@@ -326,7 +321,7 @@ pub trait Machine {
         source: Location<Self::GPR, Self::SIMD>,
         dest: Location<Self::GPR, Self::SIMD>,
         flags: bool,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Or src & dst -> dst (with or without flags)
     fn location_or(
         &mut self,
@@ -334,7 +329,7 @@ pub trait Machine {
         source: Location<Self::GPR, Self::SIMD>,
         dest: Location<Self::GPR, Self::SIMD>,
         flags: bool,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
 
     /// Add src+dst -> dst (with or without flags)
     fn location_add(
@@ -343,7 +338,7 @@ pub trait Machine {
         source: Location<Self::GPR, Self::SIMD>,
         dest: Location<Self::GPR, Self::SIMD>,
         flags: bool,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Sub dst-src -> dst (with or without flags)
     fn location_sub(
         &mut self,
@@ -351,7 +346,7 @@ pub trait Machine {
         source: Location<Self::GPR, Self::SIMD>,
         dest: Location<Self::GPR, Self::SIMD>,
         flags: bool,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// -src -> dst
     fn location_neg(
         &mut self,
@@ -360,7 +355,7 @@ pub trait Machine {
         source: Location<Self::GPR, Self::SIMD>,
         size_op: Size,
         dest: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
 
     /// Cmp src - dst and set flags
     fn location_cmp(
@@ -368,77 +363,77 @@ pub trait Machine {
         size: Size,
         source: Location<Self::GPR, Self::SIMD>,
         dest: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Test src & dst and set flags
     fn location_test(
         &mut self,
         size: Size,
         source: Location<Self::GPR, Self::SIMD>,
         dest: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
 
     /// jmp without condidtion
-    fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CodegenError>;
+    fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError>;
     /// jmp on equal (src==dst)
     /// like Equal set on x86_64
-    fn jmp_on_equal(&mut self, label: Label) -> Result<(), CodegenError>;
+    fn jmp_on_equal(&mut self, label: Label) -> Result<(), CompileError>;
     /// jmp on different (src!=dst)
     /// like NotEqual set on x86_64
-    fn jmp_on_different(&mut self, label: Label) -> Result<(), CodegenError>;
+    fn jmp_on_different(&mut self, label: Label) -> Result<(), CompileError>;
     /// jmp on above (src>dst)
     /// like Above set on x86_64
-    fn jmp_on_above(&mut self, label: Label) -> Result<(), CodegenError>;
+    fn jmp_on_above(&mut self, label: Label) -> Result<(), CompileError>;
     /// jmp on above (src>=dst)
     /// like Above or Equal set on x86_64
-    fn jmp_on_aboveequal(&mut self, label: Label) -> Result<(), CodegenError>;
+    fn jmp_on_aboveequal(&mut self, label: Label) -> Result<(), CompileError>;
     /// jmp on above (src<=dst)
     /// like Below or Equal set on x86_64
-    fn jmp_on_belowequal(&mut self, label: Label) -> Result<(), CodegenError>;
+    fn jmp_on_belowequal(&mut self, label: Label) -> Result<(), CompileError>;
     /// jmp on overflow
     /// like Carry set on x86_64
-    fn jmp_on_overflow(&mut self, label: Label) -> Result<(), CodegenError>;
+    fn jmp_on_overflow(&mut self, label: Label) -> Result<(), CompileError>;
 
     /// jmp using a jump table at lable with cond as the indice
     fn emit_jmp_to_jumptable(
         &mut self,
         label: Label,
         cond: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
 
     /// Align for Loop (may do nothing, depending on the arch)
-    fn align_for_loop(&mut self) -> Result<(), CodegenError>;
+    fn align_for_loop(&mut self) -> Result<(), CompileError>;
 
     /// ret (from a Call)
-    fn emit_ret(&mut self) -> Result<(), CodegenError>;
+    fn emit_ret(&mut self) -> Result<(), CompileError>;
 
     /// Stack push of a location
     fn emit_push(
         &mut self,
         size: Size,
         loc: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Stack pop of a location
     fn emit_pop(
         &mut self,
         size: Size,
         loc: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// relaxed mov: move from anywhere to anywhere
     fn emit_relaxed_mov(
         &mut self,
         sz: Size,
         src: Location<Self::GPR, Self::SIMD>,
         dst: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// relaxed cmp: compare from anywhere and anywhere
     fn emit_relaxed_cmp(
         &mut self,
         sz: Size,
         src: Location<Self::GPR, Self::SIMD>,
         dst: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Emit a memory fence. Can be nothing for x86_64 or a DMB on ARM64 for example
-    fn emit_memory_fence(&mut self) -> Result<(), CodegenError>;
+    fn emit_memory_fence(&mut self) -> Result<(), CompileError>;
     /// relaxed move with zero extension
     fn emit_relaxed_zero_extension(
         &mut self,
@@ -446,7 +441,7 @@ pub trait Machine {
         src: Location<Self::GPR, Self::SIMD>,
         sz_dst: Size,
         dst: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// relaxed move with sign extension
     fn emit_relaxed_sign_extension(
         &mut self,
@@ -454,35 +449,35 @@ pub trait Machine {
         src: Location<Self::GPR, Self::SIMD>,
         sz_dst: Size,
         dst: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Multiply location with immediate
     fn emit_imul_imm32(
         &mut self,
         size: Size,
         imm32: u32,
         gpr: Self::GPR,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Add with location directly from the stack
     fn emit_binop_add32(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Sub with location directly from the stack
     fn emit_binop_sub32(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Multiply with location directly from the stack
     fn emit_binop_mul32(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Unsigned Division with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_udiv32(
         &mut self,
@@ -491,7 +486,7 @@ pub trait Machine {
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
         integer_overflow: Label,
-    ) -> Result<usize, CodegenError>;
+    ) -> Result<usize, CompileError>;
     /// Signed Division with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_sdiv32(
         &mut self,
@@ -500,7 +495,7 @@ pub trait Machine {
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
         integer_overflow: Label,
-    ) -> Result<usize, CodegenError>;
+    ) -> Result<usize, CompileError>;
     /// Unsigned Reminder (of a division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_urem32(
         &mut self,
@@ -509,7 +504,7 @@ pub trait Machine {
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
         integer_overflow: Label,
-    ) -> Result<usize, CodegenError>;
+    ) -> Result<usize, CompileError>;
     /// Signed Reminder (of a Division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_srem32(
         &mut self,
@@ -518,151 +513,151 @@ pub trait Machine {
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
         integer_overflow: Label,
-    ) -> Result<usize, CodegenError>;
+    ) -> Result<usize, CompileError>;
     /// And with location directly from the stack
     fn emit_binop_and32(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Or with location directly from the stack
     fn emit_binop_or32(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Xor with location directly from the stack
     fn emit_binop_xor32(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Signed Greater of Equal Compare 2 i32, result in a GPR
     fn i32_cmp_ge_s(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Signed Greater Than Compare 2 i32, result in a GPR
     fn i32_cmp_gt_s(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Signed Less of Equal Compare 2 i32, result in a GPR
     fn i32_cmp_le_s(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Signed Less Than Compare 2 i32, result in a GPR
     fn i32_cmp_lt_s(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Unsigned Greater of Equal Compare 2 i32, result in a GPR
     fn i32_cmp_ge_u(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Unsigned Greater Than Compare 2 i32, result in a GPR
     fn i32_cmp_gt_u(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Unsigned Less of Equal Compare 2 i32, result in a GPR
     fn i32_cmp_le_u(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Unsigned Less Than Compare 2 i32, result in a GPR
     fn i32_cmp_lt_u(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Not Equal Compare 2 i32, result in a GPR
     fn i32_cmp_ne(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Equal Compare 2 i32, result in a GPR
     fn i32_cmp_eq(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Count Leading 0 bit of an i32
     fn i32_clz(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Count Trailling 0 bit of an i32
     fn i32_ctz(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Count the number of 1 bit of an i32
     fn i32_popcnt(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// i32 Logical Shift Left
     fn i32_shl(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// i32 Logical Shift Right
     fn i32_shr(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// i32 Arithmetic Shift Right
     fn i32_sar(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// i32 Roll Left
     fn i32_rol(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// i32 Roll Right
     fn i32_ror(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// i32 load
     #[allow(clippy::too_many_arguments)]
     fn i32_load(
@@ -674,7 +669,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 load of an unsigned 8bits
     #[allow(clippy::too_many_arguments)]
     fn i32_load_8u(
@@ -686,7 +682,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 load of an signed 8bits
     #[allow(clippy::too_many_arguments)]
     fn i32_load_8s(
@@ -698,7 +695,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 load of an unsigned 16bits
     #[allow(clippy::too_many_arguments)]
     fn i32_load_16u(
@@ -710,7 +708,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 load of an signed 16bits
     #[allow(clippy::too_many_arguments)]
     fn i32_load_16s(
@@ -722,7 +721,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic load
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_load(
@@ -734,7 +734,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic load of an unsigned 8bits
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_load_8u(
@@ -746,7 +747,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic load of an unsigned 16bits
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_load_16u(
@@ -758,7 +760,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 save
     #[allow(clippy::too_many_arguments)]
     fn i32_save(
@@ -770,7 +773,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 save of the lower 8bits
     #[allow(clippy::too_many_arguments)]
     fn i32_save_8(
@@ -782,7 +786,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 save of the lower 16bits
     #[allow(clippy::too_many_arguments)]
     fn i32_save_16(
@@ -794,7 +799,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic save
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_save(
@@ -806,7 +812,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic save of a the lower 8bits
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_save_8(
@@ -818,7 +825,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic save of a the lower 16bits
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_save_16(
@@ -830,7 +838,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic Add with i32
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_add(
@@ -843,7 +852,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic Add with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_add_8u(
@@ -856,7 +866,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic Add with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_add_16u(
@@ -869,7 +880,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic Sub with i32
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_sub(
@@ -882,7 +894,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic Sub with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_sub_8u(
@@ -895,7 +908,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic Sub with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_sub_16u(
@@ -908,7 +922,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic And with i32
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_and(
@@ -921,7 +936,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic And with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_and_8u(
@@ -934,7 +950,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic And with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_and_16u(
@@ -947,7 +964,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic Or with i32
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_or(
@@ -960,7 +978,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic Or with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_or_8u(
@@ -973,7 +992,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic Or with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_or_16u(
@@ -986,7 +1006,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic Xor with i32
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_xor(
@@ -999,7 +1020,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic Xor with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_xor_8u(
@@ -1012,7 +1034,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic Xor with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_xor_16u(
@@ -1025,7 +1048,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic Exchange with i32
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_xchg(
@@ -1038,7 +1062,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic Exchange with u8
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_xchg_8u(
@@ -1051,7 +1076,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic Exchange with u16
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_xchg_16u(
@@ -1064,7 +1090,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic Compare and Exchange with i32
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_cmpxchg(
@@ -1078,7 +1105,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic Compare and Exchange with u8
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_cmpxchg_8u(
@@ -1092,7 +1120,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i32 atomic Compare and Exchange with u16
     #[allow(clippy::too_many_arguments)]
     fn i32_atomic_cmpxchg_16u(
@@ -1106,35 +1135,36 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
 
     /// emit a move function address to GPR ready for call, using appropriate relocation
     fn emit_call_with_reloc(
         &mut self,
         calling_convention: CallingConvention,
         reloc_target: RelocationTarget,
-    ) -> Result<Vec<Relocation>, CodegenError>;
+    ) -> Result<Vec<Relocation>, CompileError>;
     /// Add with location directly from the stack
     fn emit_binop_add64(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Sub with location directly from the stack
     fn emit_binop_sub64(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Multiply with location directly from the stack
     fn emit_binop_mul64(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Unsigned Division with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_udiv64(
         &mut self,
@@ -1143,7 +1173,7 @@ pub trait Machine {
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
         integer_overflow: Label,
-    ) -> Result<usize, CodegenError>;
+    ) -> Result<usize, CompileError>;
     /// Signed Division with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_sdiv64(
         &mut self,
@@ -1152,7 +1182,7 @@ pub trait Machine {
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
         integer_overflow: Label,
-    ) -> Result<usize, CodegenError>;
+    ) -> Result<usize, CompileError>;
     /// Unsigned Reminder (of a division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_urem64(
         &mut self,
@@ -1161,7 +1191,7 @@ pub trait Machine {
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
         integer_overflow: Label,
-    ) -> Result<usize, CodegenError>;
+    ) -> Result<usize, CompileError>;
     /// Signed Reminder (of a Division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_srem64(
         &mut self,
@@ -1170,151 +1200,151 @@ pub trait Machine {
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
         integer_overflow: Label,
-    ) -> Result<usize, CodegenError>;
+    ) -> Result<usize, CompileError>;
     /// And with location directly from the stack
     fn emit_binop_and64(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Or with location directly from the stack
     fn emit_binop_or64(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Xor with location directly from the stack
     fn emit_binop_xor64(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Signed Greater of Equal Compare 2 i64, result in a GPR
     fn i64_cmp_ge_s(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Signed Greater Than Compare 2 i64, result in a GPR
     fn i64_cmp_gt_s(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Signed Less of Equal Compare 2 i64, result in a GPR
     fn i64_cmp_le_s(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Signed Less Than Compare 2 i64, result in a GPR
     fn i64_cmp_lt_s(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Unsigned Greater of Equal Compare 2 i64, result in a GPR
     fn i64_cmp_ge_u(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Unsigned Greater Than Compare 2 i64, result in a GPR
     fn i64_cmp_gt_u(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Unsigned Less of Equal Compare 2 i64, result in a GPR
     fn i64_cmp_le_u(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Unsigned Less Than Compare 2 i64, result in a GPR
     fn i64_cmp_lt_u(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Not Equal Compare 2 i64, result in a GPR
     fn i64_cmp_ne(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Equal Compare 2 i64, result in a GPR
     fn i64_cmp_eq(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Count Leading 0 bit of an i64
     fn i64_clz(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Count Trailling 0 bit of an i64
     fn i64_ctz(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Count the number of 1 bit of an i64
     fn i64_popcnt(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// i64 Logical Shift Left
     fn i64_shl(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// i64 Logical Shift Right
     fn i64_shr(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// i64 Arithmetic Shift Right
     fn i64_sar(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// i64 Roll Left
     fn i64_rol(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// i64 Roll Right
     fn i64_ror(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// i64 load
     #[allow(clippy::too_many_arguments)]
     fn i64_load(
@@ -1326,7 +1356,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 load of an unsigned 8bits
     #[allow(clippy::too_many_arguments)]
     fn i64_load_8u(
@@ -1338,7 +1369,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 load of an signed 8bits
     #[allow(clippy::too_many_arguments)]
     fn i64_load_8s(
@@ -1350,7 +1382,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 load of an unsigned 32bits
     #[allow(clippy::too_many_arguments)]
     fn i64_load_32u(
@@ -1362,7 +1395,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 load of an signed 32bits
     #[allow(clippy::too_many_arguments)]
     fn i64_load_32s(
@@ -1374,7 +1408,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 load of an signed 16bits
     #[allow(clippy::too_many_arguments)]
     fn i64_load_16u(
@@ -1386,7 +1421,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 load of an signed 16bits
     #[allow(clippy::too_many_arguments)]
     fn i64_load_16s(
@@ -1398,7 +1434,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic load
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_load(
@@ -1410,7 +1447,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic load from unsigned 8bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_load_8u(
@@ -1422,7 +1460,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic load from unsigned 16bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_load_16u(
@@ -1434,7 +1473,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic load from unsigned 32bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_load_32u(
@@ -1446,7 +1486,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 save
     #[allow(clippy::too_many_arguments)]
     fn i64_save(
@@ -1458,7 +1499,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 save of the lower 8bits
     #[allow(clippy::too_many_arguments)]
     fn i64_save_8(
@@ -1470,7 +1512,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 save of the lower 16bits
     #[allow(clippy::too_many_arguments)]
     fn i64_save_16(
@@ -1482,7 +1525,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 save of the lower 32bits
     #[allow(clippy::too_many_arguments)]
     fn i64_save_32(
@@ -1494,7 +1538,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic save
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_save(
@@ -1506,7 +1551,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic save of a the lower 8bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_save_8(
@@ -1518,7 +1564,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic save of a the lower 16bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_save_16(
@@ -1530,7 +1577,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic save of a the lower 32bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_save_32(
@@ -1542,7 +1590,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Add with i64
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_add(
@@ -1555,7 +1604,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Add with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_add_8u(
@@ -1568,7 +1618,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Add with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_add_16u(
@@ -1581,7 +1632,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Add with unsigned 32bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_add_32u(
@@ -1594,7 +1646,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Sub with i64
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_sub(
@@ -1607,7 +1660,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Sub with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_sub_8u(
@@ -1620,7 +1674,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Sub with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_sub_16u(
@@ -1633,7 +1688,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Sub with unsigned 32bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_sub_32u(
@@ -1646,7 +1702,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic And with i64
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_and(
@@ -1659,7 +1716,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic And with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_and_8u(
@@ -1672,7 +1730,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic And with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_and_16u(
@@ -1685,7 +1744,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic And with unsigned 32bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_and_32u(
@@ -1698,7 +1758,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Or with i64
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_or(
@@ -1711,7 +1772,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Or with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_or_8u(
@@ -1724,7 +1786,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Or with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_or_16u(
@@ -1737,7 +1800,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Or with unsigned 32bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_or_32u(
@@ -1750,7 +1814,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Xor with i64
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_xor(
@@ -1763,7 +1828,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Xor with unsigned 8bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_xor_8u(
@@ -1776,7 +1842,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Xor with unsigned 16bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_xor_16u(
@@ -1789,7 +1856,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Xor with unsigned 32bits
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_xor_32u(
@@ -1802,7 +1870,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Exchange with i64
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_xchg(
@@ -1815,7 +1884,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Exchange with u8
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_xchg_8u(
@@ -1828,7 +1898,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Exchange with u16
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_xchg_16u(
@@ -1841,7 +1912,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Exchange with u32
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_xchg_32u(
@@ -1854,7 +1926,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Compare and Exchange with i32
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_cmpxchg(
@@ -1868,7 +1941,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Compare and Exchange with u8
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_cmpxchg_8u(
@@ -1882,7 +1956,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Compare and Exchange with u16
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_cmpxchg_16u(
@@ -1896,7 +1971,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// i64 atomic Compare and Exchange with u32
     #[allow(clippy::too_many_arguments)]
     fn i64_atomic_cmpxchg_32u(
@@ -1910,7 +1986,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
 
     /// load an F32
     #[allow(clippy::too_many_arguments)]
@@ -1923,7 +2000,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// f32 save
     #[allow(clippy::too_many_arguments)]
     fn f32_save(
@@ -1936,7 +2014,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// load an F64
     #[allow(clippy::too_many_arguments)]
     fn f64_load(
@@ -1948,7 +2027,8 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// f64 save
     #[allow(clippy::too_many_arguments)]
     fn f64_save(
@@ -1961,35 +2041,36 @@ pub trait Machine {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError>;
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError>;
     /// Convert a F64 from I64, signed or unsigned
     fn convert_f64_i64(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         signed: bool,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Convert a F64 from I32, signed or unsigned
     fn convert_f64_i32(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         signed: bool,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Convert a F32 from I64, signed or unsigned
     fn convert_f32_i64(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         signed: bool,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Convert a F32 from I32, signed or unsigned
     fn convert_f32_i32(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         signed: bool,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Convert a F64 to I64, signed or unsigned, without or without saturation
     fn convert_i64_f64(
         &mut self,
@@ -1997,7 +2078,7 @@ pub trait Machine {
         ret: Location<Self::GPR, Self::SIMD>,
         signed: bool,
         sat: bool,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Convert a F64 to I32, signed or unsigned, without or without saturation
     fn convert_i32_f64(
         &mut self,
@@ -2005,7 +2086,7 @@ pub trait Machine {
         ret: Location<Self::GPR, Self::SIMD>,
         signed: bool,
         sat: bool,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Convert a F32 to I64, signed or unsigned, without or without saturation
     fn convert_i64_f32(
         &mut self,
@@ -2013,7 +2094,7 @@ pub trait Machine {
         ret: Location<Self::GPR, Self::SIMD>,
         signed: bool,
         sat: bool,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Convert a F32 to I32, signed or unsigned, without or without saturation
     fn convert_i32_f32(
         &mut self,
@@ -2021,289 +2102,289 @@ pub trait Machine {
         ret: Location<Self::GPR, Self::SIMD>,
         signed: bool,
         sat: bool,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Convert a F32 to F64
     fn convert_f64_f32(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Convert a F64 to F32
     fn convert_f32_f64(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Negate an F64
     fn f64_neg(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Get the Absolute Value of an F64
     fn f64_abs(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Copy sign from tmp1 Self::GPR to tmp2 Self::GPR
-    fn emit_i64_copysign(&mut self, tmp1: Self::GPR, tmp2: Self::GPR) -> Result<(), CodegenError>;
+    fn emit_i64_copysign(&mut self, tmp1: Self::GPR, tmp2: Self::GPR) -> Result<(), CompileError>;
     /// Get the Square Root of an F64
     fn f64_sqrt(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Trunc of an F64
     fn f64_trunc(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Ceil of an F64
     fn f64_ceil(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Floor of an F64
     fn f64_floor(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Round at nearest int of an F64
     fn f64_nearest(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Greater of Equal Compare 2 F64, result in a GPR
     fn f64_cmp_ge(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Greater Than Compare 2 F64, result in a GPR
     fn f64_cmp_gt(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Less of Equal Compare 2 F64, result in a GPR
     fn f64_cmp_le(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Less Than Compare 2 F64, result in a GPR
     fn f64_cmp_lt(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Not Equal Compare 2 F64, result in a GPR
     fn f64_cmp_ne(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Equal Compare 2 F64, result in a GPR
     fn f64_cmp_eq(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// get Min for 2 F64 values
     fn f64_min(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// get Max for 2 F64 values
     fn f64_max(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Add 2 F64 values
     fn f64_add(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Sub 2 F64 values
     fn f64_sub(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Multiply 2 F64 values
     fn f64_mul(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Divide 2 F64 values
     fn f64_div(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Negate an F32
     fn f32_neg(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Get the Absolute Value of an F32
     fn f32_abs(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Copy sign from tmp1 Self::GPR to tmp2 Self::GPR
-    fn emit_i32_copysign(&mut self, tmp1: Self::GPR, tmp2: Self::GPR) -> Result<(), CodegenError>;
+    fn emit_i32_copysign(&mut self, tmp1: Self::GPR, tmp2: Self::GPR) -> Result<(), CompileError>;
     /// Get the Square Root of an F32
     fn f32_sqrt(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Trunc of an F32
     fn f32_trunc(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Ceil of an F32
     fn f32_ceil(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Floor of an F32
     fn f32_floor(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Round at nearest int of an F32
     fn f32_nearest(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Greater of Equal Compare 2 F32, result in a GPR
     fn f32_cmp_ge(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Greater Than Compare 2 F32, result in a GPR
     fn f32_cmp_gt(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Less of Equal Compare 2 F32, result in a GPR
     fn f32_cmp_le(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Less Than Compare 2 F32, result in a GPR
     fn f32_cmp_lt(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Not Equal Compare 2 F32, result in a GPR
     fn f32_cmp_ne(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Equal Compare 2 F32, result in a GPR
     fn f32_cmp_eq(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// get Min for 2 F32 values
     fn f32_min(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// get Max for 2 F32 values
     fn f32_max(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Add 2 F32 values
     fn f32_add(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Sub 2 F32 values
     fn f32_sub(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Multiply 2 F32 values
     fn f32_mul(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
     /// Divide 2 F32 values
     fn f32_div(
         &mut self,
         loc_a: Location<Self::GPR, Self::SIMD>,
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CodegenError>;
+    ) -> Result<(), CompileError>;
 
     /// Standard function Trampoline generation
     fn gen_std_trampoline(
         &self,
         sig: &FunctionType,
         calling_convention: CallingConvention,
-    ) -> Result<FunctionBody, CodegenError>;
+    ) -> Result<FunctionBody, CompileError>;
     /// Generates dynamic import function call trampoline for a function type.
     fn gen_std_dynamic_import_trampoline(
         &self,
         vmoffsets: &VMOffsets,
         sig: &FunctionType,
         calling_convention: CallingConvention,
-    ) -> Result<FunctionBody, CodegenError>;
+    ) -> Result<FunctionBody, CompileError>;
     /// Singlepass calls import functions through a trampoline.
     fn gen_import_call_trampoline(
         &self,
@@ -2311,7 +2392,7 @@ pub trait Machine {
         index: FunctionIndex,
         sig: &FunctionType,
         calling_convention: CallingConvention,
-    ) -> Result<CustomSection, CodegenError>;
+    ) -> Result<CustomSection, CompileError>;
     /// generate eh_frame instruction (or None if not possible / supported)
     fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions>;
     /// generate Windows unwind instructions (or None if not possible / supported)
@@ -2323,23 +2404,19 @@ pub fn gen_std_trampoline(
     sig: &FunctionType,
     target: &Target,
     calling_convention: CallingConvention,
-) -> FunctionBody {
+) -> Result<FunctionBody, CompileError> {
     match target.triple().architecture {
         Architecture::X86_64 => {
-            let machine = if target.cpu_features().contains(CpuFeature::AVX) {
-                MachineX86_64::new(Some(CpuFeature::AVX))
-            } else if target.cpu_features().contains(CpuFeature::SSE42) {
-                MachineX86_64::new(Some(CpuFeature::SSE42))
-            } else {
-                panic!("singlepass unimplement X86_64 variant for gen_std_trampoline")
-            };
-            machine.gen_std_trampoline(sig, calling_convention).unwrap()
+            let machine = MachineX86_64::new(Some(target.clone()))?;
+            machine.gen_std_trampoline(sig, calling_convention)
         }
         Architecture::Aarch64(_) => {
             let machine = MachineARM64::new();
-            machine.gen_std_trampoline(sig, calling_convention).unwrap()
+            machine.gen_std_trampoline(sig, calling_convention)
         }
-        _ => panic!("singlepass unimplemented arch for gen_std_trampoline"),
+        _ => Err(CompileError::UnsupportedTarget(
+            "singlepass unimplemented arch for gen_std_trampoline".to_owned(),
+        )),
     }
 }
 
@@ -2349,29 +2426,19 @@ pub fn gen_std_dynamic_import_trampoline(
     sig: &FunctionType,
     target: &Target,
     calling_convention: CallingConvention,
-) -> FunctionBody {
+) -> Result<FunctionBody, CompileError> {
     match target.triple().architecture {
         Architecture::X86_64 => {
-            let machine = if target.cpu_features().contains(CpuFeature::AVX) {
-                MachineX86_64::new(Some(CpuFeature::AVX))
-            } else if target.cpu_features().contains(CpuFeature::SSE42) {
-                MachineX86_64::new(Some(CpuFeature::SSE42))
-            } else {
-                panic!(
-                    "singlepass unimplement X86_64 variant for gen_std_dynamic_import_trampoline"
-                )
-            };
-            machine
-                .gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
-                .unwrap()
+            let machine = MachineX86_64::new(Some(target.clone()))?;
+            machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
         }
         Architecture::Aarch64(_) => {
             let machine = MachineARM64::new();
-            machine
-                .gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
-                .unwrap()
+            machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
         }
-        _ => panic!("singlepass unimplemented arch for gen_std_dynamic_import_trampoline"),
+        _ => Err(CompileError::UnsupportedTarget(
+            "singlepass unimplemented arch for gen_std_dynamic_import_trampoline".to_owned(),
+        )),
     }
 }
 /// Singlepass calls import functions through a trampoline.
@@ -2381,27 +2448,19 @@ pub fn gen_import_call_trampoline(
     sig: &FunctionType,
     target: &Target,
     calling_convention: CallingConvention,
-) -> CustomSection {
+) -> Result<CustomSection, CompileError> {
     match target.triple().architecture {
         Architecture::X86_64 => {
-            let machine = if target.cpu_features().contains(CpuFeature::AVX) {
-                MachineX86_64::new(Some(CpuFeature::AVX))
-            } else if target.cpu_features().contains(CpuFeature::SSE42) {
-                MachineX86_64::new(Some(CpuFeature::SSE42))
-            } else {
-                panic!("singlepass unimplement X86_64 variant for gen_import_call_trampoline")
-            };
-            machine
-                .gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
-                .unwrap()
+            let machine = MachineX86_64::new(Some(target.clone()))?;
+            machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
         }
         Architecture::Aarch64(_) => {
             let machine = MachineARM64::new();
-            machine
-                .gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
-                .unwrap()
+            machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
         }
-        _ => panic!("singlepass unimplemented arch for gen_import_call_trampoline"),
+        _ => Err(CompileError::UnsupportedTarget(
+            "singlepass unimplemented arch for gen_import_call_trampoline".to_owned(),
+        )),
     }
 }
 

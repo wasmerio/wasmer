@@ -2,7 +2,7 @@ use std::sync::Arc;
 use wasmer::{CompilerConfig, Features, ModuleMiddleware, Store};
 use wasmer_compiler::Engine;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Compiler {
     LLVM,
     Cranelift,
