@@ -33,11 +33,7 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
         "x86_64-windows-gnu",
     ];
 
-    let compilers = &[
-        "cranelift",
-        "singlepass",
-        "llvm",
-    ];
+    let compilers = &["cranelift", "singlepass", "llvm"];
 
     for t in targets {
         for c in compilers {
@@ -45,7 +41,7 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
             let python_wasmer_path = temp_dir.path().join(format!("{t}-python"));
 
             let mut output = Command::new(get_wasmer_path());
-    
+
             output.arg("create-exe");
             output.arg(wasi_test_python_path());
             output.arg("--target");
@@ -54,20 +50,20 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
             output.arg(python_wasmer_path.clone());
             output.arg(format!("--{c}"));
             let output = output.output()?;
-    
+
             let stdout = std::str::from_utf8(&output.stdout)
                 .expect("stdout is not utf8! need to handle arbitrary bytes");
-    
+
             let stderr = std::str::from_utf8(&output.stderr)
                 .expect("stderr is not utf8! need to handle arbitrary bytes");
-    
+
             if !output.status.success() {
                 bail!("linking failed with: stdout: {stdout}\n\nstderr: {stderr}");
             }
-    
+
             println!("stdout: {stdout}");
             println!("stderr: {stderr}");
-    
+
             if !python_wasmer_path.exists() {
                 let p = std::fs::read_dir(temp_dir.path())
                     .unwrap()

@@ -439,7 +439,7 @@ impl CreateExe {
                                 .canonicalize()
                                 .unwrap_or_else(|_| target_file_path.clone());
                             let files = untar(tarball, target_file_path)?;
-                            files.into_iter().find(|f| f.ends_with("libwasmer.a")).ok_or_else(|| {
+                            files.iter().find(|f| f.ends_with("libwasmer.a")).cloned().ok_or_else(|| {
                                 anyhow!("Could not find libwasmer for {} target in the fetched release from Github: you can download it manually and specify its path with the --cross-compilation-library-path LIBRARY_PATH flag. (files = {files:#?}", target)})?
                         }
                         #[cfg(not(feature = "http"))]
