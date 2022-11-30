@@ -413,12 +413,10 @@ jobs:
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - uses: actions/cache@v2
-        if: matrix.use_sccache
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
-        if: matrix.use_sccache
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
@@ -445,7 +443,6 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
-        if: matrix.use_sccache
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -518,12 +515,10 @@ jobs:
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - uses: actions/cache@v2
-        if: matrix.use_sccache
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
-        if: matrix.use_sccache
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
@@ -550,7 +545,6 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
-        if: matrix.use_sccache
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -631,12 +625,10 @@ jobs:
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - uses: actions/cache@v2
-        if: matrix.use_sccache
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
-        if: matrix.use_sccache
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
@@ -663,7 +655,6 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
-        if: matrix.use_sccache
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -786,12 +777,10 @@ jobs:
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - uses: actions/cache@v2
-        if: matrix.use_sccache
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
-        if: matrix.use_sccache
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
@@ -818,7 +807,6 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
-        if: matrix.use_sccache
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -936,12 +924,10 @@ jobs:
           cache-on-failure: true
           shared-key: wasmer-stage-1-${{ matrix.build }}
       - uses: actions/cache@v2
-        if: matrix.use_sccache
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
-        if: matrix.use_sccache
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
@@ -968,7 +954,6 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
-        if: matrix.use_sccache
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -1083,12 +1068,10 @@ jobs:
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - uses: actions/cache@v2
-        if: matrix.use_sccache
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
-        if: matrix.use_sccache
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
@@ -1115,7 +1098,6 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
-        if: matrix.use_sccache
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -1226,12 +1208,10 @@ jobs:
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - uses: actions/cache@v2
-        if: matrix.use_sccache
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
-        if: matrix.use_sccache
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
@@ -1258,7 +1238,6 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
-        if: matrix.use_sccache
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -1369,12 +1348,10 @@ jobs:
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - uses: actions/cache@v2
-        if: matrix.use_sccache
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
-        if: matrix.use_sccache
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
@@ -1401,7 +1378,6 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
-        if: matrix.use_sccache
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -1512,12 +1488,10 @@ jobs:
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - uses: actions/cache@v2
-        if: matrix.use_sccache
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
-        if: matrix.use_sccache
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
@@ -1544,7 +1518,6 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
-        if: matrix.use_sccache
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -1655,12 +1628,10 @@ jobs:
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - uses: actions/cache@v2
-        if: matrix.use_sccache
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
-        if: matrix.use_sccache
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
@@ -1687,7 +1658,6 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
-        if: matrix.use_sccache
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
