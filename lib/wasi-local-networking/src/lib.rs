@@ -178,7 +178,7 @@ impl VirtualTcpListener for LocalTcpListener {
         Ok((sock, addr))
     }
 
-    fn peek(&mut self) -> Result<usize> {
+    async fn peek(&mut self) -> Result<usize> {
         {
             let backlog = self.backlog.lock().unwrap();
             if backlog.is_empty() == false {
@@ -255,7 +255,7 @@ impl VirtualTcpListener for LocalTcpListener {
         self.stream.local_addr().map_err(io_err_into_net_error)
     }
 
-    fn set_ttl(&mut self, ttl: u8) -> Result<()> {
+    async fn set_ttl(&mut self, ttl: u8) -> Result<()> {
         self.stream
             .set_ttl(ttl as u32)
             .map_err(io_err_into_net_error)
@@ -337,7 +337,7 @@ impl VirtualTcpSocket for LocalTcpStream {
         Err(NetworkError::Unsupported)
     }
 
-    fn set_nodelay(&mut self, nodelay: bool) -> Result<()> {
+    async fn set_nodelay(&mut self, nodelay: bool) -> Result<()> {
         self.stream
             .set_nodelay(nodelay)
             .map_err(io_err_into_net_error)
@@ -585,7 +585,7 @@ impl VirtualConnectedSocket for LocalTcpStream {
 
 #[async_trait::async_trait]
 impl VirtualSocket for LocalTcpStream {
-    fn set_ttl(&mut self, ttl: u32) -> Result<()> {
+    async fn set_ttl(&mut self, ttl: u32) -> Result<()> {
         self.stream.set_ttl(ttl).map_err(io_err_into_net_error)
     }
 
@@ -1102,7 +1102,7 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
         })
     }
 
-    fn peek_from(&mut self) -> Result<SocketReceiveFrom> {
+    async fn peek_from(&mut self) -> Result<SocketReceiveFrom> {
         let buf_size = 8192;
         let mut buf = Vec::with_capacity(buf_size);
         unsafe {
@@ -1136,7 +1136,7 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
 
 #[async_trait::async_trait]
 impl VirtualSocket for LocalUdpSocket {
-    fn set_ttl(&mut self, ttl: u32) -> Result<()> {
+    async fn set_ttl(&mut self, ttl: u32) -> Result<()> {
         match &mut self.socket {
             LocalUdpSocketMode::Blocking(a) => a.set_ttl(ttl).map_err(io_err_into_net_error),
             LocalUdpSocketMode::Async(a) => a.set_ttl(ttl).map_err(io_err_into_net_error),

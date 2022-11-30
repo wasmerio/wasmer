@@ -246,7 +246,7 @@ pub trait VirtualTcpListener: fmt::Debug + Send + Sync + 'static {
     async fn accept(&mut self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>;
 
     /// Checks how many sockets are waiting to be accepted
-    fn peek(&mut self) -> Result<usize>;
+    async fn peek(&mut self) -> Result<usize>;
 
     /// Polls the socket for when there is data to be received
     fn poll_accept_ready(
@@ -264,7 +264,7 @@ pub trait VirtualTcpListener: fmt::Debug + Send + Sync + 'static {
     fn addr_local(&self) -> Result<SocketAddr>;
 
     /// Sets how many network hops the packets are permitted for new connections
-    fn set_ttl(&mut self, ttl: u8) -> Result<()>;
+    async fn set_ttl(&mut self, ttl: u8) -> Result<()>;
 
     /// Returns the maximum number of network hops before packets are dropped
     fn ttl(&self) -> Result<u8>;
@@ -279,7 +279,7 @@ pub trait VirtualTcpListener: fmt::Debug + Send + Sync + 'static {
 #[async_trait::async_trait]
 pub trait VirtualSocket: fmt::Debug + Send + Sync + 'static {
     /// Sets how many network hops the packets are permitted for new connections
-    fn set_ttl(&mut self, ttl: u32) -> Result<()>;
+    async fn set_ttl(&mut self, ttl: u32) -> Result<()>;
 
     /// Determines if the socket is blocking or not
     fn set_nonblocking(&mut self, nonblocking: bool) -> Result<()>;
@@ -397,7 +397,7 @@ pub trait VirtualConnectionlessSocket: VirtualSocket + fmt::Debug + Send + Sync 
     fn try_recv_from(&mut self) -> Result<Option<SocketReceiveFrom>>;
 
     /// Peeks for a packet from the socket
-    fn peek_from(&mut self) -> Result<SocketReceiveFrom>;
+    async fn peek_from(&mut self) -> Result<SocketReceiveFrom>;
 }
 
 /// ICMP sockets are low level devices bound to a specific address
@@ -425,7 +425,7 @@ pub trait VirtualRawSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
     /// Tells the raw socket and its backing switch that all packets
     /// should be received by this socket even if they are not
     /// destined for this device
-    fn set_promiscuous(&mut self, promiscuous: bool) -> Result<()>;
+    async fn set_promiscuous(&mut self, promiscuous: bool) -> Result<()>;
 
     /// Returns if the socket is running in promiscuous mode whereby it
     /// will receive all packets even if they are not destined for the
@@ -470,7 +470,7 @@ pub trait VirtualTcpSocket: VirtualConnectedSocket + fmt::Debug + Send + Sync + 
     /// the peer is sent immediately rather than waiting for a bigger
     /// batch of data, this reduces latency but increases encapsulation
     /// overhead.
-    fn set_nodelay(&mut self, reuse: bool) -> Result<()>;
+    async fn set_nodelay(&mut self, reuse: bool) -> Result<()>;
 
     /// Indicates if the NO_DELAY flag is set which means that data
     /// is immediately sent to the peer without waiting. This reduces

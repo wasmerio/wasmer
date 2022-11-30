@@ -457,7 +457,7 @@ impl InodeSocket {
         })
     }
 
-    pub fn set_opt_flag(&mut self, option: WasiSocketOption, val: bool) -> Result<(), Errno> {
+    pub async fn set_opt_flag(&mut self, option: WasiSocketOption, val: bool) -> Result<(), Errno> {
         let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::PreSocket {
@@ -475,13 +475,13 @@ impl InodeSocket {
             }
             InodeSocketKind::Raw(sock) => match option {
                 WasiSocketOption::Promiscuous => {
-                    sock.set_promiscuous(val).map_err(net_error_into_wasi_err)?
+                    sock.set_promiscuous(val).await.map_err(net_error_into_wasi_err)?
                 }
                 _ => return Err(Errno::Inval),
             },
             InodeSocketKind::TcpStream(sock) => match option {
                 WasiSocketOption::NoDelay => {
-                    sock.set_nodelay(val).map_err(net_error_into_wasi_err)?
+                    sock.set_nodelay(val).await.map_err(net_error_into_wasi_err)?
                 }
                 _ => return Err(Errno::Inval),
             },
@@ -748,11 +748,11 @@ impl InodeSocket {
         }
     }
 
-    pub fn set_ttl(&self, ttl: u32) -> Result<(), Errno> {
+    pub async fn set_ttl(&self, ttl: u32) -> Result<(), Errno> {
         let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
-            InodeSocketKind::TcpStream(sock) => sock.set_ttl(ttl).map_err(net_error_into_wasi_err),
-            InodeSocketKind::UdpSocket(sock) => sock.set_ttl(ttl).map_err(net_error_into_wasi_err),
+            InodeSocketKind::TcpStream(sock) => sock.set_ttl(ttl).await.map_err(net_error_into_wasi_err),
+            InodeSocketKind::UdpSocket(sock) => sock.set_ttl(ttl).await.map_err(net_error_into_wasi_err),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
@@ -932,7 +932,7 @@ impl InodeSocket {
         Ok(ret)
     }
 
-    pub fn peek(&self) -> Result<usize, Errno> {
+    pub async fn peek(&self) -> Result<usize, Errno> {
         let mut inner = self.inner.write().unwrap();
         if let Some(buf) = inner.read_buffer.as_ref() {
             if buf.len() > 0 {
@@ -1022,7 +1022,7 @@ impl InodeSocket {
                 read.data
             }
             InodeSocketKind::TcpListener(sock) => {
-                return sock.peek().map_err(net_error_into_wasi_err);
+                return sock.peek().await.map_err(net_error_into_wasi_err);
             }
             InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
             InodeSocketKind::Closed => return Err(Errno::Io),
@@ -1220,11 +1220,11 @@ impl InodeSocket {
         Ok(())
     }
 
-    pub fn can_write(&self) -> bool {
+    pub async fn can_write(&self) -> bool {
         if let Ok(mut guard) = self.inner.try_write() {
             match &mut guard.kind {
                 InodeSocketKind::TcpListener(socket) => {
-                    socket.peek().ok().map(|a| a > 0).unwrap_or_default()
+                    socket.peek().await.ok().map(|a| a > 0).unwrap_or_default()
                 }
                 InodeSocketKind::TcpStream(..)
                 | InodeSocketKind::UdpSocket(..)
