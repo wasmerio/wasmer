@@ -28,6 +28,9 @@ pub fn spectest_importobject(store: &mut Store) -> Imports {
     let ty = MemoryType::new(1, Some(2), false);
     let memory = Memory::new(store, ty).unwrap();
 
+    let ty = MemoryType::new(1, Some(2), true);
+    let shared_memory = Memory::new(store, ty).unwrap();
+
     imports! {
         "spectest" => {
             "print" => print,
@@ -43,6 +46,7 @@ pub fn spectest_importobject(store: &mut Store) -> Imports {
             "global_f64" => global_f64,
             "table" => table,
             "memory" => memory,
+            "shared_memory" => shared_memory,
         },
     }
 }
