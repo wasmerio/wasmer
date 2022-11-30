@@ -21,7 +21,6 @@ fn test_no_start_wat_path() -> PathBuf {
     Path::new(ASSET_PATH).join("no_start.wat")
 }
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
 #[test]
 fn test_cross_compile_python_windows() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;

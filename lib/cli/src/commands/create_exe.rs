@@ -403,7 +403,6 @@ impl CreateExe {
                 v.canonicalize().unwrap_or(v)
             } else {
                 {
-                    let libwasmer_path = "lib/libwasmer.a";
                     let tarball_dir;
                     let filename = if let Some(local_tarball) = cross_subc.tarball.as_ref() {
                         let target_file_path = local_tarball
@@ -419,8 +418,8 @@ impl CreateExe {
                         let _ = std::fs::create_dir_all(&target_file_path);
                         let files = untar(local_tarball.clone(), target_file_path.clone())?;
                         tarball_dir = target_file_path.canonicalize().unwrap_or(target_file_path);
-                        files.iter().find(|f| f.contains(libwasmer_path)).cloned().ok_or_else(|| {
-                            anyhow!("Could not find libwasmer for {} target in the provided tarball path (files = {files:#?}, libwasmer_path = {libwasmer_path:?})", target)})?
+                        files.iter().find(|f| f.ends_with("libwasmer.a")).cloned().ok_or_else(|| {
+                            anyhow!("Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})", target)})?
                     } else {
                         #[cfg(feature = "http")]
                         {
@@ -440,8 +439,8 @@ impl CreateExe {
                                 .canonicalize()
                                 .unwrap_or_else(|_| target_file_path.clone());
                             let files = untar(tarball, target_file_path)?;
-                            files.into_iter().find(|f| f.contains(libwasmer_path)).ok_or_else(|| {
-                                anyhow!("Could not find libwasmer for {} target in the fetched release from Github: you can download it manually and specify its path with the --cross-compilation-library-path LIBRARY_PATH flag.", target)})?
+                            files.into_iter().find(|f| f.ends_with("libwasmer.a")).ok_or_else(|| {
+                                anyhow!("Could not find libwasmer for {} target in the fetched release from Github: you can download it manually and specify its path with the --cross-compilation-library-path LIBRARY_PATH flag. (files = {files:#?}", target)})?
                         }
                         #[cfg(not(feature = "http"))]
                         return Err(anyhow!("This wasmer binary isn't compiled with an HTTP request library (feature flag `http`). To cross-compile, specify the path of the non-native libwasmer or release tarball with the --library-path LIBRARY_PATH or --tarball TARBALL_PATH flag."));
