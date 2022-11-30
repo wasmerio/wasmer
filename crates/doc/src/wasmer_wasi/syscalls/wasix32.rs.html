@@ -1044,8 +1044,8 @@
 <span class="kw">use</span> <span class="ident">wasmer_wasi_types::wasi</span>::{
     <span class="ident">Addressfamily</span>, <span class="ident">Advice</span>, <span class="ident">Bid</span>, <span class="ident">BusDataFormat</span>, <span class="ident">BusErrno</span>, <span class="ident">BusHandles</span>, <span class="ident">Cid</span>, <span class="ident">Clockid</span>, <span class="ident">Dircookie</span>,
     <span class="ident">Errno</span>, <span class="ident">Event</span>, <span class="ident">EventFdFlags</span>, <span class="ident">Fd</span>, <span class="ident">Fdflags</span>, <span class="ident">Fdstat</span>, <span class="ident">Filesize</span>, <span class="ident">Filestat</span>, <span class="ident">Fstflags</span>, <span class="ident">Pid</span>, <span class="ident">Prestat</span>,
-    <span class="ident">Rights</span>, <span class="ident">Sockoption</span>, <span class="ident">Sockstatus</span>, <span class="ident">Socktype</span>, <span class="ident">Streamsecurity</span>, <span class="ident">Subscription</span>, <span class="ident">Tid</span>, <span class="ident">Timestamp</span>, <span class="ident">Tty</span>,
-    <span class="ident">Whence</span>,
+    <span class="ident">Rights</span>, <span class="ident">Snapshot0Clockid</span>, <span class="ident">Sockoption</span>, <span class="ident">Sockstatus</span>, <span class="ident">Socktype</span>, <span class="ident">Streamsecurity</span>, <span class="ident">Subscription</span>, <span class="ident">Tid</span>,
+    <span class="ident">Timestamp</span>, <span class="ident">Tty</span>, <span class="ident">Whence</span>,
 };
 
 <span class="kw">type</span> <span class="ident">MemoryType</span> <span class="op">=</span> <span class="ident">Memory32</span>;
@@ -1069,7 +1069,7 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">clock_res_get</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">clock_id</span>: <span class="ident">Clockid</span>,
+    <span class="ident">clock_id</span>: <span class="ident">Snapshot0Clockid</span>,
     <span class="ident">resolution</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Timestamp</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">Errno</span> {
     <span class="ident"><span class="kw">super</span>::clock_res_get</span>::<span class="op">&lt;</span><span class="ident">MemoryType</span><span class="op">&gt;</span>(<span class="ident">ctx</span>, <span class="ident">clock_id</span>, <span class="ident">resolution</span>)
@@ -1077,7 +1077,7 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">clock_time_get</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">clock_id</span>: <span class="ident">Clockid</span>,
+    <span class="ident">clock_id</span>: <span class="ident">Snapshot0Clockid</span>,
     <span class="ident">precision</span>: <span class="ident">Timestamp</span>,
     <span class="ident">time</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Timestamp</span>, <span class="ident">MemoryType</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">Errno</span> {

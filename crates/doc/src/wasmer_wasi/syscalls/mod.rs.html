@@ -5620,12 +5620,6 @@
 <span id="5612">5612</span>
 <span id="5613">5613</span>
 <span id="5614">5614</span>
-<span id="5615">5615</span>
-<span id="5616">5616</span>
-<span id="5617">5617</span>
-<span id="5618">5618</span>
-<span id="5619">5619</span>
-<span id="5620">5620</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>, <span class="ident">clippy::too_many_arguments</span>, <span class="ident">clippy::cognitive_complexity</span>)]</span>
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span> {
@@ -5998,7 +5992,7 @@
 <span class="doccomment">///     The resolution of the clock in nanoseconds</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">clock_res_get</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">clock_id</span>: <span class="ident">Clockid</span>,
+    <span class="ident">clock_id</span>: <span class="ident">Snapshot0Clockid</span>,
     <span class="ident">resolution</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Timestamp</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">Errno</span> {
     <span class="macro">trace!</span>(<span class="string">&quot;wasi::clock_res_get&quot;</span>);
@@ -6006,10 +6000,7 @@
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
 
     <span class="kw">let</span> <span class="ident">out_addr</span> <span class="op">=</span> <span class="ident">resolution</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>);
-    <span class="kw">let</span> <span class="ident">t_out</span> <span class="op">=</span> <span class="macro">wasi_try!</span>(<span class="ident">platform_clock_res_get</span>(
-        <span class="ident">Snapshot0Clockid::from</span>(<span class="ident">clock_id</span>),
-        <span class="ident">out_addr</span>
-    ));
+    <span class="kw">let</span> <span class="ident">t_out</span> <span class="op">=</span> <span class="macro">wasi_try!</span>(<span class="ident">platform_clock_res_get</span>(<span class="ident">clock_id</span>, <span class="ident">out_addr</span>));
     <span class="macro">wasi_try_mem!</span>(<span class="ident">resolution</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">t_out</span> <span class="kw">as</span> <span class="ident">Timestamp</span>));
     <span class="ident">Errno::Success</span>
 }
@@ -6026,7 +6017,7 @@
 <span class="doccomment">///     The value of the clock in nanoseconds</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">clock_time_get</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    <span class="ident">clock_id</span>: <span class="ident">Clockid</span>,
+    <span class="ident">clock_id</span>: <span class="ident">Snapshot0Clockid</span>,
     <span class="ident">precision</span>: <span class="ident">Timestamp</span>,
     <span class="ident">time</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Timestamp</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">Errno</span> {
@@ -6037,10 +6028,7 @@
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
 
-    <span class="kw">let</span> <span class="ident">t_out</span> <span class="op">=</span> <span class="macro">wasi_try!</span>(<span class="ident">platform_clock_time_get</span>(
-        <span class="ident">Snapshot0Clockid::from</span>(<span class="ident">clock_id</span>),
-        <span class="ident">precision</span>
-    ));
+    <span class="kw">let</span> <span class="ident">t_out</span> <span class="op">=</span> <span class="macro">wasi_try!</span>(<span class="ident">platform_clock_time_get</span>(<span class="ident">clock_id</span>, <span class="ident">precision</span>));
     <span class="macro">wasi_try_mem!</span>(<span class="ident">time</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">t_out</span> <span class="kw">as</span> <span class="ident">Timestamp</span>));
 
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">Errno::Success</span>;
