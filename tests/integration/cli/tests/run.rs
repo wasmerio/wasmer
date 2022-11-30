@@ -39,12 +39,11 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
         ("x86_64-darwin", "singlepass"), // UnsupportedTarget("x86_64 without AVX or SSE 4.2")
         ("x86_64-linux-gnu", "singlepass"), // UnsupportedTarget("x86_64 without AVX or SSE 4.2")
         ("x86_64-windows-gnu", "singlepass"), // UnsupportedTarget("x86_64 without AVX or SSE 4.2")
-
         ("aarch64-darwin", "llvm"), // LLVM: aarch64 not supported relocation Arm64MovwG0 not supported
         ("aarch64-linux-gnu", "llvm"), // LLVM: aarch64 not supported relocation Arm64MovwG0 not supported
 
-        ("x86_64-darwin", "llvm"), // undefined reference to symbol 'wasmer_vm_raise_trap'
-        ("x86_64-windows-gnu", "llvm"), // unimplemented symbol `wasmer_vm_raise_trap` kind Unknown
+                                       // ("x86_64-darwin", "llvm"), // undefined reference to symbol 'wasmer_vm_raise_trap' kind Unknown
+                                       // ("x86_64-windows-gnu", "llvm"), // unimplemented symbol `wasmer_vm_raise_trap` kind Unknown
     ];
 
     for t in targets {
@@ -64,6 +63,12 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
             output.arg("-o");
             output.arg(python_wasmer_path.clone());
             output.arg(format!("--{c}"));
+
+            if t.contains("x86_64") && *c == "singlepass" {
+                output.arg("-m");
+                output.arg("avx");
+            }
+
             let output = output.output()?;
 
             let stdout = std::str::from_utf8(&output.stdout)

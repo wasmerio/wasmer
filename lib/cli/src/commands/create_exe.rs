@@ -421,29 +421,99 @@ impl CreateExe {
                         files.iter().find(|f| f.ends_with("libwasmer.a")).cloned().ok_or_else(|| {
                             anyhow!("Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})", target)})?
                     } else {
-                        #[cfg(feature = "http")]
-                        {
-                            let release = http_fetch::get_latest_release()?;
-                            let tarball = http_fetch::download_release(release, target.clone())?;
-                            let target_file_path = tarball
+                        // check if the tarball for the target already exists locally
+                        let local_tarball = std::fs::read_dir(get_libwasmer_cache_path()?)?
+                            .filter_map(|e| e.ok())
+                            .filter_map(|e| {
+                                let path = format!("{}", e.path().display());
+                                if path.ends_with(".tar.gz") {
+                                    Some(e.path())
+                                } else {
+                                    None
+                                }
+                            })
+                            .filter_map(|p| {
+                                if let Architecture::Aarch64(_) = target.architecture {
+                                    if !p.file_name()?.to_str()?.contains("aarch64") {
+                                        return None;
+                                    }
+                                }
+
+                                if let Architecture::X86_64 = target.architecture {
+                                    if !p.file_name()?.to_str()?.contains("x86_64") {
+                                        return None;
+                                    }
+                                }
+
+                                if let OperatingSystem::Windows = target.operating_system {
+                                    if !p.file_name()?.to_str()?.contains("windows") {
+                                        return None;
+                                    }
+                                }
+
+                                if let OperatingSystem::Darwin = target.operating_system {
+                                    if !(p.file_name()?.to_str()?.contains("apple")
+                                        || p.file_name()?.to_str()?.contains("darwin"))
+                                    {
+                                        return None;
+                                    }
+                                }
+
+                                if let OperatingSystem::Linux = target.operating_system {
+                                    if !p.file_name()?.to_str()?.contains("linux") {
+                                        return None;
+                                    }
+                                }
+
+                                Some(p)
+                            })
+                            .next();
+
+                        if let Some(local_tarball) = local_tarball.as_ref() {
+                            let target_file_path = local_tarball
                                 .parent()
-                                .and_then(|parent| Some(parent.join(tarball.file_stem()?)))
-                                .unwrap_or_else(|| tarball.clone());
+                                .and_then(|parent| Some(parent.join(local_tarball.file_stem()?)))
+                                .unwrap_or_else(|| local_tarball.clone());
 
                             let target_file_path = target_file_path
                                 .parent()
                                 .and_then(|parent| Some(parent.join(target_file_path.file_stem()?)))
                                 .unwrap_or_else(|| target_file_path.clone());
 
-                            tarball_dir = target_file_path
-                                .canonicalize()
-                                .unwrap_or_else(|_| target_file_path.clone());
-                            let files = untar(tarball, target_file_path)?;
+                            let _ = std::fs::create_dir_all(&target_file_path);
+                            let files = untar(local_tarball.clone(), target_file_path.clone())?;
+                            tarball_dir =
+                                target_file_path.canonicalize().unwrap_or(target_file_path);
                             files.iter().find(|f| f.ends_with("libwasmer.a")).cloned().ok_or_else(|| {
-                                anyhow!("Could not find libwasmer for {} target in the fetched release from Github: you can download it manually and specify its path with the --cross-compilation-library-path LIBRARY_PATH flag. (files = {files:#?}", target)})?
+                                anyhow!("Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})", target)})?
+                        } else {
+                            #[cfg(feature = "http")]
+                            {
+                                let release = http_fetch::get_latest_release()?;
+                                let tarball =
+                                    http_fetch::download_release(release, target.clone())?;
+                                let target_file_path = tarball
+                                    .parent()
+                                    .and_then(|parent| Some(parent.join(tarball.file_stem()?)))
+                                    .unwrap_or_else(|| tarball.clone());
+
+                                let target_file_path = target_file_path
+                                    .parent()
+                                    .and_then(|parent| {
+                                        Some(parent.join(target_file_path.file_stem()?))
+                                    })
+                                    .unwrap_or_else(|| target_file_path.clone());
+
+                                tarball_dir = target_file_path
+                                    .canonicalize()
+                                    .unwrap_or_else(|_| target_file_path.clone());
+                                let files = untar(tarball, target_file_path)?;
+                                files.iter().find(|f| f.ends_with("libwasmer.a")).cloned().ok_or_else(|| {
+                                    anyhow!("Could not find libwasmer for {} target in the fetched release from Github: you can download it manually and specify its path with the --cross-compilation-library-path LIBRARY_PATH flag. (files = {files:#?}", target)})?
+                            }
+                            #[cfg(not(feature = "http"))]
+                            return Err(anyhow!("This wasmer binary isn't compiled with an HTTP request library (feature flag `http`). To cross-compile, specify the path of the non-native libwasmer or release tarball with the --library-path LIBRARY_PATH or --tarball TARBALL_PATH flag."));
                         }
-                        #[cfg(not(feature = "http"))]
-                        return Err(anyhow!("This wasmer binary isn't compiled with an HTTP request library (feature flag `http`). To cross-compile, specify the path of the non-native libwasmer or release tarball with the --library-path LIBRARY_PATH or --tarball TARBALL_PATH flag."));
                     };
                     tarball_dir.join(&filename)
                 }
@@ -1378,7 +1448,7 @@ mod http_fetch {
         }
 
         Err(anyhow!(
-            "Could not get expected Github API response.\n\nReason: response format is not recognized:\n{:#?}", ""
+            "Could not get expected Github API response.\n\nReason: response format is not recognized:\n{response:#?}",
         ))
     }
 
