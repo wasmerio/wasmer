@@ -704,7 +704,7 @@ jobs:
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
           - build: windows-x64
-            os: windows-latest-8-cores
+            os: windows-2019
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
