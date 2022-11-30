@@ -417,13 +417,14 @@ jobs:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
+        if: matrix.build != 'linux-musl'
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port
+        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -443,6 +444,7 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
+        if: matrix.build != 'linux-musl'
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -519,13 +521,14 @@ jobs:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
+        if: matrix.build != 'linux-musl'
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port
+        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -545,6 +548,7 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
+        if: matrix.build != 'linux-musl'
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -629,13 +633,14 @@ jobs:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
+        if: matrix.build != 'linux-musl'
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port
+        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -655,6 +660,7 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
+        if: matrix.build != 'linux-musl'
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -781,13 +787,14 @@ jobs:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
+        if: matrix.build != 'linux-musl'
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port
+        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -807,6 +814,7 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
+        if: matrix.build != 'linux-musl'
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -928,13 +936,14 @@ jobs:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
+        if: matrix.build != 'linux-musl'
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port
+        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -954,6 +963,7 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
+        if: matrix.build != 'linux-musl'
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -1072,13 +1082,14 @@ jobs:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
+        if: matrix.build != 'linux-musl'
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port
+        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -1098,6 +1109,7 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
+        if: matrix.build != 'linux-musl'
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -1212,13 +1224,14 @@ jobs:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
+        if: matrix.build != 'linux-musl'
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port
+        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -1238,6 +1251,7 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
+        if: matrix.build != 'linux-musl'
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -1352,13 +1366,14 @@ jobs:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
+        if: matrix.build != 'linux-musl'
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port
+        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -1378,6 +1393,7 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
+        if: matrix.build != 'linux-musl'
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -1492,13 +1508,14 @@ jobs:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
+        if: matrix.build != 'linux-musl'
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port
+        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -1518,6 +1535,7 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
+        if: matrix.build != 'linux-musl'
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -1632,13 +1650,14 @@ jobs:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
+        if: matrix.build != 'linux-musl'
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
             cargo install sccache --no-default-features --features=dist-client,azure --version 0.2.15 --root '${{ runner.tool_cache }}/cargo-sccache'
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port
+        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -1658,6 +1677,7 @@ jobs:
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
         shell: bash
       - name: Start sccache
+        if: matrix.build != 'linux-musl'
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
