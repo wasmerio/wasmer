@@ -77,6 +77,9 @@ pub use wasmer_vfs::{
 };
 pub use wasmer_vnet;
 pub use wasmer_vnet::{UnsupportedVirtualNetworking, VirtualNetworking};
+pub use wasmer_wasi_local_networking::{
+    LocalNetworking, LocalTcpListener, LocalUdpSocket, LocalTcpStream
+};
 use wasmer_wasi_types::wasi::{BusErrno, Errno, ExitCode};
 
 pub use crate::{
