@@ -159,7 +159,7 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
-    /// # Example of loading a module using just an [`Engine`] and no [`Store`]
+    /// # Example of loading a module using just an `Engine` and no `Store`
     ///
     /// ```
     /// # use wasmer::*;
