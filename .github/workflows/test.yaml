@@ -128,7 +128,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-          - build: linux-musl-x64
+          - build: linux-musl
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest-8-cores
             container: alpine:latest
@@ -145,7 +145,7 @@ jobs:
           sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl-x64'
+        if: matrix.build == 'linux-musl'
         run: |
             apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
@@ -338,7 +338,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-          - build: linux-musl-x64
+          - build: linux-musl
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest-8-cores
             container: alpine:latest
@@ -355,7 +355,7 @@ jobs:
           sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl-x64'
+        if: matrix.build == 'linux-musl'
         run: |
             apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
@@ -488,7 +488,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-          - build: linux-musl-x64
+          - build: linux-musl
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest-8-cores
             container: alpine:latest
@@ -499,7 +499,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl-x64'
+        if: matrix.build == 'linux-musl'
         run: |
             apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - uses: actions/download-artifact@v3
@@ -563,7 +563,7 @@ jobs:
           make untar-capi
       - name: Test C API
         # musl can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
-        if: matrix.build != 'linux-musl-x64'
+        if: matrix.build != 'linux-musl'
         run: |
           make test-capi-ci
         env:
@@ -592,7 +592,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-          - build: linux-musl-x64
+          - build: linux-musl
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest-8-cores
             container: alpine:latest
@@ -606,7 +606,7 @@ jobs:
         with:
           version: 0.10.0
       - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl-x64'
+        if: matrix.build == 'linux-musl'
         run: |
             apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - uses: actions/download-artifact@v3
@@ -708,7 +708,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-          - build: linux-musl-x64
+          - build: linux-musl
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest-8-cores
             container: alpine:latest
@@ -725,7 +725,7 @@ jobs:
           sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl-x64'
+        if: matrix.build == 'linux-musl'
         run: |
             apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
@@ -850,7 +850,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-          - build: linux-musl-x64
+          - build: linux-musl
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest-8-cores
             container: alpine:latest
@@ -861,7 +861,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl-x64'
+        if: matrix.build == 'linux-musl'
         run: |
             apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - uses: actions/download-artifact@v3
@@ -875,7 +875,7 @@ jobs:
           sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl-x64'
+        if: matrix.build == 'linux-musl'
         run: |
             apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
@@ -1003,7 +1003,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-          - build: linux-musl-x64
+          - build: linux-musl
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest-8-cores
             container: alpine:latest
@@ -1020,7 +1020,7 @@ jobs:
           sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl-x64'
+        if: matrix.build == 'linux-musl'
         run: |
             apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
@@ -1145,7 +1145,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-          - build: linux-musl-x64
+          - build: linux-musl
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest-8-cores
             container: alpine:latest
@@ -1162,7 +1162,7 @@ jobs:
           sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl-x64'
+        if: matrix.build == 'linux-musl'
         run: |
             apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
@@ -1287,7 +1287,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-          - build: linux-musl-x64
+          - build: linux-musl
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest-8-cores
             container: alpine:latest
@@ -1304,7 +1304,7 @@ jobs:
           sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl-x64'
+        if: matrix.build == 'linux-musl'
         run: |
             apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
@@ -1429,7 +1429,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-          - build: linux-musl-x64
+          - build: linux-musl
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest-8-cores
             container: alpine:latest
@@ -1446,7 +1446,7 @@ jobs:
           sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl-x64'
+        if: matrix.build == 'linux-musl'
         run: |
             apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
@@ -1571,7 +1571,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
-          - build: linux-musl-x64
+          - build: linux-musl
             target: x86_64-unknown-linux-musl
             os: ubuntu-latest-8-cores
             container: alpine:latest
@@ -1588,7 +1588,7 @@ jobs:
           sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl-x64'
+        if: matrix.build == 'linux-musl'
         run: |
             apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
