@@ -5,8 +5,8 @@ use wasmer_wasi_types::types::*;
 use wasmer_wasi_types::wasi::{
     Addressfamily, Advice, Bid, BusDataFormat, BusErrno, BusHandles, Cid, Clockid, Dircookie,
     Errno, Event, EventFdFlags, Fd, Fdflags, Fdstat, Filesize, Filestat, Fstflags, Pid, Prestat,
-    Rights, Sockoption, Sockstatus, Socktype, Streamsecurity, Subscription, Tid, Timestamp, Tty,
-    Whence,
+    Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype, Streamsecurity, Subscription, Tid,
+    Timestamp, Tty, Whence,
 };
 
 type MemoryType = Memory64;
@@ -30,7 +30,7 @@ pub(crate) fn args_sizes_get(
 
 pub(crate) fn clock_res_get(
     ctx: FunctionEnvMut<WasiEnv>,
-    clock_id: Clockid,
+    clock_id: Snapshot0Clockid,
     resolution: WasmPtr<Timestamp, MemoryType>,
 ) -> Errno {
     super::clock_res_get::<MemoryType>(ctx, clock_id, resolution)
@@ -38,7 +38,7 @@ pub(crate) fn clock_res_get(
 
 pub(crate) fn clock_time_get(
     ctx: FunctionEnvMut<WasiEnv>,
-    clock_id: Clockid,
+    clock_id: Snapshot0Clockid,
     precision: Timestamp,
     time: WasmPtr<Timestamp, MemoryType>,
 ) -> Errno {
