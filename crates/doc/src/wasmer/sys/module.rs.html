@@ -522,6 +522,14 @@
 <span id="514">514</span>
 <span id="515">515</span>
 <span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::InstantiationError</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::AsStoreMut</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::AsStoreRef</span>;
@@ -534,6 +542,7 @@
 <span class="kw">use</span> <span class="ident">thiserror::Error</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::Artifact</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler::ArtifactCreate</span>;
+<span class="kw">use</span> <span class="ident">wasmer_compiler::AsEngineRef</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wat&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_types::WasmError</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
@@ -682,8 +691,18 @@
     <span class="doccomment">/// # Ok(())</span>
     <span class="doccomment">/// # }</span>
     <span class="doccomment">/// ```</span>
+    <span class="doccomment">/// # Example of loading a module using just an `Engine` and no `Store`</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// ```</span>
+    <span class="doccomment">/// # use wasmer::*;</span>
+    <span class="doccomment">/// #</span>
+    <span class="doccomment">/// # let compiler = Cranelift::default();</span>
+    <span class="doccomment">/// # let engine = EngineBuilder::new(compiler).engine();</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// let module = Module::from_file(&amp;engine, &quot;path/to/foo.wasm&quot;);</span>
+    <span class="doccomment">/// ```</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unreachable_code</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>, <span class="ident">bytes</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsEngineRef</span>, <span class="ident">bytes</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wat&quot;</span>)]</span>
         <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">wat::parse_bytes</span>(<span class="ident">bytes</span>.<span class="ident">as_ref</span>()).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
             <span class="ident">CompileError::Wasm</span>(<span class="ident">WasmError::Generic</span>(<span class="macro">format!</span>(
@@ -691,19 +710,19 @@
                 <span class="ident">e</span>
             )))
         })<span class="question-mark">?</span>;
-        <span class="ident"><span class="self">Self</span>::from_binary</span>(<span class="ident">store</span>, <span class="ident">bytes</span>.<span class="ident">as_ref</span>())
+        <span class="ident"><span class="self">Self</span>::from_binary</span>(<span class="ident">engine</span>, <span class="ident">bytes</span>.<span class="ident">as_ref</span>())
     }
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="doccomment">/// Creates a new WebAssembly module from a file path.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_file</span>(
-        <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>,
+        <span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsEngineRef</span>,
         <span class="ident">file</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">IoCompileError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">file_ref</span> <span class="op">=</span> <span class="ident">file</span>.<span class="ident">as_ref</span>();
         <span class="kw">let</span> <span class="ident">canonical</span> <span class="op">=</span> <span class="ident">file_ref</span>.<span class="ident">canonicalize</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">wasm_bytes</span> <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="ident">file_ref</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::new</span>(<span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">wasm_bytes</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::new</span>(<span class="ident">engine</span>, <span class="kw-2">&amp;</span><span class="ident">wasm_bytes</span>)<span class="question-mark">?</span>;
         <span class="comment">// Set the module name to the absolute path of the filename.</span>
         <span class="comment">// This is useful for debugging the stack traces.</span>
         <span class="kw">let</span> <span class="ident">filename</span> <span class="op">=</span> <span class="ident">canonical</span>.<span class="ident">as_path</span>().<span class="ident">to_str</span>().<span class="ident">unwrap</span>();
@@ -717,9 +736,9 @@
     <span class="doccomment">/// Opposed to [`Module::new`], this function is not compatible with</span>
     <span class="doccomment">/// the WebAssembly text format (if the &quot;wat&quot; feature is enabled for</span>
     <span class="doccomment">/// this crate).</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>, <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="ident"><span class="self">Self</span>::validate</span>(<span class="ident">store</span>, <span class="ident">binary</span>)<span class="question-mark">?</span>;
-        <span class="kw">unsafe</span> { <span class="ident"><span class="self">Self</span>::from_binary_unchecked</span>(<span class="ident">store</span>, <span class="ident">binary</span>) }
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsEngineRef</span>, <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
+        <span class="ident"><span class="self">Self</span>::validate</span>(<span class="ident">engine</span>, <span class="ident">binary</span>)<span class="question-mark">?</span>;
+        <span class="kw">unsafe</span> { <span class="ident"><span class="self">Self</span>::from_binary_unchecked</span>(<span class="ident">engine</span>, <span class="ident">binary</span>) }
     }
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
@@ -731,10 +750,10 @@
     <span class="doccomment">/// in environments where the WebAssembly modules are trusted and validated</span>
     <span class="doccomment">/// beforehand.</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">from_binary_unchecked</span>(
-        <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>,
+        <span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsEngineRef</span>,
         <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::compile</span>(<span class="ident">store</span>, <span class="ident">binary</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::compile</span>(<span class="ident">engine</span>, <span class="ident">binary</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">module</span>)
     }
 
@@ -745,16 +764,13 @@
     <span class="doccomment">/// This validation is normally pretty fast and checks the enabled</span>
     <span class="doccomment">/// WebAssembly features in the Store Engine to assure deterministic</span>
     <span class="doccomment">/// validation of the Module.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>, <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">engine</span>().<span class="ident">validate</span>(<span class="ident">binary</span>)
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">validate</span>(<span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsEngineRef</span>, <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">CompileError</span><span class="op">&gt;</span> {
+        <span class="ident">engine</span>.<span class="ident">as_engine_ref</span>().<span class="ident">engine</span>().<span class="ident">validate</span>(<span class="ident">binary</span>)
     }
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">compile</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>, <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">artifact</span> <span class="op">=</span> <span class="ident">store</span>
-            .<span class="ident">as_store_ref</span>()
-            .<span class="ident">engine</span>()
-            .<span class="ident">compile</span>(<span class="ident">binary</span>, <span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">tunables</span>())<span class="question-mark">?</span>;
+    <span class="kw">fn</span> <span class="ident">compile</span>(<span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsEngineRef</span>, <span class="ident">binary</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">artifact</span> <span class="op">=</span> <span class="ident">engine</span>.<span class="ident">as_engine_ref</span>().<span class="ident">engine</span>().<span class="ident">compile</span>(<span class="ident">binary</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::from_artifact</span>(<span class="ident">artifact</span>))
     }
 

@@ -1,3 +1,4 @@
 (function() {var implementors = {};
-implementors["wasmer"] = [{"text":"impl <a class=\"trait\" href=\"wasmer/trait.Tunables.html\" title=\"trait wasmer::Tunables\">Tunables</a> for <a class=\"struct\" href=\"wasmer/sys/tunables/struct.BaseTunables.html\" title=\"struct wasmer::sys::tunables::BaseTunables\">BaseTunables</a>","synthetic":false,"types":["wasmer::sys::tunables::BaseTunables"]}];
+implementors["wasmer"] = [];
+implementors["wasmer_compiler"] = [];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

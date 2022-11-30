@@ -25,10 +25,18 @@ on the arguments to this macro.</p>
 </div></div></div><h2 id="structs" class="small-section-header"><a href="#structs">Structs</a></h2>
 <div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Artifact.html" title="wasmer_compiler::Artifact struct">Artifact</a></div><div class="item-right docblock-short"><p>A compiled wasm module, ready to be instantiated.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.ArtifactBuild.html" title="wasmer_compiler::ArtifactBuild struct">ArtifactBuild</a></div><div class="item-right docblock-short"><p>A compiled wasm module, ready to be instantiated.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.BaseTunables.html" title="wasmer_compiler::BaseTunables struct">BaseTunables</a></div><div class="item-right docblock-short"><p>Tunable parameters for WebAssembly compilation.
+This is the reference implementation of the <code>Tunables</code> trait,
+used by default.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.CodeMemory.html" title="wasmer_compiler::CodeMemory struct">CodeMemory</a></div><div class="item-right docblock-short"><p>Memory manager for executable code.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Engine.html" title="wasmer_compiler::Engine struct">Engine</a></div><div class="item-right docblock-short"><p>A WebAssembly <code>Universal</code> Engine.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.EngineBuilder.html" title="wasmer_compiler::EngineBuilder struct">EngineBuilder</a></div><div class="item-right docblock-short"><p>The Builder contents of <code>Engine</code></p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.EngineInner.html" title="wasmer_compiler::EngineInner struct">EngineInner</a></div><div class="item-right docblock-short"><p>The inner contents of <code>Engine</code></p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.EngineRef.html" title="wasmer_compiler::EngineRef struct">EngineRef</a></div><div class="item-right docblock-short"><p>A temporary handle to an <a href="engine/inner/struct.Engine.html" title="Engine"><code>Engine</code></a>
+EngineRef can be used to build a [<code>Module</code>][wasmer::Module]
+It can be created directly with an <a href="engine/inner/struct.Engine.html" title="Engine"><code>Engine</code></a>
+Or from anything implementing <a href="engine/engineref/trait.AsEngineRef.html" title="AsEngineRef"><code>AsEngineRef</code></a>
+like from [<code>Store</code>][wasmer::Store] typicaly</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.FRAME_INFO.html" title="wasmer_compiler::FRAME_INFO struct">FRAME_INFO</a></div><div class="item-right docblock-short"><p>This is a global cache of backtrace frame information for all active</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Features.html" title="wasmer_compiler::Features struct">Features</a></div><div class="item-right docblock-short"><p>Controls which experimental features will be enabled.
 Features usually have a corresponding <a href="https://github.com/WebAssembly/proposals">WebAssembly proposal</a>.</p>
@@ -57,6 +65,7 @@ module instantiation (besides traps from the start function).</p>
 </div></div></div><h2 id="traits" class="small-section-header"><a href="#traits">Traits</a></h2>
 <div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.ArtifactCreate.html" title="wasmer_compiler::ArtifactCreate trait">ArtifactCreate</a></div><div class="item-right docblock-short"><p>An <code>Artifact</code> is the product that the <code>Engine</code>
 implementation produce and use.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.AsEngineRef.html" title="wasmer_compiler::AsEngineRef trait">AsEngineRef</a></div><div class="item-right docblock-short"><p>Helper trait for a value that is convertible to a <a href="engine/engineref/struct.EngineRef.html" title="EngineRef"><code>EngineRef</code></a>.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.Compiler.html" title="wasmer_compiler::Compiler trait">Compiler</a></div><div class="item-right docblock-short"><p>An implementation of a Compiler from parsed WebAssembly module to Compiled native code.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.CompilerConfig.html" title="wasmer_compiler::CompilerConfig trait">CompilerConfig</a></div><div class="item-right docblock-short"><p>The compiler configuration options.</p>
 </div></div><div class="item-row"><div class="item-left module-item"><a class="trait" href="trait.FunctionBinaryReader.html" title="wasmer_compiler::FunctionBinaryReader trait">FunctionBinaryReader</a></div><div class="item-right docblock-short"><p>Trait for iterating over the operators of a Wasm Function</p>

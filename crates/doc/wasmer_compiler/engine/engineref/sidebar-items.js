@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["EngineRef","A temporary handle to an [`Engine`] EngineRef can be used to build a [`Module`][wasmer::Module] It can be created directly with an [`Engine`] Or from anything implementing [`AsEngineRef`] like from [`Store`][wasmer::Store] typicaly"]],"trait":[["AsEngineRef","Helper trait for a value that is convertible to a [`EngineRef`]."]]};

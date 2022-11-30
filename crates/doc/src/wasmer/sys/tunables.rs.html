@@ -260,268 +260,23 @@
 <span id="252">252</span>
 <span id="253">253</span>
 <span id="254">254</span>
-<span id="255">255</span>
-<span id="256">256</span>
-<span id="257">257</span>
-<span id="258">258</span>
-<span id="259">259</span>
-<span id="260">260</span>
-<span id="261">261</span>
-<span id="262">262</span>
-<span id="263">263</span>
-<span id="264">264</span>
-<span id="265">265</span>
-<span id="266">266</span>
-<span id="267">267</span>
-<span id="268">268</span>
-<span id="269">269</span>
-<span id="270">270</span>
-<span id="271">271</span>
-<span id="272">272</span>
-<span id="273">273</span>
-<span id="274">274</span>
-<span id="275">275</span>
-<span id="276">276</span>
-<span id="277">277</span>
-<span id="278">278</span>
-<span id="279">279</span>
-<span id="280">280</span>
-<span id="281">281</span>
-<span id="282">282</span>
-<span id="283">283</span>
-<span id="284">284</span>
-<span id="285">285</span>
-<span id="286">286</span>
-<span id="287">287</span>
-<span id="288">288</span>
-<span id="289">289</span>
-<span id="290">290</span>
-<span id="291">291</span>
-<span id="292">292</span>
-<span id="293">293</span>
-<span id="294">294</span>
-<span id="295">295</span>
-<span id="296">296</span>
-<span id="297">297</span>
-<span id="298">298</span>
-<span id="299">299</span>
-<span id="300">300</span>
-<span id="301">301</span>
-<span id="302">302</span>
-<span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
-<span id="307">307</span>
-<span id="308">308</span>
-<span id="309">309</span>
-<span id="310">310</span>
-<span id="311">311</span>
-<span id="312">312</span>
-<span id="313">313</span>
-<span id="314">314</span>
-<span id="315">315</span>
-<span id="316">316</span>
-<span id="317">317</span>
-<span id="318">318</span>
-<span id="319">319</span>
-<span id="320">320</span>
-<span id="321">321</span>
-<span id="322">322</span>
-<span id="323">323</span>
-<span id="324">324</span>
-<span id="325">325</span>
-<span id="326">326</span>
-<span id="327">327</span>
-<span id="328">328</span>
-<span id="329">329</span>
-<span id="330">330</span>
-<span id="331">331</span>
-<span id="332">332</span>
-<span id="333">333</span>
-<span id="334">334</span>
-<span id="335">335</span>
-<span id="336">336</span>
-<span id="337">337</span>
-<span id="338">338</span>
-<span id="339">339</span>
-<span id="340">340</span>
-<span id="341">341</span>
-<span id="342">342</span>
-<span id="343">343</span>
-<span id="344">344</span>
-<span id="345">345</span>
-<span id="346">346</span>
-<span id="347">347</span>
-<span id="348">348</span>
-<span id="349">349</span>
-<span id="350">350</span>
-<span id="351">351</span>
-<span id="352">352</span>
-<span id="353">353</span>
-<span id="354">354</span>
-<span id="355">355</span>
-<span id="356">356</span>
-<span id="357">357</span>
-<span id="358">358</span>
-<span id="359">359</span>
-<span id="360">360</span>
-<span id="361">361</span>
-<span id="362">362</span>
-<span id="363">363</span>
-<span id="364">364</span>
-<span id="365">365</span>
-<span id="366">366</span>
-<span id="367">367</span>
-<span id="368">368</span>
-<span id="369">369</span>
-<span id="370">370</span>
-<span id="371">371</span>
-<span id="372">372</span>
-<span id="373">373</span>
-<span id="374">374</span>
-<span id="375">375</span>
-<span id="376">376</span>
-<span id="377">377</span>
-<span id="378">378</span>
-<span id="379">379</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys</span>::{<span class="ident">MemoryType</span>, <span class="ident">Pages</span>, <span class="ident">TableType</span>};
-<span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler::Tunables</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">PointerWidth</span>, <span class="ident">Target</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vm::MemoryError</span>;
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
-    <span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>, <span class="ident">VMMemory</span>, <span class="ident">VMMemoryDefinition</span>, <span class="ident">VMTable</span>, <span class="ident">VMTableDefinition</span>,
-};
+</pre><pre class="rust"><code><span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_compiler::BaseTunables</span>;
 
-<span class="doccomment">/// Tunable parameters for WebAssembly compilation.</span>
-<span class="doccomment">/// This is the reference implementation of the `Tunables` trait,</span>
-<span class="doccomment">/// used by default.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// You can use this as a template for creating a custom Tunables</span>
-<span class="doccomment">/// implementation or use composition to wrap your Tunables around</span>
-<span class="doccomment">/// this one. The later approach is demonstrated in the</span>
-<span class="doccomment">/// tunables-limit-memory example.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">BaseTunables</span> {
-    <span class="doccomment">/// For static heaps, the size in wasm pages of the heap protected by bounds checking.</span>
-    <span class="kw">pub</span> <span class="ident">static_memory_bound</span>: <span class="ident">Pages</span>,
-
-    <span class="doccomment">/// The size in bytes of the offset guard for static heaps.</span>
-    <span class="kw">pub</span> <span class="ident">static_memory_offset_guard_size</span>: <span class="ident">u64</span>,
-
-    <span class="doccomment">/// The size in bytes of the offset guard for dynamic heaps.</span>
-    <span class="kw">pub</span> <span class="ident">dynamic_memory_offset_guard_size</span>: <span class="ident">u64</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">BaseTunables</span> {
-    <span class="doccomment">/// Get the `BaseTunables` for a specific Target</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">for_target</span>(<span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>) -&gt; <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">triple</span> <span class="op">=</span> <span class="ident">target</span>.<span class="ident">triple</span>();
-        <span class="kw">let</span> <span class="ident">pointer_width</span>: <span class="ident">PointerWidth</span> <span class="op">=</span> <span class="ident">triple</span>.<span class="ident">pointer_width</span>().<span class="ident">unwrap</span>();
-        <span class="kw">let</span> (<span class="ident">static_memory_bound</span>, <span class="ident">static_memory_offset_guard_size</span>): (<span class="ident">Pages</span>, <span class="ident">u64</span>) <span class="op">=</span>
-            <span class="kw">match</span> <span class="ident">pointer_width</span> {
-                <span class="ident">PointerWidth::U16</span> =&gt; (<span class="number">0x400</span>.<span class="ident">into</span>(), <span class="number">0x1000</span>),
-                <span class="ident">PointerWidth::U32</span> =&gt; (<span class="number">0x4000</span>.<span class="ident">into</span>(), <span class="number">0x1_0000</span>),
-                <span class="comment">// Static Memory Bound:</span>
-                <span class="comment">//   Allocating 4 GiB of address space let us avoid the</span>
-                <span class="comment">//   need for explicit bounds checks.</span>
-                <span class="comment">// Static Memory Guard size:</span>
-                <span class="comment">//   Allocating 2 GiB of address space lets us translate wasm</span>
-                <span class="comment">//   offsets into x86 offsets as aggressively as we can.</span>
-                <span class="ident">PointerWidth::U64</span> =&gt; (<span class="number">0x1_0000</span>.<span class="ident">into</span>(), <span class="number">0x8000_0000</span>),
-            };
-
-        <span class="comment">// Allocate a small guard to optimize common cases but without</span>
-        <span class="comment">// wasting too much memory.</span>
-        <span class="comment">// The Windows memory manager seems more laxed than the other ones</span>
-        <span class="comment">// And a guard of just 1 page may not be enough is some borderline cases</span>
-        <span class="comment">// So using 2 pages for guard on this platform</span>
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-        <span class="kw">let</span> <span class="ident">dynamic_memory_offset_guard_size</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">0x2_0000</span>;
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
-        <span class="kw">let</span> <span class="ident">dynamic_memory_offset_guard_size</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">0x1_0000</span>;
-
-        <span class="self">Self</span> {
-            <span class="ident">static_memory_bound</span>,
-            <span class="ident">static_memory_offset_guard_size</span>,
-            <span class="ident">dynamic_memory_offset_guard_size</span>,
-        }
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">Tunables</span> <span class="kw">for</span> <span class="ident">BaseTunables</span> {
-    <span class="doccomment">/// Get a `MemoryStyle` for the provided `MemoryType`</span>
-    <span class="kw">fn</span> <span class="ident">memory_style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>) -&gt; <span class="ident">MemoryStyle</span> {
-        <span class="comment">// A heap with a maximum that doesn&#39;t exceed the static memory bound specified by the</span>
-        <span class="comment">// tunables make it static.</span>
-        <span class="comment">//</span>
-        <span class="comment">// If the module doesn&#39;t declare an explicit maximum treat it as 4GiB.</span>
-        <span class="kw">let</span> <span class="ident">maximum</span> <span class="op">=</span> <span class="ident">memory</span>.<span class="ident">maximum</span>.<span class="ident">unwrap_or_else</span>(<span class="ident">Pages::max_value</span>);
-        <span class="kw">if</span> <span class="ident">maximum</span> <span class="op">&lt;</span><span class="op">=</span> <span class="self">self</span>.<span class="ident">static_memory_bound</span> {
-            <span class="ident">MemoryStyle::Static</span> {
-                <span class="comment">// Bound can be larger than the maximum for performance reasons</span>
-                <span class="ident">bound</span>: <span class="self">self</span>.<span class="ident">static_memory_bound</span>,
-                <span class="ident">offset_guard_size</span>: <span class="self">self</span>.<span class="ident">static_memory_offset_guard_size</span>,
-            }
-        } <span class="kw">else</span> {
-            <span class="ident">MemoryStyle::Dynamic</span> {
-                <span class="ident">offset_guard_size</span>: <span class="self">self</span>.<span class="ident">dynamic_memory_offset_guard_size</span>,
-            }
-        }
-    }
-
-    <span class="doccomment">/// Get a [`TableStyle`] for the provided [`TableType`].</span>
-    <span class="kw">fn</span> <span class="ident">table_style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_table</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>) -&gt; <span class="ident">TableStyle</span> {
-        <span class="ident">TableStyle::CallerChecksSignature</span>
-    }
-
-    <span class="doccomment">/// Create a memory owned by the host given a [`MemoryType`] and a [`MemoryStyle`].</span>
-    <span class="kw">fn</span> <span class="ident">create_host_memory</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMMemory</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="ident">VMMemory::new</span>(<span class="ident">ty</span>, <span class="ident">style</span>)
-    }
-
-    <span class="doccomment">/// Create a memory owned by the VM given a [`MemoryType`] and a [`MemoryStyle`].</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// - `vm_definition_location` must point to a valid, owned `VMMemoryDefinition`,</span>
-    <span class="doccomment">///   for example in `VMContext`.</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">create_vm_memory</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>,
-        <span class="ident">vm_definition_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMMemory</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
-        <span class="ident">VMMemory::from_definition</span>(<span class="ident">ty</span>, <span class="ident">style</span>, <span class="ident">vm_definition_location</span>)
-    }
-
-    <span class="doccomment">/// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].</span>
-    <span class="kw">fn</span> <span class="ident">create_host_table</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>, <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMTable</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="ident">VMTable::new</span>(<span class="ident">ty</span>, <span class="ident">style</span>)
-    }
-
-    <span class="doccomment">/// Create a table owned by the VM given a [`TableType`] and a [`TableStyle`].</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Safety</span>
-    <span class="doccomment">/// - `vm_definition_location` must point to a valid, owned `VMTableDefinition`,</span>
-    <span class="doccomment">///   for example in `VMContext`.</span>
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">create_vm_table</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">ty</span>: <span class="kw-2">&amp;</span><span class="ident">TableType</span>,
-        <span class="ident">style</span>: <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>,
-        <span class="ident">vm_definition_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMTable</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="ident">VMTable::from_definition</span>(<span class="ident">ty</span>, <span class="ident">style</span>, <span class="ident">vm_definition_location</span>)
-    }
-}
+<span class="comment">// All BaseTunable definition now is in wasmer_compile crate</span>
+<span class="comment">// Tests are still here</span>
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">tests</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::TableType</span>;
+    <span class="kw">use</span> <span class="ident">std::cell::UnsafeCell</span>;
+    <span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
+    <span class="kw">use</span> <span class="ident">wasmer_compiler::Tunables</span>;
+    <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">MemoryType</span>, <span class="ident">Pages</span>, <span class="ident">WASM_PAGE_SIZE</span>};
+    <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
+        <span class="ident">LinearMemory</span>, <span class="ident">MemoryError</span>, <span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>, <span class="ident">VMMemory</span>, <span class="ident">VMMemoryDefinition</span>, <span class="ident">VMTable</span>,
+        <span class="ident">VMTableDefinition</span>,
+    };
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">memory_style</span>() {
@@ -561,11 +316,6 @@
             <span class="ident">s</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unexpected memory style: {:?}&quot;</span>, <span class="ident">s</span>),
         }
     }
-
-    <span class="kw">use</span> <span class="ident">std::cell::UnsafeCell</span>;
-    <span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">MemoryError</span>, <span class="ident">MemoryStyle</span>, <span class="ident">MemoryType</span>, <span class="ident">Pages</span>, <span class="ident">WASM_PAGE_SIZE</span>};
-    <span class="kw">use</span> <span class="ident">wasmer_vm::LinearMemory</span>;
 
     <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
     <span class="kw">struct</span> <span class="ident">VMTinyMemory</span> {
