@@ -159,6 +159,16 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
+    /// # Example of loading a module using just an [`Engine`] and no [`Store`]
+    ///
+    /// ```
+    /// # use wasmer::*;
+    /// #
+    /// # let compiler = Cranelift::default();
+    /// # let engine = EngineBuilder::new(compiler).engine();
+    ///
+    /// let module = Module::from_file(&engine, "path/to/foo.wasm");
+    /// ```
     #[allow(unreachable_code)]
     pub fn new(engine: &impl AsEngineRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
         #[cfg(feature = "wat")]
