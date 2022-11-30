@@ -370,7 +370,7 @@ pub fn args_sizes_get<M: MemorySize>(
 ///     The resolution of the clock in nanoseconds
 pub fn clock_res_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    clock_id: Clockid,
+    clock_id: Snapshot0Clockid,
     resolution: WasmPtr<Timestamp, M>,
 ) -> Errno {
     trace!("wasi::clock_res_get");
@@ -378,10 +378,7 @@ pub fn clock_res_get<M: MemorySize>(
     let memory = env.memory_view(&ctx);
 
     let out_addr = resolution.deref(&memory);
-    let t_out = wasi_try!(platform_clock_res_get(
-        Snapshot0Clockid::from(clock_id),
-        out_addr
-    ));
+    let t_out = wasi_try!(platform_clock_res_get(clock_id, out_addr));
     wasi_try_mem!(resolution.write(&memory, t_out as Timestamp));
     Errno::Success
 }
@@ -398,7 +395,7 @@ pub fn clock_res_get<M: MemorySize>(
 ///     The value of the clock in nanoseconds
 pub fn clock_time_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    clock_id: Clockid,
+    clock_id: Snapshot0Clockid,
     precision: Timestamp,
     time: WasmPtr<Timestamp, M>,
 ) -> Errno {
@@ -409,10 +406,7 @@ pub fn clock_time_get<M: MemorySize>(
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 
-    let t_out = wasi_try!(platform_clock_time_get(
-        Snapshot0Clockid::from(clock_id),
-        precision
-    ));
+    let t_out = wasi_try!(platform_clock_time_get(clock_id, precision));
     wasi_try_mem!(time.write(&memory, t_out as Timestamp));
 
     let result = Errno::Success;
