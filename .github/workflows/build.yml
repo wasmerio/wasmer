@@ -89,10 +89,12 @@ jobs:
       - uses: actions/checkout@v3
       - name: Set up libstdc++ on Linux
         if: matrix.build == 'linux-x64'
+        #llvm needs libtinfo5, and it seems it's not by default in the system now
         run: |
           sudo apt-get update -y
           sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
           sudo apt-get install --reinstall g++-8
+          sudo apt-get install -y libncurses5
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
