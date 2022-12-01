@@ -424,7 +424,7 @@ jobs:
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
+        if: matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -528,7 +528,7 @@ jobs:
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
+        if: matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -640,7 +640,7 @@ jobs:
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
+        if: matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -794,7 +794,7 @@ jobs:
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
+        if: matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -943,7 +943,7 @@ jobs:
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
+        if: matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -1089,7 +1089,7 @@ jobs:
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
+        if: matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -1231,7 +1231,7 @@ jobs:
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
+        if: matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -1373,7 +1373,7 @@ jobs:
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
+        if: matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -1515,7 +1515,7 @@ jobs:
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
+        if: matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -1657,7 +1657,7 @@ jobs:
           fi
         shell: bash
       - name: Set sccache port
-        if: matrix.use_sccache && matrix.random_sccache_port && matrix.build != 'linux-musl'
+        if: matrix.build != 'linux-musl'
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
