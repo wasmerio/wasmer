@@ -130,6 +130,8 @@ else ifeq ($(ENABLE_LLVM), 1)
 else ifneq (, $(shell which llvm-config-13 2>/dev/null))
 	LLVM_VERSION := $(shell llvm-config-13 --version)
 	compilers += llvm
+	# need force LLVM_SYS_120_PREFIX, or llvm_sys will not build in the case
+	export LLVM_SYS_120_PREFIX = $(shell llvm-config-13 --prefix)
 else ifneq (, $(shell which llvm-config-12 2>/dev/null))
 	LLVM_VERSION := $(shell llvm-config-12 --version)
 	compilers += llvm
