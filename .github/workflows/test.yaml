@@ -17,7 +17,7 @@ jobs:
 
   setup:
     name: Set up
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     outputs:
       VERSION: ${{ steps.setup.outputs.VERSION }}
       DOING_RELEASE: ${{ steps.setup.outputs.DOING_RELEASE }}
@@ -35,7 +35,7 @@ jobs:
 
   lint:
     name: Code lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v3
       - name: Install Rust
@@ -67,14 +67,14 @@ jobs:
 
   cargo_deny:
     name: cargo-deny
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v3
       - uses: EmbarkStudios/cargo-deny-action@v1
 
   test_nodejs:
     name: Test on NodeJS
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v3
       - name: Install Rust
@@ -97,7 +97,7 @@ jobs:
 
   test_wasm_build:
     name: Test wasm build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
       - run: |
@@ -113,7 +113,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-latest
+            os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -130,7 +130,7 @@ jobs:
             llvm_choco_version: 13.0.0
           - build: linux-musl
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-18.04
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -219,7 +219,7 @@ jobs:
 
   build_wasmer_linux_aarch64:
     name: Build wasmer on linux aarch64
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
       - uses: dtolnay/rust-toolchain@stable
@@ -244,7 +244,7 @@ jobs:
 
   build_capi_linux_aarch64:
     name: Build C-API on linux aarch64
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
       - uses: dtolnay/rust-toolchain@stable
@@ -269,7 +269,7 @@ jobs:
 
   build_capi_windows_gnu:
     name: Windows GNU
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
       - name: Install Windows-GNU linker
@@ -323,7 +323,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-latest
+            os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -340,7 +340,7 @@ jobs:
             llvm_choco_version: 13.0.0
           - build: linux-musl
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-18.04
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -476,7 +476,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-latest
+            os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -490,7 +490,7 @@ jobs:
             llvm_choco_version: 13.0.0
           - build: linux-musl
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-18.04
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -580,7 +580,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-latest
+            os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -594,7 +594,7 @@ jobs:
             llvm_choco_version: 13.0.0
           - build: linux-musl
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-18.04
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -696,7 +696,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-latest
+            os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -710,7 +710,7 @@ jobs:
             llvm_choco_version: 13.0.0
           - build: linux-musl
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-18.04
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -838,7 +838,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-latest
+            os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -852,7 +852,7 @@ jobs:
             llvm_choco_version: 13.0.0
           - build: linux-musl
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-18.04
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -991,7 +991,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-latest
+            os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -1005,7 +1005,7 @@ jobs:
             llvm_choco_version: 13.0.0
           - build: linux-musl
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-18.04
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -1133,7 +1133,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-latest
+            os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -1147,7 +1147,7 @@ jobs:
             llvm_choco_version: 13.0.0
           - build: linux-musl
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-18.04
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -1275,7 +1275,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-latest
+            os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -1289,7 +1289,7 @@ jobs:
             llvm_choco_version: 13.0.0
           - build: linux-musl
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-18.04
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -1417,7 +1417,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-latest
+            os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -1431,7 +1431,7 @@ jobs:
             llvm_choco_version: 13.0.0
           - build: linux-musl
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-18.04
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
@@ -1559,7 +1559,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-latest
+            os: ubuntu-18.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -1573,7 +1573,7 @@ jobs:
             llvm_choco_version: 13.0.0
           - build: linux-musl
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-18.04
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
