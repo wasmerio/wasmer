@@ -64,7 +64,7 @@ async fn fetch_webc(
     let response = client
         .request(HttpRequest {
             url,
-            method: "POST".to_string(),
+            method: "GET".to_string(),
             headers: vec![],
             body: None,
             options: HttpRequestOptions::default(),
