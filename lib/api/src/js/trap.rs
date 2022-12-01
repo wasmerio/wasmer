@@ -5,6 +5,7 @@ use std::sync::Arc;
 use wasm_bindgen::convert::FromWasmAbi;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
+use wasm_bindgen_downcast::DowncastJS;
 
 pub trait CoreError: fmt::Debug + fmt::Display {
     fn source(&self) -> Option<&(dyn CoreError + 'static)> {
@@ -92,7 +93,7 @@ impl dyn CoreError {
 /// A struct representing an aborted instruction execution, with a message
 /// indicating the cause.
 #[wasm_bindgen]
-#[derive(Clone)]
+#[derive(Clone, DowncastJS)]
 pub struct WasmerRuntimeError {
     inner: Arc<RuntimeErrorSource>,
 }
@@ -251,35 +252,12 @@ impl std::error::Error for RuntimeError {
     }
 }
 
-pub fn generic_of_jsval<T: FromWasmAbi<Abi = u32>>(
-    js: JsValue,
-    classname: &str,
-) -> Result<T, JsValue> {
-    use js_sys::{Object, Reflect};
-    let ctor_name = Object::get_prototype_of(&js).constructor().name();
-    if ctor_name == classname {
-        let ptr = Reflect::get(&js, &JsValue::from_str("ptr"))?;
-        match ptr.as_f64() {
-            Some(ptr_f64) => {
-                let foo = unsafe { T::from_abi(ptr_f64 as u32) };
-                Ok(foo)
-            }
-            None => {
-                // We simply relay the js value
-                Err(js)
-            }
-        }
-    } else {
-        Err(js)
-    }
-}
-
 impl From<JsValue> for RuntimeError {
     fn from(original: JsValue) -> Self {
         // We try to downcast the error and see if it's
         // an instance of RuntimeError instead, so we don't need
         // to re-wrap it.
-        generic_of_jsval(original, "WasmerRuntimeError").unwrap_or_else(|js| RuntimeError {
+        WasmerRuntimeError::downcast_js(original).unwrap_or_else(|js| RuntimeError {
             inner: Arc::new(RuntimeErrorSource::Js(js)),
         })
     }
