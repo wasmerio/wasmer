@@ -579,6 +579,9 @@ impl CreateExe {
         pirita_main_atom: Option<&str>,
         pirita_volume_path: Option<PathBuf>,
     ) -> anyhow::Result<()> {
+
+        println!("compile zig {:?}", setup);
+
         let tempdir = tempdir::TempDir::new("wasmer-static-compile-zig")?;
         let tempdir_path = tempdir.path();
         let c_src_path = tempdir_path.join("wasmer_main.c");
@@ -642,9 +645,6 @@ impl CreateExe {
             }
             cmd.arg("-lunwind");
             cmd.arg("-OReleaseSafe");
-            cmd.arg("-fstrip");
-            cmd.arg("-dead_strip");
-            cmd.arg("-dead_strip_dylibs");
             cmd.arg("-fno-compiler-rt");
             cmd.arg(&format!("-femit-bin={}", output_path.display()));
 
@@ -652,7 +652,16 @@ impl CreateExe {
                 cmd.arg(o);
             }
             cmd.arg(&c_src_path);
-            cmd.arg(libwasmer_path.join(&lib_filename));
+            if zig_triple != "x86_64-macos-none" {
+                cmd.arg(libwasmer_path.join(&lib_filename));
+            } else {
+                // cmd.arg("/Users/fs/Development/wasmer/target/x86_64-apple-darwin/release/libwasmer.a");
+                for file in std::fs::read_dir("/Users/fs/Development/wasmer/target/x86_64-apple-darwin/release/objects").unwrap() {
+                    let path = file.unwrap().path().canonicalize().unwrap();
+                    println!("linking {}", path.display());
+                    cmd.arg(path);
+                }
+            }
             if zig_triple.contains("windows") {
                 let mut libwasmer_parent = libwasmer_path.clone();
                 libwasmer_parent.pop();

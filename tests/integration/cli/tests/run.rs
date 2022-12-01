@@ -35,15 +35,14 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
 
     let compilers = &["cranelift", "singlepass", "llvm"];
 
+    // llvm-objdump  --disassemble-all --demangle ./objects/wasmer_vm-50cb118b098c15db.wasmer_vm.60425a0a-cgu.12.rcgu.o
+    // llvm-objdump --macho --exports-trie ~/.wasmer/cache/wasmer-darwin-arm64/lib/libwasmer.dylib
     let excluded_combinations = &[
-        ("x86_64-darwin", "singlepass"), // UnsupportedTarget("x86_64 without AVX or SSE 4.2")
-        ("x86_64-linux-gnu", "singlepass"), // UnsupportedTarget("x86_64 without AVX or SSE 4.2")
-        ("x86_64-windows-gnu", "singlepass"), // UnsupportedTarget("x86_64 without AVX or SSE 4.2")
         ("aarch64-darwin", "llvm"), // LLVM: aarch64 not supported relocation Arm64MovwG0 not supported
         ("aarch64-linux-gnu", "llvm"), // LLVM: aarch64 not supported relocation Arm64MovwG0 not supported
 
-                                       // ("x86_64-darwin", "llvm"), // undefined reference to symbol 'wasmer_vm_raise_trap' kind Unknown
-                                       // ("x86_64-windows-gnu", "llvm"), // unimplemented symbol `wasmer_vm_raise_trap` kind Unknown
+        // ("x86_64-darwin", "llvm"), // undefined reference to symbol 'wasmer_vm_raise_trap' kind Unknown
+        // ("x86_64-windows-gnu", "llvm"), // unimplemented symbol `wasmer_vm_raise_trap` kind Unknown
     ];
 
     for t in targets {
