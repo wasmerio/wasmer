@@ -150,6 +150,12 @@
 <span id="144">144</span>
 <span id="145">145</span>
 <span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module mainly outputs the `Compiler` trait that custom</span>
 <span class="doccomment">//! compilers will need to implement.</span>
 
@@ -158,13 +164,14 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::translator::ModuleMiddleware</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::FunctionBodyData</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::ModuleTranslationState</span>;
+<span class="kw">use</span> <span class="ident">enumset::EnumSet</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::compilation::function::Compilation</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::compilation::module::CompileModuleInfo</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::compilation::symbols::SymbolRegistry</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::compilation::target::Target</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::error::CompileError</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">Features</span>, <span class="ident">LocalFunctionIndex</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CpuFeature</span>, <span class="ident">Features</span>, <span class="ident">LocalFunctionIndex</span>};
 <span class="kw">use</span> <span class="ident">wasmparser</span>::{<span class="ident">Validator</span>, <span class="ident">WasmFeatures</span>};
 
 <span class="doccomment">/// The compiler configuration options.</span>
@@ -295,6 +302,11 @@
 
     <span class="doccomment">/// Get the middlewares for this compiler</span>
     <span class="kw">fn</span> <span class="ident">get_middlewares</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ModuleMiddleware</span><span class="op">&gt;</span>];
+
+    <span class="doccomment">/// Get the CpuFeatues used by the compiler</span>
+    <span class="kw">fn</span> <span class="ident">get_cpu_features_used</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">cpu_features</span>: <span class="kw-2">&amp;</span><span class="ident">EnumSet</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span>) -&gt; <span class="ident">EnumSet</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span> {
+        <span class="kw-2">*</span><span class="ident">cpu_features</span>
+    }
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.63.0 (4b91a6ea7 2022-08-08)" ></div>

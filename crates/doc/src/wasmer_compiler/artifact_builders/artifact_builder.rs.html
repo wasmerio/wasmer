@@ -237,6 +237,7 @@
 <span id="231">231</span>
 <span id="232">232</span>
 <span id="233">233</span>
+<span id="234">234</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `ArtifactBuild` to allow compiling and instantiating to be</span>
 <span class="doccomment">//! done as separate steps.</span>
 
@@ -341,6 +342,7 @@
         <span class="ident">custom_section_relocations</span>.<span class="ident">push</span>(<span class="ident">libcall_trampolines_section</span>.<span class="ident">relocations</span>.<span class="ident">clone</span>());
         <span class="kw">let</span> <span class="ident">libcall_trampolines</span> <span class="op">=</span> <span class="ident">custom_sections</span>.<span class="ident">push</span>(<span class="ident">libcall_trampolines_section</span>);
         <span class="kw">let</span> <span class="ident">libcall_trampoline_len</span> <span class="op">=</span> <span class="ident">libcall_trampoline_len</span>(<span class="ident">target</span>) <span class="kw">as</span> <span class="ident">u32</span>;
+        <span class="kw">let</span> <span class="ident">cpu_features</span> <span class="op">=</span> <span class="ident">compiler</span>.<span class="ident">get_cpu_features_used</span>(<span class="ident">target</span>.<span class="ident">cpu_features</span>());
 
         <span class="kw">let</span> <span class="ident">serializable_compilation</span> <span class="op">=</span> <span class="ident">SerializableCompilation</span> {
             <span class="ident">function_bodies</span>,
@@ -358,7 +360,7 @@
             <span class="ident">compilation</span>: <span class="ident">serializable_compilation</span>,
             <span class="ident">compile_info</span>,
             <span class="ident">data_initializers</span>,
-            <span class="ident">cpu_features</span>: <span class="ident">target</span>.<span class="ident">cpu_features</span>().<span class="ident">as_u64</span>(),
+            <span class="ident">cpu_features</span>: <span class="ident">cpu_features</span>.<span class="ident">as_u64</span>(),
         };
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> { <span class="ident">serializable</span> })
     }

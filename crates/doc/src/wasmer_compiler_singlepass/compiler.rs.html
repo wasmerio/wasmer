@@ -330,6 +330,32 @@
 <span id="324">324</span>
 <span id="325">325</span>
 <span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Support for compiling with Singlepass.</span>
 <span class="comment">// Allow unused imports while developing.</span>
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused_imports</span>, <span class="ident">dead_code</span>)]</span>
@@ -346,6 +372,7 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::machine_x64::MachineX86_64</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::unwind</span>::{<span class="ident">create_systemv_cie</span>, <span class="ident">UnwindFrame</span>};
+<span class="kw">use</span> <span class="ident">enumset::EnumSet</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">gimli::write</span>::{<span class="ident">EhFrame</span>, <span class="ident">FrameTable</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;rayon&quot;</span>)]</span>
@@ -588,6 +615,11 @@
             <span class="ident">debug</span>: <span class="ident">dwarf</span>,
         })
     }
+
+    <span class="kw">fn</span> <span class="ident">get_cpu_features_used</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">cpu_features</span>: <span class="kw-2">&amp;</span><span class="ident">EnumSet</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span>) -&gt; <span class="ident">EnumSet</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">used</span> <span class="op">=</span> <span class="ident">CpuFeature::AVX</span> <span class="op">|</span> <span class="ident">CpuFeature::SSE42</span> <span class="op">|</span> <span class="ident">CpuFeature::LZCNT</span> <span class="op">|</span> <span class="ident">CpuFeature::BMI1</span>;
+        <span class="ident">cpu_features</span>.<span class="ident">intersection</span>(<span class="ident">used</span>)
+    }
 }
 
 <span class="kw">trait</span> <span class="ident">IntoParIterIfRayon</span> {
@@ -654,6 +686,26 @@
             <span class="ident">CompileError::UnsupportedTarget</span>(<span class="ident">name</span>) =&gt; <span class="macro">assert_eq!</span>(<span class="ident">name</span>, <span class="string">&quot;i686&quot;</span>), <span class="comment">// Windows should be checked before architecture</span>
             <span class="ident">error</span> =&gt; <span class="macro">panic!</span>(<span class="string">&quot;Unexpected error: {:?}&quot;</span>, <span class="ident">error</span>),
         };
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">errors_for_unsuported_cpufeatures</span>() {
+        <span class="kw">let</span> <span class="ident">compiler</span> <span class="op">=</span> <span class="ident">SinglepassCompiler::new</span>(<span class="ident">Singlepass::default</span>());
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">features</span> <span class="op">=</span>
+            <span class="ident">CpuFeature::AVX</span> <span class="op">|</span> <span class="ident">CpuFeature::SSE42</span> <span class="op">|</span> <span class="ident">CpuFeature::LZCNT</span> <span class="op">|</span> <span class="ident">CpuFeature::BMI1</span>;
+        <span class="comment">// simple test</span>
+        <span class="macro">assert!</span>(<span class="ident">compiler</span>
+            .<span class="ident">get_cpu_features_used</span>(<span class="kw-2">&amp;</span><span class="ident">features</span>)
+            .<span class="ident">is_subset</span>(<span class="ident">CpuFeature::AVX</span> <span class="op">|</span> <span class="ident">CpuFeature::SSE42</span> <span class="op">|</span> <span class="ident">CpuFeature::LZCNT</span> <span class="op">|</span> <span class="ident">CpuFeature::BMI1</span>));
+        <span class="comment">// check that an AVX build don&#39;t work on SSE4.2 only host</span>
+        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">compiler</span>
+            .<span class="ident">get_cpu_features_used</span>(<span class="kw-2">&amp;</span><span class="ident">features</span>)
+            .<span class="ident">is_subset</span>(<span class="ident">CpuFeature::SSE42</span> <span class="op">|</span> <span class="ident">CpuFeature::LZCNT</span> <span class="op">|</span> <span class="ident">CpuFeature::BMI1</span>));
+        <span class="comment">// check that having a host with AVX512 doesn&#39;t change anything</span>
+        <span class="ident">features</span>.<span class="ident">insert_all</span>(<span class="ident">CpuFeature::AVX512DQ</span> <span class="op">|</span> <span class="ident">CpuFeature::AVX512F</span>);
+        <span class="macro">assert!</span>(<span class="ident">compiler</span>
+            .<span class="ident">get_cpu_features_used</span>(<span class="kw-2">&amp;</span><span class="ident">features</span>)
+            .<span class="ident">is_subset</span>(<span class="ident">CpuFeature::AVX</span> <span class="op">|</span> <span class="ident">CpuFeature::SSE42</span> <span class="op">|</span> <span class="ident">CpuFeature::LZCNT</span> <span class="op">|</span> <span class="ident">CpuFeature::BMI1</span>));
     }
 }
 </code></pre></div>
