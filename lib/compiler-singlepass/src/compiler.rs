@@ -14,6 +14,7 @@ use crate::machine_arm64::MachineARM64;
 use crate::machine_x64::MachineX86_64;
 #[cfg(feature = "unwind")]
 use crate::unwind::{create_systemv_cie, UnwindFrame};
+use enumset::EnumSet;
 #[cfg(feature = "unwind")]
 use gimli::write::{EhFrame, FrameTable};
 #[cfg(feature = "rayon")]
@@ -256,6 +257,11 @@ impl Compiler for SinglepassCompiler {
             debug: dwarf,
         })
     }
+
+    fn get_cpu_features_used(&self, cpu_features: &EnumSet<CpuFeature>) -> EnumSet<CpuFeature> {
+        let used = CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1;
+        cpu_features.intersection(used)
+    }
 }
 
 trait IntoParIterIfRayon {
@@ -322,5 +328,25 @@ mod tests {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"), // Windows should be checked before architecture
             error => panic!("Unexpected error: {:?}", error),
         };
+    }
+
+    #[test]
+    fn errors_for_unsuported_cpufeatures() {
+        let compiler = SinglepassCompiler::new(Singlepass::default());
+        let mut features =
+            CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1;
+        // simple test
+        assert!(compiler
+            .get_cpu_features_used(&features)
+            .is_subset(CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1));
+        // check that an AVX build don't work on SSE4.2 only host
+        assert!(!compiler
+            .get_cpu_features_used(&features)
+            .is_subset(CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1));
+        // check that having a host with AVX512 doesn't change anything
+        features.insert_all(CpuFeature::AVX512DQ | CpuFeature::AVX512F);
+        assert!(compiler
+            .get_cpu_features_used(&features)
+            .is_subset(CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1));
     }
 }
