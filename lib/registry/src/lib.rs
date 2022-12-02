@@ -24,6 +24,7 @@ pub mod login;
 pub mod package;
 pub mod queries;
 pub mod publish;
+pub mod queries;
 pub mod utils;
 
 pub use crate::{

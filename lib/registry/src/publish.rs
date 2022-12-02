@@ -8,6 +8,7 @@ use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::io::BufRead;
+use std::path::PathBuf;
 
 static UPLOAD: Emoji<'_, '_> = Emoji("⬆️  ", "");
 static PACKAGE: Emoji<'_, '_> = Emoji("📦  ", "");
