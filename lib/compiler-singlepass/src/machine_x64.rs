@@ -45,7 +45,7 @@ impl AssemblerX64 {
                 Some(CpuFeature::SSE42)
             } else {
                 return Err(CompileError::UnsupportedTarget(
-                    "x86_64 without AVX or SSE 4.2".to_string(),
+                    "x86_64 without AVX or SSE 4.2, use -m avx to enable".to_string(),
                 ));
             }
         };

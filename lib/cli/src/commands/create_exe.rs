@@ -402,52 +402,34 @@ impl CreateExe {
             let library = if let Some(v) = cross_subc.library_path.clone() {
                 v.canonicalize().unwrap_or(v)
             } else {
-                {
-                    let libwasmer_path = "lib/libwasmer.a";
-                    let tarball_dir;
-                    let filename = if let Some(local_tarball) = cross_subc.tarball.as_ref() {
-                        let target_file_path = local_tarball
-                            .parent()
-                            .and_then(|parent| Some(parent.join(local_tarball.file_stem()?)))
-                            .unwrap_or_else(|| local_tarball.clone());
-
-                        let target_file_path = target_file_path
-                            .parent()
-                            .and_then(|parent| Some(parent.join(target_file_path.file_stem()?)))
-                            .unwrap_or_else(|| target_file_path.clone());
-
-                        let _ = std::fs::create_dir_all(&target_file_path);
-                        let files = untar(local_tarball.clone(), target_file_path.clone())?;
-                        tarball_dir = target_file_path.canonicalize().unwrap_or(target_file_path);
-                        files.iter().find(|f| f.contains(libwasmer_path)).cloned().ok_or_else(|| {
-                            anyhow!("Could not find libwasmer for {} target in the provided tarball path (files = {files:#?}, libwasmer_path = {libwasmer_path:?})", target)})?
+                let (filename, tarball_dir) =
+                    if let Some(local_tarball) = cross_subc.tarball.as_ref() {
+                        Self::find_filename(local_tarball, &target)
                     } else {
-                        #[cfg(feature = "http")]
-                        {
+                        // check if the tarball for the target already exists locally
+                        let local_tarball = std::fs::read_dir(get_libwasmer_cache_path()?)?
+                            .filter_map(|e| e.ok())
+                            .filter_map(|e| {
+                                let path = format!("{}", e.path().display());
+                                if path.ends_with(".tar.gz") {
+                                    Some(e.path())
+                                } else {
+                                    None
+                                }
+                            })
+                            .filter_map(|p| Self::filter_tarballs(&p, &target))
+                            .next();
+
+                        if let Some(local_tarball) = local_tarball.as_ref() {
+                            Self::find_filename(local_tarball, &target)
+                        } else {
                             let release = http_fetch::get_latest_release()?;
                             let tarball = http_fetch::download_release(release, target.clone())?;
-                            let target_file_path = tarball
-                                .parent()
-                                .and_then(|parent| Some(parent.join(tarball.file_stem()?)))
-                                .unwrap_or_else(|| tarball.clone());
-
-                            let target_file_path = target_file_path
-                                .parent()
-                                .and_then(|parent| Some(parent.join(target_file_path.file_stem()?)))
-                                .unwrap_or_else(|| target_file_path.clone());
-
-                            tarball_dir = target_file_path
-                                .canonicalize()
-                                .unwrap_or_else(|_| target_file_path.clone());
-                            let files = untar(tarball, target_file_path)?;
-                            files.into_iter().find(|f| f.contains(libwasmer_path)).ok_or_else(|| {
-                                anyhow!("Could not find libwasmer for {} target in the fetched release from Github: you can download it manually and specify its path with the --cross-compilation-library-path LIBRARY_PATH flag.", target)})?
+                            Self::find_filename(&tarball, &target)
                         }
-                        #[cfg(not(feature = "http"))]
-                        return Err(anyhow!("This wasmer binary isn't compiled with an HTTP request library (feature flag `http`). To cross-compile, specify the path of the non-native libwasmer or release tarball with the --library-path LIBRARY_PATH or --tarball TARBALL_PATH flag."));
-                    };
-                    tarball_dir.join(&filename)
-                }
+                    }?;
+
+                tarball_dir.join(&filename)
             };
             let ccs = CrossCompileSetup {
                 target,
@@ -458,6 +440,72 @@ impl CreateExe {
         } else {
             Ok(None)
         }
+    }
+
+    fn find_filename(
+        local_tarball: &Path,
+        target: &Triple,
+    ) -> Result<(String, PathBuf), anyhow::Error> {
+        let target_file_path = local_tarball
+            .parent()
+            .and_then(|parent| Some(parent.join(local_tarball.file_stem()?)))
+            .unwrap_or_else(|| local_tarball.to_path_buf());
+
+        let target_file_path = target_file_path
+            .parent()
+            .and_then(|parent| Some(parent.join(target_file_path.file_stem()?)))
+            .unwrap_or_else(|| target_file_path.clone());
+
+        std::fs::create_dir_all(&target_file_path)
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .context(anyhow::anyhow!("{}", target_file_path.display()))?;
+        let files = untar(local_tarball.to_path_buf(), target_file_path.clone())?;
+        let tarball_dir = target_file_path.canonicalize().unwrap_or(target_file_path);
+
+        let file = files
+        .iter()
+        .find(|f| f.ends_with("libwasmer.a")).cloned()
+        .ok_or_else(|| {
+            anyhow!("Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})", target)
+        })?;
+
+        Ok((file, tarball_dir))
+    }
+
+    fn filter_tarballs(p: &Path, target: &Triple) -> Option<PathBuf> {
+        if let Architecture::Aarch64(_) = target.architecture {
+            if !p.file_name()?.to_str()?.contains("aarch64") {
+                return None;
+            }
+        }
+
+        if let Architecture::X86_64 = target.architecture {
+            if !p.file_name()?.to_str()?.contains("x86_64") {
+                return None;
+            }
+        }
+
+        if let OperatingSystem::Windows = target.operating_system {
+            if !p.file_name()?.to_str()?.contains("windows") {
+                return None;
+            }
+        }
+
+        if let OperatingSystem::Darwin = target.operating_system {
+            if !(p.file_name()?.to_str()?.contains("apple")
+                || p.file_name()?.to_str()?.contains("darwin"))
+            {
+                return None;
+            }
+        }
+
+        if let OperatingSystem::Linux = target.operating_system {
+            if !p.file_name()?.to_str()?.contains("linux") {
+                return None;
+            }
+        }
+
+        Some(p.to_path_buf())
     }
 
     fn compile_c(
@@ -573,9 +621,6 @@ impl CreateExe {
             }
             cmd.arg("-lunwind");
             cmd.arg("-OReleaseSafe");
-            cmd.arg("-fstrip");
-            cmd.arg("-dead_strip");
-            cmd.arg("-dead_strip_dylibs");
             cmd.arg("-fno-compiler-rt");
             cmd.arg(&format!("-femit-bin={}", output_path.display()));
 
@@ -1329,7 +1374,6 @@ impl LinkCode {
     }
 }
 
-#[cfg(feature = "http")]
 mod http_fetch {
     use anyhow::{anyhow, Context, Result};
     use http_req::{request::Request, response::StatusCode, uri::Uri};
@@ -1379,7 +1423,7 @@ mod http_fetch {
         }
 
         Err(anyhow!(
-            "Could not get expected Github API response.\n\nReason: response format is not recognized:\n{:#?}", ""
+            "Could not get expected Github API response.\n\nReason: response format is not recognized:\n{response:#?}",
         ))
     }
 
