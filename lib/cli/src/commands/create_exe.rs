@@ -1371,7 +1371,6 @@ impl LinkCode {
     }
 }
 
-#[cfg(feature = "http")]
 mod http_fetch {
     use anyhow::{anyhow, Context, Result};
     use http_req::{request::Request, response::StatusCode, uri::Uri};
