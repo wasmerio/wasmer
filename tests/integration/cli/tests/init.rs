@@ -28,14 +28,14 @@ fn wasmer_init_works_1() -> anyhow::Result<()> {
     println!("wapm dev token ok...");
 
     let output = Command::new(get_wasmer_path())
-    .arg("login")
-    .arg("--registry")
-    .arg("wapm.dev")
-    .arg(wapm_dev_token)
-    .stdout(Stdio::inherit())
-    .stderr(Stdio::inherit())
-    .stdin(Stdio::null())
-    .output()?;
+        .arg("login")
+        .arg("--registry")
+        .arg("wapm.dev")
+        .arg(wapm_dev_token)
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .stdin(Stdio::null())
+        .output()?;
 
     println!("wasmer login ok!");
 
@@ -45,7 +45,7 @@ fn wasmer_init_works_1() -> anyhow::Result<()> {
         .output()?;
     check_output!(output);
 
-    let read = std::fs::read_to_string(path.join("wapm.toml"))
+    let read = std::fs::read_to_string(path.join("wasmer.toml"))
         .unwrap()
         .lines()
         .collect::<Vec<_>>()
@@ -176,17 +176,17 @@ fn wasmer_init_works_2() -> anyhow::Result<()> {
     println!("wapm dev token ok...");
 
     let output = Command::new(get_wasmer_path())
-    .arg("login")
-    .arg("--registry")
-    .arg("wapm.dev")
-    .arg(wapm_dev_token)
-    .stdout(Stdio::inherit())
-    .stderr(Stdio::inherit())
-    .stdin(Stdio::null())
-    .output()?;
+        .arg("login")
+        .arg("--registry")
+        .arg("wapm.dev")
+        .arg(wapm_dev_token)
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .stdin(Stdio::null())
+        .output()?;
 
     println!("wasmer login ok!");
-    
+
     let output = Command::new(get_wasmer_path())
         .arg("init")
         .current_dir(&path)
@@ -204,7 +204,7 @@ fn wasmer_init_works_2() -> anyhow::Result<()> {
         cargo_wapm_stdout.lines().count() == 1 && cargo_wapm_stdout.contains("cargo wapm");
 
     if cargo_wapm_present {
-        assert!(!path.join("wapm.toml").exists());
+        assert!(!path.join("wasmer.toml").exists());
         let read = std::fs::read_to_string(path.join("Cargo.toml"))
             .unwrap()
             .lines()
@@ -229,7 +229,7 @@ fn wasmer_init_works_2() -> anyhow::Result<()> {
             std::fs::read_to_string(path.join("Cargo.toml")).unwrap(),
             include_str!("./fixtures/init2.toml")
         );
-        let read = std::fs::read_to_string(path.join("wapm.toml"))
+        let read = std::fs::read_to_string(path.join("wasmer.toml"))
             .unwrap()
             .lines()
             .collect::<Vec<_>>()

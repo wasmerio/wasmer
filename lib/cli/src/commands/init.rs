@@ -62,16 +62,18 @@ struct MiniCargoTomlPackage {
     build_dir: PathBuf,
 }
 
+static WASMER_TOML_NAME: &str = "wasmer.toml";
+
 impl Init {
     /// `wasmer init` execution
     pub fn execute(&self) -> Result<(), anyhow::Error> {
         let bin_or_lib = self.get_bin_or_lib()?;
 
         let target_file = match self.out.as_ref() {
-            None => std::env::current_dir()?.join("wapm.toml"),
+            None => std::env::current_dir()?.join(WASMER_TOML_NAME),
             Some(s) => {
                 let _ = std::fs::create_dir_all(s);
-                s.join("wapm.toml")
+                s.join(WASMER_TOML_NAME)
             }
         };
 
@@ -289,7 +291,7 @@ impl Init {
 
         if !self.quiet {
             eprintln!(
-                "You have cargo-wapm installed, added metadata to Cargo.toml instead of wapm.toml"
+                "You have cargo-wapm installed, added metadata to Cargo.toml instead of wasmer.toml"
             );
             eprintln!("Build and publish your package with:");
             eprintln!();
