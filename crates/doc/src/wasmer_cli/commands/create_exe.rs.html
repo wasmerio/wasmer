@@ -1686,6 +1686,50 @@
 <span id="1678">1678</span>
 <span id="1679">1679</span>
 <span id="1680">1680</span>
+<span id="1681">1681</span>
+<span id="1682">1682</span>
+<span id="1683">1683</span>
+<span id="1684">1684</span>
+<span id="1685">1685</span>
+<span id="1686">1686</span>
+<span id="1687">1687</span>
+<span id="1688">1688</span>
+<span id="1689">1689</span>
+<span id="1690">1690</span>
+<span id="1691">1691</span>
+<span id="1692">1692</span>
+<span id="1693">1693</span>
+<span id="1694">1694</span>
+<span id="1695">1695</span>
+<span id="1696">1696</span>
+<span id="1697">1697</span>
+<span id="1698">1698</span>
+<span id="1699">1699</span>
+<span id="1700">1700</span>
+<span id="1701">1701</span>
+<span id="1702">1702</span>
+<span id="1703">1703</span>
+<span id="1704">1704</span>
+<span id="1705">1705</span>
+<span id="1706">1706</span>
+<span id="1707">1707</span>
+<span id="1708">1708</span>
+<span id="1709">1709</span>
+<span id="1710">1710</span>
+<span id="1711">1711</span>
+<span id="1712">1712</span>
+<span id="1713">1713</span>
+<span id="1714">1714</span>
+<span id="1715">1715</span>
+<span id="1716">1716</span>
+<span id="1717">1717</span>
+<span id="1718">1718</span>
+<span id="1719">1719</span>
+<span id="1720">1720</span>
+<span id="1721">1721</span>
+<span id="1722">1722</span>
+<span id="1723">1723</span>
+<span id="1724">1724</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::ObjectFormat</span>;
@@ -2090,52 +2134,34 @@
             <span class="kw">let</span> <span class="ident">library</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">v</span>) <span class="op">=</span> <span class="ident">cross_subc</span>.<span class="ident">library_path</span>.<span class="ident">clone</span>() {
                 <span class="ident">v</span>.<span class="ident">canonicalize</span>().<span class="ident">unwrap_or</span>(<span class="ident">v</span>)
             } <span class="kw">else</span> {
-                {
-                    <span class="kw">let</span> <span class="ident">libwasmer_path</span> <span class="op">=</span> <span class="string">&quot;lib/libwasmer.a&quot;</span>;
-                    <span class="kw">let</span> <span class="ident">tarball_dir</span>;
-                    <span class="kw">let</span> <span class="ident">filename</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">local_tarball</span>) <span class="op">=</span> <span class="ident">cross_subc</span>.<span class="ident">tarball</span>.<span class="ident">as_ref</span>() {
-                        <span class="kw">let</span> <span class="ident">target_file_path</span> <span class="op">=</span> <span class="ident">local_tarball</span>
-                            .<span class="ident">parent</span>()
-                            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">parent</span><span class="op">|</span> <span class="prelude-val">Some</span>(<span class="ident">parent</span>.<span class="ident">join</span>(<span class="ident">local_tarball</span>.<span class="ident">file_stem</span>()<span class="question-mark">?</span>)))
-                            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">local_tarball</span>.<span class="ident">clone</span>());
-
-                        <span class="kw">let</span> <span class="ident">target_file_path</span> <span class="op">=</span> <span class="ident">target_file_path</span>
-                            .<span class="ident">parent</span>()
-                            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">parent</span><span class="op">|</span> <span class="prelude-val">Some</span>(<span class="ident">parent</span>.<span class="ident">join</span>(<span class="ident">target_file_path</span>.<span class="ident">file_stem</span>()<span class="question-mark">?</span>)))
-                            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">target_file_path</span>.<span class="ident">clone</span>());
-
-                        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">target_file_path</span>);
-                        <span class="kw">let</span> <span class="ident">files</span> <span class="op">=</span> <span class="ident">untar</span>(<span class="ident">local_tarball</span>.<span class="ident">clone</span>(), <span class="ident">target_file_path</span>.<span class="ident">clone</span>())<span class="question-mark">?</span>;
-                        <span class="ident">tarball_dir</span> <span class="op">=</span> <span class="ident">target_file_path</span>.<span class="ident">canonicalize</span>().<span class="ident">unwrap_or</span>(<span class="ident">target_file_path</span>);
-                        <span class="ident">files</span>.<span class="ident">iter</span>().<span class="ident">find</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">contains</span>(<span class="ident">libwasmer_path</span>)).<span class="ident">cloned</span>().<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-                            <span class="macro">anyhow!</span>(<span class="string">&quot;Could not find libwasmer for {} target in the provided tarball path (files = {files:#?}, libwasmer_path = {libwasmer_path:?})&quot;</span>, <span class="ident">target</span>)})<span class="question-mark">?</span>
+                <span class="kw">let</span> (<span class="ident">filename</span>, <span class="ident">tarball_dir</span>) <span class="op">=</span>
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">local_tarball</span>) <span class="op">=</span> <span class="ident">cross_subc</span>.<span class="ident">tarball</span>.<span class="ident">as_ref</span>() {
+                        <span class="ident"><span class="self">Self</span>::find_filename</span>(<span class="ident">local_tarball</span>, <span class="kw-2">&amp;</span><span class="ident">target</span>)
                     } <span class="kw">else</span> {
-                        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;http&quot;</span>)]</span>
-                        {
+                        <span class="comment">// check if the tarball for the target already exists locally</span>
+                        <span class="kw">let</span> <span class="ident">local_tarball</span> <span class="op">=</span> <span class="ident">std::fs::read_dir</span>(<span class="ident">get_libwasmer_cache_path</span>()<span class="question-mark">?</span>)<span class="question-mark">?</span>
+                            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">ok</span>())
+                            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+                                <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">e</span>.<span class="ident">path</span>().<span class="ident">display</span>());
+                                <span class="kw">if</span> <span class="ident">path</span>.<span class="ident">ends_with</span>(<span class="string">&quot;.tar.gz&quot;</span>) {
+                                    <span class="prelude-val">Some</span>(<span class="ident">e</span>.<span class="ident">path</span>())
+                                } <span class="kw">else</span> {
+                                    <span class="prelude-val">None</span>
+                                }
+                            })
+                            .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident"><span class="self">Self</span>::filter_tarballs</span>(<span class="kw-2">&amp;</span><span class="ident">p</span>, <span class="kw-2">&amp;</span><span class="ident">target</span>))
+                            .<span class="ident">next</span>();
+
+                        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">local_tarball</span>) <span class="op">=</span> <span class="ident">local_tarball</span>.<span class="ident">as_ref</span>() {
+                            <span class="ident"><span class="self">Self</span>::find_filename</span>(<span class="ident">local_tarball</span>, <span class="kw-2">&amp;</span><span class="ident">target</span>)
+                        } <span class="kw">else</span> {
                             <span class="kw">let</span> <span class="ident">release</span> <span class="op">=</span> <span class="ident">http_fetch::get_latest_release</span>()<span class="question-mark">?</span>;
                             <span class="kw">let</span> <span class="ident">tarball</span> <span class="op">=</span> <span class="ident">http_fetch::download_release</span>(<span class="ident">release</span>, <span class="ident">target</span>.<span class="ident">clone</span>())<span class="question-mark">?</span>;
-                            <span class="kw">let</span> <span class="ident">target_file_path</span> <span class="op">=</span> <span class="ident">tarball</span>
-                                .<span class="ident">parent</span>()
-                                .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">parent</span><span class="op">|</span> <span class="prelude-val">Some</span>(<span class="ident">parent</span>.<span class="ident">join</span>(<span class="ident">tarball</span>.<span class="ident">file_stem</span>()<span class="question-mark">?</span>)))
-                                .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">tarball</span>.<span class="ident">clone</span>());
-
-                            <span class="kw">let</span> <span class="ident">target_file_path</span> <span class="op">=</span> <span class="ident">target_file_path</span>
-                                .<span class="ident">parent</span>()
-                                .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">parent</span><span class="op">|</span> <span class="prelude-val">Some</span>(<span class="ident">parent</span>.<span class="ident">join</span>(<span class="ident">target_file_path</span>.<span class="ident">file_stem</span>()<span class="question-mark">?</span>)))
-                                .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">target_file_path</span>.<span class="ident">clone</span>());
-
-                            <span class="ident">tarball_dir</span> <span class="op">=</span> <span class="ident">target_file_path</span>
-                                .<span class="ident">canonicalize</span>()
-                                .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">target_file_path</span>.<span class="ident">clone</span>());
-                            <span class="kw">let</span> <span class="ident">files</span> <span class="op">=</span> <span class="ident">untar</span>(<span class="ident">tarball</span>, <span class="ident">target_file_path</span>)<span class="question-mark">?</span>;
-                            <span class="ident">files</span>.<span class="ident">into_iter</span>().<span class="ident">find</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">contains</span>(<span class="ident">libwasmer_path</span>)).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-                                <span class="macro">anyhow!</span>(<span class="string">&quot;Could not find libwasmer for {} target in the fetched release from Github: you can download it manually and specify its path with the --cross-compilation-library-path LIBRARY_PATH flag.&quot;</span>, <span class="ident">target</span>)})<span class="question-mark">?</span>
+                            <span class="ident"><span class="self">Self</span>::find_filename</span>(<span class="kw-2">&amp;</span><span class="ident">tarball</span>, <span class="kw-2">&amp;</span><span class="ident">target</span>)
                         }
-                        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;http&quot;</span>))]</span>
-                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">&quot;This wasmer binary isn&#39;t compiled with an HTTP request library (feature flag `http`). To cross-compile, specify the path of the non-native libwasmer or release tarball with the --library-path LIBRARY_PATH or --tarball TARBALL_PATH flag.&quot;</span>));
-                    };
-                    <span class="ident">tarball_dir</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">filename</span>)
-                }
+                    }<span class="question-mark">?</span>;
+
+                <span class="ident">tarball_dir</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">filename</span>)
             };
             <span class="kw">let</span> <span class="ident">ccs</span> <span class="op">=</span> <span class="ident">CrossCompileSetup</span> {
                 <span class="ident">target</span>,
@@ -2146,6 +2172,72 @@
         } <span class="kw">else</span> {
             <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
         }
+    }
+
+    <span class="kw">fn</span> <span class="ident">find_filename</span>(
+        <span class="ident">local_tarball</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
+        <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Triple</span>,
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">PathBuf</span>), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">target_file_path</span> <span class="op">=</span> <span class="ident">local_tarball</span>
+            .<span class="ident">parent</span>()
+            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">parent</span><span class="op">|</span> <span class="prelude-val">Some</span>(<span class="ident">parent</span>.<span class="ident">join</span>(<span class="ident">local_tarball</span>.<span class="ident">file_stem</span>()<span class="question-mark">?</span>)))
+            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">local_tarball</span>.<span class="ident">to_path_buf</span>());
+
+        <span class="kw">let</span> <span class="ident">target_file_path</span> <span class="op">=</span> <span class="ident">target_file_path</span>
+            .<span class="ident">parent</span>()
+            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">parent</span><span class="op">|</span> <span class="prelude-val">Some</span>(<span class="ident">parent</span>.<span class="ident">join</span>(<span class="ident">target_file_path</span>.<span class="ident">file_stem</span>()<span class="question-mark">?</span>)))
+            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">target_file_path</span>.<span class="ident">clone</span>());
+
+        <span class="ident">std::fs::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">target_file_path</span>)
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+            .<span class="ident">context</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">target_file_path</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">files</span> <span class="op">=</span> <span class="ident">untar</span>(<span class="ident">local_tarball</span>.<span class="ident">to_path_buf</span>(), <span class="ident">target_file_path</span>.<span class="ident">clone</span>())<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">tarball_dir</span> <span class="op">=</span> <span class="ident">target_file_path</span>.<span class="ident">canonicalize</span>().<span class="ident">unwrap_or</span>(<span class="ident">target_file_path</span>);
+
+        <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">files</span>
+        .<span class="ident">iter</span>()
+        .<span class="ident">find</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">ends_with</span>(<span class="string">&quot;libwasmer.a&quot;</span>)).<span class="ident">cloned</span>()
+        .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
+            <span class="macro">anyhow!</span>(<span class="string">&quot;Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})&quot;</span>, <span class="ident">target</span>)
+        })<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>((<span class="ident">file</span>, <span class="ident">tarball_dir</span>))
+    }
+
+    <span class="kw">fn</span> <span class="ident">filter_tarballs</span>(<span class="ident">p</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Triple</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Architecture::Aarch64</span>(<span class="kw">_</span>) <span class="op">=</span> <span class="ident">target</span>.<span class="ident">architecture</span> {
+            <span class="kw">if</span> <span class="op">!</span><span class="ident">p</span>.<span class="ident">file_name</span>()<span class="question-mark">?</span>.<span class="ident">to_str</span>()<span class="question-mark">?</span>.<span class="ident">contains</span>(<span class="string">&quot;aarch64&quot;</span>) {
+                <span class="kw">return</span> <span class="prelude-val">None</span>;
+            }
+        }
+
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Architecture::X86_64</span> <span class="op">=</span> <span class="ident">target</span>.<span class="ident">architecture</span> {
+            <span class="kw">if</span> <span class="op">!</span><span class="ident">p</span>.<span class="ident">file_name</span>()<span class="question-mark">?</span>.<span class="ident">to_str</span>()<span class="question-mark">?</span>.<span class="ident">contains</span>(<span class="string">&quot;x86_64&quot;</span>) {
+                <span class="kw">return</span> <span class="prelude-val">None</span>;
+            }
+        }
+
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">OperatingSystem::Windows</span> <span class="op">=</span> <span class="ident">target</span>.<span class="ident">operating_system</span> {
+            <span class="kw">if</span> <span class="op">!</span><span class="ident">p</span>.<span class="ident">file_name</span>()<span class="question-mark">?</span>.<span class="ident">to_str</span>()<span class="question-mark">?</span>.<span class="ident">contains</span>(<span class="string">&quot;windows&quot;</span>) {
+                <span class="kw">return</span> <span class="prelude-val">None</span>;
+            }
+        }
+
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">OperatingSystem::Darwin</span> <span class="op">=</span> <span class="ident">target</span>.<span class="ident">operating_system</span> {
+            <span class="kw">if</span> <span class="op">!</span>(<span class="ident">p</span>.<span class="ident">file_name</span>()<span class="question-mark">?</span>.<span class="ident">to_str</span>()<span class="question-mark">?</span>.<span class="ident">contains</span>(<span class="string">&quot;apple&quot;</span>)
+                <span class="op">|</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">file_name</span>()<span class="question-mark">?</span>.<span class="ident">to_str</span>()<span class="question-mark">?</span>.<span class="ident">contains</span>(<span class="string">&quot;darwin&quot;</span>))
+            {
+                <span class="kw">return</span> <span class="prelude-val">None</span>;
+            }
+        }
+
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">OperatingSystem::Linux</span> <span class="op">=</span> <span class="ident">target</span>.<span class="ident">operating_system</span> {
+            <span class="kw">if</span> <span class="op">!</span><span class="ident">p</span>.<span class="ident">file_name</span>()<span class="question-mark">?</span>.<span class="ident">to_str</span>()<span class="question-mark">?</span>.<span class="ident">contains</span>(<span class="string">&quot;linux&quot;</span>) {
+                <span class="kw">return</span> <span class="prelude-val">None</span>;
+            }
+        }
+
+        <span class="prelude-val">Some</span>(<span class="ident">p</span>.<span class="ident">to_path_buf</span>())
     }
 
     <span class="kw">fn</span> <span class="ident">compile_c</span>(
@@ -2261,9 +2353,6 @@
             }
             <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-lunwind&quot;</span>);
             <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-OReleaseSafe&quot;</span>);
-            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-fstrip&quot;</span>);
-            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-dead_strip&quot;</span>);
-            <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-dead_strip_dylibs&quot;</span>);
             <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-fno-compiler-rt&quot;</span>);
             <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;-femit-bin={}&quot;</span>, <span class="ident">output_path</span>.<span class="ident">display</span>()));
 
@@ -3017,7 +3106,6 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;http&quot;</span>)]</span>
 <span class="kw">mod</span> <span class="ident">http_fetch</span> {
     <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">anyhow</span>, <span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
     <span class="kw">use</span> <span class="ident">http_req</span>::{<span class="ident">request::Request</span>, <span class="ident">response::StatusCode</span>, <span class="ident">uri::Uri</span>};
@@ -3067,7 +3155,7 @@
         }
 
         <span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
-            <span class="string">&quot;Could not get expected Github API response.\n\nReason: response format is not recognized:\n{:#?}&quot;</span>, <span class="string">&quot;&quot;</span>
+            <span class="string">&quot;Could not get expected Github API response.\n\nReason: response format is not recognized:\n{response:#?}&quot;</span>,
         ))
     }
 

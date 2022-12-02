@@ -8343,7 +8343,7 @@
                 <span class="prelude-val">Some</span>(<span class="ident">CpuFeature::SSE42</span>)
             } <span class="kw">else</span> {
                 <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::UnsupportedTarget</span>(
-                    <span class="string">&quot;x86_64 without AVX or SSE 4.2&quot;</span>.<span class="ident">to_string</span>(),
+                    <span class="string">&quot;x86_64 without AVX or SSE 4.2, use -m avx to enable&quot;</span>.<span class="ident">to_string</span>(),
                 ));
             }
         };
