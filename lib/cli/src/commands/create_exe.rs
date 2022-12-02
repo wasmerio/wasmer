@@ -419,7 +419,7 @@ impl CreateExe {
                         let files = untar(local_tarball.clone(), target_file_path.clone())?;
                         tarball_dir = target_file_path.canonicalize().unwrap_or(target_file_path);
                         files.iter().find(|f| f.ends_with("libwasmer.a")).cloned().ok_or_else(|| {
-                            anyhow!("Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})", target)})?
+                            anyhow::bail!("Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})", target)});
                     } else {
                         // check if the tarball for the target already exists locally
                         let local_tarball = std::fs::read_dir(get_libwasmer_cache_path()?)?
