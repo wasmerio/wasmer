@@ -3257,24 +3257,16 @@ pub fn gen_std_trampoline_arm64(
                 #[allow(clippy::single_match)]
                 match calling_convention {
                     CallingConvention::AppleAarch64 => {
-                        match sz {
-                            Size::S8 => (),
-                            Size::S16 => {
-                                if caller_stack_offset & 1 != 0 {
-                                    caller_stack_offset = (caller_stack_offset + 1) & !1;
-                                }
-                            }
-                            Size::S32 => {
-                                if caller_stack_offset & 3 != 0 {
-                                    caller_stack_offset = (caller_stack_offset + 3) & !3;
-                                }
-                            }
-                            Size::S64 => {
-                                if caller_stack_offset & 7 != 0 {
-                                    caller_stack_offset = (caller_stack_offset + 7) & !7;
-                                }
-                            }
+                        let sz = 1 << match sz {
+                            Size::S8 => 0,
+                            Size::S16 => 1,
+                            Size::S32 => 2,
+                            Size::S64 => 3,
                         };
+                        // align first
+                        if sz > 1 && caller_stack_offset & (sz - 1) != 0 {
+                            caller_stack_offset = (caller_stack_offset + (sz - 1)) & !(sz - 1);
+                        }
                     }
                     _ => (),
                 };
@@ -3291,11 +3283,11 @@ pub fn gen_std_trampoline_arm64(
                 )?;
                 match calling_convention {
                     CallingConvention::AppleAarch64 => {
-                        caller_stack_offset += match sz {
-                            Size::S8 => 1,
-                            Size::S16 => 2,
-                            Size::S32 => 4,
-                            Size::S64 => 8,
+                        caller_stack_offset += 1 << match sz {
+                            Size::S8 => 0,
+                            Size::S16 => 1,
+                            Size::S32 => 2,
+                            Size::S64 => 3,
                         };
                     }
                     _ => {

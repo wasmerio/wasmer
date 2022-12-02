@@ -1809,18 +1809,18 @@ impl Machine for MachineARM64 {
                 6 => Location::GPR(GPR::X6),
                 7 => Location::GPR(GPR::X7),
                 _ => {
-                    let sz = match sz {
+                    let sz = 1 << match sz {
                         Size::S8 => 0,
                         Size::S16 => 1,
                         Size::S32 => 2,
                         Size::S64 => 3,
                     };
                     // align first
-                    if sz > 1 && *stack_args & !((1 << sz) - 1) != 0 {
-                        *stack_args = (*stack_args + ((1 << sz) - 1)) & !((1 << sz) - 1);
+                    if sz > 1 && *stack_args & (sz - 1) != 0 {
+                        *stack_args = (*stack_args + (sz - 1)) & !(sz - 1);
                     }
                     let loc = Location::Memory(GPR::XzrSp, *stack_args as i32);
-                    *stack_args += 1 << sz;
+                    *stack_args += sz;
                     loc
                 }
             },
@@ -1860,18 +1860,18 @@ impl Machine for MachineARM64 {
                 6 => Location::GPR(GPR::X6),
                 7 => Location::GPR(GPR::X7),
                 _ => {
-                    let sz = match sz {
+                    let sz = 1 << match sz {
                         Size::S8 => 0,
                         Size::S16 => 1,
                         Size::S32 => 2,
                         Size::S64 => 3,
                     };
                     // align first
-                    if sz > 1 && *stack_args & !((1 << sz) - 1) != 0 {
-                        *stack_args = (*stack_args + ((1 << sz) - 1)) & !((1 << sz) - 1);
+                    if sz > 1 && *stack_args & (sz - 1) != 0 {
+                        *stack_args = (*stack_args + (sz - 1)) & !(sz - 1);
                     }
                     let loc = Location::Memory(GPR::X29, 16 * 2 + *stack_args as i32);
-                    *stack_args += 1 << sz;
+                    *stack_args += sz;
                     loc
                 }
             },
