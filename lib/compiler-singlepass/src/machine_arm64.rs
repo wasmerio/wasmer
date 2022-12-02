@@ -1809,12 +1809,13 @@ impl Machine for MachineARM64 {
                 6 => Location::GPR(GPR::X6),
                 7 => Location::GPR(GPR::X7),
                 _ => {
-                    let sz = 1 << match sz {
-                        Size::S8 => 0,
-                        Size::S16 => 1,
-                        Size::S32 => 2,
-                        Size::S64 => 3,
-                    };
+                    let sz = 1
+                        << match sz {
+                            Size::S8 => 0,
+                            Size::S16 => 1,
+                            Size::S32 => 2,
+                            Size::S64 => 3,
+                        };
                     // align first
                     if sz > 1 && *stack_args & (sz - 1) != 0 {
                         *stack_args = (*stack_args + (sz - 1)) & !(sz - 1);
@@ -1860,12 +1861,13 @@ impl Machine for MachineARM64 {
                 6 => Location::GPR(GPR::X6),
                 7 => Location::GPR(GPR::X7),
                 _ => {
-                    let sz = 1 << match sz {
-                        Size::S8 => 0,
-                        Size::S16 => 1,
-                        Size::S32 => 2,
-                        Size::S64 => 3,
-                    };
+                    let sz = 1
+                        << match sz {
+                            Size::S8 => 0,
+                            Size::S16 => 1,
+                            Size::S32 => 2,
+                            Size::S64 => 3,
+                        };
                     // align first
                     if sz > 1 && *stack_args & (sz - 1) != 0 {
                         *stack_args = (*stack_args + (sz - 1)) & !(sz - 1);
