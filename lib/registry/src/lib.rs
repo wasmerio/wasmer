@@ -149,9 +149,20 @@ pub fn get_executable_file_from_path(
         Some(s) => commands.iter().find(|c| c.get_name() == s).ok_or_else(|| {
             anyhow::anyhow!("Cannot run {name}@{version}: package has no command {s:?}")
         })?,
-        None => commands.first().ok_or_else(|| {
-            anyhow::anyhow!("Cannot run {name}@{version}: package has no commands")
-        })?,
+        None => {
+            if commands.is_empty() {
+                Err(anyhow::anyhow!(
+                    "Cannot run {name}@{version}: package has no commands"
+                ))
+            } else if commands.len() == 1 {
+                Ok(&commands[0])
+            } else {
+                Err(anyhow::anyhow!("  -> wasmer run {name}@{version} --command-name={0} OR wasmer run {name}@{version}:{0}", commands.first().map(|f| f.get_name()).unwrap()))
+                .context(anyhow::anyhow!("{}", commands.iter().map(|c| format!("`{}`", c.get_name())).collect::<Vec<_>>().join(", ")))
+                .context(anyhow::anyhow!("You can run any of those by using the --command-name=COMMAND flag or : postfix"))
+                .context(anyhow::anyhow!("The `{name}@{version}` package doesn't have a default entrypoint, but has multiple available commands:"))
+            }?
+        }
     };
 
     let module_name = entrypoint_module.get_module();
