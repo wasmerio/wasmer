@@ -283,6 +283,8 @@ impl Init {
             bindings,
         };
 
+        println!("{:#?}", metadata_wapm);
+
         let toml_string = toml::to_string_pretty(&metadata_wapm)?
             .replace("[dependencies]", &format!("{note}\r\n\r\n[dependencies]"))
             .lines()
