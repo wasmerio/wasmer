@@ -1370,6 +1370,17 @@
 <span id="1364">1364</span>
 <span id="1365">1365</span>
 <span id="1366">1366</span>
+<span id="1367">1367</span>
+<span id="1368">1368</span>
+<span id="1369">1369</span>
+<span id="1370">1370</span>
+<span id="1371">1371</span>
+<span id="1372">1372</span>
+<span id="1373">1373</span>
+<span id="1374">1374</span>
+<span id="1375">1375</span>
+<span id="1376">1376</span>
+<span id="1377">1377</span>
 </pre><pre class="rust"><code><span class="doccomment">//! High-level interactions with the WAPM backend.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! The GraphQL schema can be updated by running `make` in the Wasmer repo&#39;s</span>
@@ -1521,9 +1532,20 @@
         <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="ident">commands</span>.<span class="ident">iter</span>().<span class="ident">find</span>(<span class="op">|</span><span class="ident">c</span><span class="op">|</span> <span class="ident">c</span>.<span class="ident">get_name</span>() <span class="op">==</span> <span class="ident">s</span>).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
             <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Cannot run {name}@{version}: package has no command {s:?}&quot;</span>)
         })<span class="question-mark">?</span>,
-        <span class="prelude-val">None</span> =&gt; <span class="ident">commands</span>.<span class="ident">first</span>().<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-            <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Cannot run {name}@{version}: package has no commands&quot;</span>)
-        })<span class="question-mark">?</span>,
+        <span class="prelude-val">None</span> =&gt; {
+            <span class="kw">if</span> <span class="ident">commands</span>.<span class="ident">is_empty</span>() {
+                <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
+                    <span class="string">&quot;Cannot run {name}@{version}: package has no commands&quot;</span>
+                ))
+            } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">commands</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">1</span> {
+                <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span><span class="ident">commands</span>[<span class="number">0</span>])
+            } <span class="kw">else</span> {
+                <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;  -&gt; wasmer run {name}@{version} --command-name={0} OR wasmer run {name}@{version}:{0}&quot;</span>, <span class="ident">commands</span>.<span class="ident">first</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">get_name</span>()).<span class="ident">unwrap</span>()))
+                .<span class="ident">context</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">commands</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">c</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;`{}`&quot;</span>, <span class="ident">c</span>.<span class="ident">get_name</span>())).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>().<span class="ident">join</span>(<span class="string">&quot;, &quot;</span>)))
+                .<span class="ident">context</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;You can run any of those by using the --command-name=COMMAND flag or : postfix&quot;</span>))
+                .<span class="ident">context</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;The `{name}@{version}` package doesn&#39;t have a default entrypoint, but has multiple available commands:&quot;</span>))
+            }<span class="question-mark">?</span>
+        }
     };
 
     <span class="kw">let</span> <span class="ident">module_name</span> <span class="op">=</span> <span class="ident">entrypoint_module</span>.<span class="ident">get_module</span>();
