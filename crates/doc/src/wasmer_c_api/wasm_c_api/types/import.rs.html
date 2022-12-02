@@ -70,6 +70,7 @@
 <span id="62">62</span>
 <span id="63">63</span>
 <span id="64">64</span>
+<span id="65">65</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">wasm_externtype_t</span>, <span class="ident">wasm_name_t</span>};
 <span class="kw">use</span> <span class="ident">wasmer_api::ImportType</span>;
 
@@ -83,6 +84,7 @@
 }
 
 <span class="macro">wasm_declare_boxed_vec!</span>(<span class="ident">importtype</span>);
+<span class="macro">wasm_impl_copy!</span>(<span class="ident">importtype</span>);
 
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_importtype_new</span>(
