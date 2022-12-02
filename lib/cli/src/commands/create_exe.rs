@@ -456,7 +456,9 @@ impl CreateExe {
             .and_then(|parent| Some(parent.join(target_file_path.file_stem()?)))
             .unwrap_or_else(|| target_file_path.clone());
 
-        let _ = std::fs::create_dir_all(&target_file_path);
+        std::fs::create_dir_all(&target_file_path)
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .context(anyhow::anyhow!("{}", target_file_path.display()))?;
         let files = untar(local_tarball.to_path_buf(), target_file_path.clone())?;
         let tarball_dir = target_file_path.canonicalize().unwrap_or(target_file_path);
 
