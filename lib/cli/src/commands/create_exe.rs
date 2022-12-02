@@ -620,6 +620,7 @@ impl CreateExe {
                 cmd.arg("-lc");
             }
             cmd.arg("-lunwind");
+            cmd.arg("-OReleaseSafe");
             cmd.arg("-fno-compiler-rt");
             cmd.arg(&format!("-femit-bin={}", output_path.display()));
 
