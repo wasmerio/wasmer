@@ -443,13 +443,13 @@ impl CreateExe {
     }
 
     fn find_filename(
-        local_tarball: &PathBuf,
+        local_tarball: &Path,
         target: &Triple,
     ) -> Result<(String, PathBuf), anyhow::Error> {
         let target_file_path = local_tarball
             .parent()
             .and_then(|parent| Some(parent.join(local_tarball.file_stem()?)))
-            .unwrap_or_else(|| local_tarball.clone());
+            .unwrap_or_else(|| local_tarball.to_path_buf());
 
         let target_file_path = target_file_path
             .parent()
@@ -457,7 +457,7 @@ impl CreateExe {
             .unwrap_or_else(|| target_file_path.clone());
 
         let _ = std::fs::create_dir_all(&target_file_path);
-        let files = untar(local_tarball.clone(), target_file_path.clone())?;
+        let files = untar(local_tarball.to_path_buf(), target_file_path.clone())?;
         let tarball_dir = target_file_path.canonicalize().unwrap_or(target_file_path);
 
         let file = files
@@ -470,7 +470,7 @@ impl CreateExe {
         Ok((file, tarball_dir))
     }
 
-    fn filter_tarballs(p: &PathBuf, target: &Triple) -> Option<PathBuf> {
+    fn filter_tarballs(p: &Path, target: &Triple) -> Option<PathBuf> {
         if let Architecture::Aarch64(_) = target.architecture {
             if !p.file_name()?.to_str()?.contains("aarch64") {
                 return None;
@@ -503,7 +503,7 @@ impl CreateExe {
             }
         }
 
-        Some(p.clone())
+        Some(p.to_path_buf())
     }
 
     fn compile_c(
