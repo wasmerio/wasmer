@@ -52,7 +52,6 @@ bytesize = "1.0"
 cfg-if = "1.0"
 # For debug feature
 fern = { version = "0.6", features = ["colored"], optional = true }
-log = { version = "0.4", optional = true }
 tempfile = "3"
 tempdir = "0.3.7"
 http_req  = { version="^0.8", default-features = false, features = ["rust-tls"] }
@@ -144,7 +143,7 @@ llvm = [
     "wasmer-compiler-llvm",
     "compiler",
 ]
-debug = ["fern", "log", "wasmer-wasi/logging"]
+debug = ["fern", "wasmer-wasi/logging"]
 disable-all-logging = ["wasmer-wasi/disable-all-logging"]
 headless = []
 headless-minimal = ["headless", "disable-all-logging", "wasi"]
