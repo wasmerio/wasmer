@@ -3,18 +3,18 @@ use wasmer_wasi::{WasiBidirectionalSharedPipePair, WasiState};
 
 mod sys {
     #[tokio::test]
-    fn test_stdout() {
-        super::test_stdout()
+    async fn test_stdout() {
+        super::test_stdout().await;
     }
 
     #[tokio::test]
-    fn test_stdin() {
-        super::test_stdin()
+    async fn test_stdin() {
+        super::test_stdin().await;
     }
 
     #[tokio::test]
-    fn test_env() {
-        super::test_env()
+    async fn test_env() {
+        super::test_env().await;
     }
 }
 
