@@ -474,15 +474,17 @@ impl InodeSocket {
                 };
             }
             InodeSocketKind::Raw(sock) => match option {
-                WasiSocketOption::Promiscuous => {
-                    sock.set_promiscuous(val).await.map_err(net_error_into_wasi_err)?
-                }
+                WasiSocketOption::Promiscuous => sock
+                    .set_promiscuous(val)
+                    .await
+                    .map_err(net_error_into_wasi_err)?,
                 _ => return Err(Errno::Inval),
             },
             InodeSocketKind::TcpStream(sock) => match option {
-                WasiSocketOption::NoDelay => {
-                    sock.set_nodelay(val).await.map_err(net_error_into_wasi_err)?
-                }
+                WasiSocketOption::NoDelay => sock
+                    .set_nodelay(val)
+                    .await
+                    .map_err(net_error_into_wasi_err)?,
                 _ => return Err(Errno::Inval),
             },
             InodeSocketKind::UdpSocket(sock) => match option {
@@ -751,8 +753,12 @@ impl InodeSocket {
     pub async fn set_ttl(&self, ttl: u32) -> Result<(), Errno> {
         let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
-            InodeSocketKind::TcpStream(sock) => sock.set_ttl(ttl).await.map_err(net_error_into_wasi_err),
-            InodeSocketKind::UdpSocket(sock) => sock.set_ttl(ttl).await.map_err(net_error_into_wasi_err),
+            InodeSocketKind::TcpStream(sock) => {
+                sock.set_ttl(ttl).await.map_err(net_error_into_wasi_err)
+            }
+            InodeSocketKind::UdpSocket(sock) => {
+                sock.set_ttl(ttl).await.map_err(net_error_into_wasi_err)
+            }
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
