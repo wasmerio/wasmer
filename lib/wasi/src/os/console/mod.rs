@@ -201,40 +201,11 @@ impl Console {
             tasks.block_on(async { self.draw_welcome().await });
         }
 
-        // Find the binary
-        if let Some(binary) =
+        let binary = if let Some(binary) =
             self.compiled_modules
                 .get_webc(webc, self.runtime.deref(), env.tasks.deref())
         {
-            if let Err(err) = env.uses(self.uses.clone()) {
-                tasks.block_on(async {
-                    let _ = self.runtime.stderr(format!("{}\r\n", err).as_bytes()).await;
-                });
-                tracing::debug!("failed to load used dependency - {}", err);
-                return Err(wasmer_vbus::VirtualBusError::BadRequest);
-            }
-
-            // Build the config
-            let config = SpawnOptionsConfig {
-                reuse: false,
-                env,
-                remote_instance: None,
-                access_token: self.token.clone(),
-            };
-
-            // Run the binary
-            let process = spawn_exec(
-                binary,
-                prog,
-                store,
-                config,
-                &self.runtime,
-                self.compiled_modules.as_ref(),
-            )
-            .unwrap();
-
-            // Return the process
-            Ok((process, wasi_process))
+            binary
         } else {
             tasks.block_on(async {
                 let _ = self
@@ -243,8 +214,38 @@ impl Console {
                     .await;
             });
             tracing::debug!("failed to get webc dependency - {}", self.boot_cmd);
-            Err(wasmer_vbus::VirtualBusError::NotFound)
+            return Err(wasmer_vbus::VirtualBusError::NotFound);
+        };
+
+        if let Err(err) = env.uses(self.uses.clone()) {
+            tasks.block_on(async {
+                let _ = self.runtime.stderr(format!("{}\r\n", err).as_bytes()).await;
+            });
+            tracing::debug!("failed to load used dependency - {}", err);
+            return Err(wasmer_vbus::VirtualBusError::BadRequest);
         }
+
+        // Build the config
+        let config = SpawnOptionsConfig {
+            reuse: false,
+            env,
+            remote_instance: None,
+            access_token: self.token.clone(),
+        };
+
+        // Run the binary
+        let process = spawn_exec(
+            binary,
+            prog,
+            store,
+            config,
+            &self.runtime,
+            self.compiled_modules.as_ref(),
+        )
+        .unwrap();
+
+        // Return the process
+        Ok((process, wasi_process))
     }
 
     pub async fn draw_welcome(&self) {
