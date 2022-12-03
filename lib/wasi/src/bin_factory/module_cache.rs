@@ -226,3 +226,18 @@ impl ModuleCache {
         }
     }
 }
+#[cfg(test)]
+mod tests {
+    use crate::{runtime::task_manager::tokio::TokioTaskManager, PluggableRuntimeImplementation};
+
+    use super::*;
+
+    #[test]
+    fn test_module_cache() {
+        let cache = ModuleCache::new(None, None, true);
+
+        let tasks = TokioTaskManager::default();
+        let rt = PluggableRuntimeImplementation::default();
+        let _webc = cache.get_webc("sharrattj/dash", &rt, &tasks).unwrap();
+    }
+}
