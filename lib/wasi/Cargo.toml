@@ -51,8 +51,6 @@ weezl = { version = "^0.1" }
 hex = { version = "^0.4" }
 term_size = { version = "0.3", optional = true }
 linked_hash_set = { version = "0.1" }
-# used by feature='host-reqwest'
-reqwest = { version = "0.11", features = ["json"], optional = true }
 # used by feature='host-termios'
 termios = { version = "0.3", optional = true }
 # the various compilers
@@ -60,6 +58,12 @@ wasmer-compiler-cranelift = { version = "3.0.0-beta", path = "../compiler-cranel
 wasmer-compiler-llvm = { version = "3.0.0-beta", path = "../compiler-llvm", optional = true }
 wasmer-compiler-singlepass = { version = "3.0.0-beta", path = "../compiler-singlepass", optional = true }
 wasmer-compiler = { version = "3.0.0-beta", path = "../compiler", features = [ "translator" ], optional = true }
+
+[dependencies.reqwest]
+version = "0.11"
+default-features = false
+features = ["rustls-tls", "json"]
+optional = true
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "^0.2", default-features = false }
