@@ -157,6 +157,34 @@ fn run_whoami_works() -> anyhow::Result<()> {
 }
 
 #[test]
+fn run_wasi_works_non_existent() -> anyhow::Result<()> {
+    let output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg("does/not/exist")
+        .output()?;
+
+    let stderr = std::str::from_utf8(&output.stderr).unwrap();
+
+    let stderr_lines = stderr
+        .lines()
+        .map(|s| s.trim().to_string())
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        stderr_lines,
+        vec![
+            "error: does/not/exist".to_string(),
+            "│   1: invalid registry or namespace \"does\"".to_string(),
+            "│   2: expected a dot if using a URL shorthand (e.g. does.com)".to_string(),
+            "╰─▶ 3: Invalid command \"does/not/exist\", file \"does/not/exist\" not found either"
+                .to_string(),
+        ]
+    );
+
+    Ok(())
+}
+
+#[test]
 fn run_wasi_works() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
         .arg("run")

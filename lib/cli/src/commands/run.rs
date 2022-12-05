@@ -1,4 +1,4 @@
-use crate::cli::SplitVersion;
+use crate::cli::{SplitVersion, SplitVersionError};
 use crate::common::get_cache_dir;
 #[cfg(feature = "debug")]
 use crate::logging;
@@ -859,9 +859,22 @@ pub(crate) fn try_run_package_or_file(
     let package = format!("{}", r.path.display());
 
     let mut is_fake_sv = false;
-    let mut sv = match SplitVersion::parse(&package) {
+    let new_split_version = SplitVersion::parse(&package);
+    let mut sv = match new_split_version {
         Ok(o) => o,
-        Err(_) => {
+        Err(SplitVersionError::InvalidCommandName(e, context)) => {
+            let mut e = Err(anyhow::anyhow!(
+                "Invalid command {package:?}, file {package:?} not found either"
+            )
+            .context(e));
+
+            if let Some(c) = context {
+                e = e.context(c);
+            }
+
+            return e.context(anyhow::anyhow!("{}", r.path.display()));
+        }
+        Err(SplitVersionError::Other(_)) => {
             let mut fake_sv = SplitVersion {
                 original: package.to_string(),
                 registry: None,

@@ -344,14 +344,34 @@ fn test_split_version() {
     );
 }
 
+#[derive(Debug)]
+pub(crate) enum SplitVersionError {
+    InvalidCommandName(anyhow::Error, Option<anyhow::Error>),
+    Other(anyhow::Error),
+}
+
+impl std::error::Error for SplitVersionError {}
+
+impl fmt::Display for SplitVersionError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SplitVersionError::InvalidCommandName(i, _) => {
+                write!(f, "invalid command name")?;
+                i.fmt(f)
+            }
+            SplitVersionError::Other(i) => i.fmt(f),
+        }
+    }
+}
+
 impl SplitVersion {
-    pub fn parse(s: &str) -> Result<SplitVersion, anyhow::Error> {
+    pub fn parse(s: &str) -> Result<SplitVersion, SplitVersionError> {
         s.parse()
     }
 }
 
 impl FromStr for SplitVersion {
-    type Err = anyhow::Error;
+    type Err = SplitVersionError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let command = WasmerCLIOptions::command();
@@ -363,6 +383,13 @@ impl FromStr for SplitVersion {
         let re4 = regex::Regex::new(r#"(.*)/(.*):(.*)"#).unwrap();
 
         let mut no_version = false;
+
+        if s.starts_with('/') || s.contains("..") {
+            return Err(SplitVersionError::InvalidCommandName(
+                anyhow!("package {s:?} seems to be a path"),
+                None,
+            ));
+        }
 
         let captures = if re1.is_match(s) {
             re1.captures(s)
@@ -402,27 +429,45 @@ impl FromStr for SplitVersion {
                 })
                 .unwrap_or_default()
         } else {
-            return Err(anyhow::anyhow!("Invalid package version: {s:?}"));
+            return Err(SplitVersionError::InvalidCommandName(
+                anyhow::anyhow!("Invalid package version: {s:?}"),
+                None,
+            ));
         };
 
         let mut namespace = match captures.get(1).cloned() {
             Some(s) => s,
             None => {
-                return Err(anyhow::anyhow!(
+                return Err(SplitVersionError::Other(anyhow::anyhow!(
                     "Invalid package version: {s:?}: no namespace"
-                ))
+                )))
             }
         };
 
         let name = match captures.get(2).cloned() {
             Some(s) => s,
-            None => return Err(anyhow::anyhow!("Invalid package version: {s:?}: no name")),
+            None => {
+                return Err(SplitVersionError::Other(anyhow::anyhow!(
+                    "Invalid package version: {s:?}: no name"
+                )))
+            }
         };
 
         let mut registry = None;
         if namespace.contains('/') {
             let (r, n) = namespace.rsplit_once('/').unwrap();
             let mut real_registry = r.to_string();
+            if !real_registry.contains('.') {
+                let err = anyhow::anyhow!(
+                    "expected a dot if using a URL shorthand (e.g. {real_registry}.com)"
+                );
+                return Err(SplitVersionError::InvalidCommandName(
+                    err,
+                    Some(anyhow::anyhow!(
+                        "invalid registry or namespace {real_registry:?}"
+                    )),
+                ));
+            }
             if !real_registry.ends_with("graphql") {
                 real_registry = format!("{real_registry}/graphql");
             }
@@ -446,10 +491,12 @@ impl FromStr for SplitVersion {
         };
 
         let svp = sv.package.clone();
-        anyhow::ensure!(
-            !prohibited_package_names.any(|s| s == sv.package.trim()),
-            "Invalid package name {svp:?}"
-        );
+        if !prohibited_package_names.any(|s| s == sv.package.trim()) {
+            return Err(SplitVersionError::InvalidCommandName(
+                anyhow::anyhow!("Invalid package name {svp:?}"),
+                None,
+            ));
+        }
 
         Ok(sv)
     }
