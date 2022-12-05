@@ -4613,6 +4613,7 @@ version = "3.0.0-rc.2"
 dependencies = [
  "bitflags",
  "byteorder",
+ "cfg-if 1.0.0",
  "num_enum",
  "pretty_assertions",
  "serde",

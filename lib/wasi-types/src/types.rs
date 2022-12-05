@@ -79,7 +79,22 @@ pub mod bus {
     #[repr(C)]
     pub struct __wasi_busevent_t {
         pub tag: BusEventType,
-        pub padding: [u8; 63],
+        pub padding: [u8; Self::PADDING],
+    }
+
+    impl __wasi_busevent_t {
+        cfg_if::cfg_if! {
+            if #[cfg(all(target_arch = "arm", target_pointer_width = "64"))] {
+                // FIXME: this is broken! must find a different solution for ARM.
+                // ARM has different alignment requirements, making the struct
+                // larger. This will not actually work properly, because the
+                // struct inside the Wasm instance will probably have the wrong size.
+                // Need to fix this by doing better de/serialization!
+                const PADDING: usize = 79;
+            } else {
+                const PADDING: usize = 63;
+            }
+        }
     }
 
     #[derive(Copy, Clone)]
