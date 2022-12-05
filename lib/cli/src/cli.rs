@@ -429,10 +429,10 @@ impl FromStr for SplitVersion {
                 })
                 .unwrap_or_default()
         } else {
-            return Err(SplitVersionError::InvalidCommandName(
-                anyhow::anyhow!("Invalid package version: {s:?}"),
-                None,
-            ));
+            // maybe a command
+            return Err(SplitVersionError::Other(anyhow::anyhow!(
+                "Invalid package version: {s:?}"
+            )));
         };
 
         let mut namespace = match captures.get(1).cloned() {
@@ -456,7 +456,8 @@ impl FromStr for SplitVersion {
         let mut registry = None;
         if namespace.contains('/') {
             let (r, n) = namespace.rsplit_once('/').unwrap();
-            let mut real_registry = r.to_string();
+            let real_registry = r.to_string();
+
             if !real_registry.contains('.') {
                 let err = anyhow::anyhow!(
                     "expected a dot if using a URL shorthand (e.g. {real_registry}.com)"
@@ -468,13 +469,8 @@ impl FromStr for SplitVersion {
                     )),
                 ));
             }
-            if !real_registry.ends_with("graphql") {
-                real_registry = format!("{real_registry}/graphql");
-            }
-            if !real_registry.contains("://") {
-                real_registry = format!("https://{real_registry}");
-            }
-            registry = Some(real_registry);
+
+            registry = Some(wasmer_registry::format_graphql(&real_registry));
             namespace = n.to_string();
         }
 
@@ -491,7 +487,7 @@ impl FromStr for SplitVersion {
         };
 
         let svp = sv.package.clone();
-        if !prohibited_package_names.any(|s| s == sv.package.trim()) {
+        if prohibited_package_names.any(|s| s == sv.package.trim()) {
             return Err(SplitVersionError::InvalidCommandName(
                 anyhow::anyhow!("Invalid package name {svp:?}"),
                 None,
