@@ -1,4 +1,5 @@
 use wasmer::{Instance, Module, Store};
+use wasmer_vfs::{AsyncReadExt, AsyncWriteExt};
 use wasmer_wasi::{WasiBidirectionalSharedPipePair, WasiState};
 
 mod sys {
@@ -71,8 +72,10 @@ async fn test_stdout() {
     "#).unwrap();
 
     // Create the `WasiEnv`.
-    let mut pipe = WasiBidirectionalSharedPipePair::default().with_blocking(false);
-    let wasi_env = WasiState::new("command-name")
+    let mut pipe = WasiBidirectionalSharedPipePair::default();
+    // FIXME: evaluate if needed (method not available on ArcFile)
+    // pipe.set_blocking(false);
+    let mut wasi_env = WasiState::new("command-name")
         .args(&["Gordon"])
         .stdout(Box::new(pipe.clone()))
         .finalize(&mut store)
@@ -93,7 +96,7 @@ async fn test_stdout() {
     start.call(&mut store, &[]).unwrap();
 
     let mut stdout_str = String::new();
-    pipe.read_to_string(&mut stdout_str).unwrap();
+    pipe.read_to_string(&mut stdout_str).await.unwrap();
     let stdout_as_str = stdout_str.as_str();
     assert_eq!(stdout_as_str, "hello world\n");
 }
@@ -110,7 +113,9 @@ async fn test_env() {
     });
 
     // Create the `WasiEnv`.
-    let mut pipe = WasiBidirectionalSharedPipePair::default().with_blocking(false);
+    let mut pipe = WasiBidirectionalSharedPipePair::default();
+    // FIXME: evaluate if needed (method not available)
+    // .with_blocking(false);
     let mut wasi_state_builder = WasiState::new("command-name");
     wasi_state_builder
         .args(&["Gordon"])
@@ -118,7 +123,7 @@ async fn test_env() {
         .env("TEST", "VALUE")
         .env("TEST2", "VALUE2");
     // panic!("envs: {:?}", wasi_state_builder.envs);
-    let wasi_env = wasi_state_builder
+    let mut wasi_env = wasi_state_builder
         .stdout(Box::new(pipe.clone()))
         .finalize(&mut store)
         .unwrap();
@@ -132,14 +137,16 @@ async fn test_env() {
     // FIXME: evaluate initialize() vs below two lines
     // wasi_env.initialize(&mut store, &instance).unwrap();
     let memory = instance.exports.get_memory("memory").unwrap();
-    wasi_env.data_mut(&mut store).set_memory(memory.clone());
+    wasi_env.data_mut(&mut store);
+    // FIXME: where did the method go?
+    // wasi_env.set_memory(memory.clone());
 
     // Let's call the `_start` function, which is our `main` function in Rust.
     let start = instance.exports.get_function("_start").unwrap();
     start.call(&mut store, &[]).unwrap();
 
     let mut stdout_str = String::new();
-    pipe.read_to_string(&mut stdout_str).unwrap();
+    pipe.read_to_string(&mut stdout_str).await.unwrap();
     let stdout_as_str = stdout_str.as_str();
     assert_eq!(stdout_as_str, "Env vars:\nDOG=X\nTEST2=VALUE2\nTEST=VALUE\nDOG Ok(\"X\")\nDOG_TYPE Err(NotPresent)\nSET VAR Ok(\"HELLO\")\n");
 }
@@ -149,13 +156,15 @@ async fn test_stdin() {
     let module = Module::new(&store, include_bytes!("stdin-hello.wasm")).unwrap();
 
     // Create the `WasiEnv`.
-    let mut pipe = WasiBidirectionalSharedPipePair::default().with_blocking(false);
+    let mut pipe = WasiBidirectionalSharedPipePair::default();
+    // FIXME: needed? (method not available)
+    // .with_blocking(false);
 
     // Write to STDIN
     let buf = "Hello, stdin!\n".as_bytes().to_owned();
-    pipe.write(&buf[..]).unwrap();
+    pipe.write(&buf[..]).await.unwrap();
 
-    let wasi_env = WasiState::new("command-name")
+    let mut wasi_env = WasiState::new("command-name")
         .stdin(Box::new(pipe.clone()))
         .finalize(&mut store)
         .unwrap();
@@ -178,6 +187,6 @@ async fn test_stdin() {
 
     // We assure stdin is now empty
     let mut buf = Vec::new();
-    pipe.read_to_end(&mut buf).unwrap();
+    pipe.read_to_end(&mut buf).await.unwrap();
     assert_eq!(buf.len(), 0);
 }

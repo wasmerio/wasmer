@@ -6,7 +6,7 @@ use std::io::Read;
 use tracing::{debug, info, metadata::LevelFilter};
 #[cfg(feature = "sys")]
 use tracing_subscriber::fmt::SubscriberBuilder;
-use wasmer::{Cranelift, EngineBuilder, Features, Instance, Module, Store};
+use wasmer::{Features, Instance, Module, Store};
 use wasmer_vfs::AsyncReadExt;
 use wasmer_wasi::{import_object_for_all_wasi_versions, Pipe, WasiError, WasiState};
 
@@ -18,25 +18,24 @@ mod sys {
     }
 }
 
-#[cfg(feature = "js")]
-mod js {
-    use wasm_bindgen_test::*;
-    #[wasm_bindgen_test]
-    fn test_coreutils() {
-        super::test_coreutils()
-    }
-}
+// TODO: run on JS again
+// #[cfg(feature = "js")]
+// mod js {
+//     use wasm_bindgen_test::*;
+//     #[wasm_bindgen_test]
+//     fn test_coreutils() {
+//         super::test_coreutils()
+//     }
+// }
 
+// TODO: run on JS again
+#[cfg(feature = "sys")]
 async fn test_coreutils() {
     let mut features = Features::new();
     features.threads(true);
 
     info!("Creating engine");
-    let compiler = Cranelift::default();
-    let engine = EngineBuilder::new(compiler)
-        .set_features(Some(features))
-        .engine();
-
+    let engine = wasmer_wasi::build_test_engine(Some(features));
     let store = Store::new(engine.clone());
 
     info!("Compiling module");

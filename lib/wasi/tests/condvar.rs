@@ -6,7 +6,7 @@ use std::time::Duration;
 use tracing::{debug, info, metadata::LevelFilter};
 #[cfg(feature = "sys")]
 use tracing_subscriber::fmt::SubscriberBuilder;
-use wasmer::{Cranelift, EngineBuilder, Features, Instance, Module, Store};
+use wasmer::{Features, Instance, Module, Store};
 use wasmer_vfs::AsyncReadExt;
 use wasmer_wasi::{import_object_for_all_wasi_versions, Pipe, WasiError, WasiState};
 
@@ -27,13 +27,15 @@ mod js {
     }
 }
 
-fn test_condvar() {
+// TODO: make the test work on JS
+#[cfg(feature = "sys")]
+#[tokio::test]
+async fn test_condvar() {
     let mut features = Features::new();
     features.threads(true);
 
     info!("Creating engine");
-    let compiler = Cranelift::default();
-    let engine = EngineBuilder::new(compiler).set_features(Some(features));
+    let engine = wasmer_wasi::build_test_engine(Some(features));
 
     let store = Store::new(engine);
 
@@ -47,12 +49,11 @@ fn test_condvar() {
         builder.build()
     });
 
-    #[cfg(feature = "sys")]
     SubscriberBuilder::default()
         .with_max_level(LevelFilter::TRACE)
         .init();
 
-    run_test(store, module);
+    run_test(store, module).await;
 }
 
 async fn run_test(mut store: Store, module: Module) {

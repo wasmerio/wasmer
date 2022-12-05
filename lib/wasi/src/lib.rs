@@ -659,3 +659,17 @@ fn mem_error_to_bus(err: MemoryAccessError) -> BusErrno {
         _ => BusErrno::Unknown,
     }
 }
+
+#[cfg(all(feature = "sys"))]
+pub fn build_test_engine(features: Option<wasmer::Features>) -> wasmer::Engine {
+    #[cfg(feature = "compiler-cranelift")]
+    {
+        let compiler = wasmer_compiler_cranelift::Cranelift::default();
+        EngineBuilder::new(compiler).set_features(features)
+    }
+    #[cfg(not(feature = "compiler-cranelift"))]
+    {
+        let _ = features;
+        todo!()
+    }
+}

@@ -6,7 +6,7 @@ use std::time::Duration;
 use tracing::{debug, info, metadata::LevelFilter};
 #[cfg(feature = "sys")]
 use tracing_subscriber::fmt::SubscriberBuilder;
-use wasmer::{Cranelift, EngineBuilder, Instance, Module, Store};
+use wasmer::{Instance, Module, Store};
 use wasmer_vfs::{AsyncReadExt, AsyncWriteExt};
 use wasmer_wasi::{import_object_for_all_wasi_versions, Pipe, WasiError, WasiState};
 
@@ -27,10 +27,11 @@ mod js {
     }
 }
 
+// TODO: make it work on JS
+#[cfg(feature = "sys")]
 async fn test_catsay() {
     info!("Creating engine");
-    let compiler = Cranelift::default();
-    let engine = EngineBuilder::new(compiler.clone());
+    let engine = wasmer_wasi::build_test_engine(None);
 
     #[allow(unused_mut)]
     let mut store = Store::new(engine);
@@ -53,7 +54,7 @@ async fn test_catsay() {
     let engine = store.engine().clone();
     for _ in 0..10 {
         let module = module.clone();
-        run_test(store, module);
+        run_test(store, module).await;
 
         store = Store::new(engine.clone());
     }
@@ -63,8 +64,7 @@ async fn test_catsay() {
         let module = module.clone();
         run_test(store, module).await;
 
-        let engine = EngineBuilder::new(compiler.clone());
-        store = Store::new(engine);
+        store = Store::new(engine.clone());
     }
 }
 

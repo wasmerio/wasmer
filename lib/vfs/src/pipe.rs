@@ -33,7 +33,7 @@ impl WasiPipe {
 }
 
 /// Pipe pair of (a, b) WasiPipes that are connected together
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct WasiBidirectionalPipePair {
     pub tx: WasiPipe,
     pub rx: WasiPipe,
