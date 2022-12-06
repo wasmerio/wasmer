@@ -2,13 +2,14 @@ use crate::common::get_cache_dir;
 #[cfg(feature = "debug")]
 use crate::logging;
 use crate::split_version::{
-    ResolvedSplitVersion, SplitVersion, SplitVersionCommand, SplitVersionError,
+    ResolvedSplitVersion, SplitVersion, SplitVersionCommand, SplitVersionError, SplitVersionInner,
 };
 use crate::store::{CompilerType, StoreOptions};
 use crate::suggestions::suggest_function_exports;
 use crate::warning;
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
+use regex::Split;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::path::PathBuf;
@@ -101,7 +102,7 @@ impl RunWithoutFile {
         package_root_dir: PathBuf, // <- package dir
         command: Option<&str>,
         _debug_output_allowed: bool,
-    ) -> Result<Run, anyhow::Error> {
+    ) -> Result<RunWithPathBuf, anyhow::Error> {
         let (manifest, pathbuf) =
             wasmer_registry::get_executable_file_from_path(&package_root_dir, command)?;
 
@@ -125,13 +126,8 @@ impl RunWithoutFile {
             }
         }
 
-        let path = format!("{}", pathbuf.display());
-
-        Ok(Run {
-            path: SplitVersion {
-                original: path,
-                inner: crate::split_version::SplitVersionInner::File { path },
-            },
+        Ok(RunWithPathBuf {
+            path: pathbuf,
             options: RunWithoutFile {
                 force_install: self.force_install,
                 #[cfg(feature = "cache")]
@@ -161,7 +157,7 @@ impl RunWithoutFile {
 #[derive(Debug, Parser, Clone, Default)]
 /// The options for the `wasmer run` subcommand
 pub struct Run {
-    /// File to run
+    /// File, URL or package to run
     #[clap(name = "FILE", parse(try_from_str))]
     pub(crate) path: SplitVersion,
 
@@ -169,14 +165,91 @@ pub struct Run {
     pub(crate) options: RunWithoutFile,
 }
 
-impl Deref for Run {
+impl Run {
+    /// Resolves the `self.path` to an actual file path by downloading / querying the registry if necessary
+    /// Will block the current thread when doing so.
+    pub fn resolve(&self) -> Result<RunWithPathBuf, anyhow::Error> {
+        #[cfg(not(feature = "debug"))]
+        let debug = false;
+        #[cfg(feature = "debug")]
+        let debug = self.options.debug;
+        try_resolve_package_or_file(&self.path, debug)
+    }
+
+    /// Create Run instance for arguments/env,
+    /// assuming we're being run from a CFP binfmt interpreter.
+    pub fn from_binfmt_args() -> Run {
+        Self::from_binfmt_args_fallible().unwrap_or_else(|e| {
+            crate::error::PrettyError::report::<()>(
+                Err(e).context("Failed to set up wasmer binfmt invocation"),
+            )
+        })
+    }
+
+    #[cfg(target_os = "linux")]
+    fn from_binfmt_args_fallible() -> Result<Run> {
+        let argv = std::env::args_os().collect::<Vec<_>>();
+        let (_interpreter, executable, original_executable, args) = match &argv[..] {
+            [a, b, c, d @ ..] => (a, b, c, d),
+            _ => {
+                bail!("Wasmer binfmt interpreter needs at least three arguments (including $0) - must be registered as binfmt interpreter with the CFP flags. (Got arguments: {:?})", argv);
+            }
+        };
+        // TODO: Optimally, args and env would be passed as an UTF-8 Vec.
+        // (Can be pulled out of std::os::unix::ffi::OsStrExt)
+        // But I don't want to duplicate or rewrite run.rs today.
+        let args = args
+            .iter()
+            .enumerate()
+            .map(|(i, s)| {
+                s.clone().into_string().map_err(|s| {
+                    anyhow!(
+                        "Cannot convert argument {} ({:?}) to UTF-8 string",
+                        i + 1,
+                        s
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let original_executable = original_executable
+            .clone()
+            .into_string()
+            .map_err(|s| anyhow!("Cannot convert executable name {:?} to UTF-8 string", s))?;
+        let store = StoreOptions::default();
+        // TODO: store.compiler.features.all = true; ?
+        Ok(Self {
+            path: executable.into(),
+            options: RunWithoutFile {
+                args,
+                command_name: Some(original_executable),
+                store,
+                wasi: Wasi::for_binfmt_interpreter()?,
+                ..Default::default()
+            },
+        })
+    }
+    #[cfg(not(target_os = "linux"))]
+    fn from_binfmt_args_fallible() -> Result<Run> {
+        bail!("binfmt_misc is only available on linux.")
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+/// Same as `Run`, but with the resolved local filepath instead
+pub struct RunWithPathBuf {
+    /// File to run
+    pub(crate) path: PathBuf,
+    pub(crate) options: RunWithoutFile,
+}
+
+impl Deref for RunWithPathBuf {
     type Target = RunWithoutFile;
     fn deref(&self) -> &Self::Target {
         &self.options
     }
 }
 
-impl Run {
+impl RunWithPathBuf {
     /// Execute the run command
     pub fn execute(&self) -> Result<()> {
         #[cfg(feature = "debug")]
@@ -186,7 +259,7 @@ impl Run {
         self.inner_execute().with_context(|| {
             format!(
                 "failed to run `{}`{}",
-                self.path,
+                self.path.display(),
                 if CompilerType::enabled().is_empty() {
                     " (no compilers enabled)"
                 } else {
@@ -593,65 +666,16 @@ impl Run {
             .collect::<Result<Vec<_>>>()?;
         Ok(func.call(ctx, &invoke_args)?)
     }
-
-    /// Create Run instance for arguments/env,
-    /// assuming we're being run from a CFP binfmt interpreter.
-    pub fn from_binfmt_args() -> Run {
-        Self::from_binfmt_args_fallible().unwrap_or_else(|e| {
-            crate::error::PrettyError::report::<()>(
-                Err(e).context("Failed to set up wasmer binfmt invocation"),
-            )
-        })
-    }
-
-    #[cfg(target_os = "linux")]
-    fn from_binfmt_args_fallible() -> Result<Run> {
-        let argv = std::env::args_os().collect::<Vec<_>>();
-        let (_interpreter, executable, original_executable, args) = match &argv[..] {
-            [a, b, c, d @ ..] => (a, b, c, d),
-            _ => {
-                bail!("Wasmer binfmt interpreter needs at least three arguments (including $0) - must be registered as binfmt interpreter with the CFP flags. (Got arguments: {:?})", argv);
-            }
-        };
-        // TODO: Optimally, args and env would be passed as an UTF-8 Vec.
-        // (Can be pulled out of std::os::unix::ffi::OsStrExt)
-        // But I don't want to duplicate or rewrite run.rs today.
-        let args = args
-            .iter()
-            .enumerate()
-            .map(|(i, s)| {
-                s.clone().into_string().map_err(|s| {
-                    anyhow!(
-                        "Cannot convert argument {} ({:?}) to UTF-8 string",
-                        i + 1,
-                        s
-                    )
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-        let original_executable = original_executable
-            .clone()
-            .into_string()
-            .map_err(|s| anyhow!("Cannot convert executable name {:?} to UTF-8 string", s))?;
-        let store = StoreOptions::default();
-        // TODO: store.compiler.features.all = true; ?
-        Ok(Self {
-            path: executable.into(),
-            options: RunWithoutFile {
-                args,
-                command_name: Some(original_executable),
-                store,
-                wasi: Wasi::for_binfmt_interpreter()?,
-                ..Default::default()
-            },
-        })
-    }
-    #[cfg(not(target_os = "linux"))]
-    fn from_binfmt_args_fallible() -> Result<Run> {
-        bail!("binfmt_misc is only available on linux.")
-    }
 }
 
+fn try_resolve_package_or_file(
+    _sv: &SplitVersion,
+    _debug: bool,
+) -> Result<RunWithPathBuf, anyhow::Error> {
+    Err(anyhow::anyhow!("unimplemented"))
+}
+
+#[allow(dead_code)]
 fn start_spinner(msg: String) -> Option<spinoff::Spinner> {
     if !isatty::stdout_isatty() {
         return None;
@@ -668,136 +692,8 @@ fn start_spinner(msg: String) -> Option<spinoff::Spinner> {
     ))
 }
 
-/// Before looking up a command from the registry, try to see if we have
-/// the command already installed
-fn try_run_local_command(
-    args: &[String],
-    original: &str,
-    sv: &SplitVersionCommand,
-    debug_msgs_allowed: bool,
-) -> Result<(), ExecuteLocalPackageError> {
-    let result = wasmer_registry::try_finding_local_command(&sv.command).ok_or_else(|| {
-        ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!(
-            "could not find command {} locally",
-            sv.command
-        ))
-    })?;
-    let package_dir = result
-        .get_path()
-        .map_err(|e| ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("{e}")))?;
-
-    // Try auto-installing the remote package
-    let args_without_package = fixup_args(args, &original);
-    let mut run_args = RunWithoutFile::try_parse_from(args_without_package.iter())
-        .map_err(|e| ExecuteLocalPackageError::DuringExec(e.into()))?;
-    run_args.command_name = Some(sv.command.clone());
-
-    run_args
-        .into_run_args(package_dir, Some(sv.command.as_str()), debug_msgs_allowed)
-        .map_err(ExecuteLocalPackageError::DuringExec)?
-        .execute()
-        .map_err(ExecuteLocalPackageError::DuringExec)
-}
-
-pub(crate) fn try_autoinstall_package(
-    args: &[String],
-    original: &str,
-    sv: &ResolvedSplitVersion,
-    package: Option<PackageDownloadInfo>,
-    force_install: bool,
-) -> Result<(), anyhow::Error> {
-    use std::io::Write;
-    let mut sp = start_spinner(format!("Installing package {} ...", sv.package));
-    let debug_msgs_allowed = sp.is_some();
-    let v = sv.version.as_deref();
-    let result = wasmer_registry::install_package(
-        sv.registry.as_deref(),
-        &sv.package,
-        v,
-        package,
-        force_install,
-    );
-    if let Some(sp) = sp.take() {
-        sp.clear();
-    }
-    let _ = std::io::stdout().flush();
-    let (_, package_dir) = match result {
-        Ok(o) => o,
-        Err(e) => {
-            return Err(anyhow::anyhow!("{e}"));
-        }
-    };
-
-    // Try auto-installing the remote package
-    let args_without_package = fixup_args(args, original);
-    let mut run_args = RunWithoutFile::try_parse_from(args_without_package.iter())?;
-    run_args.command_name = sv.command.clone();
-
-    run_args
-        .into_run_args(package_dir, sv.command.as_deref(), debug_msgs_allowed)?
-        .execute()
-}
-
-// We need to distinguish between errors that happen
-// before vs. during execution
-enum ExecuteLocalPackageError {
-    BeforeExec(anyhow::Error),
-    DuringExec(anyhow::Error),
-}
-
-fn try_execute_local_package(
-    args: &[String],
-    original: &str,
-    sv: &ResolvedSplitVersion,
-    debug_msgs_allowed: bool,
-) -> Result<(), ExecuteLocalPackageError> {
-    let package = wasmer_registry::get_local_package(None, &sv.package, sv.version.as_deref())
-        .ok_or_else(|| {
-            ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("no local package {sv:?} found"))
-        })?;
-
-    let package_dir = package
-        .get_path()
-        .map_err(|e| ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("{e}")))?;
-
-    // Try finding the local package
-    let args_without_package = fixup_args(args, original);
-
-    RunWithoutFile::try_parse_from(args_without_package.iter())
-        .map_err(|e| ExecuteLocalPackageError::DuringExec(e.into()))?
-        .into_run_args(package_dir, sv.command.as_deref(), debug_msgs_allowed)
-        .map_err(ExecuteLocalPackageError::DuringExec)?
-        .execute()
-        .map_err(|e| ExecuteLocalPackageError::DuringExec(e.context(anyhow::anyhow!("{}", sv))))
-}
-
-fn try_lookup_command(sv: &mut ResolvedSplitVersion) -> Result<PackageDownloadInfo, anyhow::Error> {
-    use std::io::Write;
-    let mut sp = start_spinner(format!("Looking up command {} ...", sv.package));
-
-    for registry in wasmer_registry::get_all_available_registries().unwrap_or_default() {
-        let result = wasmer_registry::query_command_from_registry(&registry, &sv.package);
-        if let Some(s) = sp.take() {
-            s.clear();
-        }
-        let _ = std::io::stdout().flush();
-        let command = sv.package.clone();
-        if let Ok(o) = result {
-            sv.package = o.package.clone();
-            sv.version = Some(o.version.clone());
-            sv.command = Some(command);
-            return Ok(o);
-        }
-    }
-
-    if let Some(sp) = sp.take() {
-        sp.clear();
-    }
-    let _ = std::io::stdout().flush();
-    Err(anyhow::anyhow!("command {sv} not found"))
-}
-
 /// Removes the difference between "wasmer run {file} arg1 arg2" and "wasmer {file} arg1 arg2"
+#[allow(dead_code)]
 fn fixup_args(args: &[String], command: &str) -> Vec<String> {
     let mut args_without_package = args.to_vec();
     if args_without_package.get(1).map(|s| s.as_str()) == Some(command) {
@@ -807,158 +703,6 @@ fn fixup_args(args: &[String], command: &str) -> Vec<String> {
         let _ = args_without_package.remove(1);
     }
     args_without_package
-}
-
-pub(crate) fn try_run_package_or_file(
-    args: &[String],
-    r: &Run,
-    debug: bool,
-) -> Result<(), anyhow::Error> {
-    let debug_msgs_allowed = isatty::stdout_isatty();
-
-    // Check "r.path" is a file or a package / command name
-    if r.path.exists() {
-        if r.path.is_dir() && r.path.join("wapm.toml").exists() {
-            let args_without_package = fixup_args(args, &format!("{}", r.path.display()));
-            return RunWithoutFile::try_parse_from(args_without_package.iter())?
-                .into_run_args(
-                    r.path.clone(),
-                    r.command_name.as_deref(),
-                    debug_msgs_allowed,
-                )?
-                .execute();
-        }
-        return r.execute();
-    }
-
-    // c:// might be parsed as a URL on Windows
-    let url_string = format!("{}", r.path.display());
-    if let Ok(url) = url::Url::parse(&url_string) {
-        if url.scheme() == "http" || url.scheme() == "https" {
-            match try_run_url(&url, args, r, debug) {
-                Err(ExecuteLocalPackageError::BeforeExec(_)) => {}
-                Err(ExecuteLocalPackageError::DuringExec(e)) => return Err(e),
-                Ok(o) => return Ok(o),
-            }
-        }
-    }
-
-    let package = format!("{}", r.path.display());
-
-    let mut is_fake_sv = false;
-    let new_split_version = SplitVersion::parse(&package);
-    let mut sv = match new_split_version {
-        Ok(o) => o,
-        Err(SplitVersionError::InvalidCommandName(e, context)) => {
-            let mut e = Err(anyhow::anyhow!(
-                "Invalid command {package:?}, file {package:?} not found either"
-            )
-            .context(e));
-
-            if let Some(c) = context {
-                e = e.context(c);
-            }
-
-            return e.context(anyhow::anyhow!("{}", r.path.display()));
-        }
-        Err(SplitVersionError::Other(_)) => {
-            let mut fake_sv = SplitVersion {
-                original: package.to_string(),
-                registry: None,
-                package: package.to_string(),
-                version: None,
-                command: None,
-            };
-            is_fake_sv = true;
-            match try_run_local_command(args, &fake_sv, debug) {
-                Ok(()) => return Ok(()),
-                Err(ExecuteLocalPackageError::DuringExec(e)) => return Err(e),
-                _ => {}
-            }
-            match try_lookup_command(&mut fake_sv) {
-                Ok(o) => ResolvedSplitVersion {
-                    original: package.to_string(),
-                    registry: None,
-                    package: o.package,
-                    version: Some(o.version),
-                    command: r.command_name.clone(),
-                },
-                Err(e) => {
-                    return Err(
-                        anyhow::anyhow!("No package for command {package:?} found, file {package:?} not found either")
-                        .context(e)
-                        .context(anyhow::anyhow!("{}", r.path.display()))
-                    );
-                }
-            }
-        }
-    };
-
-    if sv.command.is_none() {
-        sv.command = r.command_name.clone();
-    }
-
-    if sv.command.is_none() && is_fake_sv {
-        sv.command = Some(package);
-    }
-
-    let mut package_download_info = None;
-    if !sv.package.contains('/') {
-        if let Ok(o) = try_lookup_command(&mut sv) {
-            package_download_info = Some(o);
-        }
-    }
-
-    match try_execute_local_package(args, &sv, debug_msgs_allowed) {
-        Ok(o) => return Ok(o),
-        Err(ExecuteLocalPackageError::DuringExec(e)) => return Err(e),
-        _ => {}
-    }
-
-    if debug && isatty::stdout_isatty() {
-        eprintln!("finding local package {} failed", sv);
-    }
-
-    // else: local package not found - try to download and install package
-    try_autoinstall_package(args, &sv, package_download_info, r.force_install)
-}
-
-fn try_run_url(
-    url: &Url,
-    _args: &[String],
-    r: &Run,
-    _debug: bool,
-) -> Result<(), ExecuteLocalPackageError> {
-    let checksum = wasmer_registry::get_remote_webc_checksum(url).map_err(|e| {
-        ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("error fetching {url}: {e}"))
-    })?;
-
-    let packages = wasmer_registry::get_all_installed_webc_packages();
-
-    if !packages.iter().any(|p| p.checksum == checksum) {
-        let sp = start_spinner(format!("Installing {}", url));
-
-        let result = wasmer_registry::install_webc_package(url, &checksum);
-
-        result.map_err(|e| {
-            ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("error fetching {url}: {e}"))
-        })?;
-
-        if let Some(sp) = sp {
-            sp.clear();
-        }
-    }
-
-    let webc_dir = wasmer_registry::get_webc_dir();
-
-    let webc_install_path = webc_dir
-        .context("Error installing package: no webc dir")
-        .map_err(ExecuteLocalPackageError::BeforeExec)?
-        .join(checksum);
-
-    let mut r = r.clone();
-    r.path = webc_install_path;
-    r.execute().map_err(ExecuteLocalPackageError::DuringExec)
 }
 
 #[test]

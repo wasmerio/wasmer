@@ -153,7 +153,7 @@ pub(crate) enum WasmerCLIOptions {
 impl WasmerCLIOptions {
     fn execute(&self) -> Result<(), anyhow::Error> {
         match self {
-            Self::Run(options) => options.execute(),
+            Self::Run(options) => options.resolve()?.execute(),
             Self::SelfUpdate(options) => options.execute(),
             Self::Cache(cache) => cache.execute(),
             Self::Validate(validate) => validate.execute(),
@@ -244,11 +244,7 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
 
     // Check if the file is a package name
     if let WasmerCLIOptions::Run(r) = &options {
-        #[cfg(not(feature = "debug"))]
-        let debug = false;
-        #[cfg(feature = "debug")]
-        let debug = r.options.debug;
-        return crate::commands::try_run_package_or_file(&args, r, debug);
+        return r.resolve()?.execute();
     }
 
     options.execute()

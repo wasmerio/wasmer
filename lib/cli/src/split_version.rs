@@ -5,9 +5,18 @@ use crate::cli::WasmerCLIOptions;
 use clap::CommandFactory;
 use std::{fmt, str::FromStr};
 
+/// Struct containing all combinations of file sources:
+///
+/// - URLs
+/// - namespace/package
+/// - command
+/// - local file
+///
 #[derive(Debug, Clone, PartialEq)]
 pub struct SplitVersion {
+    /// Original string
     pub original: String,
+    /// Type of source package / file path
     pub inner: SplitVersionInner,
 }
 
@@ -29,11 +38,16 @@ impl Default for SplitVersion {
     }
 }
 
+/// Resolved package, can be used to lookup the local package name
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedSplitVersion {
+    /// Registry this package belongs to (default = current active registry)
     pub registry: Option<String>,
+    /// Package name
     pub package: String,
+    /// Package version, default = latest
     pub version: Option<String>,
+    /// Command to run (default = None / entrypoint)
     pub command: Option<String>,
 }
 
@@ -49,7 +63,7 @@ impl fmt::Display for ResolvedSplitVersion {
 }
 
 impl SplitVersion {
-    pub fn resolve(&self, registry: Option<&str>) -> Result<ResolvedSplitVersion, anyhow::Error> {
+    pub fn resolve(&self, _registry: Option<&str>) -> Result<ResolvedSplitVersion, anyhow::Error> {
         Err(anyhow::anyhow!("unimplemented"))
     }
 }
@@ -147,7 +161,7 @@ impl SplitVersionInner {
             )));
         };
 
-        let mut namespace = match captures.get(1).cloned() {
+        let namespace = match captures.get(1).cloned() {
             Some(s) => s,
             None => {
                 return Err(SplitVersionError::InvalidPackageName(format!(
@@ -230,11 +244,16 @@ impl SplitVersionInner {
     }
 }
 
+/// Error that can happen when parsing a `SplitVersion`
 #[derive(Debug, Clone, PartialEq, Hash, Eq, Ord, PartialOrd)]
-pub(crate) enum SplitVersionError {
+pub enum SplitVersionError {
+    /// Invalid URL $u
     InvalidUrl(String),
+    /// Invalid command name (cannot contain : or /)
     InvalidCommandName(String),
+    /// Invalid package name
     InvalidPackageName(String),
+    /// File $u does not exist
     FileDoesNotExist(String),
 }
 
@@ -255,17 +274,24 @@ impl fmt::Display for SplitVersionError {
     }
 }
 
+/// Error(s) that can happen when parsing a `SplitVersion`
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SplitVersionMultiError {
+    /// Original string that was parsed, used to fixup wasmer run args
     pub original: String,
+    /// Errors that happen when trying to resolve the package
+    ///
+    /// e.g.: error 1: tried to access filesystem, but file isn't there
+    ///       error 2: tried to resolve package, but package doesn't exist
+    ///       error 3: tried to find command, but command doesn't exist
     pub errors: Vec<SplitVersionError>,
 }
 
 impl fmt::Display for SplitVersionMultiError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let err = anyhow::anyhow!("{}", self.original);
+        let mut err = anyhow::anyhow!("{}", self.original);
         for e in self.errors.iter() {
-            err = err.context(e);
+            err = err.context(e.clone());
         }
         err.fmt(f)
     }
@@ -283,7 +309,7 @@ impl FromStr for SplitVersion {
     type Err = SplitVersionMultiError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let errors = Vec::new();
+        let mut errors = Vec::new();
 
         match SplitVersionInner::try_parse_file(s) {
             Ok(o) => {
