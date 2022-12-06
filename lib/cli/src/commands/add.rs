@@ -1,8 +1,9 @@
 use std::process::{Command, Stdio};
 
+use crate::split_version::SplitVersion;
 use anyhow::{Context, Error};
 use clap::Parser;
-use wasmer_registry::{Bindings, PartialWapmConfig, ProgrammingLanguage, SplitVersion};
+use wasmer_registry::{Bindings, PartialWapmConfig, ProgrammingLanguage};
 
 /// Add a WAPM package's bindings to your application.
 #[derive(Debug, Parser)]

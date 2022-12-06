@@ -1,5 +1,9 @@
-use std::fmt;
-use core::str::FromStr;
+//! Implements logic for parsing the source for a package / path / URL
+//! used in `wasmer run`.
+
+use crate::cli::WasmerCLIOptions;
+use clap::CommandFactory;
+use std::{fmt, str::FromStr};
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub(crate) struct SplitVersion {

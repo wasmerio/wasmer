@@ -15,7 +15,6 @@ use crate::commands::{
 };
 use crate::error::PrettyError;
 use clap::{CommandFactory, ErrorKind, Parser};
-use std::{fmt, str::FromStr};
 
 #[derive(Parser, Debug)]
 #[cfg_attr(
@@ -37,7 +36,7 @@ use std::{fmt, str::FromStr};
     )
 )]
 /// The options for the wasmer Command Line Interface
-enum WasmerCLIOptions {
+pub(crate) enum WasmerCLIOptions {
     /// List all locally installed packages
     List(List),
 

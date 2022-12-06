@@ -1,7 +1,7 @@
-use crate::split_version::{SplitVersion, SplitVersionError};
 use crate::common::get_cache_dir;
 #[cfg(feature = "debug")]
 use crate::logging;
+use crate::split_version::{SplitVersion, SplitVersionError};
 use crate::store::{CompilerType, StoreOptions};
 use crate::suggestions::suggest_function_exports;
 use crate::warning;
@@ -16,7 +16,7 @@ use wasmer::FunctionEnv;
 use wasmer::*;
 #[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, Hash};
-use wasmer_registry::{PackageDownloadInfo, SplitVersion};
+use wasmer_registry::PackageDownloadInfo;
 use wasmer_types::Type as ValueType;
 #[cfg(feature = "webc_runner")]
 use wasmer_wasi::runners::{Runner, WapmContainer};
