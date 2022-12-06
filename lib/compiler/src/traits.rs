@@ -3,7 +3,6 @@
 use crate::Features;
 use enumset::EnumSet;
 use std::any::Any;
-#[cfg(feature = "enable-rkyv")]
 use std::{fs, path::Path};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
@@ -36,11 +35,9 @@ pub trait ArtifactCreate: Send + Sync + Upcastable {
     fn data_initializers(&self) -> &[OwnedDataInitializer];
 
     /// Serializes an artifact into bytes
-    #[cfg(feature = "enable-rkyv")]
     fn serialize(&self) -> Result<Vec<u8>, wasmer_types::SerializeError>;
 
     /// Serializes an artifact into a file path
-    #[cfg(feature = "enable-rkyv")]
     fn serialize_to_file(&self, path: &Path) -> Result<(), wasmer_types::SerializeError> {
         let serialized = self.serialize()?;
         fs::write(&path, serialized)?;

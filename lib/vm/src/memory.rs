@@ -178,18 +178,6 @@ pub struct VMOwnedMemory {
 unsafe impl Send for VMOwnedMemory {}
 unsafe impl Sync for VMOwnedMemory {}
 
-/// A shared linear memory instance.
-#[derive(Debug, Clone)]
-pub struct VMSharedMemory {
-    // The underlying allocation.
-    mmap: Arc<RwLock<WasmMmap>>,
-    // Configuration of this memory
-    config: VMMemoryConfig,
-}
-
-unsafe impl Send for VMSharedMemory {}
-unsafe impl Sync for VMSharedMemory {}
-
 impl VMOwnedMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
     ///
@@ -309,16 +297,6 @@ impl VMOwnedMemory {
     }
 }
 
-impl VMOwnedMemory {
-    /// Converts this owned memory into shared memory
-    pub fn to_shared(self) -> VMSharedMemory {
-        VMSharedMemory {
-            mmap: Arc::new(RwLock::new(self.mmap)),
-            config: self.config,
-        }
-    }
-}
-
 impl LinearMemory for VMOwnedMemory {
     /// Returns the type for this memory.
     fn ty(&self) -> MemoryType {
@@ -361,6 +339,19 @@ impl LinearMemory for VMOwnedMemory {
     }
 }
 
+/// A shared linear memory instance.
+#[derive(Debug, Clone)]
+pub struct VMSharedMemory {
+    // The underlying allocation.
+    mmap: Arc<RwLock<WasmMmap>>,
+    // Configuration of this memory
+    config: VMMemoryConfig,
+}
+
+unsafe impl Send for VMSharedMemory {}
+unsafe impl Sync for VMSharedMemory {}
+
+
 impl VMSharedMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
     ///
@@ -383,6 +374,15 @@ impl VMSharedMemory {
         vm_memory_location: NonNull<VMMemoryDefinition>,
     ) -> Result<Self, MemoryError> {
         Ok(VMOwnedMemory::from_definition(memory, style, vm_memory_location)?.to_shared())
+    }
+
+    /// Copies this memory to a new memory
+    pub fn fork(&mut self) -> Result<Self, MemoryError> {
+        let mut guard = self.mmap.write().unwrap();
+        Ok(Self {
+            mmap: Arc::new(RwLock::new(guard.fork()?)),
+            config: self.config.clone(),
+        })
     }
 }
 
@@ -422,9 +422,15 @@ impl LinearMemory for VMSharedMemory {
         guard.vm_memory_definition.as_ptr()
     }
 
-    /// Owned memory can not be cloned (this will always return None)
+    /// Shared memory can always be cloned
     fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
-        None
+        Some(Box::new(self.clone()))
+    }
+
+    /// Copies this memory to a new memory
+    fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        let forked = VMSharedMemory::fork(self)?;
+        Ok(Box::new(forked))
     }
 }
 
@@ -613,102 +619,4 @@ where
     fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
 }
 
-/// A shared linear memory instance.
-#[derive(Debug, Clone)]
-pub struct VMSharedMemory {
-    /// The underlying allocation.
-    mmap: Arc<RwLock<WasmMmap>>,
-    /// Configuration of this memory
-    config: VMMemoryConfig,
-}
 
-unsafe impl Send for VMSharedMemory {}
-unsafe impl Sync for VMSharedMemory {}
-
-impl VMSharedMemory {
-    /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
-    ///
-    /// This creates a `Memory` with owned metadata: this can be used to create a memory
-    /// that will be imported into Wasm modules.
-    pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<Self, MemoryError> {
-        Ok(VMOwnedMemory::new(memory, style)?.to_shared())
-    }
-
-    /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
-    ///
-    /// This creates a `Memory` with metadata owned by a VM, pointed to by
-    /// `vm_memory_location`: this can be used to create a local memory.
-    ///
-    /// # Safety
-    /// - `vm_memory_location` must point to a valid location in VM memory.
-    pub unsafe fn from_definition(
-        memory: &MemoryType,
-        style: &MemoryStyle,
-        vm_memory_location: NonNull<VMMemoryDefinition>,
-    ) -> Result<Self, MemoryError> {
-        Ok(VMOwnedMemory::from_definition(memory, style, vm_memory_location)?.to_shared())
-    }
-
-    /// Copies this memory to a new memory
-    pub fn fork(&mut self) -> Result<Self, MemoryError> {
-        let mut guard = self.mmap.write().unwrap();
-        Ok(Self {
-            mmap: Arc::new(RwLock::new(guard.fork()?)),
-            config: self.config.clone(),
-        })
-    }
-}
-
-impl LinearMemory for VMSharedMemory {
-    /// Returns the type for this memory.
-    fn ty(&self) -> MemoryType {
-        let minimum = {
-            let guard = self.mmap.read().unwrap();
-            guard.size()
-        };
-        self.config.ty(minimum)
-    }
-
-    /// Returns the size of hte memory in pages
-    fn size(&self) -> Pages {
-        let guard = self.mmap.read().unwrap();
-        guard.size()
-    }
-
-    /// Returns the memory style for this memory.
-    fn style(&self) -> MemoryStyle {
-        self.config.style()
-    }
-
-    /// Grow memory by the specified amount of wasm pages.
-    ///
-    /// Returns `None` if memory can't be grown by the specified amount
-    /// of wasm pages.
-    fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
-        let mut guard = self.mmap.write().unwrap();
-        guard.grow(delta, self.config.clone())
-    }
-
-    /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
-    fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
-        let guard = self.mmap.read().unwrap();
-        guard.vm_memory_definition.as_ptr()
-    }
-
-    /// Shared memory can always be cloned
-    fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
-        Some(Box::new(self.clone()))
-    }
-
-    /// Copies this memory to a new memory
-    fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
-        let forked = VMSharedMemory::fork(self)?;
-        Ok(Box::new(forked))
-    }
-}
-
-impl Into<VMMemory> for VMSharedMemory {
-    fn into(self) -> VMMemory {
-        VMMemory(Box::new(self))
-    }
-}

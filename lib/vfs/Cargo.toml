@@ -7,8 +7,8 @@ license = "MIT"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../types", version = "3.0.0-rc.2", default_features = false }
-wasmer-wasi-types = { path = "../wasi-types", version = "3.0.0-rc.2", default_features = false }
+wasmer-types = { path = "../types", version = "3.0.2", default_features = false }
+wasmer-wasi-types = { path = "../wasi-types", version = "3.0.2", default_features = false }
 
 libc = { version = "^0.2", default-features = false, optional = true }
 thiserror = "1"
