@@ -156,15 +156,6 @@ impl SplitVersionInner {
                 .unwrap_or_default()
         } else if re3.is_match(s) {
             no_version = true;
-            re4.captures(s)
-                .map(|c| {
-                    c.iter()
-                        .flatten()
-                        .map(|m| m.as_str().to_owned())
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or_default()
-        } else if re4.is_match(s) {
             re3.captures(s)
                 .map(|c| {
                     c.iter()
@@ -173,10 +164,18 @@ impl SplitVersionInner {
                         .collect::<Vec<_>>()
                 })
                 .unwrap_or_default()
+        } else if re4.is_match(s) {
+            re4.captures(s)
+                .map(|c| {
+                    c.iter()
+                        .flatten()
+                        .map(|m| m.as_str().to_owned())
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
         } else {
-            // maybe a command
             return Err(SplitVersionError::InvalidPackageName(format!(
-                "Invalid package version: {s:?}"
+                "Invalid package: {s:?}"
             )));
         };
 
@@ -184,7 +183,7 @@ impl SplitVersionInner {
             Some(s) => s,
             None => {
                 return Err(SplitVersionError::InvalidPackageName(format!(
-                    "Invalid package version: {s:?}: no namespace"
+                    "Invalid package version: {s:?}: no namespace: {captures:?}"
                 )))
             }
         };
@@ -193,7 +192,7 @@ impl SplitVersionInner {
             Some(s) => s,
             None => {
                 return Err(SplitVersionError::InvalidPackageName(format!(
-                    "Invalid package version: {s:?}: no name"
+                    "Invalid package version: {s:?}: no name: {captures:?}"
                 )))
             }
         };
@@ -214,6 +213,30 @@ impl SplitVersionInner {
             }
         };
 
+        if namespace.is_empty() {
+            return Err(SplitVersionError::InvalidPackageName(format!(
+                "empty namespace {s:?}"
+            )));
+        }
+
+        if !namespace
+            .chars()
+            .all(|c| char::is_alphanumeric(c) || c == '-' || c == '_')
+        {
+            return Err(SplitVersionError::InvalidPackageName(format!(
+                "invalid characters in namespace {namespace:?}"
+            )));
+        }
+
+        if !name
+            .chars()
+            .all(|c| char::is_alphanumeric(c) || c == '-' || c == '_')
+        {
+            return Err(SplitVersionError::InvalidPackageName(format!(
+                "invalid characters in name {name:?}"
+            )));
+        }
+
         Ok(SplitVersionInner::Package(SplitVersionPackage {
             package: format!("{namespace}/{name}"),
             version,
@@ -223,10 +246,10 @@ impl SplitVersionInner {
 
     /// Try parsing `s` as a command (`python@latest`) or a file (`python`)
     pub fn try_parse_command(s: &str) -> Result<Self, SplitVersionError> {
-        if !s.chars().all(|c| char::is_alphanumeric(c) || c == '@') {
+        let command = s.split('@').nth(0).map(|s| s.to_string()).unwrap();
+        if !command.chars().all(char::is_alphanumeric) {
             return Err(SplitVersionError::InvalidCommandName(s.to_string()));
         }
-        let command = s.split('@').nth(0).map(|s| s.to_string()).unwrap();
         let version = s.split('@').nth(1).map(|s| s.to_string());
         let version = match version.as_ref().map(|s| s.as_str()) {
             Some("latest") => Some(ParsedPackageVersion::Latest),
@@ -254,9 +277,13 @@ impl SplitVersionInner {
         let pathbuf = std::path::Path::new(s).to_path_buf();
         let canon = pathbuf.canonicalize().unwrap_or(pathbuf);
         if canon.exists() {
-            Ok(Self::File {
-                path: format!("{}", canon.display()),
-            })
+            if canon.is_file() {
+                Ok(Self::File {
+                    path: format!("{}", canon.display()),
+                })
+            } else {
+                Err(SplitVersionError::FileIsADirectory(s.to_string()))
+            }
         } else {
             Err(SplitVersionError::FileDoesNotExist(s.to_string()))
         }
@@ -274,6 +301,8 @@ pub enum SplitVersionError {
     InvalidPackageName(String),
     /// File $u does not exist
     FileDoesNotExist(String),
+    /// File $u is a directory
+    FileIsADirectory(String),
 }
 
 impl std::error::Error for SplitVersionError {}
@@ -282,13 +311,11 @@ impl fmt::Display for SplitVersionError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::SplitVersionError::*;
         match self {
-            InvalidUrl(e) => write!(f, "error while parsing source as URL: {e}"),
-            InvalidCommandName(e) => write!(f, "error while parsing source as command: {e}"),
-            InvalidPackageName(p) => write!(f, "error while parsing source as package: {p}"),
-            FileDoesNotExist(path) => write!(
-                f,
-                "error while trying to load source path: file does not exist: {path}"
-            ),
+            InvalidUrl(e) => write!(f, "parsing as URL: {e}"),
+            InvalidCommandName(e) => write!(f, "parsing as command: {e}"),
+            InvalidPackageName(p) => write!(f, "parsing as package: {p}"),
+            FileDoesNotExist(path) => write!(f, "parsing as file: file does not exist: {path}"),
+            FileIsADirectory(path) => write!(f, "parsing as file: file is a directory: {path}"),
         }
     }
 }
@@ -308,11 +335,14 @@ pub struct SplitVersionMultiError {
 
 impl fmt::Display for SplitVersionMultiError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut err = anyhow::anyhow!("{}", self.original);
-        for e in self.errors.iter() {
-            err = err.context(e.clone());
-        }
-        err.fmt(f)
+        write!(
+            f,
+            "{:#?}",
+            self.errors
+                .iter()
+                .map(|v| format!("{v}"))
+                .collect::<Vec<_>>()
+        )
     }
 }
 
@@ -339,6 +369,7 @@ impl FromStr for SplitVersion {
                 })
             }
             Err(e) => {
+                println!("pushing error {e}");
                 errors.push(e);
             }
         }
