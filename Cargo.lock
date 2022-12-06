@@ -4306,6 +4306,7 @@ dependencies = [
  "log",
  "lzma-rs",
  "rand 0.8.5",
+ "regex",
  "reqwest",
  "semver 1.0.14",
  "serde",
