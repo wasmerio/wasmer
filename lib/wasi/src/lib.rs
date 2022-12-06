@@ -77,6 +77,8 @@ pub use wasmer_vfs::{
 };
 pub use wasmer_vnet;
 pub use wasmer_vnet::{UnsupportedVirtualNetworking, VirtualNetworking};
+
+#[cfg(feature = "sys")]
 pub use wasmer_wasi_local_networking::{
     LocalNetworking, LocalTcpListener, LocalTcpStream, LocalUdpSocket,
 };
