@@ -749,6 +749,7 @@ pub fn build_test_engine(features: Option<wasmer::Features>) -> wasmer::Engine {
     }
     #[cfg(not(feature = "compiler-cranelift"))]
     {
+        // FIXME: implement!
         let _ = features;
         todo!()
     }
