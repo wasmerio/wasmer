@@ -125,8 +125,13 @@ impl RunWithoutFile {
             }
         }
 
+        let path = format!("{}", pathbuf.display());
+
         Ok(Run {
-            path: pathbuf,
+            path: SplitVersion {
+                original: path,
+                inner: crate::split_version::SplitVersionInner::File { path },
+            },
             options: RunWithoutFile {
                 force_install: self.force_install,
                 #[cfg(feature = "cache")]
@@ -157,8 +162,8 @@ impl RunWithoutFile {
 /// The options for the `wasmer run` subcommand
 pub struct Run {
     /// File to run
-    #[clap(name = "FILE", parse(from_os_str))]
-    pub(crate) path: PathBuf,
+    #[clap(name = "FILE", parse(try_from_str))]
+    pub(crate) path: SplitVersion,
 
     #[clap(flatten)]
     pub(crate) options: RunWithoutFile,
@@ -181,7 +186,7 @@ impl Run {
         self.inner_execute().with_context(|| {
             format!(
                 "failed to run `{}`{}",
-                self.path.display(),
+                self.path,
                 if CompilerType::enabled().is_empty() {
                     " (no compilers enabled)"
                 } else {

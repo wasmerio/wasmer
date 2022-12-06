@@ -11,6 +11,24 @@ pub struct SplitVersion {
     pub inner: SplitVersionInner,
 }
 
+impl fmt::Display for SplitVersion {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.original)
+    }
+}
+
+impl Default for SplitVersion {
+    fn default() -> Self {
+        SplitVersion {
+            original: String::new(),
+            inner: SplitVersionInner::Command(SplitVersionCommand {
+                command: String::new(),
+                version: None,
+            }),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedSplitVersion {
     pub registry: Option<String>,
@@ -212,13 +230,7 @@ impl SplitVersionInner {
     }
 }
 
-impl fmt::Display for SplitVersion {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.original)
-    }
-}
-
-#[derive(Debug, PartialEq, Hash, Eq, Ord, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, Ord, PartialOrd)]
 pub(crate) enum SplitVersionError {
     InvalidUrl(String),
     InvalidCommandName(String),
@@ -243,14 +255,32 @@ impl fmt::Display for SplitVersionError {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SplitVersionMultiError {
+    pub original: String,
+    pub errors: Vec<SplitVersionError>,
+}
+
+impl fmt::Display for SplitVersionMultiError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let err = anyhow::anyhow!("{}", self.original);
+        for e in self.errors.iter() {
+            err = err.context(e);
+        }
+        err.fmt(f)
+    }
+}
+
+impl std::error::Error for SplitVersionMultiError {}
+
 impl SplitVersion {
-    pub fn parse(s: &str) -> Result<SplitVersion, Vec<SplitVersionError>> {
+    pub fn parse(s: &str) -> Result<SplitVersion, SplitVersionMultiError> {
         s.parse()
     }
 }
 
 impl FromStr for SplitVersion {
-    type Err = Vec<SplitVersionError>;
+    type Err = SplitVersionMultiError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let errors = Vec::new();
@@ -303,7 +333,10 @@ impl FromStr for SplitVersion {
             }
         }
 
-        Err(errors)
+        Err(SplitVersionMultiError {
+            original: s.to_string(),
+            errors,
+        })
     }
 }
 
@@ -311,9 +344,12 @@ impl FromStr for SplitVersion {
 fn test_split_version() {
     assert_eq!(
         SplitVersion::parse("registry.wapm.io/graphql/python/python").unwrap_err(),
-        vec![SplitVersionError::FileDoesNotExist(
-            "registry.wapm.io/graphql/python/python".to_string()
-        )],
+        SplitVersionMultiError {
+            original: "registry.wapm.io/graphql/python/python".to_string(),
+            errors: vec![SplitVersionError::FileDoesNotExist(
+                "registry.wapm.io/graphql/python/python".to_string()
+            )],
+        }
     );
     assert_eq!(
         SplitVersion::parse("namespace/name@latest:command").unwrap(),
@@ -363,9 +399,12 @@ fn test_split_version() {
     );
     assert_eq!(
         SplitVersion::parse(env!("CARGO_MANIFEST_DIR")).unwrap_err(),
-        vec![SplitVersionError::FileDoesNotExist(
-            env!("CARGO_MANIFEST_DIR").to_string()
-        ),],
+        SplitVersionMultiError {
+            original: env!("CARGO_MANIFEST_DIR").to_string(),
+            errors: vec![SplitVersionError::FileDoesNotExist(
+                env!("CARGO_MANIFEST_DIR").to_string()
+            )],
+        },
     );
     assert_eq!(
         SplitVersion::parse("python@latest").unwrap(),
