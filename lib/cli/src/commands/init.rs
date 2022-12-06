@@ -47,6 +47,7 @@ enum BinOrLib {
 }
 
 // minimal version of the Cargo.toml [package] section
+#[derive(Debug, Clone)]
 struct MiniCargoTomlPackage {
     name: String,
     version: semver::Version,
@@ -87,29 +88,50 @@ impl Init {
         // See if the directory has a Cargo.toml file, if yes, copy the license / readme, etc.
         let manifest_path = match self.manifest_path.as_ref() {
             Some(s) => s.clone(),
-            None => Path::new("./Cargo.toml").to_path_buf(),
+            None => {
+                let cargo_toml_path = std::env::current_dir().unwrap().join("Cargo.toml");
+                cargo_toml_path
+                    .canonicalize()
+                    .unwrap_or_else(|_| cargo_toml_path.clone())
+            }
         };
 
-        let cargo_toml = MetadataCommand::new()
-            .manifest_path(&manifest_path)
-            .features(CargoOpt::AllFeatures)
-            .exec()
-            .ok()
-            .and_then(|metadata| {
-                let package = metadata.root_package()?;
-                Some(MiniCargoTomlPackage {
-                    name: package.name.clone(),
-                    version: package.version.clone(),
-                    description: package.description.clone(),
-                    homepage: package.homepage.clone(),
-                    repository: package.repository.clone(),
-                    license: package.license.clone(),
-                    readme: package.readme.clone().map(|s| s.into_std_path_buf()),
-                    license_file: package.license_file.clone().map(|f| f.into_std_path_buf()),
-                    workspace_root: metadata.workspace_root.into_std_path_buf(),
-                    build_dir: metadata.target_directory.into_std_path_buf(),
-                })
-            });
+        let cargo_toml = if manifest_path.exists() {
+            use anyhow::Context;
+
+            let metadata = MetadataCommand::new()
+                .manifest_path(&manifest_path)
+                .features(CargoOpt::AllFeatures)
+                .exec();
+
+            let metadata = match metadata {
+                Ok(o) => o,
+                Err(e) => {
+                    return Err(anyhow::anyhow!("failed to load metadata: {e}")
+                        .context(anyhow::anyhow!("{}", manifest_path.display())));
+                }
+            };
+
+            let package = metadata
+                .root_package()
+                .ok_or_else(|| anyhow::anyhow!("no root package found in cargo metadata"))
+                .context(anyhow::anyhow!("{}", manifest_path.display()))?;
+
+            Some(MiniCargoTomlPackage {
+                name: package.name.clone(),
+                version: package.version.clone(),
+                description: package.description.clone(),
+                homepage: package.homepage.clone(),
+                repository: package.repository.clone(),
+                license: package.license.clone(),
+                readme: package.readme.clone().map(|s| s.into_std_path_buf()),
+                license_file: package.license_file.clone().map(|f| f.into_std_path_buf()),
+                workspace_root: metadata.workspace_root.into_std_path_buf(),
+                build_dir: metadata.target_directory.into_std_path_buf(),
+            })
+        } else {
+            None
+        };
 
         let package_name = self
             .package_name
@@ -226,8 +248,9 @@ impl Init {
             .map(|s| String::from_utf8_lossy(&s.stdout).to_string())
             .unwrap_or_default();
 
-        let cargo_wapm_present =
-            cargo_wapm_stdout.lines().count() == 1 && cargo_wapm_stdout.contains("cargo wapm");
+        let cargo_wapm_present = cargo_wapm_stdout.lines().count() == 1
+            && (cargo_wapm_stdout.contains("cargo wapm")
+                || cargo_wapm_stdout.contains("cargo-wapm"));
 
         // if Cargo.toml is present and cargo wapm is installed, add the
         // generated manifest to the Cargo.toml instead of creating a new wapm.toml
@@ -249,7 +272,7 @@ impl Init {
         let note =
             "# See more keys and definitions at https://docs.wasmer.io/ecosystem/wapm/manifest";
 
-        // generate the wapm.toml and exit
+        // generate the wasmer.toml and exit
         if !should_add_to_cargo_toml {
             let toml_string = toml::to_string_pretty(&constructed_manifest)?
                 .replace("[dependencies]", &format!("{note}\r\n\r\n[dependencies]"))
@@ -283,8 +306,6 @@ impl Init {
             bindings,
         };
 
-        println!("{:#?}", metadata_wapm);
-
         let toml_string = toml::to_string_pretty(&metadata_wapm)?
             .replace("[dependencies]", &format!("{note}\r\n\r\n[dependencies]"))
             .lines()
@@ -297,10 +318,14 @@ impl Init {
             );
             eprintln!("Build and publish your package with:");
             eprintln!();
-            eprintln!("    cargo wapm publish");
+            eprintln!("    cargo wapm");
             eprintln!();
         }
-        std::fs::write(&manifest_path, &format!("{old_cargo}\r\n\r\n{toml_string}"))?;
+
+        std::fs::write(
+            &manifest_path,
+            &format!("{old_cargo}\r\n\r\n[metadata.package.wapm]\r\n{toml_string}"),
+        )?;
 
         Ok(())
     }

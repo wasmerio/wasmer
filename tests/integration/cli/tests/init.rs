@@ -81,8 +81,8 @@ fn wasmer_init_works_3() -> anyhow::Result<()> {
         .map(|s| String::from_utf8_lossy(&s.stdout).to_string())
         .unwrap_or_default();
 
-    let cargo_wapm_present =
-        cargo_wapm_stdout.lines().count() == 1 && cargo_wapm_stdout.contains("cargo wapm");
+    let cargo_wapm_present = cargo_wapm_stdout.lines().count() == 1
+        && (cargo_wapm_stdout.contains("cargo wapm") || cargo_wapm_stdout.contains("cargo-wapm"));
 
     if !cargo_wapm_present {
         println!("cargo wapm not present");
@@ -200,8 +200,8 @@ fn wasmer_init_works_2() -> anyhow::Result<()> {
         .map(|s| String::from_utf8_lossy(&s.stdout).to_string())
         .unwrap_or_default();
 
-    let cargo_wapm_present =
-        cargo_wapm_stdout.lines().count() == 1 && cargo_wapm_stdout.contains("cargo wapm");
+    let cargo_wapm_present = cargo_wapm_stdout.lines().count() == 1
+        && (cargo_wapm_stdout.contains("cargo wapm") || cargo_wapm_stdout.contains("cargo-wapm"));
 
     if cargo_wapm_present {
         assert!(!path.join("wasmer.toml").exists());
