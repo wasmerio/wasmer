@@ -77,7 +77,7 @@ async fn test_stdout() {
     // pipe.set_blocking(false);
     let mut wasi_env = WasiState::new("command-name")
         .args(&["Gordon"])
-        .stdout(Box::new(stdout.clone()))
+        .stdout(Box::new(pipe.clone()))
         .finalize(&mut store)
         .unwrap();
 
@@ -136,7 +136,7 @@ async fn test_env() {
 
     // FIXME: evaluate initialize() vs below two lines
     // wasi_env.initialize(&mut store, &instance).unwrap();
-    let memory = instance.exports.get_memory("memory").unwrap();
+    // let memory = instance.exports.get_memory("memory").unwrap();
     wasi_env.data_mut(&mut store);
     // FIXME: where did the method go?
     // wasi_env.set_memory(memory.clone());

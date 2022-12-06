@@ -1,9 +1,3 @@
-#![cfg(feature = "sys")]
-#![cfg(target_os = "linux")]
-use std::io::Read;
-
-#[allow(unused_imports)]
-use tracing::{debug, info, metadata::LevelFilter};
 #[cfg(feature = "sys")]
 use tracing_subscriber::fmt::SubscriberBuilder;
 use wasmer::{Features, Instance, Module, Store};
@@ -31,6 +25,8 @@ mod sys {
 // TODO: run on JS again
 #[cfg(feature = "sys")]
 async fn test_coreutils() {
+    use tracing::{info, metadata::LevelFilter};
+
     let mut features = Features::new();
     features.threads(true);
 
