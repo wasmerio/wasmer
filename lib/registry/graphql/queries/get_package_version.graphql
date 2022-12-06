@@ -7,6 +7,7 @@ query GetPackageVersionQuery ($name: String!, $version: String) {
      isLastVersion
      distribution {
       downloadUrl
+      piritaDownloadUrl
      }
      manifest
   }

@@ -1,14 +1,16 @@
 use std::fmt;
 use std::io;
-#[cfg(feature = "compiler")]
 use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
-#[cfg(feature = "compiler")]
+use wasmer_compiler::Artifact;
 use wasmer_compiler::ArtifactCreate;
+use wasmer_compiler::AsEngineRef;
 #[cfg(feature = "wat")]
 use wasmer_types::WasmError;
-use wasmer_types::{CompileError, ExportsIterator, ImportsIterator, ModuleInfo};
+use wasmer_types::{
+    CompileError, DeserializeError, ExportsIterator, ImportsIterator, ModuleInfo, SerializeError,
+};
 use wasmer_types::{ExportType, ImportType};
 
 #[cfg(feature = "compiler")]
@@ -16,6 +18,7 @@ use crate::{sys::InstantiationError, AsStoreMut, AsStoreRef, IntoBytes};
 #[cfg(feature = "compiler")]
 use wasmer_vm::InstanceHandle;
 
+/// IO Error on a Module Compilation
 #[derive(Error, Debug)]
 pub enum IoCompileError {
     /// An IO error
@@ -50,8 +53,7 @@ pub struct Module {
     //
     // In the future, this code should be refactored to properly describe the
     // ownership of the code and its metadata.
-    #[cfg(feature = "compiler")]
-    artifact: Arc<wasmer_compiler::Artifact>,
+    artifact: Arc<Artifact>,
     module_info: Arc<ModuleInfo>,
 }
 
@@ -116,33 +118,38 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
+    /// # Example of loading a module using just an `Engine` and no `Store`
+    ///
+    /// ```
+    /// # use wasmer::*;
+    /// #
+    /// # let compiler = Cranelift::default();
+    /// # let engine = EngineBuilder::new(compiler).engine();
+    ///
+    /// let module = Module::from_file(&engine, "path/to/foo.wasm");
+    /// ```
     #[allow(unreachable_code)]
-    pub fn new(store: &impl AsStoreRef, bytes: impl IntoBytes) -> Result<Self, CompileError> {
-        #[allow(unused_mut)]
-        let mut bytes = bytes.into_bytes();
+    pub fn new(engine: &impl AsEngineRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
         #[cfg(feature = "wat")]
-        if bytes.starts_with(b"\0asm") == false {
-            let parsed_bytes = wat::parse_bytes(&bytes[..]).map_err(|e| {
-                CompileError::Wasm(WasmError::Generic(format!(
-                    "Error when converting wat: {}",
-                    e
-                )))
-            })?;
-            bytes = bytes::Bytes::from(parsed_bytes.to_vec());
-        }
-        Self::from_binary(store, bytes.as_ref())
+        let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
+            CompileError::Wasm(WasmError::Generic(format!(
+                "Error when converting wat: {}",
+                e
+            )))
+        })?;
+        Self::from_binary(engine, bytes.as_ref())
     }
 
     #[cfg(feature = "compiler")]
     /// Creates a new WebAssembly module from a file path.
     pub fn from_file(
-        store: &impl AsStoreRef,
+        engine: &impl AsEngineRef,
         file: impl AsRef<Path>,
     ) -> Result<Self, IoCompileError> {
         let file_ref = file.as_ref();
         let canonical = file_ref.canonicalize()?;
         let wasm_bytes = std::fs::read(file_ref)?;
-        let mut module = Self::new(store, &wasm_bytes)?;
+        let mut module = Self::new(engine, &wasm_bytes)?;
         // Set the module name to the absolute path of the filename.
         // This is useful for debugging the stack traces.
         let filename = canonical.as_path().to_str().unwrap();
@@ -156,9 +163,9 @@ impl Module {
     /// Opposed to [`Module::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
-    pub fn from_binary(store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError> {
-        Self::validate(store, binary)?;
-        unsafe { Self::from_binary_unchecked(store, binary) }
+    pub fn from_binary(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
+        Self::validate(engine, binary)?;
+        unsafe { Self::from_binary_unchecked(engine, binary) }
     }
 
     #[cfg(feature = "compiler")]
@@ -170,11 +177,10 @@ impl Module {
     /// in environments where the WebAssembly modules are trusted and validated
     /// beforehand.
     pub unsafe fn from_binary_unchecked(
-        store: &impl AsStoreRef,
-        binary: impl IntoBytes,
+        engine: &impl AsEngineRef,
+        binary: &[u8],
     ) -> Result<Self, CompileError> {
-        let binary = binary.into_bytes();
-        let module = Self::compile(store, binary)?;
+        let module = Self::compile(engine, binary)?;
         Ok(module)
     }
 
@@ -185,24 +191,18 @@ impl Module {
     /// This validation is normally pretty fast and checks the enabled
     /// WebAssembly features in the Store Engine to assure deterministic
     /// validation of the Module.
-    pub fn validate(store: &impl AsStoreRef, binary: impl IntoBytes) -> Result<(), CompileError> {
-        let binary = binary.into_bytes();
-        store.as_store_ref().engine().validate(&binary[..])
+    pub fn validate(engine: &impl AsEngineRef, binary: &[u8]) -> Result<(), CompileError> {
+        engine.as_engine_ref().engine().validate(binary)
     }
 
     #[cfg(feature = "compiler")]
-    fn compile(store: &impl AsStoreRef, binary: impl IntoBytes) -> Result<Self, CompileError> {
-        let binary = binary.into_bytes();
-        let artifact = store
-            .as_store_ref()
-            .engine()
-            .compile(&binary[..], store.as_store_ref().tunables())?;
+    fn compile(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
+        let artifact = engine.as_engine_ref().engine().compile(binary)?;
         Ok(Self::from_artifact(artifact))
     }
 
     /// Serializes a module into a binary representation that the `Engine`
     /// can later process via
-    #[cfg(feature = "enable-rkyv")]
     #[cfg_attr(feature = "compiler", doc = "[`Module::deserialize`].")]
     #[cfg_attr(not(feature = "compiler"), doc = "`Module::deserialize`.")]
     ///
@@ -217,13 +217,12 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn serialize(&self) -> Result<bytes::Bytes, wasmer_types::SerializeError> {
+    pub fn serialize(&self) -> Result<Bytes, SerializeError> {
         self.artifact.serialize().map(|bytes| bytes.into())
     }
 
     /// Serializes a module into a file that the `Engine`
     /// can later process via
-    #[cfg(feature = "enable-rkyv")]
     #[cfg_attr(feature = "compiler", doc = "[`Module::deserialize_from_file`].")]
     #[cfg_attr(not(feature = "compiler"), doc = "`Module::deserialize_from_file`.")]
     ///
@@ -238,14 +237,10 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn serialize_to_file(
-        &self,
-        path: impl AsRef<Path>,
-    ) -> Result<(), wasmer_types::SerializeError> {
+    pub fn serialize_to_file(&self, path: impl AsRef<Path>) -> Result<(), SerializeError> {
         self.artifact.serialize_to_file(path.as_ref())
     }
 
-    #[cfg(feature = "enable-rkyv")]
     #[cfg(feature = "compiler")]
     /// Deserializes a serialized Module binary into a `Module`.
     /// > Note: the module has to be serialized before with the `serialize` method.
@@ -273,13 +268,12 @@ impl Module {
     pub unsafe fn deserialize(
         store: &impl AsStoreRef,
         bytes: impl IntoBytes,
-    ) -> Result<Self, wasmer_types::DeserializeError> {
-        let bytes = bytes.into_bytes().to_vec();
+    ) -> Result<Self, DeserializeError> {
+        let bytes = bytes.into_bytes();
         let artifact = store.as_store_ref().engine().deserialize(&bytes)?;
         Ok(Self::from_artifact(artifact))
     }
 
-    #[cfg(feature = "enable-rkyv")]
     #[cfg(feature = "compiler")]
     /// Deserializes a a serialized Module located in a `Path` into a `Module`.
     /// > Note: the module has to be serialized before with the `serialize` method.
@@ -301,7 +295,7 @@ impl Module {
     pub unsafe fn deserialize_from_file(
         store: &impl AsStoreRef,
         path: impl AsRef<Path>,
-    ) -> Result<Self, wasmer_types::DeserializeError> {
+    ) -> Result<Self, DeserializeError> {
         let artifact = store
             .as_store_ref()
             .engine()
@@ -309,8 +303,7 @@ impl Module {
         Ok(Self::from_artifact(artifact))
     }
 
-    #[cfg(feature = "compiler")]
-    fn from_artifact(artifact: Arc<wasmer_compiler::Artifact>) -> Self {
+    fn from_artifact(artifact: Arc<Artifact>) -> Self {
         Self {
             module_info: Arc::new(artifact.create_module_info()),
             artifact,

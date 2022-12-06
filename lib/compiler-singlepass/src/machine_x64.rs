@@ -15,8 +15,8 @@ use gimli::{write::CallFrameInstruction, X86_64};
 use std::ops::{Deref, DerefMut};
 use wasmer_compiler::wasmparser::Type as WpType;
 use wasmer_types::{
-    CallingConvention, CpuFeature, CustomSection, CustomSectionProtection, Relocation,
-    RelocationKind, RelocationTarget, SectionBody,
+    CallingConvention, CompileError, CpuFeature, CustomSection, CustomSectionProtection,
+    Relocation, RelocationKind, RelocationTarget, SectionBody, Target,
 };
 use wasmer_types::{FunctionBody, InstructionAddressMap, SourceLoc, TrapInformation};
 use wasmer_types::{FunctionIndex, FunctionType, TrapCode, Type, VMOffsets};
@@ -29,14 +29,32 @@ pub struct AssemblerX64 {
     /// the simd instructions set on the target.
     /// Currently only supports SSE 4.2 and AVX
     pub simd_arch: Option<CpuFeature>,
+    /// Full Target cpu
+    pub target: Option<Target>,
 }
 
 impl AssemblerX64 {
-    fn new(baseaddr: usize, simd_arch: Option<CpuFeature>) -> Self {
-        Self {
+    fn new(baseaddr: usize, target: Option<Target>) -> Result<Self, CompileError> {
+        let simd_arch = if target.is_none() {
+            Some(CpuFeature::SSE42)
+        } else {
+            let target = target.as_ref().unwrap();
+            if target.cpu_features().contains(CpuFeature::AVX) {
+                Some(CpuFeature::AVX)
+            } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                Some(CpuFeature::SSE42)
+            } else {
+                return Err(CompileError::UnsupportedTarget(
+                    "x86_64 without AVX or SSE 4.2".to_string(),
+                ));
+            }
+        };
+
+        Ok(Self {
             inner: Assembler::new(baseaddr),
             simd_arch,
-        }
+            target,
+        })
     }
 
     fn finalize(self) -> Result<Vec<u8>, DynasmError> {
@@ -121,24 +139,25 @@ pub struct MachineX86_64 {
 }
 
 impl MachineX86_64 {
-    pub fn new(simd_arch: Option<CpuFeature>) -> Self {
-        MachineX86_64 {
-            assembler: AssemblerX64::new(0, simd_arch),
+    pub fn new(target: Option<Target>) -> Result<Self, CompileError> {
+        let assembler = AssemblerX64::new(0, target)?;
+        Ok(MachineX86_64 {
+            assembler,
             used_gprs: 0,
             used_simd: 0,
             trap_table: TrapTable::default(),
             instructions_address_map: vec![],
             src_loc: 0,
             unwind_ops: vec![],
-        }
+        })
     }
     pub fn emit_relaxed_binop(
         &mut self,
-        op: fn(&mut AssemblerX64, Size, Location, Location) -> Result<(), CodegenError>,
+        op: fn(&mut AssemblerX64, Size, Location, Location) -> Result<(), CompileError>,
         sz: Size,
         src: Location,
         dst: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         enum RelaxMode {
             Direct,
             SrcToGPR,
@@ -172,27 +191,27 @@ impl MachineX86_64 {
 
         match mode {
             RelaxMode::SrcToGPR => {
-                let temp = self.acquire_temp_gpr().ok_or(CodegenError {
-                    message: "singlepass cannot acquire temp gpr".to_string(),
+                let temp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                 })?;
                 self.move_location(sz, src, Location::GPR(temp))?;
                 op(&mut self.assembler, sz, Location::GPR(temp), dst)?;
                 self.release_gpr(temp);
             }
             RelaxMode::DstToGPR => {
-                let temp = self.acquire_temp_gpr().ok_or(CodegenError {
-                    message: "singlepass cannot acquire temp gpr".to_string(),
+                let temp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                 })?;
                 self.move_location(sz, dst, Location::GPR(temp))?;
                 op(&mut self.assembler, sz, src, Location::GPR(temp))?;
                 self.release_gpr(temp);
             }
             RelaxMode::BothToGPR => {
-                let temp_src = self.acquire_temp_gpr().ok_or(CodegenError {
-                    message: "singlepass cannot acquire temp gpr".to_string(),
+                let temp_src = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                 })?;
-                let temp_dst = self.acquire_temp_gpr().ok_or(CodegenError {
-                    message: "singlepass cannot acquire temp gpr".to_string(),
+                let temp_dst = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                 })?;
                 self.move_location(sz, src, Location::GPR(temp_src))?;
                 self.move_location(sz, dst, Location::GPR(temp_dst))?;
@@ -219,16 +238,16 @@ impl MachineX86_64 {
     }
     pub fn emit_relaxed_zx_sx(
         &mut self,
-        op: fn(&mut AssemblerX64, Size, Location, Size, Location) -> Result<(), CodegenError>,
+        op: fn(&mut AssemblerX64, Size, Location, Size, Location) -> Result<(), CompileError>,
         sz_src: Size,
         src: Location,
         sz_dst: Size,
         dst: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         match src {
             Location::Imm32(_) | Location::Imm64(_) => {
-                let tmp_src = self.acquire_temp_gpr().ok_or(CodegenError {
-                    message: "singlepass cannot acquire temp gpr".to_string(),
+                let tmp_src = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                 })?;
                 self.assembler
                     .emit_mov(Size::S64, src, Location::GPR(tmp_src))?;
@@ -237,8 +256,8 @@ impl MachineX86_64 {
                 match dst {
                     Location::Imm32(_) | Location::Imm64(_) => unreachable!(),
                     Location::Memory(_, _) => {
-                        let tmp_dst = self.acquire_temp_gpr().ok_or(CodegenError {
-                            message: "singlepass cannot acquire temp gpr".to_string(),
+                        let tmp_dst = self.acquire_temp_gpr().ok_or_else(|| {
+                            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                         })?;
                         op(
                             &mut self.assembler,
@@ -265,8 +284,8 @@ impl MachineX86_64 {
                 match dst {
                     Location::Imm32(_) | Location::Imm64(_) => unreachable!(),
                     Location::Memory(_, _) => {
-                        let tmp_dst = self.acquire_temp_gpr().ok_or(CodegenError {
-                            message: "singlepass cannot acquire temp gpr".to_string(),
+                        let tmp_dst = self.acquire_temp_gpr().ok_or_else(|| {
+                            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                         })?;
                         op(
                             &mut self.assembler,
@@ -296,14 +315,14 @@ impl MachineX86_64 {
     /// I32 binary operation with both operands popped from the virtual stack.
     fn emit_binop_i32(
         &mut self,
-        f: fn(&mut AssemblerX64, Size, Location, Location) -> Result<(), CodegenError>,
+        f: fn(&mut AssemblerX64, Size, Location, Location) -> Result<(), CompileError>,
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         if loc_a != ret {
-            let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
             self.emit_relaxed_mov(Size::S32, loc_a, Location::GPR(tmp))?;
             self.emit_relaxed_binop(f, Size::S32, loc_b, Location::GPR(tmp))?;
@@ -317,14 +336,14 @@ impl MachineX86_64 {
     /// I64 binary operation with both operands popped from the virtual stack.
     fn emit_binop_i64(
         &mut self,
-        f: fn(&mut AssemblerX64, Size, Location, Location) -> Result<(), CodegenError>,
+        f: fn(&mut AssemblerX64, Size, Location, Location) -> Result<(), CompileError>,
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         if loc_a != ret {
-            let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
             self.emit_relaxed_mov(Size::S64, loc_a, Location::GPR(tmp))?;
             self.emit_relaxed_binop(f, Size::S64, loc_b, Location::GPR(tmp))?;
@@ -342,7 +361,7 @@ impl MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         match ret {
             Location::GPR(x) => {
                 self.emit_relaxed_cmp(Size::S64, loc_b, loc_a)?;
@@ -351,8 +370,8 @@ impl MachineX86_64 {
                     .emit_and(Size::S32, Location::Imm32(0xff), Location::GPR(x))?;
             }
             Location::Memory(_, _) => {
-                let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                    message: "singlepass cannot acquire temp gpr".to_string(),
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                 })?;
                 self.emit_relaxed_cmp(Size::S64, loc_b, loc_a)?;
                 self.assembler.emit_set(c, tmp)?;
@@ -370,11 +389,11 @@ impl MachineX86_64 {
     /// I64 shift with both operands popped from the virtual stack.
     fn emit_shift_i64(
         &mut self,
-        f: fn(&mut AssemblerX64, Size, Location, Location) -> Result<(), CodegenError>,
+        f: fn(&mut AssemblerX64, Size, Location, Location) -> Result<(), CompileError>,
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.assembler
             .emit_mov(Size::S64, loc_b, Location::GPR(GPR::RCX))?;
 
@@ -387,11 +406,11 @@ impl MachineX86_64 {
     /// Moves `loc` to a valid location for `div`/`idiv`.
     fn emit_relaxed_xdiv(
         &mut self,
-        op: fn(&mut AssemblerX64, Size, Location) -> Result<(), CodegenError>,
+        op: fn(&mut AssemblerX64, Size, Location) -> Result<(), CompileError>,
         sz: Size,
         loc: Location,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CodegenError> {
+    ) -> Result<usize, CompileError> {
         self.assembler.emit_cmp(sz, Location::Imm32(0), loc)?;
         self.assembler
             .emit_jmp(Condition::Equal, integer_division_by_zero)?;
@@ -419,7 +438,7 @@ impl MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         match ret {
             Location::GPR(x) => {
                 self.emit_relaxed_cmp(Size::S32, loc_b, loc_a)?;
@@ -428,8 +447,8 @@ impl MachineX86_64 {
                     .emit_and(Size::S32, Location::Imm32(0xff), Location::GPR(x))?;
             }
             Location::Memory(_, _) => {
-                let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                    message: "singlepass cannot acquire temp gpr".to_string(),
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                 })?;
                 self.emit_relaxed_cmp(Size::S32, loc_b, loc_a)?;
                 self.assembler.emit_set(c, tmp)?;
@@ -447,11 +466,11 @@ impl MachineX86_64 {
     /// I32 shift with both operands popped from the virtual stack.
     fn emit_shift_i32(
         &mut self,
-        f: fn(&mut AssemblerX64, Size, Location, Location) -> Result<(), CodegenError>,
+        f: fn(&mut AssemblerX64, Size, Location, Location) -> Result<(), CompileError>,
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.assembler
             .emit_mov(Size::S32, loc_b, Location::GPR(GPR::RCX))?;
 
@@ -463,7 +482,7 @@ impl MachineX86_64 {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn memory_op<F: FnOnce(&mut Self, GPR) -> Result<(), CodegenError>>(
+    fn memory_op<F: FnOnce(&mut Self, GPR) -> Result<(), CompileError>>(
         &mut self,
         addr: Location,
         memarg: &MemoryImmediate,
@@ -473,18 +492,19 @@ impl MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
         cb: F,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         // This function as been re-writen to use only 2 temporary register instead of 3
         // without compromisong on the perfomances.
         // The number of memory move should be equivalent to previous 3-temp regs version
         // Register pressure is high on x86_64, and this is needed to be able to use
         // instruction that neead RAX, like cmpxchg for example
-        let tmp_addr = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        let tmp_addr = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
-        let tmp2 = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        let tmp2 = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
 
         // Reusing `tmp_addr` for temporary indirection here, since it's not used before the last reference to `{base,bound}_loc`.
@@ -571,10 +591,10 @@ impl MachineX86_64 {
 
         self.release_gpr(tmp2);
 
-        let align = memarg.align;
+        let align = value_size as u32;
         if check_alignment && align != 1 {
-            let tmp_aligncheck = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp_aligncheck = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
             self.assembler.emit_mov(
                 Size::S32,
@@ -583,11 +603,11 @@ impl MachineX86_64 {
             )?;
             self.assembler.emit_and(
                 Size::S64,
-                Location::Imm32((align - 1).into()),
+                Location::Imm32(align - 1),
                 Location::GPR(tmp_aligncheck),
             )?;
             self.assembler
-                .emit_jmp(Condition::NotEqual, heap_access_oob)?;
+                .emit_jmp(Condition::NotEqual, unaligned_atomic)?;
             self.release_gpr(tmp_aligncheck);
         }
         let begin = self.assembler.get_offset().0;
@@ -600,7 +620,7 @@ impl MachineX86_64 {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn emit_compare_and_swap<F: FnOnce(&mut Self, GPR, GPR) -> Result<(), CodegenError>>(
+    fn emit_compare_and_swap<F: FnOnce(&mut Self, GPR, GPR) -> Result<(), CompileError>>(
         &mut self,
         loc: Location,
         target: Location,
@@ -613,8 +633,9 @@ impl MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
+        unaligned_atomic: Label,
         cb: F,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         if memory_sz > stack_sz {
             codegen_error!("singlepass emit_compare_and_swap unreachable");
         }
@@ -641,6 +662,7 @@ impl MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.load_address(memory_sz, Location::GPR(compare), Location::Memory(addr, 0))?;
                 this.move_location(stack_sz, Location::GPR(compare), ret)?;
@@ -671,15 +693,15 @@ impl MachineX86_64 {
         overflow_label: Label,
         nan_label: Label,
         succeed_label: Label,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         let lower_bound = f32::to_bits(lower_bound);
         let upper_bound = f32::to_bits(upper_bound);
 
-        let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
-        let tmp_x = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+        let tmp_x = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
 
         // Underflow.
@@ -725,7 +747,7 @@ impl MachineX86_64 {
         reg: XMM,
         lower_bound: f32,
         upper_bound: f32,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         let trap_overflow = self.assembler.get_label();
         let trap_badconv = self.assembler.get_label();
         let end = self.assembler.get_label();
@@ -753,10 +775,10 @@ impl MachineX86_64 {
     }
     #[allow(clippy::too_many_arguments)]
     fn emit_f32_int_conv_check_sat<
-        F1: FnOnce(&mut Self) -> Result<(), CodegenError>,
-        F2: FnOnce(&mut Self) -> Result<(), CodegenError>,
-        F3: FnOnce(&mut Self) -> Result<(), CodegenError>,
-        F4: FnOnce(&mut Self) -> Result<(), CodegenError>,
+        F1: FnOnce(&mut Self) -> Result<(), CompileError>,
+        F2: FnOnce(&mut Self) -> Result<(), CompileError>,
+        F3: FnOnce(&mut Self) -> Result<(), CompileError>,
+        F4: FnOnce(&mut Self) -> Result<(), CompileError>,
     >(
         &mut self,
         reg: XMM,
@@ -766,7 +788,7 @@ impl MachineX86_64 {
         overflow_cb: F2,
         nan_cb: Option<F3>,
         convert_cb: F4,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         // As an optimization nan_cb is optional, and when set to None we turn
         // use 'underflow' as the 'nan' label. This is useful for callers who
         // set the return value to zero for both underflow and nan.
@@ -820,15 +842,15 @@ impl MachineX86_64 {
         overflow_label: Label,
         nan_label: Label,
         succeed_label: Label,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         let lower_bound = f64::to_bits(lower_bound);
         let upper_bound = f64::to_bits(upper_bound);
 
-        let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
-        let tmp_x = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+        let tmp_x = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
 
         // Underflow.
@@ -873,7 +895,7 @@ impl MachineX86_64 {
         reg: XMM,
         lower_bound: f64,
         upper_bound: f64,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         let trap_overflow = self.assembler.get_label();
         let trap_badconv = self.assembler.get_label();
         let end = self.assembler.get_label();
@@ -898,10 +920,10 @@ impl MachineX86_64 {
     }
     #[allow(clippy::too_many_arguments)]
     fn emit_f64_int_conv_check_sat<
-        F1: FnOnce(&mut Self) -> Result<(), CodegenError>,
-        F2: FnOnce(&mut Self) -> Result<(), CodegenError>,
-        F3: FnOnce(&mut Self) -> Result<(), CodegenError>,
-        F4: FnOnce(&mut Self) -> Result<(), CodegenError>,
+        F1: FnOnce(&mut Self) -> Result<(), CompileError>,
+        F2: FnOnce(&mut Self) -> Result<(), CompileError>,
+        F3: FnOnce(&mut Self) -> Result<(), CompileError>,
+        F4: FnOnce(&mut Self) -> Result<(), CompileError>,
     >(
         &mut self,
         reg: XMM,
@@ -911,7 +933,7 @@ impl MachineX86_64 {
         overflow_cb: F2,
         nan_cb: Option<F3>,
         convert_cb: F4,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         // As an optimization nan_cb is optional, and when set to None we turn
         // use 'underflow' as the 'nan' label. This is useful for callers who
         // set the return value to zero for both underflow and nan.
@@ -957,11 +979,11 @@ impl MachineX86_64 {
     /// Moves `src1` and `src2` to valid locations and possibly adds a layer of indirection for `dst` for AVX instructions.
     fn emit_relaxed_avx(
         &mut self,
-        op: fn(&mut AssemblerX64, XMM, XMMOrMemory, XMM) -> Result<(), CodegenError>,
+        op: fn(&mut AssemblerX64, XMM, XMMOrMemory, XMM) -> Result<(), CompileError>,
         src1: Location,
         src2: Location,
         dst: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx_base(
             |this, src1, src2, dst| op(&mut this.assembler, src1, src2, dst),
             src1,
@@ -972,25 +994,25 @@ impl MachineX86_64 {
 
     /// Moves `src1` and `src2` to valid locations and possibly adds a layer of indirection for `dst` for AVX instructions.
     fn emit_relaxed_avx_base<
-        F: FnOnce(&mut Self, XMM, XMMOrMemory, XMM) -> Result<(), CodegenError>,
+        F: FnOnce(&mut Self, XMM, XMMOrMemory, XMM) -> Result<(), CompileError>,
     >(
         &mut self,
         op: F,
         src1: Location,
         src2: Location,
         dst: Location,
-    ) -> Result<(), CodegenError> {
-        let tmp1 = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+    ) -> Result<(), CompileError> {
+        let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
-        let tmp2 = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+        let tmp2 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
-        let tmp3 = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+        let tmp3 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
-        let tmpg = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        let tmpg = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
 
         let src1 = match src1 {
@@ -1063,12 +1085,12 @@ impl MachineX86_64 {
         Ok(())
     }
 
-    fn convert_i64_f64_u_s(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
-        let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+    fn convert_i64_f64_u_s(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
+        let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
-        let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+        let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
 
         self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))?;
@@ -1087,19 +1109,19 @@ impl MachineX86_64 {
                     Location::GPR(tmp_out),
                 )
             },
-            None::<fn(this: &mut Self) -> Result<(), CodegenError>>,
+            None::<fn(this: &mut Self) -> Result<(), CompileError>>,
             |this| {
                 if this.assembler.arch_has_itruncf() {
                     this.assembler.arch_emit_i64_trunc_uf64(tmp_in, tmp_out)
                 } else {
-                    let tmp = this.acquire_temp_gpr().ok_or(CodegenError {
-                        message: "singlepass cannot acquire temp gpr".to_string(),
+                    let tmp = this.acquire_temp_gpr().ok_or_else(|| {
+                        CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                     })?;
-                    let tmp_x1 = this.acquire_temp_simd().ok_or(CodegenError {
-                        message: "singlepass cannot acquire temp simd".to_string(),
+                    let tmp_x1 = this.acquire_temp_simd().ok_or_else(|| {
+                        CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
                     })?;
-                    let tmp_x2 = this.acquire_temp_simd().ok_or(CodegenError {
-                        message: "singlepass cannot acquire temp simd".to_string(),
+                    let tmp_x2 = this.acquire_temp_simd().ok_or_else(|| {
+                        CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
                     })?;
 
                     this.assembler.emit_mov(
@@ -1151,13 +1173,13 @@ impl MachineX86_64 {
         self.release_gpr(tmp_out);
         Ok(())
     }
-    fn convert_i64_f64_u_u(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn convert_i64_f64_u_u(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         if self.assembler.arch_has_itruncf() {
-            let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
             self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))?;
             self.assembler.arch_emit_i64_trunc_uf64(tmp_in, tmp_out)?;
@@ -1165,24 +1187,24 @@ impl MachineX86_64 {
             self.release_simd(tmp_in);
             self.release_gpr(tmp_out);
         } else {
-            let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?; // xmm2
 
             self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))?;
             self.emit_f64_int_conv_check_trap(tmp_in, GEF64_LT_U64_MIN, LEF64_GT_U64_MAX)?;
 
-            let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?; // r15
-            let tmp_x1 = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_x1 = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?; // xmm1
-            let tmp_x2 = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_x2 = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?; // xmm3
 
             self.move_location(
@@ -1218,12 +1240,12 @@ impl MachineX86_64 {
         }
         Ok(())
     }
-    fn convert_i64_f64_s_s(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
-        let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+    fn convert_i64_f64_s_s(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
+        let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
-        let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+        let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
 
         self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))?;
@@ -1265,13 +1287,13 @@ impl MachineX86_64 {
         self.release_gpr(tmp_out);
         Ok(())
     }
-    fn convert_i64_f64_s_u(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn convert_i64_f64_s_u(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         if self.assembler.arch_has_itruncf() {
-            let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
             self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))?;
             self.assembler.arch_emit_i64_trunc_sf64(tmp_in, tmp_out)?;
@@ -1279,11 +1301,11 @@ impl MachineX86_64 {
             self.release_simd(tmp_in);
             self.release_gpr(tmp_out);
         } else {
-            let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
 
             self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))?;
@@ -1298,12 +1320,12 @@ impl MachineX86_64 {
         }
         Ok(())
     }
-    fn convert_i32_f64_s_s(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
-        let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+    fn convert_i32_f64_s_s(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
+        let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
-        let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+        let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
 
         let real_in = match loc {
@@ -1357,13 +1379,13 @@ impl MachineX86_64 {
         self.release_gpr(tmp_out);
         Ok(())
     }
-    fn convert_i32_f64_s_u(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn convert_i32_f64_s_u(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         if self.assembler.arch_has_itruncf() {
-            let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
             self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))?;
             self.assembler.arch_emit_i32_trunc_sf64(tmp_in, tmp_out)?;
@@ -1371,11 +1393,11 @@ impl MachineX86_64 {
             self.release_simd(tmp_in);
             self.release_gpr(tmp_out);
         } else {
-            let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
 
             let real_in = match loc {
@@ -1402,12 +1424,12 @@ impl MachineX86_64 {
         }
         Ok(())
     }
-    fn convert_i32_f64_u_s(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
-        let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+    fn convert_i32_f64_u_s(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
+        let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
-        let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+        let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
 
         self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))?;
@@ -1426,7 +1448,7 @@ impl MachineX86_64 {
                     Location::GPR(tmp_out),
                 )
             },
-            None::<fn(this: &mut Self) -> Result<(), CodegenError>>,
+            None::<fn(this: &mut Self) -> Result<(), CompileError>>,
             |this| {
                 if this.assembler.arch_has_itruncf() {
                     this.assembler.arch_emit_i32_trunc_uf64(tmp_in, tmp_out)
@@ -1443,13 +1465,13 @@ impl MachineX86_64 {
         self.release_gpr(tmp_out);
         Ok(())
     }
-    fn convert_i32_f64_u_u(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn convert_i32_f64_u_u(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         if self.assembler.arch_has_itruncf() {
-            let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
             self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))?;
             self.assembler.arch_emit_i32_trunc_uf64(tmp_in, tmp_out)?;
@@ -1457,11 +1479,11 @@ impl MachineX86_64 {
             self.release_simd(tmp_in);
             self.release_gpr(tmp_out);
         } else {
-            let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
 
             self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp_in))?;
@@ -1476,12 +1498,12 @@ impl MachineX86_64 {
         }
         Ok(())
     }
-    fn convert_i64_f32_u_s(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
-        let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+    fn convert_i64_f32_u_s(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
+        let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
-        let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+        let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
 
         self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))?;
@@ -1500,19 +1522,19 @@ impl MachineX86_64 {
                     Location::GPR(tmp_out),
                 )
             },
-            None::<fn(this: &mut Self) -> Result<(), CodegenError>>,
+            None::<fn(this: &mut Self) -> Result<(), CompileError>>,
             |this| {
                 if this.assembler.arch_has_itruncf() {
                     this.assembler.arch_emit_i64_trunc_uf32(tmp_in, tmp_out)
                 } else {
-                    let tmp = this.acquire_temp_gpr().ok_or(CodegenError {
-                        message: "singlepass cannot acquire temp gpr".to_string(),
+                    let tmp = this.acquire_temp_gpr().ok_or_else(|| {
+                        CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                     })?;
-                    let tmp_x1 = this.acquire_temp_simd().ok_or(CodegenError {
-                        message: "singlepass cannot acquire temp simd".to_string(),
+                    let tmp_x1 = this.acquire_temp_simd().ok_or_else(|| {
+                        CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
                     })?;
-                    let tmp_x2 = this.acquire_temp_simd().ok_or(CodegenError {
-                        message: "singlepass cannot acquire temp simd".to_string(),
+                    let tmp_x2 = this.acquire_temp_simd().ok_or_else(|| {
+                        CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
                     })?;
 
                     this.assembler.emit_mov(
@@ -1564,13 +1586,13 @@ impl MachineX86_64 {
         self.release_gpr(tmp_out);
         Ok(())
     }
-    fn convert_i64_f32_u_u(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn convert_i64_f32_u_u(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         if self.assembler.arch_has_itruncf() {
-            let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
             self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))?;
             self.assembler.arch_emit_i64_trunc_uf32(tmp_in, tmp_out)?;
@@ -1578,24 +1600,24 @@ impl MachineX86_64 {
             self.release_simd(tmp_in);
             self.release_gpr(tmp_out);
         } else {
-            let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?; // xmm2
 
             self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))?;
             self.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_U64_MIN, LEF32_GT_U64_MAX)?;
 
-            let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?; // r15
-            let tmp_x1 = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_x1 = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?; // xmm1
-            let tmp_x2 = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_x2 = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?; // xmm3
 
             self.move_location(
@@ -1631,12 +1653,12 @@ impl MachineX86_64 {
         }
         Ok(())
     }
-    fn convert_i64_f32_s_s(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
-        let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+    fn convert_i64_f32_s_s(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
+        let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
-        let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+        let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
 
         self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))?;
@@ -1678,13 +1700,13 @@ impl MachineX86_64 {
         self.release_gpr(tmp_out);
         Ok(())
     }
-    fn convert_i64_f32_s_u(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn convert_i64_f32_s_u(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         if self.assembler.arch_has_itruncf() {
-            let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
             self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))?;
             self.assembler.arch_emit_i64_trunc_sf32(tmp_in, tmp_out)?;
@@ -1692,11 +1714,11 @@ impl MachineX86_64 {
             self.release_simd(tmp_in);
             self.release_gpr(tmp_out);
         } else {
-            let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
 
             self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))?;
@@ -1710,12 +1732,12 @@ impl MachineX86_64 {
         }
         Ok(())
     }
-    fn convert_i32_f32_s_s(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
-        let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+    fn convert_i32_f32_s_s(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
+        let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
-        let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+        let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
 
         self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))?;
@@ -1757,13 +1779,13 @@ impl MachineX86_64 {
         self.release_gpr(tmp_out);
         Ok(())
     }
-    fn convert_i32_f32_s_u(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn convert_i32_f32_s_u(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         if self.assembler.arch_has_itruncf() {
-            let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
             self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))?;
             self.assembler.arch_emit_i32_trunc_sf32(tmp_in, tmp_out)?;
@@ -1771,11 +1793,11 @@ impl MachineX86_64 {
             self.release_simd(tmp_in);
             self.release_gpr(tmp_out);
         } else {
-            let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
 
             self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))?;
@@ -1790,12 +1812,12 @@ impl MachineX86_64 {
         }
         Ok(())
     }
-    fn convert_i32_f32_u_s(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
-        let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+    fn convert_i32_f32_u_s(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
+        let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
-        let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+        let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
         self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))?;
         self.emit_f32_int_conv_check_sat(
@@ -1813,7 +1835,7 @@ impl MachineX86_64 {
                     Location::GPR(tmp_out),
                 )
             },
-            None::<fn(this: &mut Self) -> Result<(), CodegenError>>,
+            None::<fn(this: &mut Self) -> Result<(), CompileError>>,
             |this| {
                 if this.assembler.arch_has_itruncf() {
                     this.assembler.arch_emit_i32_trunc_uf32(tmp_in, tmp_out)
@@ -1830,13 +1852,13 @@ impl MachineX86_64 {
         self.release_gpr(tmp_out);
         Ok(())
     }
-    fn convert_i32_f32_u_u(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn convert_i32_f32_u_u(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         if self.assembler.arch_has_itruncf() {
-            let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
             self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))?;
             self.assembler.arch_emit_i32_trunc_uf32(tmp_in, tmp_out)?;
@@ -1844,11 +1866,11 @@ impl MachineX86_64 {
             self.release_simd(tmp_in);
             self.release_gpr(tmp_out);
         } else {
-            let tmp_out = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp_out = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmp_in = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp_in = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
             self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp_in))?;
             self.emit_f32_int_conv_check_trap(tmp_in, GEF32_LT_U32_MIN, LEF32_GT_U32_MAX)?;
@@ -1868,7 +1890,7 @@ impl MachineX86_64 {
         sz: Size,
         src: Location,
         dst: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_binop(AssemblerX64::emit_xchg, sz, src, dst)
     }
 
@@ -1894,11 +1916,11 @@ impl MachineX86_64 {
         self.used_simd &= !(1 << r.into_index());
         ret
     }
-    fn emit_unwind_op(&mut self, op: UnwindOps) -> Result<(), CodegenError> {
+    fn emit_unwind_op(&mut self, op: UnwindOps) -> Result<(), CompileError> {
         self.unwind_ops.push((self.get_offset().0, op));
         Ok(())
     }
-    fn emit_illegal_op_internal(&mut self, trap: TrapCode) -> Result<(), CodegenError> {
+    fn emit_illegal_op_internal(&mut self, trap: TrapCode) -> Result<(), CompileError> {
         let v = trap as u8;
         self.assembler.emit_ud1_payload(v)
     }
@@ -1980,13 +2002,13 @@ impl Machine for MachineX86_64 {
         self.used_gprs_insert(gpr);
     }
 
-    fn push_used_gpr(&mut self, used_gprs: &[GPR]) -> Result<usize, CodegenError> {
+    fn push_used_gpr(&mut self, used_gprs: &[GPR]) -> Result<usize, CompileError> {
         for r in used_gprs.iter() {
             self.assembler.emit_push(Size::S64, Location::GPR(*r))?;
         }
         Ok(used_gprs.len() * 8)
     }
-    fn pop_used_gpr(&mut self, used_gprs: &[GPR]) -> Result<(), CodegenError> {
+    fn pop_used_gpr(&mut self, used_gprs: &[GPR]) -> Result<(), CompileError> {
         for r in used_gprs.iter().rev() {
             self.assembler.emit_pop(Size::S64, Location::GPR(*r))?;
         }
@@ -2035,7 +2057,7 @@ impl Machine for MachineX86_64 {
         assert!(self.used_simd_remove(&simd));
     }
 
-    fn push_used_simd(&mut self, used_xmms: &[XMM]) -> Result<usize, CodegenError> {
+    fn push_used_simd(&mut self, used_xmms: &[XMM]) -> Result<usize, CompileError> {
         self.adjust_stack((used_xmms.len() * 8) as u32)?;
 
         for (i, r) in used_xmms.iter().enumerate() {
@@ -2048,7 +2070,7 @@ impl Machine for MachineX86_64 {
 
         Ok(used_xmms.len() * 8)
     }
-    fn pop_used_simd(&mut self, used_xmms: &[XMM]) -> Result<(), CodegenError> {
+    fn pop_used_simd(&mut self, used_xmms: &[XMM]) -> Result<(), CompileError> {
         for (i, r) in used_xmms.iter().enumerate() {
             self.move_location(
                 Size::S64,
@@ -2134,7 +2156,7 @@ impl Machine for MachineX86_64 {
     }
 
     // Adjust stack for locals
-    fn adjust_stack(&mut self, delta_stack_offset: u32) -> Result<(), CodegenError> {
+    fn adjust_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         self.assembler.emit_sub(
             Size::S64,
             Location::Imm32(delta_stack_offset),
@@ -2142,14 +2164,14 @@ impl Machine for MachineX86_64 {
         )
     }
     // restore stack
-    fn restore_stack(&mut self, delta_stack_offset: u32) -> Result<(), CodegenError> {
+    fn restore_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         self.assembler.emit_add(
             Size::S64,
             Location::Imm32(delta_stack_offset),
             Location::GPR(GPR::RSP),
         )
     }
-    fn pop_stack_locals(&mut self, delta_stack_offset: u32) -> Result<(), CodegenError> {
+    fn pop_stack_locals(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         self.assembler.emit_add(
             Size::S64,
             Location::Imm32(delta_stack_offset),
@@ -2162,7 +2184,7 @@ impl Machine for MachineX86_64 {
         _size: Size,
         loc: Location,
         dest: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         match loc {
             Location::Imm64(_) | Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
                 let tmp = self.pick_temp_gpr();
@@ -2183,7 +2205,7 @@ impl Machine for MachineX86_64 {
     }
 
     // Zero a location that is 32bits
-    fn zero_location(&mut self, size: Size, location: Location) -> Result<(), CodegenError> {
+    fn zero_location(&mut self, size: Size, location: Location) -> Result<(), CompileError> {
         self.assembler.emit_mov(size, Location::Imm32(0), location)
     }
 
@@ -2209,7 +2231,7 @@ impl Machine for MachineX86_64 {
         }
     }
     // Move a local to the stack
-    fn move_local(&mut self, stack_offset: i32, location: Location) -> Result<(), CodegenError> {
+    fn move_local(&mut self, stack_offset: i32, location: Location) -> Result<(), CompileError> {
         self.assembler.emit_mov(
             Size::S64,
             location,
@@ -2331,14 +2353,14 @@ impl Machine for MachineX86_64 {
         size: Size,
         source: Location,
         dest: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         match source {
             Location::GPR(_) => self.assembler.emit_mov(size, source, dest),
             Location::Memory(_, _) => match dest {
                 Location::GPR(_) | Location::SIMD(_) => self.assembler.emit_mov(size, source, dest),
                 Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
-                    let tmp = self.pick_temp_gpr().ok_or(CodegenError {
-                        message: "singlepass can't pick a temp gpr".to_string(),
+                    let tmp = self.pick_temp_gpr().ok_or_else(|| {
+                        CompileError::Codegen("singlepass can't pick a temp gpr".to_owned())
                     })?;
                     self.assembler.emit_mov(size, source, Location::GPR(tmp))?;
                     self.assembler.emit_mov(size, Location::GPR(tmp), dest)
@@ -2348,8 +2370,8 @@ impl Machine for MachineX86_64 {
             Location::Memory2(_, _, _, _) => match dest {
                 Location::GPR(_) | Location::SIMD(_) => self.assembler.emit_mov(size, source, dest),
                 Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
-                    let tmp = self.pick_temp_gpr().ok_or(CodegenError {
-                        message: "singlepass can't pick a temp gpr".to_string(),
+                    let tmp = self.pick_temp_gpr().ok_or_else(|| {
+                        CompileError::Codegen("singlepass can't pick a temp gpr".to_owned())
                     })?;
                     self.assembler.emit_mov(size, source, Location::GPR(tmp))?;
                     self.assembler.emit_mov(size, Location::GPR(tmp), dest)
@@ -2359,8 +2381,8 @@ impl Machine for MachineX86_64 {
             Location::Imm8(_) | Location::Imm32(_) | Location::Imm64(_) => match dest {
                 Location::GPR(_) | Location::SIMD(_) => self.assembler.emit_mov(size, source, dest),
                 Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
-                    let tmp = self.pick_temp_gpr().ok_or(CodegenError {
-                        message: "singlepass can't pick a temp gpr".to_string(),
+                    let tmp = self.pick_temp_gpr().ok_or_else(|| {
+                        CompileError::Codegen("singlepass can't pick a temp gpr".to_owned())
                     })?;
                     self.assembler.emit_mov(size, source, Location::GPR(tmp))?;
                     self.assembler.emit_mov(size, Location::GPR(tmp), dest)
@@ -2379,11 +2401,11 @@ impl Machine for MachineX86_64 {
         source: Location,
         size_op: Size,
         dest: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         let dst = match dest {
             Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
-                Location::GPR(self.acquire_temp_gpr().ok_or(CodegenError {
-                    message: "singlepass cannot acquire temp gpr".to_string(),
+                Location::GPR(self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                 })?)
             }
             Location::GPR(_) | Location::SIMD(_) => dest,
@@ -2393,7 +2415,8 @@ impl Machine for MachineX86_64 {
             Location::GPR(_)
             | Location::Memory(_, _)
             | Location::Memory2(_, _, _, _)
-            | Location::Imm32(_) => match size_val {
+            | Location::Imm32(_)
+            | Location::Imm64(_) => match size_val {
                 Size::S32 | Size::S64 => self.assembler.emit_mov(size_val, source, dst),
                 Size::S16 | Size::S8 => {
                     if signed {
@@ -2422,7 +2445,7 @@ impl Machine for MachineX86_64 {
         size: Size,
         reg: Location,
         mem: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         match reg {
             Location::GPR(_) => {
                 match mem {
@@ -2445,7 +2468,7 @@ impl Machine for MachineX86_64 {
         &mut self,
         init_stack_loc_cnt: u64,
         last_stack_loc: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         // Since these assemblies take up to 24 bytes, if more than 2 slots are initialized, then they are smaller.
         self.assembler.emit_mov(
             Size::S64,
@@ -2459,7 +2482,7 @@ impl Machine for MachineX86_64 {
         self.assembler.emit_rep_stosq()
     }
     // Restore save_area
-    fn restore_saved_area(&mut self, saved_area_offset: i32) -> Result<(), CodegenError> {
+    fn restore_saved_area(&mut self, saved_area_offset: i32) -> Result<(), CompileError> {
         self.assembler.emit_lea(
             Size::S64,
             Location::Memory(GPR::RBP, -saved_area_offset),
@@ -2467,7 +2490,7 @@ impl Machine for MachineX86_64 {
         )
     }
     // Pop a location
-    fn pop_location(&mut self, location: Location) -> Result<(), CodegenError> {
+    fn pop_location(&mut self, location: Location) -> Result<(), CompileError> {
         self.assembler.emit_pop(Size::S64, location)
     }
     // Create a new `MachineState` with default values.
@@ -2484,19 +2507,19 @@ impl Machine for MachineX86_64 {
         self.assembler.get_offset()
     }
 
-    fn finalize_function(&mut self) -> Result<(), CodegenError> {
+    fn finalize_function(&mut self) -> Result<(), CompileError> {
         self.assembler.finalize_function()?;
         Ok(())
     }
 
-    fn emit_function_prolog(&mut self) -> Result<(), CodegenError> {
+    fn emit_function_prolog(&mut self) -> Result<(), CompileError> {
         self.emit_push(Size::S64, Location::GPR(GPR::RBP))?;
         self.emit_unwind_op(UnwindOps::PushFP { up_to_sp: 16 })?;
         self.move_location(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RBP))?;
         self.emit_unwind_op(UnwindOps::DefineNewFrame)
     }
 
-    fn emit_function_epilog(&mut self) -> Result<(), CodegenError> {
+    fn emit_function_epilog(&mut self) -> Result<(), CompileError> {
         self.move_location(Size::S64, Location::GPR(GPR::RBP), Location::GPR(GPR::RSP))?;
         self.emit_pop(Size::S64, Location::GPR(GPR::RBP))
     }
@@ -2506,7 +2529,7 @@ impl Machine for MachineX86_64 {
         ty: WpType,
         canonicalize: bool,
         loc: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         if canonicalize {
             self.canonicalize_nan(
                 match ty {
@@ -2522,7 +2545,7 @@ impl Machine for MachineX86_64 {
         }
     }
 
-    fn emit_function_return_float(&mut self) -> Result<(), CodegenError> {
+    fn emit_function_return_float(&mut self) -> Result<(), CompileError> {
         self.move_location(
             Size::S64,
             Location::GPR(GPR::RAX),
@@ -2538,20 +2561,20 @@ impl Machine for MachineX86_64 {
         sz: Size,
         input: Location,
         output: Location,
-    ) -> Result<(), CodegenError> {
-        let tmp1 = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+    ) -> Result<(), CompileError> {
+        let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
-        let tmp2 = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+        let tmp2 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
-        let tmp3 = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+        let tmp3 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
 
         self.emit_relaxed_mov(sz, input, Location::SIMD(tmp1))?;
-        let tmpg1 = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        let tmpg1 = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
 
         match sz {
@@ -2591,7 +2614,7 @@ impl Machine for MachineX86_64 {
         Ok(())
     }
 
-    fn emit_illegal_op(&mut self, trap: TrapCode) -> Result<(), CodegenError> {
+    fn emit_illegal_op(&mut self, trap: TrapCode) -> Result<(), CompileError> {
         // code below is kept as a reference on how to emit illegal op with trap info
         // without an Undefined opcode with payload
         /*
@@ -2612,16 +2635,16 @@ impl Machine for MachineX86_64 {
     fn get_label(&mut self) -> Label {
         self.assembler.new_dynamic_label()
     }
-    fn emit_label(&mut self, label: Label) -> Result<(), CodegenError> {
+    fn emit_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_label(label)
     }
     fn get_grp_for_call(&self) -> GPR {
         GPR::RAX
     }
-    fn emit_call_register(&mut self, reg: GPR) -> Result<(), CodegenError> {
+    fn emit_call_register(&mut self, reg: GPR) -> Result<(), CompileError> {
         self.assembler.emit_call_register(reg)
     }
-    fn emit_call_label(&mut self, label: Label) -> Result<(), CodegenError> {
+    fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_call_label(label)
     }
     fn get_gpr_for_ret(&self) -> GPR {
@@ -2638,16 +2661,16 @@ impl Machine for MachineX86_64 {
     fn arch_emit_indirect_call_with_trampoline(
         &mut self,
         location: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.assembler
             .arch_emit_indirect_call_with_trampoline(location)
     }
 
-    fn emit_debug_breakpoint(&mut self) -> Result<(), CodegenError> {
+    fn emit_debug_breakpoint(&mut self) -> Result<(), CompileError> {
         self.assembler.emit_bkpt()
     }
 
-    fn emit_call_location(&mut self, location: Location) -> Result<(), CodegenError> {
+    fn emit_call_location(&mut self, location: Location) -> Result<(), CompileError> {
         self.assembler.emit_call_location(location)
     }
 
@@ -2656,7 +2679,7 @@ impl Machine for MachineX86_64 {
         size: Size,
         source: Location,
         dest: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.assembler.emit_lea(size, source, dest)
     }
     // logic
@@ -2666,7 +2689,7 @@ impl Machine for MachineX86_64 {
         source: Location,
         dest: Location,
         _flags: bool,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.assembler.emit_and(size, source, dest)
     }
     fn location_xor(
@@ -2675,7 +2698,7 @@ impl Machine for MachineX86_64 {
         source: Location,
         dest: Location,
         _flags: bool,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.assembler.emit_xor(size, source, dest)
     }
     fn location_or(
@@ -2684,7 +2707,7 @@ impl Machine for MachineX86_64 {
         source: Location,
         dest: Location,
         _flags: bool,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.assembler.emit_or(size, source, dest)
     }
     fn location_test(
@@ -2692,7 +2715,7 @@ impl Machine for MachineX86_64 {
         size: Size,
         source: Location,
         dest: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.assembler.emit_test(size, source, dest)
     }
     // math
@@ -2702,7 +2725,7 @@ impl Machine for MachineX86_64 {
         source: Location,
         dest: Location,
         _flags: bool,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.assembler.emit_add(size, source, dest)
     }
     fn location_sub(
@@ -2711,7 +2734,7 @@ impl Machine for MachineX86_64 {
         source: Location,
         dest: Location,
         _flags: bool,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.assembler.emit_sub(size, source, dest)
     }
     fn location_cmp(
@@ -2719,42 +2742,42 @@ impl Machine for MachineX86_64 {
         size: Size,
         source: Location,
         dest: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.assembler.emit_cmp(size, source, dest)
     }
     // (un)conditionnal jmp
     // (un)conditionnal jmp
-    fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CodegenError> {
+    fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_jmp(Condition::None, label)
     }
-    fn jmp_on_equal(&mut self, label: Label) -> Result<(), CodegenError> {
+    fn jmp_on_equal(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_jmp(Condition::Equal, label)
     }
-    fn jmp_on_different(&mut self, label: Label) -> Result<(), CodegenError> {
+    fn jmp_on_different(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_jmp(Condition::NotEqual, label)
     }
-    fn jmp_on_above(&mut self, label: Label) -> Result<(), CodegenError> {
+    fn jmp_on_above(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_jmp(Condition::Above, label)
     }
-    fn jmp_on_aboveequal(&mut self, label: Label) -> Result<(), CodegenError> {
+    fn jmp_on_aboveequal(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_jmp(Condition::AboveEqual, label)
     }
-    fn jmp_on_belowequal(&mut self, label: Label) -> Result<(), CodegenError> {
+    fn jmp_on_belowequal(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_jmp(Condition::BelowEqual, label)
     }
-    fn jmp_on_overflow(&mut self, label: Label) -> Result<(), CodegenError> {
+    fn jmp_on_overflow(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_jmp(Condition::Carry, label)
     }
 
     // jmp table
-    fn emit_jmp_to_jumptable(&mut self, label: Label, cond: Location) -> Result<(), CodegenError> {
-        let tmp1 = self.pick_temp_gpr().ok_or(CodegenError {
-            message: "singlepass can't pick a temp gpr".to_string(),
-        })?;
+    fn emit_jmp_to_jumptable(&mut self, label: Label, cond: Location) -> Result<(), CompileError> {
+        let tmp1 = self
+            .pick_temp_gpr()
+            .ok_or_else(|| CompileError::Codegen("singlepass can't pick a temp gpr".to_owned()))?;
         self.reserve_gpr(tmp1);
-        let tmp2 = self.pick_temp_gpr().ok_or(CodegenError {
-            message: "singlepass can't pick a temp gpr".to_string(),
-        })?;
+        let tmp2 = self
+            .pick_temp_gpr()
+            .ok_or_else(|| CompileError::Codegen("singlepass can't pick a temp gpr".to_owned()))?;
         self.reserve_gpr(tmp2);
 
         self.assembler.emit_lea_label(label, Location::GPR(tmp1))?;
@@ -2771,7 +2794,7 @@ impl Machine for MachineX86_64 {
         Ok(())
     }
 
-    fn align_for_loop(&mut self) -> Result<(), CodegenError> {
+    fn align_for_loop(&mut self) -> Result<(), CompileError> {
         // Pad with NOPs to the next 16-byte boundary.
         // Here we don't use the dynasm `.align 16` attribute because it pads the alignment with single-byte nops
         // which may lead to efficiency problems.
@@ -2785,18 +2808,18 @@ impl Machine for MachineX86_64 {
         Ok(())
     }
 
-    fn emit_ret(&mut self) -> Result<(), CodegenError> {
+    fn emit_ret(&mut self) -> Result<(), CompileError> {
         self.assembler.emit_ret()
     }
 
-    fn emit_push(&mut self, size: Size, loc: Location) -> Result<(), CodegenError> {
+    fn emit_push(&mut self, size: Size, loc: Location) -> Result<(), CompileError> {
         self.assembler.emit_push(size, loc)
     }
-    fn emit_pop(&mut self, size: Size, loc: Location) -> Result<(), CodegenError> {
+    fn emit_pop(&mut self, size: Size, loc: Location) -> Result<(), CompileError> {
         self.assembler.emit_pop(size, loc)
     }
 
-    fn emit_memory_fence(&mut self) -> Result<(), CodegenError> {
+    fn emit_memory_fence(&mut self) -> Result<(), CompileError> {
         // nothing on x86_64
         Ok(())
     }
@@ -2808,12 +2831,12 @@ impl Machine for MachineX86_64 {
         source: Location,
         size_op: Size,
         dest: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.move_location_extend(size_val, signed, source, size_op, dest)?;
         self.assembler.emit_neg(size_val, dest)
     }
 
-    fn emit_imul_imm32(&mut self, size: Size, imm32: u32, gpr: GPR) -> Result<(), CodegenError> {
+    fn emit_imul_imm32(&mut self, size: Size, imm32: u32, gpr: GPR) -> Result<(), CompileError> {
         match size {
             Size::S64 => self.assembler.emit_imul_imm32_gpr64(imm32, gpr),
             _ => {
@@ -2828,7 +2851,7 @@ impl Machine for MachineX86_64 {
         sz: Size,
         src: Location,
         dst: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_binop(AssemblerX64::emit_mov, sz, src, dst)
     }
     fn emit_relaxed_cmp(
@@ -2836,7 +2859,7 @@ impl Machine for MachineX86_64 {
         sz: Size,
         src: Location,
         dst: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_binop(AssemblerX64::emit_cmp, sz, src, dst)
     }
     fn emit_relaxed_zero_extension(
@@ -2845,7 +2868,7 @@ impl Machine for MachineX86_64 {
         src: Location,
         sz_dst: Size,
         dst: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         if (sz_src == Size::S32 || sz_src == Size::S64) && sz_dst == Size::S64 {
             self.emit_relaxed_binop(AssemblerX64::emit_mov, sz_src, src, dst)
         } else {
@@ -2858,7 +2881,7 @@ impl Machine for MachineX86_64 {
         src: Location,
         sz_dst: Size,
         dst: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_zx_sx(AssemblerX64::emit_movsx, sz_src, src, sz_dst, dst)
     }
 
@@ -2867,7 +2890,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_binop_i32(AssemblerX64::emit_add, loc_a, loc_b, ret)
     }
     fn emit_binop_sub32(
@@ -2875,7 +2898,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_binop_i32(AssemblerX64::emit_sub, loc_a, loc_b, ret)
     }
     fn emit_binop_mul32(
@@ -2883,7 +2906,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_binop_i32(AssemblerX64::emit_imul, loc_a, loc_b, ret)
     }
     fn emit_binop_udiv32(
@@ -2893,7 +2916,7 @@ impl Machine for MachineX86_64 {
         ret: Location,
         integer_division_by_zero: Label,
         _integer_overflow: Label,
-    ) -> Result<usize, CodegenError> {
+    ) -> Result<usize, CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
             .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX))?;
@@ -2916,7 +2939,7 @@ impl Machine for MachineX86_64 {
         ret: Location,
         integer_division_by_zero: Label,
         _integer_overflow: Label,
-    ) -> Result<usize, CodegenError> {
+    ) -> Result<usize, CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
             .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX))?;
@@ -2938,7 +2961,7 @@ impl Machine for MachineX86_64 {
         ret: Location,
         integer_division_by_zero: Label,
         _integer_overflow: Label,
-    ) -> Result<usize, CodegenError> {
+    ) -> Result<usize, CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
             .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX))?;
@@ -2961,7 +2984,7 @@ impl Machine for MachineX86_64 {
         ret: Location,
         integer_division_by_zero: Label,
         _integer_overflow: Label,
-    ) -> Result<usize, CodegenError> {
+    ) -> Result<usize, CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         let normal_path = self.assembler.get_label();
         let end = self.assembler.get_label();
@@ -2994,7 +3017,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_binop_i32(AssemblerX64::emit_and, loc_a, loc_b, ret)
     }
     fn emit_binop_or32(
@@ -3002,7 +3025,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_binop_i32(AssemblerX64::emit_or, loc_a, loc_b, ret)
     }
     fn emit_binop_xor32(
@@ -3010,7 +3033,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_binop_i32(AssemblerX64::emit_xor, loc_a, loc_b, ret)
     }
     fn i32_cmp_ge_s(
@@ -3018,7 +3041,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::GreaterEqual, loc_a, loc_b, ret)
     }
     fn i32_cmp_gt_s(
@@ -3026,7 +3049,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::Greater, loc_a, loc_b, ret)
     }
     fn i32_cmp_le_s(
@@ -3034,7 +3057,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::LessEqual, loc_a, loc_b, ret)
     }
     fn i32_cmp_lt_s(
@@ -3042,7 +3065,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::Less, loc_a, loc_b, ret)
     }
     fn i32_cmp_ge_u(
@@ -3050,7 +3073,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::AboveEqual, loc_a, loc_b, ret)
     }
     fn i32_cmp_gt_u(
@@ -3058,7 +3081,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::Above, loc_a, loc_b, ret)
     }
     fn i32_cmp_le_u(
@@ -3066,7 +3089,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::BelowEqual, loc_a, loc_b, ret)
     }
     fn i32_cmp_lt_u(
@@ -3074,7 +3097,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::Below, loc_a, loc_b, ret)
     }
     fn i32_cmp_ne(
@@ -3082,7 +3105,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::NotEqual, loc_a, loc_b, ret)
     }
     fn i32_cmp_eq(
@@ -3090,14 +3113,14 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i32_dynamic_b(Condition::Equal, loc_a, loc_b, ret)
     }
-    fn i32_clz(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn i32_clz(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         let src = match loc {
             Location::Imm32(_) | Location::Memory(_, _) => {
-                let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                    message: "singlepass cannot acquire temp gpr".to_string(),
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                 })?;
                 self.move_location(Size::S32, loc, Location::GPR(tmp))?;
                 tmp
@@ -3108,8 +3131,8 @@ impl Machine for MachineX86_64 {
             }
         };
         let dst = match ret {
-            Location::Memory(_, _) => self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            Location::Memory(_, _) => self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?,
             Location::GPR(reg) => reg,
             _ => {
@@ -3147,11 +3170,11 @@ impl Machine for MachineX86_64 {
         };
         Ok(())
     }
-    fn i32_ctz(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn i32_ctz(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         let src = match loc {
             Location::Imm32(_) | Location::Memory(_, _) => {
-                let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                    message: "singlepass cannot acquire temp gpr".to_string(),
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                 })?;
                 self.move_location(Size::S32, loc, Location::GPR(tmp))?;
                 tmp
@@ -3162,8 +3185,8 @@ impl Machine for MachineX86_64 {
             }
         };
         let dst = match ret {
-            Location::Memory(_, _) => self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            Location::Memory(_, _) => self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?,
             Location::GPR(reg) => reg,
             _ => {
@@ -3200,16 +3223,16 @@ impl Machine for MachineX86_64 {
         };
         Ok(())
     }
-    fn i32_popcnt(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn i32_popcnt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         match loc {
             Location::Imm32(_) => {
-                let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                    message: "singlepass cannot acquire temp gpr".to_string(),
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                 })?;
                 self.move_location(Size::S32, loc, Location::GPR(tmp))?;
                 if let Location::Memory(_, _) = ret {
-                    let out_tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                        message: "singlepass cannot acquire temp gpr".to_string(),
+                    let out_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                        CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                     })?;
                     self.assembler.emit_popcnt(
                         Size::S32,
@@ -3226,8 +3249,8 @@ impl Machine for MachineX86_64 {
             }
             Location::Memory(_, _) | Location::GPR(_) => {
                 if let Location::Memory(_, _) = ret {
-                    let out_tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                        message: "singlepass cannot acquire temp gpr".to_string(),
+                    let out_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                        CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                     })?;
                     self.assembler
                         .emit_popcnt(Size::S32, loc, Location::GPR(out_tmp))?;
@@ -3248,7 +3271,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_shift_i32(AssemblerX64::emit_shl, loc_a, loc_b, ret)
     }
     fn i32_shr(
@@ -3256,7 +3279,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_shift_i32(AssemblerX64::emit_shr, loc_a, loc_b, ret)
     }
     fn i32_sar(
@@ -3264,7 +3287,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_shift_i32(AssemblerX64::emit_sar, loc_a, loc_b, ret)
     }
     fn i32_rol(
@@ -3272,7 +3295,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_shift_i32(AssemblerX64::emit_rol, loc_a, loc_b, ret)
     }
     fn i32_ror(
@@ -3280,7 +3303,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_shift_i32(AssemblerX64::emit_ror, loc_a, loc_b, ret)
     }
     fn i32_load(
@@ -3292,7 +3315,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -3302,6 +3326,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -3321,7 +3346,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -3331,6 +3357,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
                     AssemblerX64::emit_movzx,
@@ -3351,7 +3378,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -3361,6 +3389,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
                     AssemblerX64::emit_movsx,
@@ -3381,7 +3410,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -3391,6 +3421,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
                     AssemblerX64::emit_movzx,
@@ -3411,7 +3442,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -3421,6 +3453,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
                     AssemblerX64::emit_movsx,
@@ -3441,7 +3474,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -3451,6 +3485,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_mov(Size::S32, Location::Memory(addr, 0), ret),
         )
     }
@@ -3463,7 +3498,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -3473,6 +3509,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zero_extension(
                     Size::S8,
@@ -3492,7 +3529,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -3502,6 +3540,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zero_extension(
                     Size::S16,
@@ -3521,7 +3560,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
             memarg,
@@ -3531,6 +3571,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -3550,7 +3591,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
             memarg,
@@ -3560,6 +3602,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -3579,7 +3622,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
             memarg,
@@ -3589,6 +3633,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -3611,7 +3656,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
             memarg,
@@ -3621,6 +3667,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -3640,7 +3687,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
             memarg,
@@ -3650,6 +3698,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -3669,7 +3718,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
             memarg,
@@ -3679,6 +3729,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -3700,9 +3751,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.move_location(Size::S32, loc, Location::GPR(value))?;
         self.memory_op(
@@ -3714,6 +3766,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S32,
@@ -3737,9 +3790,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.move_location_extend(Size::S8, false, loc, Size::S32, Location::GPR(value))?;
         self.memory_op(
@@ -3751,6 +3805,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S8,
@@ -3774,9 +3829,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.move_location_extend(Size::S16, false, loc, Size::S32, Location::GPR(value))?;
         self.memory_op(
@@ -3788,6 +3844,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S16,
@@ -3811,9 +3868,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.location_neg(Size::S32, false, loc, Size::S32, Location::GPR(value))?;
         self.memory_op(
@@ -3825,6 +3883,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S32,
@@ -3848,9 +3907,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.location_neg(Size::S8, false, loc, Size::S32, Location::GPR(value))?;
         self.memory_op(
@@ -3862,6 +3922,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S8,
@@ -3885,9 +3946,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.location_neg(Size::S16, false, loc, Size::S32, Location::GPR(value))?;
         self.memory_op(
@@ -3899,6 +3961,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S16,
@@ -3922,7 +3985,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -3935,6 +3999,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_and(Size::S32, Location::GPR(src), Location::GPR(dst))
@@ -3952,7 +4017,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -3965,6 +4031,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_and(Size::S32, Location::GPR(src), Location::GPR(dst))
@@ -3982,7 +4049,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -3995,6 +4063,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_and(Size::S32, Location::GPR(src), Location::GPR(dst))
@@ -4012,7 +4081,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -4025,6 +4095,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_or(Size::S32, Location::GPR(src), Location::GPR(dst))
@@ -4042,7 +4113,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -4055,6 +4127,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_or(Size::S32, Location::GPR(src), Location::GPR(dst))
@@ -4072,7 +4145,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -4085,6 +4159,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_or(Size::S32, Location::GPR(src), Location::GPR(dst))
@@ -4102,7 +4177,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -4115,6 +4191,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_xor(Size::S32, Location::GPR(src), Location::GPR(dst))
@@ -4132,7 +4209,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -4145,6 +4223,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_xor(Size::S32, Location::GPR(src), Location::GPR(dst))
@@ -4162,7 +4241,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -4175,6 +4255,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_xor(Size::S32, Location::GPR(src), Location::GPR(dst))
@@ -4192,9 +4273,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.move_location(Size::S32, loc, Location::GPR(value))?;
         self.memory_op(
@@ -4206,6 +4288,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler
                     .emit_xchg(Size::S32, Location::GPR(value), Location::Memory(addr, 0))
@@ -4226,9 +4309,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.assembler
             .emit_movzx(Size::S8, loc, Size::S32, Location::GPR(value))?;
@@ -4241,6 +4325,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler
                     .emit_xchg(Size::S8, Location::GPR(value), Location::Memory(addr, 0))
@@ -4261,9 +4346,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.assembler
             .emit_movzx(Size::S16, loc, Size::S32, Location::GPR(value))?;
@@ -4276,6 +4362,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler
                     .emit_xchg(Size::S16, Location::GPR(value), Location::Memory(addr, 0))
@@ -4297,7 +4384,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         let compare = self.reserve_unused_temp_gpr(GPR::RAX);
         let value = if cmp == Location::GPR(GPR::R14) {
             if new == Location::GPR(GPR::R13) {
@@ -4323,6 +4411,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_cmpxchg(
                     Size::S32,
@@ -4349,7 +4438,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         let compare = self.reserve_unused_temp_gpr(GPR::RAX);
         let value = if cmp == Location::GPR(GPR::R14) {
             if new == Location::GPR(GPR::R13) {
@@ -4375,6 +4465,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_cmpxchg(
                     Size::S8,
@@ -4401,7 +4492,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         let compare = self.reserve_unused_temp_gpr(GPR::RAX);
         let value = if cmp == Location::GPR(GPR::R14) {
             if new == Location::GPR(GPR::R13) {
@@ -4427,6 +4519,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_cmpxchg(
                     Size::S16,
@@ -4446,7 +4539,7 @@ impl Machine for MachineX86_64 {
         &mut self,
         _calling_convention: CallingConvention,
         reloc_target: RelocationTarget,
-    ) -> Result<Vec<Relocation>, CodegenError> {
+    ) -> Result<Vec<Relocation>, CompileError> {
         let mut relocations = vec![];
         let next = self.get_label();
         let reloc_at = self.assembler.get_offset().0 + 1; // skip E8
@@ -4466,7 +4559,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_binop_i64(AssemblerX64::emit_add, loc_a, loc_b, ret)
     }
     fn emit_binop_sub64(
@@ -4474,7 +4567,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_binop_i64(AssemblerX64::emit_sub, loc_a, loc_b, ret)
     }
     fn emit_binop_mul64(
@@ -4482,7 +4575,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_binop_i64(AssemblerX64::emit_imul, loc_a, loc_b, ret)
     }
     fn emit_binop_udiv64(
@@ -4492,7 +4585,7 @@ impl Machine for MachineX86_64 {
         ret: Location,
         integer_division_by_zero: Label,
         _integer_overflow: Label,
-    ) -> Result<usize, CodegenError> {
+    ) -> Result<usize, CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
             .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX))?;
@@ -4515,7 +4608,7 @@ impl Machine for MachineX86_64 {
         ret: Location,
         integer_division_by_zero: Label,
         _integer_overflow: Label,
-    ) -> Result<usize, CodegenError> {
+    ) -> Result<usize, CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
             .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX))?;
@@ -4537,7 +4630,7 @@ impl Machine for MachineX86_64 {
         ret: Location,
         integer_division_by_zero: Label,
         _integer_overflow: Label,
-    ) -> Result<usize, CodegenError> {
+    ) -> Result<usize, CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
             .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX))?;
@@ -4560,7 +4653,7 @@ impl Machine for MachineX86_64 {
         ret: Location,
         integer_division_by_zero: Label,
         _integer_overflow: Label,
-    ) -> Result<usize, CodegenError> {
+    ) -> Result<usize, CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         let normal_path = self.assembler.get_label();
         let end = self.assembler.get_label();
@@ -4593,7 +4686,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_binop_i64(AssemblerX64::emit_and, loc_a, loc_b, ret)
     }
     fn emit_binop_or64(
@@ -4601,7 +4694,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_binop_i64(AssemblerX64::emit_or, loc_a, loc_b, ret)
     }
     fn emit_binop_xor64(
@@ -4609,7 +4702,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_binop_i64(AssemblerX64::emit_xor, loc_a, loc_b, ret)
     }
     fn i64_cmp_ge_s(
@@ -4617,7 +4710,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::GreaterEqual, loc_a, loc_b, ret)
     }
     fn i64_cmp_gt_s(
@@ -4625,7 +4718,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::Greater, loc_a, loc_b, ret)
     }
     fn i64_cmp_le_s(
@@ -4633,7 +4726,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::LessEqual, loc_a, loc_b, ret)
     }
     fn i64_cmp_lt_s(
@@ -4641,7 +4734,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::Less, loc_a, loc_b, ret)
     }
     fn i64_cmp_ge_u(
@@ -4649,7 +4742,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::AboveEqual, loc_a, loc_b, ret)
     }
     fn i64_cmp_gt_u(
@@ -4657,7 +4750,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::Above, loc_a, loc_b, ret)
     }
     fn i64_cmp_le_u(
@@ -4665,7 +4758,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::BelowEqual, loc_a, loc_b, ret)
     }
     fn i64_cmp_lt_u(
@@ -4673,7 +4766,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::Below, loc_a, loc_b, ret)
     }
     fn i64_cmp_ne(
@@ -4681,7 +4774,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::NotEqual, loc_a, loc_b, ret)
     }
     fn i64_cmp_eq(
@@ -4689,14 +4782,14 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_cmpop_i64_dynamic_b(Condition::Equal, loc_a, loc_b, ret)
     }
-    fn i64_clz(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn i64_clz(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         let src = match loc {
             Location::Imm64(_) | Location::Imm32(_) | Location::Memory(_, _) => {
-                let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                    message: "singlepass cannot acquire temp gpr".to_string(),
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                 })?;
                 self.move_location(Size::S64, loc, Location::GPR(tmp))?;
                 tmp
@@ -4707,8 +4800,8 @@ impl Machine for MachineX86_64 {
             }
         };
         let dst = match ret {
-            Location::Memory(_, _) => self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            Location::Memory(_, _) => self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?,
             Location::GPR(reg) => reg,
             _ => {
@@ -4746,11 +4839,11 @@ impl Machine for MachineX86_64 {
         };
         Ok(())
     }
-    fn i64_ctz(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn i64_ctz(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         let src = match loc {
             Location::Imm64(_) | Location::Imm32(_) | Location::Memory(_, _) => {
-                let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                    message: "singlepass cannot acquire temp gpr".to_string(),
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                 })?;
                 self.move_location(Size::S64, loc, Location::GPR(tmp))?;
                 tmp
@@ -4761,8 +4854,8 @@ impl Machine for MachineX86_64 {
             }
         };
         let dst = match ret {
-            Location::Memory(_, _) => self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            Location::Memory(_, _) => self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?,
             Location::GPR(reg) => reg,
             _ => {
@@ -4799,16 +4892,16 @@ impl Machine for MachineX86_64 {
         };
         Ok(())
     }
-    fn i64_popcnt(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn i64_popcnt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         match loc {
             Location::Imm64(_) | Location::Imm32(_) => {
-                let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                    message: "singlepass cannot acquire temp gpr".to_string(),
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                 })?;
                 self.move_location(Size::S64, loc, Location::GPR(tmp))?;
                 if let Location::Memory(_, _) = ret {
-                    let out_tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                        message: "singlepass cannot acquire temp gpr".to_string(),
+                    let out_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                        CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                     })?;
                     self.assembler.emit_popcnt(
                         Size::S64,
@@ -4825,8 +4918,8 @@ impl Machine for MachineX86_64 {
             }
             Location::Memory(_, _) | Location::GPR(_) => {
                 if let Location::Memory(_, _) = ret {
-                    let out_tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                        message: "singlepass cannot acquire temp gpr".to_string(),
+                    let out_tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                        CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                     })?;
                     self.assembler
                         .emit_popcnt(Size::S64, loc, Location::GPR(out_tmp))?;
@@ -4847,7 +4940,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_shift_i64(AssemblerX64::emit_shl, loc_a, loc_b, ret)
     }
     fn i64_shr(
@@ -4855,7 +4948,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_shift_i64(AssemblerX64::emit_shr, loc_a, loc_b, ret)
     }
     fn i64_sar(
@@ -4863,7 +4956,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_shift_i64(AssemblerX64::emit_sar, loc_a, loc_b, ret)
     }
     fn i64_rol(
@@ -4871,7 +4964,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_shift_i64(AssemblerX64::emit_rol, loc_a, loc_b, ret)
     }
     fn i64_ror(
@@ -4879,7 +4972,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_shift_i64(AssemblerX64::emit_ror, loc_a, loc_b, ret)
     }
     fn i64_load(
@@ -4891,7 +4984,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -4901,6 +4995,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -4920,7 +5015,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -4930,6 +5026,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
                     AssemblerX64::emit_movzx,
@@ -4950,7 +5047,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -4960,6 +5058,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
                     AssemblerX64::emit_movsx,
@@ -4980,7 +5079,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -4990,6 +5090,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
                     AssemblerX64::emit_movzx,
@@ -5010,7 +5111,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -5020,6 +5122,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
                     AssemblerX64::emit_movsx,
@@ -5040,7 +5143,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -5050,6 +5154,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 match ret {
                     Location::GPR(_) => {}
@@ -5082,7 +5187,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -5092,6 +5198,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zx_sx(
                     AssemblerX64::emit_movsx,
@@ -5112,7 +5219,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -5122,6 +5230,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_mov(Size::S64, Location::Memory(addr, 0), ret),
         )
     }
@@ -5134,7 +5243,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -5144,6 +5254,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zero_extension(
                     Size::S8,
@@ -5163,7 +5274,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -5173,6 +5285,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_zero_extension(
                     Size::S16,
@@ -5192,7 +5305,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -5202,6 +5316,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 match ret {
                     Location::GPR(_) => {}
@@ -5234,7 +5349,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
             memarg,
@@ -5244,6 +5360,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -5263,7 +5380,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
             memarg,
@@ -5273,6 +5391,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -5292,7 +5411,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
             memarg,
@@ -5302,6 +5422,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -5321,7 +5442,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
             memarg,
@@ -5331,6 +5453,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -5350,7 +5473,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
             memarg,
@@ -5360,6 +5484,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_atomic_xchg(Size::S64, value, Location::Memory(addr, 0)),
         )
     }
@@ -5372,7 +5497,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
             memarg,
@@ -5382,6 +5508,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_atomic_xchg(Size::S8, value, Location::Memory(addr, 0)),
         )
     }
@@ -5394,7 +5521,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
             memarg,
@@ -5404,6 +5532,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_atomic_xchg(Size::S16, value, Location::Memory(addr, 0)),
         )
     }
@@ -5416,7 +5545,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             target_addr,
             memarg,
@@ -5426,6 +5556,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| this.emit_relaxed_atomic_xchg(Size::S32, value, Location::Memory(addr, 0)),
         )
     }
@@ -5440,9 +5571,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.move_location(Size::S64, loc, Location::GPR(value))?;
         self.memory_op(
@@ -5454,9 +5586,10 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
-                    Size::S32,
+                    Size::S64,
                     Location::GPR(value),
                     Location::Memory(addr, 0),
                 )
@@ -5477,9 +5610,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.move_location_extend(Size::S8, false, loc, Size::S64, Location::GPR(value))?;
         self.memory_op(
@@ -5491,6 +5625,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S8,
@@ -5514,9 +5649,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.move_location_extend(Size::S16, false, loc, Size::S64, Location::GPR(value))?;
         self.memory_op(
@@ -5528,6 +5664,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S16,
@@ -5551,9 +5688,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.move_location_extend(Size::S32, false, loc, Size::S64, Location::GPR(value))?;
         self.memory_op(
@@ -5565,6 +5703,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S32,
@@ -5588,9 +5727,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.location_neg(Size::S64, false, loc, Size::S64, Location::GPR(value))?;
         self.memory_op(
@@ -5602,6 +5742,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S64,
@@ -5625,9 +5766,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.location_neg(Size::S8, false, loc, Size::S64, Location::GPR(value))?;
         self.memory_op(
@@ -5639,6 +5781,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S8,
@@ -5662,9 +5805,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.location_neg(Size::S16, false, loc, Size::S64, Location::GPR(value))?;
         self.memory_op(
@@ -5676,6 +5820,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S16,
@@ -5699,9 +5844,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.location_neg(Size::S32, false, loc, Size::S64, Location::GPR(value))?;
         self.memory_op(
@@ -5713,6 +5859,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_xadd(
                     Size::S32,
@@ -5736,7 +5883,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -5749,6 +5897,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_and(Size::S64, Location::GPR(src), Location::GPR(dst))
@@ -5766,7 +5915,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -5779,6 +5929,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_and(Size::S64, Location::GPR(src), Location::GPR(dst))
@@ -5796,7 +5947,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -5809,6 +5961,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_and(Size::S64, Location::GPR(src), Location::GPR(dst))
@@ -5826,7 +5979,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -5839,6 +5993,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.assembler
                     .emit_and(Size::S64, Location::GPR(src), Location::GPR(dst))
@@ -5856,7 +6011,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -5869,6 +6025,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.location_or(Size::S64, Location::GPR(src), Location::GPR(dst), false)
             },
@@ -5885,7 +6042,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -5898,6 +6056,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.location_or(Size::S64, Location::GPR(src), Location::GPR(dst), false)
             },
@@ -5914,7 +6073,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -5927,6 +6087,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.location_or(Size::S64, Location::GPR(src), Location::GPR(dst), false)
             },
@@ -5943,7 +6104,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -5956,6 +6118,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.location_or(Size::S64, Location::GPR(src), Location::GPR(dst), false)
             },
@@ -5972,7 +6135,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -5985,6 +6149,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.location_xor(Size::S64, Location::GPR(src), Location::GPR(dst), false)
             },
@@ -6001,7 +6166,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -6014,6 +6180,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.location_xor(Size::S64, Location::GPR(src), Location::GPR(dst), false)
             },
@@ -6030,7 +6197,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -6043,6 +6211,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.location_xor(Size::S64, Location::GPR(src), Location::GPR(dst), false)
             },
@@ -6059,7 +6228,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.emit_compare_and_swap(
             loc,
             target,
@@ -6072,6 +6242,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, src, dst| {
                 this.location_xor(Size::S64, Location::GPR(src), Location::GPR(dst), false)
             },
@@ -6088,9 +6259,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.move_location(Size::S64, loc, Location::GPR(value))?;
         self.memory_op(
@@ -6102,6 +6274,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler
                     .emit_xchg(Size::S64, Location::GPR(value), Location::Memory(addr, 0))
@@ -6122,9 +6295,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.assembler
             .emit_movzx(Size::S8, loc, Size::S64, Location::GPR(value))?;
@@ -6137,6 +6311,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler
                     .emit_xchg(Size::S8, Location::GPR(value), Location::Memory(addr, 0))
@@ -6157,9 +6332,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.assembler
             .emit_movzx(Size::S16, loc, Size::S64, Location::GPR(value))?;
@@ -6172,6 +6348,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler
                     .emit_xchg(Size::S16, Location::GPR(value), Location::Memory(addr, 0))
@@ -6192,9 +6369,10 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
-        let value = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
+        let value = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.assembler
             .emit_movzx(Size::S32, loc, Size::S64, Location::GPR(value))?;
@@ -6207,6 +6385,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler
                     .emit_xchg(Size::S32, Location::GPR(value), Location::Memory(addr, 0))
@@ -6228,7 +6407,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         let compare = self.reserve_unused_temp_gpr(GPR::RAX);
         let value = if cmp == Location::GPR(GPR::R14) {
             if new == Location::GPR(GPR::R13) {
@@ -6254,6 +6434,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_cmpxchg(
                     Size::S64,
@@ -6280,7 +6461,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         let compare = self.reserve_unused_temp_gpr(GPR::RAX);
         let value = if cmp == Location::GPR(GPR::R14) {
             if new == Location::GPR(GPR::R13) {
@@ -6306,6 +6488,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_cmpxchg(
                     Size::S8,
@@ -6332,7 +6515,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         let compare = self.reserve_unused_temp_gpr(GPR::RAX);
         let value = if cmp == Location::GPR(GPR::R14) {
             if new == Location::GPR(GPR::R13) {
@@ -6358,6 +6542,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_cmpxchg(
                     Size::S16,
@@ -6384,7 +6569,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         let compare = self.reserve_unused_temp_gpr(GPR::RAX);
         let value = if cmp == Location::GPR(GPR::R14) {
             if new == Location::GPR(GPR::R13) {
@@ -6410,9 +6596,10 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.assembler.emit_lock_cmpxchg(
-                    Size::S16,
+                    Size::S32,
                     Location::GPR(value),
                     Location::Memory(addr, 0),
                 )?;
@@ -6434,7 +6621,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -6444,6 +6632,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -6464,7 +6653,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
         self.memory_op(
             target_addr,
@@ -6475,6 +6665,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 if !canonicalize {
                     this.emit_relaxed_binop(
@@ -6498,7 +6689,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         self.memory_op(
             addr,
             memarg,
@@ -6508,6 +6700,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 this.emit_relaxed_binop(
                     AssemblerX64::emit_mov,
@@ -6528,7 +6721,8 @@ impl Machine for MachineX86_64 {
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
-    ) -> Result<(), CodegenError> {
+        unaligned_atomic: Label,
+    ) -> Result<(), CompileError> {
         let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
         self.memory_op(
             target_addr,
@@ -6539,6 +6733,7 @@ impl Machine for MachineX86_64 {
             imported_memories,
             offset,
             heap_access_oob,
+            unaligned_atomic,
             |this, addr| {
                 if !canonicalize {
                     this.emit_relaxed_binop(
@@ -6559,12 +6754,12 @@ impl Machine for MachineX86_64 {
         loc: Location,
         signed: bool,
         ret: Location,
-    ) -> Result<(), CodegenError> {
-        let tmp_out = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+    ) -> Result<(), CompileError> {
+        let tmp_out = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
-        let tmp_in = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        let tmp_in = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         if self.assembler.arch_has_fconverti() {
             self.emit_relaxed_mov(Size::S64, loc, Location::GPR(tmp_in))?;
@@ -6581,8 +6776,8 @@ impl Machine for MachineX86_64 {
                 .emit_vcvtsi2sd_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out)?;
             self.move_location(Size::S64, Location::SIMD(tmp_out), ret)?;
         } else {
-            let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
 
             let do_convert = self.assembler.get_label();
@@ -6621,12 +6816,12 @@ impl Machine for MachineX86_64 {
         loc: Location,
         signed: bool,
         ret: Location,
-    ) -> Result<(), CodegenError> {
-        let tmp_out = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+    ) -> Result<(), CompileError> {
+        let tmp_out = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
-        let tmp_in = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        let tmp_in = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         if self.assembler.arch_has_fconverti() {
             self.emit_relaxed_mov(Size::S32, loc, Location::GPR(tmp_in))?;
@@ -6657,12 +6852,12 @@ impl Machine for MachineX86_64 {
         loc: Location,
         signed: bool,
         ret: Location,
-    ) -> Result<(), CodegenError> {
-        let tmp_out = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+    ) -> Result<(), CompileError> {
+        let tmp_out = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
-        let tmp_in = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        let tmp_in = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         if self.assembler.arch_has_fconverti() {
             self.emit_relaxed_mov(Size::S64, loc, Location::GPR(tmp_in))?;
@@ -6679,8 +6874,8 @@ impl Machine for MachineX86_64 {
                 .emit_vcvtsi2ss_64(tmp_out, GPROrMemory::GPR(tmp_in), tmp_out)?;
             self.move_location(Size::S32, Location::SIMD(tmp_out), ret)?;
         } else {
-            let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
 
             let do_convert = self.assembler.get_label();
@@ -6719,12 +6914,12 @@ impl Machine for MachineX86_64 {
         loc: Location,
         signed: bool,
         ret: Location,
-    ) -> Result<(), CodegenError> {
-        let tmp_out = self.acquire_temp_simd().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp simd".to_string(),
+    ) -> Result<(), CompileError> {
+        let tmp_out = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
-        let tmp_in = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        let tmp_in = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         if self.assembler.arch_has_fconverti() {
             self.emit_relaxed_mov(Size::S32, loc, Location::GPR(tmp_in))?;
@@ -6756,7 +6951,7 @@ impl Machine for MachineX86_64 {
         ret: Location,
         signed: bool,
         sat: bool,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         match (signed, sat) {
             (false, true) => self.convert_i64_f64_u_s(loc, ret),
             (false, false) => self.convert_i64_f64_u_u(loc, ret),
@@ -6770,7 +6965,7 @@ impl Machine for MachineX86_64 {
         ret: Location,
         signed: bool,
         sat: bool,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         match (signed, sat) {
             (false, true) => self.convert_i32_f64_u_s(loc, ret),
             (false, false) => self.convert_i32_f64_u_u(loc, ret),
@@ -6784,7 +6979,7 @@ impl Machine for MachineX86_64 {
         ret: Location,
         signed: bool,
         sat: bool,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         match (signed, sat) {
             (false, true) => self.convert_i64_f32_u_s(loc, ret),
             (false, false) => self.convert_i64_f32_u_u(loc, ret),
@@ -6798,7 +6993,7 @@ impl Machine for MachineX86_64 {
         ret: Location,
         signed: bool,
         sat: bool,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         match (signed, sat) {
             (false, true) => self.convert_i32_f32_u_s(loc, ret),
             (false, false) => self.convert_i32_f32_u_u(loc, ret),
@@ -6806,24 +7001,24 @@ impl Machine for MachineX86_64 {
             (true, false) => self.convert_i32_f32_s_u(loc, ret),
         }
     }
-    fn convert_f64_f32(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn convert_f64_f32(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vcvtss2sd, loc, loc, ret)
     }
-    fn convert_f32_f64(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn convert_f32_f64(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vcvtsd2ss, loc, loc, ret)
     }
-    fn f64_neg(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn f64_neg(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         if self.assembler.arch_has_fneg() {
-            let tmp = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
             self.emit_relaxed_mov(Size::S64, loc, Location::SIMD(tmp))?;
             self.assembler.arch_emit_f64_neg(tmp, tmp)?;
             self.emit_relaxed_mov(Size::S64, Location::SIMD(tmp), ret)?;
             self.release_simd(tmp);
         } else {
-            let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
             self.move_location(Size::S64, loc, Location::GPR(tmp))?;
             self.assembler.emit_btc_gpr_imm8_64(63, tmp)?;
@@ -6832,12 +7027,12 @@ impl Machine for MachineX86_64 {
         }
         Ok(())
     }
-    fn f64_abs(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
-        let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+    fn f64_abs(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
+        let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
-        let c = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+        let c = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
 
         self.move_location(Size::S64, loc, Location::GPR(tmp))?;
@@ -6854,9 +7049,9 @@ impl Machine for MachineX86_64 {
         self.release_gpr(tmp);
         Ok(())
     }
-    fn emit_i64_copysign(&mut self, tmp1: GPR, tmp2: GPR) -> Result<(), CodegenError> {
-        let c = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+    fn emit_i64_copysign(&mut self, tmp1: GPR, tmp2: GPR) -> Result<(), CompileError> {
+        let c = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
 
         self.move_location(
@@ -6881,19 +7076,19 @@ impl Machine for MachineX86_64 {
         self.release_gpr(c);
         Ok(())
     }
-    fn f64_sqrt(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn f64_sqrt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vsqrtsd, loc, loc, ret)
     }
-    fn f64_trunc(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn f64_trunc(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vroundsd_trunc, loc, loc, ret)
     }
-    fn f64_ceil(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn f64_ceil(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vroundsd_ceil, loc, loc, ret)
     }
-    fn f64_floor(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn f64_floor(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vroundsd_floor, loc, loc, ret)
     }
-    fn f64_nearest(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn f64_nearest(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vroundsd_nearest, loc, loc, ret)
     }
     fn f64_cmp_ge(
@@ -6901,7 +7096,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vcmpgesd, loc_a, loc_b, ret)?;
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret)
     }
@@ -6910,7 +7105,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vcmpgtsd, loc_a, loc_b, ret)?;
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret)
     }
@@ -6919,7 +7114,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vcmplesd, loc_a, loc_b, ret)?;
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret)
     }
@@ -6928,7 +7123,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vcmpltsd, loc_a, loc_b, ret)?;
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret)
     }
@@ -6937,7 +7132,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vcmpneqsd, loc_a, loc_b, ret)?;
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret)
     }
@@ -6946,7 +7141,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vcmpeqsd, loc_a, loc_b, ret)?;
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret)
     }
@@ -6955,21 +7150,21 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         if !self.arch_supports_canonicalize_nan() {
             self.emit_relaxed_avx(AssemblerX64::emit_vminsd, loc_a, loc_b, ret)
         } else {
-            let tmp1 = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
-            let tmp2 = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp2 = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
-            let tmpg1 = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmpg1 = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmpg2 = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmpg2 = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
 
             let src1 = match loc_a {
@@ -7082,21 +7277,21 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         if !self.arch_supports_canonicalize_nan() {
             self.emit_relaxed_avx(AssemblerX64::emit_vmaxsd, loc_a, loc_b, ret)
         } else {
-            let tmp1 = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
-            let tmp2 = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp2 = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
-            let tmpg1 = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmpg1 = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmpg2 = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmpg2 = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
 
             let src1 = match loc_a {
@@ -7204,7 +7399,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vaddsd, loc_a, loc_b, ret)
     }
     fn f64_sub(
@@ -7212,7 +7407,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vsubsd, loc_a, loc_b, ret)
     }
     fn f64_mul(
@@ -7220,7 +7415,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vmulsd, loc_a, loc_b, ret)
     }
     fn f64_div(
@@ -7228,21 +7423,21 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vdivsd, loc_a, loc_b, ret)
     }
-    fn f32_neg(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn f32_neg(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         if self.assembler.arch_has_fneg() {
-            let tmp = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
             self.emit_relaxed_mov(Size::S32, loc, Location::SIMD(tmp))?;
             self.assembler.arch_emit_f32_neg(tmp, tmp)?;
             self.emit_relaxed_mov(Size::S32, Location::SIMD(tmp), ret)?;
             self.release_simd(tmp);
         } else {
-            let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
             self.move_location(Size::S32, loc, Location::GPR(tmp))?;
             self.assembler.emit_btc_gpr_imm8_32(31, tmp)?;
@@ -7251,9 +7446,9 @@ impl Machine for MachineX86_64 {
         }
         Ok(())
     }
-    fn f32_abs(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
-        let tmp = self.acquire_temp_gpr().ok_or(CodegenError {
-            message: "singlepass cannot acquire temp gpr".to_string(),
+    fn f32_abs(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
+        let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.move_location(Size::S32, loc, Location::GPR(tmp))?;
         self.assembler.emit_and(
@@ -7265,7 +7460,7 @@ impl Machine for MachineX86_64 {
         self.release_gpr(tmp);
         Ok(())
     }
-    fn emit_i32_copysign(&mut self, tmp1: GPR, tmp2: GPR) -> Result<(), CodegenError> {
+    fn emit_i32_copysign(&mut self, tmp1: GPR, tmp2: GPR) -> Result<(), CompileError> {
         self.assembler.emit_and(
             Size::S32,
             Location::Imm32(0x7fffffffu32),
@@ -7279,19 +7474,19 @@ impl Machine for MachineX86_64 {
         self.assembler
             .emit_or(Size::S32, Location::GPR(tmp2), Location::GPR(tmp1))
     }
-    fn f32_sqrt(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn f32_sqrt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vsqrtss, loc, loc, ret)
     }
-    fn f32_trunc(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn f32_trunc(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vroundss_trunc, loc, loc, ret)
     }
-    fn f32_ceil(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn f32_ceil(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vroundss_ceil, loc, loc, ret)
     }
-    fn f32_floor(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn f32_floor(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vroundss_floor, loc, loc, ret)
     }
-    fn f32_nearest(&mut self, loc: Location, ret: Location) -> Result<(), CodegenError> {
+    fn f32_nearest(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vroundss_nearest, loc, loc, ret)
     }
     fn f32_cmp_ge(
@@ -7299,7 +7494,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vcmpgess, loc_a, loc_b, ret)?;
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret)
     }
@@ -7308,7 +7503,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vcmpgtss, loc_a, loc_b, ret)?;
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret)
     }
@@ -7317,7 +7512,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vcmpless, loc_a, loc_b, ret)?;
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret)
     }
@@ -7326,7 +7521,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vcmpltss, loc_a, loc_b, ret)?;
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret)
     }
@@ -7335,7 +7530,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vcmpneqss, loc_a, loc_b, ret)?;
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret)
     }
@@ -7344,7 +7539,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vcmpeqss, loc_a, loc_b, ret)?;
         self.assembler.emit_and(Size::S32, Location::Imm32(1), ret)
     }
@@ -7353,21 +7548,21 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         if !self.arch_supports_canonicalize_nan() {
             self.emit_relaxed_avx(AssemblerX64::emit_vminss, loc_a, loc_b, ret)
         } else {
-            let tmp1 = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
-            let tmp2 = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp2 = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
-            let tmpg1 = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmpg1 = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmpg2 = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmpg2 = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
 
             let src1 = match loc_a {
@@ -7480,21 +7675,21 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         if !self.arch_supports_canonicalize_nan() {
             self.emit_relaxed_avx(AssemblerX64::emit_vmaxss, loc_a, loc_b, ret)
         } else {
-            let tmp1 = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
-            let tmp2 = self.acquire_temp_simd().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp simd".to_string(),
+            let tmp2 = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
             })?;
-            let tmpg1 = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmpg1 = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
-            let tmpg2 = self.acquire_temp_gpr().ok_or(CodegenError {
-                message: "singlepass cannot acquire temp gpr".to_string(),
+            let tmpg2 = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
             })?;
 
             let src1 = match loc_a {
@@ -7602,7 +7797,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vaddss, loc_a, loc_b, ret)
     }
     fn f32_sub(
@@ -7610,7 +7805,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vsubss, loc_a, loc_b, ret)
     }
     fn f32_mul(
@@ -7618,7 +7813,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vmulss, loc_a, loc_b, ret)
     }
     fn f32_div(
@@ -7626,7 +7821,7 @@ impl Machine for MachineX86_64 {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-    ) -> Result<(), CodegenError> {
+    ) -> Result<(), CompileError> {
         self.emit_relaxed_avx(AssemblerX64::emit_vdivss, loc_a, loc_b, ret)
     }
 
@@ -7634,9 +7829,9 @@ impl Machine for MachineX86_64 {
         &self,
         sig: &FunctionType,
         calling_convention: CallingConvention,
-    ) -> Result<FunctionBody, CodegenError> {
+    ) -> Result<FunctionBody, CompileError> {
         // the cpu feature here is irrelevant
-        let mut a = AssemblerX64::new(0, None);
+        let mut a = AssemblerX64::new(0, None)?;
 
         // Calculate stack offset.
         let mut stack_offset: u32 = 0;
@@ -7749,9 +7944,9 @@ impl Machine for MachineX86_64 {
         vmoffsets: &VMOffsets,
         sig: &FunctionType,
         calling_convention: CallingConvention,
-    ) -> Result<FunctionBody, CodegenError> {
+    ) -> Result<FunctionBody, CompileError> {
         // the cpu feature here is irrelevant
-        let mut a = AssemblerX64::new(0, None);
+        let mut a = AssemblerX64::new(0, None)?;
 
         // Allocate argument array.
         let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len()) + 8; // 16 bytes each + 8 bytes sysv call padding
@@ -7874,9 +8069,9 @@ impl Machine for MachineX86_64 {
         index: FunctionIndex,
         sig: &FunctionType,
         calling_convention: CallingConvention,
-    ) -> Result<CustomSection, CodegenError> {
+    ) -> Result<CustomSection, CompileError> {
         // the cpu feature here is irrelevant
-        let mut a = AssemblerX64::new(0, None);
+        let mut a = AssemblerX64::new(0, None)?;
 
         // TODO: ARM entry trampoline is not emitted.
 

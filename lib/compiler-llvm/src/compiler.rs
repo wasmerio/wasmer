@@ -364,12 +364,12 @@ impl Compiler for LLVMCompiler {
             .into_iter()
             .collect::<PrimaryMap<_, _>>();
 
-        Ok(Compilation::new(
+        Ok(Compilation {
             functions,
-            module_custom_sections,
+            custom_sections: module_custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
-            dwarf,
-        ))
+            debug: dwarf,
+        })
     }
 }

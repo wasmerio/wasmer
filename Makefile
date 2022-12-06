@@ -40,6 +40,7 @@ SHELL=/usr/bin/env bash
 
 IS_DARWIN := 0
 IS_LINUX := 0
+IS_FREEBSD := 0
 IS_WINDOWS := 0
 IS_AMD64 := 0
 IS_AARCH64 := 0
@@ -57,6 +58,8 @@ else
 		IS_DARWIN := 1
 	else ifeq ($(uname), Linux)
 		IS_LINUX := 1
+	else ifeq ($(uname), FreeBSD)
+		IS_FREEBSD := 1
 	else
 		# We use spaces instead of tabs to indent `$(error)`
 		# otherwise it's considered as a command outside a
@@ -67,7 +70,7 @@ else
 	# Architecture
 	uname := $(shell uname -m)
 
-	ifeq ($(uname), x86_64)
+	ifneq (, $(filter $(uname), x86_64 amd64))
 		IS_AMD64 := 1
 	else ifneq (, $(filter $(uname), aarch64 arm64))
 		IS_AARCH64 := 1
@@ -117,32 +120,32 @@ endif
 ##
 
 # If the user didn't disable the LLVM compiler…
-ifneq ($(ENABLE_LLVM), 0)
+ifeq ($(ENABLE_LLVM), 0)
+	LLVM_VERSION :=
 	# … then maybe the user forced to enable the LLVM compiler.
-	ifeq ($(ENABLE_LLVM), 1)
-		LLVM_VERSION := $(shell llvm-config --version)
-		compilers += llvm
-	# … otherwise, we try to autodetect LLVM from `llvm-config`
-	else ifneq (, $(shell which llvm-config 2>/dev/null))
-		LLVM_VERSION := $(shell llvm-config --version)
-
-		# If findstring is not empty, then it have found the value
-		ifneq (, $(findstring 13,$(LLVM_VERSION)))
-			compilers += llvm
-		else ifneq (, $(findstring 12,$(LLVM_VERSION)))
-			compilers += llvm
-		endif
+else ifeq ($(ENABLE_LLVM), 1)
+	LLVM_VERSION := $(shell llvm-config --version)
+	compilers += llvm
 	# … or try to autodetect LLVM from `llvm-config-<version>`.
-	else
-		ifneq (, $(shell which llvm-config-13 2>/dev/null))
-			LLVM_VERSION := $(shell llvm-config-13 --version)
-			compilers += llvm
-		else ifneq (, $(shell which llvm-config-12 2>/dev/null))
-			LLVM_VERSION := $(shell llvm-config-12 --version)
-			compilers += llvm
-		endif
+else ifneq (, $(shell which llvm-config-13 2>/dev/null))
+	LLVM_VERSION := $(shell llvm-config-13 --version)
+	compilers += llvm
+	# need force LLVM_SYS_120_PREFIX, or llvm_sys will not build in the case
+	export LLVM_SYS_120_PREFIX = $(shell llvm-config-13 --prefix)
+else ifneq (, $(shell which llvm-config-12 2>/dev/null))
+	LLVM_VERSION := $(shell llvm-config-12 --version)
+	compilers += llvm
+	# … otherwise, we try to autodetect LLVM from `llvm-config`
+else ifneq (, $(shell which llvm-config 2>/dev/null))
+	LLVM_VERSION := $(shell llvm-config --version)
+	ifneq (, $(findstring 13,$(LLVM_VERSION)))
+		compilers += llvm
+	else ifneq (, $(findstring 12,$(LLVM_VERSION)))
+		compilers += llvm
 	endif
 endif
+
+# If findstring is not empty, then it have found the value
 
 exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli --exclude wasmer-compiler-cli
 # Is failing to compile in Linux for some reason
@@ -168,7 +171,7 @@ ifneq ($(ENABLE_SINGLEPASS), 0)
 	ifeq ($(ENABLE_SINGLEPASS), 1)
 		compilers += singlepass
 	# … otherwise, we try to check whether Singlepass works on this host.
-	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_WINDOWS)))
+	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD) $(IS_WINDOWS)))
 		ifeq ($(IS_AMD64), 1)
 			compilers += singlepass
 		endif
@@ -215,7 +218,7 @@ endif
 ##
 
 ifeq ($(ENABLE_LLVM), 1)
-	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX)))
+	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
 		ifeq ($(IS_AMD64), 1)
 			compilers_engines += llvm-universal
 		else ifeq ($(IS_AARCH64), 1)
@@ -229,7 +232,7 @@ endif
 ##
 
 ifeq ($(ENABLE_SINGLEPASS), 1)
-	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX)))
+	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
 		ifeq ($(IS_AMD64), 1)
 			compilers_engines += singlepass-universal
 		endif
@@ -274,7 +277,7 @@ capi_compilers_engines := $(filter-out $(capi_compilers_engines_exclude),$(compi
 #
 #####
 
-ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
 	bold := $(shell tput bold 2>/dev/null || echo -n '')
 	green := $(shell tput setaf 2 2>/dev/null || echo -n '')
 	yellow := $(shell tput setaf 3 2>/dev/null || echo -n '')
@@ -334,6 +337,8 @@ $(info )
 SEDI ?=
 
 ifeq ($(IS_DARWIN), 1)
+	SEDI := "-i ''"
+else ifeq ($(IS_FREEBSD), 1)
 	SEDI := "-i ''"
 else ifeq ($(IS_LINUX), 1)
 	SEDI := "-i"
@@ -528,6 +533,7 @@ test-capi-crate-%:
 		--no-default-features --features wat,compiler,wasi,middlewares,webc_runner $(capi_compiler_features) -- --nocapture
 
 test-capi-integration-%:
+	# note: you need to do make build-capi and make package-capi first!
 	# Test the Wasmer C API tests for C
 	cd lib/c-api/tests; WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make test
 	# Test the Wasmer C API examples
@@ -561,7 +567,7 @@ generate-wasi-tests:
 
 package-wapm:
 	mkdir -p "package/bin"
-ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
 	if [ -d "wapm-cli" ]; then \
 		cp wapm-cli/$(TARGET_DIR)/wapm package/bin/ ;\
 		echo -e "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax ;\
@@ -662,6 +668,38 @@ package-docs: build-docs build-docs-capi
 
 package: package-wasmer package-minimal-headless-wasmer package-capi
 
+package-gnu: package-capi-gnu
+
+package-capi-gnu:
+	mkdir -p "package/include"
+	mkdir -p "package/lib"
+	cp lib/c-api/wasmer.h* package/include
+	cp lib/c-api/wasmer_wasm.h* package/include
+	cp lib/c-api/tests/wasm-c-api/include/wasm.h* package/include
+	cp lib/c-api/README.md package/include/README.md
+	if [ -f target/x86_64-pc-windows-gnu/release/wasmer.dll ]; then \
+		cp target/x86_64-pc-windows-gnu/release/wasmer.dll package/lib/wasmer.dll ;\
+	fi
+
+	if [ -f target/x86_64-pc-windows-gnu/release/wasmer.dll.lib ]; then \
+		cp target/x86_64-pc-windows-gnu/release/wasmer.dll.lib package/lib/wasmer.dll.lib ;\
+	fi
+
+	if [ -f target/x86_64-pc-windows-gnu/release/wasmer.lib ]; then \
+		cp target/x86_64-pc-windows-gnu/release/wasmer.lib package/lib/wasmer.lib ;\
+	fi
+
+	if [ -f target/x86_64-pc-windows-gnu/release/libwasmer.a ]; then \
+		cp target/x86_64-pc-windows-gnu/release/libwasmer.a package/lib/libwasmer.a ;\
+	fi
+
+distribution-gnu: package-gnu
+	cp LICENSE package/LICENSE
+	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
+	mkdir -p dist
+	tar -C package -zcvf wasmer.tar.gz lib include winsdk LICENSE ATTRIBUTIONS
+	mv wasmer.tar.gz dist/
+
 distribution: package
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
@@ -749,3 +787,6 @@ install-local: package
 test-minimal-versions:
 	rm -f Cargo.lock
 	cargo +nightly build --tests -Z minimal-versions --all-features
+
+update-graphql-schema:
+	curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql

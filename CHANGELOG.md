@@ -6,13 +6,88 @@
 
 Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/CHANGELOG.md).
 
+ 
 ## **Unreleased**
+
+## 3.0.2 - 25/11/2022
 
 ## Added
 
+  - [#3364](https://github.com/wasmerio/wasmer/pull/3364) Added the actual LZCNT / TZCNT implementation
+  - [#3361](https://github.com/wasmerio/wasmer/pull/3361) Give users feedback when they are running "wasmer add ..."
+
 ## Changed
 
+  - [#3368](https://github.com/wasmerio/wasmer/pull/3368) Remove wasi conditional compilation from wasmer-registry
+  - [#3367](https://github.com/wasmerio/wasmer/pull/3367) Change LLVM detection in Makefile
+  - [#3365](https://github.com/wasmerio/wasmer/pull/3365) Improve FreeBSD support
+  - [#3360](https://github.com/wasmerio/wasmer/pull/3360) Introduce a "wasmer_registry::queries" module with all GraphQL queries
+
 ## Fixed
+
+  - [#3371](https://github.com/wasmerio/wasmer/pull/3371) Fix cargo binstall
+  - [#3370](https://github.com/wasmerio/wasmer/pull/3370) Fix wasmer run not interpreting URLs correctly + display fixes
+
+
+## 3.0.1 - 23/11/2022
+
+## Added
+
+
+## Changed
+
+  - [#3344](https://github.com/wasmerio/wasmer/pull/3344) Revert #3145
+  - [#3341](https://github.com/wasmerio/wasmer/pull/3341) Update CHANGELOG.md
+
+## Fixed
+
+  - [#3342](https://github.com/wasmerio/wasmer/pull/3342) Fixes for 3.0.0 release
+
+
+
+## 3.0.0 - 20/11/2022
+
+## Added
+
+  - [#3338](https://github.com/wasmerio/wasmer/3338) Re-add codecov to get coverage reports
+  - [#3337](https://github.com/wasmerio/wasmer/3337) Add automation script to automate deploying releases on GitHub
+
+## Changed
+
+
+## Fixed
+
+  - [#3339](https://github.com/wasmerio/wasmer/3339) Fixes for wasmer login / wasmer add
+
+
+## 3.0.0-rc.3 - 2022/11/18
+
+## Added
+
+- [#3314](https://github.com/wasmerio/wasmer/pull/3314) Add windows-gnu workflow
+- [#3317](https://github.com/wasmerio/wasmer/pull/3317) Add a `wasmer add` command for adding bindings to a WAPM package
+- [#3297](https://github.com/wasmerio/wasmer/pull/3297) Implement wasmer login
+- [#3311](https://github.com/wasmerio/wasmer/pull/3311) Export `Module::IoCompileError`
+
+## Changed
+
+- [#3319](https://github.com/wasmerio/wasmer/pull/3319) Disable 'Test integration CLI' on CI for the Windows platform as it's not working at all
+- [#3318](https://github.com/wasmerio/wasmer/pull/3318) Bump the MSRV to 1.63
+- [#3293](https://github.com/wasmerio/wasmer/pull/3293) Removed call to to_vec() on assembler.finalise()
+- [#3288](https://github.com/wasmerio/wasmer/pull/3288) Rollback all the TARGET_DIR changes
+- [#3284](https://github.com/wasmerio/wasmer/pull/3284) Makefile now handle TARGET_DIR env. var. for build too
+- [#3276](https://github.com/wasmerio/wasmer/pull/3276) Remove unnecessary checks to test internet connection
+- [#3275](https://github.com/wasmerio/wasmer/pull/3275) Disable printing "local package ... not found" in release mode
+- [#3273](https://github.com/wasmerio/wasmer/pull/3273) Undo Makefile commit
+
+## Fixed
+
+- [#3299](https://github.com/wasmerio/wasmer/pull/3299) Fix "create-exe" for windows-x86_64 target
+- [#3294](https://github.com/wasmerio/wasmer/pull/3294) Fix test sys yaml syntax
+- [#3287](https://github.com/wasmerio/wasmer/pull/3287) Fix Makefile with TARGET_DIR end with release folder, removing it
+- [#3286](https://github.com/wasmerio/wasmer/pull/3286) Fix Makefile with TARGET_DIR end with release folder
+- [#3285](https://github.com/wasmerio/wasmer/pull/3285) Fix CI to setup TARGET_DIR to target/release directly
+- [#3277](https://github.com/wasmerio/wasmer/pull/3277) Fix red CI on master
 
 ## 3.0.0-rc.2 - 2022/11/02
 
@@ -37,6 +112,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## Fixed
 
+- [#3145](https://github.com/wasmerio/wasmer/pull/3145)  C-API: add functions to overwrite stdin / stdout / stderr handlers
 - [#3240](https://github.com/wasmerio/wasmer/pull/3240)  Fix filesystem rights on WASI, add integration test for file permissions
 - [#3238](https://github.com/wasmerio/wasmer/pull/3238)  Fixed main README ocaml homepage link and added ocaml in other language README
 - [#3229](https://github.com/wasmerio/wasmer/pull/3229)  Fixed version to nightly-2022-10-09 for the CI build Minimal Wasmer Headless again
@@ -112,8 +188,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#3035](https://github.com/wasmerio/wasmer/pull/3035) Added a simple "divide by zero" wast test, for #1899, as the trap information are correctly tracked on singlepass now
 - [#3021](https://github.com/wasmerio/wasmer/pull/3021) Add back missing Aarch64 relocations (needed for llvm compiler)
 - [#3008](https://github.com/wasmerio/wasmer/pull/3008) Add a new cargo public-api CI check
-- [#2941](https://github.com/wasmerio/wasmer/pull/2941) Implementation of WASIX and a fully networking for Web Assembly 
-- [#2952](https://github.com/wasmerio/wasmer/pull/2952) CI: add make build-wasmer-wasm test 
+- [#2941](https://github.com/wasmerio/wasmer/pull/2941) Implementation of WASIX and a fully networking for Web Assembly
+- [#2952](https://github.com/wasmerio/wasmer/pull/2952) CI: add make build-wasmer-wasm test
 - [#2982](https://github.com/wasmerio/wasmer/pull/2982) Add a rustfmt.toml file to the repository
 
 ### Changed
@@ -133,13 +209,13 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2946](https://github.com/wasmerio/wasmer/pull/2946) Remove dylib,staticlib engines in favor of a single Universal engine
 - [#2949](https://github.com/wasmerio/wasmer/pull/2949) Switch back to using custom LLVM builds on CI
 - [#2892](https://github.com/wasmerio/wasmer/pull/2892) Renamed `get_native_function` to `get_typed_function`, marked former as deprecated.
-- [#2976](https://github.com/wasmerio/wasmer/pull/2976) Upgrade enumset minimum version to one that compiles 
-- [#2974](https://github.com/wasmerio/wasmer/pull/2974) Context api tests 
-- [#2973](https://github.com/wasmerio/wasmer/pull/2973) Port C API to new Context API  
-- [#2969](https://github.com/wasmerio/wasmer/pull/2969) Port JS API to new Context API 
-- [#2966](https://github.com/wasmerio/wasmer/pull/2966) Singlepass nopanic #2966 
-- [#2957](https://github.com/wasmerio/wasmer/pull/2957) Enable multi-value handling in Singlepass compiler 
-- [#2954](https://github.com/wasmerio/wasmer/pull/2954) Some fixes to x86_64 Singlepass compiler, when using atomics 
+- [#2976](https://github.com/wasmerio/wasmer/pull/2976) Upgrade enumset minimum version to one that compiles
+- [#2974](https://github.com/wasmerio/wasmer/pull/2974) Context api tests
+- [#2973](https://github.com/wasmerio/wasmer/pull/2973) Port C API to new Context API
+- [#2969](https://github.com/wasmerio/wasmer/pull/2969) Port JS API to new Context API
+- [#2966](https://github.com/wasmerio/wasmer/pull/2966) Singlepass nopanic #2966
+- [#2957](https://github.com/wasmerio/wasmer/pull/2957) Enable multi-value handling in Singlepass compiler
+- [#2954](https://github.com/wasmerio/wasmer/pull/2954) Some fixes to x86_64 Singlepass compiler, when using atomics
 - [#2953](https://github.com/wasmerio/wasmer/pull/2953) Makefile: add check target
 - [#2950](https://github.com/wasmerio/wasmer/pull/2950) compiler-cranelift: Fix typo in enum variant
 - [#2947](https://github.com/wasmerio/wasmer/pull/2947) Converted the WASI js test into a generic stdio test that works for both sys and js versions of wasmer
@@ -159,9 +235,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2943](https://github.com/wasmerio/wasmer/pull/2943) Fix build error on some archs by using c_char instead of i8
 - [#2976](https://github.com/wasmerio/wasmer/pull/2976) Upgrade minimum enumset to one that compiles
 - [#2988](https://github.com/wasmerio/wasmer/pull/2988) Have make targets install-capi-lib,install-pkgconfig work without building the wasmer binary
-- [#2967](https://github.com/wasmerio/wasmer/pull/2967) Fix singlepass on arm64 that was trying to emit a sub opcode with a constant as destination (for #2959) 
+- [#2967](https://github.com/wasmerio/wasmer/pull/2967) Fix singlepass on arm64 that was trying to emit a sub opcode with a constant as destination (for #2959)
 - [#2948](https://github.com/wasmerio/wasmer/pull/2948) Fix regression on gen_import_call_trampoline_arm64()
-- [#2944](https://github.com/wasmerio/wasmer/pull/2944) Fix duplicate entries in the CHANGELOG 
+- [#2944](https://github.com/wasmerio/wasmer/pull/2944) Fix duplicate entries in the CHANGELOG
 
 ## 2.3.0 - 2022/06/06
 

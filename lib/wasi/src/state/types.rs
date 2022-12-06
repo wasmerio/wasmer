@@ -6,8 +6,16 @@ use std::convert::TryInto;
 /// types for use in the WASI filesystem
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(all(unix, feature = "sys-poll"))]
+use std::convert::TryInto;
+use std::{
+    collections::VecDeque,
+    io::{self, Read, Seek, Write},
+    sync::{Arc, Mutex},
+    time::Duration,
+};
+use wasmer_wasi_types::wasi::{BusErrno, Errno};
 use wasmer_vbus::VirtualBusError;
-use wasmer_wasi_types::wasi::{BusErrno, Rights};
 
 cfg_if! {
     if #[cfg(feature = "host-fs")] {
@@ -38,7 +46,7 @@ pub fn vbus_error_into_bus_errno(bus_error: VirtualBusError) -> BusErrno {
         InvokeFailed => BusErrno::Invoke,
         AlreadyConsumed => BusErrno::Consumed,
         MemoryAccessViolation => BusErrno::Memviolation,
-        _ => BusErrno::Unknown,
+        UnknownError => BusErrno::Unknown,
     }
 }
 
@@ -63,7 +71,7 @@ pub fn bus_errno_into_vbus_error(bus_error: BusErrno) -> VirtualBusError {
         BusErrno::Invoke => InvokeFailed,
         BusErrno::Consumed => AlreadyConsumed,
         BusErrno::Memviolation => MemoryAccessViolation,
-        _ => UnknownError,
+        BusErrno::Unknown => UnknownError,
     }
 }
 

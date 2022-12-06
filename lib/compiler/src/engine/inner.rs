@@ -4,23 +4,25 @@ use crate::engine::builder::EngineBuilder;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::Artifact;
 #[cfg(not(target_arch = "wasm32"))]
+use crate::BaseTunables;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::CodeMemory;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::{AsEngineRef, EngineRef};
 #[cfg(feature = "compiler")]
 use crate::{Compiler, CompilerConfig};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{FunctionExtent, Tunables};
 #[cfg(not(target_arch = "wasm32"))]
-#[cfg(feature = "enable-rkyv")]
 use memmap2::Mmap;
 #[cfg(not(target_arch = "wasm32"))]
-#[cfg(feature = "enable-rkyv")]
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::{Arc, Mutex};
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
-    entity::PrimaryMap, FunctionBody, FunctionIndex, FunctionType, LocalFunctionIndex, ModuleInfo,
-    SignatureIndex,
+    entity::PrimaryMap, DeserializeError, FunctionBody, FunctionIndex, FunctionType,
+    LocalFunctionIndex, ModuleInfo, SignatureIndex,
 };
 use wasmer_types::{CompileError, Features, Target};
 #[cfg(not(target_arch = "wasm32"))]
@@ -38,6 +40,8 @@ pub struct Engine {
     /// The target for the compiler
     target: Arc<Target>,
     engine_id: EngineId,
+    #[cfg(not(target_arch = "wasm32"))]
+    tunables: Arc<dyn Tunables + Send + Sync>,
     name: String,
 }
 
@@ -49,6 +53,8 @@ impl Engine {
         target: Target,
         features: Features,
     ) -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
+        let tunables = BaseTunables::for_target(&target);
         let compiler = compiler_config.compiler();
         let name = format!("engine-{}", compiler.name());
         Self {
@@ -62,6 +68,8 @@ impl Engine {
             })),
             target: Arc::new(target),
             engine_id: EngineId::default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            tunables: Arc::new(tunables),
             name,
         }
     }
@@ -85,6 +93,9 @@ impl Engine {
     /// Headless engines can't compile or validate any modules,
     /// they just take already processed Modules (via `Module::serialize`).
     pub fn headless() -> Self {
+        let target = Target::default();
+        #[cfg(not(target_arch = "wasm32"))]
+        let tunables = BaseTunables::for_target(&target);
         Self {
             inner: Arc::new(Mutex::new(EngineInner {
                 #[cfg(feature = "compiler")]
@@ -96,8 +107,10 @@ impl Engine {
                 #[cfg(not(target_arch = "wasm32"))]
                 signatures: SignatureRegistry::new(),
             })),
-            target: Arc::new(Target::default()),
+            target: Arc::new(target),
             engine_id: EngineId::default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            tunables: Arc::new(tunables),
             name: format!("engine-headless"),
         }
     }
@@ -140,12 +153,12 @@ impl Engine {
     /// Compile a WebAssembly binary
     #[cfg(feature = "compiler")]
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn compile(
-        &self,
-        binary: &[u8],
-        tunables: &dyn Tunables,
-    ) -> Result<Arc<Artifact>, CompileError> {
-        Ok(Arc::new(Artifact::new(self, binary, tunables)?))
+    pub fn compile(&self, binary: &[u8]) -> Result<Arc<Artifact>, CompileError> {
+        Ok(Arc::new(Artifact::new(
+            self,
+            binary,
+            self.tunables.as_ref(),
+        )?))
     }
 
     /// Compile a WebAssembly binary
@@ -167,11 +180,7 @@ impl Engine {
     /// # Safety
     ///
     /// The serialized content must represent a serialized WebAssembly module.
-    #[cfg(feature = "enable-rkyv")]
-    pub unsafe fn deserialize(
-        &self,
-        bytes: &[u8],
-    ) -> Result<Arc<Artifact>, wasmer_types::DeserializeError> {
+    pub unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<Artifact>, DeserializeError> {
         Ok(Arc::new(Artifact::deserialize(self, bytes)?))
     }
 
@@ -181,12 +190,10 @@ impl Engine {
     /// # Safety
     ///
     /// The file's content must represent a serialized WebAssembly module.
-    #[allow(dead_code, unused)]
-    #[cfg(feature = "enable-rkyv")]
     pub unsafe fn deserialize_from_file(
         &self,
         file_ref: &Path,
-    ) -> Result<Arc<Artifact>, wasmer_types::DeserializeError> {
+    ) -> Result<Arc<Artifact>, DeserializeError> {
         let file = std::fs::File::open(file_ref)?;
         let mmap = Mmap::map(&file)?;
         self.deserialize(&mmap)
@@ -204,6 +211,25 @@ impl Engine {
     /// Clone the engine
     pub fn cloned(&self) -> Self {
         self.clone()
+    }
+
+    /// Attach a Tunable to this engine
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn set_tunables(&mut self, tunables: impl Tunables + Send + Sync + 'static) {
+        self.tunables = Arc::new(tunables);
+    }
+
+    /// Get a reference to attached Tunable of this engine
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn tunables(&self) -> &dyn Tunables {
+        self.tunables.as_ref()
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl AsEngineRef for Engine {
+    fn as_engine_ref(&self) -> EngineRef {
+        EngineRef { inner: self }
     }
 }
 

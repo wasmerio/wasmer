@@ -8,12 +8,13 @@ use crate::config::Singlepass;
 use crate::dwarf::WriterRelocate;
 use crate::machine::Machine;
 use crate::machine::{
-    gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline, CodegenError,
+    gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline,
 };
 use crate::machine_arm64::MachineARM64;
 use crate::machine_x64::MachineX86_64;
 #[cfg(feature = "unwind")]
 use crate::unwind::{create_systemv_cie, UnwindFrame};
+use enumset::EnumSet;
 #[cfg(feature = "unwind")]
 use gimli::write::{EhFrame, FrameTable};
 #[cfg(feature = "rayon")]
@@ -30,12 +31,6 @@ use wasmer_types::{
     LocalFunctionIndex, MemoryIndex, ModuleInfo, OperatingSystem, SectionIndex, TableIndex, Target,
     TrapCode, TrapInformation, VMOffsets,
 };
-
-impl From<CodegenError> for CompileError {
-    fn from(err: CodegenError) -> Self {
-        Self::Codegen(err.message)
-    }
-}
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
@@ -84,20 +79,6 @@ impl Compiler for SinglepassCompiler {
             }
         }
 
-        let simd_arch = match target.triple().architecture {
-            Architecture::X86_64 => {
-                if target.cpu_features().contains(CpuFeature::AVX) {
-                    Some(CpuFeature::AVX)
-                } else if target.cpu_features().contains(CpuFeature::SSE42) {
-                    Some(CpuFeature::SSE42)
-                } else {
-                    return Err(CompileError::UnsupportedTarget(
-                        "x86_64 without AVX or SSE 4.2".to_string(),
-                    ));
-                }
-            }
-            _ => None,
-        };
         let calling_convention = match target.triple().default_calling_convention() {
             Ok(CallingConvention::WindowsFastcall) => CallingConvention::WindowsFastcall,
             Ok(CallingConvention::SystemV) => CallingConvention::SystemV,
@@ -148,6 +129,7 @@ impl Compiler for SinglepassCompiler {
                     target,
                     calling_convention,
                 )
+                .unwrap()
             })
             .collect::<Vec<_>>()
             .into_iter()
@@ -177,7 +159,7 @@ impl Compiler for SinglepassCompiler {
 
                 match target.triple().architecture {
                     Architecture::X86_64 => {
-                        let machine = MachineX86_64::new(simd_arch);
+                        let machine = MachineX86_64::new(Some(target.clone()))?;
                         let mut generator = FuncGen::new(
                             module,
                             &self.config,
@@ -188,15 +170,14 @@ impl Compiler for SinglepassCompiler {
                             &locals,
                             machine,
                             calling_convention,
-                        )
-                        .map_err(to_compile_error)?;
+                        )?;
                         while generator.has_control_frames() {
                             generator.set_srcloc(reader.original_position() as u32);
                             let op = reader.read_operator()?;
-                            generator.feed_operator(op).map_err(to_compile_error)?;
+                            generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input).map_err(to_compile_error)
+                        generator.finalize(input)
                     }
                     Architecture::Aarch64(_) => {
                         let machine = MachineARM64::new();
@@ -210,15 +191,14 @@ impl Compiler for SinglepassCompiler {
                             &locals,
                             machine,
                             calling_convention,
-                        )
-                        .map_err(to_compile_error)?;
+                        )?;
                         while generator.has_control_frames() {
                             generator.set_srcloc(reader.original_position() as u32);
                             let op = reader.read_operator()?;
-                            generator.feed_operator(op).map_err(to_compile_error)?;
+                            generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input).map_err(to_compile_error)
+                        generator.finalize(input)
                     }
                     _ => unimplemented!(),
                 }
@@ -232,7 +212,7 @@ impl Compiler for SinglepassCompiler {
             .values()
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
-            .map(|func_type| gen_std_trampoline(func_type, target, calling_convention))
+            .map(|func_type| gen_std_trampoline(func_type, target, calling_convention).unwrap())
             .collect::<Vec<_>>()
             .into_iter()
             .collect::<PrimaryMap<_, _>>();
@@ -248,6 +228,7 @@ impl Compiler for SinglepassCompiler {
                     target,
                     calling_convention,
                 )
+                .unwrap()
             })
             .collect::<Vec<_>>()
             .into_iter()
@@ -272,28 +253,19 @@ impl Compiler for SinglepassCompiler {
         #[cfg(not(feature = "unwind"))]
         let dwarf = None;
 
-        Ok(Compilation::new(
-            functions.into_iter().collect(),
+        Ok(Compilation {
+            functions: functions.into_iter().collect(),
             custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
-            dwarf,
-        ))
+            debug: dwarf,
+        })
     }
-}
 
-trait ToCompileError {
-    fn to_compile_error(self) -> CompileError;
-}
-
-impl ToCompileError for CodegenError {
-    fn to_compile_error(self) -> CompileError {
-        CompileError::Codegen(self.message)
+    fn get_cpu_features_used(&self, cpu_features: &EnumSet<CpuFeature>) -> EnumSet<CpuFeature> {
+        let used = CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1;
+        cpu_features.intersection(used)
     }
-}
-
-fn to_compile_error<T: ToCompileError>(x: T) -> CompileError {
-    x.to_compile_error()
 }
 
 trait IntoParIterIfRayon {
@@ -360,5 +332,25 @@ mod tests {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"), // Windows should be checked before architecture
             error => panic!("Unexpected error: {:?}", error),
         };
+    }
+
+    #[test]
+    fn errors_for_unsuported_cpufeatures() {
+        let compiler = SinglepassCompiler::new(Singlepass::default());
+        let mut features =
+            CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1;
+        // simple test
+        assert!(compiler
+            .get_cpu_features_used(&features)
+            .is_subset(CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1));
+        // check that an AVX build don't work on SSE4.2 only host
+        assert!(!compiler
+            .get_cpu_features_used(&features)
+            .is_subset(CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1));
+        // check that having a host with AVX512 doesn't change anything
+        features.insert_all(CpuFeature::AVX512DQ | CpuFeature::AVX512F);
+        assert!(compiler
+            .get_cpu_features_used(&features)
+            .is_subset(CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1));
     }
 }

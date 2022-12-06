@@ -14,12 +14,13 @@ use crate::store::{InternalStoreHandle, StoreObjects};
 use crate::table::TableElement;
 use crate::trap::{catch_traps, Trap, TrapCode};
 use crate::vmcontext::{
-    memory_copy, memory_fill, VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext,
-    VMFunctionContext, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
+    memory32_atomic_check32, memory32_atomic_check64, memory_copy, memory_fill,
+    VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionContext,
+    VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
+use crate::LinearMemory;
 use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody};
-use crate::{LinearMemory, VMMemoryDefinition};
 use crate::{VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 pub use allocator::InstanceAllocator;
 use memoffset::offset_of;
@@ -32,13 +33,28 @@ use std::fmt;
 use std::mem;
 use std::ptr::{self, NonNull};
 use std::slice;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::thread::{current, park, park_timeout, Thread};
 use wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
     LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryError,
     MemoryIndex, ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer, VMOffsets,
 };
+
+#[derive(Hash, Eq, PartialEq, Clone, Copy)]
+struct NotifyLocation {
+    memory_index: u32,
+    address: u32,
+}
+
+struct NotifyWaiter {
+    thread: Thread,
+    notified: bool,
+}
+struct NotifyMap {
+    map: HashMap<NotifyLocation, Vec<NotifyWaiter>>,
+}
 
 /// A WebAssembly instance.
 ///
@@ -47,6 +63,7 @@ use wasmer_types::{
 /// to ensure that the `vmctx` field is last. See the documentation of
 /// the `vmctx` field to learn more.
 #[repr(C)]
+#[allow(clippy::type_complexity)]
 pub(crate) struct Instance {
     /// The `ModuleInfo` this `Instance` was instantiated from.
     module: Arc<ModuleInfo>,
@@ -87,6 +104,9 @@ pub(crate) struct Instance {
     /// Mapping of function indices to their func ref backing data. `VMFuncRef`s
     /// will point to elements here for functions imported by this instance.
     imported_funcrefs: BoxedSlice<FunctionIndex, NonNull<VMCallerCheckedAnyfunc>>,
+
+    /// The Hasmap with the Notify for the Notify/wait opcodes
+    conditions: Arc<Mutex<NotifyMap>>,
 
     /// Additional context used by compiled WebAssembly code. This
     /// field is last, and represents a dynamically-sized array that
@@ -776,6 +796,227 @@ impl Instance {
             self.imported_table(table_index).handle
         }
     }
+
+    // To implement Wait / Notify, a HasMap, behind a mutex, will be used
+    // to track the address of waiter. The key of the hashmap is based on the memory
+    // and waiter threads are "park"'d (with or without timeout)
+    // Notify will wake the waiters by simply "unpark" the thread
+    // as the Thread info is stored on the HashMap
+    // once unparked, the waiter thread will remove it's mark on the HashMap
+    // timeout / awake is tracked with a boolean in the HashMap
+    // because `park_timeout` doesn't gives any information on why it returns
+    fn do_wait(&mut self, index: u32, dst: u32, timeout: i64) -> u32 {
+        // fetch the notifier
+        let key = NotifyLocation {
+            memory_index: index,
+            address: dst,
+        };
+        let mut conds = self.conditions.lock().unwrap();
+        let v = conds.map.entry(key).or_insert_with(Vec::new);
+        v.push(NotifyWaiter {
+            thread: current(),
+            notified: false,
+        });
+        drop(conds);
+        if timeout < 0 {
+            park();
+        } else {
+            park_timeout(std::time::Duration::from_nanos(timeout as u64));
+        }
+        let mut conds = self.conditions.lock().unwrap();
+        let v = conds.map.get_mut(&key).unwrap();
+        let id = current().id();
+        let mut ret = 0;
+        v.retain(|cond| {
+            if cond.thread.id() == id {
+                ret = if cond.notified { 0 } else { 2 };
+                false
+            } else {
+                true
+            }
+        });
+        if v.is_empty() {
+            conds.map.remove(&key);
+        }
+        if conds.map.len() > 1 << 32 {
+            ret = 0xffff;
+        }
+        ret
+    }
+
+    /// Perform an Atomic.Wait32
+    pub(crate) fn local_memory_wait32(
+        &mut self,
+        memory_index: LocalMemoryIndex,
+        dst: u32,
+        val: u32,
+        timeout: i64,
+    ) -> Result<u32, Trap> {
+        let memory = self.memory(memory_index);
+        //if ! memory.shared {
+        // We should trap according to spec, but official test rely on not trapping...
+        //}
+
+        let ret = unsafe { memory32_atomic_check32(&memory, dst, val) };
+
+        if let Ok(mut ret) = ret {
+            if ret == 0 {
+                ret = self.do_wait(memory_index.as_u32(), dst, timeout);
+            }
+            if ret == 0xffff {
+                // ret is 0xffff if there is more than 2^32 waiter in queue
+                return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+            }
+            Ok(ret)
+        } else {
+            ret
+        }
+    }
+
+    /// Perform an Atomic.Wait32
+    pub(crate) fn imported_memory_wait32(
+        &mut self,
+        memory_index: MemoryIndex,
+        dst: u32,
+        val: u32,
+        timeout: i64,
+    ) -> Result<u32, Trap> {
+        let import = self.imported_memory(memory_index);
+        let memory = unsafe { import.definition.as_ref() };
+        //if ! memory.shared {
+        // We should trap according to spec, but official test rely on not trapping...
+        //}
+
+        let ret = unsafe { memory32_atomic_check32(memory, dst, val) };
+
+        if let Ok(mut ret) = ret {
+            if ret == 0 {
+                ret = self.do_wait(memory_index.as_u32(), dst, timeout);
+            }
+            if ret == 0xffff {
+                // ret is 0xffff if there is more than 2^32 waiter in queue
+                return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+            }
+            Ok(ret)
+        } else {
+            ret
+        }
+    }
+
+    /// Perform an Atomic.Wait64
+    pub(crate) fn local_memory_wait64(
+        &mut self,
+        memory_index: LocalMemoryIndex,
+        dst: u32,
+        val: u64,
+        timeout: i64,
+    ) -> Result<u32, Trap> {
+        let memory = self.memory(memory_index);
+        //if ! memory.shared {
+        // We should trap according to spec, but official test rely on not trapping...
+        //}
+
+        let ret = unsafe { memory32_atomic_check64(&memory, dst, val) };
+
+        if let Ok(mut ret) = ret {
+            if ret == 0 {
+                ret = self.do_wait(memory_index.as_u32(), dst, timeout);
+            }
+            if ret == 0xffff {
+                // ret is 0xffff if there is more than 2^32 waiter in queue
+                return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+            }
+            Ok(ret)
+        } else {
+            ret
+        }
+    }
+
+    /// Perform an Atomic.Wait64
+    pub(crate) fn imported_memory_wait64(
+        &mut self,
+        memory_index: MemoryIndex,
+        dst: u32,
+        val: u64,
+        timeout: i64,
+    ) -> Result<u32, Trap> {
+        let import = self.imported_memory(memory_index);
+        let memory = unsafe { import.definition.as_ref() };
+        //if ! memory.shared {
+        // We should trap according to spec, but official test rely on not trapping...
+        //}
+
+        let ret = unsafe { memory32_atomic_check64(memory, dst, val) };
+
+        if let Ok(mut ret) = ret {
+            if ret == 0 {
+                ret = self.do_wait(memory_index.as_u32(), dst, timeout);
+            }
+            if ret == 0xffff {
+                // ret is 0xffff if there is more than 2^32 waiter in queue
+                return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+            }
+            Ok(ret)
+        } else {
+            ret
+        }
+    }
+
+    fn do_notify(&mut self, key: NotifyLocation, count: u32) -> Result<u32, Trap> {
+        let mut conds = self.conditions.lock().unwrap();
+        let mut cnt = 0u32;
+        if let Some(v) = conds.map.get_mut(&key) {
+            for waiter in v {
+                if cnt < count {
+                    waiter.notified = true; // mark as was waiked up
+                    waiter.thread.unpark(); // wakeup!
+                    cnt += 1;
+                }
+            }
+        }
+        Ok(cnt)
+    }
+
+    /// Perform an Atomic.Notify
+    pub(crate) fn local_memory_notify(
+        &mut self,
+        memory_index: LocalMemoryIndex,
+        dst: u32,
+        count: u32,
+    ) -> Result<u32, Trap> {
+        //let memory = self.memory(memory_index);
+        //if ! memory.shared {
+        // We should trap according to spec, but official test rely on not trapping...
+        //}
+
+        // fetch the notifier
+        let key = NotifyLocation {
+            memory_index: memory_index.as_u32(),
+            address: dst,
+        };
+        self.do_notify(key, count)
+    }
+
+    /// Perform an Atomic.Notify
+    pub(crate) fn imported_memory_notify(
+        &mut self,
+        memory_index: MemoryIndex,
+        dst: u32,
+        count: u32,
+    ) -> Result<u32, Trap> {
+        //let import = self.imported_memory(memory_index);
+        //let memory = unsafe { import.definition.as_ref() };
+        //if ! memory.shared {
+        // We should trap according to spec, but official test rely on not trapping...
+        //}
+
+        // fetch the notifier
+        let key = NotifyLocation {
+            memory_index: memory_index.as_u32(),
+            address: dst,
+        };
+        self.do_notify(key, count)
+    }
 }
 
 /// A handle holding an `Instance` of a WebAssembly module.
@@ -868,6 +1109,9 @@ impl InstanceHandle {
                 funcrefs,
                 imported_funcrefs,
                 vmctx: VMContext {},
+                conditions: Arc::new(Mutex::new(NotifyMap {
+                    map: HashMap::new(),
+                })),
             };
 
             let mut instance_handle = allocator.write_instance(instance);

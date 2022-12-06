@@ -26,6 +26,7 @@ use wasmer_types::{
     Pages, TableType, Type,
 };
 
+/// IO Error on a Module Compilation
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(Error))]
 pub enum IoCompileError {

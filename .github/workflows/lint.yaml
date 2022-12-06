@@ -12,13 +12,18 @@ env:
 jobs:
   lint:
     name: Code lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v3
+      - name: Set up libstdc++ on Linux
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install --reinstall g++-8
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.61
+          toolchain: 1.63
           components: rustfmt, clippy
       - name: Install LLVM (Linux)
         run: |

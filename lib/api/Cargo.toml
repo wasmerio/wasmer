@@ -1,6 +1,6 @@
 [package]
 name = "wasmer"
-version = "3.0.0-rc.2"
+version = "3.0.2"
 description = "High-performance WebAssembly runtime"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "runtime", "vm"]
@@ -31,20 +31,19 @@ bytes = "1"
 # - Optional shared dependencies.
 wat = { version = "1.0", optional = true }
 tracing = { version = "0.1", optional = true }
-rkyv = { version = "0.7.38", features = ["indexmap"], optional = true }
 
 # Dependencies and Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # - Mandatory dependencies for `sys`.
-wasmer-vm = { path = "../vm", version = "=3.0.0-rc.2" }
-wasmer-compiler = { path = "../compiler", version = "=3.0.0-rc.2", optional = true }
-wasmer-derive = { path = "../derive", version = "=3.0.0-rc.2" }
-wasmer-types = { path = "../types", version = "=3.0.0-rc.2" }
+wasmer-vm = { path = "../vm", version = "=3.0.2" }
+wasmer-compiler = { path = "../compiler", version = "=3.0.2" }
+wasmer-derive = { path = "../derive", version = "=3.0.2" }
+wasmer-types = { path = "../types", version = "=3.0.2" }
 target-lexicon = { version = "0.12.2", default-features = false }
 # - Optional dependencies for `sys`.
-wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=3.0.0-rc.2", optional = true }
-wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=3.0.0-rc.2", optional = true }
-wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=3.0.0-rc.2", optional = true }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=3.0.2", optional = true }
+wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=3.0.2", optional = true }
+wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=3.0.2", optional = true }
 
 wasm-bindgen = { version = "0.2.74", optional = true }
 js-sys = { version = "0.3.51", optional = true }
@@ -57,16 +56,16 @@ winapi = "0.3"
 wat = "1.0"
 tempfile = "3.1"
 anyhow = "1.0"
-macro-wasmer-universal-test = { version = "3.0.0-rc.2", path = "./macro-wasmer-universal-test" }
+macro-wasmer-universal-test = { version = "3.0.2", path = "./macro-wasmer-universal-test" }
 
 # Dependencies and Develoment Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # - Mandatory dependencies for `js`.
-wasmer-types = { path = "../types", version = "=3.0.0-rc.2", default-features = false, features = ["std"] }
+wasmer-types = { path = "../types", version = "=3.0.2", default-features = false, features = ["std"] }
 wasm-bindgen = "0.2.74"
 js-sys = "0.3.51"
 #web-sys = { version = "0.3.51", features = [ "console" ] }
-wasmer-derive = { path = "../derive", version = "=3.0.0-rc.2" }
+wasmer-derive = { path = "../derive", version = "=3.0.2" }
 # - Optional dependencies for `js`.
 wasmparser = { version = "0.83", default-features = false, optional = true }
 hashbrown = { version = "0.11", optional = true }
@@ -78,7 +77,7 @@ serde = { version = "1.0", features = ["derive"] }
 wat = "1.0"
 anyhow = "1.0"
 wasm-bindgen-test = "0.3.0"
-macro-wasmer-universal-test = { version = "3.0.0-rc.2", path = "./macro-wasmer-universal-test" }
+macro-wasmer-universal-test = { version = "3.0.2", path = "./macro-wasmer-universal-test" }
 
 # Specific to `js`.
 #
@@ -98,14 +97,13 @@ core = ["hashbrown"]
 
 # Features for `sys`.
 sys = [
-  "compiler",
   "wasmer-compiler/translator",
   "wasmer-compiler/compiler",
 ]
 sys-default = ["sys", "wat", "cranelift"]
 # - Compilers.
 compiler = [
-    "wasmer-compiler"
+    "sys",
 ]
 singlepass = ["compiler", "wasmer-compiler-singlepass"]
 cranelift = ["compiler", "wasmer-compiler-cranelift"]
@@ -128,10 +126,6 @@ enable-serde = [
   "wasmer-vm/enable-serde",
   "wasmer-compiler/enable-serde",
   "wasmer-types/enable-serde",
-]
-enable-rkyv = [
-  "wasmer-types/enable-rkyv",
-  "wasmer-compiler/enable-rkyv",
 ]
 
 wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]

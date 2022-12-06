@@ -272,7 +272,7 @@ cfg_if::cfg_if! {
                 ))] {
                     pc = context.uc_mcontext.gregs[libc::REG_EIP as usize] as usize;
                     sp = context.uc_mcontext.gregs[libc::REG_ESP as usize] as usize;
-                } else if #[cfg(all(target_os = "freebsd", target_arch = "x86"))] {
+                } else if #[cfg(all(target_os = "freebsd", any(target_arch = "x86", target_arch = "x86_64")))] {
                     pc = context.uc_mcontext.mc_rip as usize;
                     sp = context.uc_mcontext.mc_rsp as usize;
                 } else if #[cfg(all(target_vendor = "apple", target_arch = "x86_64"))] {
@@ -829,14 +829,14 @@ enum UnwindReason {
 impl UnwindReason {
     fn into_trap(self) -> Trap {
         match self {
-            UnwindReason::UserTrap(data) => Trap::User(data),
-            UnwindReason::LibTrap(trap) => trap,
-            UnwindReason::WasmTrap {
+            Self::UserTrap(data) => Trap::User(data),
+            Self::LibTrap(trap) => trap,
+            Self::WasmTrap {
                 backtrace,
                 pc,
                 signal_trap,
             } => Trap::wasm(pc, backtrace, signal_trap),
-            UnwindReason::Panic(panic) => std::panic::resume_unwind(panic),
+            Self::Panic(panic) => std::panic::resume_unwind(panic),
         }
     }
 }

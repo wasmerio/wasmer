@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-compiler-llvm"
-version = "3.0.0-rc.2"
+version = "3.0.2"
 description = "LLVM compiler for Wasmer WebAssembly runtime"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "compiler", "llvm"]
@@ -12,11 +12,11 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=3.0.0-rc.2", features = [
+wasmer-compiler = { path = "../compiler", version = "=3.0.2", features = [
     "translator", "compiler"
 ] }
-wasmer-vm = { path = "../vm", version = "=3.0.0-rc.2" }
-wasmer-types = { path = "../types", version = "=3.0.0-rc.2" }
+wasmer-vm = { path = "../vm", version = "=3.0.2" }
+wasmer-types = { path = "../types", version = "=3.0.2" }
 target-lexicon = { version = "0.12.2", default-features = false }
 smallvec = "1.6"
 object = { version = "0.28.3", default-features = false, features = ["read"] }
@@ -27,7 +27,7 @@ rayon = "1.5"
 
 [dependencies.inkwell]
 package = "inkwell"
-version = "0.1.0-beta.4"
+version = "=0.1.0-beta.4"
 default-features = false
 features = ["llvm12-0", "target-x86", "target-aarch64"]
 

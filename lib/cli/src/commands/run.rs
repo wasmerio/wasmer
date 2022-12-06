@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::str::FromStr;
+use url::Url;
 use wasmer::FunctionEnv;
 use wasmer::*;
 #[cfg(feature = "cache")]
@@ -647,17 +648,20 @@ impl Run {
     }
 }
 
-fn start_spinner(msg: String) -> Option<spinner::SpinnerHandle> {
+fn start_spinner(msg: String) -> Option<spinoff::Spinner> {
     if !isatty::stdout_isatty() {
         return None;
     }
-    Some(
-        spinner::SpinnerBuilder::new(msg)
-            .spinner(vec![
-                "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷", " ", "⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈",
-            ])
-            .start(),
-    )
+    #[cfg(target_os = "windows")]
+    {
+        use colored::control;
+        let _ = control::set_virtual_terminal(true);
+    }
+    Some(spinoff::Spinner::new(
+        spinoff::Spinners::Dots,
+        msg,
+        spinoff::Color::White,
+    ))
 }
 
 /// Before looking up a command from the registry, try to see if we have
@@ -708,8 +712,7 @@ pub(crate) fn try_autoinstall_package(
         force_install,
     );
     if let Some(sp) = sp.take() {
-        sp.close();
-        print!("\r");
+        sp.clear();
     }
     let _ = std::io::stdout().flush();
     let (_, package_dir) = match result {
@@ -767,8 +770,8 @@ fn try_lookup_command(sv: &mut SplitVersion) -> Result<PackageDownloadInfo, anyh
 
     for registry in wasmer_registry::get_all_available_registries().unwrap_or_default() {
         let result = wasmer_registry::query_command_from_registry(&registry, &sv.package);
-        if sp.is_some() {
-            print!("\r");
+        if let Some(s) = sp.take() {
+            s.clear();
         }
         let _ = std::io::stdout().flush();
         let command = sv.package.clone();
@@ -781,8 +784,7 @@ fn try_lookup_command(sv: &mut SplitVersion) -> Result<PackageDownloadInfo, anyh
     }
 
     if let Some(sp) = sp.take() {
-        sp.close();
-        print!("\r");
+        sp.clear();
     }
     let _ = std::io::stdout().flush();
     Err(anyhow::anyhow!("command {sv} not found"))
@@ -845,10 +847,22 @@ pub(crate) fn try_run_package_or_file(
         return r.execute();
     }
 
+    // c:// might be parsed as a URL on Windows
+    let url_string = format!("{}", r.path.display());
+    if let Ok(url) = url::Url::parse(&url_string) {
+        if url.scheme() == "http" || url.scheme() == "https" {
+            match try_run_url(&url, args, r, debug) {
+                Err(ExecuteLocalPackageError::BeforeExec(_)) => {}
+                Err(ExecuteLocalPackageError::DuringExec(e)) => return Err(e),
+                Ok(o) => return Ok(o),
+            }
+        }
+    }
+
     let package = format!("{}", r.path.display());
 
     let mut is_fake_sv = false;
-    let mut sv = match SplitVersion::new(&package) {
+    let mut sv = match SplitVersion::parse(&package) {
         Ok(o) => o,
         Err(_) => {
             let mut fake_sv = SplitVersion {
@@ -910,4 +924,42 @@ pub(crate) fn try_run_package_or_file(
 
     // else: local package not found - try to download and install package
     try_autoinstall_package(args, &sv, package_download_info, r.force_install)
+}
+
+fn try_run_url(
+    url: &Url,
+    _args: &[String],
+    r: &Run,
+    _debug: bool,
+) -> Result<(), ExecuteLocalPackageError> {
+    let checksum = wasmer_registry::get_remote_webc_checksum(url).map_err(|e| {
+        ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("error fetching {url}: {e}"))
+    })?;
+
+    let packages = wasmer_registry::get_all_installed_webc_packages();
+
+    if !packages.iter().any(|p| p.checksum == checksum) {
+        let sp = start_spinner(format!("Installing {}", url));
+
+        let result = wasmer_registry::install_webc_package(url, &checksum);
+
+        result.map_err(|e| {
+            ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("error fetching {url}: {e}"))
+        })?;
+
+        if let Some(sp) = sp {
+            sp.clear();
+        }
+    }
+
+    let webc_dir = wasmer_registry::get_webc_dir();
+
+    let webc_install_path = webc_dir
+        .context("Error installing package: no webc dir")
+        .map_err(ExecuteLocalPackageError::BeforeExec)?
+        .join(checksum);
+
+    let mut r = r.clone();
+    r.path = webc_install_path;
+    r.execute().map_err(ExecuteLocalPackageError::DuringExec)
 }

@@ -63,21 +63,58 @@ pub fn get_wasmer_path() -> PathBuf {
         ret = PathBuf::from(format!("{}wasmer", WASMER_TARGET_PATH2));
     }
     if !ret.exists() {
-        match get_repo_root_path() {
+        ret = match get_repo_root_path() {
             Some(s) => {
                 #[cfg(target_os = "windows")]
                 {
-                    return s.join("target").join("release").join("wasmer.exe");
+                    s.join("target").join("release").join("wasmer.exe")
                 }
                 #[cfg(not(target_os = "windows"))]
                 {
-                    return s.join("target").join("release").join("wasmer");
+                    s.join("target").join("release").join("wasmer")
                 }
             }
             None => {
                 panic!("Could not find wasmer executable path! {:?}", ret);
             }
+        };
+    }
+
+    if !ret.exists() {
+        ret = match get_repo_root_path() {
+            Some(s) => {
+                #[cfg(target_os = "windows")]
+                {
+                    s.join("target")
+                        .join(target_lexicon::HOST.to_string())
+                        .join("release")
+                        .join("wasmer.exe")
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    s.join("target")
+                        .join(target_lexicon::HOST.to_string())
+                        .join("release")
+                        .join("wasmer")
+                }
+            }
+            None => {
+                panic!("Could not find wasmer executable path! {:?}", ret);
+            }
+        };
+    }
+
+    if !ret.exists() {
+        if let Some(root) = get_repo_root_path() {
+            use std::process::Stdio;
+            let _ = std::process::Command::new("ls")
+                .arg(root.join("target"))
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::inherit())
+                .stdin(Stdio::null())
+                .output();
         }
+        panic!("cannot find wasmer / wasmer.exe for integration test!");
     }
     ret
 }

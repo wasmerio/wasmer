@@ -1,13 +1,10 @@
-#[cfg(feature = "compiler")]
 use crate::sys::tunables::BaseTunables;
 use derivative::Derivative;
 use std::fmt;
 #[cfg(feature = "compiler")]
-use wasmer_compiler::{Engine, EngineBuilder, Tunables};
+use wasmer_compiler::{AsEngineRef, Engine, EngineBuilder, EngineRef, Tunables};
+use wasmer_vm::{init_traps, StoreId, TrapHandler, TrapHandlerFn};
 use wasmer_types::{OnCalledAction, StoreSnapshot};
-#[cfg(feature = "compiler")]
-use wasmer_vm::init_traps;
-use wasmer_vm::{StoreId, TrapHandler, TrapHandlerFn};
 
 use wasmer_vm::StoreObjects;
 
@@ -21,9 +18,6 @@ pub(crate) struct StoreInner {
     #[derivative(Debug = "ignore")]
     #[cfg(feature = "compiler")]
     pub(crate) engine: Engine,
-    #[derivative(Debug = "ignore")]
-    #[cfg(feature = "compiler")]
-    pub(crate) tunables: Box<dyn Tunables + Send + Sync>,
     #[derivative(Debug = "ignore")]
     pub(crate) trap_handler: Option<Box<TrapHandlerFn<'static>>>,
     #[derivative(Debug = "ignore")]
@@ -55,10 +49,7 @@ impl StoreInner {
 /// have been allocated during the lifetime of the abstract machine.
 ///
 /// The `Store` holds the engine (that is —amongst many things— used to compile
-/// the Wasm bytes into a valid module artifact), in addition to the
-#[cfg_attr(feature = "compiler", doc = "[`Tunables`]")]
-#[cfg_attr(not(feature = "compiler"), doc = "`Tunables`")]
-/// (that are used to create the memories, tables and globals).
+/// the Wasm bytes into a valid module artifact).
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 pub struct Store {
@@ -72,8 +63,21 @@ impl Store {
     /// Creates a new `Store` with a specific [`Engine`].
     pub fn new(engine: impl Into<Engine>) -> Self {
         let engine = engine.into();
-        let target = engine.target().clone();
-        Self::new_with_tunables(engine, BaseTunables::for_target(&target))
+
+        // Make sure the signal handlers are installed.
+        // This is required for handling traps.
+        init_traps();
+
+        Self {
+            inner: Box::new(StoreInner {
+                objects: Default::default(),
+                engine: engine.cloned(),
+                trap_handler: None,
+                on_called: None,
+            }),
+            engine: engine.cloned(),
+            trap_handler: Arc::new(RwLock::new(None)),
+        }
     }
 
     #[cfg(feature = "compiler")]
@@ -97,28 +101,16 @@ impl Store {
         engine: impl Into<Engine>,
         tunables: impl Tunables + Send + Sync + 'static,
     ) -> Self {
-        let engine = engine.into();
+        let mut engine = engine.into();
+        engine.set_tunables(tunables);
 
-        // Make sure the signal handlers are installed.
-        // This is required for handling traps.
-        init_traps();
-
-        Self {
-            inner: Box::new(StoreInner {
-                objects: Default::default(),
-                engine: engine.cloned(),
-                tunables: Box::new(tunables),
-                trap_handler: None,
-                on_called: None,
-            }),
-            engine: engine.cloned(),
-        }
+        Self::new(engine)
     }
 
     #[cfg(feature = "compiler")]
     /// Returns the [`Tunables`].
     pub fn tunables(&self) -> &dyn Tunables {
-        self.inner.tunables.as_ref()
+        self.engine.tunables()
     }
 
     #[cfg(feature = "compiler")]
@@ -236,6 +228,34 @@ impl AsStoreMut for Store {
     }
 }
 
+#[cfg(feature = "compiler")]
+impl AsEngineRef for Store {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        EngineRef::new(&self.engine)
+    }
+}
+
+#[cfg(feature = "compiler")]
+impl AsEngineRef for &Store {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        EngineRef::new(&self.engine)
+    }
+}
+
+#[cfg(feature = "compiler")]
+impl AsEngineRef for StoreRef<'_> {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        EngineRef::new(&self.inner.engine)
+    }
+}
+
+#[cfg(feature = "compiler")]
+impl AsEngineRef for StoreMut<'_> {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        EngineRef::new(&self.inner.engine)
+    }
+}
+
 impl fmt::Debug for Store {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Store").finish()
@@ -255,7 +275,7 @@ impl<'a> StoreRef<'a> {
     #[cfg(feature = "compiler")]
     /// Returns the [`Tunables`].
     pub fn tunables(&self) -> &dyn Tunables {
-        self.inner.tunables.as_ref()
+        self.inner.engine.tunables()
     }
 
     #[cfg(feature = "compiler")]
@@ -296,7 +316,7 @@ impl<'a> StoreMut<'a> {
     /// Returns the [`Tunables`].
     #[cfg(feature = "compiler")]
     pub fn tunables(&self) -> &dyn Tunables {
-        self.inner.tunables.as_ref()
+        self.inner.engine.tunables()
     }
 
     /// Returns the [`Engine`].
@@ -325,10 +345,9 @@ impl<'a> StoreMut<'a> {
 
     #[cfg(feature = "compiler")]
     pub(crate) fn tunables_and_objects_mut(&mut self) -> (&dyn Tunables, &mut StoreObjects) {
-        (self.inner.tunables.as_ref(), &mut self.inner.objects)
+        (self.inner.engine.tunables(), &mut self.inner.objects)
     }
 
-    #[cfg(feature = "compiler")]
     pub(crate) fn as_raw(&self) -> *mut StoreInner {
         self.inner as *const StoreInner as *mut StoreInner
     }

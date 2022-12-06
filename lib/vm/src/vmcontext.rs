@@ -14,6 +14,7 @@ use crate::VMTable;
 use crate::{VMBuiltinFunctionIndex, VMFunction};
 use std::convert::TryFrom;
 use std::ptr::{self, NonNull};
+use std::sync::atomic::{AtomicPtr, Ordering};
 use std::u32;
 use wasmer_types::RawValue;
 
@@ -376,6 +377,68 @@ pub(crate) unsafe fn memory_fill(
     Ok(())
 }
 
+/// Perform the `memory32.atomic.check32` operation for the memory. Return 0 if same, 1 if different
+///
+/// # Errors
+///
+/// Returns a `Trap` error if the memory range is out of bounds or 32bits unligned.
+///
+/// # Safety
+/// memory access is unsafe
+pub(crate) unsafe fn memory32_atomic_check32(
+    mem: &VMMemoryDefinition,
+    dst: u32,
+    val: u32,
+) -> Result<u32, Trap> {
+    if usize::try_from(dst).unwrap() > mem.current_length {
+        return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+    }
+
+    let dst = isize::try_from(dst).unwrap();
+    if dst & 0b11 != 0 {
+        return Err(Trap::lib(TrapCode::UnalignedAtomic));
+    }
+
+    // Bounds and casts are checked above, by this point we know that
+    // everything is safe.
+    let dst = mem.base.offset(dst) as *mut u32;
+    let atomic_dst = AtomicPtr::new(dst);
+    let read_val = *atomic_dst.load(Ordering::Acquire);
+    let ret = if read_val == val { 0 } else { 1 };
+    Ok(ret)
+}
+
+/// Perform the `memory32.atomic.check64` operation for the memory. Return 0 if same, 1 if different
+///
+/// # Errors
+///
+/// Returns a `Trap` error if the memory range is out of bounds or 64bits unaligned.
+///
+/// # Safety
+/// memory access is unsafe
+pub(crate) unsafe fn memory32_atomic_check64(
+    mem: &VMMemoryDefinition,
+    dst: u32,
+    val: u64,
+) -> Result<u32, Trap> {
+    if usize::try_from(dst).unwrap() > mem.current_length {
+        return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+    }
+
+    let dst = isize::try_from(dst).unwrap();
+    if dst & 0b111 != 0 {
+        return Err(Trap::lib(TrapCode::UnalignedAtomic));
+    }
+
+    // Bounds and casts are checked above, by this point we know that
+    // everything is safe.
+    let dst = mem.base.offset(dst) as *mut u64;
+    let atomic_dst = AtomicPtr::new(dst);
+    let read_val = *atomic_dst.load(Ordering::Acquire);
+    let ret = if read_val == val { 0 } else { 1 };
+    Ok(ret)
+}
+
 /// The fields compiled code needs to access to utilize a WebAssembly table
 /// defined within the instance.
 #[derive(Debug, Clone, Copy)]
@@ -633,6 +696,19 @@ impl VMBuiltinFunctionsArray {
             wasmer_vm_func_ref as usize;
         ptrs[VMBuiltinFunctionIndex::get_table_fill_index().index() as usize] =
             wasmer_vm_table_fill as usize;
+
+        ptrs[VMBuiltinFunctionIndex::get_memory_atomic_wait32_index().index() as usize] =
+            wasmer_vm_memory32_atomic_wait32 as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory_atomic_wait32_index().index() as usize] =
+            wasmer_vm_imported_memory32_atomic_wait32 as usize;
+        ptrs[VMBuiltinFunctionIndex::get_memory_atomic_wait64_index().index() as usize] =
+            wasmer_vm_memory32_atomic_wait64 as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory_atomic_wait64_index().index() as usize] =
+            wasmer_vm_imported_memory32_atomic_wait64 as usize;
+        ptrs[VMBuiltinFunctionIndex::get_memory_atomic_notify_index().index() as usize] =
+            wasmer_vm_memory32_atomic_notify as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory_atomic_notify_index().index() as usize] =
+            wasmer_vm_imported_memory32_atomic_notify as usize;
 
         debug_assert!(ptrs.iter().cloned().all(|p| p != 0));
 

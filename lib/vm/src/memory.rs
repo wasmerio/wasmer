@@ -178,6 +178,18 @@ pub struct VMOwnedMemory {
 unsafe impl Send for VMOwnedMemory {}
 unsafe impl Sync for VMOwnedMemory {}
 
+/// A shared linear memory instance.
+#[derive(Debug, Clone)]
+pub struct VMSharedMemory {
+    // The underlying allocation.
+    mmap: Arc<RwLock<WasmMmap>>,
+    // Configuration of this memory
+    config: VMMemoryConfig,
+}
+
+unsafe impl Send for VMSharedMemory {}
+unsafe impl Sync for VMSharedMemory {}
+
 impl VMOwnedMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
     ///
@@ -297,6 +309,16 @@ impl VMOwnedMemory {
     }
 }
 
+impl VMOwnedMemory {
+    /// Converts this owned memory into shared memory
+    pub fn to_shared(self) -> VMSharedMemory {
+        VMSharedMemory {
+            mmap: Arc::new(RwLock::new(self.mmap)),
+            config: self.config,
+        }
+    }
+}
+
 impl LinearMemory for VMOwnedMemory {
     /// Returns the type for this memory.
     fn ty(&self) -> MemoryType {
@@ -339,8 +361,81 @@ impl LinearMemory for VMOwnedMemory {
     }
 }
 
+impl VMSharedMemory {
+    /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
+    ///
+    /// This creates a `Memory` with owned metadata: this can be used to create a memory
+    /// that will be imported into Wasm modules.
+    pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<Self, MemoryError> {
+        Ok(VMOwnedMemory::new(memory, style)?.to_shared())
+    }
+
+    /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
+    ///
+    /// This creates a `Memory` with metadata owned by a VM, pointed to by
+    /// `vm_memory_location`: this can be used to create a local memory.
+    ///
+    /// # Safety
+    /// - `vm_memory_location` must point to a valid location in VM memory.
+    pub unsafe fn from_definition(
+        memory: &MemoryType,
+        style: &MemoryStyle,
+        vm_memory_location: NonNull<VMMemoryDefinition>,
+    ) -> Result<Self, MemoryError> {
+        Ok(VMOwnedMemory::from_definition(memory, style, vm_memory_location)?.to_shared())
+    }
+}
+
+impl LinearMemory for VMSharedMemory {
+    /// Returns the type for this memory.
+    fn ty(&self) -> MemoryType {
+        let minimum = {
+            let guard = self.mmap.read().unwrap();
+            guard.size()
+        };
+        self.config.ty(minimum)
+    }
+
+    /// Returns the size of hte memory in pages
+    fn size(&self) -> Pages {
+        let guard = self.mmap.read().unwrap();
+        guard.size()
+    }
+
+    /// Returns the memory style for this memory.
+    fn style(&self) -> MemoryStyle {
+        self.config.style()
+    }
+
+    /// Grow memory by the specified amount of wasm pages.
+    ///
+    /// Returns `None` if memory can't be grown by the specified amount
+    /// of wasm pages.
+    fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
+        let mut guard = self.mmap.write().unwrap();
+        guard.grow(delta, self.config.clone())
+    }
+
+    /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
+    fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
+        let guard = self.mmap.read().unwrap();
+        guard.vm_memory_definition.as_ptr()
+    }
+
+    /// Owned memory can not be cloned (this will always return None)
+    fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
+        None
+    }
+}
+
 impl From<VMOwnedMemory> for VMMemory {
     fn from(mem: VMOwnedMemory) -> Self {
+        Self(Box::new(mem))
+    }
+}
+
+impl From<VMSharedMemory> for VMMemory {
+    fn from(mem: VMSharedMemory) -> Self {
         Self(Box::new(mem))
     }
 }
@@ -407,7 +502,11 @@ impl VMMemory {
     /// This creates a `Memory` with owned metadata: this can be used to create a memory
     /// that will be imported into Wasm modules.
     pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<Self, MemoryError> {
-        Ok(Self(Box::new(VMOwnedMemory::new(memory, style)?)))
+        Ok(if memory.shared {
+            Self(Box::new(VMSharedMemory::new(memory, style)?))
+        } else {
+            Self(Box::new(VMOwnedMemory::new(memory, style)?))
+        })
     }
 
     /// Returns the number of pages in the allocated memory block
@@ -446,9 +545,9 @@ impl VMMemory {
     /// are natively supported
     /// - VMOwnedMemory -> VMMemory
     /// - Box<dyn LinearMemory + 'static> -> VMMemory
-    pub fn from_custom<IntoVMMemory>(memory: IntoVMMemory) -> Self
+    pub fn from_custom<IntoVMMemory>(memory: IntoVMMemory) -> VMMemory
     where
-        IntoVMMemory: Into<Self>,
+        IntoVMMemory: Into<VMMemory>,
     {
         memory.into()
     }

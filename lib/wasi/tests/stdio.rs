@@ -77,7 +77,7 @@ async fn test_stdout() {
     // pipe.set_blocking(false);
     let mut wasi_env = WasiState::new("command-name")
         .args(&["Gordon"])
-        .stdout(Box::new(pipe.clone()))
+        .stdout(Box::new(stdout.clone()))
         .finalize(&mut store)
         .unwrap();
 

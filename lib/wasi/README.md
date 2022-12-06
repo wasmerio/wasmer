@@ -12,6 +12,12 @@ varies based on the WASI version). A program compiled for the
 filesystem manipulation, memory management, time, string, environment
 variables, program startup etc.
 
+Wasmer WASI is created with the aim to be fully sandboxed.
+We are able to achieve that thanks to our Virtual Filesystem implementation (`wasmer-vfs`)
+and by only allowing secure systemcalls back to the host.
+
+> Note: If you encounter any sandboxing issue please open an issue in the wasmer repo https://github.com/wasmerio/wasmer.
+
 This crate provides the necessary API to create the imports to use
 WASI easily from the Wasmer runtime, through our `ImportObject` API.
 

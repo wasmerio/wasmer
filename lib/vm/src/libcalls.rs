@@ -667,6 +667,154 @@ pub unsafe extern "C" fn wasmer_vm_raise_trap(trap_code: TrapCode) -> ! {
 #[no_mangle]
 pub static wasmer_vm_probestack: unsafe extern "C" fn() = PROBESTACK;
 
+/// Implementation of memory.wait32 for locally-defined 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_vm_memory32_atomic_wait32(
+    vmctx: *mut VMContext,
+    memory_index: u32,
+    dst: u32,
+    val: u32,
+    timeout: i64,
+) -> u32 {
+    let result = {
+        let instance = (*vmctx).instance_mut();
+        let memory_index = LocalMemoryIndex::from_u32(memory_index);
+
+        instance.local_memory_wait32(memory_index, dst, val, timeout)
+    };
+    if let Err(trap) = result {
+        raise_lib_trap(trap);
+    }
+    result.unwrap()
+}
+
+/// Implementation of memory.wait32 for imported 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_wait32(
+    vmctx: *mut VMContext,
+    memory_index: u32,
+    dst: u32,
+    val: u32,
+    timeout: i64,
+) -> u32 {
+    let result = {
+        let instance = (*vmctx).instance_mut();
+        let memory_index = MemoryIndex::from_u32(memory_index);
+
+        instance.imported_memory_wait32(memory_index, dst, val, timeout)
+    };
+    if let Err(trap) = result {
+        raise_lib_trap(trap);
+    }
+    result.unwrap()
+}
+
+/// Implementation of memory.wait64 for locally-defined 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_vm_memory32_atomic_wait64(
+    vmctx: *mut VMContext,
+    memory_index: u32,
+    dst: u32,
+    val: u64,
+    timeout: i64,
+) -> u32 {
+    let result = {
+        let instance = (*vmctx).instance_mut();
+        let memory_index = LocalMemoryIndex::from_u32(memory_index);
+
+        instance.local_memory_wait64(memory_index, dst, val, timeout)
+    };
+    if let Err(trap) = result {
+        raise_lib_trap(trap);
+    }
+    result.unwrap()
+}
+
+/// Implementation of memory.wait64 for imported 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_wait64(
+    vmctx: *mut VMContext,
+    memory_index: u32,
+    dst: u32,
+    val: u64,
+    timeout: i64,
+) -> u32 {
+    let result = {
+        let instance = (*vmctx).instance_mut();
+        let memory_index = MemoryIndex::from_u32(memory_index);
+
+        instance.imported_memory_wait64(memory_index, dst, val, timeout)
+    };
+    if let Err(trap) = result {
+        raise_lib_trap(trap);
+    }
+    result.unwrap()
+}
+
+/// Implementation of memory.notfy for locally-defined 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_vm_memory32_atomic_notify(
+    vmctx: *mut VMContext,
+    memory_index: u32,
+    dst: u32,
+    cnt: u32,
+) -> u32 {
+    let result = {
+        let instance = (*vmctx).instance_mut();
+        let memory_index = LocalMemoryIndex::from_u32(memory_index);
+
+        instance.local_memory_notify(memory_index, dst, cnt)
+    };
+    if let Err(trap) = result {
+        raise_lib_trap(trap);
+    }
+    result.unwrap()
+}
+
+/// Implementation of memory.notfy for imported 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be dereferenceable.
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_notify(
+    vmctx: *mut VMContext,
+    memory_index: u32,
+    dst: u32,
+    cnt: u32,
+) -> u32 {
+    let result = {
+        let instance = (*vmctx).instance_mut();
+        let memory_index = MemoryIndex::from_u32(memory_index);
+
+        instance.imported_memory_notify(memory_index, dst, cnt)
+    };
+    if let Err(trap) = result {
+        raise_lib_trap(trap);
+    }
+    result.unwrap()
+}
+
 /// The function pointer to a libcall
 pub fn function_pointer(libcall: LibCall) -> usize {
     match libcall {
@@ -701,5 +849,11 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::DataDrop => wasmer_vm_data_drop as usize,
         LibCall::Probestack => wasmer_vm_probestack as usize,
         LibCall::RaiseTrap => wasmer_vm_raise_trap as usize,
+        LibCall::Memory32AtomicWait32 => wasmer_vm_memory32_atomic_wait32 as usize,
+        LibCall::ImportedMemory32AtomicWait32 => wasmer_vm_imported_memory32_atomic_wait32 as usize,
+        LibCall::Memory32AtomicWait64 => wasmer_vm_memory32_atomic_wait64 as usize,
+        LibCall::ImportedMemory32AtomicWait64 => wasmer_vm_imported_memory32_atomic_wait64 as usize,
+        LibCall::Memory32AtomicNotify => wasmer_vm_memory32_atomic_notify as usize,
+        LibCall::ImportedMemory32AtomicNotify => wasmer_vm_imported_memory32_atomic_notify as usize,
     }
 }
