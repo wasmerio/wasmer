@@ -26,13 +26,11 @@ pub mod config;
 pub mod graphql;
 pub mod login;
 pub mod queries;
-pub mod split_version;
 pub mod utils;
 
 pub use crate::{
     config::{format_graphql, PartialWapmConfig},
     queries::get_bindings_query::ProgrammingLanguage,
-    split_version::SplitVersion,
 };
 
 pub static GLOBAL_CONFIG_FILE_NAME: &str = "wapm.toml";
