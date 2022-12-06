@@ -12,11 +12,12 @@ pub fn port_mac<M: MemorySize>(
     let mut memory = env.memory_view(&ctx);
 
     let net = env.net();
+    std::mem::drop(env);
     let mac = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
         net.mac().await.map_err(net_error_into_wasi_err)
     })?);
-    env = ctx.data();
-    memory = env.memory_view(&ctx);
+    let env = ctx.data();
+    let memory = env.memory_view(&ctx);
 
     let mac = __wasi_hardwareaddress_t { octs: mac };
     wasi_try_mem_ok!(ret_mac.write(&memory, mac));
