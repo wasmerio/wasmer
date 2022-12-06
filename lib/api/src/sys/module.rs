@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use std::fmt;
 use std::io;
 use std::path::Path;

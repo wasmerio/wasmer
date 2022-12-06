@@ -3,8 +3,8 @@ use derivative::Derivative;
 use std::fmt;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{AsEngineRef, Engine, EngineBuilder, EngineRef, Tunables};
-use wasmer_vm::{init_traps, StoreId, TrapHandler, TrapHandlerFn};
 use wasmer_types::{OnCalledAction, StoreSnapshot};
+use wasmer_vm::{init_traps, StoreId, TrapHandler, TrapHandlerFn};
 
 use wasmer_vm::StoreObjects;
 
@@ -76,7 +76,6 @@ impl Store {
                 on_called: None,
             }),
             engine: engine.cloned(),
-            trap_handler: Arc::new(RwLock::new(None)),
         }
     }
 

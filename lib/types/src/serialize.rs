@@ -13,7 +13,6 @@ use rkyv::{
     Serialize as RkyvSerialize,
 };
 use std::convert::TryInto;
-use std::mem;
 use std::path::Path;
 use std::{fs, mem};
 

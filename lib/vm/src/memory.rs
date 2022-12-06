@@ -351,7 +351,6 @@ pub struct VMSharedMemory {
 unsafe impl Send for VMSharedMemory {}
 unsafe impl Sync for VMSharedMemory {}
 
-
 impl VMSharedMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
     ///
@@ -618,5 +617,3 @@ where
     /// Copies this memory to a new memory
     fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
 }
-
-
