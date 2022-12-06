@@ -10,7 +10,7 @@ use crate::syscalls::*;
 ///     The value of the clock in nanoseconds
 pub fn clock_time_set<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    clock_id: Clockid,
+    clock_id: Snapshot0Clockid,
     time: Timestamp,
 ) -> Errno {
     trace!(
@@ -21,15 +21,8 @@ pub fn clock_time_set<M: MemorySize>(
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 
-    let snapshot_clock_id = match clock_id {
-        Clockid::Realtime => Snapshot0Clockid::Realtime,
-        Clockid::Monotonic => Snapshot0Clockid::Monotonic,
-        Clockid::ProcessCputimeId => Snapshot0Clockid::ProcessCputimeId,
-        Clockid::ThreadCputimeId => Snapshot0Clockid::ThreadCputimeId,
-    };
-
     let precision = 1 as Timestamp;
-    let t_now = wasi_try!(platform_clock_time_get(snapshot_clock_id, precision));
+    let t_now = wasi_try!(platform_clock_time_get(clock_id, precision));
     let t_now = t_now as i64;
 
     let t_target = time as i64;

@@ -37,7 +37,7 @@ use serde::{Deserialize, Serialize};
 use wasmer::Store;
 use wasmer_vbus::{VirtualBusCalled, VirtualBusInvocation};
 use wasmer_vfs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
-use wasmer_wasi_types::wasi::{Cid, Clockid, Errno, Fd as WasiFd, Rights};
+use wasmer_wasi_types::wasi::{Cid, Errno, Fd as WasiFd, Rights, Snapshot0Clockid};
 
 pub use self::{
     builder::*,
@@ -250,7 +250,7 @@ pub struct WasiState {
     #[allow(dead_code)]
     pub(crate) threading: RwLock<WasiStateThreading>,
     pub(crate) futexs: Mutex<HashMap<u64, WasiFutex>>,
-    pub(crate) clock_offset: Mutex<HashMap<Clockid, i64>>,
+    pub(crate) clock_offset: Mutex<HashMap<Snapshot0Clockid, i64>>,
     pub(crate) bus: WasiBusState,
     pub args: Vec<String>,
     pub envs: Vec<Vec<u8>>,

@@ -98,6 +98,12 @@ impl From<Clockid> for Snapshot0Clockid {
     }
 }
 
+impl std::hash::Hash for Snapshot0Clockid {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        core::mem::discriminant(self).hash(state);
+    }
+}
+
 impl From<Snapshot0Clockid> for Clockid {
     fn from(other: Snapshot0Clockid) -> Self {
         match other {

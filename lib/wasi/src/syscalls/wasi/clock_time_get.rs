@@ -13,7 +13,7 @@ use crate::syscalls::*;
 ///     The value of the clock in nanoseconds
 pub fn clock_time_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    clock_id: Clockid,
+    clock_id: Snapshot0Clockid,
     precision: Timestamp,
     time: WasmPtr<Timestamp, M>,
 ) -> Errno {
@@ -24,10 +24,7 @@ pub fn clock_time_get<M: MemorySize>(
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 
-    let mut t_out = wasi_try!(platform_clock_time_get(
-        Snapshot0Clockid::from(clock_id),
-        precision
-    ));
+    let mut t_out = wasi_try!(platform_clock_time_get(clock_id, precision));
     {
         let guard = env.state.clock_offset.lock().unwrap();
         if let Some(offset) = guard.get(&clock_id) {
