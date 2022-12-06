@@ -672,7 +672,7 @@ fn try_resolve_package_or_file(
     _sv: &SplitVersion,
     _debug: bool,
 ) -> Result<RunWithPathBuf, anyhow::Error> {
-    Err(anyhow::anyhow!("unimplemented"))
+    Err(anyhow::anyhow!("unimplemented: {:#?}", _sv))
 }
 
 #[allow(dead_code)]

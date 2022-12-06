@@ -63,40 +63,59 @@ impl fmt::Display for ResolvedSplitVersion {
 }
 
 impl SplitVersion {
+    /// Resolves the package / URL by querying the registry
     pub fn resolve(&self, _registry: Option<&str>) -> Result<ResolvedSplitVersion, anyhow::Error> {
-        Err(anyhow::anyhow!("unimplemented"))
+        Err(anyhow::anyhow!("unimplemented {:#?}", self))
     }
 }
 
+/// Package specifier in the format of `package@version:command`
 #[derive(Debug, Clone, PartialEq)]
 pub struct SplitVersionPackage {
+    /// namespace/package
     pub package: String,
+    /// version: latest | 1.0.2
     pub version: Option<ParsedPackageVersion>,
+    /// :command
     pub command: Option<String>,
 }
 
+/// Command specifier in the format of `command@version`
 #[derive(Debug, Clone, PartialEq)]
 pub struct SplitVersionCommand {
+    /// Command of the `command`
     pub command: String,
+    /// version: latest | 1.0.2
     pub version: Option<ParsedPackageVersion>,
 }
 
+/// What type of package should be run
 #[derive(Debug, Clone, PartialEq)]
 pub enum SplitVersionInner {
-    File { path: String },
+    /// Run a file
+    File {
+        /// Path to the file
+        path: String,
+    },
+    /// Run a URL
     Url(url::Url),
+    /// Run a package
     Package(SplitVersionPackage),
+    /// Run a command
     Command(SplitVersionCommand),
 }
 
+/// Package version specifier
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParsedPackageVersion {
+    /// version 1.0.2
     Version(semver::Version),
+    /// version latest
     Latest,
 }
 
 impl SplitVersionInner {
-    // Try parsing `s` as a URL
+    /// Try parsing `s` as a URL
     pub fn try_parse_url(s: &str) -> Result<Self, SplitVersionError> {
         let url = url::Url::parse(s).map_err(|e| SplitVersionError::InvalidUrl(format!("{e}")))?;
         if !(url.scheme() == "http" || url.scheme() == "https") {
@@ -108,7 +127,7 @@ impl SplitVersionInner {
         Ok(Self::Url(url))
     }
 
-    // Try parsing `s` as a package (`namespace/user`) or a file (`./namespace/user`)
+    /// Try parsing `s` as a package (`namespace/user`) or a file (`./namespace/user`)
     pub fn try_parse_package(s: &str) -> Result<Self, SplitVersionError> {
         let re1 = regex::Regex::new(r#"(.*)/(.*)@(.*):(.*)"#).unwrap();
         let re2 = regex::Regex::new(r#"(.*)/(.*)@(.*)"#).unwrap();
@@ -202,7 +221,7 @@ impl SplitVersionInner {
         }))
     }
 
-    // Try parsing `s` as a command (`python@latest`) or a file (`python`)
+    /// Try parsing `s` as a command (`python@latest`) or a file (`python`)
     pub fn try_parse_command(s: &str) -> Result<Self, SplitVersionError> {
         if !s.chars().all(|c| char::is_alphanumeric(c) || c == '@') {
             return Err(SplitVersionError::InvalidCommandName(s.to_string()));
@@ -230,7 +249,7 @@ impl SplitVersionInner {
         Ok(Self::Command(SplitVersionCommand { command, version }))
     }
 
-    // Try parsing `s` as a file (error if it doesn't exist)
+    /// Try parsing `s` as a file (error if it doesn't exist)
     pub fn try_parse_file(s: &str) -> Result<Self, SplitVersionError> {
         let pathbuf = std::path::Path::new(s).to_path_buf();
         let canon = pathbuf.canonicalize().unwrap_or(pathbuf);
@@ -300,6 +319,7 @@ impl fmt::Display for SplitVersionMultiError {
 impl std::error::Error for SplitVersionMultiError {}
 
 impl SplitVersion {
+    /// Parse a version from a String
     pub fn parse(s: &str) -> Result<SplitVersion, SplitVersionMultiError> {
         s.parse()
     }
