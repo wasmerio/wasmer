@@ -73,6 +73,7 @@ webc = { version = "3.0.1", optional = true }
 isatty = "0.1.9"
 dialoguer = "0.10.2"
 tldextract = "0.6.0"
+semver = "1.0.14"
 
 [build-dependencies]
 chrono = { version = "^0.4", default-features = false, features = [ "std", "clock" ] }

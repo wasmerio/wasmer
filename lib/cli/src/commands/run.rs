@@ -1,7 +1,9 @@
 use crate::common::get_cache_dir;
 #[cfg(feature = "debug")]
 use crate::logging;
-use crate::split_version::{SplitVersion, SplitVersionError};
+use crate::split_version::{
+    ResolvedSplitVersion, SplitVersion, SplitVersionCommand, SplitVersionError,
+};
 use crate::store::{CompilerType, StoreOptions};
 use crate::suggestions::suggest_function_exports;
 use crate::warning;
@@ -665,13 +667,14 @@ fn start_spinner(msg: String) -> Option<spinoff::Spinner> {
 /// the command already installed
 fn try_run_local_command(
     args: &[String],
-    sv: &SplitVersion,
+    original: &str,
+    sv: &SplitVersionCommand,
     debug_msgs_allowed: bool,
 ) -> Result<(), ExecuteLocalPackageError> {
-    let result = wasmer_registry::try_finding_local_command(&sv.original).ok_or_else(|| {
+    let result = wasmer_registry::try_finding_local_command(&sv.command).ok_or_else(|| {
         ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!(
             "could not find command {} locally",
-            sv.original
+            sv.command
         ))
     })?;
     let package_dir = result
@@ -679,13 +682,13 @@ fn try_run_local_command(
         .map_err(|e| ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("{e}")))?;
 
     // Try auto-installing the remote package
-    let args_without_package = fixup_args(args, &sv.original);
+    let args_without_package = fixup_args(args, &original);
     let mut run_args = RunWithoutFile::try_parse_from(args_without_package.iter())
         .map_err(|e| ExecuteLocalPackageError::DuringExec(e.into()))?;
-    run_args.command_name = sv.command.clone();
+    run_args.command_name = Some(sv.command.clone());
 
     run_args
-        .into_run_args(package_dir, sv.command.as_deref(), debug_msgs_allowed)
+        .into_run_args(package_dir, Some(sv.command.as_str()), debug_msgs_allowed)
         .map_err(ExecuteLocalPackageError::DuringExec)?
         .execute()
         .map_err(ExecuteLocalPackageError::DuringExec)
@@ -693,7 +696,8 @@ fn try_run_local_command(
 
 pub(crate) fn try_autoinstall_package(
     args: &[String],
-    sv: &SplitVersion,
+    original: &str,
+    sv: &ResolvedSplitVersion,
     package: Option<PackageDownloadInfo>,
     force_install: bool,
 ) -> Result<(), anyhow::Error> {
@@ -720,7 +724,7 @@ pub(crate) fn try_autoinstall_package(
     };
 
     // Try auto-installing the remote package
-    let args_without_package = fixup_args(args, &sv.original);
+    let args_without_package = fixup_args(args, original);
     let mut run_args = RunWithoutFile::try_parse_from(args_without_package.iter())?;
     run_args.command_name = sv.command.clone();
 
@@ -738,7 +742,8 @@ enum ExecuteLocalPackageError {
 
 fn try_execute_local_package(
     args: &[String],
-    sv: &SplitVersion,
+    original: &str,
+    sv: &ResolvedSplitVersion,
     debug_msgs_allowed: bool,
 ) -> Result<(), ExecuteLocalPackageError> {
     let package = wasmer_registry::get_local_package(None, &sv.package, sv.version.as_deref())
@@ -751,7 +756,7 @@ fn try_execute_local_package(
         .map_err(|e| ExecuteLocalPackageError::BeforeExec(anyhow::anyhow!("{e}")))?;
 
     // Try finding the local package
-    let args_without_package = fixup_args(args, &sv.original);
+    let args_without_package = fixup_args(args, original);
 
     RunWithoutFile::try_parse_from(args_without_package.iter())
         .map_err(|e| ExecuteLocalPackageError::DuringExec(e.into()))?
@@ -761,7 +766,7 @@ fn try_execute_local_package(
         .map_err(|e| ExecuteLocalPackageError::DuringExec(e.context(anyhow::anyhow!("{}", sv))))
 }
 
-fn try_lookup_command(sv: &mut SplitVersion) -> Result<PackageDownloadInfo, anyhow::Error> {
+fn try_lookup_command(sv: &mut ResolvedSplitVersion) -> Result<PackageDownloadInfo, anyhow::Error> {
     use std::io::Write;
     let mut sp = start_spinner(format!("Looking up command {} ...", sv.package));
 
@@ -797,29 +802,6 @@ fn fixup_args(args: &[String], command: &str) -> Vec<String> {
         let _ = args_without_package.remove(1);
     }
     args_without_package
-}
-
-#[test]
-fn test_fixup_args() {
-    let first_args = vec![
-        format!("wasmer"),
-        format!("run"),
-        format!("python/python"),
-        format!("--arg1"),
-        format!("--arg2"),
-    ];
-
-    let second_args = vec![
-        format!("wasmer"), // no "run"
-        format!("python/python"),
-        format!("--arg1"),
-        format!("--arg2"),
-    ];
-
-    let arg1_transformed = fixup_args(&first_args, "python/python");
-    let arg2_transformed = fixup_args(&second_args, "python/python");
-
-    assert_eq!(arg1_transformed, arg2_transformed);
 }
 
 pub(crate) fn try_run_package_or_file(
@@ -889,7 +871,7 @@ pub(crate) fn try_run_package_or_file(
                 _ => {}
             }
             match try_lookup_command(&mut fake_sv) {
-                Ok(o) => SplitVersion {
+                Ok(o) => ResolvedSplitVersion {
                     original: package.to_string(),
                     registry: None,
                     package: o.package,
@@ -972,4 +954,27 @@ fn try_run_url(
     let mut r = r.clone();
     r.path = webc_install_path;
     r.execute().map_err(ExecuteLocalPackageError::DuringExec)
+}
+
+#[test]
+fn test_fixup_args() {
+    let first_args = vec![
+        format!("wasmer"),
+        format!("run"),
+        format!("python/python"),
+        format!("--arg1"),
+        format!("--arg2"),
+    ];
+
+    let second_args = vec![
+        format!("wasmer"), // no "run"
+        format!("python/python"),
+        format!("--arg1"),
+        format!("--arg2"),
+    ];
+
+    let arg1_transformed = fixup_args(&first_args, "python/python");
+    let arg2_transformed = fixup_args(&second_args, "python/python");
+
+    assert_eq!(arg1_transformed, arg2_transformed);
 }

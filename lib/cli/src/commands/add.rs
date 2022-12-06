@@ -1,6 +1,6 @@
 use std::process::{Command, Stdio};
 
-use crate::split_version::SplitVersion;
+use crate::split_version::{ResolvedSplitVersion, SplitVersion};
 use anyhow::{Context, Error};
 use clap::Parser;
 use wasmer_registry::{Bindings, PartialWapmConfig, ProgrammingLanguage};
@@ -65,7 +65,11 @@ impl Add {
         let language = self.target()?.language();
 
         for pkg in &self.packages {
-            let bindings = lookup_bindings_for_package(registry, pkg, &language)
+            let resolved = match pkg.resolve(Some(registry)) {
+                Ok(o) => o,
+                Err(_) => continue,
+            };
+            let bindings = lookup_bindings_for_package(registry, &resolved, &language)
                 .with_context(|| format!("Unable to find bindings for {pkg}"))?;
             bindings_to_add.push(bindings);
         }
@@ -102,7 +106,7 @@ impl Add {
 
 fn lookup_bindings_for_package(
     registry: &str,
-    pkg: &SplitVersion,
+    pkg: &ResolvedSplitVersion,
     language: &ProgrammingLanguage,
 ) -> Result<Bindings, Error> {
     let all_bindings =
