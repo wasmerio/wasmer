@@ -46,7 +46,7 @@ pub enum DeserializeError {
 }
 
 /// Error type describing things that can go wrong when operating on Wasm Memories.
-#[derive(Error, Debug, Clone, PartialEq, Hash)]
+#[derive(Error, Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MemoryError {
     /// Low level error with mmap.
     #[error("Error when allocating memory: {0}")]

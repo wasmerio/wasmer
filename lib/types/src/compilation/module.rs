@@ -1,7 +1,6 @@
 //! Types for modules.
 use crate::entity::PrimaryMap;
 use crate::{Features, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex, TableStyle};
-#[cfg(feature = "rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -12,11 +11,7 @@ use serde::{Deserialize, Serialize};
 /// possible after translation (such as the features used for compiling,
 /// or the `MemoryStyle` and `TableStyle`).
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[cfg_attr(
-    feature = "enable-rkyv",
-    derive(RkyvSerialize, RkyvDeserialize, Archive)
-)]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
 pub struct CompileModuleInfo {
     /// The features used for compiling the module
     pub features: Features,

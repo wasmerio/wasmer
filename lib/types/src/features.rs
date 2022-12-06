@@ -1,4 +1,3 @@
-#[cfg(feature = "rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -9,11 +8,8 @@ use serde::{Deserialize, Serialize};
 /// [WebAssembly proposal]: https://github.com/WebAssembly/proposals
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(
-    feature = "enable-rkyv",
-    derive(RkyvSerialize, RkyvDeserialize, Archive)
-)]
-#[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive(as = "Self")]
 pub struct Features {
     /// Threads proposal should be enabled
     pub threads: bool,

@@ -1,12 +1,9 @@
 //! This module define the required structures for compilation symbols.
 use crate::{
     entity::{EntityRef, PrimaryMap},
-    CompileModuleInfo, FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SectionIndex,
-    SignatureIndex,
+    CompileModuleInfo, DeserializeError, FunctionIndex, LocalFunctionIndex, OwnedDataInitializer,
+    SectionIndex, SerializeError, SignatureIndex,
 };
-#[cfg(feature = "enable-rkyv")]
-use crate::{DeserializeError, SerializeError};
-#[cfg(feature = "rkyv")]
 use rkyv::{
     archived_value, de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer,
     ser::Serializer as RkyvSerializer, Archive, Deserialize as RkyvDeserialize,
@@ -16,13 +13,21 @@ use rkyv::{
 use serde::{Deserialize, Serialize};
 
 /// The kinds of wasmer_types objects that might be found in a native object file.
-#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(
-    feature = "enable-rkyv",
-    derive(RkyvSerialize, RkyvDeserialize, Archive)
+#[derive(
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Debug,
 )]
-#[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[archive(as = "Self")]
 pub enum Symbol {
     /// A function defined in the wasm.
     LocalFunction(LocalFunctionIndex),
@@ -49,12 +54,8 @@ pub trait SymbolRegistry: Send + Sync {
 }
 
 /// Serializable struct that represents the compiled metadata.
-#[derive(Debug)]
+#[derive(Debug, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(
-    feature = "enable-rkyv",
-    derive(RkyvSerialize, RkyvDeserialize, Archive)
-)]
 pub struct ModuleMetadata {
     /// Compile info
     pub compile_info: CompileModuleInfo,
@@ -93,7 +94,6 @@ impl ModuleMetadata {
     /// Serialize a Module into bytes
     /// The bytes will have the following format:
     /// RKYV serialization (any length) + POS (8 bytes)
-    #[cfg(feature = "enable-rkyv")]
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         let mut serializer = AllocSerializer::<4096>::default();
         let pos = serializer
@@ -115,7 +115,6 @@ impl ModuleMetadata {
     /// Right now we are not doing any extra work for validation, but
     /// `rkyv` has an option to do bytecheck on the serialized data before
     /// serializing (via `rkyv::check_archived_value`).
-    #[cfg(feature = "enable-rkyv")]
     pub unsafe fn deserialize(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
         let archived = Self::archive_from_slice(metadata_slice)?;
         Self::deserialize_from_archive(archived)
@@ -125,7 +124,6 @@ impl ModuleMetadata {
     ///
     /// This method is unsafe.
     /// Please check `ModuleMetadata::deserialize` for more details.
-    #[cfg(feature = "enable-rkyv")]
     unsafe fn archive_from_slice(
         metadata_slice: &[u8],
     ) -> Result<&ArchivedModuleMetadata, DeserializeError> {
@@ -144,7 +142,6 @@ impl ModuleMetadata {
     }
 
     /// Deserialize a compilation module from an archive
-    #[cfg(feature = "enable-rkyv")]
     pub fn deserialize_from_archive(
         archived: &ArchivedModuleMetadata,
     ) -> Result<Self, DeserializeError> {

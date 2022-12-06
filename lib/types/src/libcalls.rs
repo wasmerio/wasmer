@@ -1,5 +1,4 @@
 use enum_iterator::IntoEnumIterator;
-#[cfg(feature = "rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -8,13 +7,20 @@ use std::fmt;
 /// The name of a runtime library routine.
 ///
 /// This list is likely to grow over time.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, IntoEnumIterator)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(
-    feature = "enable-rkyv",
-    derive(RkyvSerialize, RkyvDeserialize, Archive)
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    IntoEnumIterator,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
 )]
-#[cfg_attr(feature = "enable-rkyv", archive(as = "Self"))]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[archive(as = "Self")]
 pub enum LibCall {
     /// ceil.f32
     CeilF32,
