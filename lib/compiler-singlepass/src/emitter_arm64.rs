@@ -1303,6 +1303,12 @@ impl EmitterARM64 for Assembler {
                 let masked = 0xffff & (val >> offset);
                 if (masked << offset) == val {
                     dynasm!(self ; movz X(dst), masked as u32, LSL offset);
+                } else if val >> 16 == 0xffff_ffff_ffff {
+                    let val: u16 = !((val & 0xffff) as u16);
+                    dynasm!(self ; movn X(dst), val as u32);
+                } else if val >> 16 == 0xffff {
+                    let val: u16 = !((val & 0xffff) as u16);
+                    dynasm!(self ; movn W(dst), val as u32);
                 } else {
                     dynasm!(self ; movz W(dst), (val&0xffff) as u32);
                     let val = val >> 16;
