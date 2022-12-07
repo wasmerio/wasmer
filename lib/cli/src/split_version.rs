@@ -2,9 +2,10 @@
 //! used in `wasmer run`.
 
 use crate::cli::WasmerCLIOptions;
-use crate::commands::RunWithPathBuf;
+use crate::commands::{RunWithPathBuf, RunWithoutFile};
 use clap::CommandFactory;
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 use std::{fmt, str::FromStr};
 use wasmer_registry::PartialWapmConfig;
@@ -156,26 +157,76 @@ impl SplitVersion {
     pub fn get_run_command(
         &self,
         registry: Option<&str>,
+        mut options: RunWithoutFile,
         debug: bool,
     ) -> Result<RunWithPathBuf, anyhow::Error> {
-        let registry = match registry {
+        if let SplitVersionInner::File { path } = &self.inner {
+            return Ok(RunWithPathBuf {
+                path: Path::new(&path).to_path_buf(),
+                options,
+            });
+        }
+
+        let lookup_reg = match registry {
             Some(s) => s.to_string(),
             None => PartialWapmConfig::from_file()
                 .map_err(|e| anyhow::anyhow!("{e}"))?
                 .registry
                 .get_current_registry(),
         };
-        let package_info = self.get_package_info(&registry, debug)?;
-        Err(anyhow::anyhow!(
-            "unimplement get_run_command: {:#?}",
-            package_info
-        ))
-        /*
-            let local_path = resolved_split_version.get_local_path()
-            .ok_or_else(|| anyhow::anyhow!("error during installation: could not find package locally: {resolved_split_version:#?}"))?;
 
-            Ok(RunWithPathBuf { path: local_path, options: self.options.clone() })
-        */
+        let package_info = self.get_package_info(&lookup_reg, debug)?;
+
+        if let Some(p) = wasmer_registry::get_local_package(
+            registry,
+            &package_info.package,
+            package_info.version.as_deref(),
+        ) {
+            if let Some(c) = package_info.command.as_ref() {
+                if options.command_name.is_none() {
+                    options.command_name = Some(c.to_string());
+                }
+            }
+            let path = p
+                .get_path()
+                .map_err(|e| anyhow::anyhow!("no install dir for {p:?}: {e}"))?;
+            return Ok(RunWithPathBuf { path, options });
+        }
+
+        let mut sp = if debug {
+            crate::commands::start_spinner(format!(
+                "Installing package {} ...",
+                package_info.package
+            ))
+        } else {
+            None
+        };
+        let result = wasmer_registry::install_package(
+            registry,
+            &package_info.package,
+            package_info.version.as_deref(),
+            None,
+            options.force_install,
+        );
+        if let Some(sp) = sp.take() {
+            sp.clear();
+        }
+        let _ = std::io::stdout().flush();
+
+        let (_, package_dir) = match result {
+            Ok(o) => o,
+            Err(e) => {
+                return Err(anyhow::anyhow!(
+                    "could not install {}: {e}",
+                    package_info.package
+                ));
+            }
+        };
+
+        Ok(RunWithPathBuf {
+            path: package_dir,
+            options,
+        })
     }
 }
 

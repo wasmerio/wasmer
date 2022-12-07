@@ -177,7 +177,8 @@ impl Run {
         let debug = false;
         #[cfg(feature = "debug")]
         let debug = self.options.debug;
-        self.path.get_run_command(self.registry.as_deref(), debug)
+        self.path
+            .get_run_command(self.registry.as_deref(), self.options.clone(), debug)
     }
 
     /// Create Run instance for arguments/env,
