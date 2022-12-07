@@ -1760,16 +1760,23 @@ impl Machine for MachineARM64 {
                 .emit_stur(Size::S64, location, GPR::X29, -stack_offset)?;
         } else {
             let tmp = GPR::X17;
-            self.assembler
-                .emit_mov_imm(Location::GPR(tmp), (stack_offset as i64) as u64)?;
-            self.assembler.emit_sub(
-                Size::S64,
-                Location::GPR(GPR::X29),
-                Location::GPR(tmp),
-                Location::GPR(tmp),
-            )?;
-            self.assembler
-                .emit_str(Size::S64, location, Location::GPR(tmp))?;
+            if stack_offset < 0x1_0000 {
+                self.assembler
+                    .emit_mov_imm(Location::GPR(tmp), (-stack_offset as i64) as u64)?;
+                self.assembler
+                    .emit_str(Size::S64, location, Location::Memory2(GPR::X29, tmp, Multiplier::One, 0))?;
+            } else {
+                self.assembler
+                    .emit_mov_imm(Location::GPR(tmp), (stack_offset as i64) as u64)?;
+                self.assembler.emit_sub(
+                    Size::S64,
+                    Location::GPR(GPR::X29),
+                    Location::GPR(tmp),
+                    Location::GPR(tmp),
+                )?;
+                self.assembler
+                    .emit_str(Size::S64, location, Location::GPR(tmp))?;
+            }
         }
         match location {
             Location::GPR(x) => self.emit_unwind_op(UnwindOps::SaveRegister {
