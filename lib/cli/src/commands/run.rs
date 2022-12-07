@@ -113,7 +113,10 @@ impl Run {
         let debug = false;
         #[cfg(feature = "debug")]
         let debug = self.options.debug;
-        let registry = self.registry.as_deref().map(wasmer_registry::format_graphql);
+        let registry = self
+            .registry
+            .as_deref()
+            .map(wasmer_registry::format_graphql);
         self.path
             .get_run_command(registry.as_deref(), self.options.clone(), debug)
     }
@@ -132,42 +135,21 @@ impl Run {
     fn from_binfmt_args_fallible() -> Result<Run> {
         use regex::Split;
 
-        let argv = std::env::args_os().collect::<Vec<_>>();
+        let argv = std::env::args().collect::<Vec<_>>();
         let (_interpreter, executable, original_executable, args) = match &argv[..] {
             [a, b, c, d @ ..] => (a, b, c, d),
             _ => {
                 bail!("Wasmer binfmt interpreter needs at least three arguments (including $0) - must be registered as binfmt interpreter with the CFP flags. (Got arguments: {:?})", argv);
             }
         };
-        // TODO: Optimally, args and env would be passed as an UTF-8 Vec.
-        // (Can be pulled out of std::os::unix::ffi::OsStrExt)
-        // But I don't want to duplicate or rewrite run.rs today.
-        let args = args
-            .iter()
-            .enumerate()
-            .map(|(i, s)| {
-                s.clone().into_string().map_err(|s| {
-                    anyhow!(
-                        "Cannot convert argument {} ({:?}) to UTF-8 string",
-                        i + 1,
-                        s
-                    )
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-        let original_executable = original_executable
-            .clone()
-            .into_string()
-            .map_err(|s| anyhow!("Cannot convert executable name {:?} to UTF-8 string", s))?;
         let store = StoreOptions::default();
         // TODO: store.compiler.features.all = true; ?
-        let path: String = executable.into();
         Ok(Self {
-            path: SplitVersion::parse(&path)?,
+            path: SplitVersion::parse(&executable)?,
             registry: None, // TODO: ???
             options: RunWithoutFile {
-                args,
-                command_name: Some(original_executable),
+                args: args.to_vec(),
+                command_name: Some(original_executable.clone()),
                 store,
                 wasi: Wasi::for_binfmt_interpreter()?,
                 ..Default::default()
