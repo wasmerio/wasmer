@@ -95,65 +95,6 @@ fn is_dir(e: &walkdir::DirEntry) -> bool {
     meta.is_dir()
 }
 
-impl RunWithoutFile {
-    /// Given a local path, returns the `Run` command (overriding the `--path` argument).
-    pub fn into_run_args(
-        mut self,
-        package_root_dir: PathBuf, // <- package dir
-        command: Option<&str>,
-        _debug_output_allowed: bool,
-    ) -> Result<RunWithPathBuf, anyhow::Error> {
-        let (manifest, pathbuf) =
-            wasmer_registry::get_executable_file_from_path(&package_root_dir, command)?;
-
-        #[cfg(feature = "wasi")]
-        {
-            let default = HashMap::default();
-            let fs = manifest.fs.as_ref().unwrap_or(&default);
-            for (alias, real_dir) in fs.iter() {
-                let real_dir = package_root_dir.join(&real_dir);
-                if !real_dir.exists() {
-                    if _debug_output_allowed {
-                        println!(
-                            "warning: cannot map {alias:?} to {}: directory does not exist",
-                            real_dir.display()
-                        );
-                    }
-                    continue;
-                }
-
-                self.wasi.map_dir(alias, real_dir.clone());
-            }
-        }
-
-        Ok(RunWithPathBuf {
-            path: pathbuf,
-            options: RunWithoutFile {
-                force_install: self.force_install,
-                #[cfg(feature = "cache")]
-                disable_cache: self.disable_cache,
-                invoke: self.invoke,
-                // If the RunWithoutFile was constructed via a package name,
-                // the correct syntax is "package:command-name" (--command-name would be
-                // interpreted as a CLI argument for the .wasm file)
-                command_name: None,
-                #[cfg(feature = "cache")]
-                cache_key: self.cache_key,
-                store: self.store,
-                #[cfg(feature = "wasi")]
-                wasi: self.wasi,
-                #[cfg(feature = "io-devices")]
-                enable_experimental_io_devices: self.enable_experimental_io_devices,
-                #[cfg(feature = "debug")]
-                debug: self.debug,
-                #[cfg(feature = "debug")]
-                verbose: self.verbose,
-                args: self.args,
-            },
-        })
-    }
-}
-
 #[derive(Debug, Parser, Clone, Default)]
 /// The options for the `wasmer run` subcommand
 pub struct Run {
@@ -257,14 +198,47 @@ impl Deref for RunWithPathBuf {
 impl RunWithPathBuf {
     /// Execute the run command
     pub fn execute(&self) -> Result<()> {
-        #[cfg(feature = "debug")]
-        if self.debug {
-            logging::set_up_logging(self.verbose.unwrap_or(0)).unwrap();
+        let mut self_clone = self.clone();
+
+        if self_clone.path.is_dir() {
+            let (manifest, pathbuf) = wasmer_registry::get_executable_file_from_path(
+                &self_clone.path,
+                self_clone.command_name.as_deref(),
+            )?;
+
+            #[cfg(feature = "wasi")]
+            {
+                let default = HashMap::default();
+                let fs = manifest.fs.as_ref().unwrap_or(&default);
+                for (alias, real_dir) in fs.iter() {
+                    let real_dir = self_clone.path.join(&real_dir);
+                    if !real_dir.exists() {
+                        #[cfg(feature = "debug")]
+                        if self_clone.debug {
+                            println!(
+                                "warning: cannot map {alias:?} to {}: directory does not exist",
+                                real_dir.display()
+                            );
+                        }
+                        continue;
+                    }
+
+                    self_clone.options.wasi.map_dir(alias, real_dir.clone());
+                }
+            }
+
+            self_clone.path = pathbuf;
         }
-        self.inner_execute().with_context(|| {
+
+        #[cfg(feature = "debug")]
+        if self_clone.debug {
+            logging::set_up_logging(self_clone.verbose.unwrap_or(0)).unwrap();
+        }
+
+        self_clone.inner_execute().with_context(|| {
             format!(
                 "failed to run `{}`{}",
-                self.path.display(),
+                self_clone.path.display(),
                 if CompilerType::enabled().is_empty() {
                     " (no compilers enabled)"
                 } else {

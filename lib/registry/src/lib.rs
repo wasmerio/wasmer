@@ -603,9 +603,7 @@ pub fn query_package_from_registry(
         })?;
 
     let v = response.package_version.as_ref().ok_or_else(|| {
-        QueryPackageError::ErrorSendingQuery(format!(
-            "Invalid response for crate {name:?}: no package version: {response:#?}"
-        ))
+        QueryPackageError::ErrorSendingQuery(format!("no package version for {name:?}"))
     })?;
 
     let manifest = toml::from_str::<wapm_toml::Manifest>(&v.manifest).map_err(|e| {
