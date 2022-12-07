@@ -143,7 +143,7 @@ impl Run {
         let store = StoreOptions::default();
         // TODO: store.compiler.features.all = true; ?
         Ok(Self {
-            path: SplitVersion::parse(&executable)?,
+            path: SplitVersion::parse(executable)?,
             registry: None, // TODO: ???
             options: RunWithoutFile {
                 args: args.to_vec(),
