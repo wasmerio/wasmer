@@ -133,8 +133,6 @@ impl Run {
 
     #[cfg(target_os = "linux")]
     fn from_binfmt_args_fallible() -> Result<Run> {
-        use regex::Split;
-
         let argv = std::env::args().collect::<Vec<_>>();
         let (_interpreter, executable, original_executable, args) = match &argv[..] {
             [a, b, c, d @ ..] => (a, b, c, d),
