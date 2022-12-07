@@ -704,17 +704,16 @@ fn test_split_version() {
             SplitVersionMultiError {
                 original: env!("CARGO_MANIFEST_DIR").to_string(),
                 errors: vec![
-                    SplitVersionError::InvalidDirectory(
-                        "/Users/fs/Development/wasmer6/wasmer/lib/cli".to_string()
-                    ),
+                    SplitVersionError::InvalidDirectory(env!("CARGO_MANIFEST_DIR").to_string()),
                     SplitVersionError::InvalidUrl("relative URL without a base".to_string()),
-                    SplitVersionError::InvalidPackageName(
-                        "invalid characters in namespace \"/Users/fs/Development/wasmer6/wasmer/lib\""
-                            .to_string()
-                    ),
-                    SplitVersionError::InvalidCommandName(
-                        "/Users/fs/Development/wasmer6/wasmer/lib/cli".to_string()
-                    ),
+                    SplitVersionError::InvalidPackageName(format!(
+                        "invalid characters in namespace \"{}\"",
+                        Path::new(env!("CARGO_MANIFEST_DIR"))
+                            .parent()
+                            .unwrap()
+                            .display()
+                    )),
+                    SplitVersionError::InvalidCommandName(env!("CARGO_MANIFEST_DIR").to_string()),
                 ],
             },
         );
