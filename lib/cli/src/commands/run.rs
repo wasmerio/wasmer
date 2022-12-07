@@ -1,25 +1,20 @@
 use crate::common::get_cache_dir;
 #[cfg(feature = "debug")]
 use crate::logging;
-use crate::split_version::{
-    ResolvedSplitVersion, SplitVersion, SplitVersionCommand, SplitVersionError, SplitVersionInner,
-};
+use crate::split_version::SplitVersion;
 use crate::store::{CompilerType, StoreOptions};
 use crate::suggestions::suggest_function_exports;
 use crate::warning;
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-use regex::Split;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::str::FromStr;
-use url::Url;
 use wasmer::FunctionEnv;
 use wasmer::*;
 #[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, Hash};
-use wasmer_registry::{PackageDownloadInfo, PartialWapmConfig};
 use wasmer_types::Type as ValueType;
 #[cfg(feature = "webc_runner")]
 use wasmer_wasi::runners::{Runner, WapmContainer};
@@ -134,6 +129,8 @@ impl Run {
 
     #[cfg(target_os = "linux")]
     fn from_binfmt_args_fallible() -> Result<Run> {
+        use regex::Split;
+
         let argv = std::env::args_os().collect::<Vec<_>>();
         let (_interpreter, executable, original_executable, args) = match &argv[..] {
             [a, b, c, d @ ..] => (a, b, c, d),
@@ -163,8 +160,10 @@ impl Run {
             .map_err(|s| anyhow!("Cannot convert executable name {:?} to UTF-8 string", s))?;
         let store = StoreOptions::default();
         // TODO: store.compiler.features.all = true; ?
+        let path: String = executable.into();
         Ok(Self {
-            path: executable.into(),
+            path: SplitVersion::parse(&path)?,
+            registry: None, // TODO: ???
             options: RunWithoutFile {
                 args,
                 command_name: Some(original_executable),

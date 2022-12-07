@@ -17,7 +17,7 @@ use wasmer_registry::PartialWapmConfig;
 /// - command
 /// - local file
 ///
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SplitVersion {
     /// Original string
     pub original: String,
@@ -44,7 +44,7 @@ impl Default for SplitVersion {
 }
 
 /// Resolved package, can be used to lookup the local package name
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResolvedSplitVersion {
     /// Registry this package belongs to (default = current active registry)
     pub registry: Option<String>,
@@ -93,7 +93,7 @@ impl SplitVersion {
                 "cannot extract package info from file path {path:?}"
             )),
             SplitVersionInner::Url(url) => {
-                let manifest = wasmer_registry::get_remote_webc_manifest(&url)
+                let manifest = wasmer_registry::get_remote_webc_manifest(url)
                     .map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
 
                 Ok(ResolvedSplitVersion {
@@ -118,7 +118,7 @@ impl SplitVersion {
                 })
             }
             SplitVersionInner::Package(p) => Ok(ResolvedSplitVersion {
-                registry: Some(registry.to_string()),
+                registry: Some(registry),
                 package: p.package.clone(),
                 version: p.version.as_ref().map(|f| f.to_string()),
                 command: p.command.clone(),
@@ -139,9 +139,9 @@ impl SplitVersion {
                 let command = c.command.clone();
                 if let Ok(o) = result {
                     Ok(ResolvedSplitVersion {
-                        registry: Some(registry.to_string()),
+                        registry: Some(registry),
                         package: o.package.clone(),
-                        version: Some(o.version.clone()),
+                        version: Some(o.version),
                         command: Some(command),
                     })
                 } else {
@@ -231,7 +231,7 @@ impl SplitVersion {
 }
 
 /// Package specifier in the format of `package@version:command`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SplitVersionPackage {
     /// namespace/package
     pub package: String,
@@ -242,7 +242,7 @@ pub struct SplitVersionPackage {
 }
 
 /// Command specifier in the format of `command@version`
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SplitVersionCommand {
     /// Command of the `command`
     pub command: String,
@@ -251,7 +251,7 @@ pub struct SplitVersionCommand {
 }
 
 /// What type of package should be run
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SplitVersionInner {
     /// Run a file
     File {
@@ -267,7 +267,7 @@ pub enum SplitVersionInner {
 }
 
 /// Package version specifier
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParsedPackageVersion {
     /// version 1.0.2
     Version(semver::Version),
@@ -275,12 +275,11 @@ pub enum ParsedPackageVersion {
     Latest,
 }
 
-impl ParsedPackageVersion {
-    /// Formats the version to a String
-    pub fn to_string(&self) -> String {
+impl fmt::Display for ParsedPackageVersion {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ParsedPackageVersion::Latest => "latest".to_string(),
-            ParsedPackageVersion::Version(v) => v.to_string(),
+            ParsedPackageVersion::Latest => write!(f, "latest"),
+            ParsedPackageVersion::Version(v) => write!(f, "{}", v),
         }
     }
 }
@@ -417,12 +416,12 @@ impl SplitVersionInner {
 
     /// Try parsing `s` as a command (`python@latest`) or a file (`python`)
     pub fn try_parse_command(s: &str) -> Result<Self, SplitVersionError> {
-        let command = s.split('@').nth(0).map(|s| s.to_string()).unwrap();
+        let command = s.split('@').next().map(|s| s.to_string()).unwrap();
         if !command.chars().all(char::is_alphanumeric) {
             return Err(SplitVersionError::InvalidCommandName(s.to_string()));
         }
         let version = s.split('@').nth(1).map(|s| s.to_string());
-        let version = match version.as_ref().map(|s| s.as_str()) {
+        let version = match version.as_deref() {
             Some("latest") => Some(ParsedPackageVersion::Latest),
             Some(s) => Some(ParsedPackageVersion::Version(
                 semver::Version::parse(s)
@@ -593,15 +592,25 @@ fn test_split_version() {
         SplitVersion::parse("registry.wapm.io/graphql/python/python").unwrap_err(),
         SplitVersionMultiError {
             original: "registry.wapm.io/graphql/python/python".to_string(),
-            errors: vec![SplitVersionError::FileDoesNotExist(
-                "registry.wapm.io/graphql/python/python".to_string()
-            )],
+            errors: vec![
+                SplitVersionError::FileDoesNotExist(
+                    "registry.wapm.io/graphql/python/python".to_string()
+                ),
+                SplitVersionError::InvalidUrl("relative URL without a base".to_string()),
+                SplitVersionError::InvalidPackageName(
+                    "invalid characters in namespace \"registry.wapm.io/graphql/python\""
+                        .to_string()
+                ),
+                SplitVersionError::InvalidCommandName(
+                    "registry.wapm.io/graphql/python/python".to_string()
+                )
+            ],
         }
     );
     assert_eq!(
         SplitVersion::parse("namespace/name@latest:command").unwrap(),
         SplitVersion {
-            original: "namespace/name@version:command".to_string(),
+            original: "namespace/name@latest:command".to_string(),
             inner: SplitVersionInner::Package(SplitVersionPackage {
                 package: "namespace/name".to_string(),
                 version: Some(ParsedPackageVersion::Latest),
@@ -638,7 +647,7 @@ fn test_split_version() {
     assert_eq!(
         SplitVersion::parse(concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml")).unwrap(),
         SplitVersion {
-            original: "registry.wapm.io/namespace/name".to_string(),
+            original: concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml").to_string(),
             inner: SplitVersionInner::File {
                 path: concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml").to_string()
             },
@@ -648,9 +657,19 @@ fn test_split_version() {
         SplitVersion::parse(env!("CARGO_MANIFEST_DIR")).unwrap_err(),
         SplitVersionMultiError {
             original: env!("CARGO_MANIFEST_DIR").to_string(),
-            errors: vec![SplitVersionError::FileDoesNotExist(
-                env!("CARGO_MANIFEST_DIR").to_string()
-            )],
+            errors: vec![
+                SplitVersionError::FileIsADirectory(
+                    "/Users/fs/Development/wasmer6/wasmer/lib/cli".to_string()
+                ),
+                SplitVersionError::InvalidUrl("relative URL without a base".to_string()),
+                SplitVersionError::InvalidPackageName(
+                    "invalid characters in namespace \"/Users/fs/Development/wasmer6/wasmer/lib\""
+                        .to_string()
+                ),
+                SplitVersionError::InvalidCommandName(
+                    "/Users/fs/Development/wasmer6/wasmer/lib/cli".to_string()
+                ),
+            ],
         },
     );
     assert_eq!(
