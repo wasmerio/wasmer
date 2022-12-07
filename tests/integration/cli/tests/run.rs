@@ -165,19 +165,17 @@ fn run_wasi_works_non_existent() -> anyhow::Result<()> {
 
     let stderr = std::str::from_utf8(&output.stderr).unwrap();
 
-    let stderr_lines = stderr
-        .lines()
-        .map(|s| s.trim().to_string())
-        .collect::<Vec<_>>();
+    let stderr_lines = stderr.lines().map(|s| s.to_string()).collect::<Vec<_>>();
 
     assert_eq!(
         stderr_lines,
         vec![
-            "error: Invalid value \"does/not/exist\" for '<FILE>':".to_string(),
-            "    parsing as file: file does not exist: does/not/exist\"".to_string(),
+            "error: Invalid value \"does/not/exist\" for '<FILE>': ".to_string(),
+            "    parsing as file: file does not exist: does/not/exist".to_string(),
             "    parsing as URL: relative URL without a base".to_string(),
             "    parsing as package: invalid characters in namespace \"does/not\"".to_string(),
             "    parsing as command: does/not/exist".to_string(),
+            "".to_string(),
             "".to_string(),
             "For more information try --help".to_string(),
         ]

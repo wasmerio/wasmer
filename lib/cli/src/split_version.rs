@@ -206,7 +206,7 @@ impl SplitVersion {
 
                 Ok(RunWithPathBuf {
                     path: webc_install_path,
-                    options: options,
+                    options,
                 })
             }
             _ => {
@@ -551,7 +551,7 @@ impl fmt::Display for SplitVersionMultiError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "\r\n")?;
         for e in self.errors.iter() {
-            write!(f, "    {}", e)?;
+            write!(f, "    {}\r\n", e)?;
         }
         Ok(())
     }
