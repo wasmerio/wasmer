@@ -65,7 +65,7 @@ impl Add {
         let language = self.target()?.language();
 
         for pkg in &self.packages {
-            let resolved = match pkg.resolve(Some(registry)) {
+            let resolved = match pkg.get_package_info(&registry, false) {
                 Ok(o) => o,
                 Err(_) => continue,
             };

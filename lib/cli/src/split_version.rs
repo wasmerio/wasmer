@@ -2,8 +2,12 @@
 //! used in `wasmer run`.
 
 use crate::cli::WasmerCLIOptions;
+use crate::commands::RunWithPathBuf;
 use clap::CommandFactory;
+use std::io::Write;
+use std::path::PathBuf;
 use std::{fmt, str::FromStr};
+use wasmer_registry::PartialWapmConfig;
 
 /// Struct containing all combinations of file sources:
 ///
@@ -51,6 +55,19 @@ pub struct ResolvedSplitVersion {
     pub command: Option<String>,
 }
 
+impl ResolvedSplitVersion {
+    /// Returns the local path for the installed package
+    pub fn get_local_path(&self) -> Option<PathBuf> {
+        wasmer_registry::get_local_package(
+            self.registry.as_deref(),
+            &self.package,
+            self.version.as_deref(),
+        )?
+        .get_path()
+        .ok()
+    }
+}
+
 impl fmt::Display for ResolvedSplitVersion {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -64,8 +81,101 @@ impl fmt::Display for ResolvedSplitVersion {
 
 impl SplitVersion {
     /// Resolves the package / URL by querying the registry
-    pub fn resolve(&self, _registry: Option<&str>) -> Result<ResolvedSplitVersion, anyhow::Error> {
-        Err(anyhow::anyhow!("unimplemented {:#?}", self))
+    pub fn get_package_info(
+        &self,
+        registry: &str,
+        debug: bool,
+    ) -> Result<ResolvedSplitVersion, anyhow::Error> {
+        let registry = wasmer_registry::format_graphql(registry);
+        match &self.inner {
+            SplitVersionInner::File { path } => Err(anyhow::anyhow!(
+                "cannot extract package info from file path {path:?}"
+            )),
+            SplitVersionInner::Url(url) => {
+                let manifest = wasmer_registry::get_remote_webc_manifest(&url)
+                    .map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
+
+                Ok(ResolvedSplitVersion {
+                    registry: None,
+                    package: manifest
+                        .manifest
+                        .package
+                        .get("name")
+                        .cloned()
+                        .and_then(|s| match s {
+                            serde_cbor::Value::Text(t) => Some(t),
+                            _ => None,
+                        })
+                        .ok_or_else(|| anyhow::anyhow!("no package name for {url}"))?,
+                    version: manifest.manifest.package.get("version").cloned().and_then(
+                        |s| match s {
+                            serde_cbor::Value::Text(t) => Some(t),
+                            _ => None,
+                        },
+                    ),
+                    command: manifest.manifest.entrypoint,
+                })
+            }
+            SplitVersionInner::Package(p) => Ok(ResolvedSplitVersion {
+                registry: Some(registry.to_string()),
+                package: p.package.clone(),
+                version: p.version.as_ref().map(|f| f.to_string()),
+                command: p.command.clone(),
+            }),
+            SplitVersionInner::Command(c) => {
+                let mut sp = if debug {
+                    crate::commands::start_spinner(format!("Looking up command {} ...", c.command))
+                } else {
+                    None
+                };
+                let result = wasmer_registry::query_command_from_registry(&registry, &c.command);
+                if let Some(s) = sp.take() {
+                    s.clear();
+                }
+                let _ = std::io::stdout().flush();
+
+                // TODO: version is being ignored?
+                let command = c.command.clone();
+                if let Ok(o) = result {
+                    Ok(ResolvedSplitVersion {
+                        registry: Some(registry.to_string()),
+                        package: o.package.clone(),
+                        version: Some(o.version.clone()),
+                        command: Some(command),
+                    })
+                } else {
+                    Err(anyhow::anyhow!(
+                        "could not find {command} in registry {registry:?}"
+                    ))
+                }
+            }
+        }
+    }
+
+    /// Returns the run command
+    pub fn get_run_command(
+        &self,
+        registry: Option<&str>,
+        debug: bool,
+    ) -> Result<RunWithPathBuf, anyhow::Error> {
+        let registry = match registry {
+            Some(s) => s.to_string(),
+            None => PartialWapmConfig::from_file()
+                .map_err(|e| anyhow::anyhow!("{e}"))?
+                .registry
+                .get_current_registry(),
+        };
+        let package_info = self.get_package_info(&registry, debug)?;
+        Err(anyhow::anyhow!(
+            "unimplement get_run_command: {:#?}",
+            package_info
+        ))
+        /*
+            let local_path = resolved_split_version.get_local_path()
+            .ok_or_else(|| anyhow::anyhow!("error during installation: could not find package locally: {resolved_split_version:#?}"))?;
+
+            Ok(RunWithPathBuf { path: local_path, options: self.options.clone() })
+        */
     }
 }
 
@@ -112,6 +222,16 @@ pub enum ParsedPackageVersion {
     Version(semver::Version),
     /// version latest
     Latest,
+}
+
+impl ParsedPackageVersion {
+    /// Formats the version to a String
+    pub fn to_string(&self) -> String {
+        match self {
+            ParsedPackageVersion::Latest => "latest".to_string(),
+            ParsedPackageVersion::Version(v) => v.to_string(),
+        }
+    }
 }
 
 impl SplitVersionInner {
@@ -369,7 +489,6 @@ impl FromStr for SplitVersion {
                 })
             }
             Err(e) => {
-                println!("pushing error {e}");
                 errors.push(e);
             }
         }

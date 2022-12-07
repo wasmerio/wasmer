@@ -19,7 +19,7 @@ use wasmer::FunctionEnv;
 use wasmer::*;
 #[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, Hash};
-use wasmer_registry::PackageDownloadInfo;
+use wasmer_registry::{PackageDownloadInfo, PartialWapmConfig};
 use wasmer_types::Type as ValueType;
 #[cfg(feature = "webc_runner")]
 use wasmer_wasi::runners::{Runner, WapmContainer};
@@ -161,6 +161,10 @@ pub struct Run {
     #[clap(name = "FILE", parse(try_from_str))]
     pub(crate) path: SplitVersion,
 
+    /// Registry to run the FILE from (optional)
+    #[clap(short = 'r', long, name = "registry")]
+    pub(crate) registry: Option<String>,
+
     #[clap(flatten)]
     pub(crate) options: RunWithoutFile,
 }
@@ -173,7 +177,7 @@ impl Run {
         let debug = false;
         #[cfg(feature = "debug")]
         let debug = self.options.debug;
-        try_resolve_package_or_file(&self.path, debug)
+        self.path.get_run_command(self.registry.as_deref(), debug)
     }
 
     /// Create Run instance for arguments/env,
@@ -668,15 +672,8 @@ impl RunWithPathBuf {
     }
 }
 
-fn try_resolve_package_or_file(
-    _sv: &SplitVersion,
-    _debug: bool,
-) -> Result<RunWithPathBuf, anyhow::Error> {
-    Err(anyhow::anyhow!("unimplemented: {:#?}", _sv))
-}
-
 #[allow(dead_code)]
-fn start_spinner(msg: String) -> Option<spinoff::Spinner> {
+pub(crate) fn start_spinner(msg: String) -> Option<spinoff::Spinner> {
     if !isatty::stdout_isatty() {
         return None;
     }

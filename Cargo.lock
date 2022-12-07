@@ -4069,6 +4069,7 @@ dependencies = [
  "reqwest",
  "semver 1.0.14",
  "serde",
+ "serde_cbor",
  "serde_json",
  "spinoff",
  "target-lexicon 0.12.5",
