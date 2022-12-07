@@ -173,11 +173,13 @@ fn run_wasi_works_non_existent() -> anyhow::Result<()> {
     assert_eq!(
         stderr_lines,
         vec![
-            "error: does/not/exist".to_string(),
-            "│   1: invalid registry or namespace \"does\"".to_string(),
-            "│   2: expected a dot if using a URL shorthand (e.g. does.com)".to_string(),
-            "╰─▶ 3: Invalid command \"does/not/exist\", file \"does/not/exist\" not found either"
-                .to_string(),
+            "error: Invalid value \"does/not/exist\" for '<FILE>':".to_string(),
+            "    parsing as file: file does not exist: does/not/exist\"".to_string(),
+            "    parsing as URL: relative URL without a base".to_string(),
+            "    parsing as package: invalid characters in namespace \"does/not\"".to_string(),
+            "    parsing as command: does/not/exist".to_string(),
+            "".to_string(),
+            "For more information try --help".to_string(),
         ]
     );
 
@@ -436,7 +438,9 @@ fn test_wasmer_run_works_with_dir() -> anyhow::Result<()> {
 #[test]
 fn test_wasmer_run_works() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
-        .arg("registry.wapm.io/python/python")
+        .arg("python/python")
+        .arg("--registry")
+        .arg("wapm.io")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("test.py")
         .output()?;
@@ -456,7 +460,9 @@ fn test_wasmer_run_works() -> anyhow::Result<()> {
     // same test again, but this time with "wasmer run ..."
     let output = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("registry.wapm.io/python/python")
+        .arg("python/python")
+        .arg("--registry")
+        .arg("wapm.io")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("test.py")
         .output()?;

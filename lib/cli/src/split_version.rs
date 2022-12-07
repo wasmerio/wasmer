@@ -96,24 +96,37 @@ impl SplitVersion {
                 let manifest = wasmer_registry::get_remote_webc_manifest(url)
                     .map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
 
+                let package = manifest
+                    .manifest
+                    .package
+                    .get("wapm")
+                    .and_then(|w| match w {
+                        serde_cbor::Value::Map(m) => Some(m),
+                        _ => None,
+                    })
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("no package description for {url}: {manifest:#?}")
+                    })?;
+
                 Ok(ResolvedSplitVersion {
                     registry: None,
-                    package: manifest
-                        .manifest
-                        .package
-                        .get("name")
+                    package: package
+                        .get(&serde_cbor::Value::Text("name".to_string()))
                         .cloned()
                         .and_then(|s| match s {
                             serde_cbor::Value::Text(t) => Some(t),
                             _ => None,
                         })
-                        .ok_or_else(|| anyhow::anyhow!("no package name for {url}"))?,
-                    version: manifest.manifest.package.get("version").cloned().and_then(
-                        |s| match s {
+                        .ok_or_else(|| {
+                            anyhow::anyhow!("no package name for {url}: {manifest:#?}")
+                        })?,
+                    version: package
+                        .get(&serde_cbor::Value::Text("version".to_string()))
+                        .cloned()
+                        .and_then(|s| match s {
                             serde_cbor::Value::Text(t) => Some(t),
                             _ => None,
-                        },
-                    ),
+                        }),
                     command: manifest.manifest.entrypoint,
                 })
             }
@@ -160,73 +173,101 @@ impl SplitVersion {
         mut options: RunWithoutFile,
         debug: bool,
     ) -> Result<RunWithPathBuf, anyhow::Error> {
-        if let SplitVersionInner::File { path } = &self.inner {
-            return Ok(RunWithPathBuf {
-                path: Path::new(&path).to_path_buf(),
-                options,
-            });
-        }
+        match &self.inner {
+            SplitVersionInner::File { path } => {
+                return Ok(RunWithPathBuf {
+                    path: Path::new(&path).to_path_buf(),
+                    options,
+                });
+            }
+            SplitVersionInner::Url(url) => {
+                let checksum = wasmer_registry::get_remote_webc_checksum(url)
+                    .map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
 
-        let lookup_reg = match registry {
-            Some(s) => s.to_string(),
-            None => PartialWapmConfig::from_file()
-                .map_err(|e| anyhow::anyhow!("{e}"))?
-                .registry
-                .get_current_registry(),
-        };
+                let packages = wasmer_registry::get_all_installed_webc_packages();
 
-        let package_info = self.get_package_info(&lookup_reg, debug)?;
+                if !packages.iter().any(|p| p.checksum == checksum) {
+                    let sp = crate::commands::start_spinner(format!("Installing {}", url));
 
-        if let Some(p) = wasmer_registry::get_local_package(
-            registry,
-            &package_info.package,
-            package_info.version.as_deref(),
-        ) {
-            if let Some(c) = package_info.command.as_ref() {
-                if options.command_name.is_none() {
-                    options.command_name = Some(c.to_string());
+                    let result = wasmer_registry::install_webc_package(url, &checksum);
+
+                    result.map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
+
+                    if let Some(sp) = sp {
+                        sp.clear();
+                    }
+                }
+
+                let webc_dir = wasmer_registry::get_webc_dir();
+
+                let webc_install_path = webc_dir
+                    .ok_or_else(|| anyhow::anyhow!("Error installing package: no webc dir"))?
+                    .join(checksum);
+
+                Ok(RunWithPathBuf {
+                    path: webc_install_path,
+                    options: options,
+                })
+            }
+            _ => {
+                let lookup_reg = match registry {
+                    Some(s) => s.to_string(),
+                    None => PartialWapmConfig::from_file()
+                        .map_err(|e| anyhow::anyhow!("{e}"))?
+                        .registry
+                        .get_current_registry(),
+                };
+
+                let package_info = self.get_package_info(&lookup_reg, debug)?;
+
+                if let Some(p) = wasmer_registry::get_local_package(
+                    registry,
+                    &package_info.package,
+                    package_info.version.as_deref(),
+                ) {
+                    if let Some(c) = package_info.command.as_ref() {
+                        if options.command_name.is_none() {
+                            options.command_name = Some(c.to_string());
+                        }
+                    }
+                    let path = p
+                        .get_path()
+                        .map_err(|e| anyhow::anyhow!("no install dir for {p:?}: {e}"))?;
+                    return Ok(RunWithPathBuf { path, options });
+                }
+
+                let mut sp = if debug {
+                    crate::commands::start_spinner(format!(
+                        "Installing package {} ...",
+                        package_info.package
+                    ))
+                } else {
+                    None
+                };
+                let result = wasmer_registry::install_package(
+                    registry,
+                    &package_info.package,
+                    package_info.version.as_deref(),
+                    None,
+                    options.force_install,
+                );
+                if let Some(sp) = sp.take() {
+                    sp.clear();
+                }
+                let _ = std::io::stdout().flush();
+
+                match result {
+                    Ok((_, package_dir)) => Ok(RunWithPathBuf {
+                        path: package_dir,
+                        options,
+                    }),
+                    Err(e) => Err(anyhow::anyhow!(
+                        "could not install {}: {e}",
+                        package_info.package
+                    )),
                 }
             }
-            let path = p
-                .get_path()
-                .map_err(|e| anyhow::anyhow!("no install dir for {p:?}: {e}"))?;
-            return Ok(RunWithPathBuf { path, options });
         }
-
-        let mut sp = if debug {
-            crate::commands::start_spinner(format!(
-                "Installing package {} ...",
-                package_info.package
-            ))
-        } else {
-            None
-        };
-        let result = wasmer_registry::install_package(
-            registry,
-            &package_info.package,
-            package_info.version.as_deref(),
-            None,
-            options.force_install,
-        );
-        if let Some(sp) = sp.take() {
-            sp.clear();
-        }
-        let _ = std::io::stdout().flush();
-
-        let (_, package_dir) = match result {
-            Ok(o) => o,
-            Err(e) => {
-                return Err(anyhow::anyhow!(
-                    "could not install {}: {e}",
-                    package_info.package
-                ));
-            }
-        };
-
-        Ok(RunWithPathBuf {
-            path: package_dir,
-            options,
-        })
     }
 }
 
@@ -447,12 +488,12 @@ impl SplitVersionInner {
         let pathbuf = std::path::Path::new(s).to_path_buf();
         let canon = pathbuf.canonicalize().unwrap_or(pathbuf);
         if canon.exists() {
-            if canon.is_file() {
+            if canon.is_file() || canon.join("wapm.toml").exists() {
                 Ok(Self::File {
                     path: format!("{}", canon.display()),
                 })
             } else {
-                Err(SplitVersionError::FileIsADirectory(s.to_string()))
+                Err(SplitVersionError::InvalidDirectory(s.to_string()))
             }
         } else {
             Err(SplitVersionError::FileDoesNotExist(s.to_string()))
@@ -472,7 +513,7 @@ pub enum SplitVersionError {
     /// File $u does not exist
     FileDoesNotExist(String),
     /// File $u is a directory
-    FileIsADirectory(String),
+    InvalidDirectory(String),
 }
 
 impl std::error::Error for SplitVersionError {}
@@ -485,7 +526,10 @@ impl fmt::Display for SplitVersionError {
             InvalidCommandName(e) => write!(f, "parsing as command: {e}"),
             InvalidPackageName(p) => write!(f, "parsing as package: {p}"),
             FileDoesNotExist(path) => write!(f, "parsing as file: file does not exist: {path}"),
-            FileIsADirectory(path) => write!(f, "parsing as file: file is a directory: {path}"),
+            InvalidDirectory(path) => write!(
+                f,
+                "parsing as file: file is a directory, but contains no wapm.toml: {path}"
+            ),
         }
     }
 }
@@ -505,14 +549,11 @@ pub struct SplitVersionMultiError {
 
 impl fmt::Display for SplitVersionMultiError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{:#?}",
-            self.errors
-                .iter()
-                .map(|v| format!("{v}"))
-                .collect::<Vec<_>>()
-        )
+        write!(f, "\r\n")?;
+        for e in self.errors.iter() {
+            write!(f, "    {}", e)?;
+        }
+        Ok(())
     }
 }
 
@@ -658,7 +699,7 @@ fn test_split_version() {
         SplitVersionMultiError {
             original: env!("CARGO_MANIFEST_DIR").to_string(),
             errors: vec![
-                SplitVersionError::FileIsADirectory(
+                SplitVersionError::InvalidDirectory(
                     "/Users/fs/Development/wasmer6/wasmer/lib/cli".to_string()
                 ),
                 SplitVersionError::InvalidUrl("relative URL without a base".to_string()),
