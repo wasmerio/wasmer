@@ -412,10 +412,6 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
-      - uses: actions/cache@v2
-        with:
-          path: ${{ runner.tool_cache }}/cargo-sccache
-          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Build C-API
         shell: bash
         run: |
@@ -481,10 +477,6 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
-      - uses: actions/cache@v2
-        with:
-          path: ${{ runner.tool_cache }}/cargo-sccache
-          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: 'Echo download path'
         run: echo ${{steps.download.outputs.download-path}}
       - name: Unzip Artifacts
@@ -558,10 +550,6 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
-      - uses: actions/cache@v2
-        with:
-          path: ${{ runner.tool_cache }}/cargo-sccache
-          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Unzip Artifacts
         shell: bash
         run: |
@@ -677,10 +665,6 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
-      - uses: actions/cache@v2
-        with:
-          path: ${{ runner.tool_cache }}/cargo-sccache
-          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Test
         run: |
           make test-stage-0
@@ -791,10 +775,6 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: wasmer-stage-1-${{ matrix.build }}
-      - uses: actions/cache@v2
-        with:
-          path: ${{ runner.tool_cache }}/cargo-sccache
-          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Unzip Artifacts
         shell: bash
         run: |
@@ -902,10 +882,6 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
-      - uses: actions/cache@v2
-        with:
-          path: ${{ runner.tool_cache }}/cargo-sccache
-          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
        - name: Test
         run: |
           make test-stage-2
@@ -1009,10 +985,6 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
-      - uses: actions/cache@v2
-        with:
-          path: ${{ runner.tool_cache }}/cargo-sccache
-          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Test
         run: |
           make test-stage-3
@@ -1111,15 +1083,15 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
-      - uses: Swatinem/rust-cache@v2
+      - name: Retrieve cache
+        uses: nipeharefa/action-s3-cache@3a78206
         with:
-          cache-on-failure: false
-          shared-key: wasmer-${{ matrix.build }}
-          save-if: false
-      - uses: actions/cache@v2
-        with:
-          path: ${{ runner.tool_cache }}/cargo-sccache
-          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
+          action: get
+          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          bucket: wasmer-rust-artifacts-cache
+          key: wasmer-test-stage-4-${{ matrix.build }}
+          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
       - name: Test
         run: |
           make test-stage-4
@@ -1127,6 +1099,20 @@ jobs:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
+      - name: Upload cache
+        uses: nipeharefa/action-s3-cache@3a78206
+        with:
+          with:
+            action: put
+            aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+            aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+            bucket: wasmer-rust-artifacts-cache
+            s3-class: STANDARD_IA
+            key: wasmer-test-stage-4-${{ matrix.build }}
+            artifacts: |
+              ~/.cargo/*
+              ./target/*
+          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
 
   test_wasmer_stage_5: 
     name: Test Wasmer Stage 5 on ${{ matrix.build }}
@@ -1330,10 +1316,6 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
-      - uses: actions/cache@v2
-        with:
-          path: ${{ runner.tool_cache }}/cargo-sccache
-          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Test
         run: |
           make test-stage-6
