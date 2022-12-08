@@ -3948,7 +3948,6 @@ version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "90e6c91f681f714599326252f4ae8b9897293110055d25c576fa09ffb01661cd"
 dependencies = [
- "async-trait",
  "bitflags",
  "wai-bindgen-rust-impl",
 ]
