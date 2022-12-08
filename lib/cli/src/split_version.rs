@@ -1,15 +1,12 @@
 //! Implements logic for parsing the source for a package / path / URL
 //! used in `wasmer run`.
 
-use crate::cli::WasmerCLIOptions;
 use crate::commands::{RunWithPathBuf, RunWithoutFile};
 use anyhow::Context;
-use clap::CommandFactory;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::{fmt, str::FromStr};
-use wapm_toml::Package;
 use wasmer_registry::PartialWapmConfig;
 
 /// Struct containing all combinations of file sources:
@@ -346,7 +343,7 @@ impl PackageSource {
         match &self.inner {
             PackageSourceInner::File { path, errors } => {
                 let pathbuf = Path::new(&path).to_path_buf();
-                let canon = pathbuf.canonicalize().unwrap_or(pathbuf.clone());
+                let canon = pathbuf.canonicalize().unwrap_or_else(|_| pathbuf.clone());
                 let mut err = std::fs::metadata(&path)
                     .map(|_| PackageUrlOrFile::File(pathbuf))
                     .map_err(|e| anyhow::anyhow!("error opening path {:?}: {e}", canon.display()));
@@ -489,7 +486,7 @@ impl PackageSourceInner {
                 Ok(Self::PackageOrFile(PackageSourcePackage {
                     name: name.to_string(),
                     namespace: namespace.to_string(),
-                    version: Some(ParsedPackageVersion::parse(&version)?),
+                    version: Some(ParsedPackageVersion::parse(version)?),
                 }))
             }
             _ => Err(PackageSourceError::InvalidPackageName(s.to_string())),

@@ -12,15 +12,11 @@ use crate::config::Registries;
 use anyhow::Context;
 use core::ops::Range;
 use reqwest::header::{ACCEPT, RANGE};
-use reqwest::StatusCode;
 use std::fmt;
+use std::fmt::{Display, Formatter};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use std::{
-    collections::BTreeMap,
-    fmt::{Display, Formatter},
-};
 use url::Url;
 
 pub mod config;
@@ -158,9 +154,9 @@ pub fn get_executable_file_from_path(
             } else if commands.len() == 1 {
                 Ok(&commands[0])
             } else {
-                Err(anyhow::anyhow!("  -> wasmer run {name}@{version} --command-name={0} OR wasmer run {name}@{version}:{0}", commands.first().map(|f| f.get_name()).unwrap()))
+                Err(anyhow::anyhow!("  -> wasmer run {name}@{version} --command-name={0}", commands.first().map(|f| f.get_name()).unwrap()))
                 .context(anyhow::anyhow!("{}", commands.iter().map(|c| format!("`{}`", c.get_name())).collect::<Vec<_>>().join(", ")))
-                .context(anyhow::anyhow!("You can run any of those by using the --command-name=COMMAND flag or : postfix"))
+                .context(anyhow::anyhow!("You can run any of those by using the --command-name=COMMAND flag"))
                 .context(anyhow::anyhow!("The `{name}@{version}` package doesn't have a default entrypoint, but has multiple available commands:"))
             }?
         }
@@ -793,7 +789,7 @@ pub fn install_package(
         .to_string();
 
     let tempdir = tempdir::TempDir::new(&format!("download-{host}"))
-        .map_err(|e| anyhow::anyhow!("could not create download temp dir"))?;
+        .map_err(|e| anyhow::anyhow!("could not create download temp dir: {e}"))?;
 
     let target_targz_path = tempdir.path().join("package.tar.gz");
     let unpacked_targz_path = tempdir.path().join("package");
@@ -845,6 +841,12 @@ pub fn install_package(
     options.content_only = true;
     options.overwrite = true;
     copy(&unpacked_targz_path, &installation_path, &options)?;
+
+    #[cfg(not(target_os = "wasi"))]
+    let _ = filetime::set_file_mtime(
+        installation_path.join("wapm.toml"),
+        filetime::FileTime::now(),
+    );
 
     Ok((package, installation_path))
 }
@@ -1120,14 +1122,6 @@ pub fn get_remote_webc_manifest(url: &Url) -> Result<RemoteWebcInfo, anyhow::Err
     })
 }
 
-fn setup_webc_client(url: &Url) -> Result<reqwest::blocking::RequestBuilder, anyhow::Error> {
-    setup_client(url, "application/webc")
-}
-
-fn setup_targz_client(url: &Url) -> Result<reqwest::blocking::RequestBuilder, anyhow::Error> {
-    setup_client(url, "application/tar+gzip")
-}
-
 fn setup_client(
     url: &Url,
     application_type: &'static str,
@@ -1198,8 +1192,7 @@ fn get_bytes(
             anyhow::anyhow!("failed to download {url} into {}: {e}", path.display())
         })?;
 
-        let bytes = res
-            .copy_to(&mut file)
+        res.copy_to(&mut file)
             .map_err(|e| anyhow::anyhow!("{e}"))
             .map_err(|e| {
                 anyhow::anyhow!("failed to download {url} into {}: {e}", path.display())
@@ -1212,12 +1205,12 @@ fn get_bytes(
             .map_err(|e| anyhow::anyhow!("{e}"))
             .context("bytes() failed")?;
 
-        if range.is_none() || range.unwrap().start == 0 {
-            if &bytes[0..webc::MAGIC.len()] != &webc::MAGIC[..] {
-                let bytes = bytes.iter().copied().take(100).collect::<Vec<_>>();
-                let first_50_bytes = String::from_utf8_lossy(&bytes);
-                return Err(anyhow::anyhow!("invalid webc bytes: {first_50_bytes:?}"));
-            }
+        if (range.is_none() || range.unwrap().start == 0)
+            && bytes[0..webc::MAGIC.len()] != webc::MAGIC[..]
+        {
+            let bytes = bytes.iter().copied().take(100).collect::<Vec<_>>();
+            let first_50_bytes = String::from_utf8_lossy(&bytes);
+            return Err(anyhow::anyhow!("invalid webc bytes: {first_50_bytes:?}"));
         }
 
         Ok(Some(bytes.to_vec()))
