@@ -363,16 +363,46 @@ impl PackageSource {
                     return Ok(file);
                 }
 
+                // Then, check if the package is already installed locally
+                let package_has_new_version = wasmer_registry::get_if_package_has_new_version(
+                    &registry,
+                    &package.name,
+                    package.version.as_ref().map(|s| s.to_string()),
+                    std::time::Duration::from_secs(60 * 5),
+                );
+
+                if let Ok(
+                    wasmer_registry::GetIfPackageHasNewVersionResult::UseLocalAlreadyInstalled {
+                        registry_host,
+                        namespace,
+                        name,
+                        version,
+                        ..
+                    },
+                ) = package_has_new_version
+                {
+                    let local_package = wasmer_registry::LocalPackage {
+                        registry: registry_host,
+                        name: format!("{namespace}/{name}"),
+                        version,
+                    };
+                    if let Ok(path) = local_package.get_path() {
+                        return Ok(PackageUrlOrFile::File(path));
+                    }
+                }
+
                 // else construct the URL to fetch the package from
                 let version = package
                     .version
                     .as_ref()
                     .map(|v| format!("@{v}"))
                     .unwrap_or_default();
+
                 let url = format!(
                     "https://{registry_tld}/{}/{}{version}",
                     package.namespace, package.name
                 );
+
                 Ok(PackageUrlOrFile::Url(url::Url::parse(&url).map_err(
                     |e| anyhow::anyhow!("Invalid package URL: {}: {e}", url),
                 )?))
