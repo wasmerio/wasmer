@@ -1763,8 +1763,11 @@ impl Machine for MachineARM64 {
             if stack_offset < 0x1_0000 {
                 self.assembler
                     .emit_mov_imm(Location::GPR(tmp), (-stack_offset as i64) as u64)?;
-                self.assembler
-                    .emit_str(Size::S64, location, Location::Memory2(GPR::X29, tmp, Multiplier::One, 0))?;
+                self.assembler.emit_str(
+                    Size::S64,
+                    location,
+                    Location::Memory2(GPR::X29, tmp, Multiplier::One, 0),
+                )?;
             } else {
                 self.assembler
                     .emit_mov_imm(Location::GPR(tmp), (stack_offset as i64) as u64)?;
