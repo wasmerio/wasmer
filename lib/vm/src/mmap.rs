@@ -28,6 +28,7 @@ pub struct Mmap {
     ptr: usize,
     len: usize,
     // Backing file that will be closed when the memory mapping goes out of scope
+    #[cfg(not(target_os = "windows"))]
     fd: FdGuard,
 }
 
@@ -192,8 +193,7 @@ impl Mmap {
         if mapping_size == 0 {
             return Ok(Self::new());
         }
-
-        Ok(if accessible_size == mapping_size {
+        if accessible_size == mapping_size {
             // Allocate a single read-write region at once.
             let ptr = unsafe {
                 VirtualAlloc(
@@ -207,10 +207,10 @@ impl Mmap {
                 return Err(io::Error::last_os_error().to_string());
             }
 
-            Self {
+            Ok(Self {
                 ptr: ptr as usize,
                 len: mapping_size,
-            }
+            })
         } else {
             // Reserve the mapping size.
             let ptr =
@@ -229,8 +229,8 @@ impl Mmap {
                 result.make_accessible(0, accessible_size)?;
             }
 
-            result
-        })
+            Ok(result)
+        }
     }
 
     /// Make the memory starting at `start` and extending for `len` bytes accessible.
