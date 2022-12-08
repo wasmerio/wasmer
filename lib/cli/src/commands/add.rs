@@ -1,6 +1,6 @@
 use std::process::{Command, Stdio};
 
-use crate::split_version::{PackageSource, ResolvedPackageSource};
+use crate::package_source::{PackageSource, ResolvedPackageSource};
 use anyhow::{Context, Error};
 use clap::Parser;
 use wasmer_registry::{Bindings, PartialWapmConfig, ProgrammingLanguage};

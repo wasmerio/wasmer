@@ -1,7 +1,7 @@
 use crate::common::get_cache_dir;
 #[cfg(feature = "debug")]
 use crate::logging;
-use crate::split_version::PackageSource;
+use crate::package_source::PackageSource;
 use crate::store::{CompilerType, StoreOptions};
 use crate::suggestions::suggest_function_exports;
 use crate::warning;

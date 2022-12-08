@@ -586,7 +586,7 @@ impl PackageSource {
 }
 
 #[test]
-fn test_split_version() {
+fn test_package_source() {
     assert_eq!(
         PackageSource::parse("registry.wapm.io/graphql/python/python"),
         PackageSource {
@@ -606,6 +606,20 @@ fn test_split_version() {
         }
     );
 
+    assert_eq!(
+        PackageSource::parse("/absolute/path/test.wasm"),
+        PackageSource {
+            original: "/absolute/path/test.wasm".to_string(),
+            inner: PackageSourceInner::File {
+                path: "/absolute/path/test.wasm".to_string(),
+                errors: vec![
+                    PackageSourceError::InvalidUrl("relative URL without a base".to_string()),
+                    PackageSourceError::InvalidPackageName("/absolute/path/test.wasm".to_string()),
+                    PackageSourceError::InvalidCommandName("/absolute/path/test.wasm".to_string()),
+                ],
+            },
+        }
+    );
     assert_eq!(
         PackageSource::parse("namespace/name@latest"),
         PackageSource {
