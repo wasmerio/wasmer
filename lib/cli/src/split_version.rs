@@ -452,14 +452,15 @@ impl PackageSourceInner {
 
     /// Try parsing `s` as a command (`python@latest`) or a file (`python`)
     pub fn try_parse_command(s: &str) -> Result<Self, PackageSourceError> {
-        let command = s.split('@').next().map(|s| s.to_string()).unwrap();
-        if !command
+        if !s
             .chars()
             .all(|c| char::is_alphanumeric(c) || c == '-' || c == '_')
         {
             return Err(PackageSourceError::InvalidCommandName(s.to_string()));
         }
-        Ok(Self::CommandOrFile(PackageSourceCommand { command }))
+        Ok(Self::CommandOrFile(PackageSourceCommand {
+            command: s.to_string(),
+        }))
     }
 }
 
@@ -549,14 +550,22 @@ fn test_split_version() {
             original: "registry.wapm.io/graphql/python/python".to_string(),
             inner: PackageSourceInner::File {
                 path: "registry.wapm.io/graphql/python/python".to_string(),
-                errors: Vec::new(),
+                errors: vec![
+                    PackageSourceError::InvalidUrl("relative URL without a base".to_string()),
+                    PackageSourceError::InvalidPackageName(
+                        "registry.wapm.io/graphql/python/python".to_string()
+                    ),
+                    PackageSourceError::InvalidCommandName(
+                        "registry.wapm.io/graphql/python/python".to_string()
+                    ),
+                ],
             },
         }
     );
     assert_eq!(
         PackageSource::parse("namespace/name@latest"),
         PackageSource {
-            original: "namespace/name@latest:command".to_string(),
+            original: "namespace/name@latest".to_string(),
             inner: PackageSourceInner::PackageOrFile(PackageSourcePackage {
                 namespace: "namespace".to_string(),
                 name: "name".to_string(),
@@ -607,7 +616,11 @@ fn test_split_version() {
             original: "python@latest".to_string(),
             inner: PackageSourceInner::File {
                 path: "python@latest".to_string(),
-                errors: Vec::new(),
+                errors: vec![
+                    PackageSourceError::InvalidUrl("relative URL without a base".to_string()),
+                    PackageSourceError::InvalidPackageName("python@latest".to_string()),
+                    PackageSourceError::InvalidCommandName("python@latest".to_string()),
+                ],
             }
         }
     );
