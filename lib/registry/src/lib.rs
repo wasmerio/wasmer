@@ -781,10 +781,6 @@ where
 pub fn install_package(
     #[cfg(test)] test_name: &str,
     url: &Url,
-    registry: Option<&str>,
-    name: &str,
-    version: Option<&str>,
-    force_install: bool,
 ) -> Result<(LocalPackage, PathBuf), anyhow::Error> {
     use fs_extra::dir::copy;
 

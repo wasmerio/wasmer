@@ -199,37 +199,20 @@ impl PackageSource {
                 });
             }
             PackageUrlOrFile::Url(url) => {
-                let checksum = wasmer_registry::get_remote_webc_checksum(&url)
-                    .with_context(|| anyhow::anyhow!("error fetching {url}"))?;
+                let sp = if debug {
+                    crate::commands::start_spinner(format!("Installing {}", url))
+                } else {
+                    None
+                };
 
-                let packages = wasmer_registry::get_all_installed_webc_packages();
+                let (_, path) = wasmer_registry::install_package(&url)
+                    .with_context(|| anyhow::anyhow!("failed to install {url}"))?;
 
-                if !packages.iter().any(|p| p.checksum == checksum) {
-                    let sp = if debug {
-                        crate::commands::start_spinner(format!("Installing {}", url))
-                    } else {
-                        None
-                    };
-
-                    let result = wasmer_registry::install_webc_package(&url, &checksum);
-
-                    result.map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
-
-                    if let Some(sp) = sp {
-                        sp.clear();
-                    }
+                if let Some(sp) = sp {
+                    sp.clear();
                 }
 
-                let webc_dir = wasmer_registry::get_webc_dir();
-
-                let webc_install_path = webc_dir
-                    .ok_or_else(|| anyhow::anyhow!("Error installing package: no webc dir"))?
-                    .join(checksum);
-
-                Ok(RunWithPathBuf {
-                    path: webc_install_path,
-                    options,
-                })
+                Ok(RunWithPathBuf { path, options })
             }
         }
     }
@@ -341,9 +324,10 @@ impl PackageSource {
         match &self.inner {
             PackageSourceInner::File { path, errors } => {
                 let pathbuf = Path::new(&path).to_path_buf();
+                let canon = pathbuf.canonicalize().unwrap_or(pathbuf.clone());
                 let mut err = std::fs::metadata(&path)
                     .map(|_| PackageUrlOrFile::File(pathbuf))
-                    .map_err(|e| anyhow::anyhow!("error opening path: {e}"));
+                    .map_err(|e| anyhow::anyhow!("error opening path {:?}: {e}", canon.display()));
 
                 for e in errors {
                     // if errors occurred, this will give context as to why the
@@ -522,9 +506,9 @@ impl fmt::Display for PackageSourceError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::PackageSourceError::*;
         match self {
-            InvalidUrl(e) => write!(f, "parsing as URL: {e}"),
-            InvalidCommandName(e) => write!(f, "parsing as command: {e}"),
-            InvalidPackageName(p) => write!(f, "parsing as package: {p}"),
+            InvalidUrl(e) => write!(f, "parsing as URL failed: {e}"),
+            InvalidCommandName(e) => write!(f, "parsing as command failed: {e}"),
+            InvalidPackageName(p) => write!(f, "parsing as package failed: {p}"),
             InvalidVersion(v) => write!(f, "invalid version {v}: use \"latest\" or 1.2.3"),
         }
     }
