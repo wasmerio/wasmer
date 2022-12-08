@@ -170,14 +170,12 @@ fn run_wasi_works_non_existent() -> anyhow::Result<()> {
     assert_eq!(
         stderr_lines,
         vec![
-            "error: Invalid value \"does/not/exist\" for '<FILE>': ".to_string(),
-            "    parsing as file: file does not exist: does/not/exist".to_string(),
-            "    parsing as URL: relative URL without a base".to_string(),
-            "    parsing as package: invalid characters in namespace \"does/not\"".to_string(),
-            "    parsing as command: does/not/exist".to_string(),
-            "".to_string(),
-            "".to_string(),
-            "For more information try --help".to_string(),
+            "error: does/not/exist".to_string(),
+            "│   1: parsing as command failed: does/not/exist".to_string(),
+            "│   2: parsing as package failed: does/not/exist".to_string(),
+            "│   3: parsing as URL failed: relative URL without a base".to_string(),
+            "╰─▶ 4: error opening path \"does/not/exist\": No such file or directory (os error 2)"
+                .to_string(),
         ]
     );
 

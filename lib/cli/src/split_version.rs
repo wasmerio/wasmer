@@ -605,6 +605,7 @@ fn test_split_version() {
             },
         }
     );
+
     assert_eq!(
         PackageSource::parse("namespace/name@latest"),
         PackageSource {
@@ -614,6 +615,21 @@ fn test_split_version() {
                 name: "name".to_string(),
                 version: Some(ParsedPackageVersion::Latest),
             }),
+        }
+    );
+
+    assert_eq!(
+        PackageSource::parse("namespace/name@latest:command"),
+        PackageSource {
+            original: "namespace/name@latest:command".to_string(),
+            inner: PackageSourceInner::File {
+                path: "namespace/name@latest:command".to_string(),
+                errors: vec![
+                    PackageSourceError::InvalidUrl("relative URL without a base".to_string()), 
+                    PackageSourceError::InvalidPackageName("error parsing version latest:command: unexpected character 'l' while parsing major version number".to_string()), 
+                    PackageSourceError::InvalidCommandName("namespace/name@latest:command".to_string()),
+                ]
+            },
         }
     );
 
@@ -650,6 +666,16 @@ fn test_split_version() {
             inner: PackageSourceInner::CommandOrFile(PackageSourceCommand {
                 command: "command".to_string(),
             }),
+        }
+    );
+
+    assert_eq!(
+        PackageSource::parse("https://wapm.io/syrusakbary/python"),
+        PackageSource {
+            original: "https://wapm.io/syrusakbary/python".to_string(),
+            inner: PackageSourceInner::Url(
+                url::Url::parse("https://wapm.io/syrusakbary/python").unwrap()
+            ),
         }
     );
 
