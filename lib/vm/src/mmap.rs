@@ -99,11 +99,7 @@ impl Mmap {
 
         // Open a temporary file (which is used for swapping)
         let fd = unsafe {
-            let file = if mapping_size > (u32::MAX as usize) {
-                libc::tmpfile64()
-            } else {
-                libc::tmpfile()
-            };
+            let file = libc::tmpfile();
             if file == ptr::null_mut() {
                 return Err(format!(
                     "failed to create temporary file - {}",
@@ -114,13 +110,9 @@ impl Mmap {
         };
 
         // First we initialize it with zeros
-        if mapping_size > (u32::MAX as usize) {
-            unsafe {
-                libc::ftruncate64(fd.0, mapping_size as i64);
-            }
-        } else {
-            unsafe {
-                libc::ftruncate(fd.0, mapping_size as i64);
+        unsafe {
+            if libc::ftruncate(fd.0, mapping_size as libc::off_t) < 0 {
+                return Err("could not truncate tmpfile".to_string());
             }
         }
 
@@ -330,16 +322,12 @@ impl Mmap {
 
         // First we sync all the data to the backing file
         unsafe {
-            libc::fdatasync(self.fd.0);
+            libc::fsync(self.fd.0);
         }
 
         // Open a new temporary file (which is used for swapping for the forked memory)
         let fd = unsafe {
-            let file = if self.len > (u32::MAX as usize) {
-                libc::tmpfile64()
-            } else {
-                libc::tmpfile()
-            };
+            let file = libc::tmpfile();
             if file == ptr::null_mut() {
                 return Err(format!(
                     "failed to create temporary file - {}",
@@ -364,9 +352,31 @@ impl Mmap {
                 };
 
                 // The shallow copy failed so we have to do it the hard way
-                let mut off_in: libc::off64_t = 0;
-                let mut off_out: libc::off64_t = 0;
+                let mut off_in: libc::off_t = 0;
+                let mut off_out: libc::off_t = 0;
+                #[cfg(not(target_vendor = "apple"))]
                 let ret = libc::copy_file_range(self.fd.0, &mut off_in, fd.0, &mut off_out, len, 0);
+
+                // FIXME: implement better copy on Apple targets.
+                // Mac libc does not have copy_file_range.
+                // It does have fcopyfile, which we should probably use.
+                // This is just a quick fix to get it working.
+                #[cfg(target_vendor = "apple")]
+                let ret = {
+                    use std::{io::Seek, os::unix::io::FromRawFd};
+
+                    let mut f1 = std::fs::File::from_raw_fd(self.fd.0);
+                    let pos = f1.stream_position().map_err(|err| err.to_string())?;
+
+                    let mut f2 = std::fs::File::from_raw_fd(fd.0);
+                    std::io::copy(&mut f1, &mut f2).map_err(|err| err.to_string())?;
+                    f2.seek(std::io::SeekFrom::Start(0))
+                        .map_err(|err| err.to_string())?;
+                    f1.seek(std::io::SeekFrom::Start(pos))
+                        .map_err(|err| err.to_string())?;
+                    0
+                };
+
                 if ret < 0 {
                     return Err(format!(
                         "failed to copy temporary file data - {}",
