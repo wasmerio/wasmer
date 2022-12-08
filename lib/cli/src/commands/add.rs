@@ -1,6 +1,6 @@
 use std::process::{Command, Stdio};
 
-use crate::split_version::{ResolvedSplitVersion, SplitVersion};
+use crate::split_version::{PackageSource, ResolvedPackageSource};
 use anyhow::{Context, Error};
 use clap::Parser;
 use wasmer_registry::{Bindings, PartialWapmConfig, ProgrammingLanguage};
@@ -25,7 +25,7 @@ pub struct Add {
     pip: bool,
     /// The packages to add (e.g. "wasmer/wasmer-pack@0.5.0" or "python/python")
     #[clap(parse(try_from_str))]
-    packages: Vec<SplitVersion>,
+    packages: Vec<PackageSource>,
 }
 
 impl Add {
@@ -106,7 +106,7 @@ impl Add {
 
 fn lookup_bindings_for_package(
     registry: &str,
-    pkg: &ResolvedSplitVersion,
+    pkg: &ResolvedPackageSource,
     language: &ProgrammingLanguage,
 ) -> Result<Bindings, Error> {
     let all_bindings =

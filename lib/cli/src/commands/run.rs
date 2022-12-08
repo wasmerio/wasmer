@@ -1,7 +1,7 @@
 use crate::common::get_cache_dir;
 #[cfg(feature = "debug")]
 use crate::logging;
-use crate::split_version::SplitVersion;
+use crate::split_version::PackageSource;
 use crate::store::{CompilerType, StoreOptions};
 use crate::suggestions::suggest_function_exports;
 use crate::warning;
@@ -95,7 +95,7 @@ fn is_dir(e: &walkdir::DirEntry) -> bool {
 pub struct Run {
     /// File, URL or package to run
     #[clap(name = "FILE", parse(try_from_str))]
-    pub(crate) path: SplitVersion,
+    pub(crate) path: PackageSource,
 
     /// Registry to run the FILE from (optional)
     #[clap(short = 'r', long, name = "registry")]
@@ -143,7 +143,7 @@ impl Run {
         let store = StoreOptions::default();
         // TODO: store.compiler.features.all = true; ?
         Ok(Self {
-            path: SplitVersion::parse(executable)?,
+            path: PackageSource::parse(executable)?,
             registry: None, // TODO: ???
             options: RunWithoutFile {
                 args: args.to_vec(),

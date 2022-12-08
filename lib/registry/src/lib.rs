@@ -1041,6 +1041,7 @@ async fn install_webc_package_inner(
         let builder = reqwest::Client::builder();
         let builder = crate::graphql::proxy::maybe_set_up_proxy(builder)?;
         builder
+            .redirect(reqwest::redirect::Policy::limited(10))
             .build()
             .map_err(|e| anyhow::anyhow!("{e}"))
             .context("install_webc_package: failed to build reqwest Client")?
@@ -1138,7 +1139,7 @@ pub fn get_checksum_hash(bytes: &[u8]) -> String {
     while checksum.last().copied() == Some(0) {
         checksum.pop();
     }
-    hex::encode(&checksum)
+    hex::encode(&checksum).chars().take(64).collect()
 }
 
 /// Returns the checksum of the .webc file, so that we can check whether the
@@ -1146,10 +1147,9 @@ pub fn get_checksum_hash(bytes: &[u8]) -> String {
 pub fn get_remote_webc_checksum(url: &Url) -> Result<String, anyhow::Error> {
     let request_max_bytes = webc::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
     let data = get_webc_bytes(url, Some(0..request_max_bytes))
-        .with_context(|| format!("get_webc_bytes failed on {url}"))?;
+        .map_err(|e| anyhow::anyhow!("get_webc_bytes failed on {url}: {e}"))?;
     let checksum = webc::WebC::get_checksum_bytes(&data)
-        .map_err(|e| anyhow::anyhow!("{e}"))
-        .context("get_checksum_bytes failed")?
+        .map_err(|e| anyhow::anyhow!("get_checksum_bytes failed on {url}: {e}"))?
         .to_vec();
     Ok(get_checksum_hash(&checksum))
 }
@@ -1185,6 +1185,7 @@ fn setup_webc_client(url: &Url) -> Result<reqwest::blocking::RequestBuilder, any
         let builder = crate::graphql::proxy::maybe_set_up_proxy_blocking(builder)
             .context("setup_webc_client")?;
         builder
+            .redirect(reqwest::redirect::Policy::limited(10))
             .build()
             .map_err(|e| anyhow::anyhow!("{e}"))
             .context("setup_webc_client: builder.build() failed")?
@@ -1206,10 +1207,19 @@ fn get_webc_bytes(url: &Url, range: Option<Range<usize>>) -> Result<Vec<u8>, any
         .send()
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("send() failed")?;
+
     let bytes = res
         .bytes()
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("bytes() failed")?;
+
+    if range.is_none() || range.unwrap().start == 0 {
+        if &bytes[0..webc::MAGIC.len()] != &webc::MAGIC[..] {
+            let bytes = bytes.iter().copied().take(100).collect::<Vec<_>>();
+            let first_50_bytes = String::from_utf8_lossy(&bytes);
+            return Err(anyhow::anyhow!("invalid webc bytes: {first_50_bytes:?}"));
+        }
+    }
 
     Ok(bytes.to_vec())
 }
