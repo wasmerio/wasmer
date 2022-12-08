@@ -109,16 +109,12 @@ impl Run {
     /// Resolves the `self.path` to an actual file path by downloading / querying the registry if necessary
     /// Will block the current thread when doing so.
     pub fn resolve(&self) -> Result<RunWithPathBuf, anyhow::Error> {
-        #[cfg(not(feature = "debug"))]
-        let debug = false;
-        #[cfg(feature = "debug")]
-        let debug = self.options.debug;
         let registry = self
             .registry
             .as_deref()
             .map(wasmer_registry::format_graphql);
         self.path
-            .get_run_command(registry.as_deref(), self.options.clone(), debug)
+            .get_run_command(registry.as_deref(), self.options.clone(), true)
     }
 
     /// Create Run instance for arguments/env,

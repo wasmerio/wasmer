@@ -789,7 +789,7 @@ pub fn install_package(
         .ok_or_else(|| anyhow::anyhow!("invalid url: {}", url))?
         .to_string();
 
-    let tempdir = tempdir::TempDir::new("download-{host}")
+    let tempdir = tempdir::TempDir::new(&format!("download-{host}"))
         .map_err(|e| anyhow::anyhow!("could not create download temp dir"))?;
 
     let target_targz_path = tempdir.path().join("package.tar.gz");
@@ -799,9 +799,9 @@ pub fn install_package(
             "could not create dir {}: {e}",
             unpacked_targz_path.display()
         )
-    });
+    })?;
 
-    let bytes = get_targz_bytes(url, None, Some(target_targz_path.clone()))
+    get_targz_bytes(url, None, Some(target_targz_path.clone()))
         .map_err(|e| anyhow::anyhow!("failed to download {url}: {e}"))?;
 
     try_unpack_targz(
@@ -831,7 +831,16 @@ pub fn install_package(
         )
     })?;
 
-    let options = fs_extra::dir::CopyOptions::new();
+    std::fs::create_dir_all(&installation_path).map_err(|e| {
+        anyhow::anyhow!(
+            "could not create installation path for {}: {e}",
+            package.name
+        )
+    })?;
+
+    let mut options = fs_extra::dir::CopyOptions::new();
+    options.content_only = true;
+    options.overwrite = true;
     copy(&unpacked_targz_path, &installation_path, &options)?;
 
     Ok((package, installation_path))
@@ -1186,7 +1195,12 @@ fn get_bytes(
             anyhow::anyhow!("failed to download {url} into {}: {e}", path.display())
         })?;
 
-        res.copy_to(&mut file).map_err(|e| anyhow::anyhow!("{e}"));
+        let bytes = res
+            .copy_to(&mut file)
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .map_err(|e| {
+                anyhow::anyhow!("failed to download {url} into {}: {e}", path.display())
+            })?;
 
         Ok(None)
     } else {

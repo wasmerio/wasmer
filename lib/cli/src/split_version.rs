@@ -199,18 +199,24 @@ impl PackageSource {
                 });
             }
             PackageUrlOrFile::Url(url) => {
-                let sp = if debug {
+                let mut sp = if debug {
                     crate::commands::start_spinner(format!("Installing {}", url))
                 } else {
                     None
                 };
 
-                let (_, path) = wasmer_registry::install_package(&url)
-                    .with_context(|| anyhow::anyhow!("failed to install {url}"))?;
+                let (_, path) = wasmer_registry::install_package(&url).with_context(|| {
+                    if let Some(sp) = sp.take() {
+                        sp.clear();
+                    }
+                    let _ = std::io::stdout().flush();
+                    anyhow::anyhow!("failed to install {url}")
+                })?;
 
-                if let Some(sp) = sp {
+                if let Some(sp) = sp.take() {
                     sp.clear();
                 }
+                let _ = std::io::stdout().flush();
 
                 Ok(RunWithPathBuf { path, options })
             }
@@ -308,7 +314,10 @@ pub enum PackageUrlOrFile {
 
 impl PackageSource {
     /// If the package source describes a local package / file, returns the file,
-    /// otherwise returns the URL to fetch the package from
+    /// otherwise returns the URL to fetch the package from.
+    ///
+    /// This function also checks if the package / command is already installed, if
+    /// if is, it will return the directory path to the package root dir.
     pub fn get_url_or_file(&self, registry: &str) -> Result<PackageUrlOrFile, anyhow::Error> {
         let registry = wasmer_registry::format_graphql(registry);
         let registry_tld = tldextract::TldExtractor::new(tldextract::TldOption::default())
