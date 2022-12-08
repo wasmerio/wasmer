@@ -17,7 +17,7 @@ pub fn sock_listen<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     backlog: M::Offset,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     debug!(
         "wasi[{}:{}]::sock_listen (fd={})",
         ctx.data().pid(),
@@ -27,12 +27,12 @@ pub fn sock_listen<M: MemorySize>(
 
     let env = ctx.data();
     let net = env.net();
-    let backlog: usize = wasi_try!(backlog.try_into().map_err(|_| Errno::Inval));
-    wasi_try!(__sock_upgrade(
+    let backlog: usize = wasi_try_ok!(backlog.try_into().map_err(|_| Errno::Inval));
+    wasi_try_ok!(__sock_upgrade(
         &mut ctx,
         sock,
         Rights::SOCK_LISTEN,
         move |socket| async move { socket.listen(net, backlog).await }
-    ));
-    Errno::Success
+    )?);
+    Ok(Errno::Success)
 }

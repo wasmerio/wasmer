@@ -56,7 +56,7 @@ pub fn sock_send<M: MemorySize>(
         sock,
         Rights::SOCK_SEND,
         move |socket| async move { socket.send(buf).await },
-    ));
+    )?);
     env = ctx.data();
 
     let bytes_written: M::Offset =

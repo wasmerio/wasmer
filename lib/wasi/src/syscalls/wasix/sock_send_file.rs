@@ -201,7 +201,7 @@ pub fn sock_send_file<M: MemorySize>(
                 sock,
                 Rights::SOCK_SEND,
                 move |socket| async move { socket.send(data).await },
-            ));
+            )?);
             env = ctx.data();
 
             total_written += bytes_written as u64;

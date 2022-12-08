@@ -162,7 +162,9 @@ pub(crate) fn poll_oneoff_internal(
 
     // If there is a timeout we need to use the runtime to measure this
     // otherwise we just process all the events and wait on them indefinately
-    if let Some(time_to_sleep) = time_to_sleep.as_ref() {
+    // We make sure it waits for at least 5 milliseconcs to stop the CPU from burning
+    if let Some(time_to_sleep) = time_to_sleep.as_mut() {
+        *time_to_sleep = (*time_to_sleep).max(Duration::from_millis(5));
         tracing::trace!(
             "wasi[{}:{}]::poll_oneoff wait_for_timeout={}",
             pid,

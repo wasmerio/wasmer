@@ -14,7 +14,7 @@ pub fn sock_join_multicast_v4<M: MemorySize>(
     sock: WasiFd,
     multiaddr: WasmPtr<__wasi_addr_ip4_t, M>,
     iface: WasmPtr<__wasi_addr_ip4_t, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     debug!(
         "wasi[{}:{}]::sock_join_multicast_v4 (fd={})",
         ctx.data().pid(),
@@ -24,13 +24,13 @@ pub fn sock_join_multicast_v4<M: MemorySize>(
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-    let multiaddr = wasi_try!(crate::net::read_ip_v4(&memory, multiaddr));
-    let iface = wasi_try!(crate::net::read_ip_v4(&memory, iface));
-    wasi_try!(__sock_actor_mut(
+    let multiaddr = wasi_try_ok!(crate::net::read_ip_v4(&memory, multiaddr));
+    let iface = wasi_try_ok!(crate::net::read_ip_v4(&memory, iface));
+    wasi_try_ok!(__sock_actor_mut(
         &mut ctx,
         sock,
         Rights::empty(),
         move |socket| async move { socket.join_multicast_v4(multiaddr, iface).await }
-    ));
-    Errno::Success
+    )?);
+    Ok(Errno::Success)
 }

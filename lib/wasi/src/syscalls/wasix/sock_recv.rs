@@ -51,7 +51,7 @@ pub fn sock_recv<M: MemorySize>(
         sock,
         Rights::SOCK_RECV,
         move |socket| async move { socket.recv(max_size).await },
-    ));
+    )?);
     env = ctx.data();
 
     let memory = env.memory_view(&ctx);

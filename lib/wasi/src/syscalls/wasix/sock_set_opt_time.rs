@@ -14,7 +14,7 @@ pub fn sock_set_opt_time<M: MemorySize>(
     sock: WasiFd,
     opt: Sockoption,
     time: WasmPtr<OptionTimestamp, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     debug!(
         "wasi[{}:{}]::sock_set_opt_time(fd={}, ty={})",
         ctx.data().pid(),
@@ -25,11 +25,11 @@ pub fn sock_set_opt_time<M: MemorySize>(
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-    let time = wasi_try_mem!(time.read(&memory));
+    let time = wasi_try_mem_ok!(time.read(&memory));
     let time = match time.tag {
         OptionTag::None => None,
         OptionTag::Some => Some(Duration::from_nanos(time.u)),
-        _ => return Errno::Inval,
+        _ => return Ok(Errno::Inval),
     };
 
     let ty = match opt {
@@ -38,15 +38,15 @@ pub fn sock_set_opt_time<M: MemorySize>(
         Sockoption::ConnectTimeout => wasmer_vnet::TimeType::ConnectTimeout,
         Sockoption::AcceptTimeout => wasmer_vnet::TimeType::AcceptTimeout,
         Sockoption::Linger => wasmer_vnet::TimeType::Linger,
-        _ => return Errno::Inval,
+        _ => return Ok(Errno::Inval),
     };
 
     let option: crate::net::socket::WasiSocketOption = opt.into();
-    wasi_try!(__sock_actor_mut(
+    wasi_try_ok!(__sock_actor_mut(
         &mut ctx,
         sock,
         Rights::empty(),
         move |socket| async move { socket.set_opt_time(ty, time) }
-    ));
-    Errno::Success
+    )?);
+    Ok(Errno::Success)
 }

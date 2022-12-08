@@ -299,7 +299,7 @@ pub(crate) fn __sock_actor<T, F, Fut>(
     sock: WasiFd,
     rights: Rights,
     actor: F,
-) -> Result<T, Errno>
+) -> Result<Result<T, Errno>, WasiError>
 where
     T: 'static,
     F: FnOnce(crate::net::socket::InodeSocket) -> Fut + 'static,
@@ -308,40 +308,47 @@ where
     let env = ctx.data();
     let tasks = env.tasks.clone();
 
-    let state = env.state.clone();
-    let inodes = state.inodes.clone();
+    let socket = {
+        let state = env.state.clone();
+        let inodes = state.inodes.clone();
 
-    let fd_entry = state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.rights.contains(rights) {
-        return Err(Errno::Access);
-    }
-
-    let inodes_guard = inodes.read().unwrap();
-    let inode_idx = fd_entry.inode;
-    let inode = &inodes_guard.arena[inode_idx];
-
-    let tasks = env.tasks.clone();
-    let mut guard = inode.read();
-    match guard.deref() {
-        Kind::Socket { socket } => {
-            // Clone the socket and release the lock
-            let socket = socket.clone();
-            drop(guard);
-
-            // Start the work using the socket
-            let work = actor(socket);
-
-            // Block on the work and process it
-            let (tx, rx) = std::sync::mpsc::channel();
-            tasks.block_on(Box::pin(async move {
-                let ret = work.await;
-                tx.send(ret);
-            }));
-            rx.recv().unwrap()
+        let fd_entry = match state.fs.get_fd(sock) {
+            Ok(a) => a,
+            Err(err) => return Ok(Err(err))
+        };
+        if !rights.is_empty() && !fd_entry.rights.contains(rights) {
+            return Ok(Err(Errno::Access));
         }
-        _ => {
-            return Err(Errno::Notsock);
+
+        let inodes_guard = inodes.read().unwrap();
+        let inode_idx = fd_entry.inode;
+        let inode = &inodes_guard.arena[inode_idx];
+
+        let tasks = env.tasks.clone();
+        let mut guard = inode.read();
+        match guard.deref() {
+            Kind::Socket { socket } => {
+                // Clone the socket and release the lock
+                let socket = socket.clone();
+                drop(guard);
+                Some(socket)
+            }
+            _ => {
+                None
+            }
         }
+    };
+
+    if let Some(socket) = socket {
+        // Start the work using the socket
+        let work = actor(socket);
+
+        // Block on the work and process it
+        __asyncify(ctx, None, async move {
+            work.await
+        })
+    } else {
+        Ok(Err(Errno::Notsock))
     }
 }
 
@@ -352,7 +359,7 @@ pub(crate) fn __sock_actor_mut<'a, T, F, Fut>(
     sock: WasiFd,
     rights: Rights,
     actor: F,
-) -> Result<T, Errno>
+) -> Result<Result<T, Errno>, WasiError>
 where
     T: 'static,
     F: FnOnce(crate::net::socket::InodeSocket) -> Fut,
@@ -364,13 +371,16 @@ where
     let state = env.state.clone();
     let inodes = state.inodes.clone();
 
-    let fd_entry = state.fs.get_fd(sock)?;
+    let fd_entry = match state.fs.get_fd(sock) {
+        Ok(a) => a,
+        Err(err) => return Ok(Err(err))
+    };
     if !rights.is_empty() && !fd_entry.rights.contains(rights) {
-        return Err(Errno::Access);
+        return Ok(Err(Errno::Access));
     }
 
     let tasks = env.tasks.clone();
-    {
+    let socket = {
         let inode_idx = fd_entry.inode;
         let inodes_guard = inodes.read().unwrap();
         let inode = &inodes_guard.arena[inode_idx];
@@ -381,22 +391,24 @@ where
                 let socket = socket.clone();
                 drop(guard);
                 drop(inodes_guard);
-
-                // Start the work using the socket
-                let work = actor(socket);
-
-                // Block on the work and process it
-                let (tx, rx) = std::sync::mpsc::channel();
-                tasks.block_on(Box::pin(async move {
-                    let ret = work.await;
-                    tx.send(ret);
-                }));
-                rx.recv().unwrap()
-            }
+                Some(socket)
+            },
             _ => {
-                return Err(Errno::Notsock);
+                None
             }
         }
+    };
+
+    if let Some(socket) = socket {
+        // Start the work using the socket
+        let work = actor(socket);
+
+        // Block on the work and process it
+        __asyncify(ctx, None, async move {
+            work.await
+        })
+    } else {
+        Ok(Err(Errno::Notsock))
     }
 }
 
@@ -408,7 +420,7 @@ pub(crate) fn __sock_upgrade<'a, F, Fut>(
     sock: WasiFd,
     rights: Rights,
     actor: F,
-) -> Result<(), Errno>
+) -> Result<Result<(), Errno>, WasiError>
 where
     F: FnOnce(crate::net::socket::InodeSocket) -> Fut,
     Fut: std::future::Future<Output = Result<Option<crate::net::socket::InodeSocket>, Errno>> + 'a,
@@ -417,7 +429,10 @@ where
     let state = env.state.clone();
     let inodes = state.inodes.clone();
 
-    let fd_entry = state.fs.get_fd(sock)?;
+    let fd_entry = match state.fs.get_fd(sock) {
+        Ok(a) => a,
+        Err(err) => return Ok(Err(err))
+    };
     if !rights.is_empty() && !fd_entry.rights.contains(rights) {
         tracing::warn!(
             "wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - no access rights to upgrade",
@@ -426,12 +441,12 @@ where
             sock,
             rights
         );
-        return Err(Errno::Access);
+        return Ok(Err(Errno::Access));
     }
 
-    let tasks = env.tasks.clone();
-    {
-        let inode_idx = fd_entry.inode;
+    let inode_idx = fd_entry.inode;
+    
+    let socket = {
         let inodes_guard = inodes.read().unwrap();
         let inode = &inodes_guard.arena[inode_idx];
         let mut guard = inode.write();
@@ -440,38 +455,7 @@ where
                 let socket = socket.clone();
                 drop(guard);
                 drop(inodes_guard);
-
-                // Start the work using the socket
-                let work = actor(socket);
-
-                // Block on the work and process it
-                let (tx, rx) = std::sync::mpsc::channel();
-                tasks.block_on(Box::pin(async move {
-                    let ret = work.await;
-                    tx.send(ret);
-                }));
-                let new_socket = rx.recv().unwrap()?;
-
-                if let Some(mut new_socket) = new_socket {
-                    let inodes_guard = inodes.read().unwrap();
-                    let inode = &inodes_guard.arena[inode_idx];
-                    let mut guard = inode.write();
-                    match guard.deref_mut() {
-                        Kind::Socket { socket } => {
-                            std::mem::swap(socket, &mut new_socket);
-                        }
-                        _ => {
-                            tracing::warn!(
-                                "wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - not a socket",
-                                ctx.data().pid(),
-                                ctx.data().tid(),
-                                sock,
-                                rights
-                            );
-                            return Err(Errno::Notsock);
-                        }
-                    }
-                }
+                Some(socket)
             }
             _ => {
                 tracing::warn!(
@@ -481,12 +465,47 @@ where
                     sock,
                     rights
                 );
-                return Err(Errno::Notsock);
+                None
             }
         }
+    };
+
+    let tasks = env.tasks.clone();
+    if let Some(socket) = socket {
+        // Start the work using the socket
+        let work = actor(socket);
+
+        // Block on the work and process it
+        let new_socket = match __asyncify(ctx, None, async move { work.await })? {
+            Ok(a) => a,
+            Err(err) => return Ok(Err(err))
+        };
+
+        if let Some(mut new_socket) = new_socket {
+            let inodes_guard = inodes.read().unwrap();
+            let inode = &inodes_guard.arena[inode_idx];
+            let mut guard = inode.write();
+            match guard.deref_mut() {
+                Kind::Socket { socket } => {
+                    std::mem::swap(socket, &mut new_socket);
+                }
+                _ => {
+                    tracing::warn!(
+                        "wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - not a socket",
+                        ctx.data().pid(),
+                        ctx.data().tid(),
+                        sock,
+                        rights
+                    );
+                    return Ok(Err(Errno::Notsock));
+                }
+            }
+        }
+    } else {
+        return Ok(Err(Errno::Notsock));
     }
 
-    Ok(())
+    Ok(Ok(()))
 }
 
 #[must_use]

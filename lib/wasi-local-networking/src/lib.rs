@@ -55,7 +55,7 @@ impl VirtualNetworking for LocalNetworking {
             .await
             .map_err(io_err_into_net_error)?;
         Ok(Box::new(LocalUdpSocket {
-            socket: LocalUdpSocketMode::Async(socket),
+            socket,
             addr,
             nonblocking: false,
         }))
@@ -215,7 +215,7 @@ impl VirtualTcpListener for LocalTcpListener {
     }
 
     fn poll_accept_ready(
-        &mut self,
+        &self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>> {
         self.stream
@@ -611,7 +611,7 @@ impl VirtualSocket for LocalTcpStream {
     }
 
     fn poll_read_ready(
-        &mut self,
+        &self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>> {
         self.stream
@@ -621,7 +621,7 @@ impl VirtualSocket for LocalTcpStream {
     }
 
     fn poll_write_ready(
-        &mut self,
+        &self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>> {
         self.stream
@@ -667,208 +667,71 @@ impl<'a> Future for LocalTcpStreamWriteReady<'a> {
 
 #[derive(Debug)]
 pub struct LocalUdpSocket {
-    socket: LocalUdpSocketMode,
+    socket: tokio::net::UdpSocket,
     #[allow(dead_code)]
     addr: SocketAddr,
     nonblocking: bool,
-}
-
-#[derive(Debug)]
-enum LocalUdpSocketMode {
-    Blocking(std::net::UdpSocket),
-    Async(tokio::net::UdpSocket),
-    Uninitialized,
-}
-
-impl LocalUdpSocketMode {
-    fn as_blocking_mut(&mut self) -> std::io::Result<&mut std::net::UdpSocket> {
-        match self {
-            Self::Blocking(a) => Ok(a),
-            Self::Async(_) => {
-                let mut listener = Self::Uninitialized;
-                std::mem::swap(self, &mut listener);
-                listener = match listener {
-                    Self::Async(a) => Self::Blocking(a.into_std()?),
-                    a => unreachable!(),
-                };
-                std::mem::swap(self, &mut listener);
-                match self {
-                    Self::Blocking(a) => Ok(a),
-                    _ => unreachable!(),
-                }
-            }
-            Self::Uninitialized => unreachable!(),
-        }
-    }
-
-    fn as_async_mut(&mut self) -> std::io::Result<&mut tokio::net::UdpSocket> {
-        match self {
-            Self::Async(a) => Ok(a),
-            Self::Blocking(_) => {
-                let mut listener = Self::Uninitialized;
-                std::mem::swap(self, &mut listener);
-                listener = match listener {
-                    Self::Blocking(a) => Self::Async(tokio::net::UdpSocket::from_std(a)?),
-                    a => unreachable!(),
-                };
-                std::mem::swap(self, &mut listener);
-                match self {
-                    Self::Async(a) => Ok(a),
-                    _ => unreachable!(),
-                }
-            }
-            Self::Uninitialized => unreachable!(),
-        }
-    }
 }
 
 #[async_trait::async_trait]
 impl VirtualUdpSocket for LocalUdpSocket {
     async fn connect(&mut self, addr: SocketAddr) -> Result<()> {
         self.socket
-            .as_async_mut()
-            .map_err(io_err_into_net_error)?
             .connect(addr)
             .await
             .map_err(io_err_into_net_error)
     }
 
     fn set_broadcast(&mut self, broadcast: bool) -> Result<()> {
-        match &mut self.socket {
-            LocalUdpSocketMode::Blocking(a) => {
-                a.set_broadcast(broadcast).map_err(io_err_into_net_error)
-            }
-            LocalUdpSocketMode::Async(a) => {
-                a.set_broadcast(broadcast).map_err(io_err_into_net_error)
-            }
-            LocalUdpSocketMode::Uninitialized => unreachable!(),
-        }
+        self.socket.set_broadcast(broadcast).map_err(io_err_into_net_error)
     }
 
     fn broadcast(&self) -> Result<bool> {
-        match &self.socket {
-            LocalUdpSocketMode::Blocking(a) => a.broadcast().map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Async(a) => a.broadcast().map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Uninitialized => unreachable!(),
-        }
+        self.socket.broadcast().map_err(io_err_into_net_error)
     }
 
     fn set_multicast_loop_v4(&mut self, val: bool) -> Result<()> {
-        match &mut self.socket {
-            LocalUdpSocketMode::Blocking(a) => {
-                a.set_multicast_loop_v4(val).map_err(io_err_into_net_error)
-            }
-            LocalUdpSocketMode::Async(a) => {
-                a.set_multicast_loop_v4(val).map_err(io_err_into_net_error)
-            }
-            LocalUdpSocketMode::Uninitialized => unreachable!(),
-        }
+        self.socket.set_multicast_loop_v4(val).map_err(io_err_into_net_error)
     }
 
     fn multicast_loop_v4(&self) -> Result<bool> {
-        match &self.socket {
-            LocalUdpSocketMode::Blocking(a) => a.multicast_loop_v4().map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Async(a) => a.multicast_loop_v4().map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Uninitialized => unreachable!(),
-        }
+        self.socket.multicast_loop_v4().map_err(io_err_into_net_error)
     }
 
     fn set_multicast_loop_v6(&mut self, val: bool) -> Result<()> {
-        match &mut self.socket {
-            LocalUdpSocketMode::Blocking(a) => {
-                a.set_multicast_loop_v6(val).map_err(io_err_into_net_error)
-            }
-            LocalUdpSocketMode::Async(a) => {
-                a.set_multicast_loop_v6(val).map_err(io_err_into_net_error)
-            }
-            LocalUdpSocketMode::Uninitialized => unreachable!(),
-        }
+        self.socket.set_multicast_loop_v6(val).map_err(io_err_into_net_error)
     }
 
     fn multicast_loop_v6(&self) -> Result<bool> {
-        match &self.socket {
-            LocalUdpSocketMode::Blocking(a) => a.multicast_loop_v6().map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Async(a) => a.multicast_loop_v6().map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Uninitialized => unreachable!(),
-        }
+        self.socket.multicast_loop_v6().map_err(io_err_into_net_error)
     }
 
     fn set_multicast_ttl_v4(&mut self, ttl: u32) -> Result<()> {
-        match &mut self.socket {
-            LocalUdpSocketMode::Blocking(a) => {
-                a.set_multicast_ttl_v4(ttl).map_err(io_err_into_net_error)
-            }
-            LocalUdpSocketMode::Async(a) => {
-                a.set_multicast_ttl_v4(ttl).map_err(io_err_into_net_error)
-            }
-            LocalUdpSocketMode::Uninitialized => unreachable!(),
-        }
+        self.socket.set_multicast_ttl_v4(ttl).map_err(io_err_into_net_error)
     }
 
     fn multicast_ttl_v4(&self) -> Result<u32> {
-        match &self.socket {
-            LocalUdpSocketMode::Blocking(a) => a.multicast_ttl_v4().map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Async(a) => a.multicast_ttl_v4().map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Uninitialized => unreachable!(),
-        }
+        self.socket.multicast_ttl_v4().map_err(io_err_into_net_error)
     }
 
     fn join_multicast_v4(&mut self, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<()> {
-        match &mut self.socket {
-            LocalUdpSocketMode::Blocking(a) => a
-                .join_multicast_v4(&multiaddr, &iface)
-                .map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Async(a) => a
-                .join_multicast_v4(multiaddr, iface)
-                .map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Uninitialized => unreachable!(),
-        }
+        self.socket.join_multicast_v4(multiaddr, iface).map_err(io_err_into_net_error)
     }
 
     fn leave_multicast_v4(&mut self, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<()> {
-        match &mut self.socket {
-            LocalUdpSocketMode::Blocking(a) => a
-                .leave_multicast_v4(&multiaddr, &iface)
-                .map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Async(a) => a
-                .leave_multicast_v4(multiaddr, iface)
-                .map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Uninitialized => unreachable!(),
-        }
+        self.socket.leave_multicast_v4(multiaddr, iface).map_err(io_err_into_net_error)
     }
 
     fn join_multicast_v6(&mut self, multiaddr: Ipv6Addr, iface: u32) -> Result<()> {
-        match &mut self.socket {
-            LocalUdpSocketMode::Blocking(a) => a
-                .join_multicast_v6(&multiaddr, iface)
-                .map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Async(a) => a
-                .join_multicast_v6(&multiaddr, iface)
-                .map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Uninitialized => unreachable!(),
-        }
+        self.socket.join_multicast_v6(&multiaddr, iface).map_err(io_err_into_net_error)
     }
 
     fn leave_multicast_v6(&mut self, multiaddr: Ipv6Addr, iface: u32) -> Result<()> {
-        match &mut self.socket {
-            LocalUdpSocketMode::Blocking(a) => a
-                .leave_multicast_v6(&multiaddr, iface)
-                .map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Async(a) => a
-                .leave_multicast_v6(&multiaddr, iface)
-                .map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Uninitialized => unreachable!(),
-        }
+        self.socket.leave_multicast_v6(&multiaddr, iface).map_err(io_err_into_net_error)
     }
 
     fn addr_peer(&self) -> Result<Option<SocketAddr>> {
-        match &self.socket {
-            LocalUdpSocketMode::Blocking(a) => {
-                a.peer_addr().map(Some).map_err(io_err_into_net_error)
-            }
-            LocalUdpSocketMode::Async(a) => a.peer_addr().map(Some).map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Uninitialized => unreachable!(),
-        }
+        self.socket.peer_addr().map(Some).map_err(io_err_into_net_error)
     }
 }
 
@@ -885,8 +748,6 @@ impl VirtualConnectedSocket for LocalUdpSocket {
     async fn send(&mut self, data: Bytes) -> Result<usize> {
         let amt = self
             .socket
-            .as_async_mut()
-            .map_err(io_err_into_net_error)?
             .send(&data[..])
             .await
             .map_err(io_err_into_net_error)?;
@@ -913,8 +774,6 @@ impl VirtualConnectedSocket for LocalUdpSocket {
 
         let read = self
             .socket
-            .as_async_mut()
-            .map_err(io_err_into_net_error)?
             .recv(&mut buf[..])
             .await
             .map_err(io_err_into_net_error)?;
@@ -942,16 +801,7 @@ impl VirtualConnectedSocket for LocalUdpSocket {
             buf.set_len(buf_size);
         }
 
-        let socket = self
-            .socket
-            .as_blocking_mut()
-            .map_err(io_err_into_net_error)?;
-        socket
-            .set_nonblocking(true)
-            .map_err(io_err_into_net_error)?;
-        let read = socket.recv(&mut buf[..]);
-        let _ = socket.set_nonblocking(self.nonblocking);
-
+        let read = self.socket.try_recv(&mut buf[..]);
         let read = match read {
             Ok(0) => {
                 return Ok(None);
@@ -985,9 +835,9 @@ impl VirtualConnectedSocket for LocalUdpSocket {
 
         let read = self
             .socket
-            .as_blocking_mut()
-            .map_err(io_err_into_net_error)?
-            .peek(&mut buf[..])
+            .peek_from(&mut buf[..])
+            .await
+            .map(|a| a.0)
             .map_err(io_err_into_net_error)?;
         unsafe {
             buf.set_len(read);
@@ -1013,8 +863,6 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
     async fn send_to(&mut self, data: Bytes, addr: SocketAddr) -> Result<usize> {
         let amt = self
             .socket
-            .as_async_mut()
-            .map_err(io_err_into_net_error)?
             .send_to(&data[..], addr)
             .await
             .map_err(io_err_into_net_error)?;
@@ -1035,16 +883,7 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
             buf.set_len(buf_size);
         }
 
-        let socket = self
-            .socket
-            .as_blocking_mut()
-            .map_err(io_err_into_net_error)?;
-        socket
-            .set_nonblocking(true)
-            .map_err(io_err_into_net_error)?;
-        let read = socket.recv_from(&mut buf[..]);
-        let _ = socket.set_nonblocking(self.nonblocking);
-
+        let read = self.socket.try_recv_from(&mut buf[..]);
         let (read, peer) = match read {
             Ok((0, _)) => {
                 return Ok(None);
@@ -1079,8 +918,6 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
 
         let (read, peer) = self
             .socket
-            .as_async_mut()
-            .map_err(io_err_into_net_error)?
             .recv_from(&mut buf[..])
             .await
             .map_err(io_err_into_net_error)?;
@@ -1111,9 +948,8 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
 
         let (read, peer) = self
             .socket
-            .as_blocking_mut()
-            .map_err(io_err_into_net_error)?
             .peek_from(&mut buf[..])
+            .await
             .map_err(io_err_into_net_error)?;
         unsafe {
             buf.set_len(read);
@@ -1137,20 +973,11 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
 #[async_trait::async_trait]
 impl VirtualSocket for LocalUdpSocket {
     async fn set_ttl(&mut self, ttl: u32) -> Result<()> {
-        match &mut self.socket {
-            LocalUdpSocketMode::Blocking(a) => a.set_ttl(ttl).map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Async(a) => a.set_ttl(ttl).map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Uninitialized => unreachable!(),
-        }
+        self.socket.set_ttl(ttl).map_err(io_err_into_net_error)
     }
 
     fn set_nonblocking(&mut self, nonblocking: bool) -> Result<()> {
         self.nonblocking = nonblocking;
-        self.socket
-            .as_blocking_mut()
-            .map_err(io_err_into_net_error)?
-            .set_nonblocking(nonblocking)
-            .map_err(io_err_into_net_error)?;
         Ok(())
     }
 
@@ -1159,19 +986,11 @@ impl VirtualSocket for LocalUdpSocket {
     }
 
     fn ttl(&self) -> Result<u32> {
-        match &self.socket {
-            LocalUdpSocketMode::Blocking(a) => a.ttl().map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Async(a) => a.ttl().map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Uninitialized => unreachable!(),
-        }
+        self.socket.ttl().map_err(io_err_into_net_error)
     }
 
     fn addr_local(&self) -> Result<SocketAddr> {
-        match &self.socket {
-            LocalUdpSocketMode::Blocking(a) => a.local_addr().map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Async(a) => a.local_addr().map_err(io_err_into_net_error),
-            LocalUdpSocketMode::Uninitialized => unreachable!(),
-        }
+        self.socket.local_addr().map_err(io_err_into_net_error)
     }
 
     fn status(&self) -> Result<SocketStatus> {
@@ -1179,22 +998,20 @@ impl VirtualSocket for LocalUdpSocket {
     }
 
     fn poll_read_ready(
-        &mut self,
+        &self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>> {
-        let socket = self.socket.as_async_mut().map_err(io_err_into_net_error)?;
-        socket
+        self.socket
             .poll_recv_ready(cx)
             .map_ok(|a| 8192usize)
             .map_err(io_err_into_net_error)
     }
 
     fn poll_write_ready(
-        &mut self,
+        &self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>> {
-        let socket = self.socket.as_async_mut().map_err(io_err_into_net_error)?;
-        socket
+        self.socket
             .poll_send_ready(cx)
             .map_ok(|a| 8192usize)
             .map_err(io_err_into_net_error)

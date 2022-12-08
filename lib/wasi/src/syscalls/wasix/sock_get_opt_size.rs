@@ -14,7 +14,7 @@ pub fn sock_get_opt_size<M: MemorySize>(
     sock: WasiFd,
     opt: Sockoption,
     ret_size: WasmPtr<Filesize, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     debug!(
         "wasi[{}:{}]::sock_get_opt_size(fd={}, ty={})",
         ctx.data().pid(),
@@ -22,7 +22,7 @@ pub fn sock_get_opt_size<M: MemorySize>(
         sock,
         opt
     );
-    let size = wasi_try!(__sock_actor(
+    let size = wasi_try_ok!(__sock_actor(
         &mut ctx,
         sock,
         Rights::empty(),
@@ -35,11 +35,11 @@ pub fn sock_get_opt_size<M: MemorySize>(
                 _ => Err(Errno::Inval),
             }
         }
-    ));
+    )?);
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-    wasi_try_mem!(ret_size.write(&memory, size));
+    wasi_try_mem_ok!(ret_size.write(&memory, size));
 
-    Errno::Success
+    Ok(Errno::Success)
 }

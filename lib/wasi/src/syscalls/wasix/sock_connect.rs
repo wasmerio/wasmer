@@ -17,7 +17,7 @@ pub fn sock_connect<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     addr: WasmPtr<__wasi_addr_port_t, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     debug!(
         "wasi[{}:{}]::sock_connect (fd={})",
         ctx.data().pid(),
@@ -28,14 +28,14 @@ pub fn sock_connect<M: MemorySize>(
     let env = ctx.data();
     let net = env.net();
     let memory = env.memory_view(&ctx);
-    let addr = wasi_try!(crate::net::read_ip_port(&memory, addr));
+    let addr = wasi_try_ok!(crate::net::read_ip_port(&memory, addr));
     let addr = SocketAddr::new(addr.0, addr.1);
 
-    wasi_try!(__sock_upgrade(
+    wasi_try_ok!(__sock_upgrade(
         &mut ctx,
         sock,
         Rights::SOCK_CONNECT,
         move |mut socket| async move { socket.connect(net, addr).await }
-    ));
-    Errno::Success
+    )?);
+    Ok(Errno::Success)
 }

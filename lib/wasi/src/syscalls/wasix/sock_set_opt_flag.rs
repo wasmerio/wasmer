@@ -15,7 +15,7 @@ pub fn sock_set_opt_flag(
     sock: WasiFd,
     opt: Sockoption,
     flag: Bool,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     debug!(
         "wasi[{}:{}]::sock_set_opt_flag(fd={}, ty={}, flag={:?})",
         ctx.data().pid(),
@@ -28,15 +28,15 @@ pub fn sock_set_opt_flag(
     let flag = match flag {
         Bool::False => false,
         Bool::True => true,
-        _ => return Errno::Inval,
+        _ => return Ok(Errno::Inval),
     };
 
     let option: crate::net::socket::WasiSocketOption = opt.into();
-    wasi_try!(__sock_actor_mut(
+    wasi_try_ok!(__sock_actor_mut(
         &mut ctx,
         sock,
         Rights::empty(),
         move |mut socket| async move { socket.set_opt_flag(option, flag).await }
-    ));
-    Errno::Success
+    )?);
+    Ok(Errno::Success)
 }

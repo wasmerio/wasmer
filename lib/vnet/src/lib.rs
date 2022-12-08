@@ -250,7 +250,7 @@ pub trait VirtualTcpListener: fmt::Debug + Send + Sync + 'static {
 
     /// Polls the socket for when there is data to be received
     fn poll_accept_ready(
-        &mut self,
+        &self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>>;
 
@@ -298,13 +298,13 @@ pub trait VirtualSocket: fmt::Debug + Send + Sync + 'static {
 
     /// Polls the socket for when there is data to be received
     fn poll_read_ready(
-        &mut self,
+        &self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>>;
 
     /// Polls the socket for when the backpressure allows for writing to the socket
     fn poll_write_ready(
-        &mut self,
+        &self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>>;
 }
@@ -342,13 +342,13 @@ pub trait VirtualWebSocket: fmt::Debug + Send + Sync + 'static {
 
     /// Polls the socket for when there is data to be received
     fn poll_read_ready(
-        &mut self,
+        &self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>>;
 
     /// Polls the socket for when the backpressure allows for writing to the socket
     fn poll_write_ready(
-        &mut self,
+        &self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>>;
 }

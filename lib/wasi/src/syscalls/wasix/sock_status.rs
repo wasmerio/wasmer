@@ -7,7 +7,7 @@ pub fn sock_status<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     ret_status: WasmPtr<Sockstatus, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     debug!(
         "wasi[{}:{}]::sock_status (fd={})",
         ctx.data().pid(),
@@ -15,12 +15,12 @@ pub fn sock_status<M: MemorySize>(
         sock
     );
 
-    let status = wasi_try!(__sock_actor(
+    let status = wasi_try_ok!(__sock_actor(
         &mut ctx,
         sock,
         Rights::empty(),
         move |socket| async move { socket.status() }
-    ));
+    )?);
 
     use crate::net::socket::WasiSocketStatus;
     let status = match status {
@@ -32,6 +32,6 @@ pub fn sock_status<M: MemorySize>(
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-    wasi_try_mem!(ret_status.write(&memory, status));
-    Errno::Success
+    wasi_try_mem_ok!(ret_status.write(&memory, status));
+    Ok(Errno::Success)
 }

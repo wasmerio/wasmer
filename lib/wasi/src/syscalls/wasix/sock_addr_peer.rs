@@ -16,7 +16,7 @@ pub fn sock_addr_peer<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     debug!(
         "wasi[{}:{}]::sock_addr_peer (fd={})",
         ctx.data().pid(),
@@ -24,20 +24,20 @@ pub fn sock_addr_peer<M: MemorySize>(
         sock
     );
 
-    let addr = wasi_try!(__sock_actor(
+    let addr = wasi_try_ok!(__sock_actor(
         &mut ctx,
         sock,
         Rights::empty(),
         move |socket| async move { socket.addr_peer() }
-    ));
+    )?);
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-    wasi_try!(crate::net::write_ip_port(
+    wasi_try_ok!(crate::net::write_ip_port(
         &memory,
         ro_addr,
         addr.ip(),
         addr.port()
     ));
-    Errno::Success
+    Ok(Errno::Success)
 }

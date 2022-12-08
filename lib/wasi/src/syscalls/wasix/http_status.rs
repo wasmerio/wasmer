@@ -13,7 +13,7 @@ pub fn http_status<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     ref_status: WasmPtr<HttpStatus, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     debug!(
         "wasi[{}:{}]::http_status",
         ctx.data().pid(),
@@ -22,12 +22,12 @@ pub fn http_status<M: MemorySize>(
 
     let mut env = ctx.data();
 
-    let http_status = wasi_try!(__sock_actor(
+    let http_status = wasi_try_ok!(__sock_actor(
         &mut ctx,
         sock,
         Rights::empty(),
         move |socket| async move { socket.http_status() }
-    ));
+    )?);
     env = ctx.data();
 
     // Write everything else and return the status to the caller
@@ -37,13 +37,13 @@ pub fn http_status<M: MemorySize>(
             true => Bool::True,
             false => Bool::False,
         },
-        size: wasi_try!(Ok(http_status.size)),
+        size: wasi_try_ok!(Ok(http_status.size)),
         status: http_status.status,
     };
 
     let memory = env.memory_view(&ctx);
     let ref_status = ref_status.deref(&memory);
-    wasi_try_mem!(ref_status.write(status));
+    wasi_try_mem_ok!(ref_status.write(status));
 
-    Errno::Success
+    Ok(Errno::Success)
 }

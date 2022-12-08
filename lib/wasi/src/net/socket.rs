@@ -2,7 +2,7 @@ use std::{
     future::Future,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     pin::Pin,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, Mutex, RwLock, atomic::{AtomicBool, Ordering}},
     time::Duration,
 };
 
@@ -147,7 +147,7 @@ pub(crate) struct InodeSocketInner {
     pub kind: InodeSocketKind,
     pub read_buffer: Option<Bytes>,
     pub read_addr: Option<SocketAddr>,
-    pub silence_write_ready: bool,
+    pub silence_write_ready: AtomicBool,
 }
 
 #[derive(Debug, Clone)]
@@ -163,7 +163,7 @@ impl InodeSocket {
                 kind,
                 read_buffer: None,
                 read_addr: None,
-                silence_write_ready: false,
+                silence_write_ready: AtomicBool::new(false),
             })),
         }
     }
@@ -904,7 +904,7 @@ impl InodeSocket {
         .map(|_| buf_len)?;
 
         if ret > 0 {
-            inner.silence_write_ready = false;
+            inner.silence_write_ready.store(false, Ordering::Release);
         }
         Ok(ret)
     }
@@ -933,7 +933,7 @@ impl InodeSocket {
         .map(|_| buf_len)?;
 
         if ret > 0 {
-            inner.silence_write_ready = false;
+            inner.silence_write_ready.store(false, Ordering::Release);
         }
         Ok(ret)
     }
@@ -1197,7 +1197,7 @@ impl InodeSocket {
     pub async fn shutdown(&mut self, how: std::net::Shutdown) -> Result<(), Errno> {
         use std::net::Shutdown;
         let mut inner = self.inner.write().unwrap();
-        inner.silence_write_ready = false;
+        inner.silence_write_ready.store(false, Ordering::Release);
         match &mut inner.kind {
             InodeSocketKind::TcpStream(sock) => {
                 sock.shutdown(how).await.map_err(net_error_into_wasi_err)?;
@@ -1247,8 +1247,8 @@ impl InodeSocket {
         &self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<wasmer_vnet::Result<usize>> {
-        let mut inner = self.inner.write().unwrap();
-        match &mut inner.kind {
+        let inner = self.inner.read().unwrap();
+        match &inner.kind {
             InodeSocketKind::TcpListener(socket) => socket.poll_accept_ready(cx),
             InodeSocketKind::TcpStream(socket) => socket.poll_read_ready(cx),
             InodeSocketKind::UdpSocket(socket) => socket.poll_read_ready(cx),
@@ -1269,11 +1269,11 @@ impl InodeSocket {
         &self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<wasmer_vnet::Result<usize>> {
-        let mut inner = self.inner.write().unwrap();
-        if inner.silence_write_ready {
+        let inner = self.inner.read().unwrap();
+        if inner.silence_write_ready.load(Ordering::Acquire) {
             return std::task::Poll::Pending;
         }
-        let ret = match &mut inner.kind {
+        let ret = match &inner.kind {
             InodeSocketKind::TcpListener(_) => std::task::Poll::Pending,
             InodeSocketKind::TcpStream(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::UdpSocket(socket) => socket.poll_write_ready(cx),
@@ -1290,7 +1290,7 @@ impl InodeSocket {
         };
         if ret.is_ready() {
             // TODO - This will suppress the write ready notifications
-            inner.silence_write_ready = true;
+            inner.silence_write_ready.store(true, Ordering::Release);
         }
         ret
     }

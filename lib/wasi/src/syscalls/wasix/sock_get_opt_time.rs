@@ -13,7 +13,7 @@ pub fn sock_get_opt_time<M: MemorySize>(
     sock: WasiFd,
     opt: Sockoption,
     ret_time: WasmPtr<OptionTimestamp, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     debug!(
         "wasi[{}:{}]::sock_get_opt_time(fd={}, ty={})",
         ctx.data().pid(),
@@ -28,15 +28,15 @@ pub fn sock_get_opt_time<M: MemorySize>(
         Sockoption::ConnectTimeout => wasmer_vnet::TimeType::ConnectTimeout,
         Sockoption::AcceptTimeout => wasmer_vnet::TimeType::AcceptTimeout,
         Sockoption::Linger => wasmer_vnet::TimeType::Linger,
-        _ => return Errno::Inval,
+        _ => return Ok(Errno::Inval),
     };
 
-    let time = wasi_try!(__sock_actor(
+    let time = wasi_try_ok!(__sock_actor(
         &mut ctx,
         sock,
         Rights::empty(),
         move |socket| async move { socket.opt_time(ty) }
-    ));
+    )?);
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
@@ -52,7 +52,7 @@ pub fn sock_get_opt_time<M: MemorySize>(
         },
     };
 
-    wasi_try_mem!(ret_time.write(&memory, time));
+    wasi_try_mem_ok!(ret_time.write(&memory, time));
 
-    Errno::Success
+    Ok(Errno::Success)
 }

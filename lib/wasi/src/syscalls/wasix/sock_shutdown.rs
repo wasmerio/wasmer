@@ -8,7 +8,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `how` - Which channels on the socket to shut down.
-pub fn sock_shutdown(mut ctx: FunctionEnvMut<'_, WasiEnv>, sock: WasiFd, how: SdFlags) -> Errno {
+pub fn sock_shutdown(mut ctx: FunctionEnvMut<'_, WasiEnv>, sock: WasiFd, how: SdFlags) -> Result<Errno, WasiError> {
     debug!(
         "wasi[{}:{}]::sock_shutdown (fd={})",
         ctx.data().pid(),
@@ -21,15 +21,15 @@ pub fn sock_shutdown(mut ctx: FunctionEnvMut<'_, WasiEnv>, sock: WasiFd, how: Sd
         __WASI_SHUT_RD => std::net::Shutdown::Read,
         __WASI_SHUT_WR => std::net::Shutdown::Write,
         a if a == both => std::net::Shutdown::Both,
-        _ => return Errno::Inval,
+        _ => return Ok(Errno::Inval),
     };
 
-    wasi_try!(__sock_actor_mut(
+    wasi_try_ok!(__sock_actor_mut(
         &mut ctx,
         sock,
         Rights::SOCK_SHUTDOWN,
         move |mut socket| async move { socket.shutdown(how).await }
-    ));
+    )?);
 
-    Errno::Success
+    Ok(Errno::Success)
 }
