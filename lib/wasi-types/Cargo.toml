@@ -14,7 +14,7 @@ edition = "2018"
 
 [dependencies]
 wai-bindgen-gen-rust = "0.2.1"
-wai-bindgen-rust = "0.2.1"
+wai-bindgen-rust = { version = "0.2.1", default-features = false, features = ["macros"] }
 wai-bindgen-gen-rust-wasm = "0.2.1"
 wai-bindgen-gen-core = "0.2.1"
 wai-parser = "0.2.1"
