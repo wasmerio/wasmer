@@ -371,7 +371,8 @@ impl PackageSource {
 
                 // Check if the package is already installed or was recently installed
                 let package_has_new_version = wasmer_registry::get_if_package_has_new_version(
-                    &registry,
+                    &format!("https://{registry_tld}"),
+                    &package.namespace,
                     &package.name,
                     package.version.as_ref().map(|s| s.to_string()),
                     std::time::Duration::from_secs(60 * 5),

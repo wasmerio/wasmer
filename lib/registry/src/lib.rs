@@ -451,6 +451,7 @@ fn test_get_if_package_has_new_version() {
 pub fn get_if_package_has_new_version(
     #[cfg(test)] test_name: &str,
     registry_url: &str,
+    namespace: &str,
     name: &str,
     version: Option<String>,
     max_timeout: Duration,
@@ -462,10 +463,6 @@ pub fn get_if_package_has_new_version(
         },
         Err(_) => return Err(format!("invalid host: {registry_url}")),
     };
-
-    let (namespace, name) = name
-        .split_once('/')
-        .ok_or_else(|| format!("missing namespace / name for {name:?}"))?;
 
     #[cfg(not(test))]
     let global_install_dir = get_global_install_dir(&host);
@@ -525,7 +522,13 @@ pub fn get_if_package_has_new_version(
         .filter_map(|entry| {
             let entry = entry.ok()?;
             let version = semver::Version::parse(entry.file_name().to_str()?).ok()?;
-            let modified = entry.metadata().ok()?.modified().ok()?;
+            let modified = entry
+                .path()
+                .join("wapm.toml")
+                .metadata()
+                .ok()?
+                .modified()
+                .ok()?;
             let older_than_timeout = modified.elapsed().ok()? > max_timeout;
             Some((version, older_than_timeout))
         })
@@ -1274,13 +1277,9 @@ fn test_install_package() {
 
     let all_installed_packages = get_all_local_packages(TEST_NAME, Some(registry));
 
-    println!("all_installed_packages: {all_installed_packages:#?}");
-
     let is_installed = all_installed_packages
         .iter()
         .any(|p| p.name == "wasmer/wabt" && p.version == "1.0.29");
-
-    println!("is_installed: {is_installed:#?}");
 
     if !is_installed {
         let panic_str = get_all_local_packages(TEST_NAME, Some(registry))
