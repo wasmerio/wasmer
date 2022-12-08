@@ -776,8 +776,8 @@ where
     Ok(())
 }
 
-/// Given a triple of [registry, name, version], downloads and installs the
-/// .tar.gz if it doesn't yet exist, returns the (package dir, entrypoint .wasm file path)
+/// Installs the .tar.gz if it doesn't yet exist, returns the
+/// (package dir, entrypoint .wasm file path)
 pub fn install_package(
     #[cfg(test)] test_name: &str,
     url: &Url,

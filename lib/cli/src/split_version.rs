@@ -176,6 +176,15 @@ impl PackageSource {
         }
     }
 
+    /// Returns the command name if self.inner == Command
+    pub fn get_command_name(&self) -> Option<String> {
+        if let PackageSourceInner::CommandOrFile(c) = &self.inner {
+            Some(c.command.clone())
+        } else {
+            None
+        }
+    }
+
     /// Returns the run command
     pub fn get_run_command(
         &self,
@@ -191,13 +200,11 @@ impl PackageSource {
                 .get_current_registry(),
         };
 
-        match self.get_url_or_file(&lookup_reg)? {
-            PackageUrlOrFile::File(path) => {
-                return Ok(RunWithPathBuf {
-                    path: Path::new(&path).to_path_buf(),
-                    options,
-                });
-            }
+        let mut run_with_path_buf = match self.get_url_or_file(&lookup_reg)? {
+            PackageUrlOrFile::File(path) => RunWithPathBuf {
+                path: Path::new(&path).to_path_buf(),
+                options,
+            },
             PackageUrlOrFile::Url(url) => {
                 let mut sp = if debug {
                     crate::commands::start_spinner(format!("Installing {}", url))
@@ -218,9 +225,15 @@ impl PackageSource {
                 }
                 let _ = std::io::stdout().flush();
 
-                Ok(RunWithPathBuf { path, options })
+                RunWithPathBuf { path, options }
             }
+        };
+
+        if run_with_path_buf.options.command_name.is_none() {
+            run_with_path_buf.options.command_name = self.get_command_name();
         }
+
+        Ok(run_with_path_buf)
     }
 }
 
