@@ -12,6 +12,7 @@ use crate::config::Registries;
 use anyhow::Context;
 use core::ops::Range;
 use reqwest::header::{ACCEPT, RANGE};
+use reqwest::StatusCode;
 use std::fmt;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -1147,9 +1148,9 @@ pub fn get_checksum_hash(bytes: &[u8]) -> String {
 pub fn get_remote_webc_checksum(url: &Url) -> Result<String, anyhow::Error> {
     let request_max_bytes = webc::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
     let data = get_webc_bytes(url, Some(0..request_max_bytes))
-        .map_err(|e| anyhow::anyhow!("get_webc_bytes failed on {url}: {e}"))?;
+        .with_context(|| anyhow::anyhow!("note: use --registry to change the registry URL"))?;
     let checksum = webc::WebC::get_checksum_bytes(&data)
-        .map_err(|e| anyhow::anyhow!("get_checksum_bytes failed on {url}: {e}"))?
+        .map_err(|e| anyhow::anyhow!("{e}"))?
         .to_vec();
     Ok(get_checksum_hash(&checksum))
 }
@@ -1180,6 +1181,17 @@ pub fn get_remote_webc_manifest(url: &Url) -> Result<RemoteWebcInfo, anyhow::Err
 }
 
 fn setup_webc_client(url: &Url) -> Result<reqwest::blocking::RequestBuilder, anyhow::Error> {
+    setup_client(url, "application/webc")
+}
+
+fn setup_targz_client(url: &Url) -> Result<reqwest::blocking::RequestBuilder, anyhow::Error> {
+    setup_client(url, "application/tar+gzip")
+}
+
+fn setup_client(
+    url: &Url,
+    application_type: &'static str,
+) -> Result<reqwest::blocking::RequestBuilder, anyhow::Error> {
     let client = {
         let builder = reqwest::blocking::Client::builder();
         let builder = crate::graphql::proxy::maybe_set_up_proxy_blocking(builder)
@@ -1191,13 +1203,25 @@ fn setup_webc_client(url: &Url) -> Result<reqwest::blocking::RequestBuilder, any
             .context("setup_webc_client: builder.build() failed")?
     };
 
-    Ok(client.get(url.clone()).header(ACCEPT, "application/webc"))
+    Ok(client.get(url.clone()).header(ACCEPT, application_type))
 }
 
 fn get_webc_bytes(url: &Url, range: Option<Range<usize>>) -> Result<Vec<u8>, anyhow::Error> {
+    get_bytes(url, range, "application/webc")
+}
+
+fn get_targz_bytes(url: &Url, range: Option<Range<usize>>) -> Result<Vec<u8>, anyhow::Error> {
+    get_bytes(url, range, "application/tar+gzip")
+}
+
+fn get_bytes(
+    url: &Url,
+    range: Option<Range<usize>>,
+    application_type: &'static str,
+) -> Result<Vec<u8>, anyhow::Error> {
     // curl -r 0-500 -L https://wapm.dev/syrusakbary/python -H "Accept: application/webc" --output python.webc
 
-    let mut res = setup_webc_client(url)?;
+    let mut res = setup_client(url, application_type)?;
 
     if let Some(range) = range.as_ref() {
         res = res.header(RANGE, format!("bytes={}-{}", range.start, range.end));
@@ -1207,6 +1231,18 @@ fn get_webc_bytes(url: &Url, range: Option<Range<usize>>) -> Result<Vec<u8>, any
         .send()
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("send() failed")?;
+
+    if res.status().is_redirection() {
+        return Err(anyhow::anyhow!("redirect: {:?}", res.status()));
+    }
+
+    if res.status().is_server_error() {
+        return Err(anyhow::anyhow!("server error: {:?}", res.status()));
+    }
+
+    if res.status().is_client_error() {
+        return Err(anyhow::anyhow!("client error: {:?}", res.status()));
+    }
 
     let bytes = res
         .bytes()

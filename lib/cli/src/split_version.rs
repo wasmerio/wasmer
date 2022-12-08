@@ -200,7 +200,7 @@ impl PackageSource {
             }
             PackageUrlOrFile::Url(url) => {
                 let checksum = wasmer_registry::get_remote_webc_checksum(&url)
-                    .map_err(|e| anyhow::anyhow!("error fetching {url}: {e}"))?;
+                    .with_context(|| anyhow::anyhow!("error fetching {url}"))?;
 
                 let packages = wasmer_registry::get_all_installed_webc_packages();
 
