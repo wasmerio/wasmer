@@ -28,7 +28,6 @@ pub struct Mmap {
     ptr: usize,
     len: usize,
     // Backing file that will be closed when the memory mapping goes out of scope
-    #[cfg(not(target_os = "windows"))]
     fd: FdGuard,
 }
 
@@ -68,7 +67,7 @@ impl Mmap {
         Self {
             ptr: empty.as_ptr() as usize,
             len: 0,
-            fd: FdGuard(-1),
+            fd: FdGuard::default(),
         }
     }
 
@@ -210,6 +209,7 @@ impl Mmap {
             Ok(Self {
                 ptr: ptr as usize,
                 len: mapping_size,
+                fd: FdGuard::default(),
             })
         } else {
             // Reserve the mapping size.
@@ -222,6 +222,7 @@ impl Mmap {
             let mut result = Self {
                 ptr: ptr as usize,
                 len: mapping_size,
+                fd: FdGuard::default(),
             };
 
             if accessible_size != 0 {
