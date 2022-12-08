@@ -109,6 +109,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-trait"
+version = "0.1.59"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "31e6e93155431f3931513b243d371981bb2770112b370c82745a1d19d2f99364"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3932,6 +3943,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "wai-bindgen-rust"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "90e6c91f681f714599326252f4ae8b9897293110055d25c576fa09ffb01661cd"
+dependencies = [
+ "async-trait",
+ "bitflags",
+ "wai-bindgen-rust-impl",
+]
+
+[[package]]
+name = "wai-bindgen-rust-impl"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb36c407339837a5e1fcd9b41641fbe36488fc53ab0664add14d5f7105f6fbbb"
+dependencies = [
+ "proc-macro2",
+ "syn",
+ "wai-bindgen-gen-core",
+ "wai-bindgen-gen-rust-wasm",
+]
+
+[[package]]
 name = "wai-parser"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4711,6 +4745,7 @@ dependencies = [
  "wai-bindgen-gen-core",
  "wai-bindgen-gen-rust",
  "wai-bindgen-gen-rust-wasm",
+ "wai-bindgen-rust",
  "wai-parser",
  "wasmer",
  "wasmer-derive",
