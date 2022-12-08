@@ -1342,13 +1342,13 @@ impl EmitterARM64 for Assembler {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; add X(dst), X(src1), X(src2));
+                dynasm!(self ; add X(dst), X(src1), X(src2), UXTX);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; add W(dst), W(src1), W(src2));
+                dynasm!(self ; add W(dst), W(src1), W(src2), UXTX);
             }
             (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
@@ -1412,13 +1412,13 @@ impl EmitterARM64 for Assembler {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; sub X(dst), X(src1), X(src2));
+                dynasm!(self ; sub X(dst), X(src1), X(src2), UXTX);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; sub W(dst), W(src1), W(src2));
+                dynasm!(self ; sub W(dst), W(src1), W(src2), UXTX);
             }
             (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
