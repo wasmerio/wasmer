@@ -363,7 +363,7 @@ impl PackageSource {
                     return Ok(file);
                 }
 
-                // Then, check if the package is already installed locally
+                // Check if the package is already installed or was recently installed
                 let package_has_new_version = wasmer_registry::get_if_package_has_new_version(
                     &registry,
                     &package.name,
@@ -414,6 +414,15 @@ impl PackageSource {
                     std::fs::metadata(&self.original).map(|_| PackageUrlOrFile::File(pathbuf))
                 {
                     return Ok(file);
+                }
+
+                // Check if command already installed
+                if let Some(local_package) =
+                    wasmer_registry::try_finding_local_command(&command.command)
+                {
+                    if let Ok(path) = local_package.get_path() {
+                        return Ok(PackageUrlOrFile::File(path));
+                    }
                 }
 
                 // else construct the URL to fetch the package from
