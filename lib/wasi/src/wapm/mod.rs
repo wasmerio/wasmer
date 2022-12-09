@@ -364,7 +364,7 @@ where
 
     let root_package = webc.get_package_name();
     for (command, action) in webc.get_metadata().commands.iter() {
-        if let Some(Annotation::Map(annotations)) = action.annotations.get("wasi") {
+        let (mut atom, package) = if let Some(Annotation::Map(annotations)) = action.annotations.get("wasi") {
             let mut atom = None;
             let mut package = root_package.clone();
             for (k, v) in annotations {
@@ -378,30 +378,66 @@ where
                     _ => {}
                 }
             }
+            (atom, package)
+        } else {
+            (None, root_package.clone())
+        };
 
-            // Load the atom as a command
-            if let Some(atom_name) = atom {
-                match webc.get_atom(package.as_str(), atom_name.as_str()) {
-                    Ok(atom) => {
-                        trace!(
-                            "added atom (name={}, size={}) for command [{}]",
-                            atom_name,
-                            atom.len(),
-                            command
-                        );
-                        let mut commands = pck.commands.write().unwrap();
-                        commands.push(BinaryPackageCommand::new_with_ownership(
-                            command.clone(),
-                            atom.into(),
-                            ownership.clone(),
-                        ));
+        // Load the atom as a command
+        // TODO... this is a hack until webc is fixed
+        if atom.is_none() {
+            if webc.get_atom(&package_name, command.as_str()).is_ok() {
+                warn!(
+                    "failed to find atom name for entry command({}) - falling back on the command name itself",
+                    command,
+                );
+                atom = Some(command.to_string());
+            } else if webc.get_atom(&package_name, package_name.as_str()).is_ok() {
+                warn!(
+                    "failed to find atom name for entry command({}) - falling back on the package name itself",
+                    command,
+                );
+                atom = Some(package_name.to_string());
+            } else {
+                let first_atom = webc.manifest.atoms.iter().map(|a| a.0.clone()).next();
+                if let Some(first_atom) = first_atom {
+                    warn!(
+                        "failed to find atom name for entry command({}) - falling back on  the package name itself",
+                        command,
+                    );
+                    atom = Some(first_atom);
+                } else {
+                    warn!(
+                        "Failed to match atom to command [{}]",
+                        command
+                    );
+                    for (name, atom) in webc.manifest.atoms.iter() {
+                        tracing::debug!("found atom (name={}, kind={})", name, atom.kind);
                     }
-                    Err(err) => {
-                        warn!(
-                            "Failed to find atom [{}].[{}] - {}",
-                            package, atom_name, err
-                        );
-                    }
+                }
+            }
+        }
+        if let Some(atom_name) = atom {
+            match webc.get_atom(package.as_str(), atom_name.as_str()) {
+                Ok(atom) => {
+                    trace!(
+                        "added atom (name={}, size={}) for command [{}]",
+                        atom_name,
+                        atom.len(),
+                        command
+                    );
+                    let mut commands = pck.commands.write().unwrap();
+                    commands.push(BinaryPackageCommand::new_with_ownership(
+                        command.clone(),
+                        atom.into(),
+                        ownership.clone(),
+                    ));
+                }
+                Err(err) => {
+                    warn!(
+                        "Failed to find atom [{}].[{}] - {}",
+                        package, atom_name, err
+                    );
                 }
             }
         }
