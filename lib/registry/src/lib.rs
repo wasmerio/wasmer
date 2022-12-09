@@ -16,20 +16,18 @@ use std::fmt;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use std::{
-    collections::BTreeMap,
-    fmt::{Display, Formatter},
-};
 use url::Url;
 
 pub mod config;
 pub mod graphql;
 pub mod login;
+pub mod package;
 pub mod queries;
 pub mod utils;
 
 pub use crate::{
     config::{format_graphql, PartialWapmConfig},
+    package::Package,
     queries::get_bindings_query::ProgrammingLanguage,
 };
 
@@ -157,9 +155,9 @@ pub fn get_executable_file_from_path(
             } else if commands.len() == 1 {
                 Ok(&commands[0])
             } else {
-                Err(anyhow::anyhow!("  -> wasmer run {name}@{version} --command-name={0} OR wasmer run {name}@{version}:{0}", commands.first().map(|f| f.get_name()).unwrap()))
+                Err(anyhow::anyhow!("  -> wasmer run {name}@{version} --command-name={0}", commands.first().map(|f| f.get_name()).unwrap()))
                 .context(anyhow::anyhow!("{}", commands.iter().map(|c| format!("`{}`", c.get_name())).collect::<Vec<_>>().join(", ")))
-                .context(anyhow::anyhow!("You can run any of those by using the --command-name=COMMAND flag or : postfix"))
+                .context(anyhow::anyhow!("You can run any of those by using the --command-name=COMMAND flag"))
                 .context(anyhow::anyhow!("The `{name}@{version}` package doesn't have a default entrypoint, but has multiple available commands:"))
             }?
         }
@@ -320,7 +318,7 @@ pub fn query_command_from_registry(
     });
 
     let response: get_package_by_command_query::ResponseData = execute_query(registry_url, "", &q)
-        .map_err(|e| format!("Error sending GetPackageByCommandQuery:  {e}"))?;
+        .map_err(|e| format!("Error sending GetPackageByCommandQuery:  {e}"))?;
 
     let command = response
         .get_command
@@ -353,7 +351,7 @@ pub enum QueryPackageError {
 }
 
 impl fmt::Display for QueryPackageError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             QueryPackageError::ErrorSendingQuery(q) => write!(f, "error sending query: {q}"),
             QueryPackageError::NoPackageFound { name, version } => {
@@ -450,6 +448,7 @@ fn test_get_if_package_has_new_version() {
 pub fn get_if_package_has_new_version(
     #[cfg(test)] test_name: &str,
     registry_url: &str,
+    namespace: &str,
     name: &str,
     version: Option<String>,
     max_timeout: Duration,
@@ -461,10 +460,6 @@ pub fn get_if_package_has_new_version(
         },
         Err(_) => return Err(format!("invalid host: {registry_url}")),
     };
-
-    let (namespace, name) = name
-        .split_once('/')
-        .ok_or_else(|| format!("missing namespace / name for {name:?}"))?;
 
     #[cfg(not(test))]
     let global_install_dir = get_global_install_dir(&host);
@@ -524,7 +519,13 @@ pub fn get_if_package_has_new_version(
         .filter_map(|entry| {
             let entry = entry.ok()?;
             let version = semver::Version::parse(entry.file_name().to_str()?).ok()?;
-            let modified = entry.metadata().ok()?.modified().ok()?;
+            let modified = entry
+                .path()
+                .join("wapm.toml")
+                .metadata()
+                .ok()?
+                .modified()
+                .ok()?;
             let older_than_timeout = modified.elapsed().ok()? > max_timeout;
             Some((version, older_than_timeout))
         })
@@ -603,9 +604,7 @@ pub fn query_package_from_registry(
         })?;
 
     let v = response.package_version.as_ref().ok_or_else(|| {
-        QueryPackageError::ErrorSendingQuery(format!(
-            "Invalid response for crate {name:?}: no package version: {response:#?}"
-        ))
+        QueryPackageError::ErrorSendingQuery(format!("no package version for {name:?}"))
     })?;
 
     let manifest = toml::from_str::<wapm_toml::Manifest>(&v.manifest).map_err(|e| {
@@ -777,139 +776,80 @@ where
     Ok(())
 }
 
-/// Given a triple of [registry, name, version], downloads and installs the
-/// .tar.gz if it doesn't yet exist, returns the (package dir, entrypoint .wasm file path)
+/// Installs the .tar.gz if it doesn't yet exist, returns the
+/// (package dir, entrypoint .wasm file path)
 pub fn install_package(
     #[cfg(test)] test_name: &str,
-    registry: Option<&str>,
-    name: &str,
-    version: Option<&str>,
-    package_download_info: Option<PackageDownloadInfo>,
-    force_install: bool,
-) -> Result<(LocalPackage, PathBuf), String> {
-    let package_info = match package_download_info {
-        Some(s) => s,
-        None => {
-            let registries = match registry {
-                Some(s) => vec![s.to_string()],
-                None => {
-                    #[cfg(test)]
-                    {
-                        get_all_available_registries(test_name)?
-                    }
-                    #[cfg(not(test))]
-                    {
-                        get_all_available_registries()?
-                    }
-                }
-            };
-            let mut url_of_package = None;
+    url: &Url,
+) -> Result<(LocalPackage, PathBuf), anyhow::Error> {
+    use fs_extra::dir::copy;
 
-            let version_str = match version {
-                None => name.to_string(),
-                Some(v) => format!("{name}@{v}"),
-            };
-
-            let registries_searched = registries
-                .iter()
-                .filter_map(|s| url::Url::parse(s).ok())
-                .filter_map(|s| Some(s.host_str()?.to_string()))
-                .collect::<Vec<_>>();
-
-            let mut errors = BTreeMap::new();
-
-            for r in registries.iter() {
-                if !force_install {
-                    #[cfg(not(test))]
-                    let package_has_new_version = get_if_package_has_new_version(
-                        r,
-                        name,
-                        version.map(|s| s.to_string()),
-                        Duration::from_secs(60 * 5),
-                    )?;
-                    #[cfg(test)]
-                    let package_has_new_version = get_if_package_has_new_version(
-                        test_name,
-                        r,
-                        name,
-                        version.map(|s| s.to_string()),
-                        Duration::from_secs(60 * 5),
-                    )?;
-                    if let GetIfPackageHasNewVersionResult::UseLocalAlreadyInstalled {
-                        registry_host,
-                        namespace,
-                        name,
-                        version,
-                        path,
-                    } = package_has_new_version
-                    {
-                        return Ok((
-                            LocalPackage {
-                                registry: registry_host,
-                                name: format!("{namespace}/{name}"),
-                                version,
-                            },
-                            path,
-                        ));
-                    }
-                }
-
-                match query_package_from_registry(r, name, version) {
-                    Ok(o) => {
-                        url_of_package = Some((r, o));
-                        break;
-                    }
-                    Err(e) => {
-                        errors.insert(r.clone(), e);
-                    }
-                }
-            }
-
-            let errors = errors
-                .into_iter()
-                .map(|(registry, e)| format!("  {registry}: {e}"))
-                .collect::<Vec<_>>()
-                .join("\r\n");
-
-            let (_, package_info) = url_of_package.ok_or_else(|| {
-                format!("Package {version_str} not found in registries {registries_searched:?}.\r\n\r\nErrors:\r\n\r\n{errors}")
-            })?;
-
-            package_info
-        }
-    };
-
-    let host = url::Url::parse(&package_info.registry)
-        .map_err(|e| format!("invalid url: {}: {e}", package_info.registry))?
+    let host = url
         .host_str()
-        .ok_or_else(|| format!("invalid url: {}", package_info.registry))?
+        .ok_or_else(|| anyhow::anyhow!("invalid url: {}", url))?
         .to_string();
 
-    #[cfg(test)]
-    let dir = get_package_local_dir(
-        test_name,
-        &host,
-        &package_info.package,
-        &package_info.version,
-    )?;
-    #[cfg(not(test))]
-    let dir = get_package_local_dir(&host, &package_info.package, &package_info.version)?;
+    let tempdir = tempdir::TempDir::new(&format!("download-{host}"))
+        .map_err(|e| anyhow::anyhow!("could not create download temp dir: {e}"))?;
 
-    let version = package_info.version;
-    let name = package_info.package;
+    let target_targz_path = tempdir.path().join("package.tar.gz");
+    let unpacked_targz_path = tempdir.path().join("package");
+    std::fs::create_dir_all(&unpacked_targz_path).map_err(|e| {
+        anyhow::anyhow!(
+            "could not create dir {}: {e}",
+            unpacked_targz_path.display()
+        )
+    })?;
 
-    if !dir.join("wapm.toml").exists() || force_install {
-        download_and_unpack_targz(&package_info.url, &dir, false).map_err(|e| format!("{e}"))?;
-    }
+    get_targz_bytes(url, None, Some(target_targz_path.clone()))
+        .map_err(|e| anyhow::anyhow!("failed to download {url}: {e}"))?;
 
-    Ok((
-        LocalPackage {
-            registry: package_info.registry,
-            name,
-            version,
-        },
-        dir,
-    ))
+    try_unpack_targz(
+        target_targz_path.as_path(),
+        unpacked_targz_path.as_path(),
+        false,
+    )
+    .with_context(|| anyhow::anyhow!("Could not unpack file downloaded from {url}"))?;
+
+    // read {unpacked}/wapm.toml to get the name + version number
+    let toml_path = unpacked_targz_path.join("wapm.toml");
+    let toml = std::fs::read_to_string(&toml_path)
+        .map_err(|e| anyhow::anyhow!("error reading {}: {e}", toml_path.display()))?;
+    let toml_parsed = toml::from_str::<wapm_toml::Manifest>(&toml)
+        .map_err(|e| anyhow::anyhow!("error parsing {}: {e}", toml_path.display()))?;
+
+    let package = LocalPackage {
+        registry: host,
+        name: toml_parsed.package.name,
+        version: toml_parsed.package.version.to_string(),
+    };
+
+    let installation_path = package.get_path().map_err(|e| {
+        anyhow::anyhow!(
+            "could not determine installation path for {}: {e}",
+            package.name
+        )
+    })?;
+
+    std::fs::create_dir_all(&installation_path).map_err(|e| {
+        anyhow::anyhow!(
+            "could not create installation path for {}: {e}",
+            package.name
+        )
+    })?;
+
+    let mut options = fs_extra::dir::CopyOptions::new();
+    options.content_only = true;
+    options.overwrite = true;
+    copy(&unpacked_targz_path, &installation_path, &options)?;
+
+    #[cfg(not(target_os = "wasi"))]
+    let _ = filetime::set_file_mtime(
+        installation_path.join("wapm.toml"),
+        filetime::FileTime::now(),
+    );
+
+    Ok((package, installation_path))
 }
 
 pub fn whoami(
@@ -1043,6 +983,7 @@ async fn install_webc_package_inner(
         let builder = reqwest::Client::builder();
         let builder = crate::graphql::proxy::maybe_set_up_proxy(builder)?;
         builder
+            .redirect(reqwest::redirect::Policy::limited(10))
             .build()
             .map_err(|e| anyhow::anyhow!("{e}"))
             .context("install_webc_package: failed to build reqwest Client")?
@@ -1140,18 +1081,18 @@ pub fn get_checksum_hash(bytes: &[u8]) -> String {
     while checksum.last().copied() == Some(0) {
         checksum.pop();
     }
-    hex::encode(&checksum)
+    hex::encode(&checksum).chars().take(64).collect()
 }
 
 /// Returns the checksum of the .webc file, so that we can check whether the
 /// file is already installed before downloading it
 pub fn get_remote_webc_checksum(url: &Url) -> Result<String, anyhow::Error> {
     let request_max_bytes = webc::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
-    let data = get_webc_bytes(url, Some(0..request_max_bytes))
-        .with_context(|| format!("get_webc_bytes failed on {url}"))?;
+    let data = get_webc_bytes(url, Some(0..request_max_bytes), None)
+        .with_context(|| anyhow::anyhow!("note: use --registry to change the registry URL"))?
+        .unwrap();
     let checksum = webc::WebC::get_checksum_bytes(&data)
-        .map_err(|e| anyhow::anyhow!("{e}"))
-        .context("get_checksum_bytes failed")?
+        .map_err(|e| anyhow::anyhow!("{e}"))?
         .to_vec();
     Ok(get_checksum_hash(&checksum))
 }
@@ -1161,7 +1102,7 @@ pub fn get_remote_webc_checksum(url: &Url) -> Result<String, anyhow::Error> {
 pub fn get_remote_webc_manifest(url: &Url) -> Result<RemoteWebcInfo, anyhow::Error> {
     // Request up unti manifest size / manifest len
     let request_max_bytes = webc::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
-    let data = get_webc_bytes(url, Some(0..request_max_bytes))?;
+    let data = get_webc_bytes(url, Some(0..request_max_bytes), None)?.unwrap();
     let checksum = webc::WebC::get_checksum_bytes(&data)
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("WebC::get_checksum_bytes failed")?
@@ -1171,7 +1112,8 @@ pub fn get_remote_webc_manifest(url: &Url) -> Result<RemoteWebcInfo, anyhow::Err
     let (manifest_start, manifest_len) = webc::WebC::get_manifest_offset_size(&data)
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("WebC::get_manifest_offset_size failed")?;
-    let data_with_manifest = get_webc_bytes(url, Some(0..manifest_start + manifest_len))?;
+    let data_with_manifest =
+        get_webc_bytes(url, Some(0..manifest_start + manifest_len), None)?.unwrap();
     let manifest = webc::WebC::get_manifest(&data_with_manifest)
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("WebC::get_manifest failed")?;
@@ -1181,39 +1123,99 @@ pub fn get_remote_webc_manifest(url: &Url) -> Result<RemoteWebcInfo, anyhow::Err
     })
 }
 
-fn setup_webc_client(url: &Url) -> Result<reqwest::blocking::RequestBuilder, anyhow::Error> {
+fn setup_client(
+    url: &Url,
+    application_type: &'static str,
+) -> Result<reqwest::blocking::RequestBuilder, anyhow::Error> {
     let client = {
         let builder = reqwest::blocking::Client::builder();
         let builder = crate::graphql::proxy::maybe_set_up_proxy_blocking(builder)
             .context("setup_webc_client")?;
         builder
+            .redirect(reqwest::redirect::Policy::limited(10))
             .build()
             .map_err(|e| anyhow::anyhow!("{e}"))
             .context("setup_webc_client: builder.build() failed")?
     };
 
-    Ok(client.get(url.clone()).header(ACCEPT, "application/webc"))
+    Ok(client.get(url.clone()).header(ACCEPT, application_type))
 }
 
-fn get_webc_bytes(url: &Url, range: Option<Range<usize>>) -> Result<Vec<u8>, anyhow::Error> {
+fn get_webc_bytes(
+    url: &Url,
+    range: Option<Range<usize>>,
+    stream_response_into: Option<PathBuf>,
+) -> Result<Option<Vec<u8>>, anyhow::Error> {
+    get_bytes(url, range, "application/webc", stream_response_into)
+}
+
+fn get_targz_bytes(
+    url: &Url,
+    range: Option<Range<usize>>,
+    stream_response_into: Option<PathBuf>,
+) -> Result<Option<Vec<u8>>, anyhow::Error> {
+    get_bytes(url, range, "application/tar+gzip", stream_response_into)
+}
+
+fn get_bytes(
+    url: &Url,
+    range: Option<Range<usize>>,
+    application_type: &'static str,
+    stream_response_into: Option<PathBuf>,
+) -> Result<Option<Vec<u8>>, anyhow::Error> {
     // curl -r 0-500 -L https://wapm.dev/syrusakbary/python -H "Accept: application/webc" --output python.webc
 
-    let mut res = setup_webc_client(url)?;
+    let mut res = setup_client(url, application_type)?;
 
     if let Some(range) = range.as_ref() {
         res = res.header(RANGE, format!("bytes={}-{}", range.start, range.end));
     }
 
-    let res = res
+    let mut res = res
         .send()
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("send() failed")?;
-    let bytes = res
-        .bytes()
-        .map_err(|e| anyhow::anyhow!("{e}"))
-        .context("bytes() failed")?;
 
-    Ok(bytes.to_vec())
+    if res.status().is_redirection() {
+        return Err(anyhow::anyhow!("redirect: {:?}", res.status()));
+    }
+
+    if res.status().is_server_error() {
+        return Err(anyhow::anyhow!("server error: {:?}", res.status()));
+    }
+
+    if res.status().is_client_error() {
+        return Err(anyhow::anyhow!("client error: {:?}", res.status()));
+    }
+
+    if let Some(path) = stream_response_into.as_ref() {
+        let mut file = std::fs::File::create(&path).map_err(|e| {
+            anyhow::anyhow!("failed to download {url} into {}: {e}", path.display())
+        })?;
+
+        res.copy_to(&mut file)
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .map_err(|e| {
+                anyhow::anyhow!("failed to download {url} into {}: {e}", path.display())
+            })?;
+
+        Ok(None)
+    } else {
+        let bytes = res
+            .bytes()
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .context("bytes() failed")?;
+
+        if (range.is_none() || range.unwrap().start == 0)
+            && bytes[0..webc::MAGIC.len()] != webc::MAGIC[..]
+        {
+            let bytes = bytes.iter().copied().take(100).collect::<Vec<_>>();
+            let first_50_bytes = String::from_utf8_lossy(&bytes);
+            return Err(anyhow::anyhow!("invalid webc bytes: {first_50_bytes:?}"));
+        }
+
+        Ok(Some(bytes.to_vec()))
+    }
 }
 
 // TODO: this test is segfaulting only on linux-musl, no other OS
@@ -1269,13 +1271,9 @@ fn test_install_package() {
 
     let all_installed_packages = get_all_local_packages(TEST_NAME, Some(registry));
 
-    println!("all_installed_packages: {all_installed_packages:#?}");
-
     let is_installed = all_installed_packages
         .iter()
         .any(|p| p.name == "wasmer/wabt" && p.version == "1.0.29");
-
-    println!("is_installed: {is_installed:#?}");
 
     if !is_installed {
         let panic_str = get_all_local_packages(TEST_NAME, Some(registry))
@@ -1316,8 +1314,8 @@ pub struct BindingsGenerator {
     pub command: String,
 }
 
-impl Display for BindingsGenerator {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl fmt::Display for BindingsGenerator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let BindingsGenerator {
             package_name,
             version,
