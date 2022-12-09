@@ -1186,8 +1186,10 @@ fn get_bytes(
             let mut buf = vec![0; 100];
             file.read_exact(&mut buf)
                 .map_err(|e| anyhow::anyhow!("invalid webc downloaded from {url}: {e}"))?;
-            let first_100_bytes = String::from_utf8_lossy(&buf);
-            return Err(anyhow::anyhow!("invalid webc bytes: {first_100_bytes:?}"));
+            if buf[0..webc::MAGIC.len()] != webc::MAGIC[..] {
+                let first_100_bytes = String::from_utf8_lossy(&buf);
+                return Err(anyhow::anyhow!("invalid webc bytes: {first_100_bytes:?}"));
+            }
         }
 
         Ok(None)
@@ -1197,14 +1199,13 @@ fn get_bytes(
             .map_err(|e| anyhow::anyhow!("{e}"))
             .context("bytes() failed")?;
 
-        if application_type == "application/webc" {
-            if (range.is_none() || range.unwrap().start == 0)
-                && bytes[0..webc::MAGIC.len()] != webc::MAGIC[..]
-            {
-                let bytes = bytes.iter().copied().take(100).collect::<Vec<_>>();
-                let first_100_bytes = String::from_utf8_lossy(&bytes);
-                return Err(anyhow::anyhow!("invalid webc bytes: {first_100_bytes:?}"));
-            }
+        if application_type == "application/webc"
+            && (range.is_none() || range.unwrap().start == 0)
+            && bytes[0..webc::MAGIC.len()] != webc::MAGIC[..]
+        {
+            let bytes = bytes.iter().copied().take(100).collect::<Vec<_>>();
+            let first_100_bytes = String::from_utf8_lossy(&bytes);
+            return Err(anyhow::anyhow!("invalid webc bytes: {first_100_bytes:?}"));
         }
 
         // else if "application/tar+gzip" - we would need to uncompress the response here
