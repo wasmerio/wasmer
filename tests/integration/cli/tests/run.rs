@@ -535,7 +535,7 @@ fn run_test_caching_works_for_packages() -> anyhow::Result<()> {
         .arg("test.py")
         .output()?;
 
-    if !output.status.success() {
+    if output.stdout != b"hello\n".to_vec() {
         panic!("failed to run https://wapm.io/python/python for the first time");
     }
 
@@ -547,7 +547,7 @@ fn run_test_caching_works_for_packages() -> anyhow::Result<()> {
         .arg("test.py")
         .output()?;
 
-    if !output.status.success() {
+    if output.stdout != b"hello\n".to_vec() {
         panic!("failed to run https://wapm.io/python/python for the second time");
     }
 
@@ -565,19 +565,19 @@ fn run_test_caching_works_for_packages_with_versions() -> anyhow::Result<()> {
         .arg("test.py")
         .output()?;
 
-    if !output.status.success() {
+    if output.stdout != b"hello\n".to_vec() {
         panic!("failed to run https://wapm.io/python/python for the first time");
     }
 
     let time = std::time::Instant::now();
 
     let output = Command::new(get_wasmer_path())
-        .arg("python/python")
+        .arg("python/python@0.1.0")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("test.py")
         .output()?;
 
-    if !output.status.success() {
+    if output.stdout != b"hello\n".to_vec() {
         panic!("failed to run https://wapm.io/python/python for the second time");
     }
 
@@ -595,7 +595,7 @@ fn run_test_caching_works_for_urls() -> anyhow::Result<()> {
         .arg("test.py")
         .output()?;
 
-    if !output.status.success() {
+    if output.stdout != b"hello\n".to_vec() {
         panic!("failed to run https://wapm.io/python/python for the first time");
     }
 
@@ -607,7 +607,7 @@ fn run_test_caching_works_for_urls() -> anyhow::Result<()> {
         .arg("test.py")
         .output()?;
 
-    if !output.status.success() {
+    if output.stdout != b"hello\n".to_vec() {
         panic!("failed to run https://wapm.io/python/python for the second time");
     }
 
