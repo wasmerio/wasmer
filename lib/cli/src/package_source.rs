@@ -68,7 +68,10 @@ impl PackageSource {
                 }
             }
             Self::Package(p) => {
-                if let Some(path) = p.already_installed() {
+                let package_path = Path::new(&p.file()).to_path_buf();
+                if package_path.exists() {
+                    return Ok(package_path);
+                } else if let Some(path) = p.already_installed() {
                     return Ok(path);
                 } else {
                     p.url()?
