@@ -317,3 +317,108 @@ fn test_popcnt(mut config: crate::Config) -> Result<()> {
 
     Ok(())
 }
+
+/// Create a large number of local (more than 0x1_0000 bytes, thats 32*16 i64 + 1)
+/// to trigger an issue in the arm64 singlepass compiler
+/// sequence
+///   mov x17, #0x1010
+///   sub xsp, xsp, x17
+/// will tranform to
+///   mov x17, #0x1010
+///   sub xzr, xzr, x17
+/// and the locals
+/// on stack can get corrupted by subsequent calls if they also have locals on stack
+#[compiler_test(issues)]
+fn large_number_local(mut config: crate::Config) -> Result<()> {
+    let mut store = config.store();
+    let wat = r#"
+      (module
+        (func (;0;)
+          (local i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64)
+          i64.const 0
+          i64.const 5555
+          i64.add
+          local.set 8
+          i64.const 0
+          i64.const 5555
+          i64.add
+          local.set 9
+          i64.const 0
+          i64.const 5555
+          i64.add
+          local.set 10
+        )
+        (func $large_local (export "large_local") (result i64)
+          (local
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+           i64
+          )
+          (local.set 15 (i64.const 1))
+          (call 0)
+          local.get 6
+          local.get 7
+          i64.add
+          local.get 8
+          i64.add
+          local.get 9
+          i64.add
+          local.get 10
+          i64.add
+          local.get 11
+          i64.add
+          local.get 12
+          i64.add
+          local.get 13
+          i64.add
+          local.get 14
+          i64.add
+          local.get 15
+          i64.add
+          local.get 16
+          i64.add
+        )
+      )
+    "#;
+    let mut env = FunctionEnv::new(&mut store, ());
+    let module = Module::new(&store, wat)?;
+    let imports: Imports = imports! {};
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let result = instance
+        .exports
+        .get_function("large_local")?
+        .call(&mut store, &[])
+        .unwrap();
+    assert_eq!(&Value::I64(1 as i64), result.get(0).unwrap());
+    Ok(())
+}
