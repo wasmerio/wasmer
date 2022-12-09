@@ -129,7 +129,9 @@ impl FromStr for Package {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let regex = regex::Regex::new(r#"^([a-zA-Z0-9\-_]+)/([a-zA-Z0-9\-_]+)(@(.*))?$"#).unwrap();
+        let regex =
+            regex::Regex::new(r#"^([a-zA-Z0-9\-_]+)/([a-zA-Z0-9\-_]+)(@([a-zA-Z0-9\.\-_]+*))?$"#)
+                .unwrap();
 
         let captures = regex
             .captures(s.trim())

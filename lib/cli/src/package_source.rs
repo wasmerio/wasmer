@@ -112,3 +112,77 @@ fn start_spinner(msg: String) -> Option<spinoff::Spinner> {
         spinoff::Color::White,
     ))
 }
+
+#[test]
+fn test_package_source() {
+    assert_eq!(
+        PackageSource::parse("registry.wapm.io/graphql/python/python").unwrap(),
+        PackageSource::File("registry.wapm.io/graphql/python/python".to_string()),
+    );
+
+    assert_eq!(
+        PackageSource::parse("/absolute/path/test.wasm").unwrap(),
+        PackageSource::File("/absolute/path/test.wasm".to_string()),
+    );
+
+    assert_eq!(
+        PackageSource::parse("C://absolute/path/test.wasm").unwrap(),
+        PackageSource::File("C://absolute/path/test.wasm".to_string()),
+    );
+
+    assert_eq!(
+        PackageSource::parse("namespace/name@latest").unwrap(),
+        PackageSource::Package(wasmer_registry::Package {
+            namespace: "namespace".to_string(),
+            name: "name".to_string(),
+            version: Some("latest".to_string()),
+        })
+    );
+
+    assert_eq!(
+        PackageSource::parse("namespace/name@latest:command").unwrap(),
+        PackageSource::File("namespace/name@latest:command".to_string()),
+    );
+
+    assert_eq!(
+        PackageSource::parse("namespace/name@1.0.2").unwrap(),
+        PackageSource::Package(wasmer_registry::Package {
+            namespace: "namespace".to_string(),
+            name: "name".to_string(),
+            version: Some("1.0.2".to_string()),
+        })
+    );
+
+    assert_eq!(
+        PackageSource::parse("namespace/name@1.0.2-rc.2").unwrap(),
+        PackageSource::Package(wasmer_registry::Package {
+            namespace: "namespace".to_string(),
+            name: "name".to_string(),
+            version: Some("1.0.2-rc.2".to_string()),
+        })
+    );
+
+    assert_eq!(
+        PackageSource::parse("namespace/name").unwrap(),
+        PackageSource::Package(wasmer_registry::Package {
+            namespace: "namespace".to_string(),
+            name: "name".to_string(),
+            version: None,
+        })
+    );
+
+    assert_eq!(
+        PackageSource::parse("https://wapm.io/syrusakbary/python").unwrap(),
+        PackageSource::Url(url::Url::parse("https://wapm.io/syrusakbary/python").unwrap()),
+    );
+
+    assert_eq!(
+        PackageSource::parse("command").unwrap(),
+        PackageSource::File("command".to_string()),
+    );
+
+    assert_eq!(
+        PackageSource::parse("python@latest").unwrap(),
+        PackageSource::File("python@latest".to_string()),
+    );
+}
