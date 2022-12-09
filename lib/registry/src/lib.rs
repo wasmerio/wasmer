@@ -781,7 +781,7 @@ where
 pub fn install_package(#[cfg(test)] test_name: &str, url: &Url) -> Result<PathBuf, anyhow::Error> {
     use fs_extra::dir::copy;
 
-    let tempdir = tempdir::TempDir::new(&format!("download"))
+    let tempdir = tempdir::TempDir::new("download")
         .map_err(|e| anyhow::anyhow!("could not create download temp dir: {e}"))?;
 
     let target_targz_path = tempdir.path().join("package.tar.gz");
@@ -816,7 +816,7 @@ pub fn install_package(#[cfg(test)] test_name: &str, url: &Url) -> Result<PathBu
         crate::get_checkouts_dir().ok_or_else(|| anyhow::anyhow!("no checkouts dir"))?;
 
     let installation_path =
-        checkouts_dir.join(format!("{}@{version}", Package::hash_url(&url.to_string())));
+        checkouts_dir.join(format!("{}@{version}", Package::hash_url(url.as_ref())));
 
     std::fs::create_dir_all(&installation_path)
         .map_err(|e| anyhow::anyhow!("could not create installation path for {url}: {e}"))?;

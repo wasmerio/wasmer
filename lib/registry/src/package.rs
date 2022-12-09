@@ -31,8 +31,24 @@ impl Package {
         Some(checkouts_dir.join(found))
     }
 
-    pub fn is_url_already_installed(_url: &Url) -> Option<PathBuf> {
-        None // TODO
+    /// Checks if the URL is already installed, note that `{url}@{version}`
+    /// and `{url}` are treated the same
+    pub fn is_url_already_installed(url: &Url) -> Option<PathBuf> {
+        let checkouts_dir = crate::get_checkouts_dir()?;
+        let url_string = url.to_string();
+        let (url, version) = match url_string.split('@').collect::<Vec<_>>()[..] {
+            [url, version] => (url.to_string(), Some(version)),
+            _ => (url_string, None),
+        };
+        let hash = Self::hash_url(&url);
+        let found = std::fs::read_dir(&checkouts_dir)
+            .ok()?
+            .filter_map(|e| Some(e.ok()?.file_name().to_str()?.to_string()))
+            .find(|s| match version.as_ref() {
+                None => s.contains(&hash),
+                Some(v) => s.contains(&hash) && s.ends_with(v),
+            })?;
+        Some(checkouts_dir.join(found))
     }
 
     /// Returns the hash of the URL with a maximum of 64 bytes length
