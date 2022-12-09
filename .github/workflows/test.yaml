@@ -1102,17 +1102,16 @@ jobs:
       - name: Upload cache
         uses: nipeharefa/action-s3-cache@3a78206
         with:
-          with:
-            action: put
-            aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-            aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-            bucket: wasmer-rust-artifacts-cache
-            s3-class: STANDARD_IA
-            key: wasmer-test-stage-4-${{ matrix.build }}
-            artifacts: |
-              ~/.cargo/*
-              ./target/*
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          action: put
+          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          bucket: wasmer-rust-artifacts-cache
+          s3-class: STANDARD_IA
+          key: wasmer-test-stage-4-${{ matrix.build }}
+          artifacts: |
+            ~/.cargo/*
+            ./target/*
+        endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
 
   test_wasmer_stage_5: 
     name: Test Wasmer Stage 5 on ${{ matrix.build }}
