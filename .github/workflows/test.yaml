@@ -62,7 +62,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
           aws-region: auto
           aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
-          aws-s3-bucket-endpoint: true
+          aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
       - run: make lint
         env:
