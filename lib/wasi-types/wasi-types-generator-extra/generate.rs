@@ -4,12 +4,110 @@
 //! Eventually this functionality should be upstreamed into wit-bindgen,
 //! see issue [#3177](https://github.com/wasmerio/wasmer/issues/3177).
 
+use std::{
+    path::{Path, PathBuf},
+    process::ExitCode,
+};
+
+use anyhow::{bail, Context};
 use convert_case::{Case, Casing};
 use quote::quote;
-use wit_parser::TypeDefKind;
+use wai_bindgen_gen_core::Generator;
+use wai_parser::{Interface, TypeDefKind};
 
-const WIT_1: &str = include_str!("../../wit-clean/output.wit");
-const BINDINGS_RS: &str = include_str!("../../src/wasi/bindings.rs");
+fn main() -> Result<(), ExitCode> {
+    match run() {
+        Ok(_) => {
+            eprintln!("All bindings generated successfully");
+            Ok(())
+        }
+        Err(err) => {
+            eprintln!("Generation failed!");
+            dbg!(err);
+            Err(ExitCode::FAILURE)
+        }
+    }
+}
+
+fn run() -> Result<(), anyhow::Error> {
+    let root = std::env::var("CARGO_MANIFEST_DIR")
+        .map(PathBuf::from)
+        .context("Could not read env var CARGO_MANIFEST_DIR")?
+        .canonicalize()?
+        .parent()
+        .context("could not detect parent path")?
+        .to_owned();
+
+    generate_wasi(&root)?;
+    generate_wasix(&root)?;
+
+    Ok(())
+}
+
+fn generate_wasix(_root: &Path) -> Result<(), anyhow::Error> {
+    Ok(())
+}
+
+fn generate_wasi(root: &Path) -> Result<(), anyhow::Error> {
+    eprintln!("Generating wasi bindings...");
+    let out_path = root.join("src/wasi/bindings.rs");
+
+    let schema_dir = root.join("schema");
+    let schema_dir_wasi = schema_dir.join("wasi");
+    let schema_dir_wasix = schema_dir.join("wasix");
+
+    if !schema_dir_wasi.is_dir() || !schema_dir_wasix.is_dir() {
+        bail!("Must be run in the same directory as schema/{{wasi/wasix}}");
+    }
+
+    // Load wasi.
+
+    let wasi_paths = ["typenames.wit", "wasi_unstable.wit"];
+    let wasi_schema_raw = wasi_paths
+        .iter()
+        .map(|path| {
+            eprintln!("Loading {path}...");
+            std::fs::read_to_string(schema_dir_wasi.join(path))
+        })
+        .collect::<Result<Vec<_>, _>>()?
+        .join("\n\n");
+    let wasi_schema = wai_parser::Interface::parse("output.wai", &wasi_schema_raw)
+        .context("Could not parse wasi wai schema")?;
+
+    let opts = wai_bindgen_gen_rust_wasm::Opts {
+        rustfmt: false,
+        multi_module: false,
+        unchecked: false,
+        symbol_namespace: String::new(),
+        standalone: true,
+        force_generate_structs: true,
+    };
+    let mut gen = opts.build();
+    let mut files = wai_bindgen_gen_core::Files::default();
+    gen.generate_all(&[wasi_schema.clone()], &[], &mut files);
+
+    assert_eq!(files.iter().count(), 1);
+    let (_path, output_raw) = files.iter().next().unwrap();
+    let output_basic = std::str::from_utf8(&output_raw).expect("valid utf8 Rust code");
+
+    let output_fixed = bindings_fixup(output_basic, &wasi_schema)?;
+
+    eprintln!("Writing output to {}...", out_path.display());
+    std::fs::write(&out_path, output_fixed)?;
+    let code = std::process::Command::new("rustfmt")
+        .arg(&out_path)
+        .spawn()?
+        .wait()?;
+    if !code.success() {
+        bail!("Rustfmt failed");
+    }
+
+    eprintln!("Wasi bindings generated!");
+    Ok(())
+}
+
+// const WIT_1: &str = include_str!("../../wit-clean/output.wit");
+// const BINDINGS_RS: &str = include_str!("../../src/wasi/bindings.rs");
 
 fn replace_in_string(s: &str, id: &str, ty: &str) -> String {
     let parts = s.split(&format!("impl {id} {{")).collect::<Vec<_>>();
@@ -72,10 +170,7 @@ fn visit_item(item: &mut syn::Item) {
             match name.as_str() {
                 "Clockid" => {
                     let attr = find_attr_by_name_mut(enum_.attrs.iter_mut(), "derive").unwrap();
-                    let mut types = attr
-                        .parse_args::<Types>()
-                        .unwrap()
-                        .0;
+                    let mut types = attr.parse_args::<Types>().unwrap().0;
 
                     let prim = syn::parse_str::<syn::Path>("num_enum::TryFromPrimitive").unwrap();
                     types.push(prim);
@@ -87,10 +182,7 @@ fn visit_item(item: &mut syn::Item) {
                 }
                 "Signal" => {
                     let attr = find_attr_by_name_mut(enum_.attrs.iter_mut(), "derive").unwrap();
-                    let mut types = attr
-                        .parse_args::<Types>()
-                        .unwrap()
-                        .0;
+                    let mut types = attr.parse_args::<Types>().unwrap().0;
                     let prim = syn::parse_str::<syn::Path>("num_enum::TryFromPrimitive").unwrap();
                     types.push(prim);
                     attr.tokens = quote!( ( #( #types ),* ) );
@@ -108,11 +200,11 @@ fn visit_item(item: &mut syn::Item) {
     }
 }
 
-fn main() {
-    let mut bindings_rs = BINDINGS_RS
+// Fix up generated bindings code.
+fn bindings_fixup(code: &str, interface: &Interface) -> Result<String, anyhow::Error> {
+    // FIXME: move from string patch up to syn AST modifications (as is done below).
+    let mut code = code
         .replace("#[allow(clippy::all)]", "")
-        .replace("pub mod output {", "")
-        .replace("mod output {", "")
         .replace("pub struct Rights: u8 {", "pub struct Rights: u64 {")
         .replace("pub struct Lookup: u8 {", "pub struct Lookup: u32 {")
         .replace("pub struct Oflags: u8 {", "pub struct Oflags: u16 {")
@@ -127,20 +219,18 @@ fn main() {
         .replace("pub struct Fstflags: u8 {", "pub struct Fstflags: u16 {")
         .replace("pub struct Fdflags: u8 {", "pub struct Fdflags: u16 {");
 
-    bindings_rs = replace_in_string(&bindings_rs, "Oflags", "u16");
-    bindings_rs = replace_in_string(&bindings_rs, "Subclockflags", "u16");
-    bindings_rs = replace_in_string(&bindings_rs, "Eventrwflags", "u16");
-    bindings_rs = replace_in_string(&bindings_rs, "Fstflags", "u16");
-    bindings_rs = replace_in_string(&bindings_rs, "Fdflags", "u16");
-    bindings_rs = replace_in_string(&bindings_rs, "Lookup", "u32");
-    bindings_rs = replace_in_string(&bindings_rs, "Rights", "u64");
-
-    let mut bindings_rs = bindings_rs.lines().collect::<Vec<_>>();
-    bindings_rs.pop();
-    let bindings_rs = bindings_rs.join("\n");
+    code = replace_in_string(&code, "Oflags", "u16");
+    code = replace_in_string(&code, "Subclockflags", "u16");
+    code = replace_in_string(&code, "Eventrwflags", "u16");
+    code = replace_in_string(&code, "Fstflags", "u16");
+    code = replace_in_string(&code, "Fdflags", "u16");
+    code = replace_in_string(&code, "Lookup", "u32");
+    code = replace_in_string(&code, "Rights", "u64");
 
     // Fix enum types.
-    let mut bindings_file = syn::parse_str::<syn::File>(&bindings_rs).unwrap();
+    let mut bindings_file = syn::parse_str::<syn::File>(&code)
+        .map_err(|e| dbg!(e))
+        .context("Could not parse Rust code")?;
     bindings_file.items.iter_mut().for_each(visit_item);
     let bindings_rs = quote!(#bindings_file).to_string();
 
@@ -151,7 +241,6 @@ fn main() {
         .join("src")
         .join("wasi")
         .join("extra.rs");
-    let result = wit_parser::Interface::parse("output.wit", WIT_1).unwrap();
     let mut contents = format!(
         "
         use std::mem::MaybeUninit;
@@ -169,7 +258,7 @@ fn main() {
 
     let excluded_from_impl_valuetype = ["Prestat"];
 
-    for (_, i) in result.types.iter() {
+    for (_, i) in interface.types.iter() {
         let name = i.name.clone().unwrap_or_default().to_case(Case::Pascal);
         if name.is_empty() {
             eprintln!(
@@ -211,7 +300,7 @@ fn main() {
             _ => { }
         }
 
-        if let wit_parser::TypeDefKind::Enum(e) = &i.kind {
+        if let TypeDefKind::Enum(e) = &i.kind {
             contents.push_str(
                 &format!(
                     "
@@ -249,5 +338,6 @@ fn main() {
             );
         }
     }
-    std::fs::write(path, contents).unwrap();
+
+    Ok(contents)
 }
