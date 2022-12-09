@@ -51,7 +51,7 @@ jobs:
           echo '/opt/llvm-12/bin' >> $GITHUB_PATH
           echo 'LLVM_SYS_120_PREFIX=/opt/llvm-12' >> $GITHUB_ENV
       - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: get
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -69,7 +69,7 @@ jobs:
           git status
           ! [[ $(git status -s) ]]
       - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: put
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -215,7 +215,7 @@ jobs:
           EOF
         if: matrix.target
       - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: get
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -239,7 +239,7 @@ jobs:
           if-no-files-found: error
           retention-days: 2
       - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: put
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -320,7 +320,7 @@ jobs:
         run: |
           rustup target add x86_64-pc-windows-gnu
       - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: get
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -354,7 +354,7 @@ jobs:
         run: |
           cargo build --release --target x86_64-pc-windows-gnu --manifest-path lib/c-api/Cargo.toml --no-default-features --features wat,compiler,wasi,middlewares,webc_runner --features cranelift,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
       - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: put
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -466,7 +466,7 @@ jobs:
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
       - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: get
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -490,7 +490,7 @@ jobs:
           if-no-files-found: error
           retention-days: 2
       - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: put
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -548,7 +548,7 @@ jobs:
           toolchain: 1.63
           target: ${{ matrix.target }}
       - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: get
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -572,7 +572,7 @@ jobs:
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
       - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: put
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -638,7 +638,7 @@ jobs:
           toolchain: 1.63
           target: ${{ matrix.target }}
       - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: get
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -666,7 +666,7 @@ jobs:
           WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: put
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -770,7 +770,7 @@ jobs:
           EOF
         if: matrix.target
       - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: get
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -786,7 +786,7 @@ jobs:
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
       - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: put
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -898,7 +898,7 @@ jobs:
           EOF
         if: matrix.target
       - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: get
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -918,7 +918,7 @@ jobs:
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
       - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: put
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -1022,7 +1022,7 @@ jobs:
           EOF
         if: matrix.target
       - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: get
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -1038,7 +1038,7 @@ jobs:
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
       - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: put
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -1142,7 +1142,7 @@ jobs:
           EOF
         if: matrix.target
       - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: get
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -1158,7 +1158,7 @@ jobs:
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
       - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: put
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -1262,7 +1262,7 @@ jobs:
           EOF
         if: matrix.target
       - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: get
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -1278,7 +1278,7 @@ jobs:
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
       - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: put
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -1382,7 +1382,7 @@ jobs:
           EOF
         if: matrix.target
       - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: get
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -1398,7 +1398,7 @@ jobs:
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
       - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: put
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -1502,7 +1502,7 @@ jobs:
           EOF
         if: matrix.target
       - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: get
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
@@ -1518,7 +1518,7 @@ jobs:
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
       - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a78206
+        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
         with:
           action: put
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
