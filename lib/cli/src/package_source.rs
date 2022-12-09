@@ -90,7 +90,7 @@ impl PackageSource {
             let _ = std::io::stdout().flush();
         }
 
-        let (_, path) = opt_path
+        let path = opt_path
             .with_context(|| anyhow::anyhow!("could not install package from URL {url}{extra}"))?;
 
         Ok(path)

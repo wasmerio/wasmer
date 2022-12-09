@@ -778,18 +778,10 @@ where
 
 /// Installs the .tar.gz if it doesn't yet exist, returns the
 /// (package dir, entrypoint .wasm file path)
-pub fn install_package(
-    #[cfg(test)] test_name: &str,
-    url: &Url,
-) -> Result<(LocalPackage, PathBuf), anyhow::Error> {
+pub fn install_package(#[cfg(test)] test_name: &str, url: &Url) -> Result<PathBuf, anyhow::Error> {
     use fs_extra::dir::copy;
 
-    let host = url
-        .host_str()
-        .ok_or_else(|| anyhow::anyhow!("invalid url: {}", url))?
-        .to_string();
-
-    let tempdir = tempdir::TempDir::new(&format!("download-{host}"))
+    let tempdir = tempdir::TempDir::new(&format!("download"))
         .map_err(|e| anyhow::anyhow!("could not create download temp dir: {e}"))?;
 
     let target_targz_path = tempdir.path().join("package.tar.gz");
@@ -818,25 +810,16 @@ pub fn install_package(
     let toml_parsed = toml::from_str::<wapm_toml::Manifest>(&toml)
         .map_err(|e| anyhow::anyhow!("error parsing {}: {e}", toml_path.display()))?;
 
-    let package = LocalPackage {
-        registry: host,
-        name: toml_parsed.package.name,
-        version: toml_parsed.package.version.to_string(),
-    };
+    let version = toml_parsed.package.version.to_string();
 
-    let installation_path = package.get_path().map_err(|e| {
-        anyhow::anyhow!(
-            "could not determine installation path for {}: {e}",
-            package.name
-        )
-    })?;
+    let checkouts_dir =
+        crate::get_checkouts_dir().ok_or_else(|| anyhow::anyhow!("no checkouts dir"))?;
 
-    std::fs::create_dir_all(&installation_path).map_err(|e| {
-        anyhow::anyhow!(
-            "could not create installation path for {}: {e}",
-            package.name
-        )
-    })?;
+    let installation_path =
+        checkouts_dir.join(format!("{}@{version}", Package::hash_url(&url.to_string())));
+
+    std::fs::create_dir_all(&installation_path)
+        .map_err(|e| anyhow::anyhow!("could not create installation path for {url}: {e}"))?;
 
     let mut options = fs_extra::dir::CopyOptions::new();
     options.content_only = true;
@@ -849,7 +832,7 @@ pub fn install_package(
         filetime::FileTime::now(),
     );
 
-    Ok((package, installation_path))
+    Ok(installation_path)
 }
 
 pub fn whoami(

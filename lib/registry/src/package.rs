@@ -35,14 +35,15 @@ impl Package {
         None // TODO
     }
 
+    /// Returns the hash of the URL with a maximum of 64 bytes length
+    pub fn hash_url(url: &str) -> String {
+        hex::encode(url).chars().take(64).collect()
+    }
+
+    /// Returns the hash of the package URL without the version
+    /// (because the version is encoded as @version and isn't part of the hash itself)
     pub fn get_hash(&self) -> String {
-        hex::encode(&format!(
-            "{}",
-            self.get_url_without_version().unwrap_or_default()
-        ))
-        .chars()
-        .take(64)
-        .collect()
+        Self::hash_url(&self.get_url_without_version().unwrap_or_default())
     }
 
     fn get_url_without_version(&self) -> Result<String, anyhow::Error> {
@@ -69,6 +70,7 @@ impl Package {
         format!("{}/{}", self.namespace, self.name)
     }
 
+    /// Returns the full URL including the version for this package
     pub fn url(&self) -> Result<Url, anyhow::Error> {
         let config = PartialWapmConfig::from_file()
             .map_err(|e| anyhow::anyhow!("could not read wapm config: {e}"))?;
