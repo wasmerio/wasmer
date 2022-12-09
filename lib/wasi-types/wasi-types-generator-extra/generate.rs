@@ -12,7 +12,7 @@ use std::{
 use anyhow::{bail, Context};
 use convert_case::{Case, Casing};
 use quote::quote;
-use wai_bindgen_gen_core::Generator;
+use wai_bindgen_gen_core::{Files, Generator};
 use wai_parser::{Interface, TypeDefKind};
 
 fn main() -> Result<(), ExitCode> {
@@ -41,11 +41,96 @@ fn run() -> Result<(), anyhow::Error> {
     generate_wasi(&root)?;
     generate_wasix(&root)?;
 
+    // Format code.
+    let code = std::process::Command::new("cargo")
+        .arg("fmt")
+        .current_dir(&root)
+        .spawn()?
+        .wait()?;
+    if !code.success() {
+        bail!("Rustfmt failed");
+    }
+
     Ok(())
 }
 
-fn generate_wasix(_root: &Path) -> Result<(), anyhow::Error> {
+fn generate_wasix(root: &Path) -> Result<(), anyhow::Error> {
+    eprintln!("Generating wasix bindings...");
+
+    let modules = ["wasix_http_client_v1"];
+    let schema_dir = root.join("schema/wasix");
+    let out_dir = root.join("src/wasix");
+
+    let opts = wai_bindgen_gen_wasmer::Opts {
+        rustfmt: true,
+        tracing: true,
+        async_: wai_bindgen_gen_wasmer::Async::None,
+        custom_error: false,
+    };
+
+    for module in modules {
+        let wai_path = schema_dir.join(module).with_extension("wai");
+        eprintln!("Reading {}...", wai_path.display());
+        let wai = std::fs::read_to_string(&wai_path)?;
+        let interface = Interface::parse(module, &wai)?;
+
+        let mut gen = opts.clone().build();
+        let mut files = Files::default();
+        gen.generate_all(&[interface], &[], &mut files);
+
+        assert_eq!(files.iter().count(), 1);
+        let (_name, contents_raw) = files.iter().next().unwrap();
+        let contents_str = std::str::from_utf8(&contents_raw)?;
+        let contents_fixed = wasmer_bindings_fixup(contents_str)?;
+
+        let out_path = out_dir.join(module).with_extension("rs");
+        eprintln!("Writing {}...", out_path.display());
+        std::fs::write(&out_path, contents_fixed)?;
+    }
+
+    eprintln!("Wasix bindings generated");
     Ok(())
+}
+
+fn wasmer_bindings_fixup(code: &str) -> Result<String, anyhow::Error> {
+    let file = syn::parse_str::<syn::File>(code)?;
+
+    // Strip wrapper module.
+    assert_eq!(file.items.len(), 1);
+    let first_item = file.items.into_iter().next().unwrap();
+    let module = match first_item {
+        syn::Item::Mod(m) => m,
+        other => {
+            bail!("Invalid item: {other:?}");
+        }
+    };
+    let items = module.content.unwrap_or_default().1.into_iter();
+
+    // Remove bad import
+    let items = items.into_iter().filter(|item| match item {
+        syn::Item::Use(use_) => {
+            let raw = quote! { #use_ }.to_string();
+
+            // Remove spurious import.
+            // Causes problems with ambiguous imports and breaks the dependency
+            // tree.
+            if raw.trim()
+                == "# [allow (unused_imports)] use wai_bindgen_wasmer :: { anyhow , wasmer } ;"
+            {
+                false
+            } else {
+                true
+            }
+        }
+        _ => true,
+    });
+
+    let output = quote::quote! {
+        #( #items )*
+    }
+    .to_string();
+
+    Ok(output)
 }
 
 fn generate_wasi(root: &Path) -> Result<(), anyhow::Error> {
@@ -94,13 +179,6 @@ fn generate_wasi(root: &Path) -> Result<(), anyhow::Error> {
 
     eprintln!("Writing output to {}...", out_path.display());
     std::fs::write(&out_path, output_fixed)?;
-    let code = std::process::Command::new("rustfmt")
-        .arg(&out_path)
-        .spawn()?
-        .wait()?;
-    if !code.success() {
-        bail!("Rustfmt failed");
-    }
 
     eprintln!("Wasi bindings generated!");
     Ok(())
