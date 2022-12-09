@@ -445,6 +445,15 @@ fn test_wasmer_run_works() -> anyhow::Result<()> {
         );
     }
 
+    // set wapm.io as the current registry
+    let _ = Command::new(get_wasmer_path())
+        .arg("login")
+        .arg("--registry")
+        .arg("wapm.io")
+        // will fail, but set wapm.io as the current registry regardless
+        .arg("öladkfjasöldfkjasdölfkj")
+        .output()?;
+
     // same test again, but this time without specifying the registry
     let output = Command::new(get_wasmer_path())
         .arg("run")
