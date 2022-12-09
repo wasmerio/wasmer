@@ -593,10 +593,11 @@ impl Run {
         let store = StoreOptions::default();
         // TODO: store.compiler.features.all = true; ?
         Ok(Self {
-            path: PackageSource::parse(executable),
+            // unwrap is safe, since parsing never fails
+            path: PackageSource::parse(executable).unwrap(),
             options: RunWithoutFile {
-                args,
-                command_name: Some(original_executable),
+                args: args.to_vec(),
+                command_name: Some(original_executable.to_string()),
                 store,
                 wasi: Wasi::for_binfmt_interpreter()?,
                 ..Default::default()
