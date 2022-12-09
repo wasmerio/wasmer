@@ -13,7 +13,7 @@ use anyhow::Context;
 use core::ops::Range;
 use reqwest::header::{ACCEPT, RANGE};
 use std::fmt;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use url::Url;
@@ -1182,6 +1182,14 @@ fn get_bytes(
                 anyhow::anyhow!("failed to download {url} into {}: {e}", path.display())
             })?;
 
+        if application_type == "application/webc" {
+            let mut buf = vec![0; 100];
+            file.read_exact(&mut buf)
+                .map_err(|e| anyhow::anyhow!("invalid webc downloaded from {url}: {e}"))?;
+            let first_100_bytes = String::from_utf8_lossy(&buf);
+            return Err(anyhow::anyhow!("invalid webc bytes: {first_100_bytes:?}"));
+        }
+
         Ok(None)
     } else {
         let bytes = res
@@ -1189,13 +1197,18 @@ fn get_bytes(
             .map_err(|e| anyhow::anyhow!("{e}"))
             .context("bytes() failed")?;
 
-        if (range.is_none() || range.unwrap().start == 0)
-            && bytes[0..webc::MAGIC.len()] != webc::MAGIC[..]
-        {
-            let bytes = bytes.iter().copied().take(100).collect::<Vec<_>>();
-            let first_50_bytes = String::from_utf8_lossy(&bytes);
-            return Err(anyhow::anyhow!("invalid webc bytes: {first_50_bytes:?}"));
+        if application_type == "application/webc" {
+            if (range.is_none() || range.unwrap().start == 0)
+                && bytes[0..webc::MAGIC.len()] != webc::MAGIC[..]
+            {
+                let bytes = bytes.iter().copied().take(100).collect::<Vec<_>>();
+                let first_100_bytes = String::from_utf8_lossy(&bytes);
+                return Err(anyhow::anyhow!("invalid webc bytes: {first_100_bytes:?}"));
+            }
         }
+
+        // else if "application/tar+gzip" - we would need to uncompress the response here
+        // since failure responses are very small, this will fail during unpacking instead
 
         Ok(Some(bytes.to_vec()))
     }
