@@ -50,11 +50,15 @@ jobs:
           tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-12
           echo '/opt/llvm-12/bin' >> $GITHUB_PATH
           echo 'LLVM_SYS_120_PREFIX=/opt/llvm-12' >> $GITHUB_ENV
-      - uses: Swatinem/rust-cache@v2
+      - name: Retrieve cache
+        uses: nipeharefa/action-s3-cache@3a78206
         with:
-          cache-on-failure: false
-          shared-key: wasmer-linux-x64
-          save-if: false
+          action: get
+          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          bucket: wasmer-rust-artifacts-cache
+          key: wasmer-make-lint-linux-x64
+          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
       - run: make lint
         env:
           ENABLE_CRANELIFT: "1"
@@ -64,6 +68,19 @@ jobs:
         run: |
           git status
           ! [[ $(git status -s) ]]
+      - name: Upload cache
+        uses: nipeharefa/action-s3-cache@3a78206
+        with:
+          action: put
+          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          bucket: wasmer-rust-artifacts-cache
+          s3-class: STANDARD_IA
+          key: wasmer-make-lint-linux-x64
+          artifacts: |
+            ~/.cargo/*
+            ./target/*
+          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
 
   cargo_deny:
     name: cargo-deny
@@ -197,10 +214,15 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
-      - uses: Swatinem/rust-cache@v2
+      - name: Retrieve cache
+        uses: nipeharefa/action-s3-cache@3a78206
         with:
-          cache-on-failure: true
-          shared-key: wasmer-${{ matrix.build }}
+          action: get
+          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          bucket: wasmer-rust-artifacts-cache
+          key: wasmer-build-wasmer-${{ matrix.build }}
+          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
       - name: Build wasmer-cli
         shell: bash
         run: |
@@ -216,6 +238,19 @@ jobs:
           path: build-wasmer.tar.gz
           if-no-files-found: error
           retention-days: 2
+      - name: Upload cache
+        uses: nipeharefa/action-s3-cache@3a78206
+        with:
+          action: put
+          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          bucket: wasmer-rust-artifacts-cache
+          s3-class: STANDARD_IA
+          key: wasmer-build-wasmer-${{ matrix.build }}
+          artifacts: |
+            ~/.cargo/*
+            ./target/*
+          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
 
   build_wasmer_linux_aarch64:
     name: Build wasmer on linux aarch64
@@ -284,10 +319,15 @@ jobs:
         shell: bash
         run: |
           rustup target add x86_64-pc-windows-gnu
-      - uses: Swatinem/rust-cache@v2
+      - name: Retrieve cache
+        uses: nipeharefa/action-s3-cache@3a78206
         with:
-          cache-on-failure: true
-          shared-key: wasmer-windows-gnu
+          action: get
+          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          bucket: wasmer-rust-artifacts-cache
+          key: wasmer-build-wasmer-windows-gnu
+          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
       - name: Install Windows 10 SDK with xwin
         shell: bash
         run: |
@@ -313,6 +353,19 @@ jobs:
         shell: bash
         run: |
           cargo build --release --target x86_64-pc-windows-gnu --manifest-path lib/c-api/Cargo.toml --no-default-features --features wat,compiler,wasi,middlewares,webc_runner --features cranelift,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
+      - name: Upload cache
+        uses: nipeharefa/action-s3-cache@3a78206
+        with:
+          action: put
+          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          bucket: wasmer-rust-artifacts-cache
+          s3-class: STANDARD_IA
+          key: wasmer-build-wasmer-windows-gnu
+          artifacts: |
+            ~/.cargo/*
+            ./target/*
+          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
 
   build_capi: 
     name: Build C-API on ${{ matrix.build }}
