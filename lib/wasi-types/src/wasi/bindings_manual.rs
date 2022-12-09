@@ -1,4 +1,4 @@
-use crate::wasi::extra::*;
+use crate::wasi::bindings::*;
 
 impl Rights {
     pub const fn all_socket() -> Self {
