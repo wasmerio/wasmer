@@ -4980,6 +4980,12 @@
                 <span class="kw">let</span> <span class="ident">masked</span> <span class="op">=</span> <span class="number">0xffff</span> <span class="op">&amp;</span> (<span class="ident">val</span> <span class="op">&gt;</span><span class="op">&gt;</span> <span class="ident">offset</span>);
                 <span class="kw">if</span> (<span class="ident">masked</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">offset</span>) <span class="op">==</span> <span class="ident">val</span> {
                     <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">movz</span> <span class="ident">X</span>(<span class="ident">dst</span>), <span class="ident">masked</span> <span class="kw">as</span> <span class="ident">u32</span>, <span class="ident">LSL</span> <span class="ident">offset</span>);
+                } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">val</span> <span class="op">&gt;</span><span class="op">&gt;</span> <span class="number">16</span> <span class="op">==</span> <span class="number">0xffff_ffff_ffff</span> {
+                    <span class="kw">let</span> <span class="ident">val</span>: <span class="ident">u16</span> <span class="op">=</span> <span class="op">!</span>((<span class="ident">val</span> <span class="op">&amp;</span> <span class="number">0xffff</span>) <span class="kw">as</span> <span class="ident">u16</span>);
+                    <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">movn</span> <span class="ident">X</span>(<span class="ident">dst</span>), <span class="ident">val</span> <span class="kw">as</span> <span class="ident">u32</span>);
+                } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">val</span> <span class="op">&gt;</span><span class="op">&gt;</span> <span class="number">16</span> <span class="op">==</span> <span class="number">0xffff</span> {
+                    <span class="kw">let</span> <span class="ident">val</span>: <span class="ident">u16</span> <span class="op">=</span> <span class="op">!</span>((<span class="ident">val</span> <span class="op">&amp;</span> <span class="number">0xffff</span>) <span class="kw">as</span> <span class="ident">u16</span>);
+                    <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">movn</span> <span class="ident">W</span>(<span class="ident">dst</span>), <span class="ident">val</span> <span class="kw">as</span> <span class="ident">u32</span>);
                 } <span class="kw">else</span> {
                     <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">movz</span> <span class="ident">W</span>(<span class="ident">dst</span>), (<span class="ident">val</span><span class="kw-2">&amp;</span><span class="number">0xffff</span>) <span class="kw">as</span> <span class="ident">u32</span>);
                     <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">val</span> <span class="op">&gt;</span><span class="op">&gt;</span> <span class="number">16</span>;
@@ -5013,13 +5019,13 @@
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">src2</span> <span class="op">=</span> <span class="ident">src2</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
-                <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">add</span> <span class="ident">X</span>(<span class="ident">dst</span>), <span class="ident">X</span>(<span class="ident">src1</span>), <span class="ident">X</span>(<span class="ident">src2</span>));
+                <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">add</span> <span class="ident">X</span>(<span class="ident">dst</span>), <span class="ident">X</span>(<span class="ident">src1</span>), <span class="ident">X</span>(<span class="ident">src2</span>), <span class="ident">UXTX</span>);
             }
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">src2</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">src2</span> <span class="op">=</span> <span class="ident">src2</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
-                <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">add</span> <span class="ident">W</span>(<span class="ident">dst</span>), <span class="ident">W</span>(<span class="ident">src1</span>), <span class="ident">W</span>(<span class="ident">src2</span>));
+                <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">add</span> <span class="ident">W</span>(<span class="ident">dst</span>), <span class="ident">W</span>(<span class="ident">src1</span>), <span class="ident">W</span>(<span class="ident">src2</span>), <span class="ident">UXTX</span>);
             }
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::Imm8</span>(<span class="ident">imm</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>))
             <span class="op">|</span> (<span class="ident">Size::S64</span>, <span class="ident">Location::Imm8</span>(<span class="ident">imm</span>), <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
@@ -5083,13 +5089,13 @@
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">src2</span> <span class="op">=</span> <span class="ident">src2</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
-                <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">sub</span> <span class="ident">X</span>(<span class="ident">dst</span>), <span class="ident">X</span>(<span class="ident">src1</span>), <span class="ident">X</span>(<span class="ident">src2</span>));
+                <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">sub</span> <span class="ident">X</span>(<span class="ident">dst</span>), <span class="ident">X</span>(<span class="ident">src1</span>), <span class="ident">X</span>(<span class="ident">src2</span>), <span class="ident">UXTX</span>);
             }
             (<span class="ident">Size::S32</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">src2</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">src2</span> <span class="op">=</span> <span class="ident">src2</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
-                <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">sub</span> <span class="ident">W</span>(<span class="ident">dst</span>), <span class="ident">W</span>(<span class="ident">src1</span>), <span class="ident">W</span>(<span class="ident">src2</span>));
+                <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">sub</span> <span class="ident">W</span>(<span class="ident">dst</span>), <span class="ident">W</span>(<span class="ident">src1</span>), <span class="ident">W</span>(<span class="ident">src2</span>), <span class="ident">UXTX</span>);
             }
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::Imm8</span>(<span class="ident">imm</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
@@ -6934,24 +6940,17 @@
                 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::single_match</span>)]</span>
                 <span class="kw">match</span> <span class="ident">calling_convention</span> {
                     <span class="ident">CallingConvention::AppleAarch64</span> =&gt; {
-                        <span class="kw">match</span> <span class="ident">sz</span> {
-                            <span class="ident">Size::S8</span> =&gt; (),
-                            <span class="ident">Size::S16</span> =&gt; {
-                                <span class="kw">if</span> <span class="ident">caller_stack_offset</span> <span class="op">&amp;</span> <span class="number">1</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-                                    <span class="ident">caller_stack_offset</span> <span class="op">=</span> (<span class="ident">caller_stack_offset</span> <span class="op">+</span> <span class="number">1</span>) <span class="op">&amp;</span> <span class="op">!</span><span class="number">1</span>;
-                                }
-                            }
-                            <span class="ident">Size::S32</span> =&gt; {
-                                <span class="kw">if</span> <span class="ident">caller_stack_offset</span> <span class="op">&amp;</span> <span class="number">3</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-                                    <span class="ident">caller_stack_offset</span> <span class="op">=</span> (<span class="ident">caller_stack_offset</span> <span class="op">+</span> <span class="number">3</span>) <span class="op">&amp;</span> <span class="op">!</span><span class="number">3</span>;
-                                }
-                            }
-                            <span class="ident">Size::S64</span> =&gt; {
-                                <span class="kw">if</span> <span class="ident">caller_stack_offset</span> <span class="op">&amp;</span> <span class="number">7</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-                                    <span class="ident">caller_stack_offset</span> <span class="op">=</span> (<span class="ident">caller_stack_offset</span> <span class="op">+</span> <span class="number">7</span>) <span class="op">&amp;</span> <span class="op">!</span><span class="number">7</span>;
-                                }
-                            }
-                        };
+                        <span class="kw">let</span> <span class="ident">sz</span> <span class="op">=</span> <span class="number">1</span>
+                            <span class="op">&lt;</span><span class="op">&lt;</span> <span class="kw">match</span> <span class="ident">sz</span> {
+                                <span class="ident">Size::S8</span> =&gt; <span class="number">0</span>,
+                                <span class="ident">Size::S16</span> =&gt; <span class="number">1</span>,
+                                <span class="ident">Size::S32</span> =&gt; <span class="number">2</span>,
+                                <span class="ident">Size::S64</span> =&gt; <span class="number">3</span>,
+                            };
+                        <span class="comment">// align first</span>
+                        <span class="kw">if</span> <span class="ident">sz</span> <span class="op">&gt;</span> <span class="number">1</span> <span class="op">&amp;&amp;</span> <span class="ident">caller_stack_offset</span> <span class="op">&amp;</span> (<span class="ident">sz</span> <span class="op">-</span> <span class="number">1</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+                            <span class="ident">caller_stack_offset</span> <span class="op">=</span> (<span class="ident">caller_stack_offset</span> <span class="op">+</span> (<span class="ident">sz</span> <span class="op">-</span> <span class="number">1</span>)) <span class="op">&amp;</span> <span class="op">!</span>(<span class="ident">sz</span> <span class="op">-</span> <span class="number">1</span>);
+                        }
                     }
                     <span class="kw">_</span> =&gt; (),
                 };
@@ -6968,12 +6967,13 @@
                 )<span class="question-mark">?</span>;
                 <span class="kw">match</span> <span class="ident">calling_convention</span> {
                     <span class="ident">CallingConvention::AppleAarch64</span> =&gt; {
-                        <span class="ident">caller_stack_offset</span> <span class="op">+</span><span class="op">=</span> <span class="kw">match</span> <span class="ident">sz</span> {
-                            <span class="ident">Size::S8</span> =&gt; <span class="number">1</span>,
-                            <span class="ident">Size::S16</span> =&gt; <span class="number">2</span>,
-                            <span class="ident">Size::S32</span> =&gt; <span class="number">4</span>,
-                            <span class="ident">Size::S64</span> =&gt; <span class="number">8</span>,
-                        };
+                        <span class="ident">caller_stack_offset</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>
+                            <span class="op">&lt;</span><span class="op">&lt;</span> <span class="kw">match</span> <span class="ident">sz</span> {
+                                <span class="ident">Size::S8</span> =&gt; <span class="number">0</span>,
+                                <span class="ident">Size::S16</span> =&gt; <span class="number">1</span>,
+                                <span class="ident">Size::S32</span> =&gt; <span class="number">2</span>,
+                                <span class="ident">Size::S64</span> =&gt; <span class="number">3</span>,
+                            };
                     }
                     <span class="kw">_</span> =&gt; {
                         <span class="ident">caller_stack_offset</span> <span class="op">+</span><span class="op">=</span> <span class="number">8</span>;

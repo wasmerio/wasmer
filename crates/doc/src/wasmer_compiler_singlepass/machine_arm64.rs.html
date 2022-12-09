@@ -8362,6 +8362,18 @@
 <span id="8356">8356</span>
 <span id="8357">8357</span>
 <span id="8358">8358</span>
+<span id="8359">8359</span>
+<span id="8360">8360</span>
+<span id="8361">8361</span>
+<span id="8362">8362</span>
+<span id="8363">8363</span>
+<span id="8364">8364</span>
+<span id="8365">8365</span>
+<span id="8366">8366</span>
+<span id="8367">8367</span>
+<span id="8368">8368</span>
+<span id="8369">8369</span>
+<span id="8370">8370</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::arm64_decl::new_machine_state</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::arm64_decl</span>::{<span class="ident">GPR</span>, <span class="ident">NEON</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::codegen_error</span>;
@@ -10124,16 +10136,26 @@
                 .<span class="ident">emit_stur</span>(<span class="ident">Size::S64</span>, <span class="ident">location</span>, <span class="ident">GPR::X29</span>, <span class="op">-</span><span class="ident">stack_offset</span>)<span class="question-mark">?</span>;
         } <span class="kw">else</span> {
             <span class="kw">let</span> <span class="ident">tmp</span> <span class="op">=</span> <span class="ident">GPR::X17</span>;
-            <span class="self">self</span>.<span class="ident">assembler</span>
-                .<span class="ident">emit_mov_imm</span>(<span class="ident">Location::GPR</span>(<span class="ident">tmp</span>), (<span class="ident">stack_offset</span> <span class="kw">as</span> <span class="ident">i64</span>) <span class="kw">as</span> <span class="ident">u64</span>)<span class="question-mark">?</span>;
-            <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_sub</span>(
-                <span class="ident">Size::S64</span>,
-                <span class="ident">Location::GPR</span>(<span class="ident">GPR::X29</span>),
-                <span class="ident">Location::GPR</span>(<span class="ident">tmp</span>),
-                <span class="ident">Location::GPR</span>(<span class="ident">tmp</span>),
-            )<span class="question-mark">?</span>;
-            <span class="self">self</span>.<span class="ident">assembler</span>
-                .<span class="ident">emit_str</span>(<span class="ident">Size::S64</span>, <span class="ident">location</span>, <span class="ident">Location::GPR</span>(<span class="ident">tmp</span>))<span class="question-mark">?</span>;
+            <span class="kw">if</span> <span class="ident">stack_offset</span> <span class="op">&lt;</span> <span class="number">0x1_0000</span> {
+                <span class="self">self</span>.<span class="ident">assembler</span>
+                    .<span class="ident">emit_mov_imm</span>(<span class="ident">Location::GPR</span>(<span class="ident">tmp</span>), (<span class="op">-</span><span class="ident">stack_offset</span> <span class="kw">as</span> <span class="ident">i64</span>) <span class="kw">as</span> <span class="ident">u64</span>)<span class="question-mark">?</span>;
+                <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_str</span>(
+                    <span class="ident">Size::S64</span>,
+                    <span class="ident">location</span>,
+                    <span class="ident">Location::Memory2</span>(<span class="ident">GPR::X29</span>, <span class="ident">tmp</span>, <span class="ident">Multiplier::One</span>, <span class="number">0</span>),
+                )<span class="question-mark">?</span>;
+            } <span class="kw">else</span> {
+                <span class="self">self</span>.<span class="ident">assembler</span>
+                    .<span class="ident">emit_mov_imm</span>(<span class="ident">Location::GPR</span>(<span class="ident">tmp</span>), (<span class="ident">stack_offset</span> <span class="kw">as</span> <span class="ident">i64</span>) <span class="kw">as</span> <span class="ident">u64</span>)<span class="question-mark">?</span>;
+                <span class="self">self</span>.<span class="ident">assembler</span>.<span class="ident">emit_sub</span>(
+                    <span class="ident">Size::S64</span>,
+                    <span class="ident">Location::GPR</span>(<span class="ident">GPR::X29</span>),
+                    <span class="ident">Location::GPR</span>(<span class="ident">tmp</span>),
+                    <span class="ident">Location::GPR</span>(<span class="ident">tmp</span>),
+                )<span class="question-mark">?</span>;
+                <span class="self">self</span>.<span class="ident">assembler</span>
+                    .<span class="ident">emit_str</span>(<span class="ident">Size::S64</span>, <span class="ident">location</span>, <span class="ident">Location::GPR</span>(<span class="ident">tmp</span>))<span class="question-mark">?</span>;
+            }
         }
         <span class="kw">match</span> <span class="ident">location</span> {
             <span class="ident">Location::GPR</span>(<span class="ident">x</span>) =&gt; <span class="self">self</span>.<span class="ident">emit_unwind_op</span>(<span class="ident">UnwindOps::SaveRegister</span> {
@@ -10173,18 +10195,19 @@
                 <span class="number">6</span> =&gt; <span class="ident">Location::GPR</span>(<span class="ident">GPR::X6</span>),
                 <span class="number">7</span> =&gt; <span class="ident">Location::GPR</span>(<span class="ident">GPR::X7</span>),
                 <span class="kw">_</span> =&gt; {
-                    <span class="kw">let</span> <span class="ident">sz</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">sz</span> {
-                        <span class="ident">Size::S8</span> =&gt; <span class="number">0</span>,
-                        <span class="ident">Size::S16</span> =&gt; <span class="number">1</span>,
-                        <span class="ident">Size::S32</span> =&gt; <span class="number">2</span>,
-                        <span class="ident">Size::S64</span> =&gt; <span class="number">3</span>,
-                    };
+                    <span class="kw">let</span> <span class="ident">sz</span> <span class="op">=</span> <span class="number">1</span>
+                        <span class="op">&lt;</span><span class="op">&lt;</span> <span class="kw">match</span> <span class="ident">sz</span> {
+                            <span class="ident">Size::S8</span> =&gt; <span class="number">0</span>,
+                            <span class="ident">Size::S16</span> =&gt; <span class="number">1</span>,
+                            <span class="ident">Size::S32</span> =&gt; <span class="number">2</span>,
+                            <span class="ident">Size::S64</span> =&gt; <span class="number">3</span>,
+                        };
                     <span class="comment">// align first</span>
-                    <span class="kw">if</span> <span class="ident">sz</span> <span class="op">&gt;</span> <span class="number">1</span> <span class="op">&amp;&amp;</span> <span class="kw-2">*</span><span class="ident">stack_args</span> <span class="op">&amp;</span> <span class="op">!</span>((<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">sz</span>) <span class="op">-</span> <span class="number">1</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-                        <span class="kw-2">*</span><span class="ident">stack_args</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">stack_args</span> <span class="op">+</span> ((<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">sz</span>) <span class="op">-</span> <span class="number">1</span>)) <span class="op">&amp;</span> <span class="op">!</span>((<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">sz</span>) <span class="op">-</span> <span class="number">1</span>);
+                    <span class="kw">if</span> <span class="ident">sz</span> <span class="op">&gt;</span> <span class="number">1</span> <span class="op">&amp;&amp;</span> <span class="kw-2">*</span><span class="ident">stack_args</span> <span class="op">&amp;</span> (<span class="ident">sz</span> <span class="op">-</span> <span class="number">1</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+                        <span class="kw-2">*</span><span class="ident">stack_args</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">stack_args</span> <span class="op">+</span> (<span class="ident">sz</span> <span class="op">-</span> <span class="number">1</span>)) <span class="op">&amp;</span> <span class="op">!</span>(<span class="ident">sz</span> <span class="op">-</span> <span class="number">1</span>);
                     }
                     <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::XzrSp</span>, <span class="kw-2">*</span><span class="ident">stack_args</span> <span class="kw">as</span> <span class="ident">i32</span>);
-                    <span class="kw-2">*</span><span class="ident">stack_args</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">sz</span>;
+                    <span class="kw-2">*</span><span class="ident">stack_args</span> <span class="op">+</span><span class="op">=</span> <span class="ident">sz</span>;
                     <span class="ident">loc</span>
                 }
             },
@@ -10224,18 +10247,19 @@
                 <span class="number">6</span> =&gt; <span class="ident">Location::GPR</span>(<span class="ident">GPR::X6</span>),
                 <span class="number">7</span> =&gt; <span class="ident">Location::GPR</span>(<span class="ident">GPR::X7</span>),
                 <span class="kw">_</span> =&gt; {
-                    <span class="kw">let</span> <span class="ident">sz</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">sz</span> {
-                        <span class="ident">Size::S8</span> =&gt; <span class="number">0</span>,
-                        <span class="ident">Size::S16</span> =&gt; <span class="number">1</span>,
-                        <span class="ident">Size::S32</span> =&gt; <span class="number">2</span>,
-                        <span class="ident">Size::S64</span> =&gt; <span class="number">3</span>,
-                    };
+                    <span class="kw">let</span> <span class="ident">sz</span> <span class="op">=</span> <span class="number">1</span>
+                        <span class="op">&lt;</span><span class="op">&lt;</span> <span class="kw">match</span> <span class="ident">sz</span> {
+                            <span class="ident">Size::S8</span> =&gt; <span class="number">0</span>,
+                            <span class="ident">Size::S16</span> =&gt; <span class="number">1</span>,
+                            <span class="ident">Size::S32</span> =&gt; <span class="number">2</span>,
+                            <span class="ident">Size::S64</span> =&gt; <span class="number">3</span>,
+                        };
                     <span class="comment">// align first</span>
-                    <span class="kw">if</span> <span class="ident">sz</span> <span class="op">&gt;</span> <span class="number">1</span> <span class="op">&amp;&amp;</span> <span class="kw-2">*</span><span class="ident">stack_args</span> <span class="op">&amp;</span> <span class="op">!</span>((<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">sz</span>) <span class="op">-</span> <span class="number">1</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-                        <span class="kw-2">*</span><span class="ident">stack_args</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">stack_args</span> <span class="op">+</span> ((<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">sz</span>) <span class="op">-</span> <span class="number">1</span>)) <span class="op">&amp;</span> <span class="op">!</span>((<span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">sz</span>) <span class="op">-</span> <span class="number">1</span>);
+                    <span class="kw">if</span> <span class="ident">sz</span> <span class="op">&gt;</span> <span class="number">1</span> <span class="op">&amp;&amp;</span> <span class="kw-2">*</span><span class="ident">stack_args</span> <span class="op">&amp;</span> (<span class="ident">sz</span> <span class="op">-</span> <span class="number">1</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+                        <span class="kw-2">*</span><span class="ident">stack_args</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">stack_args</span> <span class="op">+</span> (<span class="ident">sz</span> <span class="op">-</span> <span class="number">1</span>)) <span class="op">&amp;</span> <span class="op">!</span>(<span class="ident">sz</span> <span class="op">-</span> <span class="number">1</span>);
                     }
                     <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="ident">Location::Memory</span>(<span class="ident">GPR::X29</span>, <span class="number">16</span> <span class="op">*</span> <span class="number">2</span> <span class="op">+</span> <span class="kw-2">*</span><span class="ident">stack_args</span> <span class="kw">as</span> <span class="ident">i32</span>);
-                    <span class="kw-2">*</span><span class="ident">stack_args</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span> <span class="op">&lt;</span><span class="op">&lt;</span> <span class="ident">sz</span>;
+                    <span class="kw-2">*</span><span class="ident">stack_args</span> <span class="op">+</span><span class="op">=</span> <span class="ident">sz</span>;
                     <span class="ident">loc</span>
                 }
             },
