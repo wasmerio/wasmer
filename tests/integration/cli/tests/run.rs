@@ -408,7 +408,7 @@ fn test_wasmer_run_works_with_dir() -> anyhow::Result<()> {
 #[test]
 fn test_wasmer_run_works() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
-        .arg("registry.wapm.io/python/python")
+        .arg("https://wapm.io/python/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("test.py")
         .output()?;
@@ -428,7 +428,7 @@ fn test_wasmer_run_works() -> anyhow::Result<()> {
     // same test again, but this time with "wasmer run ..."
     let output = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("registry.wapm.io/python/python")
+        .arg("https://wapm.io/python/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("test.py")
         .output()?;
@@ -468,7 +468,7 @@ fn test_wasmer_run_works() -> anyhow::Result<()> {
     // same test again, but this time with only the command "python" (should be looked up locally)
     let output = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("python")
+        .arg("_/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("test.py")
         .output()?;
