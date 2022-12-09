@@ -1111,7 +1111,7 @@ jobs:
           artifacts: |
             ~/.cargo/*
             ./target/*
-        endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
 
   test_wasmer_stage_5: 
     name: Test Wasmer Stage 5 on ${{ matrix.build }}
