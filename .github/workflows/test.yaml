@@ -882,7 +882,7 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
-       - name: Test
+      - name: Test
         run: |
           make test-stage-2
         env:
