@@ -3933,9 +3933,9 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-gen-rust-wasm"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "757fbff15d11d0578ee879cea209b111bd09f8b39346c7b212a7e7f52585d2f7"
+checksum = "ab8850eeef5405252a368086f0b3e0eefef4ed47666f37ff9a321ecdcfc96376"
 dependencies = [
  "heck 0.3.3",
  "wai-bindgen-gen-core",
@@ -3955,19 +3955,20 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-rust"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90e6c91f681f714599326252f4ae8b9897293110055d25c576fa09ffb01661cd"
+checksum = "de0eef889bfee6c2d1f21304b5e8c5786629827ae4f26c44e24d0e0ded80f6cd"
 dependencies = [
+ "async-trait",
  "bitflags",
  "wai-bindgen-rust-impl",
 ]
 
 [[package]]
 name = "wai-bindgen-rust-impl"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb36c407339837a5e1fcd9b41641fbe36488fc53ab0664add14d5f7105f6fbbb"
+checksum = "6d3c00bda01d3cf02e9a0a6c7e6b738a6da5cbdefa92f979486f7968b74f290d"
 dependencies = [
  "proc-macro2",
  "syn",
@@ -3985,8 +3986,9 @@ dependencies = [
  "bitflags",
  "once_cell",
  "thiserror",
+ "tracing",
  "wai-bindgen-wasmer-impl",
- "wasmer 3.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer",
 ]
 
 [[package]]
@@ -4083,6 +4085,15 @@ dependencies = [
  "serde_json",
  "tempfile",
  "wast 24.0.0",
+]
+
+[[package]]
+name = "wasix"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "http",
+ "wai-bindgen-rust",
 ]
 
 [[package]]
@@ -4226,39 +4237,14 @@ dependencies = [
  "tracing",
  "wasm-bindgen",
  "wasm-bindgen-test",
- "wasmer-compiler 3.0.2",
- "wasmer-compiler-cranelift 3.0.2",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-derive 3.0.2",
- "wasmer-types 3.0.2",
- "wasmer-vm 3.0.2",
+ "wasmer-derive",
+ "wasmer-types",
+ "wasmer-vm",
  "wasmparser 0.83.0",
- "wat",
- "winapi",
-]
-
-[[package]]
-name = "wasmer"
-version = "3.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4927f95d9f17b9a3b123c99ca9d9d45952a7df1b97826545212d9517e1c54ec3"
-dependencies = [
- "bytes",
- "cfg-if 1.0.0",
- "indexmap",
- "js-sys",
- "more-asserts",
- "serde",
- "serde-wasm-bindgen",
- "target-lexicon 0.12.5",
- "thiserror",
- "wasm-bindgen",
- "wasmer-compiler 3.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-compiler-cranelift 3.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-derive 3.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-types 3.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-vm 3.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "wat",
  "winapi",
 ]
@@ -4270,9 +4256,9 @@ dependencies = [
  "anyhow",
  "libfuzzer-sys",
  "wasm-smith",
- "wasmer 3.0.2",
- "wasmer-compiler 3.0.2",
- "wasmer-compiler-cranelift 3.0.2",
+ "wasmer",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-middlewares",
@@ -4293,15 +4279,15 @@ dependencies = [
  "paste",
  "thiserror",
  "typetag",
- "wasmer 3.0.2",
- "wasmer-compiler 3.0.2",
- "wasmer-compiler-cranelift 3.0.2",
+ "wasmer",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-inline-c",
  "wasmer-middlewares",
- "wasmer-types 3.0.2",
+ "wasmer-types",
  "wasmer-vfs",
  "wasmer-wasi",
  "webc",
@@ -4327,7 +4313,7 @@ dependencies = [
  "rand 0.8.5",
  "tempfile",
  "thiserror",
- "wasmer 3.0.2",
+ "wasmer",
  "wasmer-compiler-singlepass",
 ]
 
@@ -4376,18 +4362,18 @@ dependencies = [
  "url",
  "walkdir",
  "wapm-toml",
- "wasmer 3.0.2",
+ "wasmer",
  "wasmer-cache",
- "wasmer-compiler 3.0.2",
- "wasmer-compiler-cranelift 3.0.2",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-object",
  "wasmer-registry",
- "wasmer-types 3.0.2",
+ "wasmer-types",
  "wasmer-vfs",
- "wasmer-vm 3.0.2",
+ "wasmer-vm",
  "wasmer-wasi",
  "wasmer-wasi-experimental-io-devices",
  "wasmer-wast",
@@ -4414,32 +4400,8 @@ dependencies = [
  "smallvec",
  "thiserror",
  "wasmer-object",
- "wasmer-types 3.0.2",
- "wasmer-vm 3.0.2",
- "wasmparser 0.83.0",
- "winapi",
-]
-
-[[package]]
-name = "wasmer-compiler"
-version = "3.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50749ff89787ebce029e83b77cfb1585c1eb67ff7cb34aaa7ba64ebeb2b474f2"
-dependencies = [
- "backtrace",
- "cfg-if 1.0.0",
- "enum-iterator",
- "enumset",
- "lazy_static",
- "leb128",
- "memmap2",
- "more-asserts",
- "region",
- "rustc-demangle",
- "smallvec",
- "thiserror",
- "wasmer-types 3.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-vm 3.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-types",
+ "wasmer-vm",
  "wasmparser 0.83.0",
  "winapi",
 ]
@@ -4460,10 +4422,10 @@ dependencies = [
  "target-lexicon 0.12.5",
  "tempfile",
  "unix_mode",
- "wasmer-compiler 3.0.2",
- "wasmer-compiler-cranelift 3.0.2",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-singlepass",
- "wasmer-types 3.0.2",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -4481,27 +4443,8 @@ dependencies = [
  "smallvec",
  "target-lexicon 0.12.5",
  "tracing",
- "wasmer-compiler 3.0.2",
- "wasmer-types 3.0.2",
-]
-
-[[package]]
-name = "wasmer-compiler-cranelift"
-version = "3.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "009219b2cb6e5e7f398249d16293940a21f16536f3831ce1a140e503ccab76e5"
-dependencies = [
- "cranelift-codegen",
- "cranelift-entity",
- "cranelift-frontend",
- "gimli",
- "more-asserts",
- "rayon",
- "smallvec",
- "target-lexicon 0.12.5",
- "tracing",
- "wasmer-compiler 3.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-types 3.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-compiler",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -4521,9 +4464,9 @@ dependencies = [
  "semver 1.0.14",
  "smallvec",
  "target-lexicon 0.12.5",
- "wasmer-compiler 3.0.2",
- "wasmer-types 3.0.2",
- "wasmer-vm 3.0.2",
+ "wasmer-compiler",
+ "wasmer-types",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -4541,8 +4484,8 @@ dependencies = [
  "rayon",
  "smallvec",
  "target-lexicon 0.12.5",
- "wasmer-compiler 3.0.2",
- "wasmer-types 3.0.2",
+ "wasmer-compiler",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -4554,19 +4497,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
- "wasmer 3.0.2",
-]
-
-[[package]]
-name = "wasmer-derive"
-version = "3.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d19406a021b637c2d46d202a96f15d7d27b2762af7aeeb2ebcb5896b329ab313"
-dependencies = [
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn",
+ "wasmer",
 ]
 
 [[package]]
@@ -4579,8 +4510,8 @@ dependencies = [
  "libc",
  "log",
  "time",
- "wasmer 3.0.2",
- "wasmer-types 3.0.2",
+ "wasmer",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -4635,9 +4566,9 @@ version = "3.0.2"
 name = "wasmer-middlewares"
 version = "3.0.2"
 dependencies = [
- "wasmer 3.0.2",
- "wasmer-types 3.0.2",
- "wasmer-vm 3.0.2",
+ "wasmer",
+ "wasmer-types",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -4646,7 +4577,7 @@ version = "3.0.2"
 dependencies = [
  "object 0.28.4",
  "thiserror",
- "wasmer-types 3.0.2",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -4694,21 +4625,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-types"
-version = "3.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3bfa18d5568dec7df1bc92023bee9adcb135a2d59288e080788add89705262b4"
-dependencies = [
- "enum-iterator",
- "enumset",
- "indexmap",
- "more-asserts",
- "rkyv",
- "target-lexicon 0.12.5",
- "thiserror",
-]
-
-[[package]]
 name = "wasmer-vbus"
 version = "3.0.2"
 dependencies = [
@@ -4717,7 +4633,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "typetag",
- "wasmer 3.0.2",
+ "wasmer",
  "wasmer-vfs",
  "wasmer-wasi-types",
 ]
@@ -4740,7 +4656,7 @@ dependencies = [
  "tokio",
  "tracing",
  "typetag",
- "wasmer-types 3.0.2",
+ "wasmer-types",
  "wasmer-wasi-types",
  "webc",
 ]
@@ -4766,31 +4682,7 @@ dependencies = [
  "serde",
  "thiserror",
  "tracing",
- "wasmer-types 3.0.2",
- "winapi",
-]
-
-[[package]]
-name = "wasmer-vm"
-version = "3.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e2ab5dbf2886cf842f1edfde10d8cbeb687fe2f27a5f7b23b5058bed1696441"
-dependencies = [
- "backtrace",
- "cc",
- "cfg-if 1.0.0",
- "corosensei",
- "enum-iterator",
- "indexmap",
- "lazy_static",
- "libc",
- "mach",
- "memoffset",
- "more-asserts",
- "region",
- "scopeguard",
- "thiserror",
- "wasmer-types 3.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-types",
  "winapi",
 ]
 
@@ -4844,13 +4736,13 @@ dependencies = [
  "waker-fn",
  "wasm-bindgen",
  "wasm-bindgen-test",
- "wasmer 3.0.2",
- "wasmer-compiler 3.0.2",
- "wasmer-compiler-cranelift 3.0.2",
+ "wasmer",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
- "wasmer-types 3.0.2",
+ "wasmer-types",
  "wasmer-vbus",
  "wasmer-vfs",
  "wasmer-vnet",
@@ -4890,6 +4782,7 @@ dependencies = [
 name = "wasmer-wasi-types"
 version = "3.0.2"
 dependencies = [
+ "anyhow",
  "bitflags",
  "byteorder",
  "cfg-if 1.0.0",
@@ -4903,9 +4796,9 @@ dependencies = [
  "wai-bindgen-rust",
  "wai-bindgen-wasmer",
  "wai-parser",
- "wasmer 3.0.2",
- "wasmer-derive 3.0.2",
- "wasmer-types 3.0.2",
+ "wasmer",
+ "wasmer-derive",
+ "wasmer-types",
 ]
 
 [[package]]
@@ -4917,7 +4810,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
- "wasmer 3.0.2",
+ "wasmer",
  "wasmer-vfs",
  "wasmer-wasi",
  "wast 38.0.1",
@@ -4942,15 +4835,15 @@ dependencies = [
  "tracing",
  "tracing-subscriber 0.3.16",
  "wasi-test-generator",
- "wasmer 3.0.2",
+ "wasmer",
  "wasmer-cache",
- "wasmer-compiler 3.0.2",
- "wasmer-compiler-cranelift 3.0.2",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-middlewares",
- "wasmer-types 3.0.2",
+ "wasmer-types",
  "wasmer-wasi",
  "wasmer-wast",
 ]

@@ -6,9 +6,9 @@ use std::time::Duration;
 use tracing::{debug, info, metadata::LevelFilter};
 #[cfg(feature = "sys")]
 use tracing_subscriber::fmt::SubscriberBuilder;
-use wasmer::{Features, Instance, Module, Store};
+use wasmer::{Features, Module, Store};
 use wasmer_vfs::AsyncReadExt;
-use wasmer_wasi::{import_object_for_all_wasi_versions, Pipe, WasiError, WasiState};
+use wasmer_wasi::{Pipe, WasiError, WasiState};
 
 // TODO: make it work on JS.
 #[cfg(feature = "sys")]
@@ -86,13 +86,7 @@ async fn run_test(mut store: Store, module: Module) {
         }
     });
 
-    // Generate an `ImportObject`.
-    let mut import_object = import_object_for_all_wasi_versions(&mut store, &wasi_env.env);
-    import_object.import_shared_memory(&module, &mut store);
-
-    // Let's instantiate the module with the imports.
-    let instance = Instance::new(&mut store, &module, &import_object).unwrap();
-    wasi_env.initialize(&mut store, &instance).unwrap();
+    let instance = wasmer_wasi::build_wasi_instance(&module, &mut wasi_env, &mut store).unwrap();
 
     // Let's call the `_start` function, which is our `main` function in Rust.
     let start = instance.exports.get_function("_start").unwrap();

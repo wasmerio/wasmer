@@ -76,7 +76,8 @@ pub fn thread_spawn<M: MemorySize>(
                 env.stack_start = stack_start;
             }
 
-            let mut import_object = import_object_for_all_wasi_versions(&mut store, &ctx.env);
+            let (mut import_object, init) =
+                import_object_for_all_wasi_versions(&mut store, &ctx.env);
             import_object.define("env", "memory", memory.clone());
 
             let instance = match Instance::new(&mut store, &module, &import_object) {
@@ -86,6 +87,8 @@ pub fn thread_spawn<M: MemorySize>(
                     return Err(Errno::Noexec as u32);
                 }
             };
+
+            init(&instance, &store).unwrap();
 
             // Set the current thread ID
             ctx.data_mut(&mut store).inner =

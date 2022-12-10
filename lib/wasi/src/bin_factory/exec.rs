@@ -114,7 +114,7 @@ pub fn spawn_exec_module(
                     let mut wasi_env = WasiFunctionEnv::new(&mut store, wasi_env);
 
                     // Let's instantiate the module with the imports.
-                    let mut import_object =
+                    let (mut import_object, init) =
                         import_object_for_all_wasi_versions(&mut store, &wasi_env.env);
                     if let Some(memory) = memory {
                         import_object.define(
@@ -133,6 +133,8 @@ pub fn spawn_exec_module(
                             return;
                         }
                     };
+
+                    init(&instance, &store).unwrap();
 
                     // Initialize the WASI environment
                     if let Err(err) = wasi_env.initialize(&mut store, &instance) {

@@ -329,58 +329,7 @@ impl WasiFs {
         }
         true
     }
-}
 
-/// Returns the default filesystem backing
-pub fn default_fs_backing() -> Box<dyn wasmer_vfs::FileSystem + Send + Sync> {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "host-fs")] {
-            Box::new(wasmer_vfs::host_fs::FileSystem::default())
-        } else if #[cfg(not(feature = "host-fs"))] {
-            Box::new(wasmer_vfs::mem_fs::FileSystem::default())
-        } else {
-            Box::new(FallbackFileSystem::default())
-        }
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct FallbackFileSystem;
-
-impl FallbackFileSystem {
-    fn fail() -> ! {
-        panic!("No filesystem set for wasmer-wasi, please enable either the `host-fs` or `mem-fs` feature or set your custom filesystem with `WasiStateBuilder::set_fs`");
-    }
-}
-
-impl FileSystem for FallbackFileSystem {
-    fn read_dir(&self, _path: &Path) -> Result<wasmer_vfs::ReadDir, FsError> {
-        Self::fail();
-    }
-    fn create_dir(&self, _path: &Path) -> Result<(), FsError> {
-        Self::fail();
-    }
-    fn remove_dir(&self, _path: &Path) -> Result<(), FsError> {
-        Self::fail();
-    }
-    fn rename(&self, _from: &Path, _to: &Path) -> Result<(), FsError> {
-        Self::fail();
-    }
-    fn metadata(&self, _path: &Path) -> Result<wasmer_vfs::Metadata, FsError> {
-        Self::fail();
-    }
-    fn symlink_metadata(&self, _path: &Path) -> Result<wasmer_vfs::Metadata, FsError> {
-        Self::fail();
-    }
-    fn remove_file(&self, _path: &Path) -> Result<(), FsError> {
-        Self::fail();
-    }
-    fn new_open_options(&self) -> wasmer_vfs::OpenOptions {
-        Self::fail();
-    }
-}
-
-impl WasiFs {
     /// Created for the builder API. like `new` but with more information
     pub(crate) fn new_with_preopen(
         inodes: &mut WasiInodes,
@@ -1802,6 +1751,55 @@ impl WasiFs {
         }
 
         Ok(())
+    }
+}
+
+/// Returns the default filesystem backing
+pub fn default_fs_backing() -> Box<dyn wasmer_vfs::FileSystem + Send + Sync> {
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "host-fs")] {
+            Box::new(wasmer_vfs::host_fs::FileSystem::default())
+        } else if #[cfg(not(feature = "host-fs"))] {
+            Box::new(wasmer_vfs::mem_fs::FileSystem::default())
+        } else {
+            Box::new(FallbackFileSystem::default())
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct FallbackFileSystem;
+
+impl FallbackFileSystem {
+    fn fail() -> ! {
+        panic!("No filesystem set for wasmer-wasi, please enable either the `host-fs` or `mem-fs` feature or set your custom filesystem with `WasiStateBuilder::set_fs`");
+    }
+}
+
+impl FileSystem for FallbackFileSystem {
+    fn read_dir(&self, _path: &Path) -> Result<wasmer_vfs::ReadDir, FsError> {
+        Self::fail();
+    }
+    fn create_dir(&self, _path: &Path) -> Result<(), FsError> {
+        Self::fail();
+    }
+    fn remove_dir(&self, _path: &Path) -> Result<(), FsError> {
+        Self::fail();
+    }
+    fn rename(&self, _from: &Path, _to: &Path) -> Result<(), FsError> {
+        Self::fail();
+    }
+    fn metadata(&self, _path: &Path) -> Result<wasmer_vfs::Metadata, FsError> {
+        Self::fail();
+    }
+    fn symlink_metadata(&self, _path: &Path) -> Result<wasmer_vfs::Metadata, FsError> {
+        Self::fail();
+    }
+    fn remove_file(&self, _path: &Path) -> Result<(), FsError> {
+        Self::fail();
+    }
+    fn new_open_options(&self) -> wasmer_vfs::OpenOptions {
+        Self::fail();
     }
 }
 

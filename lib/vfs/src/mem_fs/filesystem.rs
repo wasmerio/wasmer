@@ -1260,8 +1260,6 @@ mod test_filesystem {
         {
             let fs_inner = fs.inner.read().unwrap();
 
-            dbg!(&fs_inner);
-
             assert_eq!(
                 fs_inner.storage.len(),
                 6,

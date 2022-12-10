@@ -209,7 +209,7 @@ pub struct WasiEnv {
     /// Implementation of the WASI runtime.
     pub runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
     /// Task manager used to spawn threads and manage the ASYNC runtime
-    pub tasks: Arc<dyn VirtualTaskManager + Send + Sync + 'static>,
+    pub tasks: Arc<dyn VirtualTaskManager>,
 }
 
 // FIXME: remove unsafe impls!
