@@ -5,10 +5,6 @@ edition = "2021"
 license = "MIT"
 description = "Generator for wasi-types"
 
-[[bin]]
-name = "generate"
-path = "./generate.rs"
-
 [workspace]
 
 [dependencies]
