@@ -126,6 +126,9 @@ const WASIX_32V1_NAMESPACE: &str = "wasix_32v1";
 /// Namespace for the `wasix` version.
 const WASIX_64V1_NAMESPACE: &str = "wasix_64v1";
 
+/// Namespace for the `wasix` version.
+const WASIX_HTTP_V1_NAMESPACE: &str = "wasix_http_client_v1";
+
 /// Detect the version of WASI being used based on the import
 /// namespaces.
 ///
@@ -183,6 +186,9 @@ pub fn get_wasi_versions(module: &Module, strict: bool) -> Option<BTreeSet<WasiV
                 out.insert(WasiVersion::Wasix32v1);
             }
             WASIX_64V1_NAMESPACE => {
+                out.insert(WasiVersion::Wasix64v1);
+            }
+            WASIX_HTTP_V1_NAMESPACE => {
                 out.insert(WasiVersion::Wasix64v1);
             }
             _ => {

@@ -75,7 +75,7 @@ where
     fn networking(&self) -> DynVirtualNetworking;
 
     /// Create a new task management runtime
-    fn new_task_manager(&self) -> Arc<dyn VirtualTaskManager + Send + Sync + 'static> {
+    fn new_task_manager(&self) -> Arc<dyn VirtualTaskManager> {
         // FIXME: move this to separate thread implementors.
         cfg_if::cfg_if! {
             if #[cfg(feature = "sys-thread")] {

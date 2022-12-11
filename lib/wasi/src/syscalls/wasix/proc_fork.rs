@@ -180,7 +180,7 @@ pub fn proc_fork<M: MemorySize>(
                     let mut ctx = WasiFunctionEnv::new(&mut store, child_env);
 
                     // Let's instantiate the module with the imports.
-                    let mut import_object = import_object_for_all_wasi_versions(&mut store, &ctx.env);
+                    let (mut import_object, init) = import_object_for_all_wasi_versions(&mut store, &ctx.env);
                     let memory = if let Some(memory) = memory {
                         let memory = Memory::new_from_existing(&mut store, memory);
                         import_object.define("env", "memory", memory.clone());
@@ -196,6 +196,8 @@ pub fn proc_fork<M: MemorySize>(
                             return;
                         }
                     };
+
+                    init(&instance, &store).unwrap();
 
                     // Set the current thread ID
                     ctx.data_mut(&mut store).inner = Some(

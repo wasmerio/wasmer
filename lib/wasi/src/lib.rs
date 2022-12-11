@@ -46,6 +46,9 @@ mod tty_file;
 mod utils;
 pub mod wapm;
 
+/// WAI based bindings.
+mod bindings;
+
 use std::sync::Arc;
 use std::{
     cell::RefCell,
@@ -586,20 +589,50 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
     namespace
 }
 
-pub fn import_object_for_all_wasi_versions(
+pub type InstanceInitializer =
+    Box<dyn FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>>;
+
+fn import_object_for_all_wasi_versions(
     store: &mut impl AsStoreMut,
     env: &FunctionEnv<WasiEnv>,
-) -> Imports {
+) -> (
+    Imports,
+    impl FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>,
+) {
     let exports_wasi_unstable = wasi_unstable_exports(store, env);
     let exports_wasi_snapshot_preview1 = wasi_snapshot_preview1_exports(store, env);
     let exports_wasix_32v1 = wasix_exports_32(store, env);
     let exports_wasix_64v1 = wasix_exports_64(store, env);
-    imports! {
+
+    let mut imports = imports! {
         "wasi_unstable" => exports_wasi_unstable,
         "wasi_snapshot_preview1" => exports_wasi_snapshot_preview1,
         "wasix_32v1" => exports_wasix_32v1,
         "wasix_64v1" => exports_wasix_64v1,
-    }
+    };
+
+    let wenv = { env.as_ref(store).clone() };
+    let http = crate::bindings::http::WasixHttpClientImpl::new(wenv);
+    // TODO: should this be optional, only if the module needs it?
+    let init =
+        wasmer_wasi_types::wasix::wasix_http_client_v1::add_to_imports(store, &mut imports, http);
+
+    (imports, init)
+}
+
+pub fn build_wasi_instance(
+    module: &wasmer::Module,
+    env: &mut WasiFunctionEnv,
+    store: &mut impl AsStoreMut,
+) -> Result<wasmer::Instance, anyhow::Error> {
+    let (mut import_object, init) = import_object_for_all_wasi_versions(store, &env.env);
+    import_object.import_shared_memory(module, store);
+
+    let instance = wasmer::Instance::new(store, module, &import_object)?;
+    init(&instance, &store)?;
+    env.initialize(store, &instance)?;
+
+    Ok(instance)
 }
 
 /// Combines a state generating function with the import list for legacy WASI
