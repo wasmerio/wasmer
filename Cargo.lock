@@ -3913,9 +3913,9 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
 name = "wai-bindgen-gen-core"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd16a4dc5fb71faaa3d21530a1d004b7fc88f0bf70cda6f5c4099220254d947b"
+checksum = "c43a21791697e899140bb82c27db1fac26ad28ef60eddca55f05e5ca365a6e4c"
 dependencies = [
  "anyhow",
  "wai-parser",
@@ -3923,9 +3923,9 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-gen-rust"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17625f823712dd6eff5656b4308842b7aeac9eca429f6eea36443d4305cadf7d"
+checksum = "dd86fcd3046f63882137f46723c643b7cc33ea4c739c0f9999c6bd76f4ae21f2"
 dependencies = [
  "heck 0.3.3",
  "wai-bindgen-gen-core",
@@ -3933,9 +3933,20 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-gen-rust-wasm"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "757fbff15d11d0578ee879cea209b111bd09f8b39346c7b212a7e7f52585d2f7"
+checksum = "ab8850eeef5405252a368086f0b3e0eefef4ed47666f37ff9a321ecdcfc96376"
+dependencies = [
+ "heck 0.3.3",
+ "wai-bindgen-gen-core",
+ "wai-bindgen-gen-rust",
+]
+
+[[package]]
+name = "wai-bindgen-gen-wasmer"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34f3b3d04d56cc09616cf8daab90b5601e0e894509f34c81a3829aab03f2b457"
 dependencies = [
  "heck 0.3.3",
  "wai-bindgen-gen-core",
@@ -3944,19 +3955,20 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-rust"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90e6c91f681f714599326252f4ae8b9897293110055d25c576fa09ffb01661cd"
+checksum = "de0eef889bfee6c2d1f21304b5e8c5786629827ae4f26c44e24d0e0ded80f6cd"
 dependencies = [
+ "async-trait",
  "bitflags",
  "wai-bindgen-rust-impl",
 ]
 
 [[package]]
 name = "wai-bindgen-rust-impl"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb36c407339837a5e1fcd9b41641fbe36488fc53ab0664add14d5f7105f6fbbb"
+checksum = "6d3c00bda01d3cf02e9a0a6c7e6b738a6da5cbdefa92f979486f7968b74f290d"
 dependencies = [
  "proc-macro2",
  "syn",
@@ -3965,10 +3977,37 @@ dependencies = [
 ]
 
 [[package]]
-name = "wai-parser"
-version = "0.2.1"
+name = "wai-bindgen-wasmer"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a24cfad91494925ba41c6a03bd7d092eb3c3cdbccf4ef680b06831030bd7a69"
+checksum = "b69eca47105340af3e4dc5ba47951a23534d7139a62b12550cc6702a5cb6ab70"
+dependencies = [
+ "anyhow",
+ "bitflags",
+ "once_cell",
+ "thiserror",
+ "tracing",
+ "wai-bindgen-wasmer-impl",
+ "wasmer",
+]
+
+[[package]]
+name = "wai-bindgen-wasmer-impl"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "faaf3a72820d1708185cdd26eafe034e3f88d740bae27b5d852379d242d9ff68"
+dependencies = [
+ "proc-macro2",
+ "syn",
+ "wai-bindgen-gen-core",
+ "wai-bindgen-gen-wasmer",
+]
+
+[[package]]
+name = "wai-parser"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2811f0b0c8883f92b9c616b6c38a1b462dc37d04cfc700be60e4990497ed1f7d"
 dependencies = [
  "anyhow",
  "id-arena",
@@ -4046,6 +4085,15 @@ dependencies = [
  "serde_json",
  "tempfile",
  "wast 24.0.0",
+]
+
+[[package]]
+name = "wasix_http_client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "http",
+ "wai-bindgen-rust",
 ]
 
 [[package]]
@@ -4664,6 +4712,7 @@ dependencies = [
  "generational-arena",
  "getrandom",
  "hex",
+ "http",
  "lazy_static",
  "libc",
  "linked_hash_set",
@@ -4734,6 +4783,7 @@ dependencies = [
 name = "wasmer-wasi-types"
 version = "3.0.2"
 dependencies = [
+ "anyhow",
  "bitflags",
  "byteorder",
  "cfg-if 1.0.0",
@@ -4745,6 +4795,7 @@ dependencies = [
  "wai-bindgen-gen-rust",
  "wai-bindgen-gen-rust-wasm",
  "wai-bindgen-rust",
+ "wai-bindgen-wasmer",
  "wai-parser",
  "wasmer",
  "wasmer-derive",
