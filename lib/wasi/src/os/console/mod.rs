@@ -27,6 +27,7 @@ use crate::{
     bin_factory::{spawn_exec, BinFactory, ModuleCache},
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
     runtime::{RuntimeStderr, RuntimeStdout},
+    state::Capabilities,
     TtyFile, VirtualTaskManagerExt, WasiEnv, WasiRuntimeImplementation, WasiState,
 };
 
@@ -51,6 +52,7 @@ pub struct Console {
     runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
     compiled_modules: Arc<ModuleCache>,
     stdin: Option<WasiPipe>,
+    capabilities: Capabilities,
 }
 
 impl Console {
@@ -81,6 +83,7 @@ impl Console {
             prompt: "wasmer.sh".to_string(),
             compiled_modules,
             stdin: None,
+            capabilities: Default::default(),
         }
     }
 
@@ -125,6 +128,11 @@ impl Console {
 
     pub fn with_token(mut self, token: String) -> Self {
         self.token = Some(token);
+        self
+    }
+
+    pub fn with_capabilities(mut self, caps: Capabilities) -> Self {
+        self.capabilities = caps;
         self
     }
 
@@ -187,13 +195,14 @@ impl Console {
             .unwrap();
 
         // Create the environment
-        let env = WasiEnv::new_ext(
+        let mut env = WasiEnv::new_ext(
             Arc::new(state),
             self.compiled_modules.clone(),
             wasi_process.clone(),
             wasi_thread,
             self.runtime.clone(),
         );
+        env.capabilities = self.capabilities.clone();
 
         // Display the welcome message
         let tasks = env.tasks.clone();
