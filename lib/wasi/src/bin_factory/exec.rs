@@ -115,7 +115,7 @@ pub fn spawn_exec_module(
 
                     // Let's instantiate the module with the imports.
                     let (mut import_object, init) =
-                        import_object_for_all_wasi_versions(&mut store, &wasi_env.env);
+                        import_object_for_all_wasi_versions(&module, &mut store, &wasi_env.env);
                     if let Some(memory) = memory {
                         import_object.define(
                             "env",

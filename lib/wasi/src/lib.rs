@@ -588,13 +588,22 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
 pub type InstanceInitializer =
     Box<dyn FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>>;
 
+type ModuleInitializer =
+    Box<dyn FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>>;
+
+/// No-op module initializer.
+fn stub_initializer(
+    _instance: &wasmer::Instance,
+    _store: &dyn wasmer::AsStoreRef,
+) -> Result<(), anyhow::Error> {
+    Ok(())
+}
+
 fn import_object_for_all_wasi_versions(
+    module: &wasmer::Module,
     store: &mut impl AsStoreMut,
     env: &FunctionEnv<WasiEnv>,
-) -> (
-    Imports,
-    impl FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>,
-) {
+) -> (Imports, ModuleInitializer) {
     let exports_wasi_unstable = wasi_unstable_exports(store, env);
     let exports_wasi_snapshot_preview1 = wasi_snapshot_preview1_exports(store, env);
     let exports_wasix_32v1 = wasix_exports_32(store, env);
@@ -607,11 +616,32 @@ fn import_object_for_all_wasi_versions(
         "wasix_64v1" => exports_wasix_64v1,
     };
 
-    let wenv = { env.as_ref(store).clone() };
-    let http = crate::bindings::http::WasixHttpClientImpl::new(wenv);
-    // TODO: should this be optional, only if the module needs it?
-    let init =
-        wasmer_wasi_types::wasix::wasix_http_client_v1::add_to_imports(store, &mut imports, http);
+    // TODO: clean this up!
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "sys")] {
+            // Check if the module needs http.
+
+            let has_canonical_realloc = module.exports().any(|t| t.name() == "canonical_abi_realloc");
+            let has_wasix_http_import = module.imports().any(|t| t.module() == "wasix_http_client_v1");
+
+            let init = if has_canonical_realloc && has_wasix_http_import {
+                let wenv = { env.as_ref(store).clone() };
+                let http = crate::http::client_impl::WasixHttpClientImpl::new(wenv);
+                    crate::bindings::wasix_http_client_v1::add_to_imports(
+                        store,
+                        &mut imports,
+                        http,
+                    )
+
+            } else {
+                Box::new(stub_initializer) as ModuleInitializer
+            };
+
+            let init = init;
+        } else {
+                Box::new(stub_initializer) as ModuleInitializer
+        }
+    }
 
     (imports, init)
 }
@@ -621,7 +651,7 @@ pub fn build_wasi_instance(
     env: &mut WasiFunctionEnv,
     store: &mut impl AsStoreMut,
 ) -> Result<wasmer::Instance, anyhow::Error> {
-    let (mut import_object, init) = import_object_for_all_wasi_versions(store, &env.env);
+    let (mut import_object, init) = import_object_for_all_wasi_versions(module, store, &env.env);
     import_object.import_shared_memory(module, store);
 
     let instance = wasmer::Instance::new(store, module, &import_object)?;

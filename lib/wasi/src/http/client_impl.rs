@@ -1,13 +1,29 @@
 use std::string::FromUtf8Error;
 
-use wasmer_wasi_types::wasix::wasix_http_client_v1::{
-    BodyParam, BodyResult, HeaderResult, Request, Response, WasixHttpClientV1,
-};
+use crate::bindings::wasix_http_client_v1 as sys;
 
 use crate::{
     http::{DynHttpClient, HttpClientCapabilityV1},
     WasiEnv,
 };
+
+impl std::fmt::Display for sys::Method<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let v = match self {
+            sys::Method::Get => "GET",
+            sys::Method::Head => "HEAD",
+            sys::Method::Post => "POST",
+            sys::Method::Put => "PUT",
+            sys::Method::Delete => "DELETE",
+            sys::Method::Connect => "CONNECT",
+            sys::Method::Options => "OPTIONS",
+            sys::Method::Trace => "TRACE",
+            sys::Method::Patch => "PATCH",
+            sys::Method::Other(other) => *other,
+        };
+        write!(f, "{v}")
+    }
+}
 
 pub struct WasixHttpClientImpl {
     env: WasiEnv,
@@ -25,7 +41,7 @@ pub struct ClientImpl {
     capabilities: HttpClientCapabilityV1,
 }
 
-impl WasixHttpClientV1 for WasixHttpClientImpl {
+impl sys::WasixHttpClientV1 for WasixHttpClientImpl {
     type Client = ClientImpl;
 
     fn client_new(&mut self) -> Result<Self::Client, String> {
@@ -52,8 +68,8 @@ impl WasixHttpClientV1 for WasixHttpClientImpl {
     fn client_send(
         &mut self,
         self_: &Self::Client,
-        request: Request<'_>,
-    ) -> Result<Response, String> {
+        request: sys::Request<'_>,
+    ) -> Result<sys::Response, String> {
         let uri: http::Uri = request
             .url
             .parse()
@@ -78,10 +94,10 @@ impl WasixHttpClientV1 for WasixHttpClientImpl {
         // FIXME: stream body...
 
         let body = match request.body {
-            Some(BodyParam::Fd(_)) => {
+            Some(sys::BodyParam::Fd(_)) => {
                 return Err("File descriptor bodies not supported yet".to_string());
             }
-            Some(BodyParam::Data(data)) => Some(data.to_vec()),
+            Some(sys::BodyParam::Data(data)) => Some(data.to_vec()),
             None => None,
         };
 
@@ -102,20 +118,20 @@ impl WasixHttpClientV1 for WasixHttpClientImpl {
         let res_headers = res
             .headers
             .into_iter()
-            .map(|(key, value)| HeaderResult {
+            .map(|(key, value)| sys::HeaderResult {
                 key,
                 value: value.into_bytes(),
             })
             .collect();
 
         let res_body = if let Some(b) = res.body {
-            BodyResult::Data(b)
+            sys::BodyResult::Data(b)
         } else {
-            BodyResult::Data(Vec::new())
+            sys::BodyResult::Data(Vec::new())
         };
 
         Ok({
-            Response {
+            sys::Response {
                 status: res.status,
                 headers: res_headers,
                 body: res_body,

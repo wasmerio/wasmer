@@ -60,7 +60,10 @@ fn generate_wasix_wasmer(root: &Path) -> Result<(), anyhow::Error> {
 
     let modules = ["wasix_http_client_v1"];
     let schema_dir = root.join("schema/wasix");
-    let out_dir = root.join("src/wasix");
+    let out_dir = root
+        .parent()
+        .context("could not find root dir")?
+        .join("wasi/src/bindings");
 
     let opts = wai_bindgen_gen_wasmer::Opts {
         rustfmt: true,

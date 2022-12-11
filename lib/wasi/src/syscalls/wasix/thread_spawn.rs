@@ -77,7 +77,7 @@ pub fn thread_spawn<M: MemorySize>(
             }
 
             let (mut import_object, init) =
-                import_object_for_all_wasi_versions(&mut store, &ctx.env);
+                import_object_for_all_wasi_versions(&module, &mut store, &ctx.env);
             import_object.define("env", "memory", memory.clone());
 
             let instance = match Instance::new(&mut store, &module, &import_object) {

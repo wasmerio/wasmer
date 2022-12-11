@@ -196,7 +196,7 @@ pub fn add_to_imports<T>(
     store: &mut impl wasmer::AsStoreMut,
     imports: &mut wasmer::Imports,
     data: T,
-) -> impl FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>
+) -> Box<dyn FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>>
 where
     T: WasixHttpClientV1,
 {
@@ -652,7 +652,7 @@ where
         ),
     );
     imports.register_namespace("canonical_abi", canonical_abi);
-    move |_instance: &wasmer::Instance, _store: &dyn wasmer::AsStoreRef| {
+    let f = move |_instance: &wasmer::Instance, _store: &dyn wasmer::AsStoreRef| {
         let memory = _instance.exports.get_memory("memory")?.clone();
         let func_canonical_abi_realloc = _instance
             .exports
@@ -665,7 +665,8 @@ where
         })
         .map_err(|_e| anyhow::anyhow!("Couldn't set lazy initialized data"))?;
         Ok(())
-    }
+    };
+    Box::new(f)
 }
 use wai_bindgen_wasmer::once_cell::unsync::OnceCell;
 use wai_bindgen_wasmer::rt::invalid_variant;
