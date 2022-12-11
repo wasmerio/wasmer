@@ -58,6 +58,7 @@ wasmer-compiler-cranelift = { version = "3.0.0-beta", path = "../compiler-cranel
 wasmer-compiler-llvm = { version = "3.0.0-beta", path = "../compiler-llvm", optional = true }
 wasmer-compiler-singlepass = { version = "3.0.0-beta", path = "../compiler-singlepass", optional = true }
 wasmer-compiler = { version = "3.0.0-beta", path = "../compiler", features = [ "translator" ], optional = true }
+http = "0.2.8"
 
 [dependencies.reqwest]
 version = "0.11"

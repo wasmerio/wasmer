@@ -55,6 +55,12 @@ pub struct Wasi {
     )]
     enable_experimental_io_devices: bool,
 
+    /// Allow instances to send http requests.
+    ///
+    /// Access to domains is granted by default.
+    #[clap(long)]
+    pub http_client: bool,
+
     /// Allow WASI modules to import multiple versions of WASI without a warning.
     #[clap(long = "allow-multiple-wasi-versions")]
     pub allow_multiple_wasi_versions: bool,
@@ -157,6 +163,12 @@ impl Wasi {
         }
 
         let mut wasi_env = wasi_state_builder.finalize(store)?;
+
+        if self.http_client {
+            let caps = wasmer_wasi::http::HttpClientCapabilityV1::new_allow_all();
+            wasi_env.data_mut(store).capabilities.http = caps;
+        }
+
         let instance = wasmer_wasi::build_wasi_instance(module, &mut wasi_env, store)?;
         Ok((wasi_env.env, instance))
     }

@@ -31,6 +31,8 @@ use crate::{
     WasiState, WasiStateCreationError, WasiVFork, DEFAULT_STACK_SIZE,
 };
 
+use super::Capabilities;
+
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub struct WasiEnvInner {
@@ -210,6 +212,8 @@ pub struct WasiEnv {
     pub runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
     /// Task manager used to spawn threads and manage the ASYNC runtime
     pub tasks: Arc<dyn VirtualTaskManager>,
+
+    pub capabilities: Capabilities,
 }
 
 // FIXME: remove unsafe impls!
@@ -238,7 +242,7 @@ impl WasiEnv {
 
         (
             Self {
-                process: process,
+                process,
                 thread,
                 vfork: None,
                 stack_base: self.stack_base,
@@ -249,6 +253,7 @@ impl WasiEnv {
                 owned_handles: Vec::new(),
                 runtime: self.runtime.clone(),
                 tasks: self.tasks.clone(),
+                capabilities: self.capabilities.clone(),
             },
             handle,
         )
@@ -296,6 +301,7 @@ impl WasiEnv {
             runtime,
             tasks,
             bin_factory,
+            capabilities: Default::default(),
         };
         ret.owned_handles.push(thread);
         ret

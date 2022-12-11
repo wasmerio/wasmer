@@ -1,9 +1,46 @@
 #[cfg(feature = "host-reqwest")]
 pub mod reqwest;
 
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use futures::future::BoxFuture;
+
+/// Defines http client permissions.
+#[derive(Clone, Debug)]
+pub struct HttpClientCapabilityV1 {
+    pub allow_all: bool,
+    pub allowed_hosts: HashSet<String>,
+}
+
+impl HttpClientCapabilityV1 {
+    pub fn new() -> Self {
+        Self {
+            allow_all: false,
+            allowed_hosts: HashSet::new(),
+        }
+    }
+
+    pub fn new_allow_all() -> Self {
+        Self {
+            allow_all: true,
+            allowed_hosts: HashSet::new(),
+        }
+    }
+
+    pub fn is_deny_all(&self) -> bool {
+        self.allow_all == false && self.allowed_hosts.is_empty()
+    }
+
+    pub fn can_access_domain(&self, domain: &str) -> bool {
+        self.allow_all || self.allowed_hosts.contains(domain)
+    }
+}
+
+impl Default for HttpClientCapabilityV1 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[derive(Debug, Default)]
 pub struct HttpRequestOptions {
