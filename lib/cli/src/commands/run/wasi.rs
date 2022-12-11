@@ -10,8 +10,8 @@ use wasmer_vfs::{PassthruFileSystem, RootFileSystemBuilder, SpecialFile};
 use wasmer_wasi::types::__WASI_STDIN_FILENO;
 use wasmer_wasi::TtyFile;
 use wasmer_wasi::{
-    default_fs_backing, get_wasi_versions, import_object_for_all_wasi_versions,
-    PluggableRuntimeImplementation, WasiEnv, WasiError, WasiState, WasiVersion,
+    default_fs_backing, get_wasi_versions, PluggableRuntimeImplementation, WasiEnv, WasiError,
+    WasiState, WasiVersion,
 };
 
 use clap::Parser;
@@ -55,6 +55,12 @@ pub struct Wasi {
     )]
     enable_experimental_io_devices: bool,
 
+    /// Allow instances to send http requests.
+    ///
+    /// Access to domains is granted by default.
+    #[clap(long)]
+    pub http_client: bool,
+
     /// Allow WASI modules to import multiple versions of WASI without a warning.
     #[clap(long = "allow-multiple-wasi-versions")]
     pub allow_multiple_wasi_versions: bool,
@@ -78,7 +84,7 @@ impl Wasi {
     pub fn get_versions(module: &Module) -> Option<BTreeSet<WasiVersion>> {
         // Get the wasi version in strict mode, so no other imports are
         // allowed.
-        get_wasi_versions(module, true)
+        get_wasi_versions(module, false)
     }
 
     /// Checks if a given module has any WASI imports at all.
@@ -91,7 +97,7 @@ impl Wasi {
     /// Helper function for instantiating a module with Wasi imports for the `Run` command.
     pub fn instantiate(
         &self,
-        mut store: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         module: &Module,
         program_name: String,
         args: Vec<String>,
@@ -157,11 +163,13 @@ impl Wasi {
         }
 
         let mut wasi_env = wasi_state_builder.finalize(store)?;
-        let mut import_object = import_object_for_all_wasi_versions(store, &wasi_env.env);
-        import_object.import_shared_memory(module, &mut store);
 
-        let instance = Instance::new(store, module, &import_object)?;
-        wasi_env.initialize(&mut store, &instance)?;
+        if self.http_client {
+            let caps = wasmer_wasi::http::HttpClientCapabilityV1::new_allow_all();
+            wasi_env.data_mut(store).capabilities.http = caps;
+        }
+
+        let instance = wasmer_wasi::build_wasi_instance(module, &mut wasi_env, store)?;
         Ok((wasi_env.env, instance))
     }
 
