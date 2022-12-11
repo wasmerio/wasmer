@@ -31,8 +31,8 @@ impl WasixHttpClientV1 for WasixHttpClientImpl {
     fn client_new(&mut self) -> Result<Self::Client, String> {
         let capabilities = if self.env.capabilities.insecure_allow_all {
             HttpClientCapabilityV1::new_allow_all()
-        } else if !self.env.capabilities.http.is_deny_all() {
-            self.env.capabilities.http.clone()
+        } else if !self.env.capabilities.http_client.is_deny_all() {
+            self.env.capabilities.http_client.clone()
         } else {
             return Err("Permission denied - http client not enabled".to_string());
         };

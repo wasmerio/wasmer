@@ -166,7 +166,7 @@ impl Wasi {
 
         if self.http_client {
             let caps = wasmer_wasi::http::HttpClientCapabilityV1::new_allow_all();
-            wasi_env.data_mut(store).capabilities.http = caps;
+            wasi_env.data_mut(store).capabilities.http_client = caps;
         }
 
         let instance = wasmer_wasi::build_wasi_instance(module, &mut wasi_env, store)?;
