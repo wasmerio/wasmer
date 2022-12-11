@@ -4,9 +4,7 @@ use std::net::Ipv4Addr;
 use std::net::Ipv6Addr;
 use std::net::Shutdown;
 use std::net::SocketAddr;
-use std::sync::mpsc;
 use std::sync::Arc;
-use std::sync::Mutex;
 use std::time::Duration;
 use thiserror::Error;
 
@@ -39,20 +37,6 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
     /// (note: this does not use the virtual sockets and is standalone
     ///        functionality that works without the network being connected)
     async fn ws_connect(&self, url: &str) -> Result<Box<dyn VirtualWebSocket + Sync>> {
-        Err(NetworkError::Unsupported)
-    }
-
-    /// Makes a HTTP request to a remote web resource
-    /// The headers are separated by line breaks
-    /// (note: this does not use the virtual sockets and is standalone
-    ///        functionality that works without the network being connected)
-    async fn http_request(
-        &self,
-        url: &str,
-        method: &str,
-        headers: &str,
-        gzip: bool,
-    ) -> Result<SocketHttpRequest> {
         Err(NetworkError::Unsupported)
     }
 
@@ -192,35 +176,6 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
 }
 
 pub type DynVirtualNetworking = Arc<dyn VirtualNetworking>;
-
-/// Holds the interface used to work with a pending HTTP request
-#[derive(Debug)]
-pub struct SocketHttpRequest {
-    /// Used to send the request bytes to the HTTP server
-    /// (once all bytes are send the sender should be closed)
-    pub request: Option<mpsc::Sender<Vec<u8>>>,
-    /// Used to receive the response bytes from the HTTP server
-    /// (once all the bytes have been received the receiver will be closed)
-    pub response: Option<mpsc::Receiver<Vec<u8>>>,
-    /// Used to receive all the headers from the HTTP server
-    /// (once all the headers have been received the receiver will be closed)
-    pub headers: Option<mpsc::Receiver<(String, String)>>,
-    /// Used to watch for the status
-    pub status: Arc<Mutex<mpsc::Receiver<Result<HttpStatus>>>>,
-}
-
-/// Represents the final result of a HTTP request
-#[derive(Debug)]
-pub struct HttpStatus {
-    /// Indicates if the HTTP request was redirected to another URL / server
-    pub redirected: bool,
-    /// Size of the data held in the response receiver
-    pub size: usize,
-    /// Status code returned by the server
-    pub status: u16,
-    /// Status text returned by the server
-    pub status_text: String,
-}
 
 #[derive(Debug)]
 pub struct SocketReceive {

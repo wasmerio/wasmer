@@ -12,10 +12,10 @@ use tokio::io::{AsyncRead, AsyncWriteExt};
 use tracing::{debug, error, info, trace, warn};
 #[allow(unused_imports)]
 use wasmer_vnet::{
-    io_err_into_net_error, IpCidr, IpRoute, NetworkError, Result, SocketHttpRequest, SocketReceive,
-    SocketReceiveFrom, SocketStatus, StreamSecurity, TimeType, VirtualConnectedSocket,
-    VirtualConnectionlessSocket, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
-    VirtualSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket, VirtualWebSocket,
+    io_err_into_net_error, IpCidr, IpRoute, NetworkError, Result, SocketReceive, SocketReceiveFrom,
+    SocketStatus, StreamSecurity, TimeType, VirtualConnectedSocket, VirtualConnectionlessSocket,
+    VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualSocket, VirtualTcpListener,
+    VirtualTcpSocket, VirtualUdpSocket, VirtualWebSocket,
 };
 
 #[derive(Debug, Default)]

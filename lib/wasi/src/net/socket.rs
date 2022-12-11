@@ -2,7 +2,7 @@ use std::{
     future::Future,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     pin::Pin,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, RwLock},
     time::Duration,
 };
 
@@ -11,8 +11,8 @@ use bytes::{Buf, Bytes};
 use serde_derive::{Deserialize, Serialize};
 use wasmer_types::MemorySize;
 use wasmer_vnet::{
-    DynVirtualNetworking, SocketHttpRequest, TimeType, VirtualIcmpSocket, VirtualRawSocket,
-    VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket, VirtualWebSocket,
+    DynVirtualNetworking, TimeType, VirtualIcmpSocket, VirtualRawSocket, VirtualTcpListener,
+    VirtualTcpSocket, VirtualUdpSocket, VirtualWebSocket,
 };
 use wasmer_wasi_types::wasi::{
     Addressfamily, Errno, Fdflags, Rights, SockProto, Sockoption, Socktype,
@@ -50,7 +50,6 @@ pub enum InodeSocketKind {
         connect_timeout: Option<Duration>,
         accept_timeout: Option<Duration>,
     },
-    HttpRequest(Mutex<SocketHttpRequest>, InodeHttpSocketType),
     WebSocket(Box<dyn VirtualWebSocket + Sync>),
     Icmp(Box<dyn VirtualIcmpSocket + Sync>),
     Raw(Box<dyn VirtualRawSocket + Sync>),
@@ -131,14 +130,6 @@ pub enum WasiSocketStatus {
     Opened,
     Closed,
     Failed,
-}
-
-#[derive(Debug)]
-pub struct WasiHttpStatus {
-    pub ok: bool,
-    pub redirected: bool,
-    pub size: u64,
-    pub status: u16,
 }
 
 #[derive(Debug)]
@@ -358,34 +349,11 @@ impl InodeSocket {
         Ok(match &inner.kind {
             InodeSocketKind::PreSocket { .. } => WasiSocketStatus::Opening,
             InodeSocketKind::WebSocket(_) => WasiSocketStatus::Opened,
-            InodeSocketKind::HttpRequest(..) => WasiSocketStatus::Opened,
             InodeSocketKind::TcpListener(_) => WasiSocketStatus::Opened,
             InodeSocketKind::TcpStream(_) => WasiSocketStatus::Opened,
             InodeSocketKind::UdpSocket(_) => WasiSocketStatus::Opened,
             InodeSocketKind::Closed => WasiSocketStatus::Closed,
             _ => WasiSocketStatus::Failed,
-        })
-    }
-
-    pub fn http_status(&self) -> Result<WasiHttpStatus, Errno> {
-        let inner = self.inner.read().unwrap();
-        Ok(match &inner.kind {
-            InodeSocketKind::HttpRequest(http, ..) => {
-                let http = http.lock().unwrap();
-                let guard = http.status.lock().unwrap();
-                let status = guard
-                    .recv()
-                    .map_err(|_| Errno::Io)?
-                    .map_err(net_error_into_wasi_err)?;
-                WasiHttpStatus {
-                    ok: true,
-                    redirected: status.redirected,
-                    status: status.status,
-                    size: status.size as u64,
-                }
-            }
-            InodeSocketKind::Closed => return Err(Errno::Io),
-            _ => return Err(Errno::Notsup),
         })
     }
 
@@ -865,21 +833,6 @@ impl InodeSocket {
         let mut inner = self.inner.write().unwrap();
 
         let ret = match &mut inner.kind {
-            InodeSocketKind::HttpRequest(sock, ty) => {
-                let sock = sock.get_mut().unwrap();
-                match ty {
-                    InodeHttpSocketType::Request => {
-                        if sock.request.is_none() {
-                            return Err(Errno::Io);
-                        }
-                        let request = sock.request.as_ref().unwrap();
-                        request.send(buf).map(|_| buf_len).map_err(|_| Errno::Io)
-                    }
-                    _ => {
-                        return Err(Errno::Io);
-                    }
-                }
-            }
             InodeSocketKind::WebSocket(sock) => sock
                 .send(Bytes::from(buf))
                 .await
@@ -946,51 +899,6 @@ impl InodeSocket {
             }
         }
         let data = match &mut inner.kind {
-            InodeSocketKind::HttpRequest(sock, ty) => {
-                let sock = sock.get_mut().unwrap();
-                match ty {
-                    InodeHttpSocketType::Response => {
-                        if sock.response.is_none() {
-                            return Err(Errno::Io);
-                        }
-                        let response = sock.response.as_ref().unwrap();
-
-                        use std::sync::mpsc::TryRecvError;
-                        match response.try_recv() {
-                            Ok(a) => Bytes::from(a),
-                            Err(TryRecvError::Disconnected) => {
-                                return Err(Errno::Io);
-                            }
-                            Err(TryRecvError::Empty) => {
-                                return Ok(0);
-                            }
-                        }
-                    }
-                    InodeHttpSocketType::Headers => {
-                        if sock.headers.is_none() {
-                            return Err(Errno::Io);
-                        }
-                        let headers = sock.headers.as_ref().unwrap();
-
-                        use std::sync::mpsc::TryRecvError;
-                        let headers = match headers.try_recv() {
-                            Ok(a) => a,
-                            Err(TryRecvError::Disconnected) => {
-                                return Err(Errno::Io);
-                            }
-                            Err(TryRecvError::Empty) => {
-                                return Ok(0);
-                            }
-                        };
-
-                        let headers = format!("{}: {}", headers.0, headers.1);
-                        Bytes::from(headers.as_bytes().to_vec())
-                    }
-                    _ => {
-                        return Err(Errno::Io);
-                    }
-                }
-            }
             InodeSocketKind::WebSocket(sock) => {
                 let read = match sock.try_recv().map_err(net_error_into_wasi_err)? {
                     Some(a) => a,
@@ -1065,30 +973,6 @@ impl InodeSocket {
                 }
             }
             let data = match &mut inner.kind {
-                InodeSocketKind::HttpRequest(sock, ty) => {
-                    let sock = sock.get_mut().unwrap();
-                    match ty {
-                        InodeHttpSocketType::Response => {
-                            if sock.response.is_none() {
-                                return Err(Errno::Io);
-                            }
-                            let response = sock.response.as_ref().unwrap();
-                            Bytes::from(response.recv().map_err(|_| Errno::Io)?)
-                        }
-                        InodeHttpSocketType::Headers => {
-                            if sock.headers.is_none() {
-                                return Err(Errno::Io);
-                            }
-                            let headers = sock.headers.as_ref().unwrap();
-                            let headers = headers.recv().map_err(|_| Errno::Io)?;
-                            let headers = format!("{}: {}", headers.0, headers.1);
-                            Bytes::from(headers.as_bytes().to_vec())
-                        }
-                        _ => {
-                            return Err(Errno::Io);
-                        }
-                    }
-                }
                 InodeSocketKind::WebSocket(sock) => {
                     let read = sock.recv().await.map_err(net_error_into_wasi_err)?;
                     read.data
@@ -1195,29 +1079,11 @@ impl InodeSocket {
     }
 
     pub async fn shutdown(&mut self, how: std::net::Shutdown) -> Result<(), Errno> {
-        use std::net::Shutdown;
         let mut inner = self.inner.write().unwrap();
         inner.silence_write_ready = false;
         match &mut inner.kind {
             InodeSocketKind::TcpStream(sock) => {
                 sock.shutdown(how).await.map_err(net_error_into_wasi_err)?;
-            }
-            InodeSocketKind::HttpRequest(http, ..) => {
-                let http = http.get_mut().unwrap();
-                match how {
-                    Shutdown::Read => {
-                        http.response.take();
-                        http.headers.take();
-                    }
-                    Shutdown::Write => {
-                        http.request.take();
-                    }
-                    Shutdown::Both => {
-                        http.request.take();
-                        http.response.take();
-                        http.headers.take();
-                    }
-                };
             }
             InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
             InodeSocketKind::Closed => return Err(Errno::Io),
@@ -1258,7 +1124,6 @@ impl InodeSocket {
             InodeSocketKind::PreSocket { .. } => {
                 std::task::Poll::Ready(Err(wasmer_vnet::NetworkError::IOError))
             }
-            InodeSocketKind::HttpRequest(..) => std::task::Poll::Pending,
             InodeSocketKind::Closed => {
                 std::task::Poll::Ready(Err(wasmer_vnet::NetworkError::ConnectionAborted))
             }
@@ -1283,7 +1148,6 @@ impl InodeSocket {
             InodeSocketKind::PreSocket { .. } => {
                 std::task::Poll::Ready(Err(wasmer_vnet::NetworkError::IOError))
             }
-            InodeSocketKind::HttpRequest(..) => std::task::Poll::Pending,
             InodeSocketKind::Closed => {
                 std::task::Poll::Ready(Err(wasmer_vnet::NetworkError::ConnectionAborted))
             }
@@ -1306,25 +1170,6 @@ impl Future for IndefinitePoll {
         _cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
         std::task::Poll::Pending
-    }
-}
-
-impl Drop for InodeSocketInner {
-    fn drop(&mut self) {
-        if let InodeSocketKind::HttpRequest(http, ty) = &self.kind {
-            let mut guard = http.lock().unwrap();
-            match ty {
-                InodeHttpSocketType::Request => {
-                    guard.request.take();
-                }
-                InodeHttpSocketType::Response => {
-                    guard.response.take();
-                }
-                InodeHttpSocketType::Headers => {
-                    guard.headers.take();
-                }
-            }
-        }
     }
 }
 

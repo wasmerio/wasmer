@@ -71,7 +71,7 @@ pub(crate) use wasmer_vbus::{
 pub(crate) use wasmer_vfs::{
     AsyncSeekExt, AsyncWriteExt, FileSystem, FsError, VirtualFile, WasiBidirectionalPipePair,
 };
-pub(crate) use wasmer_vnet::{SocketHttpRequest, StreamSecurity};
+pub(crate) use wasmer_vnet::StreamSecurity;
 pub(crate) use wasmer_wasi_types::{asyncify::__wasi_asyncify_t, wasi::EventUnion};
 #[cfg(any(target_os = "windows"))]
 pub use windows::*;
