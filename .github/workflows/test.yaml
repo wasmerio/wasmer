@@ -692,7 +692,7 @@ jobs:
   test_wasmer_stage_1: 
     name: Test Wasmer Stage 1 on ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
-    needs: [setup, build_capi]
+    needs: [setup]
     strategy:
       fail-fast: false
       matrix:
