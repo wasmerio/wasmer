@@ -9,6 +9,11 @@ fn create_exe_test_wasm_path() -> String {
 
 #[test]
 fn wasmer_publish() -> anyhow::Result<()> {
+    // Only run this test in the CI
+    if std::env::var("GITHUB_TOKEN").is_err() {
+        return Ok(());
+    }
+
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
     let tempdir = tempfile::tempdir()?;
     let path = tempdir.path();
