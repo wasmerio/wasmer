@@ -43,6 +43,7 @@ members = [
     "lib/vnet",
     "lib/vbus",
     "lib/vm",
+    "lib/wai-bindgen-wasmer",
     "lib/wasi",
     "lib/wasi-types",
     "lib/wasi-experimental-io-devices",
@@ -262,10 +263,6 @@ path = "examples/features.rs"
 required-features = ["cranelift"]
 
 [patch.crates-io]
-# This patch is needed to force wai-bindgen-wasmer (used in lib/wasi-types) to
-# use the crate-local wasmer crate.
-wasmer = { path = "./lib/api" }
-
 # Something is still wrong with the webc version published on crates.io when attempting to
 # load a .webc from the registry (e.g. sharrattj/coreutils)
 # 780.main.js:652 panicked at 'range end index 76 out of range for slice of length 44', /home/john/.cargo/registry/src/github.com-1ecc6299db9ec823/webc-3.0.1/src/lib.rs:925:30
