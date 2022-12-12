@@ -33,8 +33,8 @@ pub use create_obj::*;
 #[cfg(feature = "wast")]
 pub use wast::*;
 pub use {
-    add::*, cache::*, config::*, inspect::*, list::*, login::*, run::*, self_update::*,
-    validate::*, whoami::*,
+    add::*, cache::*, config::*, init::*, inspect::*, list::*, login::*, publish::*, run::*,
+    self_update::*, validate::*, whoami::*,
 };
 
 /// The kind of object format to emit.

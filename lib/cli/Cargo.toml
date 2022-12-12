@@ -73,6 +73,16 @@ isatty = "0.1.9"
 dialoguer = "0.10.2"
 tldextract = "0.6.0"
 hex = "0.4.3"
+flate2 = "1.0.25"
+cargo_metadata = "0.15.2"
+rusqlite = { version = "0.28.0", features = ["bundled"] }
+tar = "0.4.38"
+thiserror = "1.0.37"
+time = "0.1.45"
+log = "0.4.17"
+minisign = "0.7.2"
+semver = "1.0.14"
+rpassword = "7.2.0"
 
 [build-dependencies]
 chrono = { version = "^0.4", default-features = false, features = [ "std", "clock" ] }

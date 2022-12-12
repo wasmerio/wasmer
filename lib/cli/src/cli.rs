@@ -11,7 +11,7 @@ use crate::commands::CreateObj;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
 use crate::commands::{
-    Add, Cache, Config, Inspect, List, Login, Run, SelfUpdate, Validate, Whoami,
+    Add, Cache, Config, Init, Inspect, List, Login, Publish, Run, SelfUpdate, Validate, Whoami,
 };
 use crate::error::PrettyError;
 use clap::{CommandFactory, ErrorKind, Parser};

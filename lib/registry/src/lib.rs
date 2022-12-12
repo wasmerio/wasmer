@@ -22,7 +22,6 @@ pub mod config;
 pub mod graphql;
 pub mod login;
 pub mod package;
-pub mod queries;
 pub mod publish;
 pub mod queries;
 pub mod utils;
