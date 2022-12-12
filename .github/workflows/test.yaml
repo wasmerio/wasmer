@@ -719,10 +719,6 @@ jobs:
         if: matrix.build == 'linux-musl'
         run: |
             apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
-      - uses: actions/download-artifact@v3
-        id: download
-        with:
-          name: capi-${{ matrix.build }}
       - name: Set up libstdc++ on Linux
         if: matrix.build == 'linux-x64'
         run: |
@@ -796,10 +792,6 @@ jobs:
           aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
-      - name: Unzip Artifacts
-        shell: bash
-        run: |
-          make untar-capi
       - name: Test
         run: |
           make test-stage-1
