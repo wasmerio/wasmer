@@ -3978,11 +3978,10 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b69eca47105340af3e4dc5ba47951a23534d7139a62b12550cc6702a5cb6ab70"
+version = "0.2.3"
 dependencies = [
  "anyhow",
+ "async-trait",
  "bitflags",
  "once_cell",
  "thiserror",

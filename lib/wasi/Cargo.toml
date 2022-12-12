@@ -59,7 +59,7 @@ wasmer-compiler-llvm = { version = "3.0.0-beta", path = "../compiler-llvm", opti
 wasmer-compiler-singlepass = { version = "3.0.0-beta", path = "../compiler-singlepass", optional = true }
 wasmer-compiler = { version = "3.0.0-beta", path = "../compiler", features = [ "translator" ], optional = true }
 http = "0.2.8"
-wai-bindgen-wasmer = { version = "0.2.2", features = ["tracing"] }
+wai-bindgen-wasmer = { path = "../wai-bindgen-wasmer", version = "0.2.3", features = ["tracing"] }
 
 [dependencies.reqwest]
 version = "0.11"

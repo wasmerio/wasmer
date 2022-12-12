@@ -599,6 +599,8 @@ fn stub_initializer(
     Ok(())
 }
 
+// TODO: split function into two variants, one for JS and one for sys.
+// (this will make code less messy)
 fn import_object_for_all_wasi_versions(
     module: &wasmer::Module,
     store: &mut impl AsStoreMut,
@@ -609,6 +611,8 @@ fn import_object_for_all_wasi_versions(
     let exports_wasix_32v1 = wasix_exports_32(store, env);
     let exports_wasix_64v1 = wasix_exports_64(store, env);
 
+    // Allowed due to JS feature flag complications.
+    #[allow(unused_mut)]
     let mut imports = imports! {
         "wasi_unstable" => exports_wasi_unstable,
         "wasi_snapshot_preview1" => exports_wasi_snapshot_preview1,
@@ -639,7 +643,9 @@ fn import_object_for_all_wasi_versions(
 
             let init = init;
         } else {
-                Box::new(stub_initializer) as ModuleInitializer
+            // Prevents unused warning.
+            let _ = module;
+            let init = Box::new(stub_initializer) as ModuleInitializer;
         }
     }
 
@@ -651,8 +657,18 @@ pub fn build_wasi_instance(
     env: &mut WasiFunctionEnv,
     store: &mut impl AsStoreMut,
 ) -> Result<wasmer::Instance, anyhow::Error> {
+    // Allowed due to JS warning.
+    #[allow(unused_mut)]
     let (mut import_object, init) = import_object_for_all_wasi_versions(module, store, &env.env);
-    import_object.import_shared_memory(module, store);
+
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "sys")] {
+            import_object.import_shared_memory(module, store);
+        } else {
+            // Prevent warning.
+            let _ = module;
+        }
+    }
 
     let instance = wasmer::Instance::new(store, module, &import_object)?;
     init(&instance, &store)?;
