@@ -502,6 +502,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        max-parallel: 24
+        version: [0, 1, 2, 3, 4, 5, 6]
+        job: [linux-x64, macos-x64, windows-x64, linux-musl]
         include:
           - build: linux-x64
             os: ubuntu-18.04
@@ -591,7 +594,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-0-${{ matrix.build }}
+          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-${{ matrix.stage }}-${{ matrix.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -601,54 +604,11 @@ jobs:
           aws-s3-force-path-style: true
       - name: Test stage 0
         run: |
-          make test-stage-0
+          make test-stage-${{ matrix.stage }}
         env:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
-      - name: Test stage 1
-        run: |
-          make test-stage-1
-        env:
-          TARGET: ${{ matrix.target }}
-          TARGET_DIR: target/${{ matrix.target }}/release
-          CARGO_TARGET: --target ${{ matrix.target }}
-      - name: Test stage 2
-        run: |
-          make test-stage-2
-        env:
-          TARGET: ${{ matrix.target }}
-          TARGET_DIR: target/${{ matrix.target }}/release
-          CARGO_TARGET: --target ${{ matrix.target }}
-      - name: Test stage 3
-        run: |
-          make test-stage-3
-        env:
-          TARGET: ${{ matrix.target }}
-          TARGET_DIR: target/${{ matrix.target }}/release
-          CARGO_TARGET: --target ${{ matrix.target }}
-      - name: Test stage 4
-        run: |
-          make test-stage-4
-        env:
-          TARGET: ${{ matrix.target }}
-          TARGET_DIR: target/${{ matrix.target }}/release
-          CARGO_TARGET: --target ${{ matrix.target }}
-      - name: Test stage 5
-        run: |
-          make test-stage-5
-        env:
-          TARGET: ${{ matrix.target }}
-          TARGET_DIR: target/${{ matrix.target }}/release
-          CARGO_TARGET: --target ${{ matrix.target }}
-      - name: Test stage 6
-        run: |
-          make test-stage-6
-        env:
-          TARGET: ${{ matrix.target }}
-          TARGET_DIR: target/${{ matrix.target }}/release
-          CARGO_TARGET: --target ${{ matrix.target }}
-
 
   test_integration_cli: 
     name: Integration tests on ${{ matrix.build }}
