@@ -1,8 +1,9 @@
+use anyhow::Context;
 use clap::Parser;
 use flate2::{write::GzEncoder, Compression};
 use rusqlite::{params, Connection, OpenFlags, TransactionBehavior};
 use std::fs;
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use tar::Builder;
 use thiserror::Error;
@@ -16,7 +17,7 @@ const RFC3339_FORMAT_STRING: &str = "%Y-%m-%dT%H:%M:%S-%f";
 /// CLI options for the `wasmer publish` command
 #[derive(Debug, Parser)]
 pub struct Publish {
-    /// Directory containing the `wapm.toml` (defaults to current root dir)
+    /// Directory containing the `wasmer.toml` (defaults to current root dir)
     #[clap(long, name = "dir", env = "DIR")]
     pub dir: Option<String>,
     /// Registry to publish to
@@ -28,9 +29,11 @@ pub struct Publish {
     /// Run the publish command without any output
     #[clap(long)]
     pub quiet: bool,
-    /// Override the namespace of the uploaded package in the wapm.toml
+    /// Override the namespace of the uploaded package in the wasmer.toml
+    #[clap(long)]
     pub namespace: Option<String>,
     /// Override the token (by default, it will use the current logged in user)
+    #[clap(long)]
     pub token: Option<String>,
 }
 
@@ -42,8 +45,8 @@ enum PublishError {
     SourceMustBeFile { module: String, path: PathBuf },
     #[error("Unable to load the bindings for \"{module}\" because \"{}\" doesn't exist", path.display())]
     MissingBindings { module: String, path: PathBuf },
-    #[error("Error building package when parsing module \"{0}\".")]
-    ErrorBuildingPackage(String),
+    #[error("Error building package when parsing module \"{0}\": {1}.")]
+    ErrorBuildingPackage(String, io::Error),
     #[error(
         "Path \"{0}\", specified in the manifest as part of the package file system does not exist.",
     )]
@@ -60,16 +63,20 @@ impl Publish {
         let mut builder = Builder::new(Vec::new());
 
         let cwd = match self.dir.as_ref() {
-            Some(s) => Path::new(&s).to_path_buf(),
+            Some(s) => std::env::current_dir()?.join(s),
             None => std::env::current_dir()?,
         };
 
         // TODO: implement validation
         // validate::validate_directory(cwd.clone())?;
 
-        let manifest = wapm_toml::Manifest::find_in_directory(&cwd)?;
-
         let manifest_path_buf = cwd.join("wasmer.toml");
+        let manifest = std::fs::read_to_string(&manifest_path_buf)
+            .map_err(|e| anyhow::anyhow!("could not find manifest: {e}"))
+            .with_context(|| anyhow::anyhow!("{}", manifest_path_buf.display()))?;
+        let mut manifest = wapm_toml::Manifest::parse(&manifest)?;
+        manifest.base_directory_path = cwd.clone();
+
         builder.append_path_with_name(&manifest_path_buf, "wapm.toml")?;
 
         let package = &manifest.package;
@@ -78,7 +85,10 @@ impl Publish {
 
         let readme = package.readme.as_ref().and_then(|readme_path| {
             let normalized_path = normalize_path(&manifest.base_directory_path, readme_path);
-            if builder.append_path(&normalized_path).is_err() {
+            if builder
+                .append_path_with_name(&normalized_path, readme_path)
+                .is_err()
+            {
                 // TODO: Maybe do something here
             }
             fs::read_to_string(normalized_path).ok()
@@ -86,7 +96,10 @@ impl Publish {
 
         let license_file = package.license_file.as_ref().and_then(|license_file_path| {
             let normalized_path = normalize_path(&manifest.base_directory_path, license_file_path);
-            if builder.append_path(&normalized_path).is_err() {
+            if builder
+                .append_path_with_name(&normalized_path, license_file_path)
+                .is_err()
+            {
                 // TODO: Maybe do something here
             }
             fs::read_to_string(normalized_path).ok()
@@ -101,8 +114,10 @@ impl Publish {
                     path: normalized_path.clone(),
                 })?;
             builder
-                .append_path(normalized_path)
-                .map_err(|_| PublishError::ErrorBuildingPackage(module.name.clone()))?;
+                .append_path_with_name(&normalized_path, &module.source)
+                .map_err(|e| {
+                    PublishError::ErrorBuildingPackage(format!("{}", normalized_path.display()), e)
+                })?;
 
             if let Some(bindings) = &module.bindings {
                 for path in bindings.referenced_files(&manifest.base_directory_path)? {
@@ -114,8 +129,8 @@ impl Publish {
                             path: normalized_path.clone(),
                         })?;
                     builder
-                        .append_path(normalized_path)
-                        .map_err(|_| PublishError::ErrorBuildingPackage(module.name.clone()))?;
+                        .append_path_with_name(&normalized_path, &module.source)
+                        .map_err(|e| PublishError::ErrorBuildingPackage(module.name.clone(), e))?;
                 }
             }
         }
