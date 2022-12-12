@@ -472,7 +472,7 @@ jobs:
           aws-s3-force-path-style: true
       - name: Test C-API
         shell: bash
-        if: matrix.build != "linux-musl"
+        if: matrix.os != 'x86_64-unknown-linux-musl'
         run: |
           make test-capi-ci
       - name: Build C-API
