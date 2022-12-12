@@ -56,7 +56,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-lint-linux-x64
+          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-lint-linux-x64
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -212,7 +212,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.build }}
+          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-build-wasmer-${{ matrix.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -329,7 +329,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-build-capi-windows-gnu
+          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-build-capi-windows-gnu
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -467,7 +467,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-build-capi-${{ matrix.build }}
+          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-build-capi-${{ matrix.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -549,7 +549,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-test-integration-cli-${{ matrix.build }}
+          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-integration-cli-${{ matrix.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -673,7 +673,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-0-${{ matrix.build }}
+          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-0-${{ matrix.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -793,7 +793,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-1-${{ matrix.build }}
+          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-1-${{ matrix.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -909,7 +909,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-2-${{ matrix.build }}
+          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-2-${{ matrix.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -1021,7 +1021,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-3-${{ matrix.build }}
+          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-3-${{ matrix.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -1133,7 +1133,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-4-${{ matrix.build }}
+          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-4-${{ matrix.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -1245,7 +1245,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-5-${{ matrix.build }}
+          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-5-${{ matrix.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -1357,7 +1357,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-6-${{ matrix.build }}
+          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-6-${{ matrix.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
