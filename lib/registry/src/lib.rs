@@ -100,14 +100,7 @@ pub struct LocalPackage {
 
 impl LocalPackage {
     pub fn get_path(&self, #[cfg(test)] test_name: &str) -> Result<PathBuf, String> {
-        let host = url::Url::parse(&self.registry)
-            .ok()
-            .and_then(|o| o.host_str().map(|s| s.to_string()))
-            .unwrap_or_else(|| self.registry.clone());
-        #[cfg(test)]
-        return get_package_local_dir(test_name, &host, &self.name, &self.version);
-        #[cfg(not(test))]
-        return get_package_local_dir(&self.name, &host, &self.version);
+        Ok(self.path.clone())
     }
     pub fn get_commands(&self, #[cfg(test)] test_name: &str) -> Result<Vec<String>, String> {
         #[cfg(not(test))]
@@ -231,12 +224,11 @@ pub fn get_all_local_packages(#[cfg(test)] test_name: &str) -> Vec<LocalPackage>
             Some(s) => s,
             None => continue,
         };
-        let package = Url::parse(&Package::unhash_url(&url_hash))
-            .ok()
-            .and_then(|s| Some(s.origin().ascii_serialization()));
+        let package =
+            Url::parse(&Package::unhash_url(url_hash)).map(|s| s.origin().ascii_serialization());
         let host = match package {
-            Some(s) => s,
-            None => continue,
+            Ok(s) => s,
+            Err(_) => continue,
         };
         packages.push(LocalPackage {
             registry: host,
