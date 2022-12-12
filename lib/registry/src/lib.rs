@@ -47,29 +47,16 @@ pub struct PackageDownloadInfo {
 
 pub fn get_package_local_dir(
     #[cfg(test)] test_name: &str,
-    registry_host: &str,
-    name: &str,
+    url: &str,
     version: &str,
-) -> Result<PathBuf, String> {
+) -> Option<PathBuf> {
     #[cfg(test)]
-    let all_local_packages = get_all_local_packages(test_name);
+    let checkouts_dir = get_checkouts_dir(test_name)?;
     #[cfg(not(test))]
-    let all_local_packages = get_all_local_packages();
-    let test_1 = all_local_packages
-        .into_iter()
-        .find(|p| p.name == name && p.version == version)
-        .map(|p| p.path);
-
-    test_1
-        .or_else(|| {
-            #[cfg(test)]
-            let checkouts_dir = get_checkouts_dir(test_name)?;
-            #[cfg(not(test))]
-            let checkouts_dir = get_checkouts_dir()?;
-            let url_hash = Package::hash_url(&format!("https://{registry_host}/{name}"));
-            Some(checkouts_dir.join(format!("{url_hash}@{version}")))
-        })
-        .ok_or_else(|| format!("could not find package dir for {name}@{version}"))
+    let checkouts_dir = get_checkouts_dir()?;
+    let url_hash = Package::hash_url(url);
+    let dir = checkouts_dir.join(format!("{url_hash}@{version}"));
+    Some(dir)
 }
 
 pub fn try_finding_local_command(#[cfg(test)] test_name: &str, cmd: &str) -> Option<LocalPackage> {
@@ -351,199 +338,6 @@ pub enum GetIfPackageHasNewVersionResult {
         name: String,
         version: Option<String>,
     },
-}
-
-#[test]
-fn test_get_if_package_has_new_version() {
-    const TEST_NAME: &str = "test_get_if_package_has_new_version";
-    let fake_registry = "https://h0.com";
-    let fake_name = "namespace0/project1";
-    let fake_version = "1.0.0";
-
-    let package_path = get_package_local_dir(TEST_NAME, "h0.com", fake_name, fake_version).unwrap();
-    let _ = std::fs::remove_file(&package_path.join("wapm.toml"));
-    let _ = std::fs::remove_file(&package_path.join("wapm.toml"));
-
-    let r1 = get_if_package_has_new_version(
-        TEST_NAME,
-        fake_registry,
-        "namespace0",
-        "project1",
-        Some(fake_version.to_string()),
-        Duration::from_secs(5 * 60),
-    );
-
-    assert_eq!(
-        r1.unwrap(),
-        GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
-            registry_url: fake_registry.to_string(),
-            namespace: "namespace0".to_string(),
-            name: "project1".to_string(),
-            version: Some(fake_version.to_string()),
-        }
-    );
-
-    let package_path = get_package_local_dir(TEST_NAME, "h0.com", fake_name, fake_version).unwrap();
-    std::fs::create_dir_all(&package_path).unwrap();
-    std::fs::write(&package_path.join("wapm.toml"), b"").unwrap();
-
-    let r1 = get_if_package_has_new_version(
-        TEST_NAME,
-        fake_registry,
-        "namespace0",
-        "project1",
-        Some(fake_version.to_string()),
-        Duration::from_secs(5 * 60),
-    );
-
-    assert_eq!(
-        r1.unwrap(),
-        GetIfPackageHasNewVersionResult::UseLocalAlreadyInstalled {
-            registry_host: "h0.com".to_string(),
-            namespace: "namespace0".to_string(),
-            name: "project1".to_string(),
-            version: fake_version.to_string(),
-            path: package_path,
-        }
-    );
-}
-
-/// Returns true if a package has a newer version
-///
-/// Also returns true if the package is not installed yet.
-pub fn get_if_package_has_new_version(
-    #[cfg(test)] test_name: &str,
-    registry_url: &str,
-    namespace: &str,
-    name: &str,
-    version: Option<String>,
-    max_timeout: Duration,
-) -> Result<GetIfPackageHasNewVersionResult, String> {
-    let host = match url::Url::parse(registry_url) {
-        Ok(o) => match o.host_str().map(|s| s.to_string()) {
-            Some(s) => s,
-            None => return Err(format!("invalid host: {registry_url}")),
-        },
-        Err(_) => return Err(format!("invalid host: {registry_url}")),
-    };
-
-    #[cfg(not(test))]
-    let global_install_dir = get_global_install_dir(&host);
-    #[cfg(test)]
-    let global_install_dir = get_global_install_dir(test_name, &host);
-
-    let package_dir = global_install_dir.map(|path| path.join(namespace).join(name));
-
-    let package_dir = match package_dir {
-        Some(s) => s,
-        None => {
-            return Ok(GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
-                registry_url: registry_url.to_string(),
-                namespace: namespace.to_string(),
-                name: name.to_string(),
-                version,
-            })
-        }
-    };
-
-    // if version is specified: look if that specific version exists
-    if let Some(s) = version.as_ref() {
-        let installed_path = package_dir.join(s).join("wapm.toml");
-        if installed_path.exists() {
-            return Ok(GetIfPackageHasNewVersionResult::UseLocalAlreadyInstalled {
-                registry_host: host,
-                namespace: namespace.to_string(),
-                name: name.to_string(),
-                version: s.clone(),
-                path: package_dir.join(s),
-            });
-        } else {
-            return Ok(GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
-                registry_url: registry_url.to_string(),
-                namespace: namespace.to_string(),
-                name: name.to_string(),
-                version: Some(s.clone()),
-            });
-        }
-    }
-
-    // version has not been explicitly specified: check if any package < duration exists
-    let read_dir = match std::fs::read_dir(&package_dir) {
-        Ok(o) => o,
-        Err(_) => {
-            return Ok(GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
-                registry_url: registry_url.to_string(),
-                namespace: namespace.to_string(),
-                name: name.to_string(),
-                version,
-            });
-        }
-    };
-
-    // all installed versions of this package
-    let all_installed_versions = read_dir
-        .filter_map(|entry| {
-            let entry = entry.ok()?;
-            let version = semver::Version::parse(entry.file_name().to_str()?).ok()?;
-            let modified = entry
-                .path()
-                .join("wapm.toml")
-                .metadata()
-                .ok()?
-                .modified()
-                .ok()?;
-            let older_than_timeout = modified.elapsed().ok()? > max_timeout;
-            Some((version, older_than_timeout))
-        })
-        .collect::<Vec<_>>();
-
-    if all_installed_versions.is_empty() {
-        // package not installed yet
-        Ok(GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
-            registry_url: registry_url.to_string(),
-            namespace: namespace.to_string(),
-            name: name.to_string(),
-            version,
-        })
-    } else if all_installed_versions
-        .iter()
-        .all(|(_, older_than_timeout)| *older_than_timeout)
-    {
-        // all packages are older than the timeout: there might be a new package available
-        return Ok(GetIfPackageHasNewVersionResult::LocalVersionMayBeOutdated {
-            registry_host: registry_url.to_string(),
-            namespace: namespace.to_string(),
-            name: name.to_string(),
-            installed_versions: all_installed_versions
-                .iter()
-                .map(|(key, old)| (format!("{key}"), *old))
-                .collect::<Vec<_>>(),
-        });
-    } else {
-        // return the package that was younger than timeout
-        let younger_than_timeout_version = all_installed_versions
-            .iter()
-            .find(|(_, older_than_timeout)| !older_than_timeout)
-            .unwrap();
-        let version = format!("{}", younger_than_timeout_version.0);
-        let installed_path = package_dir.join(&version).join("wapm.toml");
-        if installed_path.exists() {
-            Ok(GetIfPackageHasNewVersionResult::UseLocalAlreadyInstalled {
-                registry_host: host,
-                namespace: namespace.to_string(),
-                name: name.to_string(),
-                version: version.clone(),
-                path: package_dir.join(&version),
-            })
-        } else {
-            Ok(GetIfPackageHasNewVersionResult::PackageNotInstalledYet {
-                registry_url: registry_url.to_string(),
-                namespace: namespace.to_string(),
-                name: name.to_string(),
-                version: None,
-            })
-        }
-    }
 }
 
 /// Returns the download info of the packages, on error returns all the available packages
