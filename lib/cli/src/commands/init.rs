@@ -324,7 +324,7 @@ impl Init {
 
         std::fs::write(
             &manifest_path,
-            &format!("{old_cargo}\r\n\r\n[metadata.package.wapm]\r\n{toml_string}"),
+            &format!("{old_cargo}\r\n\r\n[package.metadata.wapm]\r\n{toml_string}"),
         )?;
 
         Ok(())
