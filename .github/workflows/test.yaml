@@ -474,10 +474,15 @@ jobs:
         shell: bash
         run: |
           make build-capi && make package-capi
-      - name: Test C-API
+      - name: Integration tests
         shell: bash
         run: |
-          make test-capi
+          make test-stage-8
+      - name: Test C-API
+        shell: bash
+        if: matrix.build != linux-musl
+        run: |
+          make test-capi-ci
       - name: Zip artifacts
         shell: bash
         run: |
