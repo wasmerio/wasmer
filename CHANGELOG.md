@@ -9,6 +9,27 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
  
 ## **Unreleased**
 
+## 3.1.0 - 12/12/2022
+
+## Added
+
+  - [#3403](https://github.com/wasmerio/wasmer/pull/3403) Add wasm_importtype_copy to C API
+
+## Changed
+
+  - [#3416](https://github.com/wasmerio/wasmer/pull/3416) Download and install packages via .tar.gz URLs and improve installation error message
+  - [#3402](https://github.com/wasmerio/wasmer/pull/3402) Do not run first command of wapm file and print all commands instead
+  - [#3400](https://github.com/wasmerio/wasmer/pull/3400) Use the wasm_bindgen_downcast crate for downcasting JsValues
+  - [#3386](https://github.com/wasmerio/wasmer/pull/3386) Restore Support For All Wasi Clock Types
+
+## Fixed
+
+  - [#3415](https://github.com/wasmerio/wasmer/pull/3415) Fix singlepass for Aarch64
+  - [#3396](https://github.com/wasmerio/wasmer/pull/3396) Fix build doc and minimum-sys build
+  - [#3395](https://github.com/wasmerio/wasmer/pull/3395) Fix create-exe to be able to cross-compile on Windows
+
+
+
 ## 3.0.2 - 25/11/2022
 
 ## Added
