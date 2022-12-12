@@ -285,6 +285,26 @@ jobs:
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_ALLOW_CROSS: true
           ENABLE_LLVM: 0
+      - name: Package C API
+        run: |
+          make package-capi
+        env:
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
+          CROSS_DOCKER_IN_DOCKER: true
+          CARGO_TARGET: --target aarch64-unknown-linux-gnu
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
+          PKG_CONFIG_ALLOW_CROSS: true
+          ENABLE_LLVM: 0
+      - name: Test C API
+        run: |
+          make test-capi-ci
+        env:
+          CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
+          CROSS_DOCKER_IN_DOCKER: true
+          CARGO_TARGET: --target aarch64-unknown-linux-gnu
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
+          PKG_CONFIG_ALLOW_CROSS: true
+          ENABLE_LLVM: 0
 
   build_capi_windows_gnu:
     name: Windows GNU
@@ -470,80 +490,6 @@ jobs:
           path: build-capi.tar.gz
           if-no-files-found: error
           retention-days: 2
-
-  test_capi: 
-    name: Test C-API on ${{ matrix.build }}
-    runs-on: ${{ matrix.os }}
-    needs: build_capi
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - build: linux-x64
-            os: ubuntu-18.04
-            target: x86_64-unknown-linux-gnu
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
-          - build: macos-x64
-            os: macos-11
-            target: x86_64-apple-darwin
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
-          - build: windows-x64
-            os: windows-latest
-            target: x86_64-pc-windows-msvc
-            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
-            llvm_choco_version: 13.0.0
-          - build: linux-musl
-            target: x86_64-unknown-linux-musl
-            os: ubuntu-18.04
-            container: alpine:latest
-    container: ${{ matrix.container }}
-    env:
-      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
-      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl'
-        run: |
-            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
-      - uses: actions/download-artifact@v3
-        id: download
-        with:
-          name: capi-${{ matrix.build }}
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.63
-          target: ${{ matrix.target }}
-      - name: Cache
-        uses: whywaita/actions-cache-s3@v2
-        with:
-          path: |
-            ~/.cargo/*
-            ./target/*
-          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-test-capi-${{ matrix.build }}
-          aws-s3-bucket: wasmer-rust-artifacts-cache
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          aws-region: auto
-          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
-          aws-s3-bucket-endpoint: false
-          aws-s3-force-path-style: true
-      - name: 'Echo download path'
-        run: echo ${{steps.download.outputs.download-path}}
-      - name: Unzip Artifacts
-        shell: bash
-        run: |
-          make untar-capi
-      - name: Test C API
-        # musl can't run the capi tests because of a cc linker issue (`wasm_engine_new` is redefined)
-        if: matrix.build != 'linux-musl'
-        run: |
-          make test-capi-ci
-        env:
-          TARGET: ${{ matrix.target }}
-          TARGET_DIR: target/${{ matrix.target }}/release
-          CARGO_TARGET: --target ${{ matrix.target }}
 
   test_integration_cli: 
     name: Integration tests on ${{ matrix.build }}
