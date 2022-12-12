@@ -6,9 +6,6 @@
 
 Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/CHANGELOG.md).
 
- 
-## **Unreleased**
-
 
 ## **Unreleased**
 
