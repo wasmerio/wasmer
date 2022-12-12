@@ -51,27 +51,32 @@ pub fn get_package_local_dir(
     name: &str,
     version: &str,
 ) -> Result<PathBuf, String> {
-    if !name.contains('/') {
-        return Err(format!(
-            "package name has to be in the format namespace/package: {name:?}"
-        ));
-    }
-    let (namespace, name) = name
-        .split_once('/')
-        .ok_or_else(|| format!("missing namespace / name for {name:?}"))?;
     #[cfg(test)]
-    let global_install_dir = get_global_install_dir(test_name, registry_host);
+    let all_local_packages = get_all_local_packages(test_name);
     #[cfg(not(test))]
-    let global_install_dir = get_global_install_dir(registry_host);
-    let install_dir = global_install_dir.ok_or_else(|| format!("no install dir for {name:?}"))?;
-    Ok(install_dir.join(namespace).join(name).join(version))
+    let all_local_packages = get_all_local_packages();
+    let test_1 = all_local_packages
+        .into_iter()
+        .find(|p| p.name == name && p.version == version)
+        .map(|p| p.path);
+
+    test_1
+        .or_else(|| {
+            #[cfg(test)]
+            let checkouts_dir = get_checkouts_dir(test_name)?;
+            #[cfg(not(test))]
+            let checkouts_dir = get_checkouts_dir()?;
+            let url_hash = Package::hash_url(&format!("https://{registry_host}/{name}"));
+            Some(checkouts_dir.join(format!("{url_hash}@{version}")))
+        })
+        .ok_or_else(|| format!("could not find package dir for {name}@{version}"))
 }
 
 pub fn try_finding_local_command(#[cfg(test)] test_name: &str, cmd: &str) -> Option<LocalPackage> {
     #[cfg(test)]
-    let local_packages = get_all_local_packages(test_name, None);
+    let local_packages = get_all_local_packages(test_name);
     #[cfg(not(test))]
-    let local_packages = get_all_local_packages(None);
+    let local_packages = get_all_local_packages();
     for p in local_packages {
         #[cfg(not(test))]
         let commands = p.get_commands();
@@ -90,6 +95,7 @@ pub struct LocalPackage {
     pub registry: String,
     pub name: String,
     pub version: String,
+    pub path: PathBuf,
 }
 
 impl LocalPackage {
@@ -98,16 +104,10 @@ impl LocalPackage {
             .ok()
             .and_then(|o| o.host_str().map(|s| s.to_string()))
             .unwrap_or_else(|| self.registry.clone());
-
         #[cfg(test)]
-        {
-            get_package_local_dir(test_name, &host, &self.name, &self.version)
-        }
-
+        return get_package_local_dir(test_name, &host, &self.name, &self.version);
         #[cfg(not(test))]
-        {
-            get_package_local_dir(&host, &self.name, &self.version)
-        }
+        return get_package_local_dir(&self.name, &host, &self.version);
     }
     pub fn get_commands(&self, #[cfg(test)] test_name: &str) -> Result<Vec<String>, String> {
         #[cfg(not(test))]
@@ -205,72 +205,45 @@ fn get_all_names_in_dir(dir: &PathBuf) -> Vec<(PathBuf, String)> {
 }
 
 /// Returns a list of all locally installed packages
-pub fn get_all_local_packages(
-    #[cfg(test)] test_name: &str,
-    registry: Option<&str>,
-) -> Vec<LocalPackage> {
+pub fn get_all_local_packages(#[cfg(test)] test_name: &str) -> Vec<LocalPackage> {
     let mut packages = Vec::new();
-    let registries = match registry {
-        Some(s) => vec![s.to_string()],
-        None => {
-            #[cfg(test)]
-            {
-                get_all_available_registries(test_name).unwrap_or_default()
-            }
-            #[cfg(not(test))]
-            {
-                get_all_available_registries().unwrap_or_default()
-            }
-        }
-    };
-
-    let mut registry_hosts = registries
-        .into_iter()
-        .filter_map(|s| url::Url::parse(&s).ok()?.host_str().map(|s| s.to_string()))
-        .collect::<Vec<_>>();
 
     #[cfg(not(test))]
     let checkouts_dir = get_checkouts_dir();
     #[cfg(test)]
     let checkouts_dir = get_checkouts_dir(test_name);
 
-    let mut registries_in_root_dir = checkouts_dir
-        .as_ref()
-        .map(get_all_names_in_dir)
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|(path, p)| if path.is_dir() { Some(p) } else { None })
-        .collect();
+    let checkouts_dir = match checkouts_dir {
+        Some(s) => s,
+        None => return packages,
+    };
 
-    registry_hosts.append(&mut registries_in_root_dir);
-    registry_hosts.sort();
-    registry_hosts.dedup();
-
-    for host in registry_hosts {
-        #[cfg(not(test))]
-        let global_install_dir = get_global_install_dir(&host);
-        #[cfg(test)]
-        let global_install_dir = get_global_install_dir(test_name, &host);
-        let root_dir = match global_install_dir {
-            Some(o) => o,
+    for (path, url_hash_with_version) in get_all_names_in_dir(&checkouts_dir) {
+        let s = match std::fs::read_to_string(path.join("wapm.toml")) {
+            Ok(o) => o,
+            Err(_) => continue,
+        };
+        let manifest = match wapm_toml::Manifest::parse(&s) {
+            Ok(o) => o,
+            Err(_) => continue,
+        };
+        let url_hash = match url_hash_with_version.split('@').next() {
+            Some(s) => s,
             None => continue,
         };
-
-        for (username_path, user_name) in get_all_names_in_dir(&root_dir) {
-            for (package_path, package_name) in get_all_names_in_dir(&username_path) {
-                for (version_path, package_version) in get_all_names_in_dir(&package_path) {
-                    let _ = match std::fs::read_to_string(version_path.join("wapm.toml")) {
-                        Ok(o) => o,
-                        Err(_) => continue,
-                    };
-                    packages.push(LocalPackage {
-                        registry: host.clone(),
-                        name: format!("{user_name}/{package_name}"),
-                        version: package_version,
-                    });
-                }
-            }
-        }
+        let package = Url::parse(&Package::unhash_url(&url_hash))
+            .ok()
+            .and_then(|s| Some(s.origin().ascii_serialization()));
+        let host = match package {
+            Some(s) => s,
+            None => continue,
+        };
+        packages.push(LocalPackage {
+            registry: host,
+            name: manifest.package.name,
+            version: manifest.package.version.to_string(),
+            path,
+        });
     }
 
     packages
@@ -278,14 +251,13 @@ pub fn get_all_local_packages(
 
 pub fn get_local_package(
     #[cfg(test)] test_name: &str,
-    registry: Option<&str>,
     name: &str,
     version: Option<&str>,
 ) -> Option<LocalPackage> {
     #[cfg(not(test))]
-    let local_packages = get_all_local_packages(registry);
+    let local_packages = get_all_local_packages();
     #[cfg(test)]
-    let local_packages = get_all_local_packages(test_name, registry);
+    let local_packages = get_all_local_packages(test_name);
 
     local_packages
         .iter()
@@ -403,7 +375,8 @@ fn test_get_if_package_has_new_version() {
     let r1 = get_if_package_has_new_version(
         TEST_NAME,
         fake_registry,
-        "namespace0/project1",
+        "namespace0",
+        "project1",
         Some(fake_version.to_string()),
         Duration::from_secs(5 * 60),
     );
@@ -425,7 +398,8 @@ fn test_get_if_package_has_new_version() {
     let r1 = get_if_package_has_new_version(
         TEST_NAME,
         fake_registry,
-        "namespace0/project1",
+        "namespace0",
+        "project1",
         Some(fake_version.to_string()),
         Duration::from_secs(5 * 60),
     );
@@ -812,8 +786,12 @@ pub fn install_package(#[cfg(test)] test_name: &str, url: &Url) -> Result<PathBu
 
     let version = toml_parsed.package.version.to_string();
 
-    let checkouts_dir =
-        crate::get_checkouts_dir().ok_or_else(|| anyhow::anyhow!("no checkouts dir"))?;
+    #[cfg(test)]
+    let checkouts_dir = crate::get_checkouts_dir(test_name);
+    #[cfg(not(test))]
+    let checkouts_dir = crate::get_checkouts_dir();
+
+    let checkouts_dir = checkouts_dir.ok_or_else(|| anyhow::anyhow!("no checkouts dir"))?;
 
     let installation_path =
         checkouts_dir.join(format!("{}@{version}", Package::hash_url(url.as_ref())));
@@ -1245,35 +1223,25 @@ fn test_install_package() {
         "https://registry-cdn.wapm.io/packages/wasmer/wabt/wabt-1.0.29.tar.gz".to_string()
     );
 
-    let (package, _) = install_package(
-        TEST_NAME,
-        Some(registry),
-        "wasmer/wabt",
-        Some("1.0.29"),
-        None,
-        true,
-    )
-    .unwrap();
+    let path = install_package(TEST_NAME, &url::Url::parse(&wabt.url).unwrap()).unwrap();
 
-    println!("package installed: {package:#?}");
+    println!("package installed: {path:?}");
 
     assert_eq!(
-        package.get_path(TEST_NAME).unwrap(),
-        get_global_install_dir(TEST_NAME, "registry.wapm.io")
+        path,
+        get_checkouts_dir(TEST_NAME)
             .unwrap()
-            .join("wasmer")
-            .join("wabt")
-            .join("1.0.29")
+            .join(&format!("{}@1.0.29", Package::hash_url(&wabt.url)))
     );
 
-    let all_installed_packages = get_all_local_packages(TEST_NAME, Some(registry));
+    let all_installed_packages = get_all_local_packages(TEST_NAME);
 
     let is_installed = all_installed_packages
         .iter()
         .any(|p| p.name == "wasmer/wabt" && p.version == "1.0.29");
 
     if !is_installed {
-        let panic_str = get_all_local_packages(TEST_NAME, Some(registry))
+        let panic_str = get_all_local_packages(TEST_NAME)
             .iter()
             .map(|p| format!("{} {} {}", p.registry, p.name, p.version))
             .collect::<Vec<_>>()

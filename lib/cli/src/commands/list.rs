@@ -9,7 +9,7 @@ impl List {
     pub fn execute(&self) -> Result<(), anyhow::Error> {
         use prettytable::{format, row, Table};
 
-        let rows = wasmer_registry::get_all_local_packages(None)
+        let rows = wasmer_registry::get_all_local_packages()
             .into_iter()
             .filter_map(|pkg| {
                 let package_root_path = pkg.get_path().ok()?;

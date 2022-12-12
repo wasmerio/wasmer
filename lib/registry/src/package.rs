@@ -18,9 +18,17 @@ impl fmt::Display for Package {
 
 impl Package {
     /// Checks whether the package is already installed, if yes, returns the path to the root dir
-    pub fn already_installed(&self) -> Option<PathBuf> {
+    pub fn already_installed(&self, #[cfg(test)] test_name: &str) -> Option<PathBuf> {
+        #[cfg(not(test))]
         let checkouts_dir = crate::get_checkouts_dir()?;
+        #[cfg(test)]
+        let checkouts_dir = crate::get_checkouts_dir(test_name)?;
+
+        #[cfg(not(test))]
         let hash = self.get_hash();
+        #[cfg(test)]
+        let hash = self.get_hash(test_name);
+
         let found = std::fs::read_dir(&checkouts_dir)
             .ok()?
             .filter_map(|e| Some(e.ok()?.file_name().to_str()?.to_string()))
@@ -33,8 +41,12 @@ impl Package {
 
     /// Checks if the URL is already installed, note that `{url}@{version}`
     /// and `{url}` are treated the same
-    pub fn is_url_already_installed(url: &Url) -> Option<PathBuf> {
+    pub fn is_url_already_installed(url: &Url, #[cfg(test)] test_name: &str) -> Option<PathBuf> {
+        #[cfg(not(test))]
         let checkouts_dir = crate::get_checkouts_dir()?;
+        #[cfg(test)]
+        let checkouts_dir = crate::get_checkouts_dir(test_name)?;
+
         let url_string = url.to_string();
         let (url, version) = match url_string.split('@').collect::<Vec<_>>()[..] {
             [url, version] => (url.to_string(), Some(version)),
@@ -56,16 +68,32 @@ impl Package {
         hex::encode(url).chars().take(64).collect()
     }
 
-    /// Returns the hash of the package URL without the version
-    /// (because the version is encoded as @version and isn't part of the hash itself)
-    pub fn get_hash(&self) -> String {
-        Self::hash_url(&self.get_url_without_version().unwrap_or_default())
+    /// Returns the hash of the URL with a maximum of 64 bytes length
+    pub fn unhash_url(hashed: &str) -> String {
+        String::from_utf8_lossy(&hex::decode(hashed).unwrap_or_default()).to_string()
     }
 
-    fn get_url_without_version(&self) -> Result<String, anyhow::Error> {
+    /// Returns the hash of the package URL without the version
+    /// (because the version is encoded as @version and isn't part of the hash itself)
+    pub fn get_hash(&self, #[cfg(test)] test_name: &str) -> String {
+        #[cfg(test)]
+        let url = self.get_url_without_version(test_name);
+        #[cfg(not(test))]
+        let url = self.get_url_without_version();
+        Self::hash_url(&url.unwrap_or_default())
+    }
+
+    fn get_url_without_version(
+        &self,
+        #[cfg(test)] test_name: &str,
+    ) -> Result<String, anyhow::Error> {
+        #[cfg(test)]
+        let url = self.url(test_name);
+        #[cfg(not(test))]
+        let url = self.url();
         Ok(format!(
             "{}/{}/{}",
-            self.url()?.origin().ascii_serialization(),
+            url?.origin().ascii_serialization(),
             self.namespace,
             self.name
         ))
@@ -87,7 +115,11 @@ impl Package {
     }
 
     /// Returns the full URL including the version for this package
-    pub fn url(&self) -> Result<Url, anyhow::Error> {
+    pub fn url(&self, #[cfg(test)] test_name: &str) -> Result<Url, anyhow::Error> {
+        #[cfg(test)]
+        let config = PartialWapmConfig::from_file(test_name)
+            .map_err(|e| anyhow::anyhow!("could not read wapm config: {e}"))?;
+        #[cfg(not(test))]
         let config = PartialWapmConfig::from_file()
             .map_err(|e| anyhow::anyhow!("could not read wapm config: {e}"))?;
         let registry = config.registry.get_current_registry();
@@ -115,12 +147,22 @@ impl Package {
 
     /// Returns the path to the installation directory.
     /// Does not check whether the installation directory already exists.
-    pub fn get_path(&self) -> Result<PathBuf, anyhow::Error> {
-        let checkouts_dir =
-            crate::get_checkouts_dir().ok_or_else(|| anyhow::anyhow!("no checkouts dir"))?;
+    pub fn get_path(&self, #[cfg(test)] test_name: &str) -> Result<PathBuf, anyhow::Error> {
+        #[cfg(test)]
+        let checkouts_dir = crate::get_checkouts_dir(test_name);
+        #[cfg(not(test))]
+        let checkouts_dir = crate::get_checkouts_dir();
+
+        let checkouts_dir = checkouts_dir.ok_or_else(|| anyhow::anyhow!("no checkouts dir"))?;
+
+        #[cfg(not(test))]
+        let hash = self.get_hash();
+        #[cfg(test)]
+        let hash = self.get_hash(test_name);
+
         match self.version.as_ref() {
-            Some(v) => Ok(checkouts_dir.join(format!("{}@{}", self.get_hash(), v))),
-            None => Ok(checkouts_dir.join(&self.get_hash())),
+            Some(v) => Ok(checkouts_dir.join(format!("{}@{}", hash, v))),
+            None => Ok(checkouts_dir.join(&hash)),
         }
     }
 }
