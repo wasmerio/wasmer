@@ -1086,9 +1086,9 @@ dependencies = [
 
 [[package]]
 name = "filetime"
-version = "0.2.18"
+version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b9663d381d07ae25dc88dbdf27df458faa83a9b25336bcac83d5e452b5fc9d3"
+checksum = "4e884668cd0c7480504233e951174ddc3b382f7c2666e3b7310b5c4e7b0c37f9"
 dependencies = [
  "cfg-if 1.0.0",
  "libc",
@@ -1129,6 +1129,12 @@ checksum = "a9c384f161156f5260c24a097c56119f9be8c798586aecc13afbcbe7b7e26bf8"
 dependencies = [
  "percent-encoding",
 ]
+
+[[package]]
+name = "fs_extra"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2022715d62ab30faffd124d40b76f4134a550a87792276512b18d63272333394"
 
 [[package]]
 name = "fuchsia-cprng"
@@ -4059,6 +4065,7 @@ dependencies = [
  "dirs",
  "distance",
  "fern",
+ "hex",
  "http_req",
  "isatty",
  "libc",
@@ -4299,13 +4306,16 @@ version = "3.0.2"
 dependencies = [
  "anyhow",
  "dirs",
+ "filetime",
  "flate2",
+ "fs_extra",
  "futures-util",
  "graphql_client",
  "hex",
  "log",
  "lzma-rs",
  "rand 0.8.5",
+ "regex",
  "reqwest",
  "semver 1.0.14",
  "serde",
@@ -4313,6 +4323,7 @@ dependencies = [
  "tar",
  "tempdir",
  "thiserror",
+ "tldextract",
  "tokio",
  "toml",
  "url",

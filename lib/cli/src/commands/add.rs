@@ -4,8 +4,6 @@ use anyhow::{Context, Error};
 use clap::Parser;
 use wasmer_registry::{Bindings, PartialWapmConfig, ProgrammingLanguage};
 
-use crate::cli::SplitVersion;
-
 /// Add a WAPM package's bindings to your application.
 #[derive(Debug, Parser)]
 pub struct Add {
@@ -26,7 +24,7 @@ pub struct Add {
     pip: bool,
     /// The packages to add (e.g. "wasmer/wasmer-pack@0.5.0" or "python/python")
     #[clap(parse(try_from_str))]
-    packages: Vec<SplitVersion>,
+    packages: Vec<wasmer_registry::Package>,
 }
 
 impl Add {
@@ -103,11 +101,11 @@ impl Add {
 
 fn lookup_bindings_for_package(
     registry: &str,
-    pkg: &SplitVersion,
+    pkg: &wasmer_registry::Package,
     language: &ProgrammingLanguage,
 ) -> Result<Bindings, Error> {
     let all_bindings =
-        wasmer_registry::list_bindings(registry, &pkg.package, pkg.version.as_deref())?;
+        wasmer_registry::list_bindings(registry, &pkg.package(), pkg.version.as_deref())?;
 
     match all_bindings.iter().find(|b| b.language == *language) {
         Some(b) => {
