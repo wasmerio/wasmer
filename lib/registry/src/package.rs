@@ -63,9 +63,10 @@ impl Package {
         Some(checkouts_dir.join(found))
     }
 
-    /// Returns the hash of the URL with a maximum of 64 bytes length
+    /// Returns the hash of the URL with a maximum of 128 bytes length
+    /// (necessary for not erroring on filesystem limitations)
     pub fn hash_url(url: &str) -> String {
-        hex::encode(url).chars().take(64).collect()
+        hex::encode(url).chars().take(128).collect()
     }
 
     /// Returns the hash of the URL with a maximum of 64 bytes length
