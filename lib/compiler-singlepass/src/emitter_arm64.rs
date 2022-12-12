@@ -1303,6 +1303,12 @@ impl EmitterARM64 for Assembler {
                 let masked = 0xffff & (val >> offset);
                 if (masked << offset) == val {
                     dynasm!(self ; movz X(dst), masked as u32, LSL offset);
+                } else if val >> 16 == 0xffff_ffff_ffff {
+                    let val: u16 = !((val & 0xffff) as u16);
+                    dynasm!(self ; movn X(dst), val as u32);
+                } else if val >> 16 == 0xffff {
+                    let val: u16 = !((val & 0xffff) as u16);
+                    dynasm!(self ; movn W(dst), val as u32);
                 } else {
                     dynasm!(self ; movz W(dst), (val&0xffff) as u32);
                     let val = val >> 16;
@@ -1336,13 +1342,13 @@ impl EmitterARM64 for Assembler {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; add X(dst), X(src1), X(src2));
+                dynasm!(self ; add X(dst), X(src1), X(src2), UXTX);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; add W(dst), W(src1), W(src2));
+                dynasm!(self ; add W(dst), W(src1), W(src2), UXTX);
             }
             (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
@@ -1406,13 +1412,13 @@ impl EmitterARM64 for Assembler {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; sub X(dst), X(src1), X(src2));
+                dynasm!(self ; sub X(dst), X(src1), X(src2), UXTX);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; sub W(dst), W(src1), W(src2));
+                dynasm!(self ; sub W(dst), W(src1), W(src2), UXTX);
             }
             (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
@@ -3257,24 +3263,17 @@ pub fn gen_std_trampoline_arm64(
                 #[allow(clippy::single_match)]
                 match calling_convention {
                     CallingConvention::AppleAarch64 => {
-                        match sz {
-                            Size::S8 => (),
-                            Size::S16 => {
-                                if caller_stack_offset & 1 != 0 {
-                                    caller_stack_offset = (caller_stack_offset + 1) & !1;
-                                }
-                            }
-                            Size::S32 => {
-                                if caller_stack_offset & 3 != 0 {
-                                    caller_stack_offset = (caller_stack_offset + 3) & !3;
-                                }
-                            }
-                            Size::S64 => {
-                                if caller_stack_offset & 7 != 0 {
-                                    caller_stack_offset = (caller_stack_offset + 7) & !7;
-                                }
-                            }
-                        };
+                        let sz = 1
+                            << match sz {
+                                Size::S8 => 0,
+                                Size::S16 => 1,
+                                Size::S32 => 2,
+                                Size::S64 => 3,
+                            };
+                        // align first
+                        if sz > 1 && caller_stack_offset & (sz - 1) != 0 {
+                            caller_stack_offset = (caller_stack_offset + (sz - 1)) & !(sz - 1);
+                        }
                     }
                     _ => (),
                 };
@@ -3291,12 +3290,13 @@ pub fn gen_std_trampoline_arm64(
                 )?;
                 match calling_convention {
                     CallingConvention::AppleAarch64 => {
-                        caller_stack_offset += match sz {
-                            Size::S8 => 1,
-                            Size::S16 => 2,
-                            Size::S32 => 4,
-                            Size::S64 => 8,
-                        };
+                        caller_stack_offset += 1
+                            << match sz {
+                                Size::S8 => 0,
+                                Size::S16 => 1,
+                                Size::S32 => 2,
+                                Size::S64 => 3,
+                            };
                     }
                     _ => {
                         caller_stack_offset += 8;
