@@ -470,11 +470,6 @@ jobs:
           aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
-      - name: Test C-API
-        shell: bash
-        if: matrix.os != 'x86_64-unknown-linux-musl'
-        run: |
-          make test-capi-ci
       - name: Build C-API
         shell: bash
         run: |
@@ -483,6 +478,11 @@ jobs:
         shell: bash
         run: |
           make test-stage-7
+      - name: Test C-API
+        shell: bash
+        if: matrix.os != 'x86_64-unknown-linux-musl'
+        run: |
+          make test-capi-ci
       - name: Zip artifacts
         shell: bash
         run: |
