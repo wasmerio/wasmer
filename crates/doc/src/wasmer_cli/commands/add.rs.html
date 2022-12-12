@@ -214,15 +214,11 @@
 <span id="206">206</span>
 <span id="207">207</span>
 <span id="208">208</span>
-<span id="209">209</span>
-<span id="210">210</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::process</span>::{<span class="ident">Command</span>, <span class="ident">Stdio</span>};
 
 <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="ident">Error</span>};
 <span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">wasmer_registry</span>::{<span class="ident">Bindings</span>, <span class="ident">PartialWapmConfig</span>, <span class="ident">ProgrammingLanguage</span>};
-
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::cli::SplitVersion</span>;
 
 <span class="doccomment">/// Add a WAPM package&#39;s bindings to your application.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
@@ -244,7 +240,7 @@
     <span class="ident">pip</span>: <span class="ident">bool</span>,
     <span class="doccomment">/// The packages to add (e.g. &quot;wasmer/wasmer-pack@0.5.0&quot; or &quot;python/python&quot;)</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">parse</span>(<span class="ident">try_from_str</span>))]</span>
-    <span class="ident">packages</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">SplitVersion</span><span class="op">&gt;</span>,
+    <span class="ident">packages</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">wasmer_registry::Package</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Add</span> {
@@ -321,11 +317,11 @@
 
 <span class="kw">fn</span> <span class="ident">lookup_bindings_for_package</span>(
     <span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">pkg</span>: <span class="kw-2">&amp;</span><span class="ident">SplitVersion</span>,
+    <span class="ident">pkg</span>: <span class="kw-2">&amp;</span><span class="ident">wasmer_registry::Package</span>,
     <span class="ident">language</span>: <span class="kw-2">&amp;</span><span class="ident">ProgrammingLanguage</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Bindings</span>, <span class="ident">Error</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">all_bindings</span> <span class="op">=</span>
-        <span class="ident">wasmer_registry::list_bindings</span>(<span class="ident">registry</span>, <span class="kw-2">&amp;</span><span class="ident">pkg</span>.<span class="ident">package</span>, <span class="ident">pkg</span>.<span class="ident">version</span>.<span class="ident">as_deref</span>())<span class="question-mark">?</span>;
+        <span class="ident">wasmer_registry::list_bindings</span>(<span class="ident">registry</span>, <span class="kw-2">&amp;</span><span class="ident">pkg</span>.<span class="ident">package</span>(), <span class="ident">pkg</span>.<span class="ident">version</span>.<span class="ident">as_deref</span>())<span class="question-mark">?</span>;
 
     <span class="kw">match</span> <span class="ident">all_bindings</span>.<span class="ident">iter</span>().<span class="ident">find</span>(<span class="op">|</span><span class="ident">b</span><span class="op">|</span> <span class="ident">b</span>.<span class="ident">language</span> <span class="op">==</span> <span class="kw-2">*</span><span class="ident">language</span>) {
         <span class="prelude-val">Some</span>(<span class="ident">b</span>) =&gt; {
