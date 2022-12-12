@@ -11,6 +11,7 @@ pub struct wasm_importtype_t {
 }
 
 wasm_declare_boxed_vec!(importtype);
+wasm_impl_copy!(importtype);
 
 #[no_mangle]
 pub extern "C" fn wasm_importtype_new(

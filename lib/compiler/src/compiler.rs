@@ -6,13 +6,14 @@ use crate::lib::std::sync::Arc;
 use crate::translator::ModuleMiddleware;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
+use enumset::EnumSet;
 use wasmer_types::compilation::function::Compilation;
 use wasmer_types::compilation::module::CompileModuleInfo;
 use wasmer_types::compilation::symbols::SymbolRegistry;
 use wasmer_types::compilation::target::Target;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::error::CompileError;
-use wasmer_types::{Features, LocalFunctionIndex};
+use wasmer_types::{CpuFeature, Features, LocalFunctionIndex};
 use wasmparser::{Validator, WasmFeatures};
 
 /// The compiler configuration options.
@@ -143,4 +144,9 @@ pub trait Compiler: Send {
 
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>];
+
+    /// Get the CpuFeatues used by the compiler
+    fn get_cpu_features_used(&self, cpu_features: &EnumSet<CpuFeature>) -> EnumSet<CpuFeature> {
+        *cpu_features
+    }
 }

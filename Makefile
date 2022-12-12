@@ -141,6 +141,8 @@ else ifeq ($(ENABLE_LLVM), 1)
 else ifneq (, $(shell which llvm-config-13 2>/dev/null))
 	LLVM_VERSION := $(shell llvm-config-13 --version)
 	compilers += llvm
+	# need force LLVM_SYS_120_PREFIX, or llvm_sys will not build in the case
+	export LLVM_SYS_120_PREFIX = $(shell llvm-config-13 --prefix)
 else ifneq (, $(shell which llvm-config-12 2>/dev/null))
 	LLVM_VERSION := $(shell llvm-config-12 --version)
 	compilers += llvm
@@ -560,7 +562,7 @@ test-examples:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release $(compiler_features) --features wasi --examples
 
 test-integration-cli:
-	$(CARGO_BINARY) test $(CARGO_TARGET) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture
+	$(CARGO_BINARY) test $(CARGO_TARGET) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
 
 test-integration-ios:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --features webc_runner -p wasmer-integration-tests-ios

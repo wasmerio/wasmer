@@ -197,24 +197,28 @@ impl AsStoreMut for Store {
     }
 }
 
+#[cfg(feature = "compiler")]
 impl AsEngineRef for Store {
     fn as_engine_ref(&self) -> EngineRef<'_> {
         EngineRef::new(&self.engine)
     }
 }
 
+#[cfg(feature = "compiler")]
 impl AsEngineRef for &Store {
     fn as_engine_ref(&self) -> EngineRef<'_> {
         EngineRef::new(&self.engine)
     }
 }
 
+#[cfg(feature = "compiler")]
 impl AsEngineRef for StoreRef<'_> {
     fn as_engine_ref(&self) -> EngineRef<'_> {
         EngineRef::new(&self.inner.engine)
     }
 }
 
+#[cfg(feature = "compiler")]
 impl AsEngineRef for StoreMut<'_> {
     fn as_engine_ref(&self) -> EngineRef<'_> {
         EngineRef::new(&self.inner.engine)
