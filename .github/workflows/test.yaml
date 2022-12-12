@@ -456,11 +456,6 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
-      - uses: Swatinem/rust-cache@v2
-        with:
-          cache-on-failure: false
-          shared-key: wasmer-${{ matrix.build }}
-          save-if: false
       - name: Cache
         uses: whywaita/actions-cache-s3@v2
         with:
