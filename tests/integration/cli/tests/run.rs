@@ -408,7 +408,7 @@ fn test_wasmer_run_works_with_dir() -> anyhow::Result<()> {
 #[test]
 fn test_wasmer_run_works() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
-        .arg("registry.wapm.io/python/python")
+        .arg("https://wapm.io/python/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("test.py")
         .output()?;
@@ -428,7 +428,7 @@ fn test_wasmer_run_works() -> anyhow::Result<()> {
     // same test again, but this time with "wasmer run ..."
     let output = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("registry.wapm.io/python/python")
+        .arg("https://wapm.io/python/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("test.py")
         .output()?;
@@ -444,6 +444,15 @@ fn test_wasmer_run_works() -> anyhow::Result<()> {
                 .expect("stderr is not utf8! need to handle arbitrary bytes")
         );
     }
+
+    // set wapm.io as the current registry
+    let _ = Command::new(get_wasmer_path())
+        .arg("login")
+        .arg("--registry")
+        .arg("wapm.io")
+        // will fail, but set wapm.io as the current registry regardless
+        .arg("öladkfjasöldfkjasdölfkj")
+        .output()?;
 
     // same test again, but this time without specifying the registry
     let output = Command::new(get_wasmer_path())
@@ -468,7 +477,7 @@ fn test_wasmer_run_works() -> anyhow::Result<()> {
     // same test again, but this time with only the command "python" (should be looked up locally)
     let output = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("python")
+        .arg("_/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("test.py")
         .output()?;
@@ -504,6 +513,133 @@ fn run_no_imports_wasm_works() -> anyhow::Result<()> {
                 .expect("stderr is not utf8! need to handle arbitrary bytes")
         );
     }
+
+    Ok(())
+}
+
+#[test]
+fn run_wasi_works_non_existent() -> anyhow::Result<()> {
+    let output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg("does/not/exist")
+        .output()?;
+
+    let stderr = std::str::from_utf8(&output.stderr).unwrap();
+
+    let stderr_lines = stderr.lines().map(|s| s.to_string()).collect::<Vec<_>>();
+
+    assert_eq!(
+        stderr_lines,
+        vec!["error: invalid package name, could not find file does/not/exist".to_string()]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn run_test_caching_works_for_packages() -> anyhow::Result<()> {
+    // set wapm.io as the current registry
+    let _ = Command::new(get_wasmer_path())
+        .arg("login")
+        .arg("--registry")
+        .arg("wapm.io")
+        // will fail, but set wapm.io as the current registry regardless
+        .arg("öladkfjasöldfkjasdölfkj")
+        .output()?;
+
+    let output = Command::new(get_wasmer_path())
+        .arg("python/python")
+        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("test.py")
+        .output()?;
+
+    if output.stdout != b"hello\n".to_vec() {
+        panic!("failed to run https://wapm.io/python/python for the first time");
+    }
+
+    let time = std::time::Instant::now();
+
+    let output = Command::new(get_wasmer_path())
+        .arg("python/python")
+        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("test.py")
+        .output()?;
+
+    if output.stdout != b"hello\n".to_vec() {
+        panic!("failed to run https://wapm.io/python/python for the second time");
+    }
+
+    // package should be cached
+    assert!(std::time::Instant::now() - time < std::time::Duration::from_secs(1));
+
+    Ok(())
+}
+
+#[test]
+fn run_test_caching_works_for_packages_with_versions() -> anyhow::Result<()> {
+    // set wapm.io as the current registry
+    let _ = Command::new(get_wasmer_path())
+        .arg("login")
+        .arg("--registry")
+        .arg("wapm.io")
+        // will fail, but set wapm.io as the current registry regardless
+        .arg("öladkfjasöldfkjasdölfkj")
+        .output()?;
+
+    let output = Command::new(get_wasmer_path())
+        .arg("python/python@0.1.0")
+        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("test.py")
+        .output()?;
+
+    if output.stdout != b"hello\n".to_vec() {
+        panic!("failed to run https://wapm.io/python/python for the first time");
+    }
+
+    let time = std::time::Instant::now();
+
+    let output = Command::new(get_wasmer_path())
+        .arg("python/python@0.1.0")
+        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("test.py")
+        .output()?;
+
+    if output.stdout != b"hello\n".to_vec() {
+        panic!("failed to run https://wapm.io/python/python for the second time");
+    }
+
+    // package should be cached
+    assert!(std::time::Instant::now() - time < std::time::Duration::from_secs(1));
+
+    Ok(())
+}
+
+#[test]
+fn run_test_caching_works_for_urls() -> anyhow::Result<()> {
+    let output = Command::new(get_wasmer_path())
+        .arg("https://wapm.io/python/python")
+        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("test.py")
+        .output()?;
+
+    if output.stdout != b"hello\n".to_vec() {
+        panic!("failed to run https://wapm.io/python/python for the first time");
+    }
+
+    let time = std::time::Instant::now();
+
+    let output = Command::new(get_wasmer_path())
+        .arg("https://wapm.io/python/python")
+        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("test.py")
+        .output()?;
+
+    if output.stdout != b"hello\n".to_vec() {
+        panic!("failed to run https://wapm.io/python/python for the second time");
+    }
+
+    // package should be cached
+    assert!(std::time::Instant::now() - time < std::time::Duration::from_secs(1));
 
     Ok(())
 }
