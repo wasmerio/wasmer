@@ -4489,6 +4489,7 @@ version = "3.0.2"
 dependencies = [
  "anyhow",
  "flate2",
+ "pretty_assertions",
  "rand 0.8.5",
  "tar",
  "target-lexicon 0.12.5",
