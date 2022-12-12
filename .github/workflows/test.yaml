@@ -474,6 +474,10 @@ jobs:
         shell: bash
         run: |
           make build-capi && make package-capi
+      - name: Test C-API
+        shell: bash
+        run: |
+          make test-capi
       - name: Zip artifacts
         shell: bash
         run: |
@@ -572,8 +576,8 @@ jobs:
           WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  test_wasmer_stage_0: 
-    name: Test Wasmer Stage 0 on ${{ matrix.build }}
+  test_wasmer_stages: 
+    name: Test Wasmer Stage 8 on ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
     needs: setup
     strategy:
@@ -683,6 +687,13 @@ jobs:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
+      - name: Test stage 1
+        run: |
+          make test-stage-1
+        env:
+          TARGET: ${{ matrix.target }}
+          TARGET_DIR: target/${{ matrix.target }}/release
+          CARGO_TARGET: --target ${{ matrix.target }}
       - name: Test stage 2
         run: |
           make test-stage-2
@@ -727,7 +738,7 @@ jobs:
           CARGO_TARGET: --target ${{ matrix.target }}
 
   test_wasmer_stage_1: 
-    name: Test Wasmer Stage 1 on ${{ matrix.build }}
+    name: Test Wasmer Stage 8 on ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
     needs: [setup]
     strategy:
@@ -836,7 +847,7 @@ jobs:
           aws-s3-force-path-style: true
       - name: Test
         run: |
-          make test-stage-1
+          make test-stage-8
         env:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release

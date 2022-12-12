@@ -484,7 +484,7 @@ test-stage-0:
 
 # test packages
 test-stage-1:
-	$(CARGO_BINARY) test $(CARGO_TARGET) --all --release $(exclude_tests)
+	$(CARGO_BINARY) test $(CARGO_TARGET) --all --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner
 test-stage-2:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
 test-stage-3:
@@ -497,6 +497,10 @@ test-stage-5:
 	$(CARGO_BINARY) test $(CARGO_TARGET) $(compiler_features) --features wasi --examples
 test-stage-6:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release $(compiler_features) --features wasi --examples
+
+test-stage-8: build-capi package-capi
+	$(CARGO_BINARY) test $(CARGO_TARGET) --release --package wasmer-c-api-test-runner
+	$(CARGO_BINARY) test $(CARGO_TARGET) --release --package wasmer-capi-examples-runner
 
 test: test-compilers test-packages test-examples
 
