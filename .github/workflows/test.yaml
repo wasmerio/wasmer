@@ -206,15 +206,20 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
-      - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
+      - name: Cache
+        uses: whywaita/actions-cache-s3@v2
         with:
-          action: get
+          path: |
+            ~/.cargo/*
+            ./target/*
+          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.build }}
+          aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          key: wasmer-build-wasmer-${{ matrix.build }}
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-region: auto
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-s3-bucket-endpoint: false
+          aws-s3-force-path-style: true
       - name: Build wasmer-cli
         shell: bash
         run: |
@@ -230,19 +235,6 @@ jobs:
           path: build-wasmer.tar.gz
           if-no-files-found: error
           retention-days: 2
-      - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
-        with:
-          action: put
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          s3-class: STANDARD_IA
-          key: wasmer-build-wasmer-${{ matrix.build }}
-          artifacts: |
-            ~/.cargo/*
-            ./target/*
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
 
   build_wasmer_linux_aarch64:
     name: Build wasmer on linux aarch64
@@ -311,15 +303,20 @@ jobs:
         shell: bash
         run: |
           rustup target add x86_64-pc-windows-gnu
-      - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
+      - name: Cache
+        uses: whywaita/actions-cache-s3@v2
         with:
-          action: get
+          path: |
+            ~/.cargo/*
+            ./target/*
+          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-build-capi-windows-gnu
+          aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          key: wasmer-build-wasmer-windows-gnu
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-region: auto
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-s3-bucket-endpoint: false
+          aws-s3-force-path-style: true
       - name: Install Windows 10 SDK with xwin
         shell: bash
         run: |
@@ -345,19 +342,6 @@ jobs:
         shell: bash
         run: |
           cargo build --release --target x86_64-pc-windows-gnu --manifest-path lib/c-api/Cargo.toml --no-default-features --features wat,compiler,wasi,middlewares,webc_runner --features cranelift,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
-      - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
-        with:
-          action: put
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          s3-class: STANDARD_IA
-          key: wasmer-build-wasmer-windows-gnu
-          artifacts: |
-            ~/.cargo/*
-            ./target/*
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
 
   build_capi: 
     name: Build C-API on ${{ matrix.build }}
@@ -457,15 +441,20 @@ jobs:
           cache-on-failure: false
           shared-key: wasmer-${{ matrix.build }}
           save-if: false
-      - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
+      - name: Cache
+        uses: whywaita/actions-cache-s3@v2
         with:
-          action: get
+          path: |
+            ~/.cargo/*
+            ./target/*
+          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-build-capi-${{ matrix.build }}
+          aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          key: wasmer-build-capi-${{ matrix.build }}
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-region: auto
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-s3-bucket-endpoint: false
+          aws-s3-force-path-style: true
       - name: Build C-API
         shell: bash
         run: |
@@ -481,19 +470,6 @@ jobs:
           path: build-capi.tar.gz
           if-no-files-found: error
           retention-days: 2
-      - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
-        with:
-          action: put
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          s3-class: STANDARD_IA
-          key: wasmer-build-capi-${{ matrix.build }}
-          artifacts: |
-            ~/.cargo/*
-            ./target/*
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
 
   test_capi: 
     name: Test C-API on ${{ matrix.build }}
@@ -539,15 +515,20 @@ jobs:
         with:
           toolchain: 1.63
           target: ${{ matrix.target }}
-      - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
+      - name: Cache
+        uses: whywaita/actions-cache-s3@v2
         with:
-          action: get
+          path: |
+            ~/.cargo/*
+            ./target/*
+          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-lint-linux-x64
+          aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          key: wasmer-test-capi-${{ matrix.build }}
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-region: auto
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-s3-bucket-endpoint: false
+          aws-s3-force-path-style: true
       - name: 'Echo download path'
         run: echo ${{steps.download.outputs.download-path}}
       - name: Unzip Artifacts
@@ -563,19 +544,6 @@ jobs:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
-      - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
-        with:
-          action: put
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          s3-class: STANDARD_IA
-          key: wasmer-test-capi-${{ matrix.build }}
-          artifacts: |
-            ~/.cargo/*
-            ./target/*
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
 
   test_integration_cli: 
     name: Integration tests on ${{ matrix.build }}
@@ -629,15 +597,20 @@ jobs:
         with:
           toolchain: 1.63
           target: ${{ matrix.target }}
-      - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
+      - name: Cache
+        uses: whywaita/actions-cache-s3@v2
         with:
-          action: get
+          path: |
+            ~/.cargo/*
+            ./target/*
+          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-test-integration-cli-${{ matrix.build }}
+          aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          key: wasmer-test-integration-cli-${{ matrix.build }}
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-region: auto
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-s3-bucket-endpoint: false
+          aws-s3-force-path-style: true
       - name: Unzip Artifacts
         shell: bash
         run: |
@@ -657,19 +630,6 @@ jobs:
           CARGO_TARGET: --target ${{ matrix.target }}
           WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
-        with:
-          action: put
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          s3-class: STANDARD_IA
-          key: wasmer-test-integration-cli-${{ matrix.build }}
-          artifacts: |
-            ~/.cargo/*
-            ./target/*
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
 
   test_wasmer_stage_0: 
     name: Test Wasmer Stage 0 on ${{ matrix.build }}
@@ -761,15 +721,20 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
-      - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
+      - name: Cache
+        uses: whywaita/actions-cache-s3@v2
         with:
-          action: get
+          path: |
+            ~/.cargo/*
+            ./target/*
+          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-0-${{ matrix.build }}
+          aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          key: wasmer-test-stage-0-${{ matrix.build }}
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-region: auto
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-s3-bucket-endpoint: false
+          aws-s3-force-path-style: true
       - name: Test
         run: |
           make test-stage-0
@@ -777,19 +742,6 @@ jobs:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
-      - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
-        with:
-          action: put
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          s3-class: STANDARD_IA
-          key: wasmer-test-stage-0-${{ matrix.build }}
-          artifacts: |
-            ~/.cargo/*
-            ./target/*
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
 
   test_wasmer_stage_1: 
     name: Test Wasmer Stage 1 on ${{ matrix.build }}
@@ -889,15 +841,20 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
-      - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
+      - name: Cache
+        uses: whywaita/actions-cache-s3@v2
         with:
-          action: get
+          path: |
+            ~/.cargo/*
+            ./target/*
+          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-1-${{ matrix.build }}
+          aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          key: wasmer-test-stage-1-${{ matrix.build }}
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-region: auto
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-s3-bucket-endpoint: false
+          aws-s3-force-path-style: true
       - name: Unzip Artifacts
         shell: bash
         run: |
@@ -909,19 +866,6 @@ jobs:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
-      - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
-        with:
-          action: put
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          s3-class: STANDARD_IA
-          key: wasmer-test-stage-1-${{ matrix.build }}
-          artifacts: |
-            ~/.cargo/*
-            ./target/*
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
 
   test_wasmer_stage_2: 
     name: Test Wasmer Stage 2 on ${{ matrix.build }}
@@ -1013,15 +957,20 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
-      - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
+      - name: Cache
+        uses: whywaita/actions-cache-s3@v2
         with:
-          action: get
+          path: |
+            ~/.cargo/*
+            ./target/*
+          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-2-${{ matrix.build }}
+          aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          key: wasmer-test-stage-2-${{ matrix.build }}
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-region: auto
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-s3-bucket-endpoint: false
+          aws-s3-force-path-style: true
       - name: Test
         run: |
           make test-stage-2
@@ -1029,19 +978,6 @@ jobs:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
-      - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
-        with:
-          action: put
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          s3-class: STANDARD_IA
-          key: wasmer-test-stage-2-${{ matrix.build }}
-          artifacts: |
-            ~/.cargo/*
-            ./target/*
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
 
   test_wasmer_stage_3: 
     name: Test Wasmer Stage 3 on ${{ matrix.build }}
@@ -1133,15 +1069,20 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
-      - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
+      - name: Cache
+        uses: whywaita/actions-cache-s3@v2
         with:
-          action: get
+          path: |
+            ~/.cargo/*
+            ./target/*
+          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-3-${{ matrix.build }}
+          aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          key: wasmer-test-stage-3-${{ matrix.build }}
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-region: auto
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-s3-bucket-endpoint: false
+          aws-s3-force-path-style: true
       - name: Test
         run: |
           make test-stage-3
@@ -1149,19 +1090,6 @@ jobs:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
-      - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
-        with:
-          action: put
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          s3-class: STANDARD_IA
-          key: wasmer-test-stage-3-${{ matrix.build }}
-          artifacts: |
-            ~/.cargo/*
-            ./target/*
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
 
   test_wasmer_stage_4: 
     name: Test Wasmer Stage 4 on ${{ matrix.build }}
@@ -1253,15 +1181,20 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
-      - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
+      - name: Cache
+        uses: whywaita/actions-cache-s3@v2
         with:
-          action: get
+          path: |
+            ~/.cargo/*
+            ./target/*
+          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-4-${{ matrix.build }}
+          aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          key: wasmer-test-stage-4-${{ matrix.build }}
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-region: auto
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-s3-bucket-endpoint: false
+          aws-s3-force-path-style: true
       - name: Test
         run: |
           make test-stage-4
@@ -1269,19 +1202,6 @@ jobs:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
-      - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
-        with:
-          action: put
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          s3-class: STANDARD_IA
-          key: wasmer-test-stage-4-${{ matrix.build }}
-          artifacts: |
-            ~/.cargo/*
-            ./target/*
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
 
   test_wasmer_stage_5: 
     name: Test Wasmer Stage 5 on ${{ matrix.build }}
@@ -1373,15 +1293,20 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
-      - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
+      - name: Cache
+        uses: whywaita/actions-cache-s3@v2
         with:
-          action: get
+          path: |
+            ~/.cargo/*
+            ./target/*
+          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-5-${{ matrix.build }}
+          aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          key: wasmer-test-stage-5-${{ matrix.build }}
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-region: auto
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-s3-bucket-endpoint: false
+          aws-s3-force-path-style: true
       - name: Test
         run: |
           make test-stage-5
@@ -1389,19 +1314,6 @@ jobs:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
-      - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
-        with:
-          action: put
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          s3-class: STANDARD_IA
-          key: wasmer-test-stage-5-${{ matrix.build }}
-          artifacts: |
-            ~/.cargo/*
-            ./target/*
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
 
   test_wasmer_stage_6: 
     name: Test Wasmer Stage 6 on ${{ matrix.build }}
@@ -1493,15 +1405,20 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
-      - name: Retrieve cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
+      - name: Cache
+        uses: whywaita/actions-cache-s3@v2
         with:
-          action: get
+          path: |
+            ~/.cargo/*
+            ./target/*
+          key: ${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-6-${{ matrix.build }}
+          aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          key: wasmer-test-stage-6-${{ matrix.build }}
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-region: auto
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-s3-bucket-endpoint: false
+          aws-s3-force-path-style: true
       - name: Test
         run: |
           make test-stage-6
@@ -1509,16 +1426,3 @@ jobs:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
           CARGO_TARGET: --target ${{ matrix.target }}
-      - name: Upload cache
-        uses: nipeharefa/action-s3-cache@3a7820623d50d36656b0ba7705c0208f2257028a
-        with:
-          action: put
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          bucket: wasmer-rust-artifacts-cache
-          s3-class: STANDARD_IA
-          key: wasmer-test-stage-6-${{ matrix.build }}
-          artifacts: |
-            ~/.cargo/*
-            ./target/*
-          endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
