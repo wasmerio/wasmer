@@ -115,6 +115,7 @@ pub fn get_executable_file_from_path(
     command: Option<&str>,
 ) -> Result<(wapm_toml::Manifest, PathBuf), anyhow::Error> {
     let wapm_toml = std::fs::read_to_string(package_dir.join(GLOBAL_CONFIG_FILE_NAME))
+        .or_else(|_| std::fs::read_to_string(package_dir.join("wasmer.toml")))
         .map_err(|_| anyhow::anyhow!("Package {package_dir:?} has no {GLOBAL_CONFIG_FILE_NAME}"))?;
 
     let wapm_toml = toml::from_str::<wapm_toml::Manifest>(&wapm_toml)
