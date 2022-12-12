@@ -7,12 +7,11 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use tar::Builder;
 use thiserror::Error;
-use time::{self, Timespec};
+use time::{self, OffsetDateTime};
 use wasmer_registry::publish::SignArchiveResult;
 use wasmer_registry::PartialWapmConfig;
 
 const CURRENT_DATA_VERSION: i32 = 3;
-const RFC3339_FORMAT_STRING: &str = "%Y-%m-%dT%H:%M:%S-%f";
 
 /// CLI options for the `wasmer publish` command
 #[derive(Debug, Parser)]
@@ -366,7 +365,7 @@ pub struct PersonalKey {
     /// The type of private/public key this is
     pub key_type_identifier: String,
     /// The time at which the key was registered with wapm
-    pub date_created: Timespec,
+    pub date_created: OffsetDateTime,
 }
 
 fn get_active_personal_key(conn: &Connection) -> anyhow::Result<PersonalKey> {
@@ -382,10 +381,10 @@ fn get_active_personal_key(conn: &Connection) -> anyhow::Result<PersonalKey> {
                 public_key_value: row.get(1)?,
                 private_key_location: row.get(2)?,
                 date_created: {
+                    use time::format_description::well_known::Rfc3339;
                     let time_str: String = row.get(3)?;
-                    time::strptime(&time_str, RFC3339_FORMAT_STRING)
+                    OffsetDateTime::parse(&time_str, &Rfc3339)
                         .unwrap_or_else(|_| panic!("Failed to parse time string {}", &time_str))
-                        .to_timespec()
                 },
                 key_type_identifier: row.get(4)?,
                 public_key_id: row.get(5)?,

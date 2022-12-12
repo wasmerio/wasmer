@@ -78,7 +78,7 @@ cargo_metadata = "0.15.2"
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 tar = "0.4.38"
 thiserror = "1.0.37"
-time = "0.1.45"
+time = { version = "0.3.17", default-features = false, features = ["parsing"] }
 log = "0.4.17"
 minisign = "0.7.2"
 semver = "1.0.14"
