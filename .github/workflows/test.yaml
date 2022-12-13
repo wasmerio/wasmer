@@ -497,46 +497,58 @@ jobs:
           retention-days: 2
 
   test_wasmer_stages: 
-    name: Test Wasmer Stage ${{ matrix.stage }} on ${{ matrix.job }}
-    runs-on: ${{ matrix.os }}
+    name: Test Wasmer Stage ${{ matrix.stage }} on ${{ matrix.metadata.build }}
+    runs-on: ${{ matrix.metadata.os }}
     needs: setup
     strategy:
       fail-fast: false
       matrix:
         stage: [0, 1, 2, 3, 4, 5, 6]
-        job: [linux-x64, macos-x64, windows-x64, linux-musl]
-        include:
-          - build: linux-x64
-            os: ubuntu-18.04
+        metadata: [
+          { 
+            build: linux-x64, 
+            os: ubuntu-18.04, 
+            target: x86_64-unknown-linux-gnu,  
+            llvm_url: https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+          },
+          {
+            build: linux-x64,
+            os: ubuntu-18.04,
             target: x86_64-unknown-linux-gnu
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
-          - build: macos-x64
-            os: macos-11
-            target: x86_64-apple-darwin
+          },
+          {
+            build: macos-x64,
+            os: macos-11,
+            target: x86_64-apple-darwin,
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
-          - build: windows-x64
-            os: windows-2019
-            target: x86_64-pc-windows-msvc
-            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
+          },
+          {
+            build: windows-x64,
+            os: windows-2019,
+            target: x86_64-pc-windows-msvc,
             llvm_choco_version: 13.0.0
-          - build: linux-musl
-            target: x86_64-unknown-linux-musl
-            os: ubuntu-18.04
+          },
+          {
+            build: linux-musl,
+            target: x86_64-unknown-linux-musl,
+            os: ubuntu-18.04,
             container: alpine:latest
-    container: ${{ matrix.container }}
+          }
+        ]
+    container: ${{ matrix.metadata.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v3
       - name: Set up libstdc++ on Linux
-        if: matrix.build == 'linux-x64'
+        if: matrix.metadata.build == 'linux-x64'
         run: |
           sudo apt-get update -y
           sudo apt-get install -y --allow-downgrades libstdc++6
           sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
-        if: matrix.build == 'linux-musl'
+        if: matrix.metadata.build == 'linux-musl'
         run: |
             apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
@@ -545,33 +557,33 @@ jobs:
           # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
           brew install gnu-tar
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
-        if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
+        if: matrix.metadata.os == 'macos-latest' || matrix.metadata.os == 'macos-11.0'
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: ${{ matrix.target }}
+          target: ${{ matrix.metadata.target }}
       - name: Choco install LLVM
         uses: crazy-max/ghaction-chocolatey@v2
-        if: matrix.llvm_choco_version
+        if: matrix.metadata.llvm_choco_version
         with:
-          args: install llvm --version ${{ matrix.llvm_choco_version }} --allow-downgrade
+          args: install llvm --version ${{ matrix.metadata.llvm_choco_version }} --allow-downgrade
       - name: Install LLVM (Choco - Windows)
-        if: matrix.llvm_choco_version
+        if: matrix.metadata.llvm_choco_version
         shell: bash
         run: |
           cd 'C:\Program Files\LLVM\'
           LLVM_DIR=$(pwd)
           echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
       - name: Install LLVM (macOS Apple Silicon)
-        if: matrix.os == 'macos-11.0' && !matrix.llvm_url
+        if: matrix.metadata.os == 'macos-11.0' && !matrix.metadata.llvm_url
         run: |
           brew install llvm
       - name: Install LLVM
-        if: matrix.llvm_url
+        if: matrix.metadata.llvm_url
         shell: bash
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.xz
+          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.metadata.llvm_url }} -L -o llvm.tar.xz
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
           mkdir ${LLVM_DIR}
           tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
@@ -585,16 +597,16 @@ jobs:
           mkdir -p .cargo
           cat << EOF > .cargo/config.toml
           [build]
-          target = "${{ matrix.target }}"
+          target = "${{ matrix.metadata.target }}"
           EOF
-        if: matrix.target
+        if: matrix.metadata.target
       - name: Cache
         uses: whywaita/actions-cache-s3@v2
         with:
           path: |
             ~/.cargo/*
             ./target/*
-          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-${{ matrix.stage }}-${{ matrix.build }}
+          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-${{ matrix.metadata.stage }}-${{ matrix.metadata.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -604,11 +616,11 @@ jobs:
           aws-s3-force-path-style: true
       - name: Test stage 0
         run: |
-          make test-stage-${{ matrix.stage }}
+          make test-stage-${{ matrix.metadata.stage }}
         env:
-          TARGET: ${{ matrix.target }}
-          TARGET_DIR: target/${{ matrix.target }}/release
-          CARGO_TARGET: --target ${{ matrix.target }}
+          TARGET: ${{ matrix.metadata.target }}
+          TARGET_DIR: target/${{ matrix.metadata.target }}/release
+          CARGO_TARGET: --target ${{ matrix.metadata.target }}
 
   test_integration_cli: 
     name: Integration tests on ${{ matrix.build }}
