@@ -18,7 +18,7 @@ Copy and paste the result of executing the following in your shell, so we can kn
 -->
 
 ```sh
-echo "`wasmer -V` | `rustc -V` | `uname -m`"
+wasmer --version --verbose && echo && rustc --version --verbose
 ```
 
 
