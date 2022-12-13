@@ -64,15 +64,36 @@ impl Publish {
             None => std::env::current_dir()?,
         };
 
-        // TODO: implement validation
-        // validate::validate_directory(cwd.clone())?;
-
         let manifest_path_buf = cwd.join("wasmer.toml");
         let manifest = std::fs::read_to_string(&manifest_path_buf)
             .map_err(|e| anyhow::anyhow!("could not find manifest: {e}"))
             .with_context(|| anyhow::anyhow!("{}", manifest_path_buf.display()))?;
         let mut manifest = wapm_toml::Manifest::parse(&manifest)?;
         manifest.base_directory_path = cwd.clone();
+
+        // See if the user is logged in and has authorization to publish the package
+        // under the correct namespace before trying to upload.
+        let (registry, username) =
+            wasmer_registry::whoami(self.registry.as_deref(), self.token.as_deref()).with_context(
+                || {
+                    anyhow::anyhow!(
+                        "could not find username / registry for registry = {:?}, token = {}",
+                        self.registry,
+                        self.token.as_deref().unwrap_or_default()
+                    )
+                },
+            )?;
+
+        let registry_present =
+            wasmer_registry::test_if_registry_present(&registry).unwrap_or(false);
+        if !registry_present {
+            return Err(anyhow::anyhow!(
+                "registry {} is currently unavailable",
+                registry
+            ));
+        }
+
+        validate::validate_directory(&manifest, &registry, cwd.clone())?;
 
         builder.append_path_with_name(&manifest_path_buf, "wapm.toml")?;
 
@@ -184,28 +205,6 @@ impl Publish {
             );
 
             return Ok(());
-        }
-
-        // See if the user is logged in and has authorization to publish the package
-        // under the correct namespace before trying to upload.
-        let (registry, username) =
-            wasmer_registry::whoami(self.registry.as_deref(), self.token.as_deref()).with_context(
-                || {
-                    anyhow::anyhow!(
-                        "could not find username / registry for registry = {:?}, token = {}",
-                        self.registry,
-                        self.token.as_deref().unwrap_or_default()
-                    )
-                },
-            )?;
-
-        let registry_present =
-            wasmer_registry::test_if_registry_present(&registry).unwrap_or(false);
-        if !registry_present {
-            return Err(anyhow::anyhow!(
-                "registry {} is currently unavailable",
-                registry
-            ));
         }
 
         let namespace = self
@@ -426,5 +425,223 @@ fn get_active_personal_key(conn: &Connection) -> anyhow::Result<PersonalKey> {
         Ok(res?)
     } else {
         Err(anyhow!("No active key found"))
+    }
+}
+
+mod interfaces {
+
+    use rusqlite::{params, Connection, TransactionBehavior};
+
+    pub const WASM_INTERFACE_EXISTENCE_CHECK: &str =
+        include_str!("./sql/wasm_interface_existence_check.sql");
+    pub const INSERT_WASM_INTERFACE: &str = include_str!("./sql/insert_interface.sql");
+    pub const GET_WASM_INTERFACE: &str = include_str!("./sql/get_interface.sql");
+
+    pub fn interface_exists(
+        conn: &mut Connection,
+        interface_name: &str,
+        version: &str,
+    ) -> anyhow::Result<bool> {
+        let mut stmt = conn.prepare(WASM_INTERFACE_EXISTENCE_CHECK)?;
+        Ok(stmt.exists(params![interface_name, version])?)
+    }
+
+    pub fn load_interface_from_db(
+        conn: &mut Connection,
+        interface_name: &str,
+        version: &str,
+    ) -> anyhow::Result<wasmer_wasm_interface::Interface> {
+        let mut stmt = conn.prepare(GET_WASM_INTERFACE)?;
+        let interface_string: String =
+            stmt.query_row(params![interface_name, version], |row| row.get(0))?;
+
+        wasmer_wasm_interface::parser::parse_interface(&interface_string).map_err(|e| {
+            anyhow!(
+                "Failed to parse interface {} version {} in database: {}",
+                interface_name,
+                version,
+                e
+            )
+        })
+    }
+
+    pub fn import_interface(
+        conn: &mut Connection,
+        interface_name: &str,
+        version: &str,
+        content: &str,
+    ) -> anyhow::Result<()> {
+        // fail if we already have this interface
+        {
+            let mut key_check = conn.prepare(WASM_INTERFACE_EXISTENCE_CHECK)?;
+            let result = key_check.exists(params![interface_name, version])?;
+
+            if result {
+                return Err(anyhow!(
+                    "Interface {}, version {} already exists",
+                    interface_name,
+                    version
+                ));
+            }
+        }
+
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let time_string = get_current_time_in_format().expect("Could not get current time");
+
+        log::debug!("Adding interface {:?} {:?}", interface_name, version);
+        tx.execute(
+            INSERT_WASM_INTERFACE,
+            params![interface_name, version, time_string, content],
+        )?;
+
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Gets the current time in our standard format
+    pub fn get_current_time_in_format() -> Option<String> {
+        use time::format_description::well_known::Rfc3339;
+        let cur_time = time::OffsetDateTime::now_utc();
+        cur_time.format(&Rfc3339).ok()
+    }
+}
+
+mod validate {
+    use super::interfaces;
+    use std::{
+        fs,
+        io::Read,
+        path::{Path, PathBuf},
+    };
+    use thiserror::Error;
+    use wasmer_registry::interface::InterfaceFromServer;
+    use wasmer_wasm_interface::{validate, Interface};
+
+    pub fn validate_directory(
+        manifest: &wapm_toml::Manifest,
+        registry: &str,
+        pkg_path: PathBuf,
+    ) -> anyhow::Result<()> {
+        // validate as dir
+        if let Some(modules) = manifest.module.as_ref() {
+            for module in modules.iter() {
+                let source_path = if module.source.is_relative() {
+                    manifest.base_directory_path.join(&module.source)
+                } else {
+                    module.source.clone()
+                };
+                let source_path_string = source_path.to_string_lossy().to_string();
+                let mut wasm_file =
+                    fs::File::open(&source_path).map_err(|_| ValidationError::MissingFile {
+                        file: source_path_string.clone(),
+                    })?;
+                let mut wasm_buffer = Vec::new();
+                wasm_file.read_to_end(&mut wasm_buffer).map_err(|err| {
+                    ValidationError::MiscCannotRead {
+                        file: source_path_string.clone(),
+                        error: format!("{}", err),
+                    }
+                })?;
+
+                if let Some(bindings) = &module.bindings {
+                    validate_bindings(bindings, &manifest.base_directory_path)?;
+                }
+
+                // hack, short circuit if no interface for now
+                if module.interfaces.is_none() {
+                    return validate_wasm_and_report_errors_old(
+                        &wasm_buffer[..],
+                        source_path_string,
+                    );
+                }
+
+                let mut conn = super::open_db()?;
+                let mut interface: Interface = Default::default();
+                for (interface_name, interface_version) in
+                    module.interfaces.clone().unwrap_or_default().into_iter()
+                {
+                    if !interfaces::interface_exists(
+                        &mut conn,
+                        &interface_name,
+                        &interface_version,
+                    )? {
+                        // download interface and store it if we don't have it locally
+                        let interface_data_from_server = InterfaceFromServer::get(
+                            registry,
+                            interface_name.clone(),
+                            interface_version.clone(),
+                        )?;
+                        interfaces::import_interface(
+                            &mut conn,
+                            &interface_name,
+                            &interface_version,
+                            &interface_data_from_server.content,
+                        )?;
+                    }
+                    let sub_interface = interfaces::load_interface_from_db(
+                        &mut conn,
+                        &interface_name,
+                        &interface_version,
+                    )?;
+                    interface = interface.merge(sub_interface).map_err(|e| {
+                        anyhow!("Failed to merge interface {}: {}", &interface_name, e)
+                    })?;
+                }
+                validate::validate_wasm_and_report_errors(&wasm_buffer, &interface).map_err(
+                    |e| ValidationError::InvalidWasm {
+                        file: source_path_string,
+                        error: format!("{:?}", e),
+                    },
+                )?;
+            }
+        }
+        log::debug!("package at path {:#?} validated", &pkg_path);
+
+        Ok(())
+    }
+
+    fn validate_bindings(
+        bindings: &wapm_toml::Bindings,
+        base_directory_path: &Path,
+    ) -> Result<(), ValidationError> {
+        // Note: checking for referenced files will make sure they all exist.
+        let _ = bindings.referenced_files(base_directory_path)?;
+
+        Ok(())
+    }
+
+    #[derive(Debug, Error)]
+    pub enum ValidationError {
+        #[error("WASM file \"{file}\" detected as invalid because {error}")]
+        InvalidWasm { file: String, error: String },
+        #[error("Could not find file {file}")]
+        MissingFile { file: String },
+        #[error("Failed to read file {file}; {error}")]
+        MiscCannotRead { file: String, error: String },
+        #[error(transparent)]
+        Imports(#[from] wapm_toml::ImportsError),
+    }
+
+    // legacy function, validates wasm.  TODO: clean up
+    pub fn validate_wasm_and_report_errors_old(
+        wasm: &[u8],
+        file_name: String,
+    ) -> anyhow::Result<()> {
+        use wasmparser::WasmDecoder;
+        let mut parser = wasmparser::ValidatingParser::new(wasm, None);
+        loop {
+            let state = parser.read();
+            match state {
+                wasmparser::ParserState::EndWasm => return Ok(()),
+                wasmparser::ParserState::Error(e) => {
+                    return Err(ValidationError::InvalidWasm {
+                        file: file_name,
+                        error: format!("{}", e),
+                    }
+                    .into());
+                }
+                _ => {}
+            }
+        }
     }
 }

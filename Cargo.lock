@@ -75,6 +75,12 @@ checksum = "a4c527152e37cf757a3f78aae5a06fbeefdb07ccc535c980a3208ee3060dd544"
 
 [[package]]
 name = "arrayvec"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
+
+[[package]]
+name = "arrayvec"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
@@ -176,7 +182,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42ae2468a89544a466886840aa467a25b766499f4f04bf7d9fcd10ecee9fccef"
 dependencies = [
  "arrayref",
- "arrayvec",
+ "arrayvec 0.7.2",
  "cc",
  "cfg-if 1.0.0",
  "constant_time_eq",
@@ -1845,6 +1851,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "884e2677b40cc8c339eaefcb701c32ef1fd2493d71118dc0ca4b6a736c93bd67"
 
 [[package]]
+name = "lexical-core"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6607c62aa161d23d17a9072cc5da0be67cdfc89d3afb1e8d9c842bebc2525ffe"
+dependencies = [
+ "arrayvec 0.5.2",
+ "bitflags",
+ "cfg-if 1.0.0",
+ "ryu",
+ "static_assertions",
+]
+
+[[package]]
 name = "lexical-sort"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2143,6 +2162,17 @@ dependencies = [
  "libc",
  "memoffset 0.6.5",
  "pin-utils",
+]
+
+[[package]]
+name = "nom"
+version = "5.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffb4262d26ed83a1c0a33a38fe2bb15797329c85770da05e6b828ddb782627af"
+dependencies = [
+ "lexical-core",
+ "memchr",
+ "version_check",
 ]
 
 [[package]]
@@ -3310,6 +3340,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "static_assertions"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
 name = "stdweb"
 version = "0.4.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3583,6 +3619,8 @@ version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a561bf4617eebd33bca6434b988f39ed798e527f51a1e797d0ee4f61c0a38376"
 dependencies = [
+ "itoa 1.0.4",
+ "serde",
  "time-core",
  "time-macros 0.2.6",
 ]
@@ -4325,7 +4363,9 @@ dependencies = [
  "wasmer-vm",
  "wasmer-wasi",
  "wasmer-wasi-experimental-io-devices",
+ "wasmer-wasm-interface",
  "wasmer-wast",
+ "wasmparser 0.51.4",
  "webc",
 ]
 
@@ -4703,6 +4743,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-wasm-interface"
+version = "3.1.0"
+dependencies = [
+ "bincode",
+ "either",
+ "nom 5.1.2",
+ "serde",
+ "wasmparser 0.51.4",
+ "wat",
+]
+
+[[package]]
 name = "wasmer-wast"
 version = "3.1.0"
 dependencies = [
@@ -4814,6 +4866,12 @@ dependencies = [
  "wasmer-wasi",
  "wasmer-wast",
 ]
+
+[[package]]
+name = "wasmparser"
+version = "0.51.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aeb1956b19469d1c5e63e459d29e7b5aa0f558d9f16fcef09736f8a265e6c10a"
 
 [[package]]
 name = "wasmparser"
@@ -5201,7 +5259,7 @@ version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "463705a63313cd4301184381c5e8042f0a7e9b4bb63653f216311d4ae74690b7"
 dependencies = [
- "nom",
+ "nom 7.1.1",
 ]
 
 [[package]]

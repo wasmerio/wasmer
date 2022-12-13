@@ -20,6 +20,7 @@ use url::Url;
 
 pub mod config;
 pub mod graphql;
+pub mod interface;
 pub mod login;
 pub mod package;
 pub mod publish;
