@@ -1,5 +1,5 @@
 // Auto-generated sys bindings.
-#[allow(dead_code)]
+#[allow(dead_code, clippy::all)]
 mod wasix_http_client_v1;
 
 use anyhow::bail;
@@ -47,7 +47,7 @@ impl HttpClient {
             .collect();
 
         let body = match &body.0 {
-            BodyInner::Data(d) => Some(sys::BodyParam::Data(&d)),
+            BodyInner::Data(d) => Some(sys::BodyParam::Data(d)),
         };
 
         let req = sys::Request {

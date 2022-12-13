@@ -111,7 +111,7 @@ impl Engine {
             engine_id: EngineId::default(),
             #[cfg(not(target_arch = "wasm32"))]
             tunables: Arc::new(tunables),
-            name: format!("engine-headless"),
+            name: "engine-headless".to_string(),
         }
     }
 

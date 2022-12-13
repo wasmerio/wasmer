@@ -124,7 +124,7 @@ impl WasmMmap {
         let mut alloc = self
             .alloc
             .fork(Some(mem_length))
-            .map_err(|err| MemoryError::Generic(err))?;
+            .map_err(MemoryError::Generic)?;
         let base_ptr = alloc.as_mut_ptr();
         Ok(Self {
             vm_memory_definition: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(

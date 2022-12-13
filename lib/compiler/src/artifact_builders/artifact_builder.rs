@@ -147,7 +147,7 @@ impl ArtifactBuild {
 
     /// Returns the memory start address for this compiled module
     pub fn get_memory_start(&self) -> Option<Pages> {
-        self.serializable.module_start.clone()
+        self.serializable.module_start
     }
 
     /// Get Functions Bodies ref

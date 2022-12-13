@@ -100,7 +100,7 @@ impl Mmap {
         // Open a temporary file (which is used for swapping)
         let fd = unsafe {
             let file = libc::tmpfile();
-            if file == ptr::null_mut() {
+            if file.is_null() {
                 return Err(format!(
                     "failed to create temporary file - {}",
                     io::Error::last_os_error()
@@ -329,7 +329,7 @@ impl Mmap {
         // Open a new temporary file (which is used for swapping for the forked memory)
         let fd = unsafe {
             let file = libc::tmpfile();
-            if file == ptr::null_mut() {
+            if file.is_null() {
                 return Err(format!(
                     "failed to create temporary file - {}",
                     io::Error::last_os_error()

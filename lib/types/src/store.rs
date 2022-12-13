@@ -26,7 +26,7 @@ impl StoreSnapshot {
 
     /// Deserializes the bytes back into a store snapshot
     pub fn deserialize(data: &[u8]) -> std::io::Result<Self> {
-        let mut ret = StoreSnapshot::default();
+        let mut ret = Self::default();
 
         // Read all the sections
         let mut reader = data;
