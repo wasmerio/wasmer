@@ -16,27 +16,34 @@ pub struct Init {
     /// Initialize an empty wapm.toml
     #[clap(long, name = "empty")]
     pub empty: bool,
-    /// If the `manifest-path` is a Cargo.toml, use that file to initialize the wapm.toml
-    #[clap(long, name = "manifest-path")]
-    pub manifest_path: Option<PathBuf>,
-    /// Directory of the output file name. wasmer init will error in the target dir already contains a wapm.toml
-    #[clap(long, short = 'o', name = "out")]
-    pub out: Option<PathBuf>,
     /// Force overwriting the wapm.toml, even if it already exists
     #[clap(long, name = "overwrite")]
     pub overwrite: bool,
     /// Don't display debug output
     #[clap(long, name = "quiet")]
     pub quiet: bool,
+    /// Ignore the existence of cargo wapm / cargo wasmer
+    #[clap(long, name = "no-cargo-wapm")]
+    pub no_cargo_wapm: bool,
+    /// Namespace to init with, default = current logged in user or _
+    #[clap(long, name = "namespace")]
+    pub namespace: Option<String>,
+    /// Version of the initialized package
+    #[clap(long, name = "version")]
+    pub version: Option<semver::Version>,
+    /// If the `manifest-path` is a Cargo.toml, use that file to initialize the wapm.toml
+    #[clap(long, name = "manifest-path")]
+    pub manifest_path: Option<PathBuf>,
     /// Add default dependencies for common packages (currently supported: `python`, `js`)
     #[clap(long, name = "template")]
     pub template: Option<String>,
     /// Include file paths into the target container filesystem
     #[clap(long, name = "include")]
     pub include: Vec<String>,
-    /// Name of the package, defaults to the name of the init directory
-    #[clap(name = "PACKAGE_NAME")]
-    pub package_name: Option<String>,
+    /// Directory of the output file name. wasmer init will error in the target dir
+    /// already contains a wasmer.toml. Also sets the package name.
+    #[clap(name = "PACKAGE_PATH")]
+    pub out: Option<PathBuf>,
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -70,10 +77,26 @@ impl Init {
     pub fn execute(&self) -> Result<(), anyhow::Error> {
         let bin_or_lib = self.get_bin_or_lib()?;
 
+        let package_name;
         let target_file = match self.out.as_ref() {
-            None => std::env::current_dir()?.join(WASMER_TOML_NAME),
+            None => {
+                let current_dir = std::env::current_dir()?;
+                package_name = current_dir
+                    .canonicalize()?
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| anyhow::anyhow!("no current dir name"))?;
+                current_dir.join(WASMER_TOML_NAME)
+            }
             Some(s) => {
                 let _ = std::fs::create_dir_all(s);
+                package_name = s
+                    .canonicalize()?
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| anyhow::anyhow!("no dir name"))?;
                 s.join(WASMER_TOML_NAME)
             }
         };
@@ -89,7 +112,11 @@ impl Init {
         let manifest_path = match self.manifest_path.as_ref() {
             Some(s) => s.clone(),
             None => {
-                let cargo_toml_path = std::env::current_dir().unwrap().join("Cargo.toml");
+                let cargo_toml_path = self
+                    .out
+                    .clone()
+                    .unwrap_or_else(|| std::env::current_exe().unwrap())
+                    .join("Cargo.toml");
                 cargo_toml_path
                     .canonicalize()
                     .unwrap_or_else(|_| cargo_toml_path.clone())
@@ -99,10 +126,14 @@ impl Init {
         let cargo_toml = if manifest_path.exists() {
             use anyhow::Context;
 
-            let metadata = MetadataCommand::new()
-                .manifest_path(&manifest_path)
-                .features(CargoOpt::AllFeatures)
-                .exec();
+            let mut metadata = MetadataCommand::new();
+            metadata.manifest_path(&manifest_path);
+            metadata.no_deps();
+            metadata.features(CargoOpt::AllFeatures);
+
+            println!("{:#?}", metadata.cargo_command());
+
+            let metadata = metadata.exec();
 
             let metadata = match metadata {
                 Ok(o) => o,
@@ -127,45 +158,37 @@ impl Init {
                 readme: package.readme.clone().map(|s| s.into_std_path_buf()),
                 license_file: package.license_file.clone().map(|f| f.into_std_path_buf()),
                 workspace_root: metadata.workspace_root.into_std_path_buf(),
-                build_dir: metadata.target_directory.into_std_path_buf(),
+                build_dir: metadata
+                    .target_directory
+                    .into_std_path_buf()
+                    .join("wasm32-wasi"),
             })
         } else {
             None
         };
 
-        let package_name = self
-            .package_name
-            .clone()
-            .or_else(|| cargo_toml.as_ref().map(|p| p.name.clone()))
-            .or_else(|| {
-                target_file
-                    .parent()
-                    .and_then(|p| Some(p.file_stem()?.to_str()?.to_string()))
-            })
-            .or_else(|| {
-                Some(
-                    std::env::current_dir()
-                        .ok()?
-                        .file_stem()?
-                        .to_str()?
-                        .to_string(),
-                )
-            })
-            .ok_or_else(|| anyhow!("current dir has no file stem"))?;
+        let package_name = cargo_toml
+            .as_ref()
+            .map(|p| &p.name)
+            .unwrap_or(&package_name);
 
-        let username = wasmer_registry::whoami(None).ok().map(|o| o.1);
-        let namespace = username
-            .or_else(|| package_name.split('/').next().map(|s| s.to_string()))
-            .unwrap_or_else(|| package_name.clone());
+        let namespace = self.namespace.clone().unwrap_or_else(|| {
+            let username = wasmer_registry::whoami(None, None).ok().map(|o| o.1);
+            username
+                .or_else(|| package_name.split('/').next().map(|s| s.to_string()))
+                .unwrap_or_else(|| "_".to_string())
+        });
         let module_name = package_name
             .split('/')
             .last()
             .unwrap_or(&package_name)
             .to_string();
-        let version = cargo_toml
-            .as_ref()
-            .map(|t| t.version.clone())
-            .unwrap_or_else(|| semver::Version::parse("0.1.0").unwrap());
+        let version = self.version.clone().unwrap_or_else(|| {
+            cargo_toml
+                .as_ref()
+                .map(|t| t.version.clone())
+                .unwrap_or_else(|| semver::Version::parse("0.1.0").unwrap())
+        });
         let license = cargo_toml.as_ref().and_then(|t| t.license.clone());
         let license_file = cargo_toml.as_ref().and_then(|t| t.license_file.clone());
         let readme = cargo_toml.as_ref().and_then(|t| t.readme.clone());
@@ -241,16 +264,20 @@ impl Init {
         }
 
         // Test if cargo wapm is installed
-        let cargo_wapm_stdout = std::process::Command::new("cargo")
-            .arg("wapm")
-            .arg("--version")
-            .output()
-            .map(|s| String::from_utf8_lossy(&s.stdout).to_string())
-            .unwrap_or_default();
+        let cargo_wapm_present = if self.no_cargo_wapm {
+            false
+        } else {
+            let cargo_wapm_stdout = std::process::Command::new("cargo")
+                .arg("wapm")
+                .arg("--version")
+                .output()
+                .map(|s| String::from_utf8_lossy(&s.stdout).to_string())
+                .unwrap_or_default();
 
-        let cargo_wapm_present = cargo_wapm_stdout.lines().count() == 1
-            && (cargo_wapm_stdout.contains("cargo wapm")
-                || cargo_wapm_stdout.contains("cargo-wapm"));
+            cargo_wapm_stdout.lines().count() == 1
+                && (cargo_wapm_stdout.contains("cargo wapm")
+                    || cargo_wapm_stdout.contains("cargo-wapm"))
+        };
 
         // if Cargo.toml is present and cargo wapm is installed, add the
         // generated manifest to the Cargo.toml instead of creating a new wapm.toml
@@ -258,7 +285,7 @@ impl Init {
 
         // If the Cargo.toml is present, but cargo wapm is not installed,
         // generate a wapm.toml, but notify the user about installing cargo-wapm
-        if !cargo_wapm_present && cargo_toml.is_some() && !self.quiet {
+        if !cargo_wapm_present && !self.no_cargo_wapm && cargo_toml.is_some() && !self.quiet {
             eprintln!(
                 "Note: you seem to have a Cargo.toml file, but you haven't installed `cargo wapm`."
             );

@@ -604,6 +604,7 @@ pub fn install_package(#[cfg(test)] test_name: &str, url: &Url) -> Result<PathBu
 pub fn whoami(
     #[cfg(test)] test_name: &str,
     registry: Option<&str>,
+    token: Option<&str>,
 ) -> Result<(String, String), anyhow::Error> {
     use crate::queries::{who_am_i_query, WhoAmIQuery};
     use graphql_client::GraphQLQuery;
@@ -622,9 +623,9 @@ pub fn whoami(
         None => config.registry.get_current_registry(),
     };
 
-    let login_token = config
-        .registry
-        .get_login_token_for_registry(&registry)
+    let login_token = token
+        .map(|s| s.to_string())
+        .or_else(|| config.registry.get_login_token_for_registry(&registry))
         .ok_or_else(|| anyhow::anyhow!("not logged into registry {:?}", registry))?;
 
     let q = WhoAmIQuery::build_query(who_am_i_query::Variables {});

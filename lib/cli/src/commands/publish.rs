@@ -16,9 +16,6 @@ const CURRENT_DATA_VERSION: i32 = 3;
 /// CLI options for the `wasmer publish` command
 #[derive(Debug, Parser)]
 pub struct Publish {
-    /// Directory containing the `wasmer.toml` (defaults to current root dir)
-    #[clap(long, name = "dir", env = "DIR")]
-    pub dir: Option<String>,
     /// Registry to publish to
     #[clap(long)]
     pub registry: Option<String>,
@@ -34,6 +31,9 @@ pub struct Publish {
     /// Override the token (by default, it will use the current logged in user)
     #[clap(long)]
     pub token: Option<String>,
+    /// Directory containing the `wasmer.toml` (defaults to current root dir)
+    #[clap(name = "PACKAGE_PATH")]
+    pub package_path: Option<String>,
 }
 
 #[derive(Debug, Error)]
@@ -57,11 +57,9 @@ enum PublishError {
 impl Publish {
     /// Executes `wasmer publish`
     pub fn execute(&self) -> Result<(), anyhow::Error> {
-        // First, check for the wasmer.toml and see if the user is logged in
-        // and has authorization to publish the package under the correct namespace.
         let mut builder = Builder::new(Vec::new());
 
-        let cwd = match self.dir.as_ref() {
+        let cwd = match self.package_path.as_ref() {
             Some(s) => std::env::current_dir()?.join(s),
             None => std::env::current_dir()?,
         };
@@ -186,6 +184,38 @@ impl Publish {
             );
 
             return Ok(());
+        }
+
+        // See if the user is logged in and has authorization to publish the package
+        // under the correct namespace before trying to upload.
+        let (registry, username) =
+            wasmer_registry::whoami(self.registry.as_deref(), self.token.as_deref()).with_context(
+                || {
+                    anyhow::anyhow!(
+                        "could not find username / registry for registry = {:?}, token = {}",
+                        self.registry,
+                        self.token.as_deref().unwrap_or_default()
+                    )
+                },
+            )?;
+
+        let registry_present =
+            wasmer_registry::test_if_registry_present(&registry).unwrap_or(false);
+        if !registry_present {
+            return Err(anyhow::anyhow!(
+                "registry {} is currently unavailable",
+                registry
+            ));
+        }
+
+        let namespace = self
+            .namespace
+            .as_deref()
+            .or_else(|| package.name.split('/').next())
+            .unwrap_or("")
+            .to_string();
+        if username != namespace {
+            return Err(anyhow::anyhow!("trying to publish package under the namespace {namespace:?}, but logged in as user {username:?}"));
         }
 
         wasmer_registry::publish::try_chunked_uploading(
