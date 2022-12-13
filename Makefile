@@ -498,7 +498,7 @@ test-stage-5:
 test-stage-6:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release $(compiler_features) --features wasi --examples
 
-test-stage-7: build-capi package-capi
+test-stage-7:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release --package wasmer-c-api-test-runner
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release --package wasmer-capi-examples-runner
 

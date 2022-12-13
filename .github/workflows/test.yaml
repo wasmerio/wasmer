@@ -277,7 +277,7 @@ jobs:
           CROSS_DOCKER_IN_DOCKER: true
       - name: Build C API
         run: |
-          make build-capi
+          make build-capi && make package-capi
         env:
           CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
           CROSS_DOCKER_IN_DOCKER: true
@@ -285,9 +285,9 @@ jobs:
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_ALLOW_CROSS: true
           ENABLE_LLVM: 0
-      - name: Package C API
+      - name: C-API Integration tests
         run: |
-          make package-capi
+          make test-stage-7
         env:
           CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
           CROSS_DOCKER_IN_DOCKER: true
@@ -474,8 +474,9 @@ jobs:
         shell: bash
         run: |
           make build-capi && make package-capi
-      - name: Integration tests
+      - name: C-API Integration tests
         shell: bash
+        if: matrix.build != 'macos-arm' && matrix.build != 'linux-musl'
         run: |
           make test-stage-7
       - name: Test C-API
