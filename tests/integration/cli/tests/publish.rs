@@ -35,23 +35,17 @@ fn wasmer_publish() -> anyhow::Result<()> {
 
     let mut cmd = std::process::Command::new(get_wasmer_path());
     cmd.arg("publish");
-    cmd.arg("--dir");
-    cmd.arg(path);
     cmd.arg("--quiet");
     cmd.arg("--registry");
     cmd.arg("wapm.dev");
+    cmd.arg(path);
 
     if let Some(token) = wapm_dev_token {
         cmd.arg("--token");
         cmd.arg(token);
     }
 
-    let output = cmd
-        .stdin(Stdio::null())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .output()
-        .unwrap();
+    let output = cmd.stdin(Stdio::null()).output().unwrap();
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);

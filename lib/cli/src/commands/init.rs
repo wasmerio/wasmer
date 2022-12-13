@@ -115,7 +115,7 @@ impl Init {
                 let cargo_toml_path = self
                     .out
                     .clone()
-                    .unwrap_or_else(|| std::env::current_exe().unwrap())
+                    .unwrap_or_else(|| std::env::current_dir().unwrap())
                     .join("Cargo.toml");
                 cargo_toml_path
                     .canonicalize()
@@ -130,8 +130,6 @@ impl Init {
             metadata.manifest_path(&manifest_path);
             metadata.no_deps();
             metadata.features(CargoOpt::AllFeatures);
-
-            println!("{:#?}", metadata.cargo_command());
 
             let metadata = metadata.exec();
 

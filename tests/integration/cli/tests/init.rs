@@ -24,18 +24,22 @@ fn wasmer_init_works_1() -> anyhow::Result<()> {
     if std::env::var("GITHUB_TOKEN").is_err() {
         return Ok(());
     }
-    let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").expect("WAPM_DEV_TOKEN env var not set");
+
+    let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
     println!("wapm dev token ok...");
 
-    let output = Command::new(get_wasmer_path())
-        .arg("login")
-        .arg("--registry")
-        .arg("wapm.dev")
-        .arg(wapm_dev_token)
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .stdin(Stdio::null())
-        .output()?;
+    if let Some(token) = wapm_dev_token {
+        let output = Command::new(get_wasmer_path())
+            .arg("login")
+            .arg("--registry")
+            .arg("wapm.dev")
+            .arg(token)
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .stdin(Stdio::null())
+            .output()?;
+        check_output!(output);
+    }
 
     println!("wasmer login ok!");
 
@@ -58,8 +62,6 @@ fn wasmer_init_works_1() -> anyhow::Result<()> {
     Ok(())
 }
 
-// Test that wasmer init adds to a Cargo.toml
-// instead of creating a new wapm.toml
 #[test]
 fn wasmer_init_works_2() -> anyhow::Result<()> {
     let tempdir = tempfile::tempdir()?;
@@ -76,41 +78,41 @@ fn wasmer_init_works_2() -> anyhow::Result<()> {
     if std::env::var("GITHUB_TOKEN").is_err() {
         return Ok(());
     }
-    let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").expect("WAPM_DEV_TOKEN env var not set");
+
+    let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
     println!("wapm dev token ok...");
 
-    let output = Command::new(get_wasmer_path())
-        .arg("login")
-        .arg("--registry")
-        .arg("wapm.dev")
-        .arg(wapm_dev_token)
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .stdin(Stdio::null())
-        .output()?;
+    if let Some(token) = wapm_dev_token.as_ref() {
+        let mut cmd = Command::new(get_wasmer_path());
+        cmd.arg("login");
+        cmd.arg("--registry");
+        cmd.arg("wapm.dev");
+        cmd.arg(token);
+        cmd.stdout(Stdio::inherit());
+        cmd.stderr(Stdio::inherit());
+        cmd.stdin(Stdio::null());
+        let output = cmd.output()?;
+        check_output!(output);
+    }
 
     println!("wasmer login ok!");
 
     let output = Command::new(get_wasmer_path())
         .arg("init")
+        .arg("--no-cargo-wapm")
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
         .current_dir(&path)
         .output()?;
     check_output!(output);
-
-    let cargo_wapm_stdout = std::process::Command::new("cargo")
-        .arg("wapm")
-        .arg("--version")
-        .output()
-        .map(|s| String::from_utf8_lossy(&s.stdout).to_string())
-        .unwrap_or_default();
-
-    let cargo_wapm_present = cargo_wapm_stdout.lines().count() == 1
-        && (cargo_wapm_stdout.contains("cargo wapm") || cargo_wapm_stdout.contains("cargo-wapm"));
 
     pretty_assertions::assert_eq!(
         std::fs::read_to_string(path.join("Cargo.toml")).unwrap(),
         include_str!("./fixtures/init2.toml")
     );
+
+    println!("ok 1");
+
     let read = std::fs::read_to_string(path.join("wasmer.toml"))
         .unwrap()
         .lines()
