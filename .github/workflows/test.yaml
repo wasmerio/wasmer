@@ -606,7 +606,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-${{ matrix.metadata.stage }}-${{ matrix.metadata.build }}
+          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-${{ matrix.stage }}-${{ matrix.metadata.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -616,7 +616,7 @@ jobs:
           aws-s3-force-path-style: true
       - name: Test stage 0
         run: |
-          make test-stage-${{ matrix.metadata.stage }}
+          make test-stage-${{ matrix.stage }}
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
