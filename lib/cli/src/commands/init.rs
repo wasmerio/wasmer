@@ -181,7 +181,7 @@ impl Init {
         let module_name = package_name
             .split('/')
             .last()
-            .unwrap_or(&package_name)
+            .unwrap_or(package_name)
             .to_string();
         let version = self.version.clone().unwrap_or_else(|| {
             cargo_toml
