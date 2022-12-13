@@ -532,7 +532,7 @@ jobs:
             build: linux-musl,
             target: x86_64-unknown-linux-musl,
             os: ubuntu-18.04,
-            container: alpine:latest
+            container: 'alpine:latest'
           }
         ]
     container: ${{ matrix.metadata.container }}
