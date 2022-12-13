@@ -3,8 +3,10 @@
 use crate::Features;
 use enumset::EnumSet;
 use std::any::Any;
-use std::{fs, path::Path};
+use std::fs;
+use std::path::Path;
 use wasmer_types::entity::PrimaryMap;
+use wasmer_types::SerializeError;
 use wasmer_types::{
     CpuFeature, MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer, TableIndex, TableStyle,
 };
@@ -35,10 +37,10 @@ pub trait ArtifactCreate: Send + Sync + Upcastable {
     fn data_initializers(&self) -> &[OwnedDataInitializer];
 
     /// Serializes an artifact into bytes
-    fn serialize(&self) -> Result<Vec<u8>, wasmer_types::SerializeError>;
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError>;
 
     /// Serializes an artifact into a file path
-    fn serialize_to_file(&self, path: &Path) -> Result<(), wasmer_types::SerializeError> {
+    fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
         let serialized = self.serialize()?;
         fs::write(&path, serialized)?;
         Ok(())
