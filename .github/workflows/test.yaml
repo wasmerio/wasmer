@@ -122,7 +122,7 @@ jobs:
         build-what: [
           {
             key: capi,
-            build-cmd: 'make build-capi && make package-capi && export WASMER_DIR=`pwd`/package && make test-stage-7 && make test-capi-ci && make tar-capi',
+            build-cmd: 'make build-capi',
             name: 'Build and test C-API'
           },
           {
