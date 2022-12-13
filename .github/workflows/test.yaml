@@ -342,12 +342,12 @@ jobs:
       - name: Build ${{ matrix.build-what.key }}
         shell: bash
         # tests were disabled for linux-musl
-        if: matrix.build-what == 'capi' && matrix.metadata.build != "linux-musl"
+        if: matrix.build-what.key == 'capi' && matrix.metadata.build != 'linux-musl'
         run: |
           ${{ matrix.build-what.build-cmd }}
       - name: Build ${{ matrix.build-what.key }}
         shell: bash
-        if: matrix.build-what == 'capi' && matrix.metadata.build == "linux-musl"
+        if: matrix.build-what.key == 'capi' && matrix.metadata.build == 'linux-musl'
         run: |
           make build-capi && make package-capi && make tar-capi
       - name: Archive production artifacts
