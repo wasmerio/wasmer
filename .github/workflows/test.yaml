@@ -344,14 +344,14 @@ jobs:
         with:
           name: wasmer-cli-${{ matrix.metadata.build }}
           path: build-wasmer.tar.gz
-          if-no-files-found: continue
+          if-no-files-found: ignore
           retention-days: 2
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
           name: capi-${{ matrix.metadata.build }}
           path: build-capi.tar.gz
-          if-no-files-found: continue
+          if-no-files-found: ignore
           retention-days: 2
 
   test: 
