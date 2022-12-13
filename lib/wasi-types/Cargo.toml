@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasi-types"
-version = "3.0.2"
+version = "3.1.0"
 description = "WASI types for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
@@ -14,8 +14,8 @@ edition = "2018"
 
 [dependencies]
 wasmer = { default-features = false, path = "../api", version = "3.0.0-beta" }
-wasmer-types = { path = "../types", version = "=3.0.2" }
-wasmer-derive = { path = "../derive", version = "=3.0.2" }
+wasmer-types = { path = "../types", version = "=3.1.0" }
+wasmer-derive = { path = "../derive", version = "=3.1.0" }
 
 wai-bindgen-gen-rust = "0.2.1"
 wai-bindgen-rust = { version = "0.2.1", default-features = false, features = ["macros"] }

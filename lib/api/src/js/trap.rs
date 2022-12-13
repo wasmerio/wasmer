@@ -5,6 +5,7 @@ use std::sync::Arc;
 use wasm_bindgen::convert::FromWasmAbi;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
+use wasm_bindgen_downcast::DowncastJS;
 
 pub trait CoreError: fmt::Debug + fmt::Display {
     fn source(&self) -> Option<&(dyn CoreError + 'static)> {
@@ -97,7 +98,7 @@ impl dyn CoreError {
 /// A struct representing an aborted instruction execution, with a message
 /// indicating the cause.
 #[wasm_bindgen]
-#[derive(Clone)]
+#[derive(Clone, DowncastJS)]
 pub struct WasmerRuntimeError {
     inner: Arc<RuntimeErrorSource>,
 }
@@ -285,7 +286,7 @@ impl From<JsValue> for RuntimeError {
         // We try to downcast the error and see if it's
         // an instance of RuntimeError instead, so we don't need
         // to re-wrap it.
-        generic_of_jsval(original, "WasmerRuntimeError").unwrap_or_else(|js| RuntimeError {
+        WasmerRuntimeError::downcast_js(original).unwrap_or_else(|js| RuntimeError {
             inner: Arc::new(RuntimeErrorSource::Js(js)),
         })
     }

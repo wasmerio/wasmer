@@ -21,7 +21,6 @@ fn test_no_start_wat_path() -> PathBuf {
     Path::new(ASSET_PATH).join("no_start.wat")
 }
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
 #[test]
 fn test_cross_compile_python_windows() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;
@@ -34,41 +33,70 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
         "x86_64-windows-gnu",
     ];
 
+    // MUSL has no support for LLVM in C-API
+    #[cfg(target_env = "musl")]
+    let compilers = &["cranelift", "singlepass"];
+    #[cfg(not(target_env = "musl"))]
+    let compilers = &["cranelift", "singlepass", "llvm"];
+
+    // llvm-objdump  --disassemble-all --demangle ./objects/wasmer_vm-50cb118b098c15db.wasmer_vm.60425a0a-cgu.12.rcgu.o
+    // llvm-objdump --macho --exports-trie ~/.wasmer/cache/wasmer-darwin-arm64/lib/libwasmer.dylib
+    let excluded_combinations = &[
+        ("aarch64-darwin", "llvm"), // LLVM: aarch64 not supported relocation Arm64MovwG0 not supported
+        ("aarch64-linux-gnu", "llvm"), // LLVM: aarch64 not supported relocation Arm64MovwG0 not supported
+        // https://github.com/ziglang/zig/issues/13729
+        ("x86_64-darwin", "llvm"), // undefined reference to symbol 'wasmer_vm_raise_trap' kind Unknown
+        ("x86_64-windows-gnu", "llvm"), // unimplemented symbol `wasmer_vm_raise_trap` kind Unknown
+    ];
+
     for t in targets {
-        let python_wasmer_path = temp_dir.path().join(format!("{t}-python"));
+        for c in compilers {
+            if excluded_combinations.contains(&(t, c)) {
+                continue;
+            }
+            println!("{t} target {c}");
+            let python_wasmer_path = temp_dir.path().join(format!("{t}-python"));
 
-        let mut output = Command::new(get_wasmer_path());
+            let mut output = Command::new(get_wasmer_path());
 
-        output.arg("create-exe");
-        output.arg(wasi_test_python_path());
-        output.arg("--target");
-        output.arg(t);
-        output.arg("-o");
-        output.arg(python_wasmer_path.clone());
-        let output = output.output()?;
+            output.arg("create-exe");
+            output.arg(wasi_test_python_path());
+            output.arg("--target");
+            output.arg(t);
+            output.arg("-o");
+            output.arg(python_wasmer_path.clone());
+            output.arg(format!("--{c}"));
 
-        let stdout = std::str::from_utf8(&output.stdout)
-            .expect("stdout is not utf8! need to handle arbitrary bytes");
+            if t.contains("x86_64") && *c == "singlepass" {
+                output.arg("-m");
+                output.arg("avx");
+            }
 
-        let stderr = std::str::from_utf8(&output.stderr)
-            .expect("stderr is not utf8! need to handle arbitrary bytes");
+            let output = output.output()?;
 
-        if !output.status.success() {
-            bail!("linking failed with: stdout: {stdout}\n\nstderr: {stderr}");
-        }
+            let stdout = std::str::from_utf8(&output.stdout)
+                .expect("stdout is not utf8! need to handle arbitrary bytes");
 
-        println!("stdout: {stdout}");
-        println!("stderr: {stderr}");
+            let stderr = std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes");
 
-        if !python_wasmer_path.exists() {
-            let p = std::fs::read_dir(temp_dir.path())
-                .unwrap()
-                .filter_map(|e| Some(e.ok()?.path()))
-                .collect::<Vec<_>>();
-            panic!(
-                "target {t} was not compiled correctly {stdout} {stderr}, tempdir: {:#?}",
-                p
-            );
+            if !output.status.success() {
+                bail!("linking failed with: stdout: {stdout}\n\nstderr: {stderr}");
+            }
+
+            println!("stdout: {stdout}");
+            println!("stderr: {stderr}");
+
+            if !python_wasmer_path.exists() {
+                let p = std::fs::read_dir(temp_dir.path())
+                    .unwrap()
+                    .filter_map(|e| Some(e.ok()?.path()))
+                    .collect::<Vec<_>>();
+                panic!(
+                    "target {t} was not compiled correctly {stdout} {stderr}, tempdir: {:#?}",
+                    p
+                );
+            }
         }
     }
 
@@ -380,7 +408,7 @@ fn test_wasmer_run_works_with_dir() -> anyhow::Result<()> {
 #[test]
 fn test_wasmer_run_works() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
-        .arg("registry.wapm.io/python/python")
+        .arg("https://wapm.io/python/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("test.py")
         .output()?;
@@ -400,7 +428,7 @@ fn test_wasmer_run_works() -> anyhow::Result<()> {
     // same test again, but this time with "wasmer run ..."
     let output = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("registry.wapm.io/python/python")
+        .arg("https://wapm.io/python/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("test.py")
         .output()?;
@@ -416,6 +444,15 @@ fn test_wasmer_run_works() -> anyhow::Result<()> {
                 .expect("stderr is not utf8! need to handle arbitrary bytes")
         );
     }
+
+    // set wapm.io as the current registry
+    let _ = Command::new(get_wasmer_path())
+        .arg("login")
+        .arg("--registry")
+        .arg("wapm.io")
+        // will fail, but set wapm.io as the current registry regardless
+        .arg("öladkfjasöldfkjasdölfkj")
+        .output()?;
 
     // same test again, but this time without specifying the registry
     let output = Command::new(get_wasmer_path())
@@ -440,7 +477,7 @@ fn test_wasmer_run_works() -> anyhow::Result<()> {
     // same test again, but this time with only the command "python" (should be looked up locally)
     let output = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("python")
+        .arg("_/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("test.py")
         .output()?;
@@ -476,6 +513,133 @@ fn run_no_imports_wasm_works() -> anyhow::Result<()> {
                 .expect("stderr is not utf8! need to handle arbitrary bytes")
         );
     }
+
+    Ok(())
+}
+
+#[test]
+fn run_wasi_works_non_existent() -> anyhow::Result<()> {
+    let output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg("does/not/exist")
+        .output()?;
+
+    let stderr = std::str::from_utf8(&output.stderr).unwrap();
+
+    let stderr_lines = stderr.lines().map(|s| s.to_string()).collect::<Vec<_>>();
+
+    assert_eq!(
+        stderr_lines,
+        vec!["error: invalid package name, could not find file does/not/exist".to_string()]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn run_test_caching_works_for_packages() -> anyhow::Result<()> {
+    // set wapm.io as the current registry
+    let _ = Command::new(get_wasmer_path())
+        .arg("login")
+        .arg("--registry")
+        .arg("wapm.io")
+        // will fail, but set wapm.io as the current registry regardless
+        .arg("öladkfjasöldfkjasdölfkj")
+        .output()?;
+
+    let output = Command::new(get_wasmer_path())
+        .arg("python/python")
+        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("test.py")
+        .output()?;
+
+    if output.stdout != b"hello\n".to_vec() {
+        panic!("failed to run https://wapm.io/python/python for the first time");
+    }
+
+    let time = std::time::Instant::now();
+
+    let output = Command::new(get_wasmer_path())
+        .arg("python/python")
+        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("test.py")
+        .output()?;
+
+    if output.stdout != b"hello\n".to_vec() {
+        panic!("failed to run https://wapm.io/python/python for the second time");
+    }
+
+    // package should be cached
+    assert!(std::time::Instant::now() - time < std::time::Duration::from_secs(1));
+
+    Ok(())
+}
+
+#[test]
+fn run_test_caching_works_for_packages_with_versions() -> anyhow::Result<()> {
+    // set wapm.io as the current registry
+    let _ = Command::new(get_wasmer_path())
+        .arg("login")
+        .arg("--registry")
+        .arg("wapm.io")
+        // will fail, but set wapm.io as the current registry regardless
+        .arg("öladkfjasöldfkjasdölfkj")
+        .output()?;
+
+    let output = Command::new(get_wasmer_path())
+        .arg("python/python@0.1.0")
+        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("test.py")
+        .output()?;
+
+    if output.stdout != b"hello\n".to_vec() {
+        panic!("failed to run https://wapm.io/python/python for the first time");
+    }
+
+    let time = std::time::Instant::now();
+
+    let output = Command::new(get_wasmer_path())
+        .arg("python/python@0.1.0")
+        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("test.py")
+        .output()?;
+
+    if output.stdout != b"hello\n".to_vec() {
+        panic!("failed to run https://wapm.io/python/python for the second time");
+    }
+
+    // package should be cached
+    assert!(std::time::Instant::now() - time < std::time::Duration::from_secs(1));
+
+    Ok(())
+}
+
+#[test]
+fn run_test_caching_works_for_urls() -> anyhow::Result<()> {
+    let output = Command::new(get_wasmer_path())
+        .arg("https://wapm.io/python/python")
+        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("test.py")
+        .output()?;
+
+    if output.stdout != b"hello\n".to_vec() {
+        panic!("failed to run https://wapm.io/python/python for the first time");
+    }
+
+    let time = std::time::Instant::now();
+
+    let output = Command::new(get_wasmer_path())
+        .arg("https://wapm.io/python/python")
+        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("test.py")
+        .output()?;
+
+    if output.stdout != b"hello\n".to_vec() {
+        panic!("failed to run https://wapm.io/python/python for the second time");
+    }
+
+    // package should be cached
+    assert!(std::time::Instant::now() - time < std::time::Duration::from_secs(1));
 
     Ok(())
 }

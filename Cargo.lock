@@ -1101,9 +1101,9 @@ dependencies = [
 
 [[package]]
 name = "filetime"
-version = "0.2.18"
+version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b9663d381d07ae25dc88dbdf27df458faa83a9b25336bcac83d5e452b5fc9d3"
+checksum = "4e884668cd0c7480504233e951174ddc3b382f7c2666e3b7310b5c4e7b0c37f9"
 dependencies = [
  "cfg-if 1.0.0",
  "libc",
@@ -1899,7 +1899,7 @@ dependencies = [
 
 [[package]]
 name = "macro-wasmer-universal-test"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "proc-macro2",
  "proc-quote",
@@ -4076,7 +4076,7 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
 name = "wasi-test-generator"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "glob",
  "gumdrop",
@@ -4118,6 +4118,29 @@ dependencies = [
  "quote",
  "syn",
  "wasm-bindgen-shared",
+]
+
+[[package]]
+name = "wasm-bindgen-downcast"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5dac026d43bcca6e7ce1c0956ba68f59edf6403e8e930a5d891be72c31a44340"
+dependencies = [
+ "js-sys",
+ "once_cell",
+ "wasm-bindgen",
+ "wasm-bindgen-downcast-macros",
+]
+
+[[package]]
+name = "wasm-bindgen-downcast-macros"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c5020cfa87c7cecefef118055d44e3c1fc122c7ec25701d528ee458a0b45f38f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -4217,7 +4240,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -4235,6 +4258,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "wasm-bindgen",
+ "wasm-bindgen-downcast",
  "wasm-bindgen-test",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
@@ -4266,7 +4290,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "cbindgen",
  "cfg-if 1.0.0",
@@ -4294,7 +4318,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api-test-runner"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "cc",
  "regex",
@@ -4304,7 +4328,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "blake3",
  "criterion",
@@ -4318,7 +4342,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-capi-examples-runner"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "cc",
  "regex",
@@ -4328,7 +4352,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "anyhow",
  "atty",
@@ -4341,6 +4365,7 @@ dependencies = [
  "dirs",
  "distance",
  "fern",
+ "hex",
  "http_req",
  "isatty",
  "libc",
@@ -4381,7 +4406,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "backtrace",
  "cfg-if 1.0.0",
@@ -4407,7 +4432,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cli"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "anyhow",
  "atty",
@@ -4429,7 +4454,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -4448,7 +4473,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "byteorder",
  "cc",
@@ -4470,7 +4495,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -4489,7 +4514,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error",
@@ -4501,7 +4526,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-emscripten"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "byteorder",
  "getrandom",
@@ -4543,7 +4568,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-cli"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "anyhow",
  "flate2",
@@ -4559,11 +4584,11 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-ios"
-version = "3.0.2"
+version = "3.1.0"
 
 [[package]]
 name = "wasmer-middlewares"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -4572,7 +4597,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-object"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "object 0.28.4",
  "thiserror",
@@ -4581,17 +4606,20 @@ dependencies = [
 
 [[package]]
 name = "wasmer-registry"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "anyhow",
  "dirs",
+ "filetime",
  "flate2",
+ "fs_extra",
  "futures-util",
  "graphql_client",
  "hex",
  "log",
  "lzma-rs",
  "rand 0.8.5",
+ "regex",
  "reqwest",
  "semver 1.0.14",
  "serde",
@@ -4599,6 +4627,7 @@ dependencies = [
  "tar",
  "tempdir",
  "thiserror",
+ "tldextract",
  "tokio",
  "toml",
  "url",
@@ -4609,7 +4638,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "enum-iterator",
  "enumset",
@@ -4625,7 +4654,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vbus"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "libc",
  "slab",
@@ -4639,7 +4668,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vfs"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4662,7 +4691,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "backtrace",
  "cc",
@@ -4687,7 +4716,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vnet"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -4697,7 +4726,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4756,7 +4785,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-experimental-io-devices"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "minifb",
  "nix 0.25.0",
@@ -4769,7 +4798,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-local-networking"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -4781,7 +4810,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-types"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -4803,7 +4832,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wast"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "anyhow",
  "serde",
@@ -4818,7 +4847,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-workspace"
-version = "3.0.2"
+version = "3.1.0"
 dependencies = [
  "anyhow",
  "build-deps",

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-vbus"
-version = "3.0.2"
+version = "3.1.0"
 description = "Wasmer Virtual Bus"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 license = "MIT"
@@ -13,9 +13,9 @@ thiserror = "1"
 tracing = { version = "0.1" }
 typetag = { version = "0.1", optional = true }
 slab = { version = "0.4", optional = true }
-wasmer = { path = "../api", version = "=3.0.2", default-features = false }
-wasmer-vfs = { path = "../vfs", version = "=3.0.2", default-features = false }
-wasmer-wasi-types = { path = "../wasi-types/", version = "3.0.2" }
+wasmer = { path = "../api", version = "=3.1.0", default-features = false }
+wasmer-vfs = { path = "../vfs", version = "=3.1.0", default-features = false }
+wasmer-wasi-types = { path = "../wasi-types/", version = "3.1.0" }
 
 [features]
 default = []
