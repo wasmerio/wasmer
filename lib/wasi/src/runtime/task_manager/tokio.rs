@@ -11,17 +11,19 @@ use super::{SpawnType, VirtualTaskManager};
 
 /// A task manager that uses tokio to spawn tasks.
 #[derive(Debug)]
-pub struct TokioTaskManager {
-    /// This is the tokio runtime used for ASYNC operations that is
-    /// used for non-javascript environments
-    runtime: std::sync::Arc<Runtime>,
+pub struct TokioTaskManager(std::sync::Arc<Runtime>);
+
+impl TokioTaskManager {
+    pub fn runtime_handle(&self) -> tokio::runtime::Handle {
+        self.0.handle().clone()
+    }
 }
 
 impl Default for TokioTaskManager {
     fn default() -> Self {
         let runtime: std::sync::Arc<Runtime> =
             std::sync::Arc::new(Builder::new_current_thread().enable_all().build().unwrap());
-        Self { runtime }
+        Self(runtime)
     }
 }
 
@@ -48,7 +50,7 @@ impl VirtualTaskManager for TokioTaskManager {
             dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + Send + 'static>> + Send + 'static,
         >,
     ) -> Result<(), WasiThreadError> {
-        self.runtime.spawn(async move {
+        self.0.spawn(async move {
             let fut = task();
             fut.await
         });
@@ -57,8 +59,8 @@ impl VirtualTaskManager for TokioTaskManager {
 
     /// See [`VirtualTaskManager::block_on`].
     fn block_on_generic<'a>(&self, task: Pin<Box<dyn Future<Output = ()> + 'a>>) {
-        let _guard = self.runtime.enter();
-        self.runtime.block_on(async move {
+        let _guard = self.0.enter();
+        self.0.block_on(async move {
             task.await;
         });
     }
@@ -109,7 +111,7 @@ impl VirtualTaskManager for TokioTaskManager {
         &self,
         task: Box<dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + 'static>> + Send + 'static>,
     ) -> Result<(), WasiThreadError> {
-        let runtime = self.runtime.clone();
+        let runtime = self.0.clone();
         std::thread::spawn(move || {
             let fut = task();
             runtime.block_on(fut);
