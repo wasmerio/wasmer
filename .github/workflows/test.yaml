@@ -114,7 +114,7 @@ jobs:
           make build-wasmer-wasm
   
   build_linux_aarch64:
-    name: Build wasmer on linux aarch64 (docker)
+    name: ${{ matrix.build-what.name }} on linux-aarch64
     runs-on: ubuntu-18.04
     strategy:
       fail-fast: false
@@ -122,11 +122,13 @@ jobs:
         build-what: [
           {
             key: capi,
-            build-cmd: make build-capi && make package-capi && export WASMER_DIR=`pwd`/package && make test-stage-7 && make test-capi-ci && make tar-capi
+            build-cmd: 'make build-capi && make package-capi && export WASMER_DIR=`pwd`/package && make test-stage-7 && make test-capi-ci && make tar-capi',
+            name: 'Build and test C-API'
           },
           {
             key: wasmer,
-            build-cmd: make build-wasmer && make package-wasmer && make tar-wasmer
+            build-cmd: 'make build-wasmer && make package-wasmer && make tar-wasmer',
+            name: 'Build wasmer-cli'
           }
         ]
     steps:
@@ -209,7 +211,7 @@ jobs:
           cargo build --release --target x86_64-pc-windows-gnu --manifest-path lib/c-api/Cargo.toml --no-default-features --features wat,compiler,wasi,middlewares,webc_runner --features cranelift,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
 
   build: 
-    name: Build wasmer on ${{ matrix.metadata.build }}
+    name: ${{ matrix.build-what.name }} on ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
     needs: setup
     strategy:
@@ -218,11 +220,13 @@ jobs:
         build-what: [
           {
             key: capi,
-            build-cmd: make build-capi && make package-capi && export WASMER_DIR=`pwd`/package && make test-stage-7 && make test-capi-ci && make tar-capi
+            build-cmd: 'make build-capi && make package-capi && export WASMER_DIR=`pwd`/package && make test-stage-7 && make test-capi-ci && make tar-capi',
+            name: 'Build and test C-API'
           },
           {
             key: wasmer,
-            build-cmd: make build-wasmer && make package-wasmer && make tar-wasmer
+            build-cmd: 'make build-wasmer && make package-wasmer && make tar-wasmer',
+            name: 'Build wasmer-cli'
           }
         ]
         metadata: [
@@ -355,13 +359,42 @@ jobs:
           retention-days: 2
 
   test: 
-    name: Test Wasmer Stage ${{ matrix.stage }} on ${{ matrix.metadata.build }}
+    name: ${{ matrix.stage.description }} on ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
     needs: setup
     strategy:
       fail-fast: false
       matrix:
-        stage: [0, 1, 2, 3, 4, 5, 6]
+        stage: [
+          {
+            stage: 0,
+            description: 'Test compilers', 
+          },
+          {
+            stage: 1, 
+            description: 'Test packages (cargo test --all)',
+          },
+          {
+            stage: 2, 
+            description: 'Test packages (test compiler-cranelift)',
+          },
+          {
+            stage: 3, 
+            description: 'Test packages (test compiler-singlepass)',
+          },
+          {
+            stage: 4, 
+            description: 'Test packages (test lib/cli)',
+          },
+          {
+            stage: 5, 
+            description: 'Test examples (debug)',
+          },
+          {
+            stage: 6,
+            description: 'Test examples (release)',
+          }
+        ]
         metadata: [
           { 
             build: linux-x64, 
@@ -464,7 +497,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-${{ matrix.stage }}-${{ matrix.metadata.build }}
+          key: ${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-${{ matrix.stage.stage }}-${{ matrix.metadata.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -474,7 +507,7 @@ jobs:
           aws-s3-force-path-style: true
       - name: Test stage 0
         run: |
-          make test-stage-${{ matrix.stage }}
+          make test-stage-${{ matrix.stage.stage }}
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
