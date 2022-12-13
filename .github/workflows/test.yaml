@@ -116,17 +116,19 @@ jobs:
   build_linux_aarch64:
     name: Build wasmer on linux aarch64 (docker)
     runs-on: ubuntu-18.04
-    matrix: 
-      build-what: [
-        {
-          key: capi,
-          build-cmd: make build-capi && make package-capi && export WASMER_DIR=`pwd`/package && make test-stage-7 && make test-capi-ci && make tar-capi
-        },
-        {
-          key: wasmer,
-          build-cmd: make build-wasmer && make package-wasmer && make tar-wasmer
-        }
-      ]
+    strategy:
+      fail-fast: false
+      matrix: 
+        build-what: [
+          {
+            key: capi,
+            build-cmd: make build-capi && make package-capi && export WASMER_DIR=`pwd`/package && make test-stage-7 && make test-capi-ci && make tar-capi
+          },
+          {
+            key: wasmer,
+            build-cmd: make build-wasmer && make package-wasmer && make tar-wasmer
+          }
+        ]
     steps:
       - uses: actions/checkout@v2
       - uses: dtolnay/rust-toolchain@stable
