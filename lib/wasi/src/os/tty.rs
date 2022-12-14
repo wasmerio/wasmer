@@ -6,7 +6,7 @@ use std::{
 use derivative::*;
 use futures::future::BoxFuture;
 use wasmer_vbus::SignalHandlerAbi;
-use wasmer_vfs::{AsyncWriteExt, VirtualFile};
+use wasmer_vfs::{AsyncWriteExt, VirtualFile, NullFile};
 use wasmer_wasi_types::wasi::{Signal, Snapshot0Clockid};
 
 use crate::syscalls::platform_clock_time_get;
@@ -146,6 +146,17 @@ impl Tty {
 
     pub fn stdin_mut(&mut self) -> &mut (dyn VirtualFile + Send + Sync + 'static) {
         self.stdin.as_mut()
+    }
+
+    pub fn stdin_replace(&mut self, mut stdin: Box<dyn VirtualFile + Send + Sync + 'static>) -> Box<dyn VirtualFile + Send + Sync + 'static> {
+        std::mem::swap(&mut self.stdin, &mut stdin);
+        stdin
+    }
+
+    pub fn stdin_take(&mut self) -> Box<dyn VirtualFile + Send + Sync + 'static> {
+        let mut stdin: Box<dyn VirtualFile + Send + Sync + 'static> = Box::new(NullFile::default());
+        std::mem::swap(&mut self.stdin, &mut stdin);
+        stdin
     }
 
     pub fn options(&self) -> TtyOptions {
