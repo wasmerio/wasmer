@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::{mpsc, Arc, Mutex};
 use std::task::{Context, Poll};
-use wasmer::{FunctionEnv, Imports, Instance, Module, Store};
+use wasmer::{FunctionEnv, Imports, Module, Store};
 use wasmer_vfs::{
     host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, AsyncRead, AsyncSeek, AsyncWrite,
     AsyncWriteExt, FileSystem, ReadBuf, RootFileSystemBuilder,
@@ -104,10 +104,9 @@ impl<'a> WasiTest<'a> {
         let module = Module::new(store, wasm_bytes)?;
         let (mut env, _tempdirs, stdout_rx, stderr_rx) =
             { runtime.block_on(async { self.create_wasi_env(store, filesystem_kind).await }) }?;
-        let imports = self.get_imports(store, &env.env, &module)?;
-        let instance = Instance::new(&mut store, &module, &imports)?;
 
-        env.initialize(&mut store, &instance).unwrap();
+        let instance = wasmer_wasi::build_wasi_instance(&module, &mut env, &mut store)?;
+
         let wasi_env = env.data(&store);
 
         let start = instance.exports.get_function("_start")?;
