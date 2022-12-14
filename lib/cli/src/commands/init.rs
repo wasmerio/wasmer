@@ -1,3 +1,4 @@
+use anyhow::Context;
 use cargo_metadata::{CargoOpt, MetadataCommand};
 use clap::Parser;
 use std::collections::HashMap;
@@ -77,6 +78,27 @@ impl Init {
     pub fn execute(&self) -> Result<(), anyhow::Error> {
         let bin_or_lib = self.get_bin_or_lib()?;
 
+        // See if the directory has a Cargo.toml file, if yes, copy the license / readme, etc.
+        let manifest_path = match self.manifest_path.as_ref() {
+            Some(s) => s.clone(),
+            None => {
+                let cargo_toml_path = self
+                    .out
+                    .clone()
+                    .unwrap_or_else(|| std::env::current_dir().unwrap())
+                    .join("Cargo.toml");
+                cargo_toml_path
+                    .canonicalize()
+                    .unwrap_or_else(|_| cargo_toml_path.clone())
+            }
+        };
+
+        let cargo_toml = if manifest_path.exists() {
+            Some(parse_cargo_toml(&manifest_path)?)
+        } else {
+            None
+        };
+
         let package_name;
         let target_file = match self.out.as_ref() {
             None => {
@@ -107,63 +129,6 @@ impl Init {
                 target_file.display(),
             );
         }
-
-        // See if the directory has a Cargo.toml file, if yes, copy the license / readme, etc.
-        let manifest_path = match self.manifest_path.as_ref() {
-            Some(s) => s.clone(),
-            None => {
-                let cargo_toml_path = self
-                    .out
-                    .clone()
-                    .unwrap_or_else(|| std::env::current_dir().unwrap())
-                    .join("Cargo.toml");
-                cargo_toml_path
-                    .canonicalize()
-                    .unwrap_or_else(|_| cargo_toml_path.clone())
-            }
-        };
-
-        let cargo_toml = if manifest_path.exists() {
-            use anyhow::Context;
-
-            let mut metadata = MetadataCommand::new();
-            metadata.manifest_path(&manifest_path);
-            metadata.no_deps();
-            metadata.features(CargoOpt::AllFeatures);
-
-            let metadata = metadata.exec();
-
-            let metadata = match metadata {
-                Ok(o) => o,
-                Err(e) => {
-                    return Err(anyhow::anyhow!("failed to load metadata: {e}")
-                        .context(anyhow::anyhow!("{}", manifest_path.display())));
-                }
-            };
-
-            let package = metadata
-                .root_package()
-                .ok_or_else(|| anyhow::anyhow!("no root package found in cargo metadata"))
-                .context(anyhow::anyhow!("{}", manifest_path.display()))?;
-
-            Some(MiniCargoTomlPackage {
-                name: package.name.clone(),
-                version: package.version.clone(),
-                description: package.description.clone(),
-                homepage: package.homepage.clone(),
-                repository: package.repository.clone(),
-                license: package.license.clone(),
-                readme: package.readme.clone().map(|s| s.into_std_path_buf()),
-                license_file: package.license_file.clone().map(|f| f.into_std_path_buf()),
-                workspace_root: metadata.workspace_root.into_std_path_buf(),
-                build_dir: metadata
-                    .target_directory
-                    .into_std_path_buf()
-                    .join("wasm32-wasi"),
-            })
-        } else {
-            None
-        };
 
         let package_name = cargo_toml
             .as_ref()
@@ -468,4 +433,42 @@ impl Init {
             }),
         }
     }
+}
+
+fn parse_cargo_toml(manifest_path: &PathBuf) -> Result<MiniCargoTomlPackage, anyhow::Error> {
+    let mut metadata = MetadataCommand::new();
+    metadata.manifest_path(&manifest_path);
+    metadata.no_deps();
+    metadata.features(CargoOpt::AllFeatures);
+
+    let metadata = metadata.exec();
+
+    let metadata = match metadata {
+        Ok(o) => o,
+        Err(e) => {
+            return Err(anyhow::anyhow!("failed to load metadata: {e}")
+                .context(anyhow::anyhow!("{}", manifest_path.display())));
+        }
+    };
+
+    let package = metadata
+        .root_package()
+        .ok_or_else(|| anyhow::anyhow!("no root package found in cargo metadata"))
+        .context(anyhow::anyhow!("{}", manifest_path.display()))?;
+
+    Ok(MiniCargoTomlPackage {
+        name: package.name.clone(),
+        version: package.version.clone(),
+        description: package.description.clone(),
+        homepage: package.homepage.clone(),
+        repository: package.repository.clone(),
+        license: package.license.clone(),
+        readme: package.readme.clone().map(|s| s.into_std_path_buf()),
+        license_file: package.license_file.clone().map(|f| f.into_std_path_buf()),
+        workspace_root: metadata.workspace_root.into_std_path_buf(),
+        build_dir: metadata
+            .target_directory
+            .into_std_path_buf()
+            .join("wasm32-wasi"),
+    })
 }
