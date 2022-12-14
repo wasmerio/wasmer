@@ -458,7 +458,7 @@ impl Init {
                             Some(wapm_toml::Bindings::Wai(wapm_toml::WaiBindings {
                                 exports: None,
                                 imports: vec![e.path().to_path_buf()],
-                                wai_version: semver::Version::parse("0.1.0").unwrap(),
+                                wai_version: semver::Version::parse("0.2.0").unwrap(),
                             }))
                         } else {
                             None
