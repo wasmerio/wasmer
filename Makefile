@@ -484,10 +484,10 @@ test-stage-0:
 
 # test packages
 test-stage-1:
-	$(CARGO_BINARY) test $(CARGO_TARGET) --all --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner
-	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
-	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
-	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
+	$(CARGO_BINARY) test $(CARGO_TARGET) $(compiler_features) --all --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner
+	$(CARGO_BINARY) test $(CARGO_TARGET) $(compiler_features) --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
+	$(CARGO_BINARY) test $(CARGO_TARGET) $(compiler_features) --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
+	$(CARGO_BINARY) test $(CARGO_TARGET) $(compiler_features) --manifest-path lib/cli/Cargo.toml --release
 
 # test examples 
 test-stage-5:
