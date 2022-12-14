@@ -8,37 +8,37 @@ use std::path::PathBuf;
 #[derive(Debug, Parser)]
 pub struct Init {
     /// Initialize wapm.toml for a library package
-    #[clap(long, name = "lib")]
+    #[clap(long)]
     pub lib: bool,
     /// Initialize wapm.toml for a binary package
-    #[clap(long, name = "bin")]
+    #[clap(long)]
     pub bin: bool,
     /// Initialize an empty wapm.toml
-    #[clap(long, name = "empty")]
+    #[clap(long)]
     pub empty: bool,
     /// Force overwriting the wapm.toml, even if it already exists
-    #[clap(long, name = "overwrite")]
+    #[clap(long")]
     pub overwrite: bool,
     /// Don't display debug output
-    #[clap(long, name = "quiet")]
+    #[clap(long)]
     pub quiet: bool,
     /// Ignore the existence of cargo wapm / cargo wasmer
-    #[clap(long, name = "no-cargo-wapm")]
+    #[clap(long)]
     pub no_cargo_wapm: bool,
     /// Namespace to init with, default = current logged in user or _
-    #[clap(long, name = "namespace")]
+    #[clap(long)]
     pub namespace: Option<String>,
     /// Version of the initialized package
-    #[clap(long, name = "version")]
+    #[clap(long)]
     pub version: Option<semver::Version>,
     /// If the `manifest-path` is a Cargo.toml, use that file to initialize the wapm.toml
-    #[clap(long, name = "manifest-path")]
+    #[clap(long)]
     pub manifest_path: Option<PathBuf>,
     /// Add default dependencies for common packages (currently supported: `python`, `js`)
-    #[clap(long, name = "template")]
+    #[clap(long)]
     pub template: Option<String>,
     /// Include file paths into the target container filesystem
-    #[clap(long, name = "include")]
+    #[clap(long)]
     pub include: Vec<String>,
     /// Directory of the output file name. wasmer init will error in the target dir
     /// already contains a wasmer.toml. Also sets the package name.
