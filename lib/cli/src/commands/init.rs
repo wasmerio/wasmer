@@ -40,7 +40,7 @@ pub struct Init {
     /// Include file paths into the target container filesystem
     #[clap(long)]
     pub include: Vec<String>,
-    /// Directory of the output file name. wasmer init will error in the target dir
+    /// Directory of the output file name. wasmer init will error if the target dir
     /// already contains a wasmer.toml. Also sets the package name.
     #[clap(name = "PACKAGE_PATH")]
     pub out: Option<PathBuf>,
