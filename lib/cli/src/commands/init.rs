@@ -368,21 +368,19 @@ impl Init {
 
     /// Returns the dependencies based on the `--template` flag
     fn get_dependencies(&self) -> Option<HashMap<String, String>> {
-        Some({
-            match self.template.as_deref() {
-                Some("js") => {
-                    let mut map = HashMap::default();
-                    map.insert("python".to_string(), "quickjs/quickjs@latest".to_string());
-                    map
-                }
-                Some("python") => {
-                    let mut map = HashMap::default();
-                    map.insert("python".to_string(), "python/python@latest".to_string());
-                    map
-                }
-                _ => HashMap::default(),
+        let mut map = HashMap::new();
+        
+        match self.template.as_deref() {
+            Some("js") => {
+                map.insert("python".to_string(), "quickjs/quickjs@latest".to_string());
             }
-        })
+            Some("python") => {
+                map.insert("python".to_string(), "python/python@latest".to_string());
+            }
+            _ => {},
+            }
+            
+            Some(map)
     }
 
     // Returns whether the template for the wapm.toml should be a binary, a library or an empty file
