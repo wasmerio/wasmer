@@ -396,10 +396,6 @@ jobs:
           {
             stage: 5, 
             description: 'Test examples (debug)',
-          },
-          {
-            stage: 6,
-            description: 'Test examples (release)',
           }
         ]
         metadata: [
