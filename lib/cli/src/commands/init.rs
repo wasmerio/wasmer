@@ -120,29 +120,7 @@ impl Init {
             None
         };
 
-        let package_name;
-        let target_file = match self.out.as_ref() {
-            None => {
-                let current_dir = std::env::current_dir()?;
-                package_name = current_dir
-                    .canonicalize()?
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .map(|s| s.to_string())
-                    .ok_or_else(|| anyhow::anyhow!("no current dir name"))?;
-                current_dir.join(WASMER_TOML_NAME)
-            }
-            Some(s) => {
-                let _ = std::fs::create_dir_all(s);
-                package_name = s
-                    .canonicalize()?
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .map(|s| s.to_string())
-                    .ok_or_else(|| anyhow::anyhow!("no dir name"))?;
-                s.join(WASMER_TOML_NAME)
-            }
-        };
+        let (package_name, target_file) = self.target_file()?;
 
         if target_file.exists() && !self.overwrite {
             anyhow::bail!(
@@ -151,97 +129,17 @@ impl Init {
             );
         }
 
-        let package_name = cargo_toml
-            .as_ref()
-            .map(|p| &p.name)
-            .unwrap_or(&package_name);
-
-        let namespace = self.namespace.clone().unwrap_or_else(|| {
-            let username = wasmer_registry::whoami(None, None).ok().map(|o| o.1);
-            username
-                .or_else(|| package_name.split('/').next().map(|s| s.to_string()))
-                .unwrap_or_else(|| "_".to_string())
-        });
-        let module_name = package_name
-            .split('/')
-            .last()
-            .unwrap_or(package_name)
-            .to_string();
-        let version = self.version.clone().unwrap_or_else(|| {
-            cargo_toml
-                .as_ref()
-                .map(|t| t.version.clone())
-                .unwrap_or_else(|| semver::Version::parse("0.1.0").unwrap())
-        });
-        let license = cargo_toml.as_ref().and_then(|t| t.license.clone());
-        let license_file = cargo_toml.as_ref().and_then(|t| t.license_file.clone());
-        let readme = cargo_toml.as_ref().and_then(|t| t.readme.clone());
-        let repository = cargo_toml.as_ref().and_then(|t| t.repository.clone());
-        let homepage = cargo_toml.as_ref().and_then(|t| t.homepage.clone());
-        let description = cargo_toml
-            .as_ref()
-            .and_then(|t| t.description.clone())
-            .unwrap_or_else(|| format!("Description for package {module_name}"));
-
-        let default_abi = wapm_toml::Abi::Wasi;
-        let bindings = Self::get_bindings(&target_file, bin_or_lib);
-        let modules = vec![wapm_toml::Module {
-            name: module_name.to_string(),
-            source: cargo_toml
-                .as_ref()
-                .map(|p| {
-                    // Normalize the path to /target/release to be relative to the parent of the Cargo.toml
-                    let outpath = p
-                        .build_dir
-                        .join("release")
-                        .join(&format!("{module_name}.wasm"));
-                    let canonicalized_outpath = outpath.canonicalize().unwrap_or(outpath);
-                    let outpath_str = format!("{}", canonicalized_outpath.display());
-                    let manifest_canonicalized = manifest_path
-                        .parent()
-                        .and_then(|p| p.canonicalize().ok())
-                        .unwrap_or_else(|| manifest_path.clone());
-                    let manifest_str = format!("{}/", manifest_canonicalized.display());
-                    let relative_str = outpath_str.replacen(&manifest_str, "", 1);
-                    Path::new(&relative_str).to_path_buf()
-                })
-                .unwrap_or_else(|| Path::new(&format!("{module_name}.wasm")).to_path_buf()),
-            kind: None,
-            abi: default_abi,
-            bindings: bindings.clone(),
-            interfaces: Some({
-                let mut map = HashMap::new();
-                map.insert("wasi".to_string(), "0.1.0-unstable".to_string());
-                map
-            }),
-        }];
-
-        let constructed_manifest = wapm_toml::Manifest {
-            package: wapm_toml::Package {
-                name: format!("{namespace}/{module_name}"),
-                version,
-                description,
-                license,
-                license_file,
-                readme,
-                repository,
-                homepage,
-                wasmer_extra_flags: None,
-                disable_command_rename: false,
-                rename_commands_to_raw_command_name: false,
-            },
-            dependencies: Some(self.get_dependencies()),
-            command: Self::get_command(&modules, bin_or_lib),
-            module: match bin_or_lib {
-                BinOrLib::Empty => None,
-                _ => Some(modules),
-            },
-            fs: self.get_filesystem_mapping(),
-            base_directory_path: target_file
-                .parent()
-                .map(|o| o.to_path_buf())
-                .unwrap_or_else(|| target_file.clone()),
-        };
+        let constructed_manifest = construct_manifest(
+            cargo_toml.as_ref(),
+            &package_name,
+            &target_file,
+            &manifest_path,
+            bin_or_lib,
+            self.namespace.clone(),
+            self.version.clone(),
+            self.template.as_ref(),
+            self.include.as_slice(),
+        );
 
         if let Some(parent) = target_file.parent() {
             let _ = std::fs::create_dir_all(parent);
@@ -285,7 +183,7 @@ impl Init {
 
         // generate the wasmer.toml and exit
         if !should_add_to_cargo_toml {
-            let toml_string = toml::to_string_pretty(&constructed_manifest)?
+            let toml_string = toml::to_string_pretty(&constructed_manifest.toml)?
                 .replace("[dependencies]", &format!("{note}\r\n\r\n[dependencies]"))
                 .lines()
                 .collect::<Vec<_>>()
@@ -310,12 +208,12 @@ impl Init {
         // generate the Wapm struct for the [metadata.wapm] table
         // and add it to the end of the file
         let metadata_wapm = wapm_toml::rust::Wapm {
-            namespace,
-            package: Some(module_name),
+            namespace: constructed_manifest.namespace,
+            package: Some(constructed_manifest.module_name),
             wasmer_extra_flags: None,
-            abi: default_abi,
-            fs: constructed_manifest.fs,
-            bindings,
+            abi: constructed_manifest.default_abi,
+            fs: constructed_manifest.toml.fs,
+            bindings: constructed_manifest.bindings,
         };
 
         let toml_string = toml::to_string_pretty(&metadata_wapm)?
@@ -342,27 +240,51 @@ impl Init {
         Ok(())
     }
 
-    fn get_filesystem_mapping(&self) -> Option<HashMap<String, PathBuf>> {
-        if self.include.is_empty() {
+    fn target_file(&self) -> Result<(String, PathBuf), anyhow::Error> {
+        match self.out.as_ref() {
+            None => {
+                let current_dir = std::env::current_dir()?;
+                let package_name = current_dir
+                    .canonicalize()?
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| anyhow::anyhow!("no current dir name"))?;
+                Ok((package_name, current_dir.join(WASMER_TOML_NAME)))
+            }
+            Some(s) => {
+                let _ = std::fs::create_dir_all(s);
+                let package_name = s
+                    .canonicalize()?
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| anyhow::anyhow!("no dir name"))?;
+                Ok((package_name, s.join(WASMER_TOML_NAME)))
+            }
+        }
+    }
+
+    fn get_filesystem_mapping(include: &[String]) -> Option<HashMap<String, PathBuf>> {
+        if include.is_empty() {
             return None;
         }
 
-        let include = self
-            .include
-            .iter()
-            .map(|path| {
-                if path == "." || path == "/" {
-                    return ("/".to_string(), Path::new("/").to_path_buf());
-                }
+        Some(
+            include
+                .iter()
+                .map(|path| {
+                    if path == "." || path == "/" {
+                        return ("/".to_string(), Path::new("/").to_path_buf());
+                    }
 
-                let key = format!("./{path}");
-                let value = Path::new(&format!("/{path}")).to_path_buf();
+                    let key = format!("./{path}");
+                    let value = Path::new(&format!("/{path}")).to_path_buf();
 
-                (key, value)
-            })
-            .collect();
-
-        Some(include)
+                    (key, value)
+                })
+                .collect(),
+        )
     }
 
     fn get_command(
@@ -388,10 +310,10 @@ impl Init {
     }
 
     /// Returns the dependencies based on the `--template` flag
-    fn get_dependencies(&self) -> HashMap<String, String> {
+    fn get_dependencies(template: Option<&Template>) -> HashMap<String, String> {
         let mut map = HashMap::default();
 
-        match self.template.as_ref() {
+        match template {
             Some(Template::Js) => {
                 map.insert("python".to_string(), "quickjs/quickjs@latest".to_string());
             }
@@ -454,6 +376,120 @@ impl Init {
     }
 }
 
+struct ConstructManifestReturn {
+    namespace: String,
+    default_abi: wapm_toml::Abi,
+    module_name: String,
+    bindings: Option<wapm_toml::Bindings>,
+    toml: wapm_toml::Manifest,
+}
+
+fn construct_manifest(
+    cargo_toml: Option<&MiniCargoTomlPackage>,
+    package_name: &String,
+    target_file: &PathBuf,
+    manifest_path: &PathBuf,
+    bin_or_lib: BinOrLib,
+    namespace: Option<String>,
+    version: Option<semver::Version>,
+    template: Option<&Template>,
+    include_fs: &[String],
+) -> ConstructManifestReturn {
+    let package_name = cargo_toml.as_ref().map(|p| &p.name).unwrap_or(package_name);
+
+    let namespace = namespace.clone().unwrap_or_else(|| {
+        let username = wasmer_registry::whoami(None, None).ok().map(|o| o.1);
+        username
+            .or_else(|| package_name.split('/').next().map(|s| s.to_string()))
+            .unwrap_or_else(|| "_".to_string())
+    });
+    let module_name = package_name
+        .split('/')
+        .last()
+        .unwrap_or(package_name)
+        .to_string();
+    let version = version.clone().unwrap_or_else(|| {
+        cargo_toml
+            .as_ref()
+            .map(|t| t.version.clone())
+            .unwrap_or_else(|| semver::Version::parse("0.1.0").unwrap())
+    });
+    let license = cargo_toml.as_ref().and_then(|t| t.license.clone());
+    let license_file = cargo_toml.as_ref().and_then(|t| t.license_file.clone());
+    let readme = cargo_toml.as_ref().and_then(|t| t.readme.clone());
+    let repository = cargo_toml.as_ref().and_then(|t| t.repository.clone());
+    let homepage = cargo_toml.as_ref().and_then(|t| t.homepage.clone());
+    let description = cargo_toml
+        .as_ref()
+        .and_then(|t| t.description.clone())
+        .unwrap_or_else(|| format!("Description for package {module_name}"));
+
+    let default_abi = wapm_toml::Abi::Wasi;
+    let bindings = Init::get_bindings(&target_file, bin_or_lib);
+    let modules = vec![wapm_toml::Module {
+        name: module_name.to_string(),
+        source: cargo_toml
+            .as_ref()
+            .map(|p| {
+                // Normalize the path to /target/release to be relative to the parent of the Cargo.toml
+                let outpath = p
+                    .build_dir
+                    .join("release")
+                    .join(&format!("{module_name}.wasm"));
+                let canonicalized_outpath = outpath.canonicalize().unwrap_or(outpath);
+                let outpath_str = format!("{}", canonicalized_outpath.display());
+                let manifest_canonicalized = manifest_path
+                    .parent()
+                    .and_then(|p| p.canonicalize().ok())
+                    .unwrap_or_else(|| manifest_path.clone());
+                let manifest_str = format!("{}/", manifest_canonicalized.display());
+                let relative_str = outpath_str.replacen(&manifest_str, "", 1);
+                Path::new(&relative_str).to_path_buf()
+            })
+            .unwrap_or_else(|| Path::new(&format!("{module_name}.wasm")).to_path_buf()),
+        kind: None,
+        abi: default_abi,
+        bindings: bindings.clone(),
+        interfaces: Some({
+            let mut map = HashMap::new();
+            map.insert("wasi".to_string(), "0.1.0-unstable".to_string());
+            map
+        }),
+    }];
+
+    ConstructManifestReturn {
+        namespace: namespace.clone(),
+        default_abi: default_abi,
+        module_name: module_name.clone(),
+        bindings,
+        toml: wapm_toml::Manifest {
+            package: wapm_toml::Package {
+                name: format!("{namespace}/{module_name}"),
+                version,
+                description,
+                license,
+                license_file,
+                readme,
+                repository,
+                homepage,
+                wasmer_extra_flags: None,
+                disable_command_rename: false,
+                rename_commands_to_raw_command_name: false,
+            },
+            dependencies: Some(Init::get_dependencies(template)),
+            command: Init::get_command(&modules, bin_or_lib),
+            module: match bin_or_lib {
+                BinOrLib::Empty => None,
+                _ => Some(modules),
+            },
+            fs: Init::get_filesystem_mapping(include_fs),
+            base_directory_path: target_file
+                .parent()
+                .map(|o| o.to_path_buf())
+                .unwrap_or_else(|| target_file.clone()),
+        },
+    }
+}
 fn parse_cargo_toml(manifest_path: &PathBuf) -> Result<MiniCargoTomlPackage, anyhow::Error> {
     let mut metadata = MetadataCommand::new();
     metadata.manifest_path(&manifest_path);
