@@ -6,6 +6,9 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+static NOTE: &str =
+    "# See more keys and definitions at https://docs.wasmer.io/ecosystem/wapm/manifest";
+
 /// CLI args for the `wasmer init` command
 #[derive(Debug, Parser)]
 pub struct Init {
@@ -178,28 +181,31 @@ impl Init {
             eprintln!();
         }
 
-        let note =
-            "# See more keys and definitions at https://docs.wasmer.io/ecosystem/wapm/manifest";
-
         // generate the wasmer.toml and exit
-        if !should_add_to_cargo_toml {
-            let toml_string = toml::to_string_pretty(&constructed_manifest.toml)?
-                .replace("[dependencies]", &format!("{note}\r\n\r\n[dependencies]"))
-                .lines()
-                .collect::<Vec<_>>()
-                .join("\r\n");
-
-            std::fs::write(&target_file, &toml_string)
-                .with_context(|| format!("Unable to write to \"{}\"", target_file.display()))?;
-
-            return Ok(());
+        if should_add_to_cargo_toml {
+            Self::add_to_existing_cargo_toml(
+                &manifest_path,
+                self.overwrite,
+                self.quiet,
+                &constructed_manifest,
+            )
+        } else {
+            Self::write_wasmer_toml(&target_file, &constructed_manifest.toml)
         }
+    }
 
+    // Adds the init metadata to the end of an existing Cargo.toml for cargo wapm to consume
+    fn add_to_existing_cargo_toml(
+        manifest_path: &PathBuf,
+        overwrite: bool,
+        quiet: bool,
+        constructed_manifest: &ConstructManifestReturn,
+    ) -> Result<(), anyhow::Error> {
         // add the manifest to the Cargo.toml
         let old_cargo = std::fs::read_to_string(&manifest_path).unwrap();
 
         // if the Cargo.toml already contains a [metadata.wapm] section, don't generate it again
-        if old_cargo.contains("metadata.wapm") && !self.overwrite {
+        if old_cargo.contains("metadata.wapm") && !overwrite {
             return Err(anyhow::anyhow!(
                 "wapm project already initialized in Cargo.toml file"
             ));
@@ -208,21 +214,21 @@ impl Init {
         // generate the Wapm struct for the [metadata.wapm] table
         // and add it to the end of the file
         let metadata_wapm = wapm_toml::rust::Wapm {
-            namespace: constructed_manifest.namespace,
-            package: Some(constructed_manifest.module_name),
+            namespace: constructed_manifest.namespace.clone(),
+            package: Some(constructed_manifest.module_name.clone()),
             wasmer_extra_flags: None,
             abi: constructed_manifest.default_abi,
-            fs: constructed_manifest.toml.fs,
-            bindings: constructed_manifest.bindings,
+            fs: constructed_manifest.toml.fs.clone(),
+            bindings: constructed_manifest.bindings.clone(),
         };
 
         let toml_string = toml::to_string_pretty(&metadata_wapm)?
-            .replace("[dependencies]", &format!("{note}\r\n\r\n[dependencies]"))
+            .replace("[dependencies]", &format!("{NOTE}\r\n\r\n[dependencies]"))
             .lines()
             .collect::<Vec<_>>()
             .join("\r\n");
 
-        if !self.quiet {
+        if !quiet {
             eprintln!(
                 "You have cargo-wapm installed, added metadata to Cargo.toml instead of wasmer.toml"
             );
@@ -236,6 +242,20 @@ impl Init {
             &manifest_path,
             &format!("{old_cargo}\r\n\r\n[package.metadata.wapm]\r\n{toml_string}"),
         )?;
+
+        Ok(())
+    }
+
+    /// Writes the metadata to a wasmer.toml file
+    fn write_wasmer_toml(path: &PathBuf, toml: &wapm_toml::Manifest) -> Result<(), anyhow::Error> {
+        let toml_string = toml::to_string_pretty(&toml)?
+            .replace("[dependencies]", &format!("{NOTE}\r\n\r\n[dependencies]"))
+            .lines()
+            .collect::<Vec<_>>()
+            .join("\r\n");
+
+        std::fs::write(&path, &toml_string)
+            .with_context(|| format!("Unable to write to \"{}\"", path.display()))?;
 
         Ok(())
     }
