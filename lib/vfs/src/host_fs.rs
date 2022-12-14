@@ -353,6 +353,7 @@ impl File {
     }
 
     fn metadata(&self) -> std::fs::Metadata {
+        // FIXME: no unwrap!
         self.inner_std.metadata().unwrap()
     }
 }
