@@ -379,11 +379,15 @@ jobs:
           },
           {
             stage: 1, 
-            description: 'Test packages',
+            description: 'cargo test --all',
+          },
+          {
+            stage: 4, 
+            description: 'Test lib/cli',
           },
           {
             stage: 5, 
-            description: 'Test examples',
+            description: 'Test examples (debug)',
           }
         ]
         metadata: [
