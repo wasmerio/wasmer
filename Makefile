@@ -484,16 +484,14 @@ test-stage-0:
 
 # test packages
 test-stage-1:
-	$(CARGO_BINARY) test $(CARGO_TARGET) $(compiler_features) --all --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner
-	$(CARGO_BINARY) test $(CARGO_TARGET) $(compiler_features) --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
-	$(CARGO_BINARY) test $(CARGO_TARGET) $(compiler_features) --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
 	$(CARGO_BINARY) test $(CARGO_TARGET) $(compiler_features) --manifest-path lib/cli/Cargo.toml --release
+	$(CARGO_BINARY) test $(CARGO_TARGET) $(compiler_features) --all --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner
+	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
+	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
 
 # test examples 
 test-stage-5:
 	$(CARGO_BINARY) test $(CARGO_TARGET) $(compiler_features) --features wasi --examples
-test-stage-6:
-	$(CARGO_BINARY) test $(CARGO_TARGET) --release $(compiler_features) --features wasi --examples
 
 test-stage-7:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release --package wasmer-c-api-test-runner
@@ -563,7 +561,7 @@ test-wasi-unit:
 test-wasi:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release --tests $(compiler_features) -- wasi::wasitests
 
-test-examples: test-stage-5 test-stage-6
+test-examples: test-stage-5
 
 test-integration-cli:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
