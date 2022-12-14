@@ -160,6 +160,12 @@ pub(crate) fn poll_oneoff_internal(
     }
     drop(env);
 
+    // In order to prevent polling from smashing the CPU we add a minimum
+    // sleep time which is roughly equal the size of a Linux time interval
+    if let Some(time_to_sleep) = time_to_sleep.as_mut() {
+        *time_to_sleep = Duration::from_millis(5).max(*time_to_sleep);
+    }
+
     // If there is a timeout we need to use the runtime to measure this
     // otherwise we just process all the events and wait on them indefinately
     if let Some(time_to_sleep) = time_to_sleep.as_ref() {
