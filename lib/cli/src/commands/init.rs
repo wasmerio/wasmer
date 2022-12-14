@@ -4,6 +4,7 @@ use clap::Parser;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 /// CLI args for the `wasmer init` command
 #[derive(Debug, Parser)]
@@ -37,7 +38,7 @@ pub struct Init {
     pub manifest_path: Option<PathBuf>,
     /// Add default dependencies for common packages (currently supported: `python`, `js`)
     #[clap(long)]
-    pub template: Option<String>,
+    pub template: Option<Template>,
     /// Include file paths into the target container filesystem
     #[clap(long)]
     pub include: Vec<String>,
@@ -45,6 +46,26 @@ pub struct Init {
     /// already contains a wasmer.toml. Also sets the package name.
     #[clap(name = "PACKAGE_PATH")]
     pub out: Option<PathBuf>,
+}
+
+/// What template to use for the initialized wasmer.toml
+#[derive(Debug, PartialEq, Copy, Clone, clap::ValueEnum)]
+pub enum Template {
+    /// Add dependency on Python
+    Python,
+    /// Add dependency on JS
+    Js,
+}
+
+impl FromStr for Template {
+    type Err = anyhow::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "python" => Ok(Self::Python),
+            "js" => Ok(Self::Js),
+            other => Err(anyhow::anyhow!("invalid --template {other:?}")),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -368,16 +389,19 @@ impl Init {
 
     /// Returns the dependencies based on the `--template` flag
     fn get_dependencies(&self) -> Option<HashMap<String, String>> {
-        let mut map = HashMap::new();
-        
-        match self.template.as_deref() {
-            Some("js") => {
-                map.insert("python".to_string(), "quickjs/quickjs@latest".to_string());
-            }
-            Some("python") => {
-                map.insert("python".to_string(), "python/python@latest".to_string());
-            }
-            _ => {},
+        Some({
+            match self.template.as_ref() {
+                Some(Template::Js) => {
+                    let mut map = HashMap::default();
+                    map.insert("python".to_string(), "quickjs/quickjs@latest".to_string());
+                    map
+                }
+                Some(Template::Python) => {
+                    let mut map = HashMap::default();
+                    map.insert("python".to_string(), "python/python@latest".to_string());
+                    map
+                }
+                _ => HashMap::default(),
             }
             
             Some(map)
