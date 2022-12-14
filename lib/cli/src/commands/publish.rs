@@ -176,75 +176,42 @@ fn construct_tar_gz(
     let package = &manifest.package;
     let modules = manifest.module.as_ref().ok_or(PublishError::NoModule)?;
 
-    let readme = package.readme.as_ref().and_then(|readme_path| {
-        let normalized_path = normalize_path(&manifest.base_directory_path, readme_path);
-        if builder
-            .append_path_with_name(&normalized_path, readme_path)
-            .is_err()
-        {
-            log::warn!(
-                "could not append path {} -> {} to .tar.gz",
-                normalized_path.display(),
-                readme_path.display()
-            );
+    let readme = match package.readme.as_ref() {
+        None => None,
+        Some(s) => {
+            let path = append_path_to_tar_gz(builder, &manifest.base_directory_path, &s).map_err(
+                |(p, e)| PublishError::ErrorBuildingPackage(format!("{}", p.display()), e),
+            )?;
+            fs::read_to_string(path).ok()
         }
-        fs::read_to_string(normalized_path).ok()
-    });
+    };
 
-    let license_file = package.license_file.as_ref().and_then(|license_file_path| {
-        let normalized_path = normalize_path(&manifest.base_directory_path, license_file_path);
-        if builder
-            .append_path_with_name(&normalized_path, license_file_path)
-            .is_err()
-        {
-            log::warn!(
-                "could not append path {} -> {} to .tar.gz",
-                normalized_path.display(),
-                license_file_path.display()
-            );
+    let license_file = match package.license_file.as_ref() {
+        None => None,
+        Some(s) => {
+            let path = append_path_to_tar_gz(builder, &manifest.base_directory_path, &s).map_err(
+                |(p, e)| PublishError::ErrorBuildingPackage(format!("{}", p.display()), e),
+            )?;
+            fs::read_to_string(path).ok()
         }
-        fs::read_to_string(normalized_path).ok()
-    });
+    };
 
     for module in modules {
-        append_path_to_tar_gz(
-            builder,
-            &manifest.base_directory_path,
-            &path,
-            &module.source,
-        )
-        .map_err(|(normalized_path, _)| PublishError::MissingBindings {
-            module: module.name.clone(),
-            path: normalized_path.clone(),
-        })?;
-
-        /*
-        let normalized_path = normalize_path(&manifest.base_directory_path, &module.source);
-        normalized_path
-            .metadata()
-            .map_err(|_| PublishError::SourceMustBeFile {
+        append_path_to_tar_gz(builder, &manifest.base_directory_path, &module.source).map_err(
+            |(normalized_path, _)| PublishError::SourceMustBeFile {
                 module: module.name.clone(),
-                path: normalized_path.clone(),
-            })?;
-        builder
-            .append_path_with_name(&normalized_path, &module.source)
-            .map_err(|e| {
-                PublishError::ErrorBuildingPackage(format!("{}", normalized_path.display()), e)
-            })?;
-        */
+                path: normalized_path,
+            },
+        )?;
 
         if let Some(bindings) = &module.bindings {
             for path in bindings.referenced_files(&manifest.base_directory_path)? {
-                append_path_to_tar_gz(
-                    builder,
-                    &manifest.base_directory_path,
-                    &path,
-                    &module.source,
-                )
-                .map_err(|(normalized_path, _)| PublishError::MissingBindings {
-                    module: module.name.clone(),
-                    path: normalized_path.clone(),
-                })?;
+                append_path_to_tar_gz(builder, &manifest.base_directory_path, &path).map_err(
+                    |(normalized_path, _)| PublishError::MissingBindings {
+                        module: module.name.clone(),
+                        path: normalized_path.clone(),
+                    },
+                )?;
             }
         }
     }
@@ -276,16 +243,15 @@ fn append_path_to_tar_gz(
     builder: &mut tar::Builder<Vec<u8>>,
     base_path: &Path,
     target_path: &Path,
-    file_name: &PathBuf,
-) -> Result<(), (PathBuf, anyhow::Error)> {
+) -> Result<PathBuf, (PathBuf, io::Error)> {
     let normalized_path = normalize_path(&base_path, &target_path);
     normalized_path
         .metadata()
-        .map_err(|e| (normalized_path.clone(), e.into()))?;
+        .map_err(|e| (normalized_path.clone(), e))?;
     builder
-        .append_path_with_name(&normalized_path, &file_name)
-        .map_err(|e| (normalized_path, e.into()))?;
-    Ok(())
+        .append_path_with_name(&normalized_path, &target_path)
+        .map_err(|e| (normalized_path.clone(), e))?;
+    Ok(normalized_path)
 }
 
 fn on_error(e: anyhow::Error) -> anyhow::Error {
