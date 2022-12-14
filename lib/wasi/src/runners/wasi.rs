@@ -98,9 +98,6 @@ pub(crate) fn exec_module(
 ) -> Result<(), anyhow::Error> {
     let import_object = wasi_env.import_object(store, module)?;
     let instance = Instance::new(store, module, &import_object)?;
-    let memory = instance.exports.get_memory("memory")?;
-    wasi_env.data_mut(store).set_memory(memory.clone());
-
     // If this module exports an _initialize function, run that first.
     if let Ok(initialize) = instance.exports.get_function("_initialize") {
         initialize
