@@ -8,16 +8,16 @@ use std::path::PathBuf;
 #[derive(Debug, Parser)]
 pub struct Init {
     /// Initialize wapm.toml for a library package
-    #[clap(long)]
+    #[clap(long, group = "crate-type")]
     pub lib: bool,
     /// Initialize wapm.toml for a binary package
-    #[clap(long)]
+    #[clap(long, group = "crate-type")]
     pub bin: bool,
     /// Initialize an empty wapm.toml
-    #[clap(long)]
+    #[clap(long, group = "crate-type")]
     pub empty: bool,
     /// Force overwriting the wapm.toml, even if it already exists
-    #[clap(long")]
+    #[clap(long)]
     pub overwrite: bool,
     /// Don't display debug output
     #[clap(long)]
