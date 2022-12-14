@@ -75,18 +75,6 @@ fn wasmer_init_publish() -> anyhow::Result<()> {
     let random2 = format!("{}", rand::random::<u32>());
     let random3 = format!("{}", rand::random::<u32>());
 
-    let mut cmd = std::process::Command::new("rustup");
-    cmd.arg("target");
-    cmd.arg("add");
-    cmd.arg("wasm32-wasi");
-
-    let _ = cmd
-        .stdin(Stdio::null())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .output()
-        .unwrap();
-
     let mut cmd = std::process::Command::new("cargo");
     cmd.arg("init");
     cmd.arg("--bin");
