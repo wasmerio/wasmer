@@ -305,7 +305,8 @@ impl Init {
                 .collect::<Vec<_>>()
                 .join("\r\n");
 
-            std::fs::write(target_file, &toml_string)?;
+            std::fs::write(&target_file, &toml_string)
+                .with_context(|| format!("Unable to write to \"{}\"", target_file.display()))?;
 
             return Ok(());
         }
