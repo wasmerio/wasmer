@@ -63,7 +63,7 @@ impl FromStr for Template {
         match s {
             "python" => Ok(Self::Python),
             "js" => Ok(Self::Js),
-            other => Err(anyhow::anyhow!("invalid --template {other:?}")),
+            _ => Err(anyhow::anyhow!("expected \"python\" or \"js\"")),
         }
     }
 }
@@ -230,7 +230,7 @@ impl Init {
                 disable_command_rename: false,
                 rename_commands_to_raw_command_name: false,
             },
-            dependencies: self.get_dependencies(),
+            dependencies: Some(self.get_dependencies()),
             command: Self::get_command(&modules, bin_or_lib),
             module: match bin_or_lib {
                 BinOrLib::Empty => None,
@@ -388,23 +388,20 @@ impl Init {
     }
 
     /// Returns the dependencies based on the `--template` flag
-    fn get_dependencies(&self) -> Option<HashMap<String, String>> {
-        Some({
-            match self.template.as_ref() {
-                Some(Template::Js) => {
-                    let mut map = HashMap::default();
-                    map.insert("python".to_string(), "quickjs/quickjs@latest".to_string());
-                    map
-                }
-                Some(Template::Python) => {
-                    let mut map = HashMap::default();
-                    map.insert("python".to_string(), "python/python@latest".to_string());
-                    map
-                }
-                _ => HashMap::default(),
+    fn get_dependencies(&self) -> HashMap<String, String> {
+        let mut map = HashMap::default();
+
+        match self.template.as_ref() {
+            Some(Template::Js) => {
+                map.insert("python".to_string(), "quickjs/quickjs@latest".to_string());
             }
-            
-            Some(map)
+            Some(Template::Python) => {
+                map.insert("python".to_string(), "python/python@latest".to_string());
+            }
+            _ => {}
+        }
+
+        map
     }
 
     // Returns whether the template for the wapm.toml should be a binary, a library or an empty file
