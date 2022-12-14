@@ -42,7 +42,7 @@ impl Default for FdGuard {
 
 impl Clone for FdGuard {
     fn clone(&self) -> Self {
-        unsafe { FdGuard(libc::dup(self.0)) }
+        unsafe { Self(libc::dup(self.0)) }
     }
 }
 

@@ -119,7 +119,7 @@ impl WasmMmap {
 
     /// Copies the memory
     /// (in this case it performs a copy-on-write to save memory)
-    pub fn fork(&mut self) -> Result<WasmMmap, MemoryError> {
+    pub fn fork(&mut self) -> Result<Self, MemoryError> {
         let mem_length = self.size.bytes().0;
         let mut alloc = self
             .alloc
@@ -334,7 +334,7 @@ impl LinearMemory for VMOwnedMemory {
 
     /// Copies this memory to a new memory
     fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
-        let forked = VMOwnedMemory::fork(self)?;
+        let forked = Self::fork(self)?;
         Ok(Box::new(forked))
     }
 }
@@ -428,7 +428,7 @@ impl LinearMemory for VMSharedMemory {
 
     /// Copies this memory to a new memory
     fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
-        let forked = VMSharedMemory::fork(self)?;
+        let forked = Self::fork(self)?;
         Ok(Box::new(forked))
     }
 }
@@ -552,7 +552,7 @@ impl VMMemory {
     /// - Box<dyn LinearMemory + 'static> -> VMMemory
     pub fn from_custom<IntoVMMemory>(memory: IntoVMMemory) -> VMMemory
     where
-        IntoVMMemory: Into<VMMemory>,
+        IntoVMMemory: Into<Self>,
     {
         memory.into()
     }
