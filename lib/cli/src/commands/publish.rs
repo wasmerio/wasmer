@@ -107,7 +107,11 @@ impl Publish {
                 .append_path_with_name(&normalized_path, readme_path)
                 .is_err()
             {
-                // TODO: Maybe do something here
+                log::warn!(
+                    "could not append path {} -> {} to .tar.gz",
+                    normalized_path.display(),
+                    readme_path.display()
+                );
             }
             fs::read_to_string(normalized_path).ok()
         });
