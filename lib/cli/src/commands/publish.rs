@@ -143,12 +143,22 @@ impl Publish {
 
         let namespace = self
             .namespace
-            .as_deref()
-            .or_else(|| manifest.package.name.split('/').next())
-            .unwrap_or("")
-            .to_string();
-        if username != namespace {
-            return Err(anyhow::anyhow!("trying to publish package under the namespace {namespace:?}, but logged in as user {username:?}"));
+            .clone()
+            .or_else(|| {
+                Some(
+                    wasmer_registry::PackageName::parse(&manifest.package.name)
+                        .ok()?
+                        .namespace,
+                )
+            })
+            .unwrap_or_else(|| "_".to_string());
+
+        if !wasmer_registry::utils::user_can_publish_under_namespace(
+            &registry, &username, &namespace,
+        )? {
+            return Err(anyhow::anyhow!(
+                "user {username:?} has no permissions to publish under the namespace {namespace:?}"
+            ));
         }
 
         wasmer_registry::publish::try_chunked_uploading(

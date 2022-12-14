@@ -1,0 +1,13 @@
+query GetNamespacesForUser ($username: String!) {
+  user: getUser(username:$username) {
+        username
+        namespaces {
+            edges {
+                node {
+                    displayName
+                    globalName
+                }
+            }
+        }
+    }
+}
