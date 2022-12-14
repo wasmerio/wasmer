@@ -382,6 +382,14 @@ jobs:
             description: 'cargo test --all',
           },
           {
+            stage: 2, 
+            description: 'Test compiler-cranelift',
+          },
+          {
+            stage: 3, 
+            description: 'Test compiler-singlepass',
+          },
+          {
             stage: 4, 
             description: 'Test lib/cli',
           },
