@@ -31,6 +31,9 @@ pub struct Publish {
     /// Override the token (by default, it will use the current logged in user)
     #[clap(long)]
     pub token: Option<String>,
+    /// Skip validation of the uploaded package
+    #[clap(long)]
+    pub no_validate: bool,
     /// Directory containing the `wasmer.toml` (defaults to current root dir)
     #[clap(name = "PACKAGE_PATH")]
     pub package_path: Option<String>,
@@ -93,92 +96,15 @@ impl Publish {
             ));
         }
 
-        validate::validate_directory(&manifest, &registry, cwd.clone())?;
+        if !self.no_validate {
+            validate::validate_directory(&manifest, &registry, cwd.clone())?;
+        }
 
         builder.append_path_with_name(&manifest_path_buf, "wapm.toml")?;
 
-        let package = &manifest.package;
-        let modules = manifest.module.as_ref().ok_or(PublishError::NoModule)?;
         let manifest_string = toml::to_string(&manifest)?;
 
-        let readme = package.readme.as_ref().and_then(|readme_path| {
-            let normalized_path = normalize_path(&manifest.base_directory_path, readme_path);
-            if builder
-                .append_path_with_name(&normalized_path, readme_path)
-                .is_err()
-            {
-                log::warn!(
-                    "could not append path {} -> {} to .tar.gz",
-                    normalized_path.display(),
-                    readme_path.display()
-                );
-            }
-            fs::read_to_string(normalized_path).ok()
-        });
-
-        let license_file = package.license_file.as_ref().and_then(|license_file_path| {
-            let normalized_path = normalize_path(&manifest.base_directory_path, license_file_path);
-            if builder
-                .append_path_with_name(&normalized_path, license_file_path)
-                .is_err()
-            {
-                log::warn!(
-                    "could not append path {} -> {} to .tar.gz",
-                    normalized_path.display(),
-                    license_file_path.display()
-                );
-            }
-            fs::read_to_string(normalized_path).ok()
-        });
-
-        for module in modules {
-            let normalized_path = normalize_path(&manifest.base_directory_path, &module.source);
-            normalized_path
-                .metadata()
-                .map_err(|_| PublishError::SourceMustBeFile {
-                    module: module.name.clone(),
-                    path: normalized_path.clone(),
-                })?;
-            builder
-                .append_path_with_name(&normalized_path, &module.source)
-                .map_err(|e| {
-                    PublishError::ErrorBuildingPackage(format!("{}", normalized_path.display()), e)
-                })?;
-
-            if let Some(bindings) = &module.bindings {
-                for path in bindings.referenced_files(&manifest.base_directory_path)? {
-                    let normalized_path = normalize_path(&manifest.base_directory_path, &path);
-                    normalized_path
-                        .metadata()
-                        .map_err(|_| PublishError::MissingBindings {
-                            module: module.name.clone(),
-                            path: normalized_path.clone(),
-                        })?;
-                    builder
-                        .append_path_with_name(&normalized_path, &module.source)
-                        .map_err(|e| PublishError::ErrorBuildingPackage(module.name.clone(), e))?;
-                }
-            }
-        }
-
-        // bundle the package filesystem
-        for (_alias, path) in manifest.fs.unwrap_or_default().iter() {
-            let normalized_path = normalize_path(&cwd, path);
-            let path_metadata = normalized_path.metadata().map_err(|_| {
-                PublishError::MissingManifestFsPath(normalized_path.to_string_lossy().to_string())
-            })?;
-            if path_metadata.is_dir() {
-                builder.append_dir_all(path, &normalized_path)
-            } else {
-                return Err(PublishError::PackageFileSystemEntryMustBeDirectory(
-                    path.to_string_lossy().to_string(),
-                )
-                .into());
-            }
-            .map_err(|_| {
-                PublishError::MissingManifestFsPath(normalized_path.to_string_lossy().to_string())
-            })?;
-        }
+        let (readme, license) = construct_tar_gz(&mut builder, &manifest, &cwd)?;
 
         builder.finish().ok();
         let tar_archive_data = builder.into_inner().map_err(|_| PublishError::NoModule)?;
@@ -205,7 +131,7 @@ impl Publish {
 
             println!(
                 "Successfully published package `{}@{}`",
-                package.name, package.version
+                manifest.package.name, manifest.package.version
             );
 
             log::info!(
@@ -218,7 +144,7 @@ impl Publish {
         let namespace = self
             .namespace
             .as_deref()
-            .or_else(|| package.name.split('/').next())
+            .or_else(|| manifest.package.name.split('/').next())
             .unwrap_or("")
             .to_string();
         if username != namespace {
@@ -228,9 +154,9 @@ impl Publish {
         wasmer_registry::publish::try_chunked_uploading(
             self.registry.clone(),
             self.token.clone(),
-            package,
+            &manifest.package,
             &manifest_string,
-            &license_file,
+            &license,
             &readme,
             &archive_name,
             &archive_path,
@@ -240,6 +166,126 @@ impl Publish {
         )
         .map_err(on_error)
     }
+}
+
+fn construct_tar_gz(
+    builder: &mut tar::Builder<Vec<u8>>,
+    manifest: &wapm_toml::Manifest,
+    cwd: &Path,
+) -> Result<(Option<String>, Option<String>), anyhow::Error> {
+    let package = &manifest.package;
+    let modules = manifest.module.as_ref().ok_or(PublishError::NoModule)?;
+
+    let readme = package.readme.as_ref().and_then(|readme_path| {
+        let normalized_path = normalize_path(&manifest.base_directory_path, readme_path);
+        if builder
+            .append_path_with_name(&normalized_path, readme_path)
+            .is_err()
+        {
+            log::warn!(
+                "could not append path {} -> {} to .tar.gz",
+                normalized_path.display(),
+                readme_path.display()
+            );
+        }
+        fs::read_to_string(normalized_path).ok()
+    });
+
+    let license_file = package.license_file.as_ref().and_then(|license_file_path| {
+        let normalized_path = normalize_path(&manifest.base_directory_path, license_file_path);
+        if builder
+            .append_path_with_name(&normalized_path, license_file_path)
+            .is_err()
+        {
+            log::warn!(
+                "could not append path {} -> {} to .tar.gz",
+                normalized_path.display(),
+                license_file_path.display()
+            );
+        }
+        fs::read_to_string(normalized_path).ok()
+    });
+
+    for module in modules {
+        append_path_to_tar_gz(
+            builder,
+            &manifest.base_directory_path,
+            &path,
+            &module.source,
+        )
+        .map_err(|(normalized_path, _)| PublishError::MissingBindings {
+            module: module.name.clone(),
+            path: normalized_path.clone(),
+        })?;
+
+        /*
+        let normalized_path = normalize_path(&manifest.base_directory_path, &module.source);
+        normalized_path
+            .metadata()
+            .map_err(|_| PublishError::SourceMustBeFile {
+                module: module.name.clone(),
+                path: normalized_path.clone(),
+            })?;
+        builder
+            .append_path_with_name(&normalized_path, &module.source)
+            .map_err(|e| {
+                PublishError::ErrorBuildingPackage(format!("{}", normalized_path.display()), e)
+            })?;
+        */
+
+        if let Some(bindings) = &module.bindings {
+            for path in bindings.referenced_files(&manifest.base_directory_path)? {
+                append_path_to_tar_gz(
+                    builder,
+                    &manifest.base_directory_path,
+                    &path,
+                    &module.source,
+                )
+                .map_err(|(normalized_path, _)| PublishError::MissingBindings {
+                    module: module.name.clone(),
+                    path: normalized_path.clone(),
+                })?;
+            }
+        }
+    }
+
+    // bundle the package filesystem
+    let default = std::collections::HashMap::default();
+    for (_alias, path) in manifest.fs.as_ref().unwrap_or(&default).iter() {
+        let normalized_path = normalize_path(&cwd, path);
+        let path_metadata = normalized_path.metadata().map_err(|_| {
+            PublishError::MissingManifestFsPath(normalized_path.to_string_lossy().to_string())
+        })?;
+        if path_metadata.is_dir() {
+            builder.append_dir_all(path, &normalized_path)
+        } else {
+            return Err(PublishError::PackageFileSystemEntryMustBeDirectory(
+                path.to_string_lossy().to_string(),
+            )
+            .into());
+        }
+        .map_err(|_| {
+            PublishError::MissingManifestFsPath(normalized_path.to_string_lossy().to_string())
+        })?;
+    }
+
+    Ok((readme, license_file))
+}
+
+fn append_path_to_tar_gz(
+    builder: &mut tar::Builder<Vec<u8>>,
+    base_path: &Path,
+    target_path: &Path,
+    file_name: &PathBuf,
+) -> Result<(), (PathBuf, anyhow::Error)> {
+    let normalized_path = normalize_path(&base_path, &target_path);
+    normalized_path
+        .metadata()
+        .map_err(|e| (normalized_path.clone(), e.into()))?;
+    builder
+        .append_path_with_name(&normalized_path, &file_name)
+        .map_err(|e| (normalized_path, e.into()))?;
+    Ok(())
 }
 
 fn on_error(e: anyhow::Error) -> anyhow::Error {
