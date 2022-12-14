@@ -151,7 +151,16 @@ impl Publish {
                         .namespace,
                 )
             })
-            .unwrap_or_else(|| "_".to_string());
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "no namespace found in package name {:?}",
+                    manifest.package.name
+                )
+            })?;
+
+        if namespace == "_" {
+            return Err(anyhow::anyhow!("cannot publish with namespace = \"_\""));
+        }
 
         if !wasmer_registry::utils::user_can_publish_under_namespace(
             &registry, &username, &namespace,
