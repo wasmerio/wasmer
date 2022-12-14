@@ -102,10 +102,10 @@ impl Init {
         };
 
         if target_file.exists() && !self.overwrite {
-            return Err(anyhow::anyhow!(
+            anyhow::bail!(
                 "wapm project already initialized in {}",
-                target_file.display()
-            ));
+                target_file.display(),
+            );
         }
 
         // See if the directory has a Cargo.toml file, if yes, copy the license / readme, etc.
