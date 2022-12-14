@@ -348,32 +348,29 @@ fn apply_migration(conn: &mut Connection, migration_number: i32) -> Result<(), M
     let tx = conn
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(|e| MigrationError::TransactionFailed(migration_number, format!("{}", e)))?;
-    match migration_number {
-        0 => {
-            tx.execute_batch(include_str!("../../sql/migrations/0000.sql"))
-                .map_err(|e| {
-                    MigrationError::TransactionFailed(migration_number, format!("{}", e))
-                })?;
-        }
-        1 => {
-            tx.execute_batch(include_str!("../../sql/migrations/0001.sql"))
-                .map_err(|e| {
-                    MigrationError::TransactionFailed(migration_number, format!("{}", e))
-                })?;
-        }
-        2 => {
-            tx.execute_batch(include_str!("../../sql/migrations/0002.sql"))
-                .map_err(|e| {
-                    MigrationError::TransactionFailed(migration_number, format!("{}", e))
-                })?;
-        }
-        _ => {
-            return Err(MigrationError::MigrationNumberDoesNotExist(
-                migration_number,
-                CURRENT_DATA_VERSION,
-            ));
-        }
-    }
+
+    let migrations = &[
+        (0, include_str!("../../sql/migrations/0000.sql")),
+        (1, include_str!("../../sql/migrations/0001.sql")),
+        (2, include_str!("../../sql/migrations/0002.sql")),
+    ];
+
+    let migration_to_apply = migrations
+        .iter()
+        .find_map(|(number, sql)| {
+            if *number == migration_number {
+                Some(sql)
+            } else {
+                None
+            }
+        })
+        .ok_or_else(|| {
+            MigrationError::MigrationNumberDoesNotExist(migration_number, CURRENT_DATA_VERSION)
+        })?;
+
+    tx.execute_batch(&migration_to_apply)
+        .map_err(|e| MigrationError::TransactionFailed(migration_number, format!("{}", e)))?;
+
     tx.pragma_update(None, "user_version", &(migration_number + 1))
         .map_err(|e| MigrationError::TransactionFailed(migration_number, format!("{}", e)))?;
     tx.commit()
