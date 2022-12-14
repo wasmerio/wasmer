@@ -122,7 +122,11 @@ impl Publish {
                 .append_path_with_name(&normalized_path, license_file_path)
                 .is_err()
             {
-                // TODO: Maybe do something here
+                log::warn!(
+                    "could not append path {} -> {} to .tar.gz",
+                    normalized_path.display(),
+                    license_file_path.display()
+                );
             }
             fs::read_to_string(normalized_path).ok()
         });
