@@ -257,30 +257,6 @@ impl std::error::Error for RuntimeError {
     }
 }
 
-pub fn generic_of_jsval<T: FromWasmAbi<Abi = u32>>(
-    js: JsValue,
-    classname: &str,
-) -> Result<T, JsValue> {
-    use js_sys::{Object, Reflect};
-    let ctor_name = Object::get_prototype_of(&js).constructor().name();
-    if ctor_name == classname {
-        #[allow(unused_unsafe)]
-        let ptr = unsafe { Reflect::get(&js, &JsValue::from_str("ptr"))? };
-        match ptr.as_f64() {
-            Some(ptr_f64) => {
-                let foo = unsafe { T::from_abi(ptr_f64 as u32) };
-                Ok(foo)
-            }
-            None => {
-                // We simply relay the js value
-                Err(js)
-            }
-        }
-    } else {
-        Err(js)
-    }
-}
-
 impl From<JsValue> for RuntimeError {
     fn from(original: JsValue) -> Self {
         // We try to downcast the error and see if it's
