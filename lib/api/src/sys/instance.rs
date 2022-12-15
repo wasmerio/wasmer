@@ -1,6 +1,5 @@
 use crate::sys::exports::Exports;
 use crate::sys::module::Module;
-#[cfg(feature = "compiler")]
 use crate::sys::{LinkError, RuntimeError};
 use std::fmt;
 use thiserror::Error;

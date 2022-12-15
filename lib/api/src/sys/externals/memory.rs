@@ -11,8 +11,6 @@ use std::slice;
 #[cfg(feature = "tracing")]
 use tracing::warn;
 use wasmer_types::Pages;
-#[cfg(feature = "compiler")]
-use wasmer_types::WASM_PAGE_SIZE;
 use wasmer_vm::{InternalStoreHandle, LinearMemory, MemoryError, StoreHandle, VMExtern, VMMemory};
 
 use super::MemoryView;
@@ -151,7 +149,7 @@ impl Memory {
         let new_view_size = new_view.data_size() as usize;
         if amount > new_view_size {
             let delta = amount - new_view_size;
-            let pages = ((delta - 1) / WASM_PAGE_SIZE) + 1;
+            let pages = ((delta - 1) / wasmer_types::WASM_PAGE_SIZE) + 1;
             new_memory.grow(new_store, Pages(pages as u32))?;
             new_view = new_memory.view(&new_store);
         }
