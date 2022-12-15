@@ -57,6 +57,6 @@ pub fn get_namespaces_for_user(registry: &str, username: &str) -> anyhow::Result
         .namespaces
         .edges
         .into_iter()
-        .filter_map(|f| Some(f?.node?.global_name.to_string()))
+        .filter_map(|f| Some(f?.node?.global_name))
         .collect())
 }

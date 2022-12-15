@@ -198,7 +198,7 @@ fn construct_tar_gz(
     let readme = match package.readme.as_ref() {
         None => None,
         Some(s) => {
-            let path = append_path_to_tar_gz(builder, &manifest.base_directory_path, &s).map_err(
+            let path = append_path_to_tar_gz(builder, &manifest.base_directory_path, s).map_err(
                 |(p, e)| PublishError::ErrorBuildingPackage(format!("{}", p.display()), e),
             )?;
             fs::read_to_string(path).ok()
@@ -208,7 +208,7 @@ fn construct_tar_gz(
     let license_file = match package.license_file.as_ref() {
         None => None,
         Some(s) => {
-            let path = append_path_to_tar_gz(builder, &manifest.base_directory_path, &s).map_err(
+            let path = append_path_to_tar_gz(builder, &manifest.base_directory_path, s).map_err(
                 |(p, e)| PublishError::ErrorBuildingPackage(format!("{}", p.display()), e),
             )?;
             fs::read_to_string(path).ok()
@@ -228,7 +228,7 @@ fn construct_tar_gz(
                 append_path_to_tar_gz(builder, &manifest.base_directory_path, &path).map_err(
                     |(normalized_path, _)| PublishError::MissingBindings {
                         module: module.name.clone(),
-                        path: normalized_path.clone(),
+                        path: normalized_path,
                     },
                 )?;
             }
@@ -238,7 +238,7 @@ fn construct_tar_gz(
     // bundle the package filesystem
     let default = std::collections::HashMap::default();
     for (_alias, path) in manifest.fs.as_ref().unwrap_or(&default).iter() {
-        let normalized_path = normalize_path(&cwd, path);
+        let normalized_path = normalize_path(cwd, path);
         let path_metadata = normalized_path.metadata().map_err(|_| {
             PublishError::MissingManifestFsPath(normalized_path.to_string_lossy().to_string())
         })?;
@@ -263,7 +263,7 @@ fn append_path_to_tar_gz(
     base_path: &Path,
     target_path: &Path,
 ) -> Result<PathBuf, (PathBuf, io::Error)> {
-    let normalized_path = normalize_path(&base_path, &target_path);
+    let normalized_path = normalize_path(base_path, target_path);
     normalized_path
         .metadata()
         .map_err(|e| (normalized_path.clone(), e))?;
@@ -403,11 +403,11 @@ fn apply_migration(conn: &mut Connection, migration_number: i32) -> Result<(), M
                 None
             }
         })
-        .ok_or_else(|| {
+        .ok_or({
             MigrationError::MigrationNumberDoesNotExist(migration_number, CURRENT_DATA_VERSION)
         })?;
 
-    tx.execute_batch(&migration_to_apply)
+    tx.execute_batch(migration_to_apply)
         .map_err(|e| MigrationError::TransactionFailed(migration_number, format!("{}", e)))?;
 
     tx.pragma_update(None, "user_version", &(migration_number + 1))

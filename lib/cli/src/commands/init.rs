@@ -53,7 +53,7 @@ pub struct Init {
 }
 
 /// What template to use for the initialized wasmer.toml
-#[derive(Debug, PartialEq, Copy, Clone, clap::ValueEnum)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, clap::ValueEnum)]
 pub enum Template {
     /// Add dependency on Python
     Python,
@@ -205,7 +205,11 @@ impl Init {
         // generate the Wapm struct for the [metadata.wapm] table
         // and add it to the end of the file
         let metadata_wapm = wapm_toml::rust::Wapm {
-            namespace: constructed_manifest.namespace.as_deref().unwrap_or("_").to_string(),
+            namespace: constructed_manifest
+                .namespace
+                .as_deref()
+                .unwrap_or("_")
+                .to_string(),
             package: Some(constructed_manifest.module_name.clone()),
             wasmer_extra_flags: None,
             abi: constructed_manifest.default_abi,
@@ -402,11 +406,12 @@ struct ConstructManifestReturn {
     toml: wapm_toml::Manifest,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn construct_manifest(
     cargo_toml: Option<&MiniCargoTomlPackage>,
     package_name: &String,
-    target_file: &PathBuf,
-    manifest_path: &PathBuf,
+    target_file: &Path,
+    manifest_path: &Path,
     bin_or_lib: BinOrLib,
     namespace: Option<String>,
     version: Option<semver::Version>,
@@ -415,17 +420,16 @@ fn construct_manifest(
 ) -> ConstructManifestReturn {
     let package_name = cargo_toml.as_ref().map(|p| &p.name).unwrap_or(package_name);
 
-    let namespace = namespace.clone().or_else(|| {
+    let namespace = namespace.or_else(|| {
         let username = wasmer_registry::whoami(None, None).ok().map(|o| o.1);
-        username
-            .or_else(|| package_name.split('/').next().map(|s| s.to_string()))
+        username.or_else(|| package_name.split('/').next().map(|s| s.to_string()))
     });
     let module_name = package_name
         .split('/')
         .last()
         .unwrap_or(package_name)
         .to_string();
-    let version = version.clone().unwrap_or_else(|| {
+    let version = version.unwrap_or_else(|| {
         cargo_toml
             .as_ref()
             .map(|t| t.version.clone())
@@ -442,7 +446,7 @@ fn construct_manifest(
         .unwrap_or_else(|| format!("Description for package {module_name}"));
 
     let default_abi = wapm_toml::Abi::Wasi;
-    let bindings = Init::get_bindings(&target_file, bin_or_lib);
+    let bindings = Init::get_bindings(target_file, bin_or_lib);
     let modules = vec![wapm_toml::Module {
         name: module_name.to_string(),
         source: cargo_toml
@@ -458,7 +462,7 @@ fn construct_manifest(
                 let manifest_canonicalized = manifest_path
                     .parent()
                     .and_then(|p| p.canonicalize().ok())
-                    .unwrap_or_else(|| manifest_path.clone());
+                    .unwrap_or_else(|| manifest_path.to_path_buf());
                 let manifest_str = format!("{}/", manifest_canonicalized.display());
                 let relative_str = outpath_str.replacen(&manifest_str, "", 1);
                 Path::new(&relative_str).to_path_buf()
@@ -476,7 +480,7 @@ fn construct_manifest(
 
     ConstructManifestReturn {
         namespace: namespace.clone(),
-        default_abi: default_abi,
+        default_abi,
         module_name: module_name.clone(),
         bindings,
         toml: wapm_toml::Manifest {
@@ -503,7 +507,7 @@ fn construct_manifest(
             base_directory_path: target_file
                 .parent()
                 .map(|o| o.to_path_buf())
-                .unwrap_or_else(|| target_file.clone()),
+                .unwrap_or_else(|| target_file.to_path_buf()),
         },
     }
 }
