@@ -221,7 +221,7 @@ jobs:
         build-what: [
           {
             key: capi,
-            build-cmd: 'make build-capi && make package-capi && export WASMER_DIR=`pwd`/package && make tar-capi',
+            build-cmd: 'make build-capi && make package-capi && make tar-capi',
             name: 'Build C-API + C-API integration tests'
           },
           {
@@ -347,13 +347,12 @@ jobs:
           aws-s3-force-path-style: true
       - name: ${{ matrix.build-what.name }}
         shell: bash
-        if: ${{ matrix.build-what.key != 'test-capi' }}
         run: ${{ matrix.build-what.build-cmd }}
       # C-API tests were disabled for linux-musl and macos-arm (we can't run them)
       - name: Test C-API integration
         shell: bash
-        if: ${{ matrix.build-what.key == 'test-capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm') }}
-        run: make test-stage-7-capi-integration-tests
+        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm') }}
+        run: export WASMER_DIR=`pwd`/package && make test-stage-7-capi-integration-tests
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
