@@ -4,7 +4,6 @@ use clap::Parser;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
-use std::str::FromStr;
 
 static NOTE: &str =
     "# See more keys and definitions at https://docs.wasmer.io/ecosystem/wapm/manifest";
@@ -39,8 +38,8 @@ pub struct Init {
     /// If the `manifest-path` is a Cargo.toml, use that file to initialize the wapm.toml
     #[clap(long)]
     pub manifest_path: Option<PathBuf>,
-    /// Add default dependencies for common packages (currently supported: `python`, `js`)
-    #[clap(long)]
+    /// Add default dependencies for common packages
+    #[clap(long, value_enum)]
     pub template: Option<Template>,
     /// Include file paths into the target container filesystem
     #[clap(long)]
@@ -58,17 +57,6 @@ pub enum Template {
     Python,
     /// Add dependency on JS
     Js,
-}
-
-impl FromStr for Template {
-    type Err = anyhow::Error;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "python" => Ok(Self::Python),
-            "js" => Ok(Self::Js),
-            _ => Err(anyhow::anyhow!("expected \"python\" or \"js\"")),
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Copy, Clone)]
