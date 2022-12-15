@@ -15,6 +15,7 @@ pub struct Config {
     pub features: Option<Features>,
     pub middlewares: Vec<Arc<dyn ModuleMiddleware>>,
     pub canonicalize_nans: bool,
+    pub optimize: bool,
 }
 
 impl Config {
@@ -23,6 +24,7 @@ impl Config {
             compiler,
             features: None,
             canonicalize_nans: false,
+            optimize: false,
             middlewares: vec![],
         }
     }
@@ -39,8 +41,12 @@ impl Config {
         self.canonicalize_nans = canonicalize_nans;
     }
 
+    pub fn set_optimization(&mut self, optimize: bool) {
+        self.optimize = optimize;
+    }
+
     pub fn store(&self) -> Store {
-        let compiler_config = self.compiler_config(self.canonicalize_nans);
+        let compiler_config = self.compiler_config(self.canonicalize_nans, self.optimize);
         let engine = self.engine(compiler_config);
         Store::new(engine)
     }
@@ -65,12 +71,18 @@ impl Config {
     pub fn compiler_config(
         &self,
         #[allow(unused_variables)] canonicalize_nans: bool,
+        #[allow(unused_variables)] optimize: bool,
     ) -> Box<dyn CompilerConfig> {
         match &self.compiler {
             #[cfg(feature = "cranelift")]
             Compiler::Cranelift => {
                 let mut compiler = wasmer_compiler_cranelift::Cranelift::new();
                 compiler.canonicalize_nans(canonicalize_nans);
+                compiler.opt_level(if optimize {
+                    wasmer_compiler_cranelift::CraneliftOptLevel::SpeedAndSize
+                } else {
+                    wasmer_compiler_cranelift::CraneliftOptLevel::None
+                });
                 compiler.enable_verifier();
                 self.add_middlewares(&mut compiler);
                 Box::new(compiler)
@@ -79,6 +91,11 @@ impl Config {
             Compiler::LLVM => {
                 let mut compiler = wasmer_compiler_llvm::LLVM::new();
                 compiler.canonicalize_nans(canonicalize_nans);
+                compiler.opt_level(if optimize {
+                    wasmer_compiler_llvm::LLVMOptLevel::Aggressive
+                } else {
+                    wasmer_compiler_llvm::LLVMOptLevel::None
+                });
                 compiler.enable_verifier();
                 self.add_middlewares(&mut compiler);
                 Box::new(compiler)

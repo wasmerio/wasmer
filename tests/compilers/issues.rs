@@ -422,3 +422,71 @@ fn large_number_local(mut config: crate::Config) -> Result<()> {
     assert_eq!(&Value::I64(1 as i64), result.get(0).unwrap());
     Ok(())
 }
+
+/// Using LLVM with optimization don't pass validation
+#[compiler_test(issues)]
+fn optimize_break(mut config: crate::Config) -> Result<()> {
+    config.set_optimization(true);
+    let mut compiler_features = Features::new();
+    compiler_features.multi_value(true);
+    config.set_features(compiler_features);
+    let mut store = config.store();
+    let wat = r#"
+    (module
+        (type (;0;) (func (result i32)))
+        (type (;1;) (func (param i32 i64 i32) (result f64)))
+        (type (;2;) (func))
+        (func (;0;) (type 0) (result i32)
+          i32.const 0
+        )
+        (func (;1;) (type 1) (param i32 i64 i32) (result f64)
+          (local i32 i64 f32 f64 i32)
+          ;; load, const, and mul is important
+          i32.const 1
+          f64.load offset=95 align=4
+          f64.const 0
+          f64.mul
+          ;; loop is important
+          loop (param f64) (result f64)  ;; label = @0
+            i32.const 1
+            f64.load offset=22 align=4
+            f64.add
+            local.get 7
+            i32.const -1
+            i32.add
+            local.tee 7
+            br_if 0 (;@1;)
+          end
+        )
+        (func (;2;) (type 2))
+        (memory (;0;) 1)
+        (export "_memory" (memory 0))
+        (export "_main" (func 0))
+        (export "_crc_globals" (func 2))
+      )
+    "#;
+    let mut env = FunctionEnv::new(&mut store, ());
+    let module = Module::new(&store, wat)?;
+    let imports: Imports = imports! {};
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let result = instance
+        .exports
+        .get_function("_main")?
+        .call(&mut store, &[])
+        .unwrap();
+    // and now inspect the memory
+    let memory = instance.exports.get_memory("_memory")?;
+    let memview = memory.view(&store);
+    let mut hash: u32 = result.get(0).unwrap().unwrap_i32() as u32;
+    instance
+        .exports
+        .get_function("_crc_globals")?
+        .call(&mut store, &[])
+        .unwrap();
+    for i in 0..memview.data_size() {
+        let r = memview.read_u8(i).unwrap();
+        hash = (hash << 5) - hash + (r as u32);
+    }
+    assert_eq!(hash, 0xeafcacaf);
+    Ok(())
+}
