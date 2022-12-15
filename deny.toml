@@ -155,6 +155,7 @@ wildcards = "allow"
 highlight = "all"
 # List of crates that are allowed. Use with care!
 allow = [
+    { name = "webc" },
     #{ name = "ansi_term", version = "=0.11.0" },
 ]
 # List of crates to deny
