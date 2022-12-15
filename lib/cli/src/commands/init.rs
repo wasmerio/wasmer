@@ -132,6 +132,7 @@ impl Init {
             self.version.clone(),
             self.template.as_ref(),
             self.include.as_slice(),
+            self.quiet,
         );
 
         if let Some(parent) = target_file.parent() {
@@ -364,11 +365,13 @@ impl Init {
         }
     }
 
-    fn get_bindings(target_file: &Path, bin_or_lib: BinOrLib) -> Option<wapm_toml::Bindings> {
+    /// Get bindings returns the first .wai / .wit file found and
+    /// optionally takes a warning callback that is triggered when > 1 .wai files are found
+    fn get_bindings(target_file: &Path, bin_or_lib: BinOrLib) -> Option<GetBindingsResult> {
         match bin_or_lib {
             BinOrLib::Bin | BinOrLib::Empty => None,
             BinOrLib::Lib => target_file.parent().and_then(|parent| {
-                walkdir::WalkDir::new(parent)
+                let all_bindings = walkdir::WalkDir::new(parent)
                     .min_depth(1)
                     .max_depth(3)
                     .follow_links(false)
@@ -392,8 +395,30 @@ impl Init {
                             None
                         }
                     })
-                    .next()
+                    .collect::<Vec<_>>();
+
+                if all_bindings.is_empty() {
+                    None
+                } else if all_bindings.len() == 1 {
+                    Some(GetBindingsResult::OneBinding(all_bindings[0].clone()))
+                } else {
+                    Some(GetBindingsResult::MultiBindings(all_bindings))
+                }
             }),
+        }
+    }
+}
+
+enum GetBindingsResult {
+    OneBinding(wapm_toml::Bindings),
+    MultiBindings(Vec<wapm_toml::Bindings>),
+}
+
+impl GetBindingsResult {
+    fn first_binding(&self) -> Option<wapm_toml::Bindings> {
+        match self {
+            Self::OneBinding(s) => Some(s.clone()),
+            Self::MultiBindings(s) => s.get(0).cloned(),
         }
     }
 }
@@ -417,6 +442,7 @@ fn construct_manifest(
     version: Option<semver::Version>,
     template: Option<&Template>,
     include_fs: &[String],
+    quiet: bool,
 ) -> ConstructManifestReturn {
     let package_name = cargo_toml.as_ref().map(|p| &p.name).unwrap_or(package_name);
 
@@ -447,6 +473,35 @@ fn construct_manifest(
 
     let default_abi = wapm_toml::Abi::Wasi;
     let bindings = Init::get_bindings(target_file, bin_or_lib);
+
+    if let Some(GetBindingsResult::MultiBindings(m)) = bindings.as_ref() {
+        let found = m
+            .iter()
+            .map(|m| match m {
+                wapm_toml::Bindings::Wit(wb) => {
+                    format!("found: {}", serde_json::to_string(wb).unwrap_or_default())
+                }
+                wapm_toml::Bindings::Wai(wb) => {
+                    format!("found: {}", serde_json::to_string(wb).unwrap_or_default())
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\r\n");
+
+        let msg = vec![
+            String::new(),
+            "    It looks like your project contains multiple *.wai files.".to_string(),
+            "    Make sure you update the [[module.bindings]] appropriately".to_string(),
+            String::new(),
+            found,
+        ];
+        let msg = msg.join("\r\n");
+        if !quiet {
+            println!("{msg}");
+        }
+        log::warn!("{msg}");
+    }
+
     let modules = vec![wapm_toml::Module {
         name: module_name.to_string(),
         source: cargo_toml
@@ -470,7 +525,7 @@ fn construct_manifest(
             .unwrap_or_else(|| Path::new(&format!("{module_name}.wasm")).to_path_buf()),
         kind: None,
         abi: default_abi,
-        bindings: bindings.clone(),
+        bindings: bindings.as_ref().and_then(|b| b.first_binding()),
         interfaces: Some({
             let mut map = HashMap::new();
             map.insert("wasi".to_string(), "0.1.0-unstable".to_string());
@@ -482,7 +537,7 @@ fn construct_manifest(
         namespace: namespace.clone(),
         default_abi,
         module_name: module_name.clone(),
-        bindings,
+        bindings: bindings.as_ref().and_then(|b| b.first_binding()),
         toml: wapm_toml::Manifest {
             package: wapm_toml::Package {
                 name: format!("{}/{module_name}", namespace.as_deref().unwrap_or("_")),
