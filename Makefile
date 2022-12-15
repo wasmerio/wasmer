@@ -479,34 +479,36 @@ build-capi-headless-ios: capi-setup
 #####
 
 # test compilers
-test-stage-0:
+test-stage-0-test-compilers:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release --tests $(compiler_features)
 
 # test packages
-test-stage-1:
+test-stage-1-test-all:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --all --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner
-test-stage-2:
+test-stage-2-test-compiler-cranelift:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
-test-stage-3:
+test-stage-3-test-compiler-singlepass:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
-test-stage-4:
+test-stage-4-wasmer-cli:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
 
 # test examples 
-test-stage-5:
+test-stage-5-test-examples:
 	$(CARGO_BINARY) test $(CARGO_TARGET) $(compiler_features) --features wasi --examples
-test-stage-6:
+test-stage-6-test-examples-release:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release $(compiler_features) --features wasi --examples
 
-test-stage-7:
+test-stage-7-capi-integration-tests:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release --package wasmer-c-api-test-runner
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release --package wasmer-capi-examples-runner
 
 test: test-compilers test-packages test-examples
 
-test-compilers: test-stage-0
+test-compilers: test-stage-0-test-compilers
 
-test-packages: test-stage-1 test-stage-2 test-stage-3 test-stage-4
+test-packages: test-stage-1-test-all test-stage-2-test-compiler-cranelift test-stage-3-test-compiler-singlepass test-stage-4-wasmer-cli
+
+test-examples: test-stage-5-test-examples test-stage-6-test-examples-release
 
 test-js: test-js-api test-js-wasi
 
@@ -565,8 +567,6 @@ test-wasi-unit:
 
 test-wasi:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release --tests $(compiler_features) -- wasi::wasitests
-
-test-examples: test-stage-5 test-stage-6
 
 test-integration-cli:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1

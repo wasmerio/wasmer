@@ -353,7 +353,7 @@ jobs:
       - name: Test C-API integration
         shell: bash
         if: ${{ matrix.build-what.key == 'test-capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm') }}
-        run: make test-stage-7
+        run: make test-stage-7-capi-integration-tests
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -391,7 +391,7 @@ jobs:
           },
           {
             description: 'Unit-test singlepass compiler',
-            make: 'make test-stage-2-test-compiler-singlepass',
+            make: 'make test-stage-3-test-compiler-singlepass',
           },
           {
             description: 'Unit-test wasmer-cli',
