@@ -192,17 +192,10 @@ impl Config {
                             }
                         }
                         RetrievableConfigField::TelemetryEnabled => {
-                            println!("{}", config.telemetry.enabled.to_string().replace('\"', ""));
+                            println!("{}", config.telemetry.enabled.replace('\"', ""));
                         }
                         RetrievableConfigField::UpdateNotificationsEnabled => {
-                            println!(
-                                "{}",
-                                config
-                                    .update_notifications
-                                    .enabled
-                                    .to_string()
-                                    .replace('\"', "")
-                            );
+                            println!("{}", config.update_notifications.enabled.replace('\"', ""));
                         }
                         _ => {}
                     }
