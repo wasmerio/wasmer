@@ -479,7 +479,7 @@ build-capi-headless-ios: capi-setup
 #####
 
 # test compilers
-test-stage-0-wasi-wast:
+test-stage-0-wast:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release --tests $(compiler_features)
 
 # test packages
@@ -504,7 +504,7 @@ test-stage-7-capi-integration-tests:
 
 test: test-compilers test-packages test-examples
 
-test-compilers: test-stage-0-wasi-wast
+test-compilers: test-stage-0-wast
 
 test-packages: test-stage-1-test-all test-stage-2-test-compiler-cranelift-nostd test-stage-3-test-compiler-singlepass-nostd test-stage-4-wasmer-cli
 

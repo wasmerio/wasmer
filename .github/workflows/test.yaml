@@ -382,8 +382,8 @@ jobs:
       matrix:
         stage: [
           {
-            description: 'Run wasi-wast test suite for all compilers', 
-            make: 'test-stage-0-wasi-wast',
+            description: 'Run wast test suite for all compilers', 
+            make: 'test-stage-0-wast',
           },
           {
             description: 'Unit-test packages on std',
