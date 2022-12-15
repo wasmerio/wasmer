@@ -109,9 +109,10 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
-      - run: |
-          rustup target add wasm32-wasi
-          make build-wasmer-wasm
+      - name: rustup target add wasm32-wasi
+        run: rustup target add wasm32-wasi
+      - name: make build-wasmer-wasm
+        run: make build-wasmer-wasm
   
   build_linux_aarch64:
     name: ${{ matrix.build-what.name }} on linux-aarch64
@@ -123,7 +124,7 @@ jobs:
           {
             key: capi,
             build-cmd: 'make build-capi',
-            name: 'Build and test C-API'
+            name: 'Build C-API'
           },
           {
             key: wasmer,
@@ -154,7 +155,7 @@ jobs:
           ENABLE_LLVM: 0
 
   build_capi_windows_gnu:
-    name: Windows GNU
+    name: Build C-API on windows-gnu
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
@@ -220,13 +221,13 @@ jobs:
         build-what: [
           {
             key: capi,
-            build-cmd: 'make build-capi && make package-capi && export WASMER_DIR=`pwd`/package && make test-stage-7 && make tar-capi',
-            name: 'Build and test C-API'
+            build-cmd: 'make build-capi && make package-capi && export WASMER_DIR=`pwd`/package && make tar-capi',
+            name: 'Build C-API + C-API integration tests'
           },
           {
             key: test-capi,
             build-cmd: 'make test-capi',
-            name: 'Test CAPI'
+            name: 'Test C-API'
           },
           {
             key: wasmer,
@@ -242,9 +243,10 @@ jobs:
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           },
           {
-            build: linux-x64,
+            build: linux-musl,
+            target: x86_64-unknown-linux-musl,
             os: ubuntu-18.04,
-            target: x86_64-unknown-linux-gnu
+            container: 'alpine:latest'
           },
           {
             build: macos-x64,
@@ -253,16 +255,15 @@ jobs:
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
           },
           {
+            build: macos-arm,
+            os: macos-11,
+            target: aarch64-apple-darwin,
+          },
+          {
             build: windows-x64,
             os: windows-2019,
             target: x86_64-pc-windows-msvc,
             llvm_choco_version: 13.0.0
-          },
-          {
-            build: linux-musl,
-            target: x86_64-unknown-linux-musl,
-            os: ubuntu-18.04,
-            container: 'alpine:latest'
           }
         ]
     container: ${{ matrix.metadata.container }}
@@ -344,12 +345,15 @@ jobs:
           aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
-      - name: Build ${{ matrix.build-what.key }}
+      - name: ${{ matrix.build-what.name }}
         shell: bash
-        # tests were disabled for linux-musl
-        if: ${{ !(matrix.build-what.key == 'test-capi' && matrix.metadata.build == 'linux-musl') }}
-        run: |
-          ${{ matrix.build-what.build-cmd }}
+        if: ${{ matrix.build-what.key != 'test-capi' }}
+        run: ${{ matrix.build-what.build-cmd }}
+      # C-API tests were disabled for linux-musl and macos-arm (we can't run them)
+      - name: Test C-API integration
+        shell: bash
+        if: ${{ matrix.build-what.key == 'test-capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm') }}
+        run: make test-stage-7
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -374,41 +378,37 @@ jobs:
       matrix:
         stage: [
           {
-            stage: 0,
             description: 'Test compilers', 
+            make: 'make test-stage-0-test-compilers',
           },
           {
-            stage: 1, 
-            description: 'cargo test --all',
+            description: 'Unit-test all packages',
+            make: 'make test-stage-1-test-all', 
           },
           {
-            stage: 2, 
-            description: 'Test compiler-cranelift',
+            description: 'Unit-test cranelift compiler',
+            make: 'make test-stage-2-test-compiler-cranelift',
           },
           {
-            stage: 3, 
-            description: 'Test compiler-singlepass',
+            description: 'Unit-test singlepass compiler',
+            make: 'make test-stage-2-test-compiler-singlepass',
           },
           {
-            stage: 4, 
-            description: 'Test lib/cli',
+            description: 'Unit-test wasmer-cli',
+            make: 'make test-stage-4-wasmer-cli', 
           },
           {
-            stage: 5, 
             description: 'Test examples (debug)',
+            make: 'make test-stage-5-test-examples', 
           }
         ]
         metadata: [
+          # We cannot test on macos-arm since we don't have ARM runners
           { 
             build: linux-x64, 
             os: ubuntu-18.04, 
             target: x86_64-unknown-linux-gnu,  
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
-          },
-          {
-            build: linux-x64,
-            os: ubuntu-18.04,
-            target: x86_64-unknown-linux-gnu
           },
           {
             build: macos-x64,
@@ -508,16 +508,15 @@ jobs:
           aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
-      - name: Test stage 0
-        run: |
-          make test-stage-${{ matrix.stage.stage }}
+      - name: ${{ matrix.stage.description }}
+        run: ${{ matrix.stage.make }}
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: --target ${{ matrix.metadata.target }}
 
   test_integration_cli: 
-    name: Integration tests on ${{ matrix.build }}
+    name: CLI integration tests on ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
     needs: [build]
     strategy:
@@ -532,10 +531,13 @@ jobs:
             os: macos-11
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+          # we only build the integration-test CLI, we don't run tests
+          - build: macos-arm
+            os: macos-11
+            target: aarch64-apple-darwin,
           - build: windows-x64
             os: windows-latest
             target: x86_64-pc-windows-msvc
-            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/12.x/windows-amd64.tar.gz'
             llvm_choco_version: 13.0.0
           - build: linux-musl
             target: x86_64-unknown-linux-musl
@@ -591,10 +593,9 @@ jobs:
         run: |
           make untar-wasmer
       - name: Test integration CLI
-        if: matrix.os != 'windows-latest'
+        if: matrix.build != 'macos-arm'
         shell: bash
-        run: |
-          export WASMER_DIR=`pwd`/package && make test-integration-cli
+        run: export WASMER_DIR=`pwd`/package && make test-integration-cli
         env:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
