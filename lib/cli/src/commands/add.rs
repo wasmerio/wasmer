@@ -2,7 +2,7 @@ use std::process::{Command, Stdio};
 
 use anyhow::{Context, Error};
 use clap::Parser;
-use wasmer_registry::{Bindings, WasmerConfig, ProgrammingLanguage};
+use wasmer_registry::{Bindings, ProgrammingLanguage, WasmerConfig};
 
 /// Add a WAPM package's bindings to your application.
 #[derive(Debug, Parser)]

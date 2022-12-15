@@ -33,6 +33,21 @@ pub enum RetrievableConfigField {
     Cflags,
     /// `pkg-config`
     PkgConfig,
+    /// `registry.url`
+    #[clap(name = "registry.url")]
+    RegistryUrl,
+    /// `registry.token`
+    #[clap(name = "registry.token")]
+    RegistryToken,
+    /// `telemetry.enabled`
+    #[clap(name = "telemetry.enabled")]
+    TelemetryEnabled,
+    /// `update-notifications.url`
+    #[clap(name = "update-notifications.enabled")]
+    UpdateNotificationsEnabled,
+    /// `proxy.url`
+    #[clap(name = "proxy.url")]
+    ProxyUrl,
 }
 
 /// Setting that can be stored in the wasmer config
@@ -156,6 +171,41 @@ impl Config {
                 }
                 RetrievableConfigField::Cflags => {
                     println!("{}", cflags);
+                }
+                other => {
+                    let config = WasmerConfig::from_file()
+                        .map_err(|e| anyhow::anyhow!("could not find config file: {e}"))?;
+                    match other {
+                        RetrievableConfigField::RegistryUrl => {
+                            println!("{}", config.registry.get_current_registry());
+                        }
+                        RetrievableConfigField::RegistryToken => {
+                            if let Some(s) = config.registry.get_login_token_for_registry(
+                                &config.registry.get_current_registry(),
+                            ) {
+                                println!("{s}");
+                            }
+                        }
+                        RetrievableConfigField::ProxyUrl => {
+                            if let Some(s) = config.proxy.url.as_ref() {
+                                println!("{s}");
+                            }
+                        }
+                        RetrievableConfigField::TelemetryEnabled => {
+                            println!("{}", config.telemetry.enabled.to_string().replace('\"', ""));
+                        }
+                        RetrievableConfigField::UpdateNotificationsEnabled => {
+                            println!(
+                                "{}",
+                                config
+                                    .update_notifications
+                                    .enabled
+                                    .to_string()
+                                    .replace('\"', "")
+                            );
+                        }
+                        _ => {}
+                    }
                 }
             },
             Set(s) => {

@@ -11,8 +11,8 @@ pub fn login_and_save_token(
 ) -> Result<Option<String>, anyhow::Error> {
     let registry = format_graphql(registry);
     #[cfg(test)]
-    let mut config = WasmerConfig::from_file(test_name)
-        .map_err(|e| anyhow::anyhow!("config from file: {e}"))?;
+    let mut config =
+        WasmerConfig::from_file(test_name).map_err(|e| anyhow::anyhow!("config from file: {e}"))?;
     #[cfg(not(test))]
     let mut config =
         WasmerConfig::from_file().map_err(|e| anyhow::anyhow!("config from file: {e}"))?;
@@ -26,8 +26,8 @@ pub fn login_and_save_token(
     let path = WasmerConfig::get_file_location(test_name)
         .map_err(|e| anyhow::anyhow!("get file location: {e}"))?;
     #[cfg(not(test))]
-    let path = WasmerConfig::get_file_location()
-        .map_err(|e| anyhow::anyhow!("get file location: {e}"))?;
+    let path =
+        WasmerConfig::get_file_location().map_err(|e| anyhow::anyhow!("get file location: {e}"))?;
     config.save(&path)?;
     crate::utils::get_username_registry_token(&registry, token)
 }
