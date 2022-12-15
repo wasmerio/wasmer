@@ -21,11 +21,12 @@ pub fn fd_seek<M: MemorySize>(
     newoffset: WasmPtr<Filesize, M>,
 ) -> Result<Errno, WasiError> {
     trace!(
-        "wasi[{}:{}]::fd_seek: fd={}, offset={}",
+        "wasi[{}:{}]::fd_seek: fd={}, offset={} from={:?}",
         ctx.data().pid(),
         ctx.data().tid(),
         fd,
-        offset
+        offset,
+        whence,
     );
 
     wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
@@ -45,11 +46,12 @@ pub fn fd_seek<M: MemorySize>(
             let mut fd_map = state.fs.fd_map.write().unwrap();
             let fd_entry = wasi_try_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
             if offset > 0 {
-                fd_entry.offset.fetch_add(offset as u64, Ordering::AcqRel)
+                let offset = offset as u64;
+                fd_entry.offset.fetch_add(offset, Ordering::AcqRel) + offset
             } else if offset < 0 {
-                fd_entry
-                    .offset
-                    .fetch_sub(offset.abs() as u64, Ordering::AcqRel)
+                let offset = offset.abs() as u64;
+                // FIXME: need to handle underflow!
+                fd_entry.offset.fetch_sub(offset, Ordering::AcqRel) - offset
             } else {
                 fd_entry.offset.load(Ordering::Acquire)
             }
@@ -68,18 +70,16 @@ pub fn fd_seek<M: MemorySize>(
 
                         wasi_try_ok!(__asyncify(&mut ctx, None, async move {
                             let mut handle = handle.write().unwrap();
-                            let end = handle.seek(SeekFrom::End(0)).await.map_err(map_io_err)?;
+                            let end = handle
+                                .seek(SeekFrom::End(offset))
+                                .await
+                                .map_err(map_io_err)?;
 
                             // TODO: handle case if fd_entry.offset uses 64 bits of a u64
                             drop(handle);
                             let mut fd_map = state.fs.fd_map.write().unwrap();
                             let fd_entry = fd_map.get_mut(&fd).ok_or(Errno::Badf)?;
-                            fd_entry
-                                .offset
-                                .store((end as i64 + offset) as u64, Ordering::Release);
-                            fd_entry
-                                .offset
-                                .store((end as i64 + offset) as u64, Ordering::Release);
+                            fd_entry.offset.store(end as u64, Ordering::Release);
                             Ok(())
                         })?);
                     } else {
@@ -99,7 +99,7 @@ pub fn fd_seek<M: MemorySize>(
                 }
                 Kind::Buffer { .. } => {
                     // seeking buffers probably makes sense
-                    // TODO: implement this
+                    // FIXME: implement this
                     return Ok(Errno::Inval);
                 }
             }
@@ -119,6 +119,14 @@ pub fn fd_seek<M: MemorySize>(
     let new_offset_ref = newoffset.deref(&memory);
     let fd_entry = wasi_try_ok!(env.state.fs.get_fd(fd));
     wasi_try_mem_ok!(new_offset_ref.write(new_offset));
+
+    trace!(
+        "wasi[{}:{}]::fd_seek: fd={}, new_offset={}",
+        ctx.data().pid(),
+        ctx.data().tid(),
+        fd,
+        new_offset,
+    );
 
     Ok(Errno::Success)
 }
