@@ -272,7 +272,7 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y --allow-downgrades libstdc++6
-          sudo apt-get install --reinstall g++-8
+          sudo apt-get install --reinstall g++-
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
         run: |
