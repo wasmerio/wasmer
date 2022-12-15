@@ -205,7 +205,7 @@ impl Init {
         // generate the Wapm struct for the [metadata.wapm] table
         // and add it to the end of the file
         let metadata_wapm = wapm_toml::rust::Wapm {
-            namespace: constructed_manifest.namespace.clone(),
+            namespace: constructed_manifest.namespace.as_deref().unwrap_or("_").to_string(),
             package: Some(constructed_manifest.module_name.clone()),
             wasmer_extra_flags: None,
             abi: constructed_manifest.default_abi,
@@ -395,7 +395,7 @@ impl Init {
 }
 
 struct ConstructManifestReturn {
-    namespace: String,
+    namespace: Option<String>,
     default_abi: wapm_toml::Abi,
     module_name: String,
     bindings: Option<wapm_toml::Bindings>,
@@ -415,11 +415,10 @@ fn construct_manifest(
 ) -> ConstructManifestReturn {
     let package_name = cargo_toml.as_ref().map(|p| &p.name).unwrap_or(package_name);
 
-    let namespace = namespace.clone().unwrap_or_else(|| {
+    let namespace = namespace.clone().or_else(|| {
         let username = wasmer_registry::whoami(None, None).ok().map(|o| o.1);
         username
             .or_else(|| package_name.split('/').next().map(|s| s.to_string()))
-            .unwrap_or_else(|| "_".to_string())
     });
     let module_name = package_name
         .split('/')
@@ -482,7 +481,7 @@ fn construct_manifest(
         bindings,
         toml: wapm_toml::Manifest {
             package: wapm_toml::Package {
-                name: format!("{namespace}/{module_name}"),
+                name: format!("{}/{module_name}", namespace.as_deref().unwrap_or("_")),
                 version,
                 description,
                 license,
