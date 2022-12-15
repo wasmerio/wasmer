@@ -485,9 +485,9 @@ test-stage-0-wasi-wast:
 # test packages
 test-stage-1-test-all:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --all --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner
-test-stage-2-test-compiler-cranelift:
+test-stage-2-test-compiler-cranelift-nostd:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
-test-stage-3-test-compiler-singlepass:
+test-stage-3-test-compiler-singlepass-nostd:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
 test-stage-4-wasmer-cli:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
@@ -506,7 +506,7 @@ test: test-compilers test-packages test-examples
 
 test-compilers: test-stage-0-wasi-wast
 
-test-packages: test-stage-1-test-all test-stage-2-test-compiler-cranelift test-stage-3-test-compiler-singlepass test-stage-4-wasmer-cli
+test-packages: test-stage-1-test-all test-stage-2-test-compiler-cranelift-nostd test-stage-3-test-compiler-singlepass-nostd test-stage-4-wasmer-cli
 
 test-examples: test-stage-5-test-examples test-stage-6-test-examples-release
 

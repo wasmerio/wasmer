@@ -385,23 +385,23 @@ jobs:
             make: 'make test-stage-0-wasi-wast',
           },
           {
-            description: 'Unit-test packages (cargo test --all)',
+            description: 'Unit-test packages on std',
             make: 'make test-stage-1-test-all', 
           },
           {
-            description: 'Unit-test cranelift',
-            make: 'make test-stage-2-test-compiler-cranelift',
+            description: 'Unit-test cranelift on no-std',
+            make: 'make test-stage-2-test-compiler-cranelift-nostd',
           },
           {
-            description: 'Unit-test singlepass',
-            make: 'make test-stage-3-test-compiler-singlepass',
+            description: 'Unit-test singlepass on no-std',
+            make: 'make test-stage-3-test-compiler-singlepass-nostd',
           },
           {
-            description: 'Unit-test wasmer-cli (cargo test lib/cli)',
+            description: 'Unit-test wasmer-cli',
             make: 'make test-stage-4-wasmer-cli', 
           },
           {
-            description: 'Test examples (cargo test --examples)',
+            description: 'Unit-test examples',
             make: 'make test-stage-5-test-examples', 
           }
         ]
