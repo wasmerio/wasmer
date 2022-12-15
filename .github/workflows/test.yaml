@@ -383,27 +383,27 @@ jobs:
         stage: [
           {
             description: 'Run wasi-wast test suite for all compilers', 
-            make: 'make test-stage-0-wasi-wast',
+            make: 'test-stage-0-wasi-wast',
           },
           {
             description: 'Unit-test packages on std',
-            make: 'make test-stage-1-test-all', 
+            make: 'test-stage-1-test-all', 
           },
           {
             description: 'Unit-test cranelift on no-std',
-            make: 'make test-stage-2-test-compiler-cranelift-nostd',
+            make: 'test-stage-2-test-compiler-cranelift-nostd',
           },
           {
             description: 'Unit-test singlepass on no-std',
-            make: 'make test-stage-3-test-compiler-singlepass-nostd',
+            make: 'test-stage-3-test-compiler-singlepass-nostd',
           },
           {
             description: 'Unit-test wasmer-cli',
-            make: 'make test-stage-4-wasmer-cli', 
+            make: 'test-stage-4-wasmer-cli', 
           },
           {
             description: 'Unit-test examples',
-            make: 'make test-stage-5-test-examples', 
+            make: 'test-stage-5-test-examples', 
           }
         ]
         metadata: [
@@ -504,7 +504,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: s3-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-${{ matrix.stage.stage }}-${{ matrix.metadata.build }}
+          key: s3-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-${{ matrix.stage.make }}-${{ matrix.metadata.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -513,7 +513,7 @@ jobs:
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
       - name: ${{ matrix.stage.description }}
-        run: ${{ matrix.stage.make }}
+        run: make ${{ matrix.stage.make }}
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
