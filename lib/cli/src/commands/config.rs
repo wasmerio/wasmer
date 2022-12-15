@@ -41,14 +41,58 @@ pub enum StorableConfigField {
     /// `registry.url`
     #[clap(name = "registry.url")]
     RegistryUrl(SetRegistryUrl),
+    /// `registry.token`
+    #[clap(name = "registry.token")]
+    RegistryToken(SetRegistryToken),
+    /// `telemetry.enabled`
+    #[clap(name = "telemetry.enabled")]
+    TelemetryEnabled(SetTelemetryEnabled),
+    /// `update-notifications.url`
+    #[clap(name = "update-notifications.enabled")]
+    UpdateNotificationsEnabled(SetUpdateNotificationsEnabled),
+    /// `proxy.url`
+    #[clap(name = "proxy.url")]
+    ProxyUrl(SetProxyUrl),
 }
 
-/// Set a new registry URL
+/// Set the current active registry URL
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
 pub struct SetRegistryUrl {
     /// Url of the registry
     #[clap(name = "URL")]
     pub url: String,
+}
+
+/// Set or change the token for the current active registry
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
+pub struct SetRegistryToken {
+    /// Token to set
+    #[clap(name = "TOKEN")]
+    pub token: String,
+}
+
+/// Set if update notifications are enabled
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
+pub struct SetUpdateNotificationsEnabled {
+    /// Whether to enable update notifications
+    #[clap(name = "ENABLED", possible_values = ["true", "false"])]
+    pub enabled: String,
+}
+
+/// Set if telemetry is enabled
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
+pub struct SetTelemetryEnabled {
+    /// Whether to enable telemetry
+    #[clap(name = "ENABLED", possible_values = ["true", "false"])]
+    pub enabled: String,
+}
+
+/// Set if a proxy URL should be used
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
+pub struct SetProxyUrl {
+    /// Set if a proxy URL should be used (empty = unset proxy)
+    #[clap(name = "URL")]
+    pub url: Option<String>,
 }
 
 impl Config {
@@ -114,22 +158,47 @@ impl Config {
                     println!("{}", cflags);
                 }
             },
-            Set(s) => match s {
-                StorableConfigField::RegistryUrl(s) => {
-                    let config_file = PartialWapmConfig::get_file_location()
-                        .map_err(|e| anyhow::anyhow!("could not find config file {e}"))?;
-                    let mut config = PartialWapmConfig::from_file()
-                        .map_err(|e| anyhow::anyhow!("could not find config file {e}"))?;
-                    config.registry.set_current_registry(&s.url);
-                    config
-                        .save(config_file)
-                        .with_context(|| anyhow::anyhow!("could not save config file"))?;
-                    println!(
-                        "set current registry to {}",
-                        config.registry.get_current_registry()
-                    );
+            Set(s) => {
+                let config_file = PartialWapmConfig::get_file_location()
+                    .map_err(|e| anyhow::anyhow!("could not find config file {e}"))?;
+                let mut config = PartialWapmConfig::from_file().map_err(|e| {
+                    anyhow::anyhow!(
+                        "could not find config file {e} at {}",
+                        config_file.display()
+                    )
+                })?;
+
+                match s {
+                    StorableConfigField::RegistryUrl(s) => {
+                        config.registry.set_current_registry(&s.url);
+                        let current_registry = config.registry.get_current_registry();
+                        if let Some(u) = wasmer_registry::utils::get_username().ok().and_then(|o| o)
+                        {
+                            println!("Successfully logged into registry {current_registry:?} as user {u:?}");
+                        }
+                    }
+                    StorableConfigField::RegistryToken(t) => {
+                        config.registry.set_login_token_for_registry(
+                            &config.registry.get_current_registry(),
+                            &t.token,
+                            wasmer_registry::config::UpdateRegistry::LeaveAsIs,
+                        );
+                    }
+                    StorableConfigField::TelemetryEnabled(t) => {
+                        config.telemetry.enabled = format!("{:?}", t.enabled);
+                    }
+                    StorableConfigField::ProxyUrl(p) => {
+                        config.proxy.url = p.url.clone();
+                    }
+                    StorableConfigField::UpdateNotificationsEnabled(u) => {
+                        config.update_notifications.enabled = format!("{:?}", u.enabled);
+                    }
                 }
-            },
+
+                config
+                    .save(config_file)
+                    .with_context(|| anyhow::anyhow!("could not save config file"))?;
+            }
         }
         Ok(())
     }
