@@ -1,5 +1,5 @@
 use crate::config::{format_graphql, UpdateRegistry};
-use crate::PartialWapmConfig;
+use crate::WasmerConfig;
 
 /// Login to a registry and save the token associated with it.
 ///
@@ -11,11 +11,11 @@ pub fn login_and_save_token(
 ) -> Result<Option<String>, anyhow::Error> {
     let registry = format_graphql(registry);
     #[cfg(test)]
-    let mut config = PartialWapmConfig::from_file(test_name)
+    let mut config = WasmerConfig::from_file(test_name)
         .map_err(|e| anyhow::anyhow!("config from file: {e}"))?;
     #[cfg(not(test))]
     let mut config =
-        PartialWapmConfig::from_file().map_err(|e| anyhow::anyhow!("config from file: {e}"))?;
+        WasmerConfig::from_file().map_err(|e| anyhow::anyhow!("config from file: {e}"))?;
     config.registry.set_current_registry(&registry);
     config.registry.set_login_token_for_registry(
         &config.registry.get_current_registry(),
@@ -23,10 +23,10 @@ pub fn login_and_save_token(
         UpdateRegistry::Update,
     );
     #[cfg(test)]
-    let path = PartialWapmConfig::get_file_location(test_name)
+    let path = WasmerConfig::get_file_location(test_name)
         .map_err(|e| anyhow::anyhow!("get file location: {e}"))?;
     #[cfg(not(test))]
-    let path = PartialWapmConfig::get_file_location()
+    let path = WasmerConfig::get_file_location()
         .map_err(|e| anyhow::anyhow!("get file location: {e}"))?;
     config.save(&path)?;
     crate::utils::get_username_registry_token(&registry, token)

@@ -26,7 +26,7 @@ pub mod queries;
 pub mod utils;
 
 pub use crate::{
-    config::{format_graphql, PartialWapmConfig},
+    config::{format_graphql, WasmerConfig},
     package::Package,
     queries::get_bindings_query::ProgrammingLanguage,
 };
@@ -395,11 +395,11 @@ pub fn query_package_from_registry(
 pub fn get_wasmer_root_dir(#[cfg(test)] test_name: &str) -> Option<PathBuf> {
     #[cfg(test)]
     {
-        PartialWapmConfig::get_folder(test_name).ok()
+        WasmerConfig::get_folder(test_name).ok()
     }
     #[cfg(not(test))]
     {
-        PartialWapmConfig::get_folder().ok()
+        WasmerConfig::get_folder().ok()
     }
 }
 
@@ -607,9 +607,9 @@ pub fn whoami(
     use graphql_client::GraphQLQuery;
 
     #[cfg(test)]
-    let config = PartialWapmConfig::from_file(test_name);
+    let config = WasmerConfig::from_file(test_name);
     #[cfg(not(test))]
-    let config = PartialWapmConfig::from_file();
+    let config = WasmerConfig::from_file();
 
     let config = config
         .map_err(|e| anyhow::anyhow!("{e}"))
@@ -659,9 +659,9 @@ pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
 
 pub fn get_all_available_registries(#[cfg(test)] test_name: &str) -> Result<Vec<String>, String> {
     #[cfg(test)]
-    let config = PartialWapmConfig::from_file(test_name)?;
+    let config = WasmerConfig::from_file(test_name)?;
     #[cfg(not(test))]
-    let config = PartialWapmConfig::from_file()?;
+    let config = WasmerConfig::from_file()?;
 
     let mut registries = Vec::new();
     match config.registry {

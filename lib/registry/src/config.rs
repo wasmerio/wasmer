@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 #[derive(Deserialize, Default, Serialize, Debug, PartialEq, Eq)]
-pub struct PartialWapmConfig {
+pub struct WasmerConfig {
     /// The number of seconds to wait before checking the registry for a new
     /// version of the package.
     #[serde(default = "wax_default_cooldown")]
@@ -235,7 +235,7 @@ impl Registries {
     }
 }
 
-impl PartialWapmConfig {
+impl WasmerConfig {
     /// Save the config to a file
     pub fn save<P: AsRef<Path>>(&self, to: P) -> anyhow::Result<()> {
         use std::{fs::File, io::Write};

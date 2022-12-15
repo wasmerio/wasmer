@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use std::env;
 use std::path::PathBuf;
-use wasmer_registry::PartialWapmConfig;
+use wasmer_registry::WasmerConfig;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer config` subcommand: `wasmer config get prefix`
@@ -159,9 +159,9 @@ impl Config {
                 }
             },
             Set(s) => {
-                let config_file = PartialWapmConfig::get_file_location()
+                let config_file = WasmerConfig::get_file_location()
                     .map_err(|e| anyhow::anyhow!("could not find config file {e}"))?;
-                let mut config = PartialWapmConfig::from_file().map_err(|e| {
+                let mut config = WasmerConfig::from_file().map_err(|e| {
                     anyhow::anyhow!(
                         "could not find config file {e} at {}",
                         config_file.display()

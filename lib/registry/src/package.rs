@@ -1,4 +1,4 @@
-use crate::PartialWapmConfig;
+use crate::WasmerConfig;
 use std::path::PathBuf;
 use std::{fmt, str::FromStr};
 use url::Url;
@@ -118,10 +118,10 @@ impl Package {
     /// Returns the full URL including the version for this package
     pub fn url(&self, #[cfg(test)] test_name: &str) -> Result<Url, anyhow::Error> {
         #[cfg(test)]
-        let config = PartialWapmConfig::from_file(test_name)
+        let config = WasmerConfig::from_file(test_name)
             .map_err(|e| anyhow::anyhow!("could not read wapm config: {e}"))?;
         #[cfg(not(test))]
-        let config = PartialWapmConfig::from_file()
+        let config = WasmerConfig::from_file()
             .map_err(|e| anyhow::anyhow!("could not read wapm config: {e}"))?;
         let registry = config.registry.get_current_registry();
         let registry_tld = tldextract::TldExtractor::new(tldextract::TldOption::default())
