@@ -348,6 +348,10 @@ jobs:
       - name: ${{ matrix.build-what.name }}
         shell: bash
         run: ${{ matrix.build-what.build-cmd }}
+        env:
+          TARGET: ${{ matrix.metadata.target }}
+          TARGET_DIR: target/${{ matrix.metadata.target }}/release
+          CARGO_TARGET: --target ${{ matrix.metadata.target }}
       # C-API tests were disabled for linux-musl and macos-arm (we can't run them)
       - name: Test C-API integration
         shell: bash
