@@ -62,7 +62,7 @@ pub struct Function {
 }
 
 impl From<StoreHandle<VMFunction>> for Function {
-    fn into(handle: StoreHandle<VMFunction>) -> Self {
+    fn from(handle: StoreHandle<VMFunction>) -> Self {
         Self { handle }
     }
 }
