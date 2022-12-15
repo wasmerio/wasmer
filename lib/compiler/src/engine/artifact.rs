@@ -83,8 +83,8 @@ impl Artifact {
             engine.target(),
             memory_styles,
             table_styles,
-            tunables.module_start(),
-        )?;
+        )?
+        .with_module_start(tunables.module_start());
 
         Self::from_parts(&mut inner_engine, artifact)
     }
