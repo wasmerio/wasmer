@@ -192,7 +192,8 @@ impl Init {
         constructed_manifest: &ConstructManifestReturn,
     ) -> Result<(), anyhow::Error> {
         // add the manifest to the Cargo.toml
-        let old_cargo = std::fs::read_to_string(&manifest_path).unwrap();
+        let old_cargo = std::fs::read_to_string(&manifest_path)
+            .with_context(|| format!("Unable to read \"{}\"", manifest_path.display()))?;
 
         // if the Cargo.toml already contains a [metadata.wapm] section, don't generate it again
         if old_cargo.contains("metadata.wapm") && !overwrite {
@@ -234,7 +235,8 @@ impl Init {
         std::fs::write(
             &manifest_path,
             &format!("{old_cargo}{NEWLINE}{NEWLINE}[package.metadata.wapm]{NEWLINE}{toml_string}"),
-        )?;
+        )
+        .with_context(|| format!("Unable to write to \"{}\"", manifest_path.display()))?;
 
         Ok(())
     }
