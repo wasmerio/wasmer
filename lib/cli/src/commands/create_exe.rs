@@ -464,7 +464,7 @@ impl CreateExe {
 
         let file = files
         .iter()
-        .find(|f| f.ends_with("libwasmer.a")).cloned()
+        .find(|f| f.ends_with("libwasmer.a") || f.ends_with("wasmer.lib")).cloned()
         .ok_or_else(|| {
             anyhow!("Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})", target)
         })?;
