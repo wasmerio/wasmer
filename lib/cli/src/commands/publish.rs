@@ -86,7 +86,7 @@ impl Publish {
         }
 
         // See if a user is logged in. The backend should check for authorization on uploading
-        let (registry, username) =
+        let (registry, _username) =
             wasmer_registry::whoami(self.registry.as_deref(), self.token.as_deref()).with_context(
                 || {
                     anyhow::anyhow!(
