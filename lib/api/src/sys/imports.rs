@@ -194,7 +194,7 @@ impl Imports {
     }
 
     /// Iterates through all the imports in this structure
-    pub fn iter<'a>(&'a self) -> ImportsIterator<'a> {
+    pub fn iter(&self) -> ImportsIterator<'_> {
         ImportsIterator::new(self)
     }
 }

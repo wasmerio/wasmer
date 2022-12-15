@@ -13,8 +13,9 @@ use std::marker::PhantomData;
 use crate::sys::{
     AsStoreMut, FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError, WasmTypeList,
 };
-use crate::StoreMut;
-use wasmer_types::{OnCalledAction, RawValue};
+use wasmer_types::RawValue;
+
+use super::store::OnCalledHandler;
 
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).
@@ -48,7 +49,7 @@ impl<Args: WasmTypeList, Rets: WasmTypeList> Clone for TypedFunction<Args, Rets>
 }
 
 thread_local! {
-    static ON_CALLED: Cell<Option<Box<dyn FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>>>> = Cell::new(None);
+    static ON_CALLED: Cell<Option<OnCalledHandler>> = Cell::new(None);
 }
 
 macro_rules! impl_native_traits {

@@ -8,6 +8,10 @@ use wasmer_vm::{init_traps, StoreId, TrapHandler, TrapHandlerFn};
 
 use wasmer_vm::StoreObjects;
 
+pub type OnCalledHandler = Box<
+    dyn FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
+>;
+
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
@@ -21,14 +25,7 @@ pub(crate) struct StoreInner {
     #[derivative(Debug = "ignore")]
     pub(crate) trap_handler: Option<Box<TrapHandlerFn<'static>>>,
     #[derivative(Debug = "ignore")]
-    pub(crate) on_called: Option<
-        Box<
-            dyn FnOnce(
-                StoreMut<'_>,
-            )
-                -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
-        >,
-    >,
+    pub(crate) on_called: Option<OnCalledHandler>,
 }
 
 impl StoreInner {
