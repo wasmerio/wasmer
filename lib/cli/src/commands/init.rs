@@ -333,7 +333,7 @@ impl Init {
 
         match template {
             Some(Template::Js) => {
-                map.insert("python".to_string(), "quickjs/quickjs@latest".to_string());
+                map.insert("quickjs".to_string(), "quickjs/quickjs@latest".to_string());
             }
             Some(Template::Python) => {
                 map.insert("python".to_string(), "python/python@latest".to_string());
