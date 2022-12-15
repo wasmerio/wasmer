@@ -25,38 +25,3 @@ pub fn get_username_registry_token(registry: &str, token: &str) -> anyhow::Resul
     let response: who_am_i_query::ResponseData = execute_query(registry, token, &q)?;
     Ok(response.viewer.map(|viewer| viewer.username))
 }
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "graphql/schema.graphql",
-    query_path = "graphql/queries/get_namespaces_for_user.graphql",
-    response_derives = "Debug"
-)]
-struct GetNamespacesForUser;
-
-pub fn user_can_publish_under_namespace(
-    registry: &str,
-    username: &str,
-    namespace: &str,
-) -> anyhow::Result<bool> {
-    Ok(get_namespaces_for_user(registry, username)?
-        .iter()
-        .any(|s| s == namespace))
-}
-
-pub fn get_namespaces_for_user(registry: &str, username: &str) -> anyhow::Result<Vec<String>> {
-    let q = GetNamespacesForUser::build_query(get_namespaces_for_user::Variables {
-        username: username.to_string(),
-    });
-    let response: get_namespaces_for_user::ResponseData = execute_query(registry, "", &q)?;
-    let user = response.user.ok_or_else(|| {
-        anyhow::anyhow!("username {username:?} not found in registry {registry:?}")
-    })?;
-
-    Ok(user
-        .namespaces
-        .edges
-        .into_iter()
-        .filter_map(|f| Some(f?.node?.global_name))
-        .collect())
-}

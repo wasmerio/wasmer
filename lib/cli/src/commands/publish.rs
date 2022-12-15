@@ -25,9 +25,12 @@ pub struct Publish {
     /// Run the publish command without any output
     #[clap(long)]
     pub quiet: bool,
-    /// Override the namespace of the uploaded package in the wasmer.toml
+    /// Override the package of the uploaded package in the wasmer.toml
     #[clap(long)]
-    pub namespace: Option<String>,
+    pub package_name: Option<String>,
+    /// Override the package version of the uploaded package in the wasmer.toml
+    #[clap(long)]
+    pub version: Option<semver::Version>,
     /// Override the token (by default, it will use the current logged in user)
     #[clap(long)]
     pub token: Option<String>,
@@ -74,8 +77,15 @@ impl Publish {
         let mut manifest = wapm_toml::Manifest::parse(&manifest)?;
         manifest.base_directory_path = cwd.clone();
 
-        // See if the user is logged in and has authorization to publish the package
-        // under the correct namespace before trying to upload.
+        if let Some(package_name) = self.package_name.as_ref() {
+            manifest.package.name = package_name.to_string();
+        }
+
+        if let Some(version) = self.version.as_ref() {
+            manifest.package.version = version.clone();
+        }
+
+        // See if a user is logged in. The backend should check for authorization on uploading
         let (registry, username) =
             wasmer_registry::whoami(self.registry.as_deref(), self.token.as_deref()).with_context(
                 || {
@@ -89,6 +99,7 @@ impl Publish {
 
         let registry_present =
             wasmer_registry::test_if_registry_present(&registry).unwrap_or(false);
+        
         if !registry_present {
             return Err(anyhow::anyhow!(
                 "registry {} is currently unavailable",
@@ -139,35 +150,6 @@ impl Publish {
             );
 
             return Ok(());
-        }
-
-        let namespace = self
-            .namespace
-            .clone()
-            .or_else(|| {
-                Some(
-                    wasmer_registry::PackageName::parse(&manifest.package.name)
-                        .ok()?
-                        .namespace,
-                )
-            })
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "no namespace found in package name {:?}",
-                    manifest.package.name
-                )
-            })?;
-
-        if namespace == "_" {
-            return Err(anyhow::anyhow!("cannot publish with namespace = \"_\""));
-        }
-
-        if !wasmer_registry::utils::user_can_publish_under_namespace(
-            &registry, &username, &namespace,
-        )? {
-            return Err(anyhow::anyhow!(
-                "user {username:?} has no permissions to publish under the namespace {namespace:?}"
-            ));
         }
 
         wasmer_registry::publish::try_chunked_uploading(
