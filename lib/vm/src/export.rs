@@ -7,6 +7,7 @@ use crate::store::InternalStoreHandle;
 use crate::table::VMTable;
 use crate::vmcontext::VMFunctionKind;
 use crate::{MaybeInstanceOwned, VMCallerCheckedAnyfunc};
+use derivative::Derivative;
 use std::any::Any;
 use wasmer_types::FunctionType;
 
@@ -26,9 +27,12 @@ pub enum VMExtern {
 }
 
 /// A function export value.
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct VMFunction {
     /// Pointer to the `VMCallerCheckedAnyfunc` which contains data needed to
     /// call the function and check its signature.
+    #[derivative(Debug = "ignore")]
     pub anyfunc: MaybeInstanceOwned<VMCallerCheckedAnyfunc>,
 
     /// The function type, used for compatibility checking.
@@ -39,5 +43,6 @@ pub struct VMFunction {
     pub kind: VMFunctionKind,
 
     /// Associated data owned by a host function.
+    #[derivative(Debug = "ignore")]
     pub host_data: Box<dyn Any>,
 }

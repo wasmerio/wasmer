@@ -31,6 +31,7 @@ impl<T: fmt::Debug + fmt::Display> CoreError for T {}
 
 impl dyn CoreError + 'static {
     /// Returns `true` if the inner type is the same as `T`.
+    #[allow(dead_code)]
     pub fn core_is_equal<T: CoreError + 'static>(&self) -> bool {
         let t = core::any::TypeId::of::<T>();
         let concrete = self.type_id();
@@ -40,6 +41,7 @@ impl dyn CoreError + 'static {
 
 impl dyn CoreError + Send + Sync + 'static {
     /// Returns `true` if the inner type is the same as `T`.
+    #[allow(dead_code)]
     pub fn core_is_equal<T: CoreError + 'static>(&self) -> bool {
         let t = core::any::TypeId::of::<T>();
         let concrete = self.type_id();
@@ -50,6 +52,7 @@ impl dyn CoreError + Send + Sync + 'static {
 impl dyn CoreError + Send {
     #[inline]
     /// Attempts to downcast the box to a concrete type.
+    #[allow(dead_code)]
     pub fn downcast_core<T: CoreError + 'static>(
         self: Box<Self>,
     ) -> Result<Box<T>, Box<dyn CoreError + Send>> {
@@ -64,6 +67,7 @@ impl dyn CoreError + Send {
 impl dyn CoreError + Send + Sync {
     #[inline]
     /// Attempts to downcast the box to a concrete type.
+    #[allow(dead_code)]
     pub fn downcast_core<T: CoreError + 'static>(self: Box<Self>) -> Result<Box<T>, Box<Self>> {
         let err: Box<dyn CoreError> = self;
         <dyn CoreError>::downcast_core(err).map_err(|s| unsafe {
@@ -76,6 +80,7 @@ impl dyn CoreError + Send + Sync {
 impl dyn CoreError {
     #[inline]
     /// Attempts to downcast the box to a concrete type.
+    #[allow(dead_code)]
     pub fn downcast_core<T: CoreError + 'static>(
         self: Box<Self>,
     ) -> Result<Box<T>, Box<dyn CoreError>> {
@@ -249,6 +254,30 @@ impl std::error::Error for RuntimeError {
             RuntimeErrorSource::User(err) => Some(&**err),
             _ => None,
         }
+    }
+}
+
+pub fn generic_of_jsval<T: FromWasmAbi<Abi = u32>>(
+    js: JsValue,
+    classname: &str,
+) -> Result<T, JsValue> {
+    use js_sys::{Object, Reflect};
+    let ctor_name = Object::get_prototype_of(&js).constructor().name();
+    if ctor_name == classname {
+        #[allow(unused_unsafe)]
+        let ptr = unsafe { Reflect::get(&js, &JsValue::from_str("ptr"))? };
+        match ptr.as_f64() {
+            Some(ptr_f64) => {
+                let foo = unsafe { T::from_abi(ptr_f64 as u32) };
+                Ok(foo)
+            }
+            None => {
+                // We simply relay the js value
+                Err(js)
+            }
+        }
+    } else {
+        Err(js)
     }
 }
 

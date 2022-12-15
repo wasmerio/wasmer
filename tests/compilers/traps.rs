@@ -426,7 +426,7 @@ fn call_signature_mismatch(config: crate::Config) -> Result<()> {
         )
     "#;
 
-    let module = Module::new(&store, &binary)?;
+    let module = Module::new(&store, binary)?;
     let err = Instance::new(&mut store, &module, &imports! {}).expect_err("expected error");
     assert_eq!(
         format!("{}", err),

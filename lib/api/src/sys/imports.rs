@@ -1,11 +1,15 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
+#[cfg(feature = "compiler")]
+use crate::{AsStoreMut, Memory};
 use crate::{Exports, Extern, Module};
 use std::collections::HashMap;
 use std::fmt;
 use wasmer_compiler::LinkError;
 use wasmer_types::ImportError;
+#[cfg(feature = "compiler")]
+use wasmer_vm::VMSharedMemory;
 
 /// All of the import data used when instantiating.
 ///
@@ -121,6 +125,37 @@ impl Imports {
             .insert((ns.to_string(), name.to_string()), val.into());
     }
 
+    /// Imports (any) shared memory into the imports.
+    /// (if the module does not import memory then this function is ignored)
+    #[cfg(feature = "compiler")]
+    pub fn import_shared_memory(
+        &mut self,
+        module: &Module,
+        store: &mut impl AsStoreMut,
+    ) -> Option<VMSharedMemory> {
+        // Determine if shared memory needs to be created and imported
+        let shared_memory = module
+            .imports()
+            .memories()
+            .next()
+            .map(|a| *a.ty())
+            .map(|ty| {
+                let style = store.as_store_ref().tunables().memory_style(&ty);
+                VMSharedMemory::new(&ty, &style).unwrap()
+            });
+
+        if let Some(memory) = shared_memory {
+            self.define(
+                "env",
+                "memory",
+                Memory::new_from_existing(store, memory.clone().into()),
+            );
+            Some(memory)
+        } else {
+            None
+        }
+    }
+
     /// Returns the contents of a namespace as an `Exports`.
     ///
     /// Returns `None` if the namespace doesn't exist.
@@ -158,6 +193,32 @@ impl Imports {
             }
         }
         Ok(ret)
+    }
+
+    /// Iterates through all the imports in this structure
+    pub fn iter<'a>(&'a self) -> ImportsIterator<'a> {
+        ImportsIterator::new(self)
+    }
+}
+
+pub struct ImportsIterator<'a> {
+    iter: std::collections::hash_map::Iter<'a, (String, String), Extern>,
+}
+
+impl<'a> ImportsIterator<'a> {
+    fn new(imports: &'a Imports) -> Self {
+        let iter = imports.map.iter();
+        Self { iter }
+    }
+}
+
+impl<'a> Iterator for ImportsIterator<'a> {
+    type Item = (&'a str, &'a str, &'a Extern);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter
+            .next()
+            .map(|(k, v)| (k.0.as_str(), k.1.as_str(), v))
     }
 }
 
@@ -237,6 +298,7 @@ impl fmt::Debug for Imports {
 macro_rules! imports {
     ( $( $ns_name:expr => $ns:tt ),* $(,)? ) => {
         {
+            #[allow(unused_mut)]
             let mut import_object = $crate::Imports::new();
 
             $({

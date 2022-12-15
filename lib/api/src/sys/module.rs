@@ -1,8 +1,4 @@
-use crate::sys::InstantiationError;
-use crate::AsStoreMut;
-use crate::AsStoreRef;
 use bytes::Bytes;
-use std::borrow::Cow;
 use std::fmt;
 use std::io;
 use std::path::Path;
@@ -17,6 +13,10 @@ use wasmer_types::{
     CompileError, DeserializeError, ExportsIterator, ImportsIterator, ModuleInfo, SerializeError,
 };
 use wasmer_types::{ExportType, ImportType};
+
+#[cfg(feature = "compiler")]
+use crate::{sys::InstantiationError, AsStoreMut, AsStoreRef, IntoBytes};
+#[cfg(feature = "compiler")]
 use wasmer_vm::InstanceHandle;
 
 /// IO Error on a Module Compilation
@@ -56,46 +56,6 @@ pub struct Module {
     // ownership of the code and its metadata.
     artifact: Arc<Artifact>,
     module_info: Arc<ModuleInfo>,
-}
-
-pub trait IntoBytes {
-    fn into_bytes(self) -> Bytes;
-}
-
-impl IntoBytes for Bytes {
-    fn into_bytes(self) -> Bytes {
-        self
-    }
-}
-
-impl IntoBytes for Vec<u8> {
-    fn into_bytes(self) -> Bytes {
-        Bytes::from(self)
-    }
-}
-
-impl IntoBytes for &[u8] {
-    fn into_bytes(self) -> Bytes {
-        Bytes::from(self.to_vec())
-    }
-}
-
-impl<const N: usize> IntoBytes for &[u8; N] {
-    fn into_bytes(self) -> Bytes {
-        Bytes::from(self.to_vec())
-    }
-}
-
-impl IntoBytes for &str {
-    fn into_bytes(self) -> Bytes {
-        Bytes::from(self.as_bytes().to_vec())
-    }
-}
-
-impl IntoBytes for Cow<'_, [u8]> {
-    fn into_bytes(self) -> Bytes {
-        Bytes::from(self.to_vec())
-    }
 }
 
 impl Module {
@@ -491,6 +451,15 @@ impl Module {
     /// ```
     pub fn exports(&self) -> ExportsIterator<impl Iterator<Item = ExportType> + '_> {
         self.module_info.exports()
+    }
+
+    /// Returns true if the module is still ok - this will be
+    /// false if the module was passed between threads in a
+    /// way that it became undefined (JS does not share objects
+    /// between threads except via a post_message())
+    pub fn is_ok(&self) -> bool {
+        // As RUST is a type safe language modules in SYS are always ok
+        true
     }
 
     /// Get the custom sections of the module given a `name`.

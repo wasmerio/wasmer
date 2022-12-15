@@ -1,10 +1,19 @@
 use std::fmt;
+use wasmer_types::OnCalledAction;
 
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
+    pub(crate) on_called: Option<
+        Box<
+            dyn FnOnce(
+                StoreMut,
+            )
+                -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
+        >,
+    >,
 }
 
 /// The store represents all global state that can be manipulated by
@@ -27,6 +36,7 @@ impl Store {
         Self {
             inner: Box::new(StoreInner {
                 objects: Default::default(),
+                on_called: None,
             }),
         }
     }
@@ -36,6 +46,11 @@ impl Store {
     /// tunables are excluded from the logic.
     pub fn same(_a: &Self, _b: &Self) -> bool {
         true
+    }
+
+    /// Returns the ID of this store
+    pub fn id(&self) -> StoreId {
+        self.inner.objects.id()
     }
 }
 
@@ -102,6 +117,11 @@ impl<'a> StoreRef<'a> {
     pub fn same(a: &Self, b: &Self) -> bool {
         a.inner.objects.id() == b.inner.objects.id()
     }
+
+    /// Serializes the mutable things into a snapshot
+    pub fn save_snapshot(&self) -> wasmer_types::StoreSnapshot {
+        self.inner.objects.save_snapshot()
+    }
 }
 
 /// A temporary handle to a [`Context`].
@@ -117,12 +137,33 @@ impl<'a> StoreMut<'a> {
         a.inner.objects.id() == b.inner.objects.id()
     }
 
+    /// Serializes the mutable things into a snapshot
+    pub fn save_snapshot(&self) -> wasmer_types::StoreSnapshot {
+        self.inner.objects.save_snapshot()
+    }
+
+    /// Restores a snapshot back into the store
+    pub fn restore_snapshot(&mut self, snapshot: &wasmer_types::StoreSnapshot) {
+        self.inner.objects.restore_snapshot(snapshot);
+    }
+
     pub(crate) fn as_raw(&self) -> *mut StoreInner {
         self.inner as *const StoreInner as *mut StoreInner
     }
 
     pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
         Self { inner: &mut *raw }
+    }
+
+    /// Sets the unwind callback which will be invoked when the call finishes
+    pub fn on_called<F>(&mut self, callback: F)
+    where
+        F: FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.inner.on_called.replace(Box::new(callback));
     }
 }
 
@@ -286,6 +327,22 @@ mod objects {
                 (&mut high[0], &mut low[a.index()])
             }
         }
+
+        /// Serializes the mutable things into a snapshot
+        pub fn save_snapshot(&self) -> wasmer_types::StoreSnapshot {
+            let mut ret = wasmer_types::StoreSnapshot::default();
+            for (index, global) in self.globals.iter().enumerate() {
+                global.save_snapshot(index, &mut ret);
+            }
+            ret
+        }
+
+        /// Serializes the mutable things into a snapshot
+        pub fn restore_snapshot(&mut self, snapshot: &wasmer_types::StoreSnapshot) {
+            for (index, global) in self.globals.iter_mut().enumerate() {
+                global.restore_snapshot(index, snapshot);
+            }
+        }
     }
 
     /// Handle to an object managed by a context.
@@ -357,6 +414,11 @@ mod objects {
         /// Returns the ID of the context associated with the handle.
         pub fn store_id(&self) -> StoreId {
             self.id
+        }
+
+        /// Overrides the store id with a new ID
+        pub fn set_store_id(&mut self, id: StoreId) {
+            self.id = id;
         }
 
         /// Constructs a `StoreHandle` from a `StoreId` and an `InternalStoreHandle`.
@@ -446,6 +508,7 @@ mod objects {
         Instance(NonNull<T>),
     }
 
+    #[allow(dead_code)]
     impl<T> MaybeInstanceOwned<T> {
         /// Returns underlying pointer to the VM data.
         #[allow(dead_code)]

@@ -47,17 +47,14 @@ pub mod reference_types {
         }
 
         let func_to_call =
-            Function::new_typed_with_env(&mut store, &env, |mut env: FunctionEnvMut<Env>| -> i32 {
-                env.data_mut().0.store(true, Ordering::SeqCst);
+            Function::new_typed_with_env(&mut store, &env, |env: FunctionEnvMut<Env>| -> i32 {
+                env.data().0.store(true, Ordering::SeqCst);
                 343
             });
         let call_set_value: &Function = instance.exports.get_function("call_set_value")?;
         let results: Box<[Value]> =
             call_set_value.call(&mut store, &[Value::FuncRef(Some(func_to_call))])?;
-        assert!(env
-            .as_mut(&mut store.as_store_mut())
-            .0
-            .load(Ordering::SeqCst));
+        assert!(env.as_ref(&store.as_store_ref()).0.load(Ordering::SeqCst));
         assert_eq!(&*results, &[Value::I32(343)]);
 
         Ok(())

@@ -1,8 +1,7 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
-use crate::js::error::{InstantiationError, LinkError, WasmError};
-use crate::js::export::Export;
+use crate::js::error::{LinkError, WasmError};
 use crate::js::exports::Exports;
 use crate::js::module::Module;
 use crate::js::store::{AsStoreMut, AsStoreRef};
@@ -172,11 +171,17 @@ impl Imports {
         for (ns, exports) in namespaces.into_iter() {
             let import_namespace = js_sys::Object::new();
             for (name, ext) in exports {
-                js_sys::Reflect::set(&import_namespace, &name.into(), &ext.as_jsvalue(store))
-                    .expect("Error while setting into the js namespace object");
+                #[allow(unused_unsafe)]
+                unsafe {
+                    js_sys::Reflect::set(&import_namespace, &name.into(), &ext.as_jsvalue(store))
+                        .expect("Error while setting into the js namespace object");
+                }
             }
-            js_sys::Reflect::set(&imports, &ns.into(), &import_namespace.into())
-                .expect("Error while setting into the js imports object");
+            #[allow(unused_unsafe)]
+            unsafe {
+                js_sys::Reflect::set(&imports, &ns.into(), &import_namespace.into())
+                    .expect("Error while setting into the js imports object");
+            }
         }
         imports
     }
@@ -233,29 +238,40 @@ impl Imports {
 }
 
 impl AsJs for Imports {
+    #[allow(unused_unsafe)]
     fn as_jsvalue(&self, store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
         let imports_object = js_sys::Object::new();
         for (namespace, name, extern_) in self.iter() {
-            let val = js_sys::Reflect::get(&imports_object, &namespace.into()).unwrap();
+            let val = unsafe { js_sys::Reflect::get(&imports_object, &namespace.into()).unwrap() };
             if !val.is_undefined() {
                 // If the namespace is already set
-                js_sys::Reflect::set(
-                    &val,
-                    &name.into(),
-                    &extern_.as_jsvalue(&store.as_store_ref()),
-                )
-                .unwrap();
+                #[allow(unused_unsafe)]
+                unsafe {
+                    js_sys::Reflect::set(
+                        &val,
+                        &name.into(),
+                        &extern_.as_jsvalue(&store.as_store_ref()),
+                    )
+                    .unwrap();
+                }
             } else {
                 // If the namespace doesn't exist
                 let import_namespace = js_sys::Object::new();
-                js_sys::Reflect::set(
-                    &import_namespace,
-                    &name.into(),
-                    &extern_.as_jsvalue(&store.as_store_ref()),
-                )
-                .unwrap();
-                js_sys::Reflect::set(&imports_object, &namespace.into(), &import_namespace.into())
+                #[allow(unused_unsafe)]
+                unsafe {
+                    js_sys::Reflect::set(
+                        &import_namespace,
+                        &name.into(),
+                        &extern_.as_jsvalue(&store.as_store_ref()),
+                    )
                     .unwrap();
+                    js_sys::Reflect::set(
+                        &imports_object,
+                        &namespace.into(),
+                        &import_namespace.into(),
+                    )
+                    .unwrap();
+                }
             }
         }
         imports_object.into()

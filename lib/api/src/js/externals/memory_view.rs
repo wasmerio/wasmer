@@ -27,11 +27,12 @@ pub struct MemoryView<'a> {
 
 impl<'a> MemoryView<'a> {
     pub(crate) fn new(memory: &Memory, store: &impl AsStoreRef) -> Self {
-        let buffer = memory
-            .handle
-            .get(store.as_store_ref().objects())
-            .memory
-            .buffer();
+        let memory = memory.handle.get(store.as_store_ref().objects());
+        Self::new_raw(&memory.memory)
+    }
+
+    pub(crate) fn new_raw(memory: &js_sys::WebAssembly::Memory) -> Self {
+        let buffer = memory.buffer();
 
         let size = js_sys::Reflect::get(&buffer, &"byteLength".into())
             .unwrap()
@@ -248,6 +249,37 @@ impl<'a> MemoryView<'a> {
             Err(MemoryAccessError::HeapOutOfBounds)?;
         }
         view.set_index(offset, val);
+        Ok(())
+    }
+
+    /// Copies the memory and returns it as a vector of bytes
+    pub fn copy_to_vec(&self) -> Result<Vec<u8>, MemoryAccessError> {
+        let mut new_memory = Vec::new();
+        let mut offset = 0;
+        let mut chunk = [0u8; 40960];
+        while offset < self.data_size() {
+            let remaining = self.data_size() - offset;
+            let sublen = remaining.min(chunk.len() as u64) as usize;
+            self.read(offset, &mut chunk[..sublen])?;
+            new_memory.extend_from_slice(&chunk[..sublen]);
+            offset += sublen as u64;
+        }
+        Ok(new_memory)
+    }
+
+    /// Copies the memory to another new memory object
+    pub fn copy_to_memory(&self, amount: u64, new_memory: &Self) -> Result<(), MemoryAccessError> {
+        let mut offset = 0;
+        let mut chunk = [0u8; 40960];
+        while offset < amount {
+            let remaining = amount - offset;
+            let sublen = remaining.min(chunk.len() as u64) as usize;
+            self.read(offset, &mut chunk[..sublen])?;
+
+            new_memory.write(offset, &chunk[..sublen])?;
+
+            offset += sublen as u64;
+        }
         Ok(())
     }
 }
