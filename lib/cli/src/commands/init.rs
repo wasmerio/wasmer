@@ -8,6 +8,8 @@ use std::path::PathBuf;
 static NOTE: &str =
     "# See more keys and definitions at https://docs.wasmer.io/ecosystem/wapm/manifest";
 
+const NEWLINE: &str = if cfg!(windows) { "\r\n" } else { "\n" };
+
 /// CLI args for the `wasmer init` command
 #[derive(Debug, Parser)]
 pub struct Init {
@@ -211,10 +213,13 @@ impl Init {
         };
 
         let toml_string = toml::to_string_pretty(&metadata_wapm)?
-            .replace("[dependencies]", &format!("{NOTE}\r\n\r\n[dependencies]"))
+            .replace(
+                "[dependencies]",
+                &format!("{NOTE}{NEWLINE}{NEWLINE}[dependencies]"),
+            )
             .lines()
             .collect::<Vec<_>>()
-            .join("\r\n");
+            .join(NEWLINE);
 
         if !quiet {
             eprintln!(
@@ -228,7 +233,7 @@ impl Init {
 
         std::fs::write(
             &manifest_path,
-            &format!("{old_cargo}\r\n\r\n[package.metadata.wapm]\r\n{toml_string}"),
+            &format!("{old_cargo}{NEWLINE}{NEWLINE}[package.metadata.wapm]{NEWLINE}{toml_string}"),
         )?;
 
         Ok(())
@@ -237,10 +242,13 @@ impl Init {
     /// Writes the metadata to a wasmer.toml file
     fn write_wasmer_toml(path: &PathBuf, toml: &wapm_toml::Manifest) -> Result<(), anyhow::Error> {
         let toml_string = toml::to_string_pretty(&toml)?
-            .replace("[dependencies]", &format!("{NOTE}\r\n\r\n[dependencies]"))
+            .replace(
+                "[dependencies]",
+                &format!("{NOTE}{NEWLINE}{NEWLINE}[dependencies]"),
+            )
             .lines()
             .collect::<Vec<_>>()
-            .join("\r\n");
+            .join(NEWLINE);
 
         std::fs::write(&path, &toml_string)
             .with_context(|| format!("Unable to write to \"{}\"", path.display()))?;
