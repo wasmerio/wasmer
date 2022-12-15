@@ -43,7 +43,6 @@ pub(crate) fn fd_filestat_get_internal<M: MemorySize>(
     }
 
     let stat = wasi_try!(state.fs.filestat_fd(inodes.deref(), fd));
-    dbg!(&stat);
 
     let buf = buf.deref(&memory);
     wasi_try_mem!(buf.write(stat));
