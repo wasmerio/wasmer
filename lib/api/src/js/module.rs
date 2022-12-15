@@ -134,9 +134,8 @@ impl Module {
     /// # }
     /// ```
     #[allow(unreachable_code)]
-    pub fn new(_store: &impl AsStoreRef, bytes: impl IntoBytes) -> Result<Self, CompileError> {
-        #[allow(unused_mut)]
-        let mut bytes = bytes.into_bytes();
+    pub fn new(_store: &impl AsStoreRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
+        let bytes = bytes.as_ref();
         #[cfg(feature = "wat")]
         if bytes.starts_with(b"\0asm") == false {
             let parsed_bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
@@ -145,7 +144,7 @@ impl Module {
                     e
                 )))
             })?;
-            bytes = Bytes::from(parsed_bytes.to_vec());
+            return Self::from_binary(_store, parsed_bytes.as_ref());
         }
         Self::from_binary(_store, bytes)
     }
@@ -163,12 +162,7 @@ impl Module {
     /// Opposed to [`Module::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
-    pub fn from_binary(
-        _store: &impl AsStoreRef,
-        binary: impl IntoBytes,
-    ) -> Result<Self, CompileError> {
-        let binary = binary.into_bytes();
-        //
+    pub fn from_binary(_store: &impl AsStoreRef, binary: &[u8]) -> Result<Self, CompileError> {
         // Self::validate(store, binary)?;
         unsafe { Self::from_binary_unchecked(_store, binary) }
     }
@@ -181,17 +175,16 @@ impl Module {
     /// We maintain the `unsafe` to preserve the same API as Wasmer
     pub unsafe fn from_binary_unchecked(
         store: &impl AsStoreRef,
-        binary: impl IntoBytes,
+        binary: &[u8],
     ) -> Result<Self, CompileError> {
-        let binary = binary.into_bytes();
-        let js_bytes = Uint8Array::view(&binary[..]);
+        let js_bytes = Uint8Array::view(binary);
         let module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
 
         Self::from_js_module(
             store,
             module,
             #[cfg(feature = "js-serializable-module")]
-            Bytes::from(binary),
+            binary,
         )
     }
 
