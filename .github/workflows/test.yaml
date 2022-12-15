@@ -601,8 +601,8 @@ jobs:
         shell: bash
         run: export WASMER_DIR=`pwd`/package && make test-integration-cli
         env:
-          TARGET: ${{ matrix.metadata.target }}
-          TARGET_DIR: target/${{ matrix.metadata.target }}/release
-          CARGO_TARGET: --target ${{ matrix.metadata.target }}
+          TARGET: ${{ matrix.target }}
+          TARGET_DIR: target/${{ matrix.target }}/release
+          CARGO_TARGET: --target ${{ matrix.target }}
           WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
