@@ -293,7 +293,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: ${{ matrix.target }}
+          target: ${{ matrix.metadata.target }}
       - name: Choco install LLVM
         uses: crazy-max/ghaction-chocolatey@v2
         if: matrix.metadata.llvm_choco_version
@@ -568,7 +568,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.63
-          target: ${{ matrix.target }}
+          target: ${{ matrix.metadata.target }}
       - name: Cache
         uses: whywaita/actions-cache-s3@v2
         with:
@@ -596,8 +596,8 @@ jobs:
         shell: bash
         run: export WASMER_DIR=`pwd`/package && make test-integration-cli
         env:
-          TARGET: ${{ matrix.target }}
-          TARGET_DIR: target/${{ matrix.target }}/release
-          CARGO_TARGET: --target ${{ matrix.target }}
+          TARGET: ${{ matrix.metadata.target }}
+          TARGET_DIR: target/${{ matrix.metadata.target }}/release
+          CARGO_TARGET: --target ${{ matrix.metadata.target }}
           WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
