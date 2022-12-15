@@ -38,7 +38,7 @@ pub fn fd_write<M: MemorySize>(
         fd_entry.offset.load(Ordering::Acquire) as usize
     };
 
-    fd_write_internal::<M>(ctx, fd, iovs, iovs_len, offset, nwritten)
+    fd_write_internal::<M>(ctx, fd, iovs, iovs_len, offset, nwritten, true)
 }
 
 /// ### `fd_pwrite()`
@@ -71,7 +71,7 @@ pub fn fd_pwrite<M: MemorySize>(
         offset,
     );
 
-    fd_write_internal::<M>(ctx, fd, iovs, iovs_len, offset as usize, nwritten)
+    fd_write_internal::<M>(ctx, fd, iovs, iovs_len, offset as usize, nwritten, false)
 }
 
 /// ### `fd_pwrite()`
@@ -95,6 +95,7 @@ fn fd_write_internal<M: MemorySize>(
     iovs_len: M::Offset,
     offset: usize,
     nwritten: WasmPtr<M::Offset, M>,
+    should_update_cursor: bool,
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
 
@@ -116,7 +117,7 @@ fn fd_write_internal<M: MemorySize>(
         let is_non_blocking = fd_entry.flags.contains(Fdflags::NONBLOCK);
         let inode_idx = fd_entry.inode;
 
-        let bytes_written = {
+        let (bytes_written, can_update_cursor) = {
             let (mut memory, _, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
             let inode = &inodes.arena[inode_idx];
             let mut guard = inode.write();
@@ -138,7 +139,7 @@ fn fd_write_internal<M: MemorySize>(
                         let mut buf = Vec::with_capacity(buf_len);
                         wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
 
-                        wasi_try_ok!(__asyncify(
+                        let written = wasi_try_ok!(__asyncify(
                             &mut ctx,
                             if is_non_blocking {
                                 Some(Duration::ZERO)
@@ -160,7 +161,9 @@ fn fd_write_internal<M: MemorySize>(
                         .map_err(|err| match err {
                             Errno::Timedout => Errno::Again,
                             a => a,
-                        }))
+                        }));
+
+                        (written, true)
                     } else {
                         return Ok(Errno::Inval);
                     }
@@ -179,9 +182,10 @@ fn fd_write_internal<M: MemorySize>(
                     let mut buf = Vec::with_capacity(buf_len);
                     wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
 
-                    wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+                    let written = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
                         socket.send(buf).await
-                    })?)
+                    })?);
+                    (written, false)
                 }
                 Kind::Pipe { pipe } => {
                     let buf_len: M::Offset = iovs_arr
@@ -193,7 +197,9 @@ fn fd_write_internal<M: MemorySize>(
                     let mut buf = Vec::with_capacity(buf_len);
                     wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
 
-                    wasi_try_ok!(std::io::Write::write(pipe, &buf[..]).map_err(map_io_err))
+                    let written =
+                        wasi_try_ok!(std::io::Write::write(pipe, &buf[..]).map_err(map_io_err));
+                    (written, false)
                 }
                 Kind::Dir { .. } | Kind::Root { .. } => {
                     // TODO: verify
@@ -221,11 +227,13 @@ fn fd_write_internal<M: MemorySize>(
                         }
                     }
 
-                    written
+                    (written, false)
                 }
                 Kind::Symlink { .. } => return Ok(Errno::Inval),
                 Kind::Buffer { buffer } => {
-                    wasi_try_ok!(write_bytes(&mut buffer[offset..], &memory, iovs_arr))
+                    let written =
+                        wasi_try_ok!(write_bytes(&mut buffer[offset..], &memory, iovs_arr));
+                    (written, true)
                 }
             }
         };
@@ -234,7 +242,7 @@ fn fd_write_internal<M: MemorySize>(
 
         // reborrow and update the size
         if is_stdio == false {
-            {
+            if can_update_cursor && should_update_cursor {
                 let mut fd_map = state.fs.fd_map.write().unwrap();
                 let fd_entry = wasi_try_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
                 fd_entry
@@ -245,7 +253,9 @@ fn fd_write_internal<M: MemorySize>(
             // we set the size but we don't return any errors if it fails as
             // pipes and sockets will not do anything with this
             let (mut memory, _, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
-            let _ = state.fs.filestat_resync_size(inodes.deref(), fd);
+            let inode = &inodes.arena[inode_idx];
+            // Cast is valid because we don't support 128 bit systems...
+            inode.stat.write().unwrap().st_size += bytes_written as u64;
         }
         bytes_written
     };
