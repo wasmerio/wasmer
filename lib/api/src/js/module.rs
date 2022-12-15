@@ -638,16 +638,6 @@ impl Module {
         !val.is_undefined() && !val.is_null()
     }
 
-    // /// Get the custom sections of the module given a `name`.
-    // ///
-    // /// # Important
-    // ///
-    // /// Following the WebAssembly spec, one name can have multiple
-    // /// custom sections. That's why an iterator (rather than one element)
-    // /// is returned.
-    // pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
-    //     unimplemented!();
-    // }
     /// Get the custom sections of the module given a `name`.
     ///
     /// # Important
