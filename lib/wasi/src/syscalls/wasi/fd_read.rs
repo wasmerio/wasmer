@@ -163,7 +163,19 @@ fn fd_read_internal<M: MemorySize>(
 
                                 let mut data = Vec::with_capacity(max_size);
                                 unsafe { data.set_len(max_size) };
-                                let amt = handle.read(&mut data[..]).await.map_err(map_io_err)?;
+                                let amt = handle.read(&mut data[..]).await.map_err(|err| {
+                                    let err = From::<std::io::Error>::from(err);
+                                    match err {
+                                        Errno::Again => {
+                                            if is_stdio {
+                                                Errno::Badf
+                                            } else {
+                                                Errno::Again
+                                            }
+                                        }
+                                        a => a,
+                                    }
+                                })?;
                                 unsafe { data.set_len(amt) };
                                 Ok(data)
                             }
