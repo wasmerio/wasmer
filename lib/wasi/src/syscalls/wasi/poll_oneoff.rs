@@ -142,7 +142,7 @@ pub(crate) fn poll_oneoff_internal(
                     || clock_info.clock_id == Clockid::Monotonic
                 {
                     tracing::trace!(
-                        "wasi[{}:{}]::poll_oneoff clock_id={} timeout={}",
+                        "wasi[{}:{}]::poll_oneoff clock_id={:?} timeout={}",
                         pid,
                         tid,
                         clock_info.clock_id,
@@ -325,10 +325,10 @@ pub(crate) fn poll_oneoff_internal(
                 u: EventUnion { clock: 0 },
             };
             tracing::trace!(
-                "wasi[{}:{}]::poll_oneoff clock_id={} (event={:?})",
+                "wasi[{}:{}]::poll_oneoff clock_id={:?} (event={:?})",
                 pid,
                 tid,
-                clock_info.id,
+                clock_info.clock_id,
                 evt
             );
             triggered_events_tx.send(evt).unwrap();
