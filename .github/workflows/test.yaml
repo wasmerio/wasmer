@@ -17,7 +17,7 @@ jobs:
 
   setup:
     name: Set up
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     outputs:
       VERSION: ${{ steps.setup.outputs.VERSION }}
       DOING_RELEASE: ${{ steps.setup.outputs.DOING_RELEASE }}
@@ -35,7 +35,7 @@ jobs:
 
   lint:
     name: Code lint
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Install Rust
@@ -76,14 +76,14 @@ jobs:
 
   cargo_deny:
     name: cargo-deny
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - uses: EmbarkStudios/cargo-deny-action@v1
 
   test_nodejs:
     name: Test on NodeJS
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - name: Install Rust
@@ -106,7 +106,7 @@ jobs:
 
   test_wasm_build:
     name: Test wasm build
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v2
       - name: rustup target add wasm32-wasi
@@ -116,7 +116,7 @@ jobs:
   
   build_linux_aarch64:
     name: ${{ matrix.build-what.name }} on linux-aarch64
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix: 
@@ -156,7 +156,7 @@ jobs:
 
   build_capi_windows_gnu:
     name: Build C-API on windows-gnu
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v2
       - name: Install Windows-GNU linker
@@ -233,14 +233,14 @@ jobs:
         metadata: [
           { 
             build: linux-x64, 
-            os: ubuntu-18.04, 
+            os: ubuntu-22.04, 
             target: x86_64-unknown-linux-gnu,  
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           },
           {
             build: linux-musl,
             target: x86_64-unknown-linux-musl,
-            os: ubuntu-18.04,
+            os: ubuntu-22.04,
             container: 'alpine:latest'
           },
           {
@@ -408,7 +408,7 @@ jobs:
           # We cannot test on macos-arm since we don't have ARM runners
           { 
             build: linux-x64, 
-            os: ubuntu-18.04, 
+            os: ubuntu-22.04, 
             target: x86_64-unknown-linux-gnu,  
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           },
@@ -427,7 +427,7 @@ jobs:
           {
             build: linux-musl,
             target: x86_64-unknown-linux-musl,
-            os: ubuntu-18.04,
+            os: ubuntu-22.04,
             container: 'alpine:latest'
           }
         ]
@@ -526,7 +526,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-18.04
+            os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
           - build: macos-x64
@@ -543,7 +543,7 @@ jobs:
             llvm_choco_version: 13.0.0
           - build: linux-musl
             target: x86_64-unknown-linux-musl
-            os: ubuntu-18.04
+            os: ubuntu-22.04
             container: alpine:latest
     container: ${{ matrix.container }}
     env:
