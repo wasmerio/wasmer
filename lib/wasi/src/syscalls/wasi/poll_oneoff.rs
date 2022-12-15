@@ -141,6 +141,14 @@ pub(crate) fn poll_oneoff_internal(
                 if clock_info.clock_id == Clockid::Realtime
                     || clock_info.clock_id == Clockid::Monotonic
                 {
+                    tracing::trace!(
+                        "wasi[{}:{}]::poll_oneoff clock_id={} timeout={}",
+                        pid,
+                        tid,
+                        clock_info.clock_id,
+                        clock_info.timeout
+                    );
+
                     // this is a hack
                     // TODO: do this properly
                     time_to_sleep = Some(Duration::from_nanos(clock_info.timeout));
@@ -165,18 +173,6 @@ pub(crate) fn poll_oneoff_internal(
     if let Some(time_to_sleep) = time_to_sleep.as_mut() {
         *time_to_sleep = Duration::from_millis(5).max(*time_to_sleep);
     }
-
-    // If there is a timeout we need to use the runtime to measure this
-    // otherwise we just process all the events and wait on them indefinately
-    if let Some(time_to_sleep) = time_to_sleep.as_ref() {
-        tracing::trace!(
-            "wasi[{}:{}]::poll_oneoff wait_for_timeout={}",
-            pid,
-            tid,
-            time_to_sleep.as_millis()
-        );
-    }
-    let time_to_sleep = time_to_sleep;
 
     let mut events_seen: u32 = 0;
 
@@ -296,6 +292,15 @@ pub(crate) fn poll_oneoff_internal(
         }
     };
 
+    if let Some(time_to_sleep) = time_to_sleep.as_ref() {
+        tracing::trace!(
+            "wasi[{}:{}]::poll_oneoff wait_for_timeout={}",
+            pid,
+            tid,
+            time_to_sleep.as_millis()
+        );
+    }
+
     // Block on the work and process process
     let mut env = ctx.data();
     let mut ret = __asyncify(ctx, time_to_sleep, async move { work.await })?;
@@ -320,9 +325,10 @@ pub(crate) fn poll_oneoff_internal(
                 u: EventUnion { clock: 0 },
             };
             tracing::trace!(
-                "wasi[{}:{}]::poll_oneoff triggered_timeout (event={:?})",
+                "wasi[{}:{}]::poll_oneoff clock_id={} (event={:?})",
                 pid,
                 tid,
+                clock_info.id,
                 evt
             );
             triggered_events_tx.send(evt).unwrap();
