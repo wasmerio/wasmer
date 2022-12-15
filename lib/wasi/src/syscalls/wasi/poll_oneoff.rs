@@ -168,18 +168,6 @@ pub(crate) fn poll_oneoff_internal(
     }
     drop(env);
 
-    // In order to prevent polling from smashing the CPU we add a minimum
-    // sleep time which is roughly equal the size of a Linux time interval
-    // and infinite wait if the poll is waiting on files and doesn't supply
-    // a proper timeout value
-    if let Some(sleep_time) = time_to_sleep.clone() {
-        if sleep_time.is_zero() && subscriptions.is_empty() == false {
-            time_to_sleep = None;
-        } else {
-            time_to_sleep = Some(Duration::from_millis(5).max(sleep_time));
-        }
-    }
-
     let mut events_seen: u32 = 0;
 
     // Build the async function we will block on
