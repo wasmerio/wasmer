@@ -347,6 +347,7 @@ jobs:
           aws-s3-force-path-style: true
       - name: ${{ matrix.build-what.name }}
         shell: bash
+        if: ${{ !(matrix.build-what.key == 'test-capi' && matrix.metadata.build == 'macos-arm') }}
         run: ${{ matrix.build-what.build-cmd }}
         env:
           TARGET: ${{ matrix.metadata.target }}
