@@ -39,7 +39,7 @@ pub fn fd_read<M: MemorySize>(
         fd_entry.offset.load(Ordering::Acquire) as usize
     };
 
-    fd_read_internal::<M>(ctx, fd, iovs, iovs_len, offset, nread)
+    fd_read_internal::<M>(ctx, fd, iovs, iovs_len, offset, nread, true)
 }
 
 /// ### `fd_pread()`
@@ -73,7 +73,7 @@ pub fn fd_pread<M: MemorySize>(
         offset
     );
 
-    fd_read_internal::<M>(ctx, fd, iovs, iovs_len, offset as usize, nread)
+    fd_read_internal::<M>(ctx, fd, iovs, iovs_len, offset as usize, nread, false)
 }
 
 /// ### `fd_pread()`
@@ -98,6 +98,7 @@ fn fd_read_internal<M: MemorySize>(
     iovs_len: M::Offset,
     offset: usize,
     nread: WasmPtr<M::Offset, M>,
+    should_update_cursor: bool,
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
 
@@ -132,7 +133,7 @@ fn fd_read_internal<M: MemorySize>(
             max_size
         };
 
-        let bytes_read = {
+        let (bytes_read, can_update_cursor) = {
             let inodes = inodes.read().unwrap();
             let inode = &inodes.arena[inode_idx];
             let mut guard = inode.write();
@@ -175,7 +176,8 @@ fn fd_read_internal<M: MemorySize>(
 
                         let memory = env.memory_view(&ctx);
                         let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
-                        wasi_try_ok!(read_bytes(&data[..], &memory, iovs_arr))
+                        let read = wasi_try_ok!(read_bytes(&data[..], &memory, iovs_arr));
+                        (read, true)
                     } else {
                         return Ok(Errno::Inval);
                     }
@@ -207,7 +209,7 @@ fn fd_read_internal<M: MemorySize>(
                     let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
                     let bytes_read =
                         wasi_try_ok!(read_bytes(reader, &memory, iovs_arr).map(|_| data_len));
-                    bytes_read
+                    (bytes_read, false)
                 }
                 Kind::Pipe { pipe } => {
                     let mut pipe = pipe.clone();
@@ -245,7 +247,7 @@ fn fd_read_internal<M: MemorySize>(
                     let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
                     let bytes_read =
                         wasi_try_ok!(read_bytes(reader, &memory, iovs_arr).map(|_| data_len));
-                    bytes_read
+                    (bytes_read, false)
                 }
                 Kind::Dir { .. } | Kind::Root { .. } => {
                     // TODO: verify
@@ -309,22 +311,23 @@ fn fd_read_internal<M: MemorySize>(
                         }));
                         env = ctx.data();
                     }
-                    ret
+                    (ret, false)
                 }
                 Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_read"),
                 Kind::Buffer { buffer } => {
                     let memory = env.memory_view(&ctx);
                     let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
-                    wasi_try_ok!(read_bytes(&buffer[offset..], &memory, iovs_arr))
+                    let read = wasi_try_ok!(read_bytes(&buffer[offset..], &memory, iovs_arr));
+                    (read, true)
                 }
             }
         };
 
-        if is_stdio == false {
+        if is_stdio == false && should_update_cursor && can_update_cursor {
             // reborrow
             let mut fd_map = state.fs.fd_map.write().unwrap();
             let fd_entry = wasi_try_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
-            fd_entry
+            let old = fd_entry
                 .offset
                 .fetch_add(bytes_read as u64, Ordering::AcqRel);
         }
@@ -334,9 +337,10 @@ fn fd_read_internal<M: MemorySize>(
 
     let bytes_read: M::Offset = wasi_try_ok!(bytes_read.try_into().map_err(|_| Errno::Overflow));
     trace!(
-        "wasi[{}:{}]::fd_read: bytes_read={}",
+        "wasi[{}:{}]::fd_read: fd={},bytes_read={}",
         ctx.data().pid(),
         ctx.data().tid(),
+        fd,
         bytes_read
     );
 
