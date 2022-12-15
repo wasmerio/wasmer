@@ -225,11 +225,6 @@ jobs:
             name: 'Build C-API + C-API integration tests'
           },
           {
-            key: test-capi,
-            build-cmd: 'make test-capi',
-            name: 'Test C-API'
-          },
-          {
             key: wasmer,
             build-cmd: 'make build-wasmer && make package-wasmer && make tar-wasmer',
             name: 'Build wasmer-cli'
@@ -347,12 +342,15 @@ jobs:
           aws-s3-force-path-style: true
       - name: ${{ matrix.build-what.name }}
         shell: bash
-        if: ${{ !(matrix.build-what.key == 'test-capi' && (matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm')) }}
         run: ${{ matrix.build-what.build-cmd }}
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: --target ${{ matrix.metadata.target }}
+      - name: Test C-API
+        shell: bash
+        if: ${{ !(matrix.build-what.key == 'capi' && (matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm')) }}
+        run: make test-capi-ci
       # C-API tests were disabled for linux-musl and macos-arm (we can't run them)
       - name: Test C-API integration
         shell: bash
