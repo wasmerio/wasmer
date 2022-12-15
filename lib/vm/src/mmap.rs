@@ -7,6 +7,8 @@
 use more_asserts::assert_le;
 use more_asserts::assert_lt;
 use std::io;
+use std::io::Read;
+use std::io::Write;
 use std::ptr;
 use std::slice;
 #[cfg(feature = "tracing")]
@@ -355,28 +357,19 @@ impl Mmap {
                 // The shallow copy failed so we have to do it the hard way
                 let mut off_in: libc::off_t = 0;
                 let mut off_out: libc::off_t = 0;
-                #[cfg(not(target_vendor = "apple"))]
-                let ret = libc::copy_file_range(self.fd.0, &mut off_in, fd.0, &mut off_out, len, 0);
 
-                // FIXME: implement better copy on Apple targets.
-                // Mac libc does not have copy_file_range.
-                // It does have fcopyfile, which we should probably use.
-                // This is just a quick fix to get it working.
-                #[cfg(target_vendor = "apple")]
-                let ret = {
-                    use std::{io::Seek, os::unix::io::FromRawFd};
-
-                    let mut f1 = std::fs::File::from_raw_fd(self.fd.0);
-                    let pos = f1.stream_position().map_err(|err| err.to_string())?;
-
-                    let mut f2 = std::fs::File::from_raw_fd(fd.0);
-                    std::io::copy(&mut f1, &mut f2).map_err(|err| err.to_string())?;
-                    f2.seek(std::io::SeekFrom::Start(0))
-                        .map_err(|err| err.to_string())?;
-                    f1.seek(std::io::SeekFrom::Start(pos))
-                        .map_err(|err| err.to_string())?;
-                    0
-                };
+                cfg_if::cfg_if! {
+                    if #[cfg(not(any(target_env = "musl", target_vendor = "apple")))]
+                    {
+                        let ret = libc::copy_file_range(self.fd.0, &mut off_in, fd.0, &mut off_out, len, 0);
+                    } else {
+                        // TODO: don't use as casts...
+                        let ret = match copy_file_range_impl(self.fd.0, off_in as u64, fd.0, off_out as u64, len) {
+                            Ok(_) => 0,
+                            Err(_err) => -1,
+                        };
+                    }
+                }
 
                 if ret < 0 {
                     return Err(format!(
@@ -441,6 +434,65 @@ impl Mmap {
         trace!("memory copy finished (size={})", len);
         Ok(new_mmap)
     }
+}
+
+/// Rust implementation of libc::copy_file_range.
+///
+/// Needed because that function is not available on all platforms.
+// TODO: better implementation! (this is very quick, low effort)
+// TODO: this function needs tests!
+#[allow(dead_code)]
+fn copy_file_range_impl(
+    source_fd: i32,
+    source_offset: u64,
+    out_fd: i32,
+    out_offset: u64,
+    len: usize,
+) -> Result<(), std::io::Error> {
+    use std::{
+        io::{Seek, SeekFrom},
+        os::unix::io::FromRawFd,
+    };
+
+    let mut f1 = unsafe { std::fs::File::from_raw_fd(source_fd) };
+    let f1_original_pos = f1.stream_position()?;
+
+    // TODO: don't cast with as
+    f1.seek(SeekFrom::Start(source_offset))?;
+
+    let mut f2 = unsafe { std::fs::File::from_raw_fd(out_fd) };
+    let f2_original_pos = f2.stream_position()?;
+    f2.seek(SeekFrom::Start(out_offset))?;
+
+    let mut reader = std::io::BufReader::new(f1);
+    let mut writer = std::io::BufWriter::new(f2);
+
+    let mut buffer = vec![0u8; 4096];
+
+    let mut offset = 0;
+    let end = len.saturating_sub(buffer.len());
+    while offset < end {
+        let read = reader.read(&mut buffer)?;
+        writer.write_all(&buffer)?;
+        offset += read;
+    }
+    // Need to read the last chunk.
+    let remaining = len - offset;
+    if remaining > 0 {
+        reader.read_exact(&mut buffer[0..remaining])?;
+        writer.write_all(&buffer[0..remaining])?;
+    }
+
+    writer.flush()?;
+
+    // Restore files to original position.
+    let mut f1 = reader.into_inner();
+    f1.seek(SeekFrom::Start(f1_original_pos))?;
+
+    let mut f2 = writer.into_inner()?;
+    f2.seek(SeekFrom::Start(f2_original_pos))?;
+
+    Ok(())
 }
 
 impl Drop for Mmap {
