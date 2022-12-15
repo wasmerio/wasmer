@@ -8,6 +8,8 @@ use wasmer_vm::{init_traps, StoreId, TrapHandler, TrapHandlerFn};
 
 use wasmer_vm::StoreObjects;
 
+/// Call handler for a store.
+// TODO: better documentation!
 pub type OnCalledHandler = Box<
     dyn FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
 >;
