@@ -79,8 +79,11 @@ where
 
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
 pub trait Compiler: Send {
-    /// Gets the name of this compiler
-    fn name(&self) -> &str;
+    /// Returns a descriptive name for this compiler.
+    // TODO!: Probably want to make this mandatory on the next major bump.
+    fn name(&self) -> &str {
+        "UNKNOWN"
+    }
 
     /// Validates a module.
     ///
