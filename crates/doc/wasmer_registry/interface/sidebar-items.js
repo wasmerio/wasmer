@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":[["get_interface_version_query",""]],"struct":[["GetInterfaceVersionQuery",""],["InterfaceFromServer",""]]};

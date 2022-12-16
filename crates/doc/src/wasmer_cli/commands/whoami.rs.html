@@ -37,7 +37,7 @@
 <span class="kw">impl</span> <span class="ident">Whoami</span> {
     <span class="doccomment">/// Execute `wasmer whoami`</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">registry</span>, <span class="ident">username</span>) <span class="op">=</span> <span class="ident">wasmer_registry::whoami</span>(<span class="self">self</span>.<span class="ident">registry</span>.<span class="ident">as_deref</span>())<span class="question-mark">?</span>;
+        <span class="kw">let</span> (<span class="ident">registry</span>, <span class="ident">username</span>) <span class="op">=</span> <span class="ident">wasmer_registry::whoami</span>(<span class="self">self</span>.<span class="ident">registry</span>.<span class="ident">as_deref</span>(), <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
         <span class="macro">println!</span>(<span class="string">&quot;logged into registry {registry:?} as user {username:?}&quot;</span>);
         <span class="prelude-val">Ok</span>(())
     }

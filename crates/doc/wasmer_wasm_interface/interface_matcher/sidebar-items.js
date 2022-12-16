@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["InterfaceMatcher","A struct containing data for more efficient matching."]]};
