@@ -614,7 +614,7 @@ jobs:
       - name: Test integration CLI
         if: matrix.build != 'macos-arm'
         shell: bash
-        run: export WASMER_DIR=`pwd`/package && make test-integration-cli
+        run: export WASMER_DIR=`pwd`/package && make test-integration-cli-ci
         env:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
