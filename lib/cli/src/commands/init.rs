@@ -331,11 +331,7 @@ fn construct_manifest(
     quiet: bool,
 ) -> wapm_toml::Manifest {
     let package_name = cargo_toml.as_ref().map(|p| &p.name).unwrap_or(package_name);
-
-    let namespace = namespace.or_else(|| {
-        let username = wasmer_registry::whoami(None, None).ok().map(|o| o.1);
-        username.or_else(|| package_name.split('/').next().map(|s| s.to_string()))
-    });
+    let namespace = namespace.or_else(|| wasmer_registry::whoami(None, None).ok().map(|o| o.1));
     let module_name = package_name
         .split('/')
         .last()
@@ -421,7 +417,10 @@ fn construct_manifest(
 
     wapm_toml::Manifest {
         package: wapm_toml::Package {
-            name: format!("{}/{module_name}", namespace.as_deref().unwrap_or("_")),
+            name: match namespace {
+                None => module_name,
+                Some(s) => format!("{s}/{module_name}"),
+            },
             version,
             description,
             license,
