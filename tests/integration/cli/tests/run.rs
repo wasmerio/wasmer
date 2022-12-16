@@ -2,7 +2,7 @@
 
 use anyhow::{bail, Context};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use wasmer_integration_tests_cli::{get_repo_root_path, get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
 
 fn wasi_test_python_path() -> PathBuf {
@@ -202,10 +202,12 @@ fn package_directory(in_dir: &PathBuf, out: &PathBuf) {
 #[cfg(feature = "webc_runner")]
 #[test]
 fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
-    let temp_dir = tempfile::TempDir::new()?;
-    let python_wasmer_path = temp_dir.path().join("python.wasmer");
+    // let temp_dir = tempfile::TempDir::new()?;
+    let temp_dir = Path::new("./debug");
+    std::fs::create_dir_all(&temp_dir);
+    let python_wasmer_path = temp_dir.join("python.wasmer");
     std::fs::copy(wasi_test_python_path(), &python_wasmer_path)?;
-    let python_exe_output_path = temp_dir.path().join("python");
+    let python_exe_output_path = temp_dir.join("python");
 
     let native_target = target_lexicon::HOST;
     let root_path = get_repo_root_path().unwrap();
@@ -237,10 +239,14 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     cmd.arg(format!("{native_target}"));
     cmd.arg("-o");
     cmd.arg(&python_exe_output_path);
-
+    cmd.arg("--debug-dir");
+    cmd.arg(&temp_dir);
     println!("running: {cmd:?}");
 
-    let output = cmd.output()?;
+    let output = cmd
+    .stdout(Stdio::inherit())
+    .stderr(Stdio::inherit())
+    .output()?;
 
     if !output.status.success() {
         let stdout = std::str::from_utf8(&output.stdout)

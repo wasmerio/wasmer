@@ -367,7 +367,7 @@ check-capi: capi-setup
 		--no-default-features --features wat,compiler,wasi,middlewares $(capi_compiler_features)
 
 build-wasmer:
-	$(CARGO_BINARY) build $(CARGO_TARGET) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --features="webc_runner" --bin wasmer
+	$(CARGO_BINARY) build $(CARGO_TARGET) --release --manifest-path lib/cli/Cargo.toml --features cranelift,singlepass --features="webc_runner" --bin wasmer
 
 build-wasmer-debug:
 	$(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/cli/Cargo.toml $(compiler_features) --features "webc_runner,debug"  --bin wasmer
@@ -550,6 +550,10 @@ test-examples:
 
 test-integration-cli:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
+
+# run cargo test first in multithreading mode, then in single threading mode only on failure
+test-integration-cli-ci:
+	$(CARGO_BINARY) test $(CARGO_TARGET) --features webc_runner -p wasmer-integration-tests-cli || $(CARGO_BINARY) test $(CARGO_TARGET) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
 
 test-integration-ios:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --features webc_runner -p wasmer-integration-tests-ios
