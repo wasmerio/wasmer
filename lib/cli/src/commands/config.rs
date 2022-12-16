@@ -3,6 +3,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use std::env;
 use std::path::PathBuf;
+use std::str::ParseBoolError;
 use wasmer_registry::WasmerConfig;
 
 #[derive(Debug, Parser)]
@@ -19,33 +20,33 @@ pub enum Config {
 /// Value that can be queried from the wasmer config
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, clap::Subcommand)]
 pub enum RetrievableConfigField {
-    /// `prefix`
+    /// Print the wasmer installation path (WASMER_DIR)
     Prefix,
-    /// `bin-dir`
+    /// Print the /bin directory where wasmer is installed
     Bindir,
-    /// `includedir`
+    /// Print the /include dir
     Includedir,
-    /// `libdir`
+    /// Print the /lib dir
     Libdir,
-    /// `libs`
+    /// Print the linker flags for linking to libwasmer
     Libs,
-    /// `cflags`
+    /// Print the compiler flags for linking to libwasmer
     Cflags,
-    /// `pkg-config`
+    /// Print the pkg-config configuration
     PkgConfig,
-    /// `registry.url`
+    /// Print the registry URL of the currently active registry
     #[clap(name = "registry.url")]
     RegistryUrl,
-    /// `registry.token`
+    /// Print the token for the currently active registry or nothing if not logged in
     #[clap(name = "registry.token")]
     RegistryToken,
-    /// `telemetry.enabled`
+    /// Print whether telemetry is currently enabled
     #[clap(name = "telemetry.enabled")]
     TelemetryEnabled,
-    /// `update-notifications.url`
+    /// Print whether update notifications are enabled
     #[clap(name = "update-notifications.enabled")]
     UpdateNotificationsEnabled,
-    /// `proxy.url`
+    /// Print the proxy URL
     #[clap(name = "proxy.url")]
     ProxyUrl,
 }
@@ -91,7 +92,18 @@ pub struct SetRegistryToken {
 pub struct SetUpdateNotificationsEnabled {
     /// Whether to enable update notifications
     #[clap(name = "ENABLED", possible_values = ["true", "false"])]
-    pub enabled: String,
+    pub enabled: BoolString,
+}
+
+/// "true" or "false" for handling input in the CLI
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct BoolString(pub bool);
+
+impl std::str::FromStr for BoolString {
+    type Err = ParseBoolError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self(bool::from_str(s)?))
+    }
 }
 
 /// Set if telemetry is enabled
@@ -99,7 +111,7 @@ pub struct SetUpdateNotificationsEnabled {
 pub struct SetTelemetryEnabled {
     /// Whether to enable telemetry
     #[clap(name = "ENABLED", possible_values = ["true", "false"])]
-    pub enabled: String,
+    pub enabled: BoolString,
 }
 
 /// Set if a proxy URL should be used
@@ -192,10 +204,10 @@ impl Config {
                             }
                         }
                         RetrievableConfigField::TelemetryEnabled => {
-                            println!("{}", config.telemetry.enabled.replace('\"', ""));
+                            println!("{:?}", config.telemetry.enabled);
                         }
                         RetrievableConfigField::UpdateNotificationsEnabled => {
-                            println!("{}", config.update_notifications.enabled.replace('\"', ""));
+                            println!("{:?}", config.update_notifications.enabled);
                         }
                         _ => {}
                     }
@@ -228,13 +240,13 @@ impl Config {
                         );
                     }
                     StorableConfigField::TelemetryEnabled(t) => {
-                        config.telemetry.enabled = format!("{:?}", t.enabled);
+                        config.telemetry.enabled = t.enabled.0;
                     }
                     StorableConfigField::ProxyUrl(p) => {
                         config.proxy.url = p.url.clone();
                     }
                     StorableConfigField::UpdateNotificationsEnabled(u) => {
-                        config.update_notifications.enabled = format!("{:?}", u.enabled);
+                        config.update_notifications.enabled = u.enabled.0;
                     }
                 }
 
