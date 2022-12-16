@@ -4,7 +4,7 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-pub static GLOBAL_CONFIG_DATABASE_FILE_NAME: &str = "wapm.sqlite";
+pub static GLOBAL_CONFIG_DATABASE_FILE_NAME: &str = "wasmer.sqlite";
 
 #[derive(Deserialize, Default, Serialize, Debug, PartialEq, Eq)]
 pub struct PartialWapmConfig {
