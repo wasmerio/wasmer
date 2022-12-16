@@ -108,7 +108,7 @@ impl Init {
         };
 
         let cargo_toml = if manifest_path.exists() {
-            Some(parse_cargo_toml(&manifest_path)?)
+            parse_cargo_toml(&manifest_path).ok()
         } else {
             None
         };
@@ -346,6 +346,14 @@ fn construct_manifest(
     include_fs: &[String],
     quiet: bool,
 ) -> wapm_toml::Manifest {
+    if cargo_toml.is_some() {
+        let msg = "NOTE: Initializing wasmer.toml file with metadata from Cargo.toml";
+        if !quiet {
+            println!("{msg}");
+        }
+        log::warn!("{msg}");
+    }
+
     let package_name = package_name.unwrap_or_else(|| {
         cargo_toml
             .as_ref()
