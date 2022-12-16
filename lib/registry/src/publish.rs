@@ -1,6 +1,6 @@
 use crate::graphql::{execute_query_modifier_inner, get_signed_url, GetSignedUrl};
 use crate::graphql::{publish_package_mutation_chunked, PublishPackageMutationChunked};
-use crate::{format_graphql, PartialWapmConfig};
+use crate::{format_graphql, WasmerConfig};
 use console::{style, Emoji};
 use graphql_client::GraphQLQuery;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
@@ -40,9 +40,9 @@ pub fn try_chunked_uploading(
         Some(s) => format_graphql(s),
         None => {
             #[cfg(not(test))]
-            let config = PartialWapmConfig::from_file();
+            let config = WasmerConfig::from_file();
             #[cfg(test)]
-            let config = PartialWapmConfig::from_file("publish");
+            let config = WasmerConfig::from_file("publish");
 
             config
                 .map_err(|e| anyhow::anyhow!("{e}"))?
@@ -55,9 +55,9 @@ pub fn try_chunked_uploading(
         Some(s) => s.to_string(),
         None => {
             #[cfg(not(test))]
-            let config = PartialWapmConfig::from_file();
+            let config = WasmerConfig::from_file();
             #[cfg(test)]
-            let config = PartialWapmConfig::from_file("publish");
+            let config = WasmerConfig::from_file("publish");
 
             config
                 .map_err(|e| anyhow::anyhow!("{e}"))?

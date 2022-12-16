@@ -130,7 +130,6 @@ enum WasmerCLIOptions {
 
     /// Get various configuration information needed
     /// to compile programs which use Wasmer
-    #[clap(subcommand)]
     Config(Config),
 
     /// Update wasmer to the latest version

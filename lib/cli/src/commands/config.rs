@@ -8,7 +8,50 @@ use wasmer_registry::WasmerConfig;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer config` subcommand: `wasmer config get prefix`
-pub enum Config {
+pub struct Config {
+    #[clap(flatten)]
+    flags: Flags,
+    /// Subcommand for `wasmer config get | set`
+    #[clap(subcommand)]
+    get_or_set: Option<GetOrSet>,
+}
+
+/// Normal configuration
+#[derive(Debug, Parser)]
+pub struct Flags {
+    /// Print the installation prefix.
+    #[clap(long, conflicts_with = "pkg-config")]
+    prefix: bool,
+
+    /// Directory containing Wasmer executables.
+    #[clap(long, conflicts_with = "pkg-config")]
+    bindir: bool,
+
+    /// Directory containing Wasmer headers.
+    #[clap(long, conflicts_with = "pkg-config")]
+    includedir: bool,
+
+    /// Directory containing Wasmer libraries.
+    #[clap(long, conflicts_with = "pkg-config")]
+    libdir: bool,
+
+    /// Libraries needed to link against Wasmer components.
+    #[clap(long, conflicts_with = "pkg-config")]
+    libs: bool,
+
+    /// C compiler flags for files that include Wasmer headers.
+    #[clap(long, conflicts_with = "pkg-config")]
+    cflags: bool,
+
+    /// It outputs the necessary details for compiling
+    /// and linking a program to Wasmer, using the `pkg-config` format.
+    #[clap(long)]
+    pkg_config: bool,
+}
+
+/// Subcommand for `wasmer config get | set`
+#[derive(Debug, Clone, PartialEq, Parser)]
+enum GetOrSet {
     /// Get a value from the current wasmer config
     #[clap(subcommand)]
     Get(RetrievableConfigField),
@@ -18,22 +61,8 @@ pub enum Config {
 }
 
 /// Value that can be queried from the wasmer config
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, clap::Subcommand)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
 pub enum RetrievableConfigField {
-    /// Print the wasmer installation path (WASMER_DIR)
-    Prefix,
-    /// Print the /bin directory where wasmer is installed
-    Bindir,
-    /// Print the /include dir
-    Includedir,
-    /// Print the /lib dir
-    Libdir,
-    /// Print the linker flags for linking to libwasmer
-    Libs,
-    /// Print the compiler flags for linking to libwasmer
-    Cflags,
-    /// Print the pkg-config configuration
-    PkgConfig,
     /// Print the path to the configuration file
     #[clap(name = "config.path")]
     ConfigPath,
@@ -55,7 +84,7 @@ pub enum RetrievableConfigField {
 }
 
 /// Setting that can be stored in the wasmer config
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, clap::Subcommand)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
 pub enum StorableConfigField {
     /// `registry.url`
     #[clap(name = "registry.url")]
@@ -132,7 +161,11 @@ impl Config {
             .context("failed to retrieve the wasmer config".to_string())
     }
     fn inner_execute(&self) -> Result<()> {
-        use self::Config::{Get, Set};
+        if let Some(gs) = self.get_or_set.as_ref() {
+            return gs.execute();
+        }
+
+        let flags = &self.flags;
 
         let key = "WASMER_DIR";
         let wasmer_dir = env::var(key)
@@ -155,38 +188,47 @@ impl Config {
         let cflags = format!("-I{}", includedir);
         let libs = format!("-L{} -lwasmer", libdir);
 
+        if flags.pkg_config {
+            println!("prefix={}", prefixdir);
+            println!("exec_prefix={}", bindir);
+            println!("includedir={}", includedir);
+            println!("libdir={}", libdir);
+            println!();
+            println!("Name: wasmer");
+            println!("Description: The Wasmer library for running WebAssembly");
+            println!("Version: {}", VERSION);
+            println!("Cflags: {}", cflags);
+            println!("Libs: {}", libs);
+            return Ok(());
+        }
+        if flags.prefix {
+            println!("{}", prefixdir);
+        }
+        if flags.bindir {
+            println!("{}", bindir);
+        }
+        if flags.includedir {
+            println!("{}", includedir);
+        }
+        if flags.libdir {
+            println!("{}", libdir);
+        }
+        if flags.libs {
+            println!("{}", libs);
+        }
+        if flags.cflags {
+            println!("{}", cflags);
+        }
+
+        Ok(())
+    }
+}
+
+impl GetOrSet {
+    fn execute(&self) -> Result<()> {
+        use self::GetOrSet::{Get, Set};
         match self {
             Get(g) => match g {
-                RetrievableConfigField::PkgConfig => {
-                    println!("prefix={}", prefixdir);
-                    println!("exec_prefix={}", bindir);
-                    println!("includedir={}", includedir);
-                    println!("libdir={}", libdir);
-                    println!();
-                    println!("Name: wasmer");
-                    println!("Description: The Wasmer library for running WebAssembly");
-                    println!("Version: {}", VERSION);
-                    println!("Cflags: {}", cflags);
-                    println!("Libs: {}", libs);
-                }
-                RetrievableConfigField::Prefix => {
-                    println!("{}", prefixdir);
-                }
-                RetrievableConfigField::Bindir => {
-                    println!("{}", bindir);
-                }
-                RetrievableConfigField::Includedir => {
-                    println!("{}", includedir);
-                }
-                RetrievableConfigField::Libdir => {
-                    println!("{}", libdir);
-                }
-                RetrievableConfigField::Libs => {
-                    println!("{}", libs);
-                }
-                RetrievableConfigField::Cflags => {
-                    println!("{}", cflags);
-                }
                 RetrievableConfigField::ConfigPath => {
                     let path = WasmerConfig::get_file_location()
                         .map_err(|e| anyhow::anyhow!("could not find config file: {e}"))?;
@@ -263,6 +305,7 @@ impl Config {
                     .with_context(|| anyhow::anyhow!("could not save config file"))?;
             }
         }
+
         Ok(())
     }
 }

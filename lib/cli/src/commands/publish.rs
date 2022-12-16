@@ -10,7 +10,7 @@ use thiserror::Error;
 use time::{self, OffsetDateTime};
 use wasmer_registry::publish::SignArchiveResult;
 use wasmer_registry::Package;
-use wasmer_registry::PartialWapmConfig;
+use wasmer_registry::WasmerConfig;
 
 const CURRENT_DATA_VERSION: i32 = 3;
 
@@ -342,8 +342,7 @@ pub fn sign_compressed_archive(
 
 /// Opens an exclusive read/write connection to the database, creating it if it does not exist
 pub fn open_db() -> anyhow::Result<Connection> {
-    let db_path =
-        PartialWapmConfig::get_database_file_path().map_err(|e| anyhow::anyhow!("{e}"))?;
+    let db_path = WasmerConfig::get_database_file_path().map_err(|e| anyhow::anyhow!("{e}"))?;
     let mut conn = Connection::open_with_flags(
         db_path,
         OpenFlags::SQLITE_OPEN_CREATE
