@@ -9,6 +9,7 @@ use tar::Builder;
 use thiserror::Error;
 use time::{self, OffsetDateTime};
 use wasmer_registry::publish::SignArchiveResult;
+use wasmer_registry::Package;
 use wasmer_registry::PartialWapmConfig;
 
 const CURRENT_DATA_VERSION: i32 = 3;
@@ -86,7 +87,7 @@ impl Publish {
         }
 
         // See if a user is logged in. The backend should check for authorization on uploading
-        let (registry, _username) =
+        let (registry, username) =
             wasmer_registry::whoami(self.registry.as_deref(), self.token.as_deref()).with_context(
                 || {
                     anyhow::anyhow!(
@@ -104,6 +105,19 @@ impl Publish {
             return Err(anyhow::anyhow!(
                 "registry {} is currently unavailable",
                 registry
+            ));
+        }
+
+        // If the package name is not a "/", try to prefix it with the current logged in user
+        if !Package::validate_package_name(&manifest.package.name) {
+            manifest.package.name = format!("{username}/{}", manifest.package.name);
+        }
+
+        // Validate the name again
+        if !Package::validate_package_name(&manifest.package.name) {
+            return Err(anyhow::anyhow!(
+                "Invalid package name {:?}",
+                manifest.package.name
             ));
         }
 

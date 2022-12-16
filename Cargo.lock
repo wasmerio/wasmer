@@ -4580,6 +4580,7 @@ dependencies = [
  "graphql_client",
  "hex",
  "indicatif",
+ "lazy_static",
  "log",
  "lzma-rs",
  "rand 0.8.5",
