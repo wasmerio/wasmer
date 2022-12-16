@@ -155,7 +155,6 @@ wildcards = "allow"
 highlight = "all"
 # List of crates that are allowed. Use with care!
 allow = [
-    { name = "webc" },
     #{ name = "ansi_term", version = "=0.11.0" },
 ]
 # List of crates to deny
@@ -170,6 +169,7 @@ deny = [
 ]
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
+    { name = "webc" },
     { name = "ahash", version = "=0.4.7" },
     { name = "hashbrown", version = "=0.9.1" },
     { name = "cfg-if", version = "=0.1.10" },
