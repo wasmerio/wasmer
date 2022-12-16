@@ -351,11 +351,19 @@ jobs:
         shell: bash
         if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm') }}
         run: make test-capi-ci
+        env:
+          TARGET: ${{ matrix.metadata.target }}
+          TARGET_DIR: target/${{ matrix.metadata.target }}/release
+          CARGO_TARGET: --target ${{ matrix.metadata.target }}
       # C-API tests were disabled for linux-musl and macos-arm (we can't run them)
       - name: Test C-API integration
         shell: bash
         if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm') }}
         run: export WASMER_DIR=`pwd`/package && make test-stage-7-capi-integration-tests
+        env:
+          TARGET: ${{ matrix.metadata.target }}
+          TARGET_DIR: target/${{ matrix.metadata.target }}/release
+          CARGO_TARGET: --target ${{ matrix.metadata.target }}
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
