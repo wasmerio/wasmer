@@ -1,0 +1,24 @@
+[package]
+name = "wasmer-wasm-interface"
+version = "3.1.0"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+edition = "2018"
+repository = "https://github.com/wasmerio/wapm-cli"
+description = "WASM Interface definition and parser"
+readme = "README.md"
+license = "MIT"
+
+[dependencies]
+bincode = { version = "1", optional = true }
+either = "1.5"
+nom = "5"
+serde = { version = "1", features = ["derive"] }
+wasmparser = { version = "0.51.4", optional = true }
+
+[dev-dependencies]
+wat = "1.0"
+
+[features]
+validation = ["wasmparser"]
+binary_encode = ["bincode"]
+default = ["validation"]
