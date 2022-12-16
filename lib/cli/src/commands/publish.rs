@@ -9,7 +9,6 @@ use tar::Builder;
 use thiserror::Error;
 use time::{self, OffsetDateTime};
 use wasmer_registry::publish::SignArchiveResult;
-use wasmer_registry::Package;
 use wasmer_registry::PartialWapmConfig;
 
 const CURRENT_DATA_VERSION: i32 = 3;
@@ -86,40 +85,14 @@ impl Publish {
             manifest.package.version = version.clone();
         }
 
-        // See if a user is logged in. The backend should check for authorization on uploading
-        let (registry, username) =
-            wasmer_registry::whoami(self.registry.as_deref(), self.token.as_deref()).with_context(
-                || {
-                    anyhow::anyhow!(
-                        "could not find username / registry for registry = {:?}, token = {}",
-                        self.registry,
-                        self.token.as_deref().unwrap_or_default()
-                    )
-                },
-            )?;
-
-        let registry_present =
-            wasmer_registry::test_if_registry_present(&registry).unwrap_or(false);
-
-        if !registry_present {
-            return Err(anyhow::anyhow!(
-                "registry {} is currently unavailable",
-                registry
-            ));
-        }
-
-        // If the package name is not a "/", try to prefix it with the current logged in user
-        if !Package::validate_package_name(&manifest.package.name) {
-            manifest.package.name = format!("{username}/{}", manifest.package.name);
-        }
-
-        // Validate the name again
-        if !Package::validate_package_name(&manifest.package.name) {
-            return Err(anyhow::anyhow!(
-                "Invalid package name {:?}",
-                manifest.package.name
-            ));
-        }
+        let registry = match self.registry.as_deref() {
+            Some(s) => wasmer_registry::format_graphql(s),
+            None => {
+                let config = PartialWapmConfig::from_file()
+                    .map_err(|e| anyhow::anyhow!("could not load config {e}"))?;
+                config.registry.get_current_registry()
+            }
+        };
 
         if !self.no_validate {
             validate::validate_directory(&manifest, &registry, cwd.clone())?;
@@ -167,7 +140,7 @@ impl Publish {
         }
 
         wasmer_registry::publish::try_chunked_uploading(
-            self.registry.clone(),
+            Some(registry),
             self.token.clone(),
             &manifest.package,
             &manifest_string,
