@@ -40,7 +40,7 @@ wasmer-types = { version = "=3.1.0", path = "../types" }
 wasmer-registry = { version = "=3.1.0", path = "../registry" }
 wasmer-object = { version = "=3.1.0", path = "../object", optional = true }
 wasmer-vfs  = { version = "=3.1.0", path = "../vfs", default-features = false, features = ["host-fs"] }
-wasmer-wasm-interface = { version = "3.0.1", path = "../wasm-interface" }
+wasmer-wasm-interface = { version = "3.1.0", path = "../wasm-interface" }
 wasmparser = "0.51.4"
 atty = "0.2"
 colored = "2.0"
