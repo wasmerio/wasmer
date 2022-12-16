@@ -71,6 +71,7 @@ enum BinOrLib {
 // minimal version of the Cargo.toml [package] section
 #[derive(Debug, Clone)]
 struct MiniCargoTomlPackage {
+    cargo_toml_path: PathBuf,
     name: String,
     version: semver::Version,
     description: Option<String>,
@@ -346,8 +347,11 @@ fn construct_manifest(
     include_fs: &[String],
     quiet: bool,
 ) -> wapm_toml::Manifest {
-    if cargo_toml.is_some() {
-        let msg = "NOTE: Initializing wasmer.toml file with metadata from Cargo.toml";
+    if let Some(ct) = cargo_toml.as_ref() {
+        let msg = format!(
+            "NOTE: Initializing wasmer.toml file with metadata from Cargo.toml{NEWLINE}  -> {}",
+            ct.cargo_toml_path.display()
+        );
         if !quiet {
             println!("{msg}");
         }
@@ -494,6 +498,7 @@ fn parse_cargo_toml(manifest_path: &PathBuf) -> Result<MiniCargoTomlPackage, any
         .context(anyhow::anyhow!("{}", manifest_path.display()))?;
 
     Ok(MiniCargoTomlPackage {
+        cargo_toml_path: manifest_path.clone(),
         name: package.name.clone(),
         version: package.version.clone(),
         description: package.description.clone(),
