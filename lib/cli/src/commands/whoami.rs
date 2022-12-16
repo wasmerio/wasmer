@@ -11,7 +11,7 @@ pub struct Whoami {
 impl Whoami {
     /// Execute `wasmer whoami`
     pub fn execute(&self) -> Result<(), anyhow::Error> {
-        let (registry, username) = wasmer_registry::whoami(self.registry.as_deref())?;
+        let (registry, username) = wasmer_registry::whoami(self.registry.as_deref(), None)?;
         println!("logged into registry {registry:?} as user {username:?}");
         Ok(())
     }

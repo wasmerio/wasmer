@@ -401,7 +401,7 @@ else
 	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless
 endif
 
-WAPM_VERSION = v0.5.3
+WAPM_VERSION = v0.5.9
 get-wapm:
 	[ -d "wapm-cli" ] || git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
 
@@ -549,6 +549,7 @@ test-examples:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release $(compiler_features) --features wasi --examples
 
 test-integration-cli:
+	rustup target add wasm32-wasi
 	$(CARGO_BINARY) test $(CARGO_TARGET) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
 
 test-integration-ios:
