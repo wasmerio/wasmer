@@ -1,0 +1,20 @@
+[package]
+name = 'ciuser/wasmer'
+version = '0.1.0'
+description = 'Description for package wasmer'
+
+# See more keys and definitions at https://docs.wasmer.io/ecosystem/wapm/manifest
+
+[dependencies]
+
+[[module]]
+name = 'wasmer'
+source = 'target/wasm32-wasi/release/wasmer.wasm'
+abi = 'wasi'
+
+[module.interfaces]
+wasi = '0.1.0-unstable'
+
+[[command]]
+name = 'wasmer'
+module = 'wasmer'

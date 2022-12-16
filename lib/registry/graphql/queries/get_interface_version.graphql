@@ -1,0 +1,9 @@
+query GetInterfaceVersionQuery ($name: String!, $version: String!) {
+  interface: getInterfaceVersion(name: $name, version: $version) {
+    version,
+    content,
+    interface {
+      name,
+    }
+  }
+}
