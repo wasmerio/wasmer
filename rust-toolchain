@@ -1,5 +1,1 @@
-# rust-toolchain.toml
-[toolchain]
-channel = "1.63"
-components = [ "rustfmt", "clippy" ]
-targets = [ "wasm32-unknown-unknown", "wasm32-wasi" ]
+1.63
