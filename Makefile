@@ -551,6 +551,7 @@ test-capi-ci: $(foreach compiler_engine,$(capi_compilers_engines),test-capi-crat
 # compilers first
 test-capi: build-capi package-capi test-capi-ci
 
+
 test-capi-crate-%:
 	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) $(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,wasi,middlewares,webc_runner $(capi_compiler_features) -- --nocapture
