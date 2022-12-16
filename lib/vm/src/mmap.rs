@@ -441,6 +441,7 @@ impl Mmap {
 /// Needed because that function is not available on all platforms.
 // TODO: better implementation! (this is very quick, low effort)
 // TODO: this function needs tests!
+#[cfg(target_family = "unix")]
 #[allow(dead_code)]
 fn copy_file_range_impl(
     source_fd: i32,
