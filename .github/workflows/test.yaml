@@ -43,6 +43,10 @@ jobs:
         with:
           toolchain: 1.63
           components: rustfmt, clippy
+      - name: Install libtinfo
+        shell: bash
+        run: |
+          sudo apt install -y libtinfo5
       - name: Install LLVM (Linux)
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz -L -o /opt/llvm.tar.xz
