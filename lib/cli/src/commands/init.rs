@@ -332,11 +332,6 @@ fn construct_manifest(
 ) -> wapm_toml::Manifest {
     let package_name = cargo_toml.as_ref().map(|p| &p.name).unwrap_or(package_name);
     let namespace = namespace.or_else(|| wasmer_registry::whoami(None, None).ok().map(|o| o.1));
-    let module_name = package_name
-        .split('/')
-        .last()
-        .unwrap_or(package_name)
-        .to_string();
     let version = version.unwrap_or_else(|| {
         cargo_toml
             .as_ref()
@@ -351,7 +346,7 @@ fn construct_manifest(
     let description = cargo_toml
         .as_ref()
         .and_then(|t| t.description.clone())
-        .unwrap_or_else(|| format!("Description for package {module_name}"));
+        .unwrap_or_else(|| format!("Description for package {package_name}"));
 
     let default_abi = wapm_toml::Abi::Wasi;
     let bindings = Init::get_bindings(target_file, bin_or_lib);
@@ -385,7 +380,7 @@ fn construct_manifest(
     }
 
     let modules = vec![wapm_toml::Module {
-        name: module_name.to_string(),
+        name: package_name.to_string(),
         source: cargo_toml
             .as_ref()
             .map(|p| {
@@ -393,7 +388,7 @@ fn construct_manifest(
                 let outpath = p
                     .build_dir
                     .join("release")
-                    .join(&format!("{module_name}.wasm"));
+                    .join(&format!("{package_name}.wasm"));
                 let canonicalized_outpath = outpath.canonicalize().unwrap_or(outpath);
                 let outpath_str = format!("{}", canonicalized_outpath.display());
                 let manifest_canonicalized = manifest_path
@@ -404,7 +399,7 @@ fn construct_manifest(
                 let relative_str = outpath_str.replacen(&manifest_str, "", 1);
                 Path::new(&relative_str).to_path_buf()
             })
-            .unwrap_or_else(|| Path::new(&format!("{module_name}.wasm")).to_path_buf()),
+            .unwrap_or_else(|| Path::new(&format!("{package_name}.wasm")).to_path_buf()),
         kind: None,
         abi: default_abi,
         bindings: bindings.as_ref().and_then(|b| b.first_binding()),
@@ -418,8 +413,8 @@ fn construct_manifest(
     wapm_toml::Manifest {
         package: wapm_toml::Package {
             name: match namespace {
-                None => module_name,
-                Some(s) => format!("{s}/{module_name}"),
+                None => package_name.to_string(),
+                Some(s) => format!("{s}/{package_name}"),
             },
             version,
             description,
