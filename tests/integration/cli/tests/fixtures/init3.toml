@@ -1,8 +1,0 @@
-[package]
-name = "wasmer"
-version = "0.5.6"
-description = "hello"
-
-[dependencies]
-
-[package.metadata.wapm]
