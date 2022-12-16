@@ -34,9 +34,10 @@ pub use {
     add::*, cache::*, config::*, inspect::*, list::*, login::*, run::*, self_update::*,
     validate::*, whoami::*,
 };
+use serde::{Serialize, Deserialize};
 
 /// The kind of object format to emit.
-#[derive(Debug, Copy, Clone, clap::Parser)]
+#[derive(Debug, Copy, Clone, clap::Parser, Serialize, Deserialize)]
 #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
 pub enum ObjectFormat {
     /// Serialize the entire module into an object file.

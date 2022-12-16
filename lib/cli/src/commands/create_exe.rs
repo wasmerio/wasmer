@@ -174,9 +174,9 @@ impl CreateExe {
 
         #[cfg(feature = "webc_runner")]
         {
-            let working_dir = tempdir::TempDir::new("testpirita")?;
-            let working_dir = working_dir.path().to_path_buf();
-
+            // let working_dir = tempdir::TempDir::new("testpirita")?;
+            // let working_dir = working_dir.path().to_path_buf();
+            let working_dir = Path::new("./tmptestpirita").to_path_buf();
             if let Ok(pirita) = WebCMmap::parse(wasm_module_path.clone(), &ParseOptions::default())
             {
                 return self.create_exe_pirita(
@@ -712,6 +712,15 @@ impl CreateExe {
             .and_then(|s| file.get_atom_name_for_command("wasi", s).ok());
         if let Some(atom_to_run) = atom_to_run.as_ref() {
             std::fs::write(output_path.join("entrypoint"), atom_to_run)?;
+        } else if file.manifest.commands.len() > 1 {
+            let entrypoint_json = file.manifest.commands.iter().filter_map(|(name, _)| {
+                Some(serde_json::json!({
+                    "command": name,
+                    "atom": file.get_atom_name_for_command("wasi", name).ok()?,
+                    "object_type": object_format,
+                }))
+            }).collect::<Vec<_>>();
+            std::fs::write(output_path.join("entrypoint.json"), serde_json::to_string_pretty(&entrypoint_json)?)?;
         }
 
         for (atom_name, atom_bytes) in file.get_all_atoms() {
@@ -721,13 +730,6 @@ impl CreateExe {
             let object_path = output_path.join("atoms").join(&format!("{atom_name}.o"));
             #[cfg(windows)]
             let object_path = output_path.join("atoms").join(&format!("{atom_name}.obj"));
-
-            std::fs::create_dir_all(output_path.join("atoms").join(&atom_name))?;
-
-            let header_path = output_path
-                .join("atoms")
-                .join(&atom_name)
-                .join("static_defs.h");
 
             match object_format {
                 ObjectFormat::Serialized => {
@@ -746,12 +748,20 @@ impl CreateExe {
                 }
                 #[cfg(feature = "static-artifact-create")]
                 ObjectFormat::Symbols => {
+                    std::fs::create_dir_all(output_path.join("atoms").join(&atom_name))?;
+
+                    let header_path = output_path
+                        .join("atoms")
+                        .join(&atom_name)
+                        .join("static_defs.h");
+
                     let engine = store.engine();
                     let engine_inner = engine.inner();
                     let compiler = engine_inner.compiler()?;
                     let features = engine_inner.features();
                     let tunables = store.tunables();
-                    let prefixer: Option<PrefixerFn> = None;
+                    let atom_name = CreateExe::normalize_atom_name(&atom_name);
+                    let prefixer: Option<PrefixerFn> = Some(Box::new(move |_| atom_name.clone()));
                     let (module_info, obj, metadata_length, symbol_registry) =
                         Artifact::generate_object(
                             compiler, atom_bytes, prefixer, target, tunables, features,

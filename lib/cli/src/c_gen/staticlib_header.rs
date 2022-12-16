@@ -92,7 +92,10 @@ pub fn generate_header_file(
             })),
         },
         CStatement::Declaration {
-            name: "WASMER_METADATA".to_string(),
+            name: match module_info.name.as_deref() {
+                Some(s) => format!("WASMER_METADATA_{}", s.to_uppercase()),
+                None => "WASMER_METADATA".to_string()
+            },
             is_extern: true,
             is_const: true,
             ctype: CType::Array {

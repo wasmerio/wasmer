@@ -7,6 +7,10 @@ use std::path::PathBuf;
 use std::process::Command;
 use wasmer_integration_tests_cli::*;
 
+fn create_exe_wabt_path() -> String {
+    format!("{}/{}", C_ASSET_PATH, "wabt-1.0.37.wasmer")
+}
+
 fn create_exe_test_wasm_path() -> String {
     format!("{}/{}", C_ASSET_PATH, "qjs.wasm")
 }
@@ -158,6 +162,47 @@ fn create_exe_works() -> anyhow::Result<()> {
         &["--eval".to_string(), "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));".to_string()],
     )
     .context("Failed to run generated executable")?;
+    let result_lines = result.lines().collect::<Vec<&str>>();
+    assert_eq!(result_lines, vec!["\"Hello, World\""],);
+
+    Ok(())
+}
+
+#[test]
+fn create_exe_works_multi_command() -> anyhow::Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let operating_dir: PathBuf = temp_dir.path().to_owned();
+
+    let wasm_path = operating_dir.join(create_exe_wabt_path());
+    #[cfg(not(windows))]
+    let executable_path = operating_dir.join("multicommand.out");
+    #[cfg(windows)]
+    let executable_path = operating_dir.join("multicommand.exe");
+
+    WasmerCreateExe {
+        current_dir: std::env::current_dir().unwrap(), // operating_dir.clone(),
+        wasm_path,
+        native_executable_path: executable_path.clone(),
+        compiler: Compiler::Cranelift,
+        ..Default::default()
+    }
+    .run()
+    .context("Failed to create-exe wasm with Wasmer")?;
+
+    let result = run_code(
+        &operating_dir,
+        &executable_path,
+        &["--command".to_string(), "wabt".to_string()],
+    )
+    .context("Failed to run generated executable")?;
+
+    let result = run_code(
+        &operating_dir,
+        &executable_path,
+        &["-c".to_string(), "wabt".to_string()],
+    )
+    .context("Failed to run generated executable")?;
+
     let result_lines = result.lines().collect::<Vec<&str>>();
     assert_eq!(result_lines, vec!["\"Hello, World\""],);
 
