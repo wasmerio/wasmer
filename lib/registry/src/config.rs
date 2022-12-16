@@ -1,6 +1,5 @@
 use graphql_client::GraphQLQuery;
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -11,16 +10,16 @@ pub struct WasmerConfig {
     #[serde(default = "wax_default_cooldown")]
     pub wax_cooldown: i32,
 
-    /// The registry that wapm will connect to.
-    pub registry: Registries,
-
     /// Whether or not telemetry is enabled.
     #[serde(default)]
-    pub telemetry: Telemetry,
+    pub telemetry_enabled: bool,
 
     /// Whether or not updated notifications are enabled.
     #[serde(default)]
-    pub update_notifications: UpdateNotifications,
+    pub update_notifications_enabled: bool,
+
+    /// The registry that wapm will connect to.
+    pub registry: Registries,
 
     /// The proxy to use when connecting to the Internet.
     #[serde(default)]
@@ -34,16 +33,6 @@ pub const fn wax_default_cooldown() -> i32 {
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Default)]
 pub struct Proxy {
     pub url: Option<String>,
-}
-
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Default)]
-pub struct UpdateNotifications {
-    pub enabled: bool,
-}
-
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Default)]
-pub struct Telemetry {
-    pub enabled: bool,
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]

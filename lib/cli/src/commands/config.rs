@@ -34,6 +34,9 @@ pub enum RetrievableConfigField {
     Cflags,
     /// Print the pkg-config configuration
     PkgConfig,
+    /// Print the path to the configuration file
+    #[clap(name = "config.path")]
+    ConfigPath,
     /// Print the registry URL of the currently active registry
     #[clap(name = "registry.url")]
     RegistryUrl,
@@ -184,6 +187,11 @@ impl Config {
                 RetrievableConfigField::Cflags => {
                     println!("{}", cflags);
                 }
+                RetrievableConfigField::ConfigPath => {
+                    let path = WasmerConfig::get_file_location()
+                        .map_err(|e| anyhow::anyhow!("could not find config file: {e}"))?;
+                    println!("{}", path.display());
+                }
                 other => {
                     let config = WasmerConfig::from_file()
                         .map_err(|e| anyhow::anyhow!("could not find config file: {e}"))?;
@@ -204,10 +212,10 @@ impl Config {
                             }
                         }
                         RetrievableConfigField::TelemetryEnabled => {
-                            println!("{:?}", config.telemetry.enabled);
+                            println!("{:?}", config.telemetry_enabled);
                         }
                         RetrievableConfigField::UpdateNotificationsEnabled => {
-                            println!("{:?}", config.update_notifications.enabled);
+                            println!("{:?}", config.update_notifications_enabled);
                         }
                         _ => {}
                     }
@@ -240,13 +248,13 @@ impl Config {
                         );
                     }
                     StorableConfigField::TelemetryEnabled(t) => {
-                        config.telemetry.enabled = t.enabled.0;
+                        config.telemetry_enabled = t.enabled.0;
                     }
                     StorableConfigField::ProxyUrl(p) => {
                         config.proxy.url = p.url.clone();
                     }
                     StorableConfigField::UpdateNotificationsEnabled(u) => {
-                        config.update_notifications.enabled = u.enabled.0;
+                        config.update_notifications_enabled = u.enabled.0;
                     }
                 }
 
