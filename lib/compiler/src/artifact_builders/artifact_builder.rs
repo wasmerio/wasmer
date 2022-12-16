@@ -43,7 +43,6 @@ impl ArtifactBuild {
         target: &Target,
         memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: PrimaryMap<TableIndex, TableStyle>,
-        module_start: Option<Pages>,
     ) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
         let features = inner_engine.features().clone();
@@ -120,9 +119,15 @@ impl ArtifactBuild {
             compile_info,
             data_initializers,
             cpu_features: cpu_features.as_u64(),
-            module_start,
+            module_start: None,
         };
         Ok(Self { serializable })
+    }
+
+    /// Specify the fixed virtual memory address for the compiled module
+    pub fn with_module_start(mut self, module_start: Option<Pages>) -> Self {
+        self.serializable.module_start = module_start;
+        self
     }
 
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.

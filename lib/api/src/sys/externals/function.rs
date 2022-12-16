@@ -51,9 +51,9 @@ pub struct Function {
     pub(crate) handle: StoreHandle<VMFunction>,
 }
 
-impl Into<Function> for StoreHandle<VMFunction> {
-    fn into(self) -> Function {
-        Function { handle: self }
+impl From<StoreHandle<VMFunction>> for Function {
+    fn from(handle: StoreHandle<VMFunction>) -> Self {
+        Self { handle }
     }
 }
 

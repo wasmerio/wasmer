@@ -9,8 +9,6 @@ use wasmer_vm::{VMExternRef, VMFuncRef};
 use crate::ExternRef;
 use crate::Function;
 
-#[cfg(feature = "compiler")]
-use super::store::AsStoreMut;
 use super::store::AsStoreRef;
 
 pub use wasmer_types::RawValue;
@@ -113,7 +111,7 @@ impl Value {
     ///
     /// # Safety
     ///
-    pub unsafe fn from_raw(store: &mut impl AsStoreMut, ty: Type, raw: RawValue) -> Self {
+    pub unsafe fn from_raw(store: &mut impl crate::AsStoreMut, ty: Type, raw: RawValue) -> Self {
         match ty {
             Type::I32 => Self::I32(raw.i32),
             Type::I64 => Self::I64(raw.i64),

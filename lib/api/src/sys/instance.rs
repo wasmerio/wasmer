@@ -1,6 +1,5 @@
 use crate::sys::exports::Exports;
 use crate::sys::module::Module;
-#[cfg(feature = "compiler")]
 use crate::sys::{LinkError, RuntimeError};
 use std::fmt;
 use thiserror::Error;
@@ -134,11 +133,7 @@ impl Instance {
         // If the memory is imported then also export it for backwards compatibility reasons
         // (many will assume the memory is always exported) - later we can remove this
         if exports.get_memory("memory").is_err() {
-            if let Some(memory) = externs
-                .iter()
-                .filter(|a| a.ty(store).memory().is_some())
-                .next()
-            {
+            if let Some(memory) = externs.iter().find(|a| a.ty(store).memory().is_some()) {
                 exports.insert("memory", memory.clone());
             }
         }
@@ -183,11 +178,7 @@ impl Instance {
         // If the memory is imported then also export it for backwards compatibility reasons
         // (many will assume the memory is always exported) - later we can remove this
         if exports.get_memory("memory").is_err() {
-            if let Some(memory) = externs
-                .iter()
-                .filter(|a| a.ty(store).memory().is_some())
-                .next()
-            {
+            if let Some(memory) = externs.iter().find(|a| a.ty(store).memory().is_some()) {
                 exports.insert("memory", memory.clone());
             }
         }

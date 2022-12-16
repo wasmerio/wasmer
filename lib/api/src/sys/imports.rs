@@ -1,8 +1,6 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
-#[cfg(feature = "compiler")]
-use crate::{AsStoreMut, Memory};
 use crate::{Exports, Extern, Module};
 use std::collections::HashMap;
 use std::fmt;
@@ -131,7 +129,7 @@ impl Imports {
     pub fn import_shared_memory(
         &mut self,
         module: &Module,
-        store: &mut impl AsStoreMut,
+        store: &mut impl crate::AsStoreMut,
     ) -> Option<VMSharedMemory> {
         // Determine if shared memory needs to be created and imported
         let shared_memory = module
@@ -148,7 +146,7 @@ impl Imports {
             self.define(
                 "env",
                 "memory",
-                Memory::new_from_existing(store, memory.clone().into()),
+                crate::Memory::new_from_existing(store, memory.clone().into()),
             );
             Some(memory)
         } else {
@@ -196,7 +194,7 @@ impl Imports {
     }
 
     /// Iterates through all the imports in this structure
-    pub fn iter<'a>(&'a self) -> ImportsIterator<'a> {
+    pub fn iter(&self) -> ImportsIterator<'_> {
         ImportsIterator::new(self)
     }
 }

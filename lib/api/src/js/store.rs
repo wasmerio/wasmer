@@ -1,19 +1,20 @@
 use std::fmt;
 use wasmer_types::OnCalledAction;
 
+/// Call handler for a store.
+// TODO: better documentation!
+// TODO: this type is duplicated in sys/store.rs.
+// Maybe want to move it to wasmer_types...
+pub type OnCalledHandler = Box<
+    dyn FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
+>;
+
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
-    pub(crate) on_called: Option<
-        Box<
-            dyn FnOnce(
-                StoreMut,
-            )
-                -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
-        >,
-    >,
+    pub(crate) on_called: Option<OnCalledHandler>,
 }
 
 /// The store represents all global state that can be manipulated by

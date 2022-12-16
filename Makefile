@@ -492,8 +492,10 @@ test-packages:
 
 test-js: test-js-api test-js-wasi
 
-test-js-core:
-	cd lib/api && wasm-pack test --node -- --no-default-features --features js,core,wasm-types-polyfill,wat
+# TODO: disabled because the no-std / core feature doesn't actually work at the moment.
+# See https://github.com/wasmerio/wasmer/issues/3429
+# test-js-core:
+# 	cd lib/api && wasm-pack test --node -- --no-default-features --features js,core,wasm-types-polyfill,wat
 
 test-js-api:
 	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat
