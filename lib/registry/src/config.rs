@@ -36,14 +36,30 @@ pub struct Proxy {
     pub url: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Default)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
 pub struct UpdateNotifications {
     pub enabled: String,
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Default)]
+impl Default for UpdateNotifications {
+    fn default() -> Self {
+        UpdateNotifications {
+            enabled: "false".to_string(),
+        }        
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
 pub struct Telemetry {
     pub enabled: String,
+}
+
+impl Default for Telemetry {
+    fn default() -> Self {
+        Telemetry {
+            enabled: "false".to_string(),
+        }        
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
