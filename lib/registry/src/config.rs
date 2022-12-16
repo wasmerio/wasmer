@@ -45,7 +45,7 @@ impl Default for UpdateNotifications {
     fn default() -> Self {
         UpdateNotifications {
             enabled: "false".to_string(),
-        }        
+        }
     }
 }
 
@@ -58,7 +58,7 @@ impl Default for Telemetry {
     fn default() -> Self {
         Telemetry {
             enabled: "false".to_string(),
-        }        
+        }
     }
 }
 
