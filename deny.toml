@@ -169,6 +169,7 @@ deny = [
 ]
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
+    { name = "webc" },  # licence is not fetched correctly and end up as unknown
     { name = "ahash", version = "=0.4.7" },
     { name = "hashbrown", version = "=0.9.1" },
     { name = "cfg-if", version = "=0.1.10" },
