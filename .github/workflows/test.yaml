@@ -349,7 +349,7 @@ jobs:
           CARGO_TARGET: --target ${{ matrix.metadata.target }}
       - name: Test C-API
         shell: bash
-        if: ${{ !(matrix.build-what.key == 'capi' && (matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm')) }}
+        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm') }}
         run: make test-capi-ci
       # C-API tests were disabled for linux-musl and macos-arm (we can't run them)
       - name: Test C-API integration
