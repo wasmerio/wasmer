@@ -57,6 +57,11 @@ pub struct CreateExe {
     #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
     output: PathBuf,
 
+    /// Optional directorey used for debugging: if present, will output the zig command
+    /// for reproducing issues in a debug directory
+    #[clap(long, name = "DEBUG PATH", parse(from_os_str))]
+    debug_dir: Option<PathBuf>,
+
     /// Compilation Target triple
     ///
     /// Accepted target triple values must follow the
@@ -185,6 +190,7 @@ impl CreateExe {
                     cross_compilation,
                     &working_dir,
                     output_path,
+                    self.debug_dir.clone(),
                     object_format,
                 );
             }
@@ -215,6 +221,7 @@ impl CreateExe {
                 cross_compilation,
                 &self.path,
                 output_path,
+                self.debug_dir.clone(),
                 object_format,
             );
         }
@@ -237,6 +244,7 @@ impl CreateExe {
             if let Some(setup) = cross_compilation.as_ref() {
                 self.compile_zig(
                     output_path,
+                    self.debug_dir.clone(),
                     &[wasm_module_path],
                     &[std::path::Path::new("static_defs.h").into()],
                     setup,
@@ -308,6 +316,7 @@ impl CreateExe {
                     if let Some(setup) = cross_compilation.as_ref() {
                         self.compile_zig(
                             output_path,
+                            self.debug_dir.clone(),
                             &[object_file_path],
                             &[std::path::Path::new("static_defs.h").into()],
                             setup,
@@ -551,6 +560,7 @@ impl CreateExe {
     fn compile_zig(
         &self,
         output_path: PathBuf,
+        debug_dir: Option<PathBuf>,
         object_paths: &[PathBuf],
         header_code_paths: &[PathBuf],
         setup: &CrossCompileSetup,
@@ -559,14 +569,18 @@ impl CreateExe {
         pirita_volume_path: Option<PathBuf>,
     ) -> anyhow::Result<()> {
         let tempdir = tempdir::TempDir::new("wasmer-static-compile-zig")?;
-        let tempdir_path = tempdir.path();
+        let tempdir_path = match debug_dir {
+            Some(s) => s.clone(),
+            None => tempdir.path().to_path_buf(),
+        };
         let c_src_path = tempdir_path.join("wasmer_main.c");
         let CrossCompileSetup {
             ref target,
             ref zig_binary_path,
             ref library,
         } = setup;
-        let mut libwasmer_path = library.to_path_buf();
+        std::fs::copy(&library, tempdir_path.join("libwasmer.a"))?;
+        let mut libwasmer_path = tempdir_path.join("libwasmer.a");
         println!("Library Path: {}", libwasmer_path.display());
         /* Cross compilation is only possible with zig */
         println!("Using zig binary: {}", zig_binary_path.display());
@@ -590,7 +604,17 @@ impl CreateExe {
 
         let mut header_code_paths = header_code_paths.to_vec();
 
+        let temp_include_dir = tempdir_path.join("tmpinclude");
+        std::fs::create_dir_all(&temp_include_dir)?;
+
         for h in header_code_paths.iter_mut() {
+            if h.is_dir() {
+                for file in std::fs::read_dir(&h).unwrap().filter_map(|p| p.ok()) {
+                    std::fs::copy(file.path(), temp_include_dir.join(file.file_name()))?;
+                }
+            } else if h.is_file() {
+                std::fs::copy(&h, temp_include_dir.join(h.file_name().unwrap()))?;
+            }
             if !h.is_dir() {
                 h.pop();
             }
@@ -611,9 +635,7 @@ impl CreateExe {
             cmd.arg("-target");
             cmd.arg(&zig_triple);
             cmd.arg(&format!("-I{}/", include_dir.display()));
-            for h in header_code_paths {
-                cmd.arg(&format!("-I{}/", h.display()));
-            }
+            cmd.arg(&format!("-I{}/", temp_include_dir.display()));
             if zig_triple.contains("windows") {
                 cmd.arg("-lc++");
             } else {
@@ -625,7 +647,9 @@ impl CreateExe {
             cmd.arg(&format!("-femit-bin={}", output_path.display()));
 
             for o in object_paths {
-                cmd.arg(o);
+                let target_path = tempdir_path.join(o.file_name().unwrap());
+                std::fs::copy(o, &target_path)?;
+                cmd.arg(target_path);
             }
             cmd.arg(&c_src_path);
             cmd.arg(libwasmer_path.join(&lib_filename));
@@ -641,11 +665,12 @@ impl CreateExe {
                 }
             }
             if let Some(volume_obj) = pirita_volume_path.as_ref() {
-                cmd.arg(volume_obj.clone());
+                let target_path = tempdir_path.join("volume.obj");
+                std::fs::copy(volume_obj, &target_path)?;
+                cmd.arg(target_path.clone());
             }
 
-            #[cfg(feature = "debug")]
-            log::debug!("{:?}", cmd);
+            println!("{:?}", cmd);
             cmd.output().context("Could not execute `zig`")?
         };
         if !compilation.status.success() {
@@ -792,6 +817,7 @@ impl CreateExe {
         cross_compilation: Option<CrossCompileSetup>,
         working_dir: &Path,
         output_path: PathBuf,
+        debug_dir: Option<PathBuf>,
         object_format: ObjectFormat,
     ) -> anyhow::Result<()> {
         let tempdir = tempdir::TempDir::new("link-exe-from-dir")?;
@@ -852,6 +878,7 @@ impl CreateExe {
 
                     self.compile_zig(
                         output_path,
+                        debug_dir,
                         &link_objects,
                         &[],
                         &setup,
@@ -889,6 +916,7 @@ impl CreateExe {
                 if let Some(setup) = cross_compilation.as_ref() {
                     self.compile_zig(
                         output_path,
+                        self.debug_dir.clone(),
                         &[object_file_path],
                         &[static_defs_file_path],
                         setup,
@@ -1016,6 +1044,7 @@ impl CreateExe {
         cross_compilation: Option<CrossCompileSetup>,
         working_dir: &Path,
         output_path: PathBuf,
+        debug_dir: Option<PathBuf>,
         object_format: ObjectFormat,
     ) -> anyhow::Result<()> {
         let _ = std::fs::create_dir_all(&working_dir);
@@ -1031,6 +1060,7 @@ impl CreateExe {
             cross_compilation,
             working_dir,
             output_path,
+            debug_dir,
             object_format,
         )?;
 
