@@ -42,7 +42,7 @@ impl<T> Table<T> {
         self.elems[index] = Slot::Full {
             item: Box::new(item),
         };
-        return ret;
+        ret
     }
 
     /// Borrows an item from this table.

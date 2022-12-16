@@ -192,6 +192,11 @@ impl RawMem for BorrowChecker<'_> {
 ///
 /// This is the set of types which wasmer can have a raw pointer to for
 /// values which reside in wasm linear memory.
+///
+/// # Safety
+///
+/// TODO: add safety docs.
+///
 pub unsafe trait AllBytesValid {}
 
 unsafe impl AllBytesValid for u8 {}

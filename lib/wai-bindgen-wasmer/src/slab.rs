@@ -24,7 +24,7 @@ impl<T> Slab<T> {
             Entry::Empty { next } => next,
             _ => unreachable!(),
         };
-        return ret;
+        ret
     }
 
     pub fn get(&self, idx: u32) -> Option<&T> {

@@ -137,6 +137,7 @@ pub mod rt {
             }
 
             pub trait $tr {
+                #[allow(clippy::wrong_self_convention)]
                 fn $name(self) -> $ty;
             }
 

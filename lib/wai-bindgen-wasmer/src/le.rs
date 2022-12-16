@@ -135,6 +135,7 @@ pub trait Endian: AllBytesValid + Copy + Sized {
     fn into_le(self) -> Self;
     /// Converts this value and any aggregate fields (if any) from
     /// little-endian byte order
+    #[allow(clippy::wrong_self_convention)]
     fn from_le(self) -> Self;
 }
 
