@@ -31,6 +31,9 @@ pub struct Init {
     /// Namespace to init with, default = current logged in user or _
     #[clap(long)]
     pub namespace: Option<String>,
+    /// Package name to init with, default = Cargo.toml name or current directory name
+    #[clap(long)]
+    pub package_name: Option<String>,
     /// Version of the initialized package
     #[clap(long)]
     pub version: Option<semver::Version>,
@@ -110,18 +113,19 @@ impl Init {
             None
         };
 
-        let (package_name, target_file) = self.target_file()?;
+        let (fallback_package_name, target_file) = self.target_file()?;
 
         if target_file.exists() && !self.overwrite {
             anyhow::bail!(
-                "wapm project already initialized in {}",
+                "wasmer project already initialized in {}",
                 target_file.display(),
             );
         }
 
         let constructed_manifest = construct_manifest(
             cargo_toml.as_ref(),
-            &package_name,
+            &fallback_package_name,
+            self.package_name.as_deref(),
             &target_file,
             &manifest_path,
             bin_or_lib,
@@ -161,21 +165,32 @@ impl Init {
         match self.out.as_ref() {
             None => {
                 let current_dir = std::env::current_dir()?;
-                let package_name = current_dir
-                    .canonicalize()?
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .map(|s| s.to_string())
+                let package_name = self
+                    .package_name
+                    .clone()
+                    .or_else(|| {
+                        current_dir
+                            .canonicalize()
+                            .ok()?
+                            .file_stem()
+                            .and_then(|s| s.to_str())
+                            .map(|s| s.to_string())
+                    })
                     .ok_or_else(|| anyhow::anyhow!("no current dir name"))?;
                 Ok((package_name, current_dir.join(WASMER_TOML_NAME)))
             }
             Some(s) => {
                 let _ = std::fs::create_dir_all(s);
-                let package_name = s
-                    .canonicalize()?
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .map(|s| s.to_string())
+                let package_name = self
+                    .package_name
+                    .clone()
+                    .or_else(|| {
+                        s.canonicalize()
+                            .ok()?
+                            .file_stem()
+                            .and_then(|s| s.to_str())
+                            .map(|s| s.to_string())
+                    })
                     .ok_or_else(|| anyhow::anyhow!("no dir name"))?;
                 Ok((package_name, s.join(WASMER_TOML_NAME)))
             }
@@ -320,7 +335,8 @@ impl GetBindingsResult {
 #[allow(clippy::too_many_arguments)]
 fn construct_manifest(
     cargo_toml: Option<&MiniCargoTomlPackage>,
-    package_name: &String,
+    fallback_package_name: &String,
+    package_name: Option<&str>,
     target_file: &Path,
     manifest_path: &Path,
     bin_or_lib: BinOrLib,
@@ -330,7 +346,12 @@ fn construct_manifest(
     include_fs: &[String],
     quiet: bool,
 ) -> wapm_toml::Manifest {
-    let package_name = cargo_toml.as_ref().map(|p| &p.name).unwrap_or(package_name);
+    let package_name = package_name.unwrap_or_else(|| {
+        cargo_toml
+            .as_ref()
+            .map(|p| &p.name)
+            .unwrap_or(fallback_package_name)
+    });
     let namespace = namespace.or_else(|| wasmer_registry::whoami(None, None).ok().map(|o| o.1));
     let version = version.unwrap_or_else(|| {
         cargo_toml
@@ -412,9 +433,12 @@ fn construct_manifest(
 
     wapm_toml::Manifest {
         package: wapm_toml::Package {
-            name: match namespace {
-                None => package_name.to_string(),
-                Some(s) => format!("{s}/{package_name}"),
+            name: if wasmer_registry::Package::validate_package_name(&package_name) {
+                package_name.to_string()
+            } else if let Some(s) = namespace {
+                format!("{s}/{package_name}")
+            } else {
+                package_name.to_string()
             },
             version,
             description,
