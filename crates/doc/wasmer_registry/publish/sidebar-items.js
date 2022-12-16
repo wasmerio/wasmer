@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":[["SignArchiveResult",""]],"fn":[["try_chunked_uploading",""]],"static":[["PACKAGE",""],["UPLOAD",""]]};
