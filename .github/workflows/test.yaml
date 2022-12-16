@@ -340,8 +340,17 @@ jobs:
           aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
-      - name: ${{ matrix.build-what.name }}
+      - name: Build C-API
         shell: bash
+        run: ${{ matrix.build-what.build-cmd }}
+        if: ${{ matrix.build-what.key == 'capi' }}
+        env:
+          TARGET: ${{ matrix.metadata.target }}
+          TARGET_DIR: target/${{ matrix.metadata.target }}/release
+          CARGO_TARGET: --target ${{ matrix.metadata.target }}
+      - name: Build Wasmer
+        shell: bash
+        if: ${{ matrix.build-what.key == 'wasmer' }}
         run: ${{ matrix.build-what.build-cmd }}
         env:
           TARGET: ${{ matrix.metadata.target }}
