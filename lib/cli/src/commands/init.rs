@@ -28,9 +28,6 @@ pub struct Init {
     /// Don't display debug output
     #[clap(long)]
     pub quiet: bool,
-    /// Ignore the existence of cargo wapm / cargo wasmer
-    #[clap(long)]
-    pub no_cargo_wapm: bool,
     /// Namespace to init with, default = current logged in user or _
     #[clap(long)]
     pub namespace: Option<String>,
@@ -139,111 +136,8 @@ impl Init {
             let _ = std::fs::create_dir_all(parent);
         }
 
-        // Test if cargo wapm is installed
-        let cargo_wapm_present = if self.no_cargo_wapm {
-            false
-        } else {
-            let cargo_wapm_stdout = std::process::Command::new("cargo")
-                .arg("wapm")
-                .arg("--version")
-                .output()
-                .map(|s| String::from_utf8_lossy(&s.stdout).to_string())
-                .unwrap_or_default();
-
-            cargo_wapm_stdout.lines().count() == 1
-                && (cargo_wapm_stdout.contains("cargo wapm")
-                    || cargo_wapm_stdout.contains("cargo-wapm"))
-        };
-
-        // if Cargo.toml is present and cargo wapm is installed, add the
-        // generated manifest to the Cargo.toml instead of creating a new wapm.toml
-        let should_add_to_cargo_toml = cargo_toml.is_some() && cargo_wapm_present;
-
-        // If the Cargo.toml is present, but cargo wapm is not installed,
-        // generate a wapm.toml, but notify the user about installing cargo-wapm
-        if !cargo_wapm_present && !self.no_cargo_wapm && cargo_toml.is_some() && !self.quiet {
-            eprintln!(
-                "Note: you seem to have a Cargo.toml file, but you haven't installed `cargo wapm`."
-            );
-            eprintln!("You can build and release Rust projects directly with `cargo wapm publish`: https://crates.io/crates/cargo-wapm");
-            eprintln!("Install it with:");
-            eprintln!();
-            eprintln!("    cargo install cargo-wapm");
-            eprintln!();
-        }
-
         // generate the wasmer.toml and exit
-        if should_add_to_cargo_toml {
-            Self::add_to_existing_cargo_toml(
-                &manifest_path,
-                self.overwrite,
-                self.quiet,
-                &constructed_manifest,
-            )
-        } else {
-            Self::write_wasmer_toml(&target_file, &constructed_manifest.toml)
-        }
-    }
-
-    // Adds the init metadata to the end of an existing Cargo.toml for cargo wapm to consume
-    fn add_to_existing_cargo_toml(
-        manifest_path: &PathBuf,
-        overwrite: bool,
-        quiet: bool,
-        constructed_manifest: &ConstructManifestReturn,
-    ) -> Result<(), anyhow::Error> {
-        // add the manifest to the Cargo.toml
-        let old_cargo = std::fs::read_to_string(&manifest_path)
-            .with_context(|| format!("Unable to read \"{}\"", manifest_path.display()))?;
-
-        // if the Cargo.toml already contains a [metadata.wapm] section, don't generate it again
-        if old_cargo.contains("metadata.wapm") && !overwrite {
-            return Err(anyhow::anyhow!(
-                "wapm project already initialized in Cargo.toml file"
-            ));
-        }
-
-        // generate the Wapm struct for the [metadata.wapm] table
-        // and add it to the end of the file
-        let metadata_wapm = wapm_toml::rust::Wapm {
-            namespace: constructed_manifest
-                .namespace
-                .as_deref()
-                .unwrap_or("_")
-                .to_string(),
-            package: Some(constructed_manifest.module_name.clone()),
-            wasmer_extra_flags: None,
-            abi: constructed_manifest.default_abi,
-            fs: constructed_manifest.toml.fs.clone(),
-            bindings: constructed_manifest.bindings.clone(),
-        };
-
-        let toml_string = toml::to_string_pretty(&metadata_wapm)?
-            .replace(
-                "[dependencies]",
-                &format!("{NOTE}{NEWLINE}{NEWLINE}[dependencies]"),
-            )
-            .lines()
-            .collect::<Vec<_>>()
-            .join(NEWLINE);
-
-        if !quiet {
-            eprintln!(
-                "You have cargo-wapm installed, added metadata to Cargo.toml instead of wasmer.toml"
-            );
-            eprintln!("Build and publish your package with:");
-            eprintln!();
-            eprintln!("    cargo wapm");
-            eprintln!();
-        }
-
-        std::fs::write(
-            &manifest_path,
-            &format!("{old_cargo}{NEWLINE}{NEWLINE}[package.metadata.wapm]{NEWLINE}{toml_string}"),
-        )
-        .with_context(|| format!("Unable to write to \"{}\"", manifest_path.display()))?;
-
-        Ok(())
+        Self::write_wasmer_toml(&target_file, &constructed_manifest)
     }
 
     /// Writes the metadata to a wasmer.toml file
@@ -423,14 +317,6 @@ impl GetBindingsResult {
     }
 }
 
-struct ConstructManifestReturn {
-    namespace: Option<String>,
-    default_abi: wapm_toml::Abi,
-    module_name: String,
-    bindings: Option<wapm_toml::Bindings>,
-    toml: wapm_toml::Manifest,
-}
-
 #[allow(clippy::too_many_arguments)]
 fn construct_manifest(
     cargo_toml: Option<&MiniCargoTomlPackage>,
@@ -443,7 +329,7 @@ fn construct_manifest(
     template: Option<&Template>,
     include_fs: &[String],
     quiet: bool,
-) -> ConstructManifestReturn {
+) -> wapm_toml::Manifest {
     let package_name = cargo_toml.as_ref().map(|p| &p.name).unwrap_or(package_name);
 
     let namespace = namespace.or_else(|| {
@@ -533,37 +419,31 @@ fn construct_manifest(
         }),
     }];
 
-    ConstructManifestReturn {
-        namespace: namespace.clone(),
-        default_abi,
-        module_name: module_name.clone(),
-        bindings: bindings.as_ref().and_then(|b| b.first_binding()),
-        toml: wapm_toml::Manifest {
-            package: wapm_toml::Package {
-                name: format!("{}/{module_name}", namespace.as_deref().unwrap_or("_")),
-                version,
-                description,
-                license,
-                license_file,
-                readme,
-                repository,
-                homepage,
-                wasmer_extra_flags: None,
-                disable_command_rename: false,
-                rename_commands_to_raw_command_name: false,
-            },
-            dependencies: Some(Init::get_dependencies(template)),
-            command: Init::get_command(&modules, bin_or_lib),
-            module: match bin_or_lib {
-                BinOrLib::Empty => None,
-                _ => Some(modules),
-            },
-            fs: Init::get_filesystem_mapping(include_fs),
-            base_directory_path: target_file
-                .parent()
-                .map(|o| o.to_path_buf())
-                .unwrap_or_else(|| target_file.to_path_buf()),
+    wapm_toml::Manifest {
+        package: wapm_toml::Package {
+            name: format!("{}/{module_name}", namespace.as_deref().unwrap_or("_")),
+            version,
+            description,
+            license,
+            license_file,
+            readme,
+            repository,
+            homepage,
+            wasmer_extra_flags: None,
+            disable_command_rename: false,
+            rename_commands_to_raw_command_name: false,
         },
+        dependencies: Some(Init::get_dependencies(template)),
+        command: Init::get_command(&modules, bin_or_lib),
+        module: match bin_or_lib {
+            BinOrLib::Empty => None,
+            _ => Some(modules),
+        },
+        fs: Init::get_filesystem_mapping(include_fs),
+        base_directory_path: target_file
+            .parent()
+            .map(|o| o.to_path_buf())
+            .unwrap_or_else(|| target_file.to_path_buf()),
     }
 }
 fn parse_cargo_toml(manifest_path: &PathBuf) -> Result<MiniCargoTomlPackage, anyhow::Error> {

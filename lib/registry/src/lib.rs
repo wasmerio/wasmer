@@ -29,7 +29,7 @@ pub mod utils;
 
 pub use crate::{
     config::{format_graphql, PartialWapmConfig},
-    package::{Package, PackageName},
+    package::Package,
     queries::get_bindings_query::ProgrammingLanguage,
 };
 

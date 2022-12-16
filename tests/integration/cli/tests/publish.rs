@@ -105,7 +105,6 @@ fn wasmer_init_publish() -> anyhow::Result<()> {
     // generate the wasmer.toml
     let mut cmd = std::process::Command::new(get_wasmer_path());
     cmd.arg("init");
-    cmd.arg("--no-cargo-wapm");
     cmd.arg("--namespace");
     cmd.arg(username);
     cmd.arg("--version");

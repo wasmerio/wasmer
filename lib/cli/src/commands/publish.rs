@@ -99,7 +99,7 @@ impl Publish {
 
         let registry_present =
             wasmer_registry::test_if_registry_present(&registry).unwrap_or(false);
-        
+
         if !registry_present {
             return Err(anyhow::anyhow!(
                 "registry {} is currently unavailable",

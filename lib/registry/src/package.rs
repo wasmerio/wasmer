@@ -4,27 +4,6 @@ use std::{fmt, str::FromStr};
 use url::Url;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PackageName {
-    pub namespace: String,
-    pub name: String,
-}
-
-impl PackageName {
-    pub fn parse(s: &str) -> Result<Self, &'static str> {
-        if !s.contains('/') {
-            return Err("no / in package name");
-        }
-        let mut split = s.split('/');
-        let name = split.next().ok_or("no name in package name")?.to_string();
-        let namespace = split
-            .next()
-            .ok_or("no namespace in package name")?
-            .to_string();
-        Ok(Self { name, namespace })
-    }
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Package {
     pub namespace: String,
     pub name: String,
@@ -232,19 +211,4 @@ impl FromStr for Package {
             other => Err(anyhow::anyhow!("invalid package {other}")),
         }
     }
-}
-
-#[test]
-fn test_package_name_parse() {
-    assert_eq!(
-        PackageName::parse("hello").unwrap_err(),
-        "no / in package name"
-    );
-    assert_eq!(
-        PackageName::parse("hello/test").unwrap(),
-        PackageName {
-            namespace: "hello".to_string(),
-            name: "test".to_string()
-        }
-    );
 }

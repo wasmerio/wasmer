@@ -99,7 +99,6 @@ fn wasmer_init_works_2() -> anyhow::Result<()> {
 
     let output = Command::new(get_wasmer_path())
         .arg("init")
-        .arg("--no-cargo-wapm")
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .current_dir(&path)
