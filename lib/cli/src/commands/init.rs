@@ -433,7 +433,7 @@ fn construct_manifest(
 
     wapm_toml::Manifest {
         package: wapm_toml::Package {
-            name: if wasmer_registry::Package::validate_package_name(&package_name) {
+            name: if wasmer_registry::Package::validate_package_name(package_name) {
                 package_name.to_string()
             } else if let Some(s) = namespace {
                 format!("{s}/{package_name}")
