@@ -126,18 +126,17 @@ impl LocalPackage {
     }
 
     /// Reads the wasmer.toml fron $PATH with wapm.toml as a fallback
-    pub fn read_toml(base_path: &Path) -> Result<wapm_toml::Manifest, anyhow::Error> {
+    pub fn read_toml(base_path: &Path) -> Result<wapm_toml::Manifest, String> {
         let wasmer_toml = std::fs::read_to_string(base_path.join(PACKAGE_TOML_FILE_NAME))
             .or_else(|_| std::fs::read_to_string(base_path.join(PACKAGE_TOML_FALLBACK_NAME)))
             .map_err(|_| {
-                anyhow::anyhow!(
+                format!(
                     "Path {} has no {PACKAGE_TOML_FILE_NAME} or {PACKAGE_TOML_FALLBACK_NAME}",
                     base_path.display()
                 )
             })?;
-        let wasmer_toml = toml::from_str::<wapm_toml::Manifest>(&wasmer_toml).map_err(|e| {
-            anyhow::anyhow!("Could not parse toml for {:?}: {e}", base_path.display())
-        })?;
+        let wasmer_toml = toml::from_str::<wapm_toml::Manifest>(&wasmer_toml)
+            .map_err(|e| format!("Could not parse toml for {:?}: {e}", base_path.display()))?;
         Ok(wasmer_toml)
     }
 
@@ -158,7 +157,7 @@ impl LocalPackage {
 
 /// Returns the (manifest, .wasm file name), given a package dir
 pub fn get_executable_file_from_path(
-    package_dir: &PathBuf,
+    package_dir: &Path,
     command: Option<&str>,
 ) -> Result<(wapm_toml::Manifest, PathBuf), anyhow::Error> {
     let wasmer_toml = LocalPackage::read_toml(package_dir).map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -243,7 +242,7 @@ pub fn get_all_local_packages(#[cfg(test)] test_name: &str) -> Vec<LocalPackage>
     };
 
     for (path, url_hash_with_version) in get_all_names_in_dir(&checkouts_dir) {
-        let s = match LocalPackage::read_toml(&path) {
+        let manifest = match LocalPackage::read_toml(&path) {
             Ok(o) => o,
             Err(_) => continue,
         };

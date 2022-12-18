@@ -296,7 +296,7 @@ impl PartialWapmConfig {
         )
     }
 
-    pub fn get_file_location(test_name: &str) -> Result<PathBuf, String> {
+    pub fn get_file_location(#[cfg(test)] test_name: &str) -> Result<PathBuf, String> {
         #[cfg(not(test))]
         let folder = Self::get_folder()?;
         #[cfg(test)]
