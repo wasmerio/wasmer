@@ -47,7 +47,7 @@ impl PackageSource {
     }
 
     /// Downloads the package (if any) to the installation directory, returns the path
-    /// of the package directory (containing the wapm.toml)
+    /// of the package directory (containing the wasmer.toml)
     pub fn download_and_get_filepath(&self) -> Result<PathBuf, anyhow::Error> {
         let url = match self {
             Self::File(f) => {

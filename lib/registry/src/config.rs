@@ -296,14 +296,12 @@ impl PartialWapmConfig {
         )
     }
 
-    #[cfg(test)]
     pub fn get_file_location(test_name: &str) -> Result<PathBuf, String> {
-        Ok(Self::get_folder(test_name)?.join(crate::GLOBAL_CONFIG_FILE_NAME))
-    }
-
-    #[cfg(not(test))]
-    pub fn get_file_location() -> Result<PathBuf, String> {
-        Ok(Self::get_folder()?.join(crate::GLOBAL_CONFIG_FILE_NAME))
+        #[cfg(not(test))]
+        let folder = Self::get_folder()?;
+        #[cfg(test)]
+        let folder = Self::get_folder(test_name)?;
+        Ok(folder.join(crate::GLOBAL_CONFIG_FILE_NAME))
     }
 
     pub fn get_database_file_path(#[cfg(test)] test_name: &str) -> Result<PathBuf, String> {

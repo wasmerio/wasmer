@@ -13,16 +13,16 @@ const NEWLINE: &str = if cfg!(windows) { "\r\n" } else { "\n" };
 /// CLI args for the `wasmer init` command
 #[derive(Debug, Parser)]
 pub struct Init {
-    /// Initialize wapm.toml for a library package
+    /// Initialize wasmer.toml for a library package
     #[clap(long, group = "crate-type")]
     pub lib: bool,
-    /// Initialize wapm.toml for a binary package
+    /// Initialize wasmer.toml for a binary package
     #[clap(long, group = "crate-type")]
     pub bin: bool,
-    /// Initialize an empty wapm.toml
+    /// Initialize an empty wasmer.toml
     #[clap(long, group = "crate-type")]
     pub empty: bool,
-    /// Force overwriting the wapm.toml, even if it already exists
+    /// Force overwriting the wasmer.toml, even if it already exists
     #[clap(long)]
     pub overwrite: bool,
     /// Don't display debug output
@@ -37,7 +37,7 @@ pub struct Init {
     /// Version of the initialized package
     #[clap(long)]
     pub version: Option<semver::Version>,
-    /// If the `manifest-path` is a Cargo.toml, use that file to initialize the wapm.toml
+    /// If the `manifest-path` is a Cargo.toml, use that file to initialize the wasmer.toml
     #[clap(long)]
     pub manifest_path: Option<PathBuf>,
     /// Add default dependencies for common packages
@@ -259,7 +259,7 @@ impl Init {
         map
     }
 
-    // Returns whether the template for the wapm.toml should be a binary, a library or an empty file
+    // Returns whether the template for the wasmer.toml should be a binary, a library or an empty file
     fn get_bin_or_lib(&self) -> Result<BinOrLib, anyhow::Error> {
         match (self.empty, self.bin, self.lib) {
             (true, true, _) | (true, _, true) => Err(anyhow::anyhow!(

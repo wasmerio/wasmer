@@ -9,7 +9,7 @@ use tar::Builder;
 use thiserror::Error;
 use time::{self, OffsetDateTime};
 use wasmer_registry::publish::SignArchiveResult;
-use wasmer_registry::PartialWapmConfig;
+use wasmer_registry::{PartialWapmConfig, PACKAGE_TOML_FALLBACK_NAME};
 
 const CURRENT_DATA_VERSION: i32 = 3;
 
@@ -98,7 +98,7 @@ impl Publish {
             validate::validate_directory(&manifest, &registry, cwd.clone())?;
         }
 
-        builder.append_path_with_name(&manifest_path_buf, "wapm.toml")?;
+        builder.append_path_with_name(&manifest_path_buf, PACKAGE_TOML_FALLBACK_NAME)?;
 
         let manifest_string = toml::to_string(&manifest)?;
 

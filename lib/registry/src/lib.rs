@@ -33,7 +33,10 @@ pub use crate::{
     queries::get_bindings_query::ProgrammingLanguage,
 };
 
-pub static GLOBAL_CONFIG_FILE_NAME: &str = "wapm.toml";
+pub static PACKAGE_TOML_FILE_NAME: &str = "wasmer.toml";
+pub static PACKAGE_TOML_FALLBACK_NAME: &str = "wapm.toml";
+
+pub static GLOBAL_CONFIG_FILE_NAME: &str = "wasmer.toml";
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct PackageDownloadInfo {
@@ -87,20 +90,63 @@ pub struct LocalPackage {
     pub path: PathBuf,
 }
 
+impl fmt::Display for LocalPackage {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}@{} (registry {}, located at {})",
+            self.name,
+            self.version,
+            self.registry,
+            self.path.display()
+        )
+    }
+}
+
 impl LocalPackage {
     pub fn get_path(&self, #[cfg(test)] test_name: &str) -> Result<PathBuf, String> {
         Ok(self.path.clone())
     }
+
+    /// Returns the wasmer.toml path if it exists
+    pub fn get_wasmer_toml_path(base_path: &Path) -> Result<PathBuf, anyhow::Error> {
+        let path = base_path.join(PACKAGE_TOML_FILE_NAME);
+        let fallback_path = base_path.join(PACKAGE_TOML_FALLBACK_NAME);
+        if path.exists() {
+            Ok(path)
+        } else if fallback_path.exists() {
+            Ok(fallback_path)
+        } else {
+            Err(anyhow::anyhow!(
+                "neither {} nor {} exists",
+                path.display(),
+                fallback_path.display()
+            ))
+        }
+    }
+
+    /// Reads the wasmer.toml fron $PATH with wapm.toml as a fallback
+    pub fn read_toml(base_path: &Path) -> Result<wapm_toml::Manifest, anyhow::Error> {
+        let wasmer_toml = std::fs::read_to_string(base_path.join(PACKAGE_TOML_FILE_NAME))
+            .or_else(|_| std::fs::read_to_string(base_path.join(PACKAGE_TOML_FALLBACK_NAME)))
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "Path {} has no {PACKAGE_TOML_FILE_NAME} or {PACKAGE_TOML_FALLBACK_NAME}",
+                    base_path.display()
+                )
+            })?;
+        let wasmer_toml = toml::from_str::<wapm_toml::Manifest>(&wasmer_toml).map_err(|e| {
+            anyhow::anyhow!("Could not parse toml for {:?}: {e}", base_path.display())
+        })?;
+        Ok(wasmer_toml)
+    }
+
     pub fn get_commands(&self, #[cfg(test)] test_name: &str) -> Result<Vec<String>, String> {
         #[cfg(not(test))]
         let path = self.get_path()?;
         #[cfg(test)]
         let path = self.get_path(test_name)?;
-        let toml_path = path.join(GLOBAL_CONFIG_FILE_NAME);
-        let toml = std::fs::read_to_string(&toml_path)
-            .map_err(|e| format!("error reading {}: {e}", toml_path.display()))?;
-        let toml_parsed = toml::from_str::<wapm_toml::Manifest>(&toml)
-            .map_err(|e| format!("error parsing {}: {e}", toml_path.display()))?;
+        let toml_parsed = Self::read_toml(&path)?;
         Ok(toml_parsed
             .command
             .unwrap_or_default()
@@ -115,12 +161,7 @@ pub fn get_executable_file_from_path(
     package_dir: &PathBuf,
     command: Option<&str>,
 ) -> Result<(wapm_toml::Manifest, PathBuf), anyhow::Error> {
-    let wasmer_toml = std::fs::read_to_string(package_dir.join("wasmer.toml"))
-        .or_else(|_| std::fs::read_to_string(package_dir.join(GLOBAL_CONFIG_FILE_NAME)))
-        .map_err(|_| anyhow::anyhow!("Package {package_dir:?} has no {GLOBAL_CONFIG_FILE_NAME}"))?;
-
-    let wasmer_toml = toml::from_str::<wapm_toml::Manifest>(&wasmer_toml)
-        .map_err(|e| anyhow::anyhow!("Could not parse toml for {package_dir:?}: {e}"))?;
+    let wasmer_toml = LocalPackage::read_toml(package_dir).map_err(|e| anyhow::anyhow!("{e}"))?;
 
     let name = wasmer_toml.package.name.clone();
     let version = wasmer_toml.package.version.clone();
@@ -202,11 +243,7 @@ pub fn get_all_local_packages(#[cfg(test)] test_name: &str) -> Vec<LocalPackage>
     };
 
     for (path, url_hash_with_version) in get_all_names_in_dir(&checkouts_dir) {
-        let s = match std::fs::read_to_string(path.join("wapm.toml")) {
-            Ok(o) => o,
-            Err(_) => continue,
-        };
-        let manifest = match wapm_toml::Manifest::parse(&s) {
+        let s = match LocalPackage::read_toml(&path) {
             Ok(o) => o,
             Err(_) => continue,
         };
@@ -566,12 +603,9 @@ pub fn install_package(#[cfg(test)] test_name: &str, url: &Url) -> Result<PathBu
     )
     .with_context(|| anyhow::anyhow!("Could not unpack file downloaded from {url}"))?;
 
-    // read {unpacked}/wapm.toml to get the name + version number
-    let toml_path = unpacked_targz_path.join("wapm.toml");
-    let toml = std::fs::read_to_string(&toml_path)
-        .map_err(|e| anyhow::anyhow!("error reading {}: {e}", toml_path.display()))?;
-    let toml_parsed = toml::from_str::<wapm_toml::Manifest>(&toml)
-        .map_err(|e| anyhow::anyhow!("error parsing {}: {e}", toml_path.display()))?;
+    // read {unpacked}/wasmer.toml to get the name + version number
+    let toml_parsed = LocalPackage::read_toml(&unpacked_targz_path)
+        .map_err(|e| anyhow::anyhow!("error reading package name / version number: {e}"))?;
 
     let version = toml_parsed.package.version.to_string();
 
@@ -595,7 +629,7 @@ pub fn install_package(#[cfg(test)] test_name: &str, url: &Url) -> Result<PathBu
 
     #[cfg(not(target_os = "wasi"))]
     let _ = filetime::set_file_mtime(
-        installation_path.join("wapm.toml"),
+        LocalPackage::get_wasmer_toml_path(&installation_path)?,
         filetime::FileTime::now(),
     );
 

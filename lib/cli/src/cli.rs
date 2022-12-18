@@ -139,7 +139,7 @@ enum WasmerCLIOptions {
     /// Inspect a WebAssembly file
     Inspect(Inspect),
 
-    /// Initializes a new wapm.toml file
+    /// Initializes a new wasmer.toml file
     #[clap(name = "init")]
     Init(Init),
 
