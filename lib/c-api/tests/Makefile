@@ -10,9 +10,9 @@ ifeq (,$(wildcard $(WASMER_DIR)/bin/wasmer))
 	LDFLAGS = -Wl,-rpath,$(WASMER_DIR)/lib
 	LDLIBS = -L $(WASMER_DIR)/lib -lwasmer
 else
-	CFLAGS = -g -I $(ROOT_DIR)/wasm-c-api/include/ -I $(shell $(WASMER_DIR)/bin/wasmer config get includedir)
-	LDFLAGS = -Wl,-rpath,$(shell $(WASMER_DIR)/bin/wasmer config get libdir)
-	LDLIBS = $(shell $(WASMER_DIR)/bin/wasmer config get libs)
+	CFLAGS = -g -I $(ROOT_DIR)/wasm-c-api/include/ -I $(shell $(WASMER_DIR)/bin/wasmer config --includedir)
+	LDFLAGS = -Wl,-rpath,$(shell $(WASMER_DIR)/bin/wasmer config --libdir)
+	LDLIBS = $(shell $(WASMER_DIR)/bin/wasmer config --libs)
 endif
 
 

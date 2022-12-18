@@ -148,48 +148,48 @@ $ make test-capi
 
 `wasmer config` output various configuration information needed to compile programs which use Wasmer.
 
-### `wasmer config get pkg-config`
+### `wasmer config --pkg-config`
 
 It outputs the necessary details for compiling and linking a program to Wasmer,
 using the `pkg-config` format:
 
 ```bash
-$ wasmer config get pkg-config > $PKG_CONFIG_PATH/wasmer.pc
+$ wasmer config --pkg-config > $PKG_CONFIG_PATH/wasmer.pc
 ```
 
-### `wasmer config get includedir`
+### `wasmer config --includedir`
 
 Directory containing Wasmer headers:
 
 ```bash
-$ wasmer config get includedir
+$ wasmer config --includedir
 /users/myuser/.wasmer/include
 ```
 
-### `wasmer config get libdir`
+### `wasmer config --libdir`
 
 Directory containing Wasmer libraries:
 
 ```bash
-$ wasmer config get libdir
+$ wasmer config --libdir
 /users/myuser/.wasmer/lib
 ```
 
-### `wasmer config get libs`
+### `wasmer config --libs`
 
 Libraries needed to link against Wasmer components:
 
 ```bash
-$ wasmer config get libs
+$ wasmer config --libs
 -L/Users/myuser/.wasmer/lib -lwasmer
 ```
 
-### `wasmer config get cflags`
+### `wasmer config --cflags`
 
 Headers needed to build against Wasmer components:
 
 ```bash
-$ wasmer config get cflags
+$ wasmer config --cflags
 -I/Users/myuser/.wasmer/include/wasmer
 ```
 
