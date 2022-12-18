@@ -10,11 +10,9 @@ mod config;
 mod create_exe;
 #[cfg(feature = "static-artifact-create")]
 mod create_obj;
-mod init;
 mod inspect;
 mod list;
 mod login;
-mod publish;
 mod run;
 mod self_update;
 mod validate;
@@ -33,8 +31,8 @@ pub use create_obj::*;
 #[cfg(feature = "wast")]
 pub use wast::*;
 pub use {
-    add::*, cache::*, config::*, init::*, inspect::*, list::*, login::*, publish::*, run::*,
-    self_update::*, validate::*, whoami::*,
+    add::*, cache::*, config::*, inspect::*, list::*, login::*, run::*, self_update::*,
+    validate::*, whoami::*,
 };
 
 /// The kind of object format to emit.

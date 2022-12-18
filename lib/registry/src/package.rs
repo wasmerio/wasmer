@@ -4,14 +4,6 @@ use std::path::PathBuf;
 use std::{fmt, str::FromStr};
 use url::Url;
 
-const REGEX_FULL: &str = r#"^([a-zA-Z0-9\-_]+)/([a-zA-Z0-9\-_]+)(@([a-zA-Z0-9\.\-_]+*))?$"#;
-const REGEX_PACKAGE: &str = r#"^([a-zA-Z0-9\-_]+)/([a-zA-Z0-9\-_]+)$"#;
-
-lazy_static::lazy_static! {
-    static ref FULL_REGEX: Regex = regex::Regex::new(REGEX_FULL).unwrap();
-    static ref PACKAGE_REGEX: Regex = regex::Regex::new(REGEX_PACKAGE).unwrap();
-}
-
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Package {
     pub namespace: String,
@@ -175,17 +167,17 @@ impl Package {
             None => Ok(checkouts_dir.join(&hash)),
         }
     }
-
-    pub fn validate_package_name(s: &str) -> bool {
-        PACKAGE_REGEX.is_match(s)
-    }
 }
 
 impl FromStr for Package {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let captures = FULL_REGEX
+        let regex =
+            regex::Regex::new(r#"^([a-zA-Z0-9\-_]+)/([a-zA-Z0-9\-_]+)(@([a-zA-Z0-9\.\-_]+*))?$"#)
+                .unwrap();
+
+        let captures = regex
             .captures(s.trim())
             .map(|c| {
                 c.iter()

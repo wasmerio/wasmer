@@ -3,8 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-pub static GLOBAL_CONFIG_DATABASE_FILE_NAME: &str = "wapm.sqlite";
-
 #[derive(Deserialize, Default, Serialize, Debug, PartialEq, Eq)]
 pub struct WasmerConfig {
     /// The number of seconds to wait before checking the registry for a new
@@ -293,15 +291,6 @@ impl WasmerConfig {
     #[cfg(not(test))]
     pub fn get_file_location() -> Result<PathBuf, String> {
         Ok(Self::get_folder()?.join(crate::GLOBAL_CONFIG_FILE_NAME))
-    }
-
-    pub fn get_database_file_path(#[cfg(test)] test_name: &str) -> Result<PathBuf, String> {
-        #[cfg(test)]
-        let f = Self::get_folder(test_name);
-        #[cfg(not(test))]
-        let f = Self::get_folder();
-
-        f.map(|config_folder| config_folder.join(GLOBAL_CONFIG_DATABASE_FILE_NAME))
     }
 }
 
