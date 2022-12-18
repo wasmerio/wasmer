@@ -115,17 +115,17 @@ pub fn get_executable_file_from_path(
     package_dir: &PathBuf,
     command: Option<&str>,
 ) -> Result<(wapm_toml::Manifest, PathBuf), anyhow::Error> {
-    let wapm_toml = std::fs::read_to_string(package_dir.join(GLOBAL_CONFIG_FILE_NAME))
-        .or_else(|_| std::fs::read_to_string(package_dir.join("wasmer.toml")))
+    let wasmer_toml = std::fs::read_to_string(package_dir.join("wasmer.toml"))
+        .or_else(|_| std::fs::read_to_string(package_dir.join(GLOBAL_CONFIG_FILE_NAME)))
         .map_err(|_| anyhow::anyhow!("Package {package_dir:?} has no {GLOBAL_CONFIG_FILE_NAME}"))?;
 
-    let wapm_toml = toml::from_str::<wapm_toml::Manifest>(&wapm_toml)
+    let wasmer_toml = toml::from_str::<wapm_toml::Manifest>(&wasmer_toml)
         .map_err(|e| anyhow::anyhow!("Could not parse toml for {package_dir:?}: {e}"))?;
 
-    let name = wapm_toml.package.name.clone();
-    let version = wapm_toml.package.version.clone();
+    let name = wasmer_toml.package.name.clone();
+    let version = wasmer_toml.package.version.clone();
 
-    let commands = wapm_toml.command.clone().unwrap_or_default();
+    let commands = wasmer_toml.command.clone().unwrap_or_default();
     let entrypoint_module = match command {
         Some(s) => commands.iter().find(|c| c.get_name() == s).ok_or_else(|| {
             anyhow::anyhow!("Cannot run {name}@{version}: package has no command {s:?}")
@@ -147,7 +147,7 @@ pub fn get_executable_file_from_path(
     };
 
     let module_name = entrypoint_module.get_module();
-    let modules = wapm_toml.module.clone().unwrap_or_default();
+    let modules = wasmer_toml.module.clone().unwrap_or_default();
     let entrypoint_module = modules
         .iter()
         .find(|m| m.name == module_name)
@@ -159,7 +159,7 @@ pub fn get_executable_file_from_path(
 
     let entrypoint_source = package_dir.join(&entrypoint_module.source);
 
-    Ok((wapm_toml, entrypoint_source))
+    Ok((wasmer_toml, entrypoint_source))
 }
 
 fn get_all_names_in_dir(dir: &PathBuf) -> Vec<(PathBuf, String)> {
