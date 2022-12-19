@@ -167,7 +167,7 @@ fn test_stdin() {
     // Let's call the `_start` function, which is our `main` function in Rust.
     let start = instance.exports.get_function("_start").unwrap();
     let result = start.call(&mut store, &[]);
-    assert!(!result.is_err());
+    assert!(result.is_ok());
 
     // We assure stdin is now empty
     let mut buf = Vec::new();

@@ -355,8 +355,8 @@ impl Mmap {
                 };
 
                 // The shallow copy failed so we have to do it the hard way
-                let mut off_in: libc::off_t = 0;
-                let mut off_out: libc::off_t = 0;
+                let off_in: libc::off_t = 0;
+                let off_out: libc::off_t = 0;
 
                 cfg_if::cfg_if! {
                     if #[cfg(not(any(target_env = "musl", target_vendor = "apple")))]

@@ -86,7 +86,7 @@ pub struct LocalPackage {
 }
 
 impl LocalPackage {
-    pub fn get_path(&self, #[cfg(test)] test_name: &str) -> Result<PathBuf, String> {
+    pub fn get_path(&self, #[cfg(test)] _test_name: &str) -> Result<PathBuf, String> {
         Ok(self.path.clone())
     }
     pub fn get_commands(&self, #[cfg(test)] test_name: &str) -> Result<Vec<String>, String> {

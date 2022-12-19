@@ -593,21 +593,11 @@ impl CreateExe {
             );
         }
 
-        let mut libwasmer_path = tempdir_path.join("libwasmer.a");
-        std::fs::copy(&library, &libwasmer_path)?;
-        println!("Library Path: {}", libwasmer_path.display());
+        println!("Library Path: {}", library.display());
         /* Cross compilation is only possible with zig */
         println!("Using zig binary: {}", zig_binary_path.display());
         let zig_triple = triple_to_zig_triple(target);
         println!("Using zig target triple: {}", &zig_triple);
-
-        let lib_filename = libwasmer_path
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
-        libwasmer_path.pop();
 
         if let Some(entrypoint) = pirita_main_atom.as_ref() {
             let c_code = Self::generate_pirita_wasmer_main_c_static(pirita_atoms, entrypoint);
@@ -625,6 +615,9 @@ impl CreateExe {
 
         // copy all include files into one folder for easier debugging
         for h in header_code_paths.iter_mut() {
+            if h.display().to_string().is_empty() {
+                *h = std::env::current_dir()?;
+            }
             if h.is_dir() {
                 if debug_dir.is_some() {
                     println!("copying {} to {}", h.display(), temp_include_dir.display());
@@ -637,13 +630,6 @@ impl CreateExe {
                     println!("copying {} to {}", h.display(), temp_include_dir.display());
                 }
                 std::fs::copy(&h, temp_include_dir.join(h.file_name().unwrap()))?;
-            }
-            if !h.is_dir() {
-                h.pop();
-            }
-
-            if h.display().to_string().is_empty() {
-                *h = std::env::current_dir()?;
             }
         }
 
@@ -689,13 +675,19 @@ impl CreateExe {
                 cmd.arg(target_path);
             }
 
-            cmd.arg(&c_src_path.canonicalize().unwrap());
-            cmd.arg(libwasmer_path.canonicalize().unwrap().join(&lib_filename));
+            if debug_dir.is_some() {
+                let target_c_file_path = tempdir_path.join("wasmer_main.c");
+                std::fs::copy(&c_src_path, &target_c_file_path)?;
+                cmd.arg(target_c_file_path);
+                let target_libwasmer_path = tempdir_path.join("libwasmer.a");
+                std::fs::copy(&setup.library, &target_libwasmer_path)?;
+                cmd.arg(target_libwasmer_path);
+            } else {
+                cmd.arg(&c_src_path.canonicalize().unwrap());
+                cmd.arg(&setup.library);
+            }
 
             if zig_triple.contains("windows") {
-                let mut libwasmer_parent = libwasmer_path.clone();
-                libwasmer_parent.pop();
-
                 let mut winsdk_path = library.clone();
                 winsdk_path.pop();
                 winsdk_path.pop();
@@ -729,7 +721,7 @@ impl CreateExe {
                     );
                 }
                 std::fs::copy(volume_obj, &target_path)?;
-                cmd.arg(target_path.clone());
+                cmd.arg(target_path);
             }
 
             if debug_dir.is_some() {
