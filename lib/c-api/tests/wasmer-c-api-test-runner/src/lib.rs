@@ -203,12 +203,12 @@ fn test_ok() {
     let libwasmer_so_path = format!("{}/lib/libwasmer.so", config.wasmer_dir);
     let exe_dir = format!("{manifest_dir}/../wasm-c-api/example");
     let path = std::env::var("PATH").unwrap_or_default();
-    let newpath = format!("{};{path}", format!("{wasmer_dll_dir}").replace("/", "\\"));
+    let newpath = format!("{};{path}", wasmer_dll_dir.to_string().replace('/', "\\"));
 
     if target.contains("msvc") {
         for test in CAPI_BASE_TESTS.iter() {
             let mut build = cc::Build::new();
-            let mut build = build
+            let build = build
                 .cargo_metadata(false)
                 .warnings(true)
                 .static_crt(true)
@@ -256,12 +256,12 @@ fn test_ok() {
                     &[
                         format!("{}/include/", config.wasmer_dir),
                         format!("{}/wasm-c-api/include/", config.root_dir),
-                        format!("{}", config.root_dir),
+                        config.root_dir.to_string(),
                     ],
                     &mut log,
                     &config.root_dir,
                 )
-                .expect(&format!("failed to fix symlinks: {log}"));
+                .unwrap_or_else(|_| panic!("failed to fix symlinks: {log}"));
                 println!("{log}");
             }
             command.arg("/link");
@@ -276,7 +276,7 @@ fn test_ok() {
             // compile
             let output = command
                 .output()
-                .expect(&format!("failed to compile {command:#?}"));
+                .unwrap_or_else(|_| panic!("failed to compile {command:#?}"));
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
@@ -298,7 +298,7 @@ fn test_ok() {
             println!("setting current dir = {exe_dir}");
             let output = command
                 .output()
-                .expect(&format!("failed to run {command:#?}"));
+                .unwrap_or_else(|_| panic!("failed to run {command:#?}"));
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
@@ -336,18 +336,18 @@ fn test_ok() {
                     &[
                         format!("{}/include/", config.wasmer_dir),
                         format!("{}/wasm-c-api/include/", config.root_dir),
-                        format!("{}", config.root_dir),
+                        config.root_dir.to_string(),
                     ],
                     &mut log,
                     &config.root_dir,
                 )
-                .expect(&format!("failed to fix symlinks: {log}"));
+                .unwrap_or_else(|_| panic!("failed to fix symlinks: {log}"));
             }
             command.arg(&format!("{manifest_dir}/../{test}.c"));
             if !config.wasmer_dir.is_empty() {
                 command.arg("-L");
                 command.arg(&format!("{}/lib/", config.wasmer_dir));
-                command.arg(&format!("-lwasmer"));
+                command.arg(&"-lwasmer".to_string());
                 command.arg(&format!("-Wl,-rpath,{}/lib/", config.wasmer_dir));
             }
             command.arg("-o");
@@ -359,7 +359,7 @@ fn test_ok() {
             // compile
             let output = command
                 .output()
-                .expect(&format!("failed to compile {command:#?}"));
+                .unwrap_or_else(|_| panic!("failed to compile {command:#?}"));
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
@@ -374,7 +374,7 @@ fn test_ok() {
             println!("execute: {command:#?}");
             let output = command
                 .output()
-                .expect(&format!("failed to run {command:#?}"));
+                .unwrap_or_else(|_| panic!("failed to run {command:#?}"));
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
@@ -450,7 +450,7 @@ fn fixup_symlinks(
             let entry = entry?;
             let path = entry.path();
             let path_display = format!("{}", path.display());
-            if path_display.ends_with("h") {
+            if path_display.ends_with('h') {
                 paths_headers.push(path_display);
             }
         }
@@ -504,7 +504,7 @@ fn find_vcvars64(compiler: &cc::Tool) -> Option<String> {
 
     let path = compiler.path();
     let path = format!("{}", path.display());
-    let split = path.split("VC").nth(0)?;
+    let split = path.split("VC").next()?;
 
     Some(format!("{split}VC\\Auxiliary\\Build\\vcvars64.bat"))
 }
