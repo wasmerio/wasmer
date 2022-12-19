@@ -334,8 +334,9 @@ jobs:
         if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
         run: which cargo
       - name: List root dir
+        shell: bash
         if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
-        run: ls -R /Users/runner/work
+        run: ls -R $( basedir $( basedir $( which cargo ) ) )
       - name: Cache
         uses: whywaita/actions-cache-s3@v2
         with:
@@ -384,6 +385,10 @@ jobs:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: --target ${{ matrix.metadata.target }}
+      - name: List root dir again
+        shell: bash
+        if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
+        run: ls -R $( basedir $( basedir $( which cargo ) ) )
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
