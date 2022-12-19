@@ -12,6 +12,7 @@ use std::io::prelude::*;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::process::Stdio;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 #[cfg(feature = "webc_runner")]
@@ -569,7 +570,7 @@ impl CreateExe {
         pirita_volume_path: Option<PathBuf>,
     ) -> anyhow::Result<()> {
         let tempdir = tempdir::TempDir::new("wasmer-static-compile-zig")?;
-        let tempdir_path = match debug_dir {
+        let tempdir_path = match debug_dir.as_ref() {
             Some(s) => s.clone(),
             None => tempdir.path().to_path_buf(),
         };
@@ -579,8 +580,21 @@ impl CreateExe {
             ref zig_binary_path,
             ref library,
         } = setup;
-        std::fs::copy(&library, tempdir_path.join("libwasmer.a"))?;
+
+        let mut include_dir = library.clone();
+        include_dir.pop();
+        include_dir.pop();
+        include_dir.push("include");
+
+        if !include_dir.exists() {
+            println!(
+                "Warning: include path {} does not exist",
+                include_dir.display()
+            );
+        }
+
         let mut libwasmer_path = tempdir_path.join("libwasmer.a");
+        std::fs::copy(&library, &libwasmer_path)?;
         println!("Library Path: {}", libwasmer_path.display());
         /* Cross compilation is only possible with zig */
         println!("Using zig binary: {}", zig_binary_path.display());
@@ -604,15 +618,24 @@ impl CreateExe {
 
         let mut header_code_paths = header_code_paths.to_vec();
 
-        let temp_include_dir = tempdir_path.join("tmpinclude");
+        let temp_include_dir = tempdir_path.join("include");
         std::fs::create_dir_all(&temp_include_dir)?;
 
+        header_code_paths.push(include_dir.clone());
+
+        // copy all include files into one folder for easier debugging
         for h in header_code_paths.iter_mut() {
             if h.is_dir() {
+                if debug_dir.is_some() {
+                    println!("copying {} to {}", h.display(), temp_include_dir.display());
+                }
                 for file in std::fs::read_dir(&h).unwrap().filter_map(|p| p.ok()) {
                     std::fs::copy(file.path(), temp_include_dir.join(file.file_name()))?;
                 }
             } else if h.is_file() {
+                if debug_dir.is_some() {
+                    println!("copying {} to {}", h.display(), temp_include_dir.display());
+                }
                 std::fs::copy(&h, temp_include_dir.join(h.file_name().unwrap()))?;
             }
             if !h.is_dir() {
@@ -626,16 +649,20 @@ impl CreateExe {
 
         /* Compile main function */
         let compilation = {
-            let mut include_dir = libwasmer_path.clone();
-            include_dir.pop();
-            include_dir.push("include");
+            if debug_dir.is_some() {
+                println!("cross compile setup: {:#?}", setup);
+            }
 
             let mut cmd = Command::new(zig_binary_path);
             cmd.arg("build-exe");
+            cmd.arg("--verbose-cc");
+            cmd.arg("--verbose-link");
             cmd.arg("-target");
             cmd.arg(&zig_triple);
-            cmd.arg(&format!("-I{}/", include_dir.display()));
-            cmd.arg(&format!("-I{}/", temp_include_dir.display()));
+            cmd.arg(&format!(
+                "-I{}/",
+                temp_include_dir.canonicalize().unwrap().display()
+            ));
             if zig_triple.contains("windows") {
                 cmd.arg("-lc++");
             } else {
@@ -644,33 +671,73 @@ impl CreateExe {
             cmd.arg("-lunwind");
             cmd.arg("-OReleaseSafe");
             cmd.arg("-fno-compiler-rt");
+            cmd.arg("-fno-lto");
             cmd.arg(&format!("-femit-bin={}", output_path.display()));
 
             for o in object_paths {
                 let target_path = tempdir_path.join(o.file_name().unwrap());
-                std::fs::copy(o, &target_path)?;
+
+                if debug_dir.is_some() {
+                    println!(
+                        "copying object file {} to {}",
+                        o.display(),
+                        target_path.display()
+                    );
+                }
+
+                std::fs::copy(o, &target_path).map_err(|e| anyhow::anyhow!("{e}"))?;
                 cmd.arg(target_path);
             }
-            cmd.arg(&c_src_path);
-            cmd.arg(libwasmer_path.join(&lib_filename));
+
+            cmd.arg(&c_src_path.canonicalize().unwrap());
+            cmd.arg(libwasmer_path.canonicalize().unwrap().join(&lib_filename));
+
             if zig_triple.contains("windows") {
                 let mut libwasmer_parent = libwasmer_path.clone();
                 libwasmer_parent.pop();
-                let files_winsdk = std::fs::read_dir(libwasmer_parent.join("winsdk"))
+
+                let mut winsdk_path = library.clone();
+                winsdk_path.pop();
+                winsdk_path.pop();
+                winsdk_path.push("winsdk");
+
+                let files_winsdk = std::fs::read_dir(winsdk_path)
                     .ok()
                     .map(|res| res.filter_map(|r| Some(r.ok()?.path())).collect::<Vec<_>>())
                     .unwrap_or_default();
                 for f in files_winsdk {
-                    cmd.arg(f);
+                    let target_path = tempdir_path.join(f.file_name().unwrap());
+                    if debug_dir.is_some() {
+                        println!(
+                            "copying winsdk file {} to {}",
+                            f.display(),
+                            target_path.display()
+                        );
+                    }
+                    std::fs::copy(f, &target_path)?;
+                    cmd.arg(target_path);
                 }
             }
+
             if let Some(volume_obj) = pirita_volume_path.as_ref() {
                 let target_path = tempdir_path.join("volume.obj");
+                if debug_dir.is_some() {
+                    println!(
+                        "copying volume.obj file {} to {}",
+                        volume_obj.display(),
+                        target_path.display()
+                    );
+                }
                 std::fs::copy(volume_obj, &target_path)?;
                 cmd.arg(target_path.clone());
             }
 
-            println!("{:?}", cmd);
+            if debug_dir.is_some() {
+                println!("{:?}", cmd);
+                cmd.stdout(Stdio::inherit());
+                cmd.stderr(Stdio::inherit());
+            }
+
             cmd.output().context("Could not execute `zig`")?
         };
         if !compilation.status.success() {
