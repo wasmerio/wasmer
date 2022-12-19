@@ -330,12 +330,16 @@ jobs:
           target = "${{ matrix.metadata.target }}"
           EOF
         if: matrix.metadata.target
+      - name: List root dir
+        if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
+        run: ls -R /Users/runner/work
       - name: Cache
         uses: whywaita/actions-cache-s3@v2
         with:
           path: |
             ~/.cargo/*
             ./target/*
+            /Users/runner/work/.cargo
           key: s32-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-${{ matrix.metadata.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
