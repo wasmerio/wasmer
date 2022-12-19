@@ -99,60 +99,6 @@ pub(crate) mod proxy {
     }
 }
 
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "graphql/schema.graphql",
-    query_path = "graphql/queries/get_package_version.graphql",
-    response_derives = "Debug"
-)]
-pub(crate) struct GetPackageVersionQuery;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "graphql/schema.graphql",
-    query_path = "graphql/queries/get_package_by_command.graphql",
-    response_derives = "Debug"
-)]
-pub(crate) struct GetPackageByCommandQuery;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "graphql/schema.graphql",
-    query_path = "graphql/queries/test_if_registry_present.graphql",
-    response_derives = "Debug"
-)]
-pub(crate) struct TestIfRegistryPresent;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "graphql/schema.graphql",
-    query_path = "graphql/queries/get_bindings.graphql",
-    response_derives = "Debug,Clone,PartialEq,Eq"
-)]
-pub(crate) struct GetBindingsQuery;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "graphql/schema.graphql",
-    query_path = "graphql/queries/publish_package_chunked.graphql",
-    response_derives = "Debug"
-)]
-pub(crate) struct PublishPackageMutationChunked;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "graphql/schema.graphql",
-    query_path = "graphql/queries/get_signed_url.graphql",
-    response_derives = "Debug, Clone"
-)]
-pub(crate) struct GetSignedUrl;
-
-#[cfg(target_os = "wasi")]
-pub fn whoami_distro() -> String {
-    whoami::os().to_lowercase()
-}
-
-#[cfg(not(target_os = "wasi"))]
 pub fn whoami_distro() -> String {
     whoami::distro().to_lowercase()
 }
