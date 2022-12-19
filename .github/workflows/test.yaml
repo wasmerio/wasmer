@@ -336,7 +336,7 @@ jobs:
       - name: List root dir
         shell: bash
         if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
-        run: ls -R $( basedir $( basedir $( which cargo ) ) )
+        run: ls -R $( dirname $( dirname $( which cargo ) ) )
       - name: Cache
         uses: whywaita/actions-cache-s3@v2
         with:
