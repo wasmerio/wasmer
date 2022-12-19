@@ -265,9 +265,9 @@ impl CreateExe {
                 self.compile_zig(
                     output_path,
                     self.debug_dir.clone(),
+                    setup,
                     &[wasm_module_path],
                     &[std::path::Path::new("static_defs.h").into()],
-                    setup,
                     &[],
                     None,
                     None,
@@ -579,31 +579,33 @@ impl CreateExe {
     #[allow(clippy::too_many_arguments)]
     fn compile_zig(
         &self,
+        setup: &CrossCompileSetup,
         output_path: PathBuf,
         debug_dir: Option<PathBuf>,
         working_dir: &PathBuf,
-        entrypoint: &Entrypoint,
-        setup: &CrossCompileSetup,
-        pirita_atoms: &[String],
-        pirita_main_atom: Option<&Entrypoint>,
-        pirita_volume_path: Option<PathBuf>,
+        config: &CompileZigConfig,
     ) -> anyhow::Result<()> {
-        let entrypoint_str = match entrypoint {
-            Entrypoint::Single(s) => s,
-            Entrypoint::Multi(m) => {
-                return Err(anyhow::anyhow!(
-                    "CreateExe::compile_zig: multi-command-exe not yet implemented"
-                ));
-            }
-        };
+        let mut object_paths = Vec::new();
+        let mut pirita_volume_path = None;
 
-        let object_file_path = working_dir
-            .join("atoms")
-            .join(&format!("{entrypoint_str}.o"));
-        let static_defs_file_path = working_dir
-            .join("atoms")
-            .join(&entrypoint_str)
-            .join("static_defs.h");
+        /*
+            let entrypoint_str = match entrypoint {
+                Entrypoint::Single(s) => s,
+                Entrypoint::Multi(m) => {
+                    return Err(anyhow::anyhow!(
+                        "CreateExe::compile_zig: multi-command-exe not yet implemented"
+                    ));
+                }
+            };
+
+            let object_file_path = working_dir
+                .join("atoms")
+                .join(&format!("{entrypoint_str}.o"));
+            let static_defs_file_path = working_dir
+                .join("atoms")
+                .join(&entrypoint_str)
+                .join("static_defs.h");
+        */
 
         let tempdir = tempdir::TempDir::new("wasmer-static-compile-zig")?;
         let tempdir_path = match debug_dir.as_ref() {
@@ -642,7 +644,13 @@ impl CreateExe {
             std::fs::write(&c_src_path, WASMER_STATIC_MAIN_C_SOURCE)?;
         }
 
-        let mut header_code_paths = header_code_paths.to_vec();
+        let mut header_code_paths = match entrypoint {
+            Entrypoint::Single(s) => vec![format!()],
+            Entrypoint::Multi(m) => vec![
+                return Err(anyhow::anyhow!("CreateExe::compile_zig: multi-command exe not yet implemented"));
+            ],
+        };
+        header_code_paths.to_vec();
 
         let temp_include_dir = tempdir_path.join("include");
         std::fs::create_dir_all(&temp_include_dir)?;
@@ -838,11 +846,11 @@ impl CreateExe {
                 .commands
                 .iter()
                 .filter_map(|(name, _)| {
-                    Some(serde_json::json!({
-                        "command": name,
-                        "atom": file.get_atom_name_for_command("wasi", name).ok()?,
-                        "object_type": object_format,
-                    }))
+                    Some(CommandEntrypoint {
+                        command: name,
+                        atom: file.get_atom_name_for_command("wasi", name).ok()?,
+                        object_type: object_format,
+                    })
                 })
                 .collect::<Vec<_>>();
             std::fs::write(
@@ -1317,6 +1325,105 @@ impl CreateExe {
         linkcode.run().context("Failed to link objects together")?;
         Ok(())
     }
+}
+
+enum CompileZigConfig {
+    /*
+        output_path,
+        &[wasm_module_path],
+        &[std::path::Path::new("static_defs.h").into()],
+        setup,
+        &[],
+        None,
+        None,
+    */
+    CompileWasmModule {
+        wasm_module_path: PathBuf,
+        static_defs_h: PathBuf,
+    },
+
+    /*
+        output_path,
+        &[object_file_path],
+        &[std::path::Path::new("static_defs.h").into()],
+        setup,
+        &[],
+        None,
+        None,
+    */
+    CompileObjectFile {
+        object_file_path: PathBuf,
+        static_defs_h: PathBuf,
+    },
+
+    /*
+        output_path,
+        &link_objects,
+        &[],
+        &setup,
+        &atom_names,
+        Some(&entrypoint),
+        Some(volume_object_path),
+    */
+    CreateExePiritaFromExistingDirSerialized {
+        wasmer_main_c: String,
+        entrypoint: Entrypoint,
+        volume_object_path: PathBuf,
+    },
+
+    /*
+        output_path,
+        self.debug_dir.clone(),
+        &[object_file_path],
+        &[static_defs_file_path],
+        setup,
+        &atom_names,
+        Some(&entrypoint),
+        Some(volumes_obj_path),
+    */
+    CreateExePiritaFromExistingDirSymbols {
+        entrypoint: Entrypoint,
+        volume_object_path: PathBuf,
+    },
+}
+
+enum LinkConfig {
+    /*
+        output_path,
+        wasm_module_path,
+        std::path::Path::new("static_defs.h").into(),
+        &[],
+        None,
+        None,
+    */
+    LinkFromWasmModule {
+        wasm_module_path: PathBuf,
+        static_defs_h: PathBuf,
+    },
+
+    /*
+        output_path,
+        object_file_path,
+        std::path::Path::new("static_defs.h").into(),
+        &[],
+        None,
+        None,
+    */
+    LinkFromObjectFile {
+        object_file_path: PathBuf,
+        static_defs_h: PathBuf,
+    },
+
+    /*
+        &atom_names,
+        Some(&entrypoint),
+        Some(volumes_obj_path),
+    */
+    LinkPirita {
+        atom_names: Vec<String>,
+        entrypoint: Entrypoint,
+        volume_obj_path: PathBuf,
+    },
 }
 
 #[test]
