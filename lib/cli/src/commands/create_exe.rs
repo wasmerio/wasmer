@@ -4,6 +4,7 @@ use super::ObjectFormat;
 use crate::store::CompilerOptions;
 use anyhow::{Context, Result};
 use clap::Parser;
+use serde::{Deserialize, Serialize};
 use std::env;
 use std::fmt::Write as _;
 use std::fs;
@@ -45,6 +46,28 @@ pub(crate) struct CrossCompileSetup {
     pub(crate) target: Triple,
     pub(crate) zig_binary_path: PathBuf,
     pub(crate) library: PathBuf,
+}
+
+/// Given a pirita file, determines whether the file has one
+/// default command as an entrypoint or multiple (need to be specified via --command)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Entrypoint {
+    /// Single command name is the entrypoint
+    Single(String),
+    /// File contains multiple entrypoints, has to be specified via --command
+    Multi(Vec<CommandEntrypoint>),
+}
+
+/// Command entrypoint for multiple commands
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommandEntrypoint {
+    /// Atom name
+    pub atom: String,
+    /// Command name
+    pub command: String,
+    /// Type of the object format
+    pub object_type: ObjectFormat,
 }
 
 #[derive(Debug, Parser)]
@@ -180,16 +203,12 @@ impl CreateExe {
 
         #[cfg(feature = "webc_runner")]
         {
-            // let working_dir = tempdir::TempDir::new("testpirita")?;
-            // let working_dir = working_dir.path().to_path_buf();
-            let working_dir = Path::new("./tmptestpirita").to_path_buf();
             if let Ok(pirita) = WebCMmap::parse(wasm_module_path.clone(), &ParseOptions::default())
             {
                 return self.create_exe_pirita(
                     &pirita,
                     target,
                     cross_compilation,
-                    &working_dir,
                     output_path,
                     self.debug_dir.clone(),
                     object_format,
@@ -562,13 +581,30 @@ impl CreateExe {
         &self,
         output_path: PathBuf,
         debug_dir: Option<PathBuf>,
-        object_paths: &[PathBuf],
-        header_code_paths: &[PathBuf],
+        working_dir: &PathBuf,
+        entrypoint: &Entrypoint,
         setup: &CrossCompileSetup,
         pirita_atoms: &[String],
-        pirita_main_atom: Option<&str>,
+        pirita_main_atom: Option<&Entrypoint>,
         pirita_volume_path: Option<PathBuf>,
     ) -> anyhow::Result<()> {
+        let entrypoint_str = match entrypoint {
+            Entrypoint::Single(s) => s,
+            Entrypoint::Multi(m) => {
+                return Err(anyhow::anyhow!(
+                    "CreateExe::compile_zig: multi-command-exe not yet implemented"
+                ));
+            }
+        };
+
+        let object_file_path = working_dir
+            .join("atoms")
+            .join(&format!("{entrypoint_str}.o"));
+        let static_defs_file_path = working_dir
+            .join("atoms")
+            .join(&entrypoint_str)
+            .join("static_defs.h");
+
         let tempdir = tempdir::TempDir::new("wasmer-static-compile-zig")?;
         let tempdir_path = match debug_dir.as_ref() {
             Some(s) => s.clone(),
@@ -600,7 +636,7 @@ impl CreateExe {
         println!("Using zig target triple: {}", &zig_triple);
 
         if let Some(entrypoint) = pirita_main_atom.as_ref() {
-            let c_code = Self::generate_pirita_wasmer_main_c_static(pirita_atoms, entrypoint);
+            let c_code = Self::generate_pirita_wasmer_main_c_static(pirita_atoms, entrypoint)?;
             std::fs::write(&c_src_path, c_code)?;
         } else {
             std::fs::write(&c_src_path, WASMER_STATIC_MAIN_C_SOURCE)?;
@@ -797,14 +833,22 @@ impl CreateExe {
         if let Some(atom_to_run) = atom_to_run.as_ref() {
             std::fs::write(output_path.join("entrypoint"), atom_to_run)?;
         } else if file.manifest.commands.len() > 1 {
-            let entrypoint_json = file.manifest.commands.iter().filter_map(|(name, _)| {
-                Some(serde_json::json!({
-                    "command": name,
-                    "atom": file.get_atom_name_for_command("wasi", name).ok()?,
-                    "object_type": object_format,
-                }))
-            }).collect::<Vec<_>>();
-            std::fs::write(output_path.join("entrypoint.json"), serde_json::to_string_pretty(&entrypoint_json)?)?;
+            let entrypoint_json = file
+                .manifest
+                .commands
+                .iter()
+                .filter_map(|(name, _)| {
+                    Some(serde_json::json!({
+                        "command": name,
+                        "atom": file.get_atom_name_for_command("wasi", name).ok()?,
+                        "object_type": object_format,
+                    }))
+                })
+                .collect::<Vec<_>>();
+            std::fs::write(
+                output_path.join("entrypoint.json"),
+                serde_json::to_string_pretty(&entrypoint_json)?,
+            )?;
         }
 
         for (atom_name, atom_bytes) in file.get_all_atoms() {
@@ -892,8 +936,18 @@ impl CreateExe {
         let tempdir = tempdir::TempDir::new("link-exe-from-dir")?;
         let tempdir_path = tempdir.path();
 
-        let entrypoint = std::fs::read_to_string(working_dir.join("entrypoint"))
-            .map_err(|_| anyhow::anyhow!("file has no entrypoint to run"))?;
+        let entrypoint = if let Ok(s) = std::fs::read_to_string(working_dir.join("entrypoint")) {
+            Entrypoint::Single(s)
+        } else if let Ok(s) = std::fs::read_to_string(working_dir.join("entrypoint.json")) {
+            let json = serde_json::from_str(&s)
+                .map_err(|e| anyhow::anyhow!("could not deserialize entrypoint.json: {e}"))?;
+            Entrypoint::Multi(json)
+        } else {
+            return Err(anyhow::anyhow!(
+                "no /entrypoint or /entrypoint.json found in {}",
+                working_dir.display()
+            ));
+        };
 
         if !working_dir.join("atoms").exists() {
             return Err(anyhow::anyhow!("file has no atoms to compile"));
@@ -975,19 +1029,12 @@ impl CreateExe {
                 }
             }
             ObjectFormat::Symbols => {
-                let object_file_path = working_dir.join("atoms").join(&format!("{entrypoint}.o"));
-                let static_defs_file_path = working_dir
-                    .join("atoms")
-                    .join(&entrypoint)
-                    .join("static_defs.h");
                 let volumes_obj_path = Self::write_volume_obj(volume_bytes, target, tempdir_path)?;
-
                 if let Some(setup) = cross_compilation.as_ref() {
                     self.compile_zig(
                         output_path,
                         self.debug_dir.clone(),
-                        &[object_file_path],
-                        &[static_defs_file_path],
+                        &entrypoint,
                         setup,
                         &atom_names,
                         Some(&entrypoint),
@@ -996,8 +1043,6 @@ impl CreateExe {
                 } else {
                     self.link(
                         output_path,
-                        object_file_path,
-                        static_defs_file_path,
                         &atom_names,
                         Some(&entrypoint),
                         Some(volumes_obj_path),
@@ -1023,7 +1068,19 @@ impl CreateExe {
             .collect()
     }
 
-    fn generate_pirita_wasmer_main_c_static(atom_names: &[String], atom_to_run: &str) -> String {
+    fn generate_pirita_wasmer_main_c_static(
+        atom_names: &[String],
+        entrypoint: &Entrypoint,
+    ) -> String {
+        let atom_to_run = match entrypoint {
+            Entrypoint::Single(s) => s,
+            Entrypoint::Multi(m) => {
+                return Err(anyhow::anyhow!("generate_pirita_wasmer_main_c_static: not yet able to generate multi-command exe"));
+            }
+        };
+
+        let mut c_code_to_instantiate = String::new();
+        let mut deallocate_module = String::new();
         let mut c_code_to_instantiate = String::new();
         let mut deallocate_module = String::new();
 
@@ -1063,7 +1120,19 @@ impl CreateExe {
     }
 
     #[cfg(feature = "webc_runner")]
-    fn generate_pirita_wasmer_main_c(atom_names: &[String], atom_to_run: &str) -> String {
+    fn generate_pirita_wasmer_main_c(
+        atom_names: &[String],
+        entrypoint: &Entrypoint,
+    ) -> Result<String, anyhow::Error> {
+        let atom_to_run = match entrypoint {
+            Entrypoint::Single(s) => s,
+            Entrypoint::Multi(m) => {
+                return Err(anyhow::anyhow!(
+                    "generate_pirita_wasmer_main_c: not yet able to generate multi-command exe"
+                ));
+            }
+        };
+
         let mut c_code_to_add = String::new();
         let mut c_code_to_instantiate = String::new();
         let mut deallocate_module = String::new();
@@ -1111,15 +1180,20 @@ impl CreateExe {
         file: &WebCMmap,
         target: Target,
         cross_compilation: Option<CrossCompileSetup>,
-        working_dir: &Path,
         output_path: PathBuf,
         debug_dir: Option<PathBuf>,
         object_format: ObjectFormat,
     ) -> anyhow::Result<()> {
+        let working_dir = match debug_dir.as_ref() {
+            None => temp_dir.path().to_path_buf(),
+            Some(s) => s.clone(),
+        };
+        let _ = std::fs::create_dir_all(&working_dir);
+        let (store, _) = self.compiler.get_store_for_target(target.clone())?;
         let _ = std::fs::create_dir_all(&working_dir);
         let (store, _) = self.compiler.get_store_for_target(target.clone())?;
 
-        Self::create_objs_pirita(&store, file, &target, working_dir, object_format)?;
+        let volumes_obj = file.get_volumes_as_fileblock();
 
         let volumes_obj = file.get_volumes_as_fileblock();
         self.link_exe_from_dir(
@@ -1127,7 +1201,7 @@ impl CreateExe {
             &store,
             &target,
             cross_compilation,
-            working_dir,
+            debug_dir,
             output_path,
             debug_dir,
             object_format,
@@ -1140,10 +1214,8 @@ impl CreateExe {
     fn link(
         &self,
         output_path: PathBuf,
-        object_path: PathBuf,
-        mut header_code_path: PathBuf,
         pirita_atoms: &[String],
-        pirita_main_atom: Option<&str>,
+        pirita_entrypoint: Option<&Entrypoint>,
         pirita_volume_path: Option<PathBuf>,
     ) -> anyhow::Result<()> {
         let tempdir = tempdir::TempDir::new("wasmer-static-compile")?;

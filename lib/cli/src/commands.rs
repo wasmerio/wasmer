@@ -28,16 +28,16 @@ pub use compile::*;
 pub use create_exe::*;
 #[cfg(feature = "static-artifact-create")]
 pub use create_obj::*;
+use serde::{Deserialize, Serialize};
 #[cfg(feature = "wast")]
 pub use wast::*;
 pub use {
     add::*, cache::*, config::*, inspect::*, list::*, login::*, run::*, self_update::*,
     validate::*, whoami::*,
 };
-use serde::{Serialize, Deserialize};
 
 /// The kind of object format to emit.
-#[derive(Debug, Copy, Clone, clap::Parser, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, clap::Parser, Serialize, Deserialize)]
 #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
 pub enum ObjectFormat {
     /// Serialize the entire module into an object file.
