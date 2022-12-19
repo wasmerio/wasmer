@@ -126,7 +126,7 @@ impl LocalPackage {
     }
 
     /// Reads the wasmer.toml fron $PATH with wapm.toml as a fallback
-    pub fn read_toml(base_path: &Path) -> Result<wapm_toml::Manifest, String> {
+    pub fn read_toml(base_path: &Path) -> Result<wasmer_toml::Manifest, String> {
         let wasmer_toml = std::fs::read_to_string(base_path.join(PACKAGE_TOML_FILE_NAME))
             .or_else(|_| std::fs::read_to_string(base_path.join(PACKAGE_TOML_FALLBACK_NAME)))
             .map_err(|_| {
@@ -135,7 +135,7 @@ impl LocalPackage {
                     base_path.display()
                 )
             })?;
-        let wasmer_toml = toml::from_str::<wapm_toml::Manifest>(&wasmer_toml)
+        let wasmer_toml = toml::from_str::<wasmer_toml::Manifest>(&wasmer_toml)
             .map_err(|e| format!("Could not parse toml for {:?}: {e}", base_path.display()))?;
         Ok(wasmer_toml)
     }
@@ -159,7 +159,7 @@ impl LocalPackage {
 pub fn get_executable_file_from_path(
     package_dir: &Path,
     command: Option<&str>,
-) -> Result<(wapm_toml::Manifest, PathBuf), anyhow::Error> {
+) -> Result<(wasmer_toml::Manifest, PathBuf), anyhow::Error> {
     let wasmer_toml = LocalPackage::read_toml(package_dir).map_err(|e| anyhow::anyhow!("{e}"))?;
 
     let name = wasmer_toml.package.name.clone();
@@ -406,7 +406,7 @@ pub fn query_package_from_registry(
         QueryPackageError::ErrorSendingQuery(format!("no package version for {name:?}"))
     })?;
 
-    let manifest = toml::from_str::<wapm_toml::Manifest>(&v.manifest).map_err(|e| {
+    let manifest = toml::from_str::<wasmer_toml::Manifest>(&v.manifest).map_err(|e| {
         QueryPackageError::ErrorSendingQuery(format!("Invalid manifest for crate {name:?}: {e}"))
     })?;
 
