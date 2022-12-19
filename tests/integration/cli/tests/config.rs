@@ -94,7 +94,6 @@ fn config_works() -> anyhow::Result<()> {
         format!("Libs: -L{lib_path} -lwasmer"),
     ];
 
-    let wasmer_dir = Path::new(env!("WASMER_DIR"));
     let lines = String::from_utf8(bindir.stdout)
         .unwrap()
         .lines()
@@ -105,29 +104,65 @@ fn config_works() -> anyhow::Result<()> {
 
     // ---- config get
 
-    /*
-        config get
+    let output = Command::new(get_wasmer_path())
+        .arg("config")
+        .arg("get")
+        .arg("config.path")
+        .output()?;
 
-        config.path                     Print the path to the configuration file
-        proxy.url                       Print the proxy URL
-        registry.token                  Print the token for the currently active registry or nothing
-                                            if not logged in
-        registry.url                    Print the registry URL of the currently active registry
-        telemetry.enabled               Print whether telemetry is currently enabled
-        update-notifications.enabled    Print whether update notifications are enabled
-    */
+    let config_path = Path::new(env!("WASMER_DIR")).join("wasmer.toml");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        format!("{}\n", config_path.display())
+    );
 
-    // ---- config set
+    let output = Command::new(get_wasmer_path())
+        .arg("config")
+        .arg("get")
+        .arg("registry.token")
+        .output()?;
 
-    /*
-        config set
+    let original_token = String::from_utf8_lossy(&output.stdout);
 
-        proxy.url                       `proxy.url`
-        registry.token                  `registry.token`
-        registry.url                    `registry.url`
-        telemetry.enabled               `telemetry.enabled`
-        update-notifications.enabled    `update-notifications.url`
-    */
+    let output = Command::new(get_wasmer_path())
+        .arg("config")
+        .arg("set")
+        .arg("registry.token")
+        .arg("abc123")
+        .output()?;
+
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "".to_string());
+
+    let output = Command::new(get_wasmer_path())
+        .arg("config")
+        .arg("get")
+        .arg("registry.token")
+        .output()?;
+
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "abc123\n".to_string()
+    );
+
+    let output = Command::new(get_wasmer_path())
+        .arg("config")
+        .arg("set")
+        .arg("registry.token")
+        .arg(original_token.to_string().trim())
+        .output()?;
+
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "".to_string());
+
+    let output = Command::new(get_wasmer_path())
+        .arg("config")
+        .arg("get")
+        .arg("registry.token")
+        .output()?;
+
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        format!("{}\n", original_token.to_string().trim().to_string())
+    );
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
@@ -135,30 +170,49 @@ fn config_works() -> anyhow::Result<()> {
         .arg("registry.url")
         .output()?;
 
-    assert!(output.status.success());
-
-    let registry_url = std::str::from_utf8(&output.stdout)
-        .expect("stdout is not utf8! need to handle arbitrary bytes");
-
-    println!("registry url {}", registry_url);
+    let original_url = String::from_utf8_lossy(&output.stdout);
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
         .arg("set")
         .arg("registry.url")
-        .arg("wapm.io")
+        .arg("wapm.dev")
         .output()?;
 
-    assert!(output.status.success());
+    let output_str = String::from_utf8_lossy(&output.stdout);
+
+    assert_eq!(output_str, "".to_string());
+
+    let output = Command::new(get_wasmer_path())
+        .arg("config")
+        .arg("get")
+        .arg("registry.url")
+        .output()?;
+
+    let output_str = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(
+        output_str,
+        "https://registry.wapm.dev/graphql\n".to_string()
+    );
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
         .arg("set")
         .arg("registry.url")
-        .arg(registry_url)
+        .arg(original_url.to_string().trim())
         .output()?;
 
-    assert!(output.status.success());
+    let output_str = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(output_str, "".to_string());
+
+    let output = Command::new(get_wasmer_path())
+        .arg("config")
+        .arg("get")
+        .arg("registry.url")
+        .output()?;
+
+    let output_str = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(output_str, original_url.to_string());
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
@@ -166,31 +220,95 @@ fn config_works() -> anyhow::Result<()> {
         .arg("telemetry.enabled")
         .output()?;
 
-    assert!(output.status.success());
-
-    let telemetry_enabled = std::str::from_utf8(&output.stdout)
-        .expect("stdout is not utf8! need to handle arbitrary bytes")
-        .trim();
-
-    println!("telemetry enabled {}", telemetry_enabled);
+    let original_output = String::from_utf8_lossy(&output.stdout);
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
         .arg("set")
         .arg("telemetry.enabled")
-        .arg("false")
+        .arg("true")
         .output()?;
 
-    assert!(output.status.success());
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "".to_string());
+
+    let output = Command::new(get_wasmer_path())
+        .arg("config")
+        .arg("get")
+        .arg("telemetry.enabled")
+        .output()?;
+
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "true\n".to_string()
+    );
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
         .arg("set")
         .arg("telemetry.enabled")
-        .arg(telemetry_enabled)
+        .arg(original_output.to_string().trim())
         .output()?;
 
-    assert!(output.status.success());
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "".to_string());
+
+    let output = Command::new(get_wasmer_path())
+        .arg("config")
+        .arg("get")
+        .arg("telemetry.enabled")
+        .output()?;
+
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        original_output.to_string()
+    );
+
+    let output = Command::new(get_wasmer_path())
+        .arg("config")
+        .arg("get")
+        .arg("update-notifications.enabled")
+        .output()?;
+
+    let original_output = String::from_utf8_lossy(&output.stdout);
+
+    let output = Command::new(get_wasmer_path())
+        .arg("config")
+        .arg("set")
+        .arg("update-notifications.enabled")
+        .arg("true")
+        .output()?;
+
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "".to_string());
+
+    let output = Command::new(get_wasmer_path())
+        .arg("config")
+        .arg("get")
+        .arg("update-notifications.enabled")
+        .output()?;
+
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "true\n".to_string()
+    );
+
+    let output = Command::new(get_wasmer_path())
+        .arg("config")
+        .arg("set")
+        .arg("update-notifications.enabled")
+        .arg(original_output.to_string().trim())
+        .output()?;
+
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "".to_string());
+
+    let output = Command::new(get_wasmer_path())
+        .arg("config")
+        .arg("get")
+        .arg("update-notifications.enabled")
+        .output()?;
+
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        original_output.to_string()
+    );
 
     Ok(())
 }

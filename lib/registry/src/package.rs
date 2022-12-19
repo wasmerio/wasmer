@@ -1,5 +1,4 @@
 use crate::WasmerConfig;
-use regex::Regex;
 use std::path::PathBuf;
 use std::{fmt, str::FromStr};
 use url::Url;
