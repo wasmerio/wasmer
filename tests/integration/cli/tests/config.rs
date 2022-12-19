@@ -4,6 +4,32 @@ use std::process::Command;
 use wasmer_integration_tests_cli::get_wasmer_path;
 
 #[test]
+fn wasmer_config_multiget() -> anyhow::Result<()> {
+    let bin_path = Path::new(env!("WASMER_DIR")).join("bin");
+    let include_path = Path::new(env!("WASMER_DIR")).join("include");
+
+    let bin = format!("{}", bin_path.display());
+    let include = format!("-I{}", include_path.display());
+
+    let output = Command::new(get_wasmer_path())
+        .arg("config")
+        .arg("--bindir")
+        .arg("--cflags")
+        .output()?;
+
+    let lines = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(|s| s.trim().to_string())
+        .collect::<Vec<_>>();
+
+    let expected = vec![bin, include];
+
+    assert_eq!(lines, expected);
+
+    Ok(())
+}
+
+#[test]
 fn wasmer_config_error() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
         .arg("config")
