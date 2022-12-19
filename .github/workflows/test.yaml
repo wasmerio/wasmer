@@ -388,7 +388,7 @@ jobs:
       - name: List root dir again
         shell: bash
         if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
-        run: ls -R $( basedir $( basedir $( which cargo ) ) )
+        run: ls -R $( dirname $( dirname $( which cargo ) ) )
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
