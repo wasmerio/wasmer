@@ -99,7 +99,7 @@ impl FileOpener {
             None => {
                 // Write lock.
                 let mut fs_lock = self.filesystem.inner.write().map_err(|_| FsError::Lock)?;
-                
+
                 // Read the metadata or generate a dummy one
                 let meta = match fs.metadata(&path) {
                     Ok(meta) => meta,

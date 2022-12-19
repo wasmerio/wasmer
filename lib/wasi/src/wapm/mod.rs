@@ -113,9 +113,7 @@ fn wapm_extract_version(data: &WapmWebQuery) -> Option<PiritaVersionedDownload> 
     }
 }
 
-pub fn parse_static_webc(
-    data: Vec<u8>,
-) -> Result<BinaryPackage, anyhow::Error> {
+pub fn parse_static_webc(data: Vec<u8>) -> Result<BinaryPackage, anyhow::Error> {
     let options = webc::ParseOptions::default();
     match webc::WebCOwned::parse(data, &options) {
         Ok(webc) => unsafe {

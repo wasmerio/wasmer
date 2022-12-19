@@ -81,11 +81,7 @@ impl ModuleCache {
     }
 
     /// Adds a package manually to the module cache
-    pub fn add_webc(
-        &self,
-        webc: &str,
-        package: BinaryPackage,
-    ) {
+    pub fn add_webc(&self, webc: &str, package: BinaryPackage) {
         let mut cache = self.cache_webc.write().unwrap();
         cache.insert(webc.to_string(), package);
     }

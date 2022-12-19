@@ -1425,11 +1425,11 @@ impl WasiFs {
                     let guard = handle.read().unwrap();
                     stat.st_size = guard.size();
                 }
-            },
+            }
             Kind::Buffer { buffer } => {
                 stat.st_size = buffer.len() as u64;
-            },
-            _ => { }
+            }
+            _ => {}
         }
         inodes.arena.insert(InodeVal {
             stat: RwLock::new(stat),
