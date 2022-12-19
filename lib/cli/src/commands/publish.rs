@@ -75,7 +75,7 @@ impl Publish {
         let manifest = std::fs::read_to_string(&manifest_path_buf)
             .map_err(|e| anyhow::anyhow!("could not find manifest: {e}"))
             .with_context(|| anyhow::anyhow!("{}", manifest_path_buf.display()))?;
-        let mut manifest = wapm_toml::Manifest::parse(&manifest)?;
+        let mut manifest = wasmer_toml::Manifest::parse(&manifest)?;
         manifest.base_directory_path = cwd.clone();
 
         if let Some(package_name) = self.package_name.as_ref() {
@@ -185,7 +185,7 @@ impl Publish {
 
 fn construct_tar_gz(
     builder: &mut tar::Builder<Vec<u8>>,
-    manifest: &wapm_toml::Manifest,
+    manifest: &wasmer_toml::Manifest,
     cwd: &Path,
 ) -> Result<(Option<String>, Option<String>), anyhow::Error> {
     let package = &manifest.package;
@@ -550,7 +550,7 @@ mod validate {
     use wasmer_wasm_interface::{validate, Interface};
 
     pub fn validate_directory(
-        manifest: &wapm_toml::Manifest,
+        manifest: &wasmer_toml::Manifest,
         registry: &str,
         pkg_path: PathBuf,
     ) -> anyhow::Result<()> {
@@ -633,7 +633,7 @@ mod validate {
     }
 
     fn validate_bindings(
-        bindings: &wapm_toml::Bindings,
+        bindings: &wasmer_toml::Bindings,
         base_directory_path: &Path,
     ) -> Result<(), ValidationError> {
         // Note: checking for referenced files will make sure they all exist.
@@ -651,7 +651,7 @@ mod validate {
         #[error("Failed to read file {file}; {error}")]
         MiscCannotRead { file: String, error: String },
         #[error(transparent)]
-        Imports(#[from] wapm_toml::ImportsError),
+        Imports(#[from] wasmer_toml::ImportsError),
     }
 
     // legacy function, validates wasm.  TODO: clean up

@@ -99,7 +99,7 @@ impl LocalPackage {
         let toml_path = path.join(GLOBAL_CONFIG_FILE_NAME);
         let toml = std::fs::read_to_string(&toml_path)
             .map_err(|e| format!("error reading {}: {e}", toml_path.display()))?;
-        let toml_parsed = toml::from_str::<wapm_toml::Manifest>(&toml)
+        let toml_parsed = toml::from_str::<wasmer_toml::Manifest>(&toml)
             .map_err(|e| format!("error parsing {}: {e}", toml_path.display()))?;
         Ok(toml_parsed
             .command
@@ -114,12 +114,12 @@ impl LocalPackage {
 pub fn get_executable_file_from_path(
     package_dir: &PathBuf,
     command: Option<&str>,
-) -> Result<(wapm_toml::Manifest, PathBuf), anyhow::Error> {
+) -> Result<(wasmer_toml::Manifest, PathBuf), anyhow::Error> {
     let wapm_toml = std::fs::read_to_string(package_dir.join(GLOBAL_CONFIG_FILE_NAME))
         .or_else(|_| std::fs::read_to_string(package_dir.join("wasmer.toml")))
         .map_err(|_| anyhow::anyhow!("Package {package_dir:?} has no {GLOBAL_CONFIG_FILE_NAME}"))?;
 
-    let wapm_toml = toml::from_str::<wapm_toml::Manifest>(&wapm_toml)
+    let wapm_toml = toml::from_str::<wasmer_toml::Manifest>(&wapm_toml)
         .map_err(|e| anyhow::anyhow!("Could not parse toml for {package_dir:?}: {e}"))?;
 
     let name = wapm_toml.package.name.clone();
@@ -206,7 +206,7 @@ pub fn get_all_local_packages(#[cfg(test)] test_name: &str) -> Vec<LocalPackage>
             Ok(o) => o,
             Err(_) => continue,
         };
-        let manifest = match wapm_toml::Manifest::parse(&s) {
+        let manifest = match wasmer_toml::Manifest::parse(&s) {
             Ok(o) => o,
             Err(_) => continue,
         };
@@ -370,7 +370,7 @@ pub fn query_package_from_registry(
         QueryPackageError::ErrorSendingQuery(format!("no package version for {name:?}"))
     })?;
 
-    let manifest = toml::from_str::<wapm_toml::Manifest>(&v.manifest).map_err(|e| {
+    let manifest = toml::from_str::<wasmer_toml::Manifest>(&v.manifest).map_err(|e| {
         QueryPackageError::ErrorSendingQuery(format!("Invalid manifest for crate {name:?}: {e}"))
     })?;
 
@@ -570,7 +570,7 @@ pub fn install_package(#[cfg(test)] test_name: &str, url: &Url) -> Result<PathBu
     let toml_path = unpacked_targz_path.join("wapm.toml");
     let toml = std::fs::read_to_string(&toml_path)
         .map_err(|e| anyhow::anyhow!("error reading {}: {e}", toml_path.display()))?;
-    let toml_parsed = toml::from_str::<wapm_toml::Manifest>(&toml)
+    let toml_parsed = toml::from_str::<wasmer_toml::Manifest>(&toml)
         .map_err(|e| anyhow::anyhow!("error parsing {}: {e}", toml_path.display()))?;
 
     let version = toml_parsed.package.version.to_string();

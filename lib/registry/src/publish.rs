@@ -26,7 +26,7 @@ pub enum SignArchiveResult {
 pub fn try_chunked_uploading(
     registry: Option<String>,
     token: Option<String>,
-    package: &wapm_toml::Package,
+    package: &wasmer_toml::Package,
     manifest_string: &String,
     license_file: &Option<String>,
     readme: &Option<String>,
