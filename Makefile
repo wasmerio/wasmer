@@ -551,10 +551,6 @@ test-examples:
 test-integration-cli:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
 
-# run cargo test first in multithreading mode, then in single threading mode only on failure
-test-integration-cli-ci:
-	$(CARGO_BINARY) test $(CARGO_TARGET) --features webc_runner -p wasmer-integration-tests-cli || $(CARGO_BINARY) test $(CARGO_TARGET) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
-
 test-integration-ios:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --features webc_runner -p wasmer-integration-tests-ios
 

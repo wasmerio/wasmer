@@ -202,9 +202,10 @@ fn package_directory(in_dir: &PathBuf, out: &PathBuf) {
 #[cfg(feature = "webc_runner")]
 #[test]
 fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
-    // let temp_dir = tempfile::TempDir::new()?;
-    let temp_dir = Path::new("./debug");
-    std::fs::create_dir_all(&temp_dir);
+    // let temp_dir = Path::new("debug");
+    // std::fs::create_dir_all(&temp_dir);
+    let temp_dir = tempfile::TempDir::new()?;
+    let temp_dir = temp_dir.path().to_path_buf();
     let python_wasmer_path = temp_dir.join("python.wasmer");
     std::fs::copy(wasi_test_python_path(), &python_wasmer_path)?;
     let python_exe_output_path = temp_dir.join("python");
@@ -215,8 +216,7 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     if !package_path.exists() {
         panic!("package path {} does not exist", package_path.display());
     }
-    let tmp_targz_path = tempfile::TempDir::new()?;
-    let tmp_targz_path = tmp_targz_path.path().join("link.tar.gz");
+    let tmp_targz_path = temp_dir.join("link.tar.gz");
     println!("compiling to target {native_target}");
     println!(
         "packaging /package to .tar.gz: {}",
@@ -239,14 +239,17 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     cmd.arg(format!("{native_target}"));
     cmd.arg("-o");
     cmd.arg(&python_exe_output_path);
-    cmd.arg("--debug-dir");
-    cmd.arg(&temp_dir);
+    // change temp_dir to a local path and run this test again
+    // to output the compilation files into a debug folder
+    //
+    // cmd.arg("--debug-dir");
+    // cmd.arg(&temp_dir);
     println!("running: {cmd:?}");
 
     let output = cmd
-    .stdout(Stdio::inherit())
-    .stderr(Stdio::inherit())
-    .output()?;
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .output()?;
 
     if !output.status.success() {
         let stdout = std::str::from_utf8(&output.stdout)
