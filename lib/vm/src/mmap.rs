@@ -317,7 +317,7 @@ impl Mmap {
 
     /// Copies the memory to a new swap file (using copy-on-write if available)
     #[cfg(not(target_os = "windows"))]
-    pub fn fork(&mut self, hint_used: Option<usize>) -> Result<Self, String> {
+    pub fn duplicate(&mut self, hint_used: Option<usize>) -> Result<Self, String> {
         // Empty memory is an edge case
 
         use std::os::unix::prelude::FromRawFd;
@@ -395,7 +395,7 @@ impl Mmap {
 
     /// Copies the memory to a new swap file (using copy-on-write if available)
     #[cfg(target_os = "windows")]
-    pub fn fork(&mut self, hint_used: Option<usize>) -> Result<Self, String> {
+    pub fn duplicate(&mut self, hint_used: Option<usize>) -> Result<Self, String> {
         // Create a new memory which we will copy to
         let new_mmap = Self::with_at_least(self.len)?;
 

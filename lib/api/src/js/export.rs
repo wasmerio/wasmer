@@ -54,7 +54,7 @@ impl VMMemory {
     }
 
     /// Copies this memory to a new memory
-    pub fn fork(&self) -> Result<VMMemory, wasmer_types::MemoryError> {
+    pub fn duplicate(&self) -> Result<VMMemory, wasmer_types::MemoryError> {
         let new_memory = crate::Memory::new_internal(self.ty.clone())?;
 
         #[cfg(feature = "tracing")]

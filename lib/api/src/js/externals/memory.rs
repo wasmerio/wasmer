@@ -265,9 +265,9 @@ impl Memory {
     }
 
     /// Copies this memory to a new memory
-    pub fn fork(&mut self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
+    pub fn duplicate(&mut self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         let mem = self.handle.get(store.as_store_ref().objects());
-        mem.fork()
+        mem.duplicate()
     }
 }
 

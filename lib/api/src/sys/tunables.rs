@@ -117,10 +117,12 @@ mod tests {
                 .unwrap()
             }
         }
+
         fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
             None
         }
-        fn fork(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+
+        fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
             let mem = self.mem.clone();
             Ok(Box::new(Self {
                 memory_definition: Some(UnsafeCell::new(VMMemoryDefinition {
