@@ -4,6 +4,32 @@ use std::process::Command;
 use wasmer_integration_tests_cli::get_wasmer_path;
 
 #[test]
+fn wasmer_config_error() -> anyhow::Result<()> {
+    let output = Command::new(get_wasmer_path())
+        .arg("config")
+        .arg("--bindir")
+        .arg("--cflags")
+        .arg("--pkg-config")
+        .output()?;
+
+    let lines = String::from_utf8_lossy(&output.stderr)
+        .lines()
+        .map(|s| s.trim().to_string())
+        .collect::<Vec<_>>();
+    let expected = vec![
+        "error: The argument '--bindir' cannot be used with '--pkg-config'",
+        "",
+        "USAGE:",
+        "wasmer config --bindir --cflags",
+        "",
+        "For more information try --help",
+    ];
+
+    assert_eq!(lines, expected);
+
+    Ok(())
+}
+#[test]
 fn config_works() -> anyhow::Result<()> {
     let bindir = Command::new(get_wasmer_path())
         .arg("config")
