@@ -35,6 +35,7 @@ impl FileOpener {
                 let mut fs = self.filesystem.inner.write().map_err(|_| FsError::Lock)?;
 
                 let file = ReadOnlyFile::new(contents);
+                let file_len = file.len() as u64;
 
                 // Creating the file in the storage.
                 let inode_of_file = fs.storage.vacant_entry().key();
@@ -53,7 +54,7 @@ impl FileOpener {
                             accessed: time,
                             created: time,
                             modified: time,
-                            len: 0,
+                            len: file_len,
                         }
                     },
                 }));
@@ -98,15 +99,11 @@ impl FileOpener {
             None => {
                 // Write lock.
                 let mut fs_lock = self.filesystem.inner.write().map_err(|_| FsError::Lock)?;
-
-                // Creating the file in the storage.
-                let inode_of_file = fs_lock.storage.vacant_entry().key();
-                let real_inode_of_file = fs_lock.storage.insert(Node::ArcFile(ArcFileNode {
-                    inode: inode_of_file,
-                    name: name_of_file,
-                    fs,
-                    path,
-                    metadata: {
+                
+                // Read the metadata or generate a dummy one
+                let meta = match fs.metadata(&path) {
+                    Ok(meta) => meta,
+                    _ => {
                         let time = time();
                         Metadata {
                             ft: FileType {
@@ -118,7 +115,17 @@ impl FileOpener {
                             modified: time,
                             len: 0,
                         }
-                    },
+                    }
+                };
+
+                // Creating the file in the storage.
+                let inode_of_file = fs_lock.storage.vacant_entry().key();
+                let real_inode_of_file = fs_lock.storage.insert(Node::ArcFile(ArcFileNode {
+                    inode: inode_of_file,
+                    name: name_of_file,
+                    fs,
+                    path,
+                    metadata: meta,
                 }));
 
                 assert_eq!(

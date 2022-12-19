@@ -103,6 +103,7 @@ pub use crate::{
         PluggableRuntimeImplementation, SpawnedMemory, WasiRuntimeImplementation, WasiThreadError,
         WebSocketAbi,
     },
+    wapm::parse_static_webc,
 };
 
 pub use crate::utils::is_wasix_module;

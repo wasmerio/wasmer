@@ -174,7 +174,7 @@ pub(crate) fn poll_oneoff_internal(
     // a proper timeout value
     if let Some(sleep_time) = time_to_sleep.clone() {
         if sleep_time.is_zero() && subscriptions.is_empty() == false {
-            time_to_sleep = None;
+            time_to_sleep = Some(Duration::from_millis(500).max(sleep_time));
         } else {
             time_to_sleep = Some(Duration::from_millis(5).max(sleep_time));
         }

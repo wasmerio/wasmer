@@ -1419,7 +1419,18 @@ impl WasiFs {
         mut stat: Filestat,
     ) -> Inode {
         stat.st_ino = self.get_next_inode_index();
-
+        match &kind {
+            Kind::File { handle, .. } => {
+                if let Some(handle) = handle {
+                    let guard = handle.read().unwrap();
+                    stat.st_size = guard.size();
+                }
+            },
+            Kind::Buffer { buffer } => {
+                stat.st_size = buffer.len() as u64;
+            },
+            _ => { }
+        }
         inodes.arena.insert(InodeVal {
             stat: RwLock::new(stat),
             is_preopened,

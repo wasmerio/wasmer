@@ -113,6 +113,23 @@ fn wapm_extract_version(data: &WapmWebQuery) -> Option<PiritaVersionedDownload> 
     }
 }
 
+pub fn parse_static_webc(
+    data: Vec<u8>,
+) -> Result<BinaryPackage, anyhow::Error> {
+    let options = webc::ParseOptions::default();
+    match webc::WebCOwned::parse(data, &options) {
+        Ok(webc) => unsafe {
+            let webc = Arc::new(webc);
+            return parse_webc(webc.as_webc_ref(), webc.clone())
+                .with_context(|| format!("Could not parse webc"));
+        },
+        Err(err) => {
+            warn!("failed to parse WebC: {}", err);
+            Err(err.into())
+        }
+    }
+}
+
 async fn download_webc(
     cache_dir: &str,
     name: &str,
@@ -158,15 +175,8 @@ async fn download_webc(
         }
     }
     if let Ok(data) = std::fs::read(&path) {
-        match webc::WebCOwned::parse(data, &options) {
-            Ok(webc) => unsafe {
-                let webc = Arc::new(webc);
-                return parse_webc(webc.as_webc_ref(), webc.clone())
-                    .with_context(|| format!("Could not parse webc at {}", path.display()));
-            },
-            Err(err) => {
-                warn!("failed to parse WebC: {}", err);
-            }
+        if let Ok(webc) = parse_static_webc(data) {
+            return Ok(webc);
         }
     }
 

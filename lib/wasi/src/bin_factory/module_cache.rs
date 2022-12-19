@@ -80,6 +80,16 @@ impl ModuleCache {
         }
     }
 
+    /// Adds a package manually to the module cache
+    pub fn add_webc(
+        &self,
+        webc: &str,
+        package: BinaryPackage,
+    ) {
+        let mut cache = self.cache_webc.write().unwrap();
+        cache.insert(webc.to_string(), package);
+    }
+
     // TODO: should return Result<_, anyhow::Error>
     pub fn get_webc(
         &self,
@@ -94,8 +104,12 @@ impl ModuleCache {
         {
             let cache = self.cache_webc.read().unwrap();
             if let Some(data) = cache.get(&name) {
-                let delta = now - data.when_cached;
-                if delta <= DEFAULT_CACHE_TIME {
+                if let Some(when_cached) = data.when_cached.as_ref() {
+                    let delta = now - *when_cached;
+                    if delta <= DEFAULT_CACHE_TIME {
+                        return Some(data.clone());
+                    }
+                } else {
                     return Some(data.clone());
                 }
             }
@@ -106,8 +120,12 @@ impl ModuleCache {
 
         // Check the cache
         if let Some(data) = cache.get(&name) {
-            let delta = now - data.when_cached;
-            if delta <= DEFAULT_CACHE_TIME {
+            if let Some(when_cached) = data.when_cached.as_ref() {
+                let delta = now - *when_cached;
+                if delta <= DEFAULT_CACHE_TIME {
+                    return Some(data.clone());
+                }
+            } else {
                 return Some(data.clone());
             }
         }
@@ -126,7 +144,7 @@ impl ModuleCache {
                 // as we don't want to duplicate the memory usage
                 if let Some(existing) = cache.get_mut(&name) {
                     if existing.hash() == data.hash() && existing.version == data.version {
-                        existing.when_cached = now;
+                        existing.when_cached = Some(now);
                         return Some(data.clone());
                     }
                 }
@@ -135,7 +153,12 @@ impl ModuleCache {
             }
         }
 
-        // Not found
+        // If we have an old one that use that (ignoring the TTL)
+        if let Some(data) = cache.get(&name) {
+            return Some(data.clone());
+        }
+
+        // Otherwise - its not found
         None
     }
 

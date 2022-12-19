@@ -207,7 +207,7 @@ impl Console {
         // Display the welcome message
         let tasks = env.tasks.clone();
         if self.whitelabel == false && self.no_welcome == false {
-            tasks.block_on(async { self.draw_welcome().await });
+            tasks.block_on(self.draw_welcome());
         }
 
         let binary = if let Some(binary) =
@@ -219,10 +219,10 @@ impl Console {
             tasks.block_on(async {
                 let _ = self
                     .runtime
-                    .stderr(format!("package not found [{}]\r\n", self.boot_cmd).as_bytes())
+                    .stderr(format!("package not found [{}]\r\n", webc).as_bytes())
                     .await;
             });
-            tracing::debug!("failed to get webc dependency - {}", self.boot_cmd);
+            tracing::debug!("failed to get webc dependency - {}", webc);
             return Err(wasmer_vbus::VirtualBusError::NotFound);
         };
 

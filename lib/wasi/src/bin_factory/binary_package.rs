@@ -59,7 +59,7 @@ impl BinaryPackageCommand {
 #[derivative(Debug)]
 pub struct BinaryPackage {
     pub package_name: Cow<'static, str>,
-    pub when_cached: u128,
+    pub when_cached: Option<u128>,
     pub ownership: Option<Arc<dyn Any + Send + Sync + 'static>>,
     #[derivative(Debug = "ignore")]
     pub entry: Option<Cow<'static, [u8]>>,
@@ -85,7 +85,7 @@ impl BinaryPackage {
         };
         Self {
             package_name: package_name.into(),
-            when_cached: now,
+            when_cached: Some(now),
             ownership: None,
             entry,
             hash: Arc::new(Mutex::new(None)),
