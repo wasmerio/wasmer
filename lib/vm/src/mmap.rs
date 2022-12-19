@@ -507,7 +507,7 @@ mod tests {
         assert_eq!(round_up_to_page_size(4097, 4096), 8192);
     }
 
-    #[cfg(not(target = "wasm32-unknown-unknown"))]
+    #[cfg(target_family = "unix")]
     #[test]
     fn test_copy_file_range() -> Result<(), std::io::Error> {
         // I know tempfile:: exists, but this doesn't bring in an extra
