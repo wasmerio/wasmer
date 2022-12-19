@@ -330,6 +330,9 @@ jobs:
           target = "${{ matrix.metadata.target }}"
           EOF
         if: matrix.metadata.target
+      - name: which cargo
+        if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
+        run: which cargo
       - name: List root dir
         if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
         run: ls -R /Users/runner/work
