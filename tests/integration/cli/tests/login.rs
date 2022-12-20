@@ -11,6 +11,10 @@ fn login_works() -> anyhow::Result<()> {
         return Ok(());
     }
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").expect("WAPM_DEV_TOKEN env var not set");
+    // Special case: GitHub secrets aren't visible to outside collaborators
+    if wapm_dev_token.is_empty() {
+        return Ok(());
+    }
     let output = Command::new(get_wasmer_path())
         .arg("login")
         .arg("--registry")
