@@ -268,16 +268,11 @@ impl Init {
     // Returns whether the template for the wasmer.toml should be a binary, a library or an empty file
     fn get_bin_or_lib(&self) -> Result<BinOrLib, anyhow::Error> {
         match (self.empty, self.bin, self.lib) {
-            (true, true, _) | (true, _, true) => Err(anyhow::anyhow!(
-                "cannot combine --empty with --bin or --lib"
-            )),
             (true, false, false) => Ok(BinOrLib::Empty),
-            (_, true, true) => Err(anyhow::anyhow!(
-                "cannot initialize a wapm manifest with both --bin and --lib, pick one"
-            )),
-            (false, true, _) => Ok(BinOrLib::Bin),
-            (false, _, true) => Ok(BinOrLib::Lib),
-            _ => Ok(BinOrLib::Bin),
+            (false, true, false) => Ok(BinOrLib::Bin),
+            (false, false, true) => Ok(BinOrLib::Lib),
+            (false, false, false) => Ok(BinOrLib::Bin),
+            _ => anyhow::bail!("Only one of --bin, --lib, or --empty can be provided"),
         }
     }
 
