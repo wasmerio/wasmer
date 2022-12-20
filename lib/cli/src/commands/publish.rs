@@ -88,7 +88,9 @@ impl Publish {
         let registry = match self.registry.as_deref() {
             Some(s) => wasmer_registry::format_graphql(s),
             None => {
-                let config = PartialWapmConfig::from_file()
+                let wasmer_dir = PartialWapmConfig::get_wasmer_dir()
+                    .map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
+                let config = PartialWapmConfig::from_file(&wasmer_dir)
                     .map_err(|e| anyhow::anyhow!("could not load config {e}"))?;
                 config.registry.get_current_registry()
             }
@@ -315,8 +317,9 @@ pub fn sign_compressed_archive(
 
 /// Opens an exclusive read/write connection to the database, creating it if it does not exist
 pub fn open_db() -> anyhow::Result<Connection> {
-    let db_path =
-        PartialWapmConfig::get_database_file_path().map_err(|e| anyhow::anyhow!("{e}"))?;
+    let wasmer_dir =
+        PartialWapmConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
+    let db_path = PartialWapmConfig::get_database_file_path(&wasmer_dir);
     let mut conn = Connection::open_with_flags(
         db_path,
         OpenFlags::SQLITE_OPEN_CREATE

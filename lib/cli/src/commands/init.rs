@@ -4,6 +4,7 @@ use clap::Parser;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
+use wasmer_registry::PartialWapmConfig;
 
 static NOTE: &str =
     "# See more keys and definitions at https://docs.wasmer.io/ecosystem/wapm/manifest";
@@ -135,7 +136,7 @@ impl Init {
             self.template.as_ref(),
             self.include.as_slice(),
             self.quiet,
-        );
+        )?;
 
         if let Some(parent) = target_file.parent() {
             let _ = std::fs::create_dir_all(parent);
@@ -349,7 +350,7 @@ fn construct_manifest(
     template: Option<&Template>,
     include_fs: &[String],
     quiet: bool,
-) -> wasmer_toml::Manifest {
+) -> Result<wasmer_toml::Manifest, anyhow::Error> {
     if let Some(ct) = cargo_toml.as_ref() {
         let msg = format!(
             "NOTE: Initializing wasmer.toml file with metadata from Cargo.toml{NEWLINE}  -> {}",
@@ -367,7 +368,12 @@ fn construct_manifest(
             .map(|p| &p.name)
             .unwrap_or(fallback_package_name)
     });
-    let namespace = namespace.or_else(|| wasmer_registry::whoami(None, None).ok().map(|o| o.1));
+    let wasmer_dir = PartialWapmConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
+    let namespace = namespace.or_else(|| {
+        wasmer_registry::whoami(&wasmer_dir, None, None)
+            .ok()
+            .map(|o| o.1)
+    });
     let version = version.unwrap_or_else(|| {
         cargo_toml
             .as_ref()
@@ -446,7 +452,7 @@ fn construct_manifest(
         }),
     }];
 
-    wasmer_toml::Manifest {
+    Ok(wasmer_toml::Manifest {
         package: wasmer_toml::Package {
             name: if let Some(s) = namespace {
                 format!("{s}/{package_name}")
@@ -475,7 +481,7 @@ fn construct_manifest(
             .parent()
             .map(|o| o.to_path_buf())
             .unwrap_or_else(|| target_file.to_path_buf()),
-    }
+    })
 }
 fn parse_cargo_toml(manifest_path: &PathBuf) -> Result<MiniCargoTomlPackage, anyhow::Error> {
     let mut metadata = MetadataCommand::new();

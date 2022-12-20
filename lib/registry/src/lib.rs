@@ -50,25 +50,15 @@ pub struct PackageDownloadInfo {
     pub pirita_url: Option<String>,
 }
 
-pub fn get_package_local_dir(
-    #[cfg(test)] test_name: &str,
-    url: &str,
-    version: &str,
-) -> Option<PathBuf> {
-    #[cfg(test)]
-    let checkouts_dir = get_checkouts_dir(test_name)?;
-    #[cfg(not(test))]
-    let checkouts_dir = get_checkouts_dir()?;
+pub fn get_package_local_dir(wasmer_dir: &Path, url: &str, version: &str) -> Option<PathBuf> {
+    let checkouts_dir = get_checkouts_dir(wasmer_dir);
     let url_hash = Package::hash_url(url);
     let dir = checkouts_dir.join(format!("{url_hash}@{version}"));
     Some(dir)
 }
 
-pub fn try_finding_local_command(#[cfg(test)] test_name: &str, cmd: &str) -> Option<LocalPackage> {
-    #[cfg(test)]
-    let local_packages = get_all_local_packages(test_name);
-    #[cfg(not(test))]
-    let local_packages = get_all_local_packages();
+pub fn try_finding_local_command(wasmer_dir: &Path, cmd: &str) -> Option<LocalPackage> {
+    let local_packages = get_all_local_packages(wasmer_dir);
     for p in local_packages {
         #[cfg(not(test))]
         let commands = p.get_commands();
@@ -228,18 +218,10 @@ fn get_all_names_in_dir(dir: &PathBuf) -> Vec<(PathBuf, String)> {
 }
 
 /// Returns a list of all locally installed packages
-pub fn get_all_local_packages(#[cfg(test)] test_name: &str) -> Vec<LocalPackage> {
+pub fn get_all_local_packages(wasmer_dir: &Path) -> Vec<LocalPackage> {
     let mut packages = Vec::new();
 
-    #[cfg(not(test))]
-    let checkouts_dir = get_checkouts_dir();
-    #[cfg(test)]
-    let checkouts_dir = get_checkouts_dir(test_name);
-
-    let checkouts_dir = match checkouts_dir {
-        Some(s) => s,
-        None => return packages,
-    };
+    let checkouts_dir = get_checkouts_dir(wasmer_dir);
 
     for (path, url_hash_with_version) in get_all_names_in_dir(&checkouts_dir) {
         let manifest = match LocalPackage::read_toml(&path) {
@@ -268,16 +250,11 @@ pub fn get_all_local_packages(#[cfg(test)] test_name: &str) -> Vec<LocalPackage>
 }
 
 pub fn get_local_package(
-    #[cfg(test)] test_name: &str,
+    wasmer_dir: &Path,
     name: &str,
     version: Option<&str>,
 ) -> Option<LocalPackage> {
-    #[cfg(not(test))]
-    let local_packages = get_all_local_packages();
-    #[cfg(test)]
-    let local_packages = get_all_local_packages(test_name);
-
-    local_packages
+    get_all_local_packages(wasmer_dir)
         .iter()
         .find(|p| {
             if p.name != name {
@@ -546,7 +523,7 @@ where
 
 /// Installs the .tar.gz if it doesn't yet exist, returns the
 /// (package dir, entrypoint .wasm file path)
-pub fn install_package(#[cfg(test)] test_name: &str, url: &Url) -> Result<PathBuf, anyhow::Error> {
+pub fn install_package(wasmer_dir: &Path, url: &Url) -> Result<PathBuf, anyhow::Error> {
     use fs_extra::dir::copy;
 
     let tempdir = tempdir::TempDir::new("download")
@@ -577,12 +554,7 @@ pub fn install_package(#[cfg(test)] test_name: &str, url: &Url) -> Result<PathBu
 
     let version = toml_parsed.package.version.to_string();
 
-    #[cfg(test)]
-    let checkouts_dir = crate::get_checkouts_dir(test_name);
-    #[cfg(not(test))]
-    let checkouts_dir = crate::get_checkouts_dir();
-
-    let checkouts_dir = checkouts_dir.ok_or_else(|| anyhow::anyhow!("no checkouts dir"))?;
+    let checkouts_dir = crate::get_checkouts_dir(wasmer_dir);
 
     let installation_path =
         checkouts_dir.join(format!("{}@{version}", Package::hash_url(url.as_ref())));
@@ -605,17 +577,14 @@ pub fn install_package(#[cfg(test)] test_name: &str, url: &Url) -> Result<PathBu
 }
 
 pub fn whoami(
-    #[cfg(test)] test_name: &str,
+    wasmer_dir: &Path,
     registry: Option<&str>,
     token: Option<&str>,
 ) -> Result<(String, String), anyhow::Error> {
     use crate::queries::{who_am_i_query, WhoAmIQuery};
     use graphql_client::GraphQLQuery;
 
-    #[cfg(test)]
-    let config = PartialWapmConfig::from_file(test_name);
-    #[cfg(not(test))]
-    let config = PartialWapmConfig::from_file();
+    let config = PartialWapmConfig::from_file(wasmer_dir);
 
     let config = config
         .map_err(|e| anyhow::anyhow!("{e}"))
@@ -663,11 +632,8 @@ pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
     Ok(true)
 }
 
-pub fn get_all_available_registries(#[cfg(test)] test_name: &str) -> Result<Vec<String>, String> {
-    #[cfg(test)]
-    let config = PartialWapmConfig::from_file(test_name)?;
-    #[cfg(not(test))]
-    let config = PartialWapmConfig::from_file()?;
+pub fn get_all_available_registries(wasmer_dir: &Path) -> Result<Vec<String>, String> {
+    let config = PartialWapmConfig::from_file(wasmer_dir)?;
 
     let mut registries = Vec::new();
     match config.registry {
@@ -690,7 +656,7 @@ pub struct RemoteWebcInfo {
 }
 
 pub fn install_webc_package(
-    #[cfg(test)] test_name: &str,
+    wasmer_dir: &Path,
     url: &Url,
     checksum: &str,
 ) -> Result<(), anyhow::Error> {
@@ -698,18 +664,7 @@ pub fn install_webc_package(
         .enable_all()
         .build()
         .unwrap()
-        .block_on(async {
-            {
-                #[cfg(test)]
-                {
-                    install_webc_package_inner(test_name, url, checksum).await
-                }
-                #[cfg(not(test))]
-                {
-                    install_webc_package_inner(url, checksum).await
-                }
-            }
-        })
+        .block_on(async { install_webc_package_inner(wasmer_dir, url, checksum).await })
 }
 
 async fn install_webc_package_inner(
@@ -764,28 +719,12 @@ async fn install_webc_package_inner(
 }
 
 /// Returns a list of all installed webc packages
-#[cfg(test)]
-pub fn get_all_installed_webc_packages(test_name: &str) -> Vec<RemoteWebcInfo> {
-    get_all_installed_webc_packages_inner(test_name)
+pub fn get_all_installed_webc_packages(wasmer_dir: &Path) -> Vec<RemoteWebcInfo> {
+    get_all_installed_webc_packages_inner(wasmer_dir)
 }
 
-#[cfg(not(test))]
-pub fn get_all_installed_webc_packages() -> Vec<RemoteWebcInfo> {
-    get_all_installed_webc_packages_inner("")
-}
-
-fn get_all_installed_webc_packages_inner(_test_name: &str) -> Vec<RemoteWebcInfo> {
-    #[cfg(test)]
-    let dir = match get_webc_dir(_test_name) {
-        Some(s) => s,
-        None => return Vec::new(),
-    };
-
-    #[cfg(not(test))]
-    let dir = match get_webc_dir() {
-        Some(s) => s,
-        None => return Vec::new(),
-    };
+fn get_all_installed_webc_packages_inner(wasmer_dir: &Path) -> Vec<RemoteWebcInfo> {
+    let dir = get_webc_dir(wasmer_dir);
 
     let read_dir = match std::fs::read_dir(dir) {
         Ok(s) => s,
