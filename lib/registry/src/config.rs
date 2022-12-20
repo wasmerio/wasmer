@@ -164,7 +164,8 @@ impl MultiRegistry {
         let registry_formatted = format_graphql(registry);
         self.tokens
             .iter()
-            .find(|login| login.registry == registry || login.registry == registry_formatted)
+            .filter(|login| login.registry == registry || login.registry == registry_formatted)
+            .last()
             .map(|login| login.token.clone())
     }
 
@@ -175,6 +176,9 @@ impl MultiRegistry {
         token: &str,
         update_current_registry: UpdateRegistry,
     ) {
+        let registry_formatted = format_graphql(registry);
+        self.tokens
+            .retain(|login| !(login.registry == registry || login.registry == registry_formatted));
         self.tokens.push(RegistryLogin {
             registry: format_graphql(registry),
             token: token.to_string(),
