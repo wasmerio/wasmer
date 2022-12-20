@@ -158,63 +158,6 @@ jobs:
           PKG_CONFIG_ALLOW_CROSS: true
           ENABLE_LLVM: 0
 
-  build_capi_windows_gnu:
-    name: Build C-API on windows-gnu
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install Windows-GNU linker
-        shell: bash
-        run: |
-          sudo apt install -y mingw-w64
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.61
-          target: x86_64-pc-windows-gnu
-      - name: Install Windows-GNU target
-        shell: bash
-        run: |
-          rustup target add x86_64-pc-windows-gnu
-      - name: Cache
-        uses: whywaita/actions-cache-s3@v2
-        with:
-          path: |
-            ~/.cargo/*
-            ./target/*
-          key: r22-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-build-capi-windows-gnu
-          aws-s3-bucket: wasmer-rust-artifacts-cache
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          aws-region: auto
-          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
-          aws-s3-bucket-endpoint: false
-          aws-s3-force-path-style: true
-      - name: Install Windows 10 SDK with xwin
-        shell: bash
-        run: |
-          mkdir -p /tmp/xwin
-          mkdir -p /tmp/xwindownload
-          mkdir -p /tmp/xwincache
-          git clone https://github.com/wasmerio/xwin --depth=1 /tmp/xwin
-          cargo build --release --manifest-path=/tmp/xwin/Cargo.toml
-          /tmp/xwin/target/release/xwin --accept-license --cache-dir /tmp/xwincache splat --output /tmp/xwindownload
-          mkdir -p /tmp/winsdk
-          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/WS2_32.lib /tmp/winsdk/
-          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/KERNEL32.lib /tmp/winsdk/
-          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/BCRYPT.lib /tmp/winsdk/
-          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/ADVAPI32.lib /tmp/winsdk/
-          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/USERENV.lib /tmp/winsdk/
-          echo "WinSDK files:"
-          ls -laH /tmp/winsdk
-          echo ""
-          mkdir -p package
-          mkdir -p package/winsdk
-          cp -r /tmp/winsdk/* package/winsdk
-      - name: Build Wasmer C-API without LLVM
-        shell: bash
-        run: |
-          cargo build --release --target x86_64-pc-windows-gnu --manifest-path lib/c-api/Cargo.toml --no-default-features --features wat,compiler,wasi,middlewares,webc_runner --features cranelift,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
-
   build: 
     name: ${{ matrix.build-what.name }} on ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
@@ -263,6 +206,11 @@ jobs:
             os: windows-2019,
             target: x86_64-pc-windows-msvc,
             llvm_choco_version: 13.0.0
+          },
+          {
+            build: windows-gnu,
+            target: x86_64-pc-windows-gnu,
+            os: ubuntu-22.04,
           }
         ]
     container: ${{ matrix.metadata.container }}
@@ -293,6 +241,38 @@ jobs:
         with:
           toolchain: 1.63
           target: ${{ matrix.metadata.target }}
+      - name: Install Windows-GNU linker
+        if: ${{ matrix.metadata.build == 'windows-gnu' }}
+        shell: bash
+        run: |
+          sudo apt install -y mingw-w64
+      - name: Install Windows-GNU target
+        if: ${{ matrix.metadata.build == 'windows-gnu' }}
+        shell: bash
+        run: |
+          rustup target add x86_64-pc-windows-gnu
+      - name: Install Windows 10 SDK with xwin
+        if: ${{ matrix.metadata.build == 'windows-gnu' }}
+        shell: bash
+        run: |
+          mkdir -p /tmp/xwin
+          mkdir -p /tmp/xwindownload
+          mkdir -p /tmp/xwincache
+          git clone https://github.com/wasmerio/xwin --depth=1 /tmp/xwin
+          cargo build --release --manifest-path=/tmp/xwin/Cargo.toml
+          /tmp/xwin/target/release/xwin --accept-license --cache-dir /tmp/xwincache splat --output /tmp/xwindownload
+          mkdir -p /tmp/winsdk
+          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/WS2_32.lib /tmp/winsdk/
+          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/KERNEL32.lib /tmp/winsdk/
+          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/BCRYPT.lib /tmp/winsdk/
+          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/ADVAPI32.lib /tmp/winsdk/
+          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/USERENV.lib /tmp/winsdk/
+          echo "WinSDK files:"
+          ls -laH /tmp/winsdk
+          echo ""
+          mkdir -p package
+          mkdir -p package/winsdk
+          cp -r /tmp/winsdk/* package/winsdk
       - name: Choco install LLVM
         uses: crazy-max/ghaction-chocolatey@v2
         if: matrix.metadata.llvm_choco_version
@@ -364,7 +344,7 @@ jobs:
           CARGO_TARGET: --target ${{ matrix.metadata.target }}
       - name: Build Wasmer
         shell: bash
-        if: ${{ matrix.build-what.key == 'wasmer' }}
+        if: ${{ matrix.build-what.key == 'wasmer' && matrix.metadata.build != 'windows-gnu' }}
         run: ${{ matrix.build-what.build-cmd }}
         env:
           TARGET: ${{ matrix.metadata.target }}
@@ -372,7 +352,7 @@ jobs:
           CARGO_TARGET: --target ${{ matrix.metadata.target }}
       - name: Test C-API
         shell: bash
-        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm') }}
+        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm' || matrix.metadata.build == 'windows-gnu') }}
         run: make test-capi-ci
         env:
           TARGET: ${{ matrix.metadata.target }}
@@ -381,16 +361,12 @@ jobs:
       # C-API tests were disabled for linux-musl and macos-arm (we can't run them)
       - name: Test C-API integration
         shell: bash
-        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm') }}
+        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm' || matrix.metadata.build == 'windows-gnu') }}
         run: export WASMER_DIR=`pwd`/package && make test-stage-7-capi-integration-tests
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: --target ${{ matrix.metadata.target }}
-      - name: List root dir again
-        shell: bash
-        if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
-        run: ls -R $( dirname $( dirname $( which cargo ) ) )
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
