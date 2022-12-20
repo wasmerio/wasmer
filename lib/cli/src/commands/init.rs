@@ -218,7 +218,7 @@ impl Init {
                     }
 
                     let key = format!("./{path}");
-                    let value = Path::new(&format!("/{path}")).to_path_buf();
+                    let value =  PathBuf::from(format!("/{path}"));
 
                     (key, value)
                 })
