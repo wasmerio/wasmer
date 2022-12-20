@@ -1,6 +1,5 @@
 use graphql_client::GraphQLQuery;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 #[derive(Deserialize, Default, Serialize, Debug, PartialEq, Eq)]
@@ -19,7 +18,7 @@ pub struct WasmerConfig {
     pub update_notifications_enabled: bool,
 
     /// The registry that wapm will connect to.
-    pub registry: Registries,
+    pub registry: MultiRegistry,
 
     /// The proxy to use when connecting to the Internet.
     #[serde(default)]
@@ -36,27 +35,28 @@ pub struct Proxy {
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
-#[serde(untagged)]
-pub enum Registries {
-    Single(Registry),
-    Multi(MultiRegistry),
+pub struct MultiRegistry {
+    /// Currently active registry
+    pub active_registry: String,
+    /// Map from "RegistryUrl" to "LoginToken", in order to
+    /// be able to be able to easily switch between registries
+    pub tokens: Vec<RegistryLogin>,
 }
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
-pub struct MultiRegistry {
-    /// Currently active registry
-    pub current: String,
-    /// Map from "RegistryUrl" to "LoginToken", in order to
-    /// be able to be able to easily switch between registries
-    pub tokens: BTreeMap<String, String>,
+pub struct RegistryLogin {
+    /// Registry URL to login to
+    pub registry: String,
+    /// Login token for the registry
+    pub token: String,
 }
 
-impl Default for Registries {
+impl Default for MultiRegistry {
     fn default() -> Self {
-        Registries::Single(Registry {
-            url: format_graphql("https://registry.wapm.io"),
-            token: None,
-        })
+        MultiRegistry {
+            active_registry: format_graphql("wapm.io"),
+            tokens: Vec::new(),
+        }
     }
 }
 
@@ -131,18 +131,12 @@ fn test_registries_switch_token() {
     );
 }
 
-impl Registries {
+impl MultiRegistry {
     /// Gets the current (active) registry URL
     pub fn clear_current_registry_token(&mut self) {
-        match self {
-            Registries::Single(s) => {
-                s.token = None;
-            }
-            Registries::Multi(m) => {
-                m.tokens.remove(&m.current);
-                m.tokens.remove(&format_graphql(&m.current));
-            }
-        }
+        self.tokens.retain(|i| i.registry != self.active_registry);
+        self.tokens
+            .retain(|i| i.registry != format_graphql(&self.active_registry));
     }
 
     pub fn get_graphql_url(&self) -> String {
@@ -152,10 +146,7 @@ impl Registries {
 
     /// Gets the current (active) registry URL
     pub fn get_current_registry(&self) -> String {
-        match self {
-            Registries::Single(s) => format_graphql(&s.url),
-            Registries::Multi(m) => format_graphql(&m.current),
-        }
+        format_graphql(&self.active_registry)
     }
 
     /// Sets the current (active) registry URL
@@ -165,25 +156,16 @@ impl Registries {
             println!("Error when trying to ping registry {registry:?}: {e}");
             println!("WARNING: Registry {registry:?} will be used, but commands may not succeed.");
         }
-        match self {
-            Registries::Single(s) => s.url = registry,
-            Registries::Multi(m) => m.current = registry,
-        }
+        self.active_registry = registry;
     }
 
     /// Returns the login token for the registry
     pub fn get_login_token_for_registry(&self, registry: &str) -> Option<String> {
-        match self {
-            Registries::Single(s) if s.url == registry || format_graphql(registry) == s.url => {
-                s.token.clone()
-            }
-            Registries::Multi(m) => m
-                .tokens
-                .get(registry)
-                .or_else(|| m.tokens.get(&format_graphql(registry)))
-                .cloned(),
-            _ => None,
-        }
+        let registry_formatted = format_graphql(registry);
+        self.tokens
+            .iter()
+            .find(|login| login.registry == registry || login.registry == registry_formatted)
+            .map(|login| login.token.clone())
     }
 
     /// Sets the login token for the registry URL
@@ -193,34 +175,13 @@ impl Registries {
         token: &str,
         update_current_registry: UpdateRegistry,
     ) {
-        let new_map = match self {
-            Registries::Single(s) => {
-                if s.url == registry {
-                    Registries::Single(Registry {
-                        url: format_graphql(registry),
-                        token: Some(token.to_string()),
-                    })
-                } else {
-                    let mut map = BTreeMap::new();
-                    if let Some(token) = s.token.clone() {
-                        map.insert(format_graphql(&s.url), token);
-                    }
-                    map.insert(format_graphql(registry), token.to_string());
-                    Registries::Multi(MultiRegistry {
-                        current: format_graphql(&s.url),
-                        tokens: map,
-                    })
-                }
-            }
-            Registries::Multi(m) => {
-                m.tokens.insert(format_graphql(registry), token.to_string());
-                if update_current_registry == UpdateRegistry::Update {
-                    m.current = format_graphql(registry);
-                }
-                Registries::Multi(m.clone())
-            }
-        };
-        *self = new_map;
+        self.tokens.push(RegistryLogin {
+            registry: format_graphql(registry),
+            token: token.to_string(),
+        });
+        if update_current_registry == UpdateRegistry::Update {
+            self.active_registry = format_graphql(registry);
+        }
     }
 }
 

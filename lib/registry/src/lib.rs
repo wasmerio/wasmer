@@ -8,7 +8,6 @@
 //! curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
 //! ```
 
-use crate::config::Registries;
 use anyhow::Context;
 use core::ops::Range;
 use reqwest::header::{ACCEPT, RANGE};
@@ -664,15 +663,8 @@ pub fn get_all_available_registries(#[cfg(test)] test_name: &str) -> Result<Vec<
     let config = WasmerConfig::from_file()?;
 
     let mut registries = Vec::new();
-    match config.registry {
-        Registries::Single(s) => {
-            registries.push(format_graphql(&s.url));
-        }
-        Registries::Multi(m) => {
-            for key in m.tokens.keys() {
-                registries.push(format_graphql(key));
-            }
-        }
+    for login in config.registry.tokens {
+        registries.push(format_graphql(&login.registry));
     }
     Ok(registries)
 }
