@@ -247,12 +247,8 @@ impl PartialWapmConfig {
         Ok(())
     }
 
-    pub fn from_file(#[cfg(test)] test_name: &str) -> Result<Self, String> {
-        #[cfg(test)]
-        let path = Self::get_file_location(test_name)?;
-        #[cfg(not(test))]
-        let path = Self::get_file_location()?;
-
+    pub fn from_file(wasmer_dir: &Path) -> Result<Self, String> {
+        let path = Self::get_file_location(wasmer_dir);
         match std::fs::read_to_string(&path) {
             Ok(config_toml) => {
                 toml::from_str(&config_toml).map_err(|e| format!("could not parse {path:?}: {e}"))
@@ -265,54 +261,12 @@ impl PartialWapmConfig {
         std::env::current_dir()
     }
 
-    #[cfg(test)]
-    pub fn get_folder(test_name: &str) -> Result<PathBuf, String> {
-        let test_dir = std::env::temp_dir().join("test_wasmer").join(test_name);
-        let _ = std::fs::create_dir_all(&test_dir);
-        Ok(test_dir)
+    pub fn get_file_location(wasmer_dir: &Path) -> PathBuf {
+        wasmer_dir.join(crate::GLOBAL_CONFIG_FILE_NAME)
     }
 
-    #[cfg(not(test))]
-    pub fn get_folder() -> Result<PathBuf, String> {
-        Ok(
-            if let Some(folder_str) = std::env::var("WASMER_DIR").ok().filter(|s| !s.is_empty()) {
-                let folder = PathBuf::from(folder_str);
-                std::fs::create_dir_all(folder.clone())
-                    .map_err(|e| format!("cannot create config directory: {e}"))?;
-                folder
-            } else {
-                #[allow(unused_variables)]
-                let default_dir = Self::get_current_dir()
-                    .ok()
-                    .unwrap_or_else(|| PathBuf::from("/".to_string()));
-                let home_dir =
-                    dirs::home_dir().ok_or_else(|| "cannot find home directory".to_string())?;
-                let mut folder = home_dir;
-                folder.push(".wasmer");
-                std::fs::create_dir_all(folder.clone())
-                    .map_err(|e| format!("cannot create config directory: {e}"))?;
-                folder
-            },
-        )
-    }
-
-    #[cfg(test)]
-    pub fn get_file_location(test_name: &str) -> Result<PathBuf, String> {
-        Ok(Self::get_folder(test_name)?.join(crate::GLOBAL_CONFIG_FILE_NAME))
-    }
-
-    #[cfg(not(test))]
-    pub fn get_file_location() -> Result<PathBuf, String> {
-        Ok(Self::get_folder()?.join(crate::GLOBAL_CONFIG_FILE_NAME))
-    }
-
-    pub fn get_database_file_path(#[cfg(test)] test_name: &str) -> Result<PathBuf, String> {
-        #[cfg(test)]
-        let f = Self::get_folder(test_name);
-        #[cfg(not(test))]
-        let f = Self::get_folder();
-
-        f.map(|config_folder| config_folder.join(GLOBAL_CONFIG_DATABASE_FILE_NAME))
+    pub fn get_database_file_path(wasmer_dir: &Path) -> PathBuf {
+        wasmer_dir.join(GLOBAL_CONFIG_DATABASE_FILE_NAME)
     }
 }
 
