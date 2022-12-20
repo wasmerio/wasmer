@@ -1,9 +1,6 @@
 use graphql_client::GraphQLQuery;
 use serde::{Deserialize, Serialize};
-use std::{
-    ops::Mul,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 #[derive(Deserialize, Default, Serialize, Debug, PartialEq, Eq)]
 pub struct WasmerConfig {
