@@ -127,7 +127,7 @@ jobs:
         build-what: [
           {
             key: capi,
-            build-cmd: 'make build-capi',
+            build-cmd: 'make capi-setup && make build-capi',
             name: 'Build C-API'
           },
           {
@@ -168,7 +168,7 @@ jobs:
         build-what: [
           {
             key: capi,
-            build-cmd: 'make build-capi && make package-capi && make tar-capi',
+            build-cmd: 'make capi-setup && make build-capi && make package-capi && make tar-capi',
             name: 'Build and test C-API'
           },
           {
@@ -353,7 +353,7 @@ jobs:
       - name: Test C-API
         shell: bash
         if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm' || matrix.metadata.build == 'windows-gnu') }}
-        run: make test-capi-ci
+        run: make capi-setup && make test-capi-ci
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
