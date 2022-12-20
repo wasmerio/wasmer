@@ -300,18 +300,19 @@ pub fn sign_compressed_archive(
         log::warn!("Active key does not have a private key location registered with it!");
         return Err(anyhow!("Cannot sign package, no private key"));
     };
-    Ok(SignArchiveResult::Ok {
-        public_key_id: personal_key.public_key_id,
-        signature: (minisign::sign(
-            Some(&minisign::PublicKey::from_base64(
-                &personal_key.public_key_value,
-            )?),
+    let public_key = minisign::PublicKey::from_base64(
+        &personal_key.public_key_value,
+    )?;
+    let signature = minisign::sign(
+            Some(&public_key),
             &private_key,
             compressed_archive,
             None,
             None,
-        )?
-        .to_string()),
+    )?;
+    Ok(SignArchiveResult::Ok {
+        public_key_id: personal_key.public_key_id,
+        signature: signature.to_string(),
     })
 }
 
