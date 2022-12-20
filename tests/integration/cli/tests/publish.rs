@@ -1,7 +1,5 @@
-use anyhow::bail;
-use std::path::PathBuf;
-use std::process::{Command, Stdio};
-use wasmer_integration_tests_cli::{get_repo_root_path, get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
+use std::process::Stdio;
+use wasmer_integration_tests_cli::{get_wasmer_path, C_ASSET_PATH};
 
 fn create_exe_test_wasm_path() -> String {
     format!("{}/{}", C_ASSET_PATH, "qjs.wasm")

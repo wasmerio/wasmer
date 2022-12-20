@@ -185,7 +185,7 @@ impl Init {
                 Ok((package_name, current_dir.join(WASMER_TOML_NAME)))
             }
             Some(s) => {
-                let _ = std::fs::create_dir_all(s)
+                std::fs::create_dir_all(s)
                     .map_err(|e| anyhow::anyhow!("{e}"))
                     .with_context(|| anyhow::anyhow!("{}", s.display()))?;
                 let package_name = self

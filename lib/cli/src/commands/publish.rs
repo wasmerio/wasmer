@@ -11,7 +11,7 @@ use time::{self, OffsetDateTime};
 use wasmer_registry::publish::SignArchiveResult;
 use wasmer_registry::{PartialWapmConfig, PACKAGE_TOML_FALLBACK_NAME};
 
-const MIGRATIONS: &[(i32, &'static str)] = &[
+const MIGRATIONS: &[(i32, &str)] = &[
     (0, include_str!("../../sql/migrations/0000.sql")),
     (1, include_str!("../../sql/migrations/0001.sql")),
     (2, include_str!("../../sql/migrations/0002.sql")),

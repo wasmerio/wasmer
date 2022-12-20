@@ -419,6 +419,6 @@ fn large_number_local(mut config: crate::Config) -> Result<()> {
         .get_function("large_local")?
         .call(&mut store, &[])
         .unwrap();
-    assert_eq!(&Value::I64(1 as i64), result.get(0).unwrap());
+    assert_eq!(&Value::I64(1_i64), result.get(0).unwrap());
     Ok(())
 }

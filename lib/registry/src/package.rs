@@ -109,7 +109,7 @@ impl Package {
     /// Returns the full URL including the version for this package
     pub fn url(&self, registry: &str) -> Result<Url, anyhow::Error> {
         let registry_tld = tldextract::TldExtractor::new(tldextract::TldOption::default())
-            .extract(&registry)
+            .extract(registry)
             .map_err(|e| anyhow::anyhow!("Invalid registry: {}: {e}", registry))?;
 
         let registry_tld = format!(

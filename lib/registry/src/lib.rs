@@ -60,10 +60,7 @@ pub fn get_package_local_dir(wasmer_dir: &Path, url: &str, version: &str) -> Opt
 pub fn try_finding_local_command(wasmer_dir: &Path, cmd: &str) -> Option<LocalPackage> {
     let local_packages = get_all_local_packages(wasmer_dir);
     for p in local_packages {
-        #[cfg(not(test))]
         let commands = p.get_commands();
-        #[cfg(test)]
-        let commands = p.get_commands(test_name);
 
         if commands.unwrap_or_default().iter().any(|c| c == cmd) {
             return Some(p);
@@ -94,7 +91,7 @@ impl fmt::Display for LocalPackage {
 }
 
 impl LocalPackage {
-    pub fn get_path(&self, #[cfg(test)] test_name: &str) -> Result<PathBuf, String> {
+    pub fn get_path(&self) -> Result<PathBuf, String> {
         Ok(self.path.clone())
     }
 
@@ -130,11 +127,8 @@ impl LocalPackage {
         Ok(wasmer_toml)
     }
 
-    pub fn get_commands(&self, #[cfg(test)] test_name: &str) -> Result<Vec<String>, String> {
-        #[cfg(not(test))]
+    pub fn get_commands(&self) -> Result<Vec<String>, String> {
         let path = self.get_path()?;
-        #[cfg(test)]
-        let path = self.get_path(test_name)?;
         let toml_parsed = Self::read_toml(&path)?;
         Ok(toml_parsed
             .command
@@ -924,8 +918,6 @@ fn get_bytes(
 #[cfg(not(target_env = "musl"))]
 #[test]
 fn test_install_package() {
-    const TEST_NAME: &str = "test_install_package";
-
     println!("test install package...");
     let registry = "https://registry.wapm.io/graphql";
     if !test_if_registry_present(registry).unwrap_or(false) {
@@ -949,25 +941,25 @@ fn test_install_package() {
         "https://registry-cdn.wapm.io/packages/wasmer/wabt/wabt-1.0.29.tar.gz".to_string()
     );
 
-    let path = install_package(TEST_NAME, &url::Url::parse(&wabt.url).unwrap()).unwrap();
+    let fake_wasmer_dir = tempdir::TempDir::new("tmp").unwrap();
+    let wasmer_dir = fake_wasmer_dir.path();
+    let path = install_package(wasmer_dir, &url::Url::parse(&wabt.url).unwrap()).unwrap();
 
     println!("package installed: {path:?}");
 
     assert_eq!(
         path,
-        get_checkouts_dir(TEST_NAME)
-            .unwrap()
-            .join(&format!("{}@1.0.29", Package::hash_url(&wabt.url)))
+        get_checkouts_dir(wasmer_dir).join(&format!("{}@1.0.29", Package::hash_url(&wabt.url)))
     );
 
-    let all_installed_packages = get_all_local_packages(TEST_NAME);
+    let all_installed_packages = get_all_local_packages(wasmer_dir);
 
     let is_installed = all_installed_packages
         .iter()
         .any(|p| p.name == "wasmer/wabt" && p.version == "1.0.29");
 
     if !is_installed {
-        let panic_str = get_all_local_packages(TEST_NAME)
+        let panic_str = get_all_local_packages(wasmer_dir)
             .iter()
             .map(|p| format!("{} {} {}", p.registry, p.name, p.version))
             .collect::<Vec<_>>()
