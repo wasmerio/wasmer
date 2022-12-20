@@ -36,13 +36,15 @@ pub fn try_chunked_uploading(
     archived_data_size: u64,
     quiet: bool,
 ) -> Result<(), anyhow::Error> {
+
     let registry = match registry.as_ref() {
         Some(s) => format_graphql(s),
         None => {
-            #[cfg(not(test))]
-            let config = PartialWapmConfig::from_file();
-            #[cfg(test)]
-            let config = PartialWapmConfig::from_file("publish");
+
+            let wasmer_dir = PartialWapmConfig::get_wasmer_dir()
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+            let config = PartialWapmConfig::from_file(&wasmer_dir);
 
             config
                 .map_err(|e| anyhow::anyhow!("{e}"))?
@@ -54,10 +56,11 @@ pub fn try_chunked_uploading(
     let token = match token.as_ref() {
         Some(s) => s.to_string(),
         None => {
-            #[cfg(not(test))]
-            let config = PartialWapmConfig::from_file();
-            #[cfg(test)]
-            let config = PartialWapmConfig::from_file("publish");
+
+            let wasmer_dir = PartialWapmConfig::get_wasmer_dir()
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
+
+            let config = PartialWapmConfig::from_file(&wasmer_dir);
 
             config
                 .map_err(|e| anyhow::anyhow!("{e}"))?

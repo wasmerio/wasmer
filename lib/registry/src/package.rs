@@ -134,7 +134,7 @@ impl Package {
     /// Does not check whether the installation directory already exists.
     pub fn get_path(&self, wasmer_dir: &Path) -> Result<PathBuf, anyhow::Error> {
         let checkouts_dir = crate::get_checkouts_dir(wasmer_dir);
-        let config = PartialWapmConfig::from_file()
+        let config = PartialWapmConfig::from_file(wasmer_dir)
             .map_err(|e| anyhow::anyhow!("could not load config {e}"))?;
         let hash = self.get_hash(&config.registry.get_current_registry());
 

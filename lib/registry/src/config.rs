@@ -257,6 +257,30 @@ impl PartialWapmConfig {
         }
     }
 
+    /// Creates and returns the `WASMER_DIR` directory (or $HOME/.wasmer as a fallback)
+    pub fn get_wasmer_dir() -> Result<PathBuf, String> {
+        Ok(
+            if let Some(folder_str) = std::env::var("WASMER_DIR").ok().filter(|s| !s.is_empty()) {
+                let folder = PathBuf::from(folder_str);
+                std::fs::create_dir_all(folder.clone())
+                    .map_err(|e| format!("cannot create config directory: {e}"))?;
+                folder
+            } else {
+                #[allow(unused_variables)]
+                let default_dir = Self::get_current_dir()
+                    .ok()
+                    .unwrap_or_else(|| PathBuf::from("/".to_string()));
+                let home_dir =
+                    dirs::home_dir().ok_or_else(|| "cannot find home directory".to_string())?;
+                let mut folder = home_dir;
+                folder.push(".wasmer");
+                std::fs::create_dir_all(folder.clone())
+                    .map_err(|e| format!("cannot create config directory: {e}"))?;
+                folder
+            },
+        )
+    }
+
     pub fn get_current_dir() -> std::io::Result<PathBuf> {
         std::env::current_dir()
     }
