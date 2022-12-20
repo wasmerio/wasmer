@@ -1,6 +1,9 @@
 use graphql_client::GraphQLQuery;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::{
+    ops::Mul,
+    path::{Path, PathBuf},
+};
 
 #[derive(Deserialize, Default, Serialize, Debug, PartialEq, Eq)]
 pub struct WasmerConfig {
@@ -34,6 +37,8 @@ pub struct Proxy {
     pub url: Option<String>,
 }
 
+/// Struct to store login tokens for multiple registry URLs
+/// inside of the wasmer.toml configuration file
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 pub struct MultiRegistry {
     /// Currently active registry
@@ -99,7 +104,7 @@ pub enum UpdateRegistry {
 
 #[test]
 fn test_registries_switch_token() {
-    let mut registries = Registries::default();
+    let mut registries = MultiRegistry::default();
 
     registries.set_current_registry("https://registry.wapm.dev");
     assert_eq!(
