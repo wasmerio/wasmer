@@ -106,7 +106,9 @@ impl Publish {
 
         let (readme, license) = construct_tar_gz(&mut builder, &manifest, &cwd)?;
 
-        builder.finish().ok();
+        builder
+            .finish()
+            .map_err(|e| anyhow::anyhow!("failed to finish .tar.gz builder: {e}"))?;
         let tar_archive_data = builder.into_inner().map_err(|_| PublishError::NoModule)?;
         let archive_name = "package.tar.gz".to_string();
         let archive_dir = tempfile::TempDir::new()?;
