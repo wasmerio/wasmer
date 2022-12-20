@@ -1,6 +1,6 @@
 use crate::PartialWapmConfig;
 use regex::Regex;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{fmt, str::FromStr};
 use url::Url;
 
@@ -26,16 +26,11 @@ impl fmt::Display for Package {
 
 impl Package {
     /// Checks whether the package is already installed, if yes, returns the path to the root dir
-    pub fn already_installed(&self, #[cfg(test)] test_name: &str) -> Option<PathBuf> {
-        #[cfg(not(test))]
-        let checkouts_dir = crate::get_checkouts_dir()?;
-        #[cfg(test)]
-        let checkouts_dir = crate::get_checkouts_dir(test_name)?;
-
-        #[cfg(not(test))]
-        let hash = self.get_hash();
-        #[cfg(test)]
-        let hash = self.get_hash(test_name);
+    pub fn already_installed(&self, wasmer_dir: &Path) -> Option<PathBuf> {
+        let checkouts_dir = crate::get_checkouts_dir(wasmer_dir);
+        let config = PartialWapmConfig::from_file(wasmer_dir).ok()?;
+        let current_registry = config.registry.get_current_registry();
+        let hash = self.get_hash(&current_registry);
 
         let found = std::fs::read_dir(&checkouts_dir)
             .ok()?
@@ -49,11 +44,8 @@ impl Package {
 
     /// Checks if the URL is already installed, note that `{url}@{version}`
     /// and `{url}` are treated the same
-    pub fn is_url_already_installed(url: &Url, #[cfg(test)] test_name: &str) -> Option<PathBuf> {
-        #[cfg(not(test))]
-        let checkouts_dir = crate::get_checkouts_dir()?;
-        #[cfg(test)]
-        let checkouts_dir = crate::get_checkouts_dir(test_name)?;
+    pub fn is_url_already_installed(url: &Url, wasmer_dir: &Path) -> Option<PathBuf> {
+        let checkouts_dir = crate::get_checkouts_dir(wasmer_dir);
 
         let url_string = url.to_string();
         let (url, version) = match url_string.split('@').collect::<Vec<_>>()[..] {
@@ -84,22 +76,13 @@ impl Package {
 
     /// Returns the hash of the package URL without the version
     /// (because the version is encoded as @version and isn't part of the hash itself)
-    pub fn get_hash(&self, #[cfg(test)] test_name: &str) -> String {
-        #[cfg(test)]
-        let url = self.get_url_without_version(test_name);
-        #[cfg(not(test))]
-        let url = self.get_url_without_version();
+    pub fn get_hash(&self, registry: &str) -> String {
+        let url = self.get_url_without_version(registry);
         Self::hash_url(&url.unwrap_or_default())
     }
 
-    fn get_url_without_version(
-        &self,
-        #[cfg(test)] test_name: &str,
-    ) -> Result<String, anyhow::Error> {
-        #[cfg(test)]
-        let url = self.url(test_name);
-        #[cfg(not(test))]
-        let url = self.url();
+    fn get_url_without_version(&self, registry: &str) -> Result<String, anyhow::Error> {
+        let url = self.url(registry);
         Ok(format!(
             "{}/{}/{}",
             url?.origin().ascii_serialization(),
@@ -124,14 +107,7 @@ impl Package {
     }
 
     /// Returns the full URL including the version for this package
-    pub fn url(&self, #[cfg(test)] test_name: &str) -> Result<Url, anyhow::Error> {
-        #[cfg(test)]
-        let config = PartialWapmConfig::from_file(test_name)
-            .map_err(|e| anyhow::anyhow!("could not read wapm config: {e}"))?;
-        #[cfg(not(test))]
-        let config = PartialWapmConfig::from_file()
-            .map_err(|e| anyhow::anyhow!("could not read wapm config: {e}"))?;
-        let registry = config.registry.get_current_registry();
+    pub fn url(&self, registry: &str) -> Result<Url, anyhow::Error> {
         let registry_tld = tldextract::TldExtractor::new(tldextract::TldOption::default())
             .extract(&registry)
             .map_err(|e| anyhow::anyhow!("Invalid registry: {}: {e}", registry))?;
@@ -156,18 +132,11 @@ impl Package {
 
     /// Returns the path to the installation directory.
     /// Does not check whether the installation directory already exists.
-    pub fn get_path(&self, #[cfg(test)] test_name: &str) -> Result<PathBuf, anyhow::Error> {
-        #[cfg(test)]
-        let checkouts_dir = crate::get_checkouts_dir(test_name);
-        #[cfg(not(test))]
-        let checkouts_dir = crate::get_checkouts_dir();
-
-        let checkouts_dir = checkouts_dir.ok_or_else(|| anyhow::anyhow!("no checkouts dir"))?;
-
-        #[cfg(not(test))]
-        let hash = self.get_hash();
-        #[cfg(test)]
-        let hash = self.get_hash(test_name);
+    pub fn get_path(&self, wasmer_dir: &Path) -> Result<PathBuf, anyhow::Error> {
+        let checkouts_dir = crate::get_checkouts_dir(wasmer_dir);
+        let config = PartialWapmConfig::from_file()
+            .map_err(|e| anyhow::anyhow!("could not load config {e}"))?;
+        let hash = self.get_hash(&config.registry.get_current_registry());
 
         match self.version.as_ref() {
             Some(v) => Ok(checkouts_dir.join(format!("{}@{}", hash, v))),

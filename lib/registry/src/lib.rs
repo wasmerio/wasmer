@@ -431,43 +431,12 @@ pub fn query_package_from_registry(
     })
 }
 
-pub fn get_wasmer_root_dir(#[cfg(test)] test_name: &str) -> Option<PathBuf> {
-    #[cfg(test)]
-    {
-        PartialWapmConfig::get_folder(test_name).ok()
-    }
-    #[cfg(not(test))]
-    {
-        PartialWapmConfig::get_folder().ok()
-    }
+pub fn get_checkouts_dir(wasmer_dir: &Path) -> PathBuf {
+    wasmer_dir.join("checkouts")
 }
 
-pub fn get_checkouts_dir(#[cfg(test)] test_name: &str) -> Option<PathBuf> {
-    #[cfg(test)]
-    let root_dir = get_wasmer_root_dir(test_name)?;
-    #[cfg(not(test))]
-    let root_dir = get_wasmer_root_dir()?;
-    Some(root_dir.join("checkouts"))
-}
-
-pub fn get_webc_dir(#[cfg(test)] test_name: &str) -> Option<PathBuf> {
-    #[cfg(test)]
-    let root_dir = get_wasmer_root_dir(test_name)?;
-    #[cfg(not(test))]
-    let root_dir = get_wasmer_root_dir()?;
-    Some(root_dir.join("webc"))
-}
-
-/// Returs the path to the directory where all packages on this computer are being stored
-pub fn get_global_install_dir(
-    #[cfg(test)] test_name: &str,
-    registry_host: &str,
-) -> Option<PathBuf> {
-    #[cfg(test)]
-    let root_dir = get_checkouts_dir(test_name)?;
-    #[cfg(not(test))]
-    let root_dir = get_checkouts_dir()?;
-    Some(root_dir.join(registry_host))
+pub fn get_webc_dir(wasmer_dir: &Path) -> PathBuf {
+    wasmer_dir.join("webc")
 }
 
 /// Convenience function that will unpack .tar.gz files and .tar.bz
@@ -744,19 +713,14 @@ pub fn install_webc_package(
 }
 
 async fn install_webc_package_inner(
-    #[cfg(test)] test_name: &str,
+    wasmer_dir: &Path,
     url: &Url,
     checksum: &str,
 ) -> Result<(), anyhow::Error> {
     use futures_util::StreamExt;
 
-    #[cfg(test)]
-    let path = get_webc_dir(test_name).ok_or_else(|| anyhow::anyhow!("no webc dir"))?;
-    #[cfg(not(test))]
-    let path = get_webc_dir().ok_or_else(|| anyhow::anyhow!("no webc dir"))?;
-
+    let path = get_webc_dir(wasmer_dir);
     let _ = std::fs::create_dir_all(&path);
-
     let webc_path = path.join(checksum);
 
     let mut file = std::fs::File::create(&webc_path)
