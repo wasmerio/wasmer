@@ -13,7 +13,7 @@ pub struct Config {
     flags: Flags,
     /// Subcommand for `wasmer config get | set`
     #[clap(subcommand)]
-    set: Option<StorableConfigField>,
+    set: Option<Set>,
 }
 
 /// Normal configuration
@@ -71,6 +71,14 @@ pub struct Flags {
     /// and linking a program to Wasmer, using the `pkg-config` format.
     #[clap(long)]
     pkg_config: bool,
+}
+
+/// Subcommand for `wasmer config set`
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
+pub enum Set {
+    /// `wasmer config set $KEY $VALUE`
+    #[clap(subcommand)]
+    Set(StorableConfigField),
 }
 
 /// Setting that can be stored in the wasmer config
@@ -151,7 +159,7 @@ impl Config {
             .context("failed to retrieve the wasmer config".to_string())
     }
     fn inner_execute(&self) -> Result<()> {
-        if let Some(s) = self.set.as_ref() {
+        if let Some(Set::Set(s)) = self.set.as_ref() {
             return s.execute();
         }
 
