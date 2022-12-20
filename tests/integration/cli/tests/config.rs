@@ -158,8 +158,7 @@ fn config_works() -> anyhow::Result<()> {
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
-        .arg("get")
-        .arg("config.path")
+        .arg("--config-path")
         .output()?;
 
     let config_path = Path::new(env!("WASMER_DIR")).join("wasmer.toml");
@@ -170,8 +169,7 @@ fn config_works() -> anyhow::Result<()> {
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
-        .arg("get")
-        .arg("registry.token")
+        .arg("--registry-token")
         .output()?;
 
     let original_token = String::from_utf8_lossy(&output.stdout);
@@ -187,8 +185,7 @@ fn config_works() -> anyhow::Result<()> {
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
-        .arg("get")
-        .arg("registry.token")
+        .arg("--registry-token")
         .output()?;
 
     assert_eq!(
@@ -207,8 +204,7 @@ fn config_works() -> anyhow::Result<()> {
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
-        .arg("get")
-        .arg("registry.token")
+        .arg("--registry-token")
         .output()?;
 
     assert_eq!(
@@ -218,8 +214,7 @@ fn config_works() -> anyhow::Result<()> {
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
-        .arg("get")
-        .arg("registry.url")
+        .arg("--registry-url")
         .output()?;
 
     let original_url = String::from_utf8_lossy(&output.stdout);
@@ -237,8 +232,7 @@ fn config_works() -> anyhow::Result<()> {
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
-        .arg("get")
-        .arg("registry.url")
+        .arg("--registry-url")
         .output()?;
 
     let output_str = String::from_utf8_lossy(&output.stdout);
@@ -259,8 +253,7 @@ fn config_works() -> anyhow::Result<()> {
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
-        .arg("get")
-        .arg("registry.url")
+        .arg("--registry-url")
         .output()?;
 
     let output_str = String::from_utf8_lossy(&output.stdout);
@@ -268,8 +261,7 @@ fn config_works() -> anyhow::Result<()> {
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
-        .arg("get")
-        .arg("telemetry.enabled")
+        .arg("--telemetry-enabled")
         .output()?;
 
     let original_output = String::from_utf8_lossy(&output.stdout);
@@ -285,8 +277,7 @@ fn config_works() -> anyhow::Result<()> {
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
-        .arg("get")
-        .arg("telemetry.enabled")
+        .arg("--telemetry-enabled")
         .output()?;
 
     assert_eq!(
@@ -305,8 +296,7 @@ fn config_works() -> anyhow::Result<()> {
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
-        .arg("get")
-        .arg("telemetry.enabled")
+        .arg("--telemetry-enabled")
         .output()?;
 
     assert_eq!(
@@ -316,8 +306,7 @@ fn config_works() -> anyhow::Result<()> {
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
-        .arg("get")
-        .arg("update-notifications.enabled")
+        .arg("--update-notifications-enabled")
         .output()?;
 
     let original_output = String::from_utf8_lossy(&output.stdout);
@@ -333,8 +322,7 @@ fn config_works() -> anyhow::Result<()> {
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
-        .arg("get")
-        .arg("update-notifications.enabled")
+        .arg("--update-notifications-enabled")
         .output()?;
 
     assert_eq!(
@@ -353,8 +341,7 @@ fn config_works() -> anyhow::Result<()> {
 
     let output = Command::new(get_wasmer_path())
         .arg("config")
-        .arg("get")
-        .arg("update-notifications.enabled")
+        .arg("--update-notifications-enabled")
         .output()?;
 
     assert_eq!(
