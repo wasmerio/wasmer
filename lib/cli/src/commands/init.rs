@@ -486,15 +486,8 @@ fn parse_cargo_toml(manifest_path: &PathBuf) -> Result<MiniCargoTomlPackage, any
     metadata.no_deps();
     metadata.features(CargoOpt::AllFeatures);
 
-    let metadata = metadata.exec();
-
-    let metadata = match metadata {
-        Ok(o) => o,
-        Err(e) => {
-            return Err(anyhow::anyhow!("failed to load metadata: {e}")
-                .context(anyhow::anyhow!("{}", manifest_path.display())));
-        }
-    };
+    let metadata = metadata.exec()
+        .with_context(|| format!("Unable to load metadata from \"{}\"", manifest_path.display()))?;
 
     let package = metadata
         .root_package()
