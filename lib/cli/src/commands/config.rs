@@ -7,13 +7,13 @@ use std::str::ParseBoolError;
 use wasmer_registry::WasmerConfig;
 
 #[derive(Debug, Parser)]
-/// The options for the `wasmer config` subcommand: `wasmer config get prefix`
+/// The options for the `wasmer config` subcommand: `wasmer config get --OPTION` or `wasmer config set [FLAG]`
 pub struct Config {
     #[clap(flatten)]
     flags: Flags,
     /// Subcommand for `wasmer config get | set`
     #[clap(subcommand)]
-    get_or_set: Option<GetOrSet>,
+    set: Option<StorableConfigField>,
 }
 
 /// Normal configuration
@@ -43,62 +43,52 @@ pub struct Flags {
     #[clap(long, conflicts_with = "pkg-config")]
     cflags: bool,
 
-    /// It outputs the necessary details for compiling
+    /// Print the path to the wasmer configuration file where all settings are stored
+    #[clap(long, conflicts_with = "pkg-config")]
+    config_path: bool,
+
+    /// Print the registry URL of the currently active registry
+    #[clap(long, conflicts_with = "pkg-config")]
+    registry_url: bool,
+
+    /// Print the token for the currently active registry or nothing if not logged in
+    #[clap(long, conflicts_with = "pkg-config")]
+    registry_token: bool,
+
+    /// Print whether telemetry is currently enabled
+    #[clap(long, conflicts_with = "pkg-config")]
+    telemetry_enabled: bool,
+
+    /// Print whether update notifications are enabled
+    #[clap(long, conflicts_with = "pkg-config")]
+    update_notifications_enabled: bool,
+
+    /// Print the proxy URL
+    #[clap(long, conflicts_with = "pkg-config")]
+    proxy_url: bool,
+
+    /// Outputs the necessary details for compiling
     /// and linking a program to Wasmer, using the `pkg-config` format.
     #[clap(long)]
     pkg_config: bool,
 }
 
-/// Subcommand for `wasmer config get | set`
-#[derive(Debug, Clone, PartialEq, Parser)]
-enum GetOrSet {
-    /// Get a value from the current wasmer config
-    #[clap(subcommand)]
-    Get(RetrievableConfigField),
-    /// Set a value in the current wasmer config
-    #[clap(subcommand)]
-    Set(StorableConfigField),
-}
-
-/// Value that can be queried from the wasmer config
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
-pub enum RetrievableConfigField {
-    /// Print the path to the configuration file
-    #[clap(name = "config.path")]
-    ConfigPath,
-    /// Print the registry URL of the currently active registry
-    #[clap(name = "registry.url")]
-    RegistryUrl,
-    /// Print the token for the currently active registry or nothing if not logged in
-    #[clap(name = "registry.token")]
-    RegistryToken,
-    /// Print whether telemetry is currently enabled
-    #[clap(name = "telemetry.enabled")]
-    TelemetryEnabled,
-    /// Print whether update notifications are enabled
-    #[clap(name = "update-notifications.enabled")]
-    UpdateNotificationsEnabled,
-    /// Print the proxy URL
-    #[clap(name = "proxy.url")]
-    ProxyUrl,
-}
-
 /// Setting that can be stored in the wasmer config
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
 pub enum StorableConfigField {
-    /// `registry.url`
+    /// Print the registry URL of the currently active registry
     #[clap(name = "registry.url")]
     RegistryUrl(SetRegistryUrl),
-    /// `registry.token`
+    /// Print the token for the currently active registry or nothing if not logged in
     #[clap(name = "registry.token")]
     RegistryToken(SetRegistryToken),
-    /// `telemetry.enabled`
+    /// Print whether telemetry is currently enabled
     #[clap(name = "telemetry.enabled")]
     TelemetryEnabled(SetTelemetryEnabled),
-    /// `update-notifications.url`
+    /// Print whether update notifications are enabled
     #[clap(name = "update-notifications.enabled")]
     UpdateNotificationsEnabled(SetUpdateNotificationsEnabled),
-    /// `proxy.url`
+    /// Print the proxy URL
     #[clap(name = "proxy.url")]
     ProxyUrl(SetProxyUrl),
 }
@@ -161,8 +151,8 @@ impl Config {
             .context("failed to retrieve the wasmer config".to_string())
     }
     fn inner_execute(&self) -> Result<()> {
-        if let Some(gs) = self.get_or_set.as_ref() {
-            return gs.execute();
+        if let Some(s) = self.set.as_ref() {
+            return s.execute();
         }
 
         let flags = &self.flags;
@@ -201,6 +191,7 @@ impl Config {
             println!("Libs: {}", libs);
             return Ok(());
         }
+
         if flags.prefix {
             println!("{}", prefixdir);
         }
@@ -220,91 +211,86 @@ impl Config {
             println!("{}", cflags);
         }
 
+        if flags.config_path {
+            let path = WasmerConfig::get_file_location()
+                .map_err(|e| anyhow::anyhow!("could not find config file: {e}"))?;
+            println!("{}", path.display());
+        }
+
+        let config = WasmerConfig::from_file()
+            .map_err(|e| anyhow::anyhow!("could not find config file: {e}"))?;
+
+        if flags.registry_url {
+            println!("{}", config.registry.get_current_registry());
+        }
+
+        if flags.registry_token {
+            if let Some(s) = config
+                .registry
+                .get_login_token_for_registry(&config.registry.get_current_registry())
+            {
+                println!("{s}");
+            }
+        }
+
+        if flags.telemetry_enabled {
+            println!("{:?}", config.telemetry_enabled);
+        }
+
+        if flags.update_notifications_enabled {
+            println!("{:?}", config.update_notifications_enabled);
+        }
+
+        if flags.proxy_url {
+            if let Some(s) = config.proxy.url.as_ref() {
+                println!("{s}");
+            }
+        }
+
         Ok(())
     }
 }
 
-impl GetOrSet {
+impl StorableConfigField {
     fn execute(&self) -> Result<()> {
-        use self::GetOrSet::{Get, Set};
+        let config_file = WasmerConfig::get_file_location()
+            .map_err(|e| anyhow::anyhow!("could not find config file {e}"))?;
+        let mut config = WasmerConfig::from_file().map_err(|e| {
+            anyhow::anyhow!(
+                "could not find config file {e} at {}",
+                config_file.display()
+            )
+        })?;
         match self {
-            Get(g) => match g {
-                RetrievableConfigField::ConfigPath => {
-                    let path = WasmerConfig::get_file_location()
-                        .map_err(|e| anyhow::anyhow!("could not find config file: {e}"))?;
-                    println!("{}", path.display());
+            StorableConfigField::RegistryUrl(s) => {
+                config.registry.set_current_registry(&s.url);
+                let current_registry = config.registry.get_current_registry();
+                if let Some(u) = wasmer_registry::utils::get_username().ok().and_then(|o| o) {
+                    println!(
+                        "Successfully logged into registry {current_registry:?} as user {u:?}"
+                    );
                 }
-                other => {
-                    let config = WasmerConfig::from_file()
-                        .map_err(|e| anyhow::anyhow!("could not find config file: {e}"))?;
-                    match other {
-                        RetrievableConfigField::RegistryUrl => {
-                            println!("{}", config.registry.get_current_registry());
-                        }
-                        RetrievableConfigField::RegistryToken => {
-                            if let Some(s) = config.registry.get_login_token_for_registry(
-                                &config.registry.get_current_registry(),
-                            ) {
-                                println!("{s}");
-                            }
-                        }
-                        RetrievableConfigField::ProxyUrl => {
-                            if let Some(s) = config.proxy.url.as_ref() {
-                                println!("{s}");
-                            }
-                        }
-                        RetrievableConfigField::TelemetryEnabled => {
-                            println!("{:?}", config.telemetry_enabled);
-                        }
-                        RetrievableConfigField::UpdateNotificationsEnabled => {
-                            println!("{:?}", config.update_notifications_enabled);
-                        }
-                        _ => {}
-                    }
-                }
-            },
-            Set(s) => {
-                let config_file = WasmerConfig::get_file_location()
-                    .map_err(|e| anyhow::anyhow!("could not find config file {e}"))?;
-                let mut config = WasmerConfig::from_file().map_err(|e| {
-                    anyhow::anyhow!(
-                        "could not find config file {e} at {}",
-                        config_file.display()
-                    )
-                })?;
-
-                match s {
-                    StorableConfigField::RegistryUrl(s) => {
-                        config.registry.set_current_registry(&s.url);
-                        let current_registry = config.registry.get_current_registry();
-                        if let Some(u) = wasmer_registry::utils::get_username().ok().and_then(|o| o)
-                        {
-                            println!("Successfully logged into registry {current_registry:?} as user {u:?}");
-                        }
-                    }
-                    StorableConfigField::RegistryToken(t) => {
-                        config.registry.set_login_token_for_registry(
-                            &config.registry.get_current_registry(),
-                            &t.token,
-                            wasmer_registry::config::UpdateRegistry::LeaveAsIs,
-                        );
-                    }
-                    StorableConfigField::TelemetryEnabled(t) => {
-                        config.telemetry_enabled = t.enabled.0;
-                    }
-                    StorableConfigField::ProxyUrl(p) => {
-                        config.proxy.url = p.url.clone();
-                    }
-                    StorableConfigField::UpdateNotificationsEnabled(u) => {
-                        config.update_notifications_enabled = u.enabled.0;
-                    }
-                }
-
-                config
-                    .save(config_file)
-                    .with_context(|| anyhow::anyhow!("could not save config file"))?;
+            }
+            StorableConfigField::RegistryToken(t) => {
+                config.registry.set_login_token_for_registry(
+                    &config.registry.get_current_registry(),
+                    &t.token,
+                    wasmer_registry::config::UpdateRegistry::LeaveAsIs,
+                );
+            }
+            StorableConfigField::TelemetryEnabled(t) => {
+                config.telemetry_enabled = t.enabled.0;
+            }
+            StorableConfigField::ProxyUrl(p) => {
+                config.proxy.url = p.url.clone();
+            }
+            StorableConfigField::UpdateNotificationsEnabled(u) => {
+                config.update_notifications_enabled = u.enabled.0;
             }
         }
+        config
+            .save(config_file)
+            .with_context(|| anyhow::anyhow!("could not save config file"))?;
 
         Ok(())
     }
