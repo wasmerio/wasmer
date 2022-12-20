@@ -29,47 +29,6 @@ const WASMER_MAIN_C_SOURCE: &str = include_str!("wasmer_create_exe_main.c");
 #[cfg(feature = "static-artifact-create")]
 const WASMER_STATIC_MAIN_C_SOURCE: &str = include_str!("wasmer_static_create_exe_main.c");
 
-#[derive(Debug, Clone)]
-pub(crate) struct CrossCompile {
-    /// Cross-compilation library path.
-    pub(crate) library_path: Option<PathBuf>,
-
-    /// Cross-compilation tarball library path.
-    pub(crate) tarball: Option<PathBuf>,
-
-    /// Specify `zig` binary path
-    pub(crate) zig_binary_path: Option<PathBuf>,
-}
-
-#[derive(Debug)]
-pub(crate) struct CrossCompileSetup {
-    pub(crate) target: Triple,
-    pub(crate) zig_binary_path: PathBuf,
-    pub(crate) library: PathBuf,
-}
-
-/// Given a pirita file, determines whether the file has one
-/// default command as an entrypoint or multiple (need to be specified via --command)
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Entrypoint {
-    /// Single command name is the entrypoint
-    Single(String),
-    /// File contains multiple entrypoints, has to be specified via --command
-    Multi(Vec<CommandEntrypoint>),
-}
-
-/// Command entrypoint for multiple commands
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CommandEntrypoint {
-    /// Atom name
-    pub atom: String,
-    /// Command name
-    pub command: String,
-    /// Type of the object format
-    pub object_type: ObjectFormat,
-}
-
 #[derive(Debug, Parser)]
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateExe {
@@ -97,6 +56,7 @@ pub struct CreateExe {
     /// - "aarch64-linux-gnu"
     /// - "x86_64-apple-darwin"
     /// - "arm64-apple-darwin"
+    /// - "x86_64-windows-gnu"
     #[clap(long = "target")]
     target_triple: Option<Triple>,
 
@@ -147,6 +107,152 @@ pub struct CreateExe {
     compiler: CompilerOptions,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct CrossCompile {
+    /// Cross-compilation library path.
+    pub(crate) library_path: Option<PathBuf>,
+    /// Cross-compilation tarball library path.
+    pub(crate) tarball: Option<PathBuf>,
+    /// Specify `zig` binary path
+    pub(crate) zig_binary_path: Option<PathBuf>,
+}
+
+#[derive(Debug)]
+pub enum CompileSetup {
+    CompileWithZig(CrossCompileSetup),
+    CompileWithCc(),
+}
+
+#[derive(Debug)]
+pub(crate) struct CrossCompileSetup {
+    pub(crate) target: Triple,
+    pub(crate) zig_binary_path: PathBuf,
+    pub(crate) library: PathBuf,
+}
+
+/// Given a pirita file, determines whether the file has one
+/// default command as an entrypoint or multiple (need to be specified via --command)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Entrypoint {
+    /// Single command name is the entrypoint
+    Single(String),
+    /// File contains multiple entrypoints, has to be specified via --command
+    Multi(Vec<CommandEntrypoint>),
+}
+
+/// Command entrypoint for multiple commands
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommandEntrypoint {
+    /// Atom name
+    pub atom: String,
+    /// Command name
+    pub command: String,
+    /// Type of the object format
+    pub object_type: ObjectFormat,
+}
+
+enum CompileZigConfig {
+    /*
+        output_path,
+        &[wasm_module_path],
+        &[std::path::Path::new("static_defs.h").into()],
+        setup,
+        &[],
+        None,
+        None,
+    */
+    CompileWasmModule {
+        wasm_module_path: PathBuf,
+        static_defs_h: PathBuf,
+    },
+
+    /*
+        output_path,
+        &[object_file_path],
+        &[std::path::Path::new("static_defs.h").into()],
+        setup,
+        &[],
+        None,
+        None,
+    */
+    CompileObjectFile {
+        object_file_path: PathBuf,
+        static_defs_h: PathBuf,
+    },
+
+    /*
+        output_path,
+        &link_objects,
+        &[],
+        &setup,
+        &atom_names,
+        Some(&entrypoint),
+        Some(volume_object_path),
+    */
+    CreateExePiritaFromExistingDirSerialized {
+        wasmer_main_c: String,
+        entrypoint: Entrypoint,
+        volume_object_path: PathBuf,
+    },
+
+    /*
+        output_path,
+        self.debug_dir.clone(),
+        &[object_file_path],
+        &[static_defs_file_path],
+        setup,
+        &atom_names,
+        Some(&entrypoint),
+        Some(volumes_obj_path),
+    */
+    CreateExePiritaFromExistingDirSymbols {
+        entrypoint: Entrypoint,
+        volume_object_path: PathBuf,
+    },
+}
+
+enum LinkConfig {
+    /*
+        output_path,
+        wasm_module_path,
+        std::path::Path::new("static_defs.h").into(),
+        &[],
+        None,
+        None,
+    */
+    LinkFromWasmModule {
+        wasm_module_path: PathBuf,
+        static_defs_h: PathBuf,
+    },
+
+    /*
+        output_path,
+        object_file_path,
+        std::path::Path::new("static_defs.h").into(),
+        &[],
+        None,
+        None,
+    */
+    LinkFromObjectFile {
+        object_file_path: PathBuf,
+        static_defs_h: PathBuf,
+    },
+
+    /*
+        &atom_names,
+        Some(&entrypoint),
+        Some(volumes_obj_path),
+    */
+    LinkPirita {
+        atom_names: Vec<String>,
+        entrypoint: Entrypoint,
+        volume_obj_path: PathBuf,
+    },
+}
+
+fn compile_cc_and_link_no_cross_compile(cross_setup: CrossCompile) {}
+
 impl CreateExe {
     /// Runs logic for the `compile` subcommand
     pub fn execute(&self) -> Result<()> {
@@ -171,30 +277,13 @@ impl CreateExe {
             None
         };
 
-        let target = self
-            .target_triple
-            .as_ref()
-            .map(|target_triple| {
-                let mut features = self
-                    .cpu_features
-                    .clone()
-                    .into_iter()
-                    .fold(CpuFeature::set(), |a, b| a | b);
-                // Cranelift requires SSE2, so we have this "hack" for now to facilitate
-                // usage
-                if target_triple.architecture == Architecture::X86_64 {
-                    features |= CpuFeature::SSE2;
-                }
-                Target::new(target_triple.clone(), features)
-            })
-            .unwrap_or_default();
-
+        let target = target_triple_to_target(&self.target_triple, self.cpu_features);
         let starting_cd = env::current_dir()?;
         let wasm_module_path = starting_cd.join(&self.path);
         let output_path = starting_cd.join(&self.output);
         let object_format = self.object_format.unwrap_or(ObjectFormat::Symbols);
 
-        let cross_compilation = Self::get_cross_compile_setup(
+        let cross_compilation = get_cross_compile_setup(
             cross_compile,
             self.target_triple.clone(),
             object_format,
@@ -373,1065 +462,966 @@ impl CreateExe {
 
         Ok(())
     }
+}
 
-    pub(crate) fn get_cross_compile_setup(
-        cross_compile: Option<CrossCompile>,
-        target_triple: Option<Triple>,
-        object_format: ObjectFormat,
-        starting_cd: &Path,
-    ) -> Result<Option<CrossCompileSetup>, anyhow::Error> {
-        if let Some(mut cross_subc) = cross_compile.or_else(|| {
-            if target_triple.is_some() {
-                Some(CrossCompile {
-                    library_path: None,
-                    tarball: None,
-                    zig_binary_path: None,
-                })
-            } else {
-                None
+fn target_triple_to_target(triple: &Option<Triple>, cpu_features: Vec<CpuFeature>) -> Target {
+    triple
+        .as_ref()
+        .map(|target_triple| {
+            let mut features = cpu_features
+                .clone()
+                .into_iter()
+                .fold(CpuFeature::set(), |a, b| a | b);
+            // Cranelift requires SSE2, so we have this "hack" for now to facilitate
+            // usage
+            if target_triple.architecture == Architecture::X86_64 {
+                features |= CpuFeature::SSE2;
             }
-        }) {
-            if let ObjectFormat::Serialized = object_format {
-                return Err(anyhow!(
-                    "Cross-compilation with serialized object format is not implemented."
-                ));
-            }
+            Target::new(target_triple.clone(), features)
+        })
+        .unwrap_or_default()
+}
 
-            let target = if let Some(target_triple) = target_triple {
-                target_triple
-            } else {
-                return Err(anyhow!(
-                        "To cross-compile an executable, you must specify a target triple with --target"
-                ));
-            };
-            if let Some(tarball_path) = cross_subc.tarball.as_mut() {
-                if tarball_path.is_relative() {
-                    *tarball_path = starting_cd.join(&tarball_path);
-                    if !tarball_path.exists() {
-                        return Err(anyhow!(
-                            "Tarball path `{}` does not exist.",
-                            tarball_path.display()
-                        ));
-                    } else if tarball_path.is_dir() {
-                        return Err(anyhow!(
-                            "Tarball path `{}` is a directory.",
-                            tarball_path.display()
-                        ));
-                    }
-                }
-            }
-            let zig_binary_path =
-                find_zig_binary(cross_subc.zig_binary_path.as_ref().and_then(|p| {
-                    if p.is_absolute() {
-                        p.canonicalize().ok()
-                    } else {
-                        starting_cd.join(p).canonicalize().ok()
-                    }
-                }))?;
-            let library = if let Some(v) = cross_subc.library_path.clone() {
-                v.canonicalize().unwrap_or(v)
-            } else {
-                let (filename, tarball_dir) =
-                    if let Some(local_tarball) = cross_subc.tarball.as_ref() {
-                        Self::find_filename(local_tarball, &target)
-                    } else {
-                        // check if the tarball for the target already exists locally
-                        let local_tarball = std::fs::read_dir(get_libwasmer_cache_path()?)?
-                            .filter_map(|e| e.ok())
-                            .filter_map(|e| {
-                                let path = format!("{}", e.path().display());
-                                if path.ends_with(".tar.gz") {
-                                    Some(e.path())
-                                } else {
-                                    None
-                                }
-                            })
-                            .filter_map(|p| Self::filter_tarballs(&p, &target))
-                            .next();
-
-                        if let Some(local_tarball) = local_tarball.as_ref() {
-                            Self::find_filename(local_tarball, &target)
-                        } else {
-                            let release = http_fetch::get_latest_release()?;
-                            let tarball = http_fetch::download_release(release, target.clone())?;
-                            Self::find_filename(&tarball, &target)
-                        }
-                    }?;
-
-                tarball_dir.join(&filename)
-            };
-            let ccs = CrossCompileSetup {
-                target,
-                zig_binary_path,
-                library,
-            };
-            Ok(Some(ccs))
+pub(crate) fn get_cross_compile_setup(
+    cross_compile: Option<CrossCompile>,
+    target_triple: Option<Triple>,
+    object_format: ObjectFormat,
+    starting_cd: &Path,
+) -> Result<Option<CrossCompileSetup>, anyhow::Error> {
+    if let Some(mut cross_subc) = cross_compile.or_else(|| {
+        if target_triple.is_some() {
+            Some(CrossCompile {
+                library_path: None,
+                tarball: None,
+                zig_binary_path: None,
+            })
         } else {
-            Ok(None)
+            None
         }
-    }
-
-    fn find_filename(
-        local_tarball: &Path,
-        target: &Triple,
-    ) -> Result<(String, PathBuf), anyhow::Error> {
-        let target_file_path = local_tarball
-            .parent()
-            .and_then(|parent| Some(parent.join(local_tarball.file_stem()?)))
-            .unwrap_or_else(|| local_tarball.to_path_buf());
-
-        let target_file_path = target_file_path
-            .parent()
-            .and_then(|parent| Some(parent.join(target_file_path.file_stem()?)))
-            .unwrap_or_else(|| target_file_path.clone());
-
-        std::fs::create_dir_all(&target_file_path)
-            .map_err(|e| anyhow::anyhow!("{e}"))
-            .context(anyhow::anyhow!("{}", target_file_path.display()))?;
-        let files = untar(local_tarball.to_path_buf(), target_file_path.clone())?;
-        let tarball_dir = target_file_path.canonicalize().unwrap_or(target_file_path);
-
-        let file = files
-        .iter()
-        .find(|f| f.ends_with("libwasmer.a")).cloned()
-        .ok_or_else(|| {
-            anyhow!("Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})", target)
-        })?;
-
-        Ok((file, tarball_dir))
-    }
-
-    fn filter_tarballs(p: &Path, target: &Triple) -> Option<PathBuf> {
-        if let Architecture::Aarch64(_) = target.architecture {
-            if !p.file_name()?.to_str()?.contains("aarch64") {
-                return None;
-            }
+    }) {
+        if let ObjectFormat::Serialized = object_format {
+            return Err(anyhow!(
+                "Cross-compilation with serialized object format is not implemented."
+            ));
         }
 
-        if let Architecture::X86_64 = target.architecture {
-            if !p.file_name()?.to_str()?.contains("x86_64") {
-                return None;
-            }
-        }
-
-        if let OperatingSystem::Windows = target.operating_system {
-            if !p.file_name()?.to_str()?.contains("windows") {
-                return None;
-            }
-        }
-
-        if let OperatingSystem::Darwin = target.operating_system {
-            if !(p.file_name()?.to_str()?.contains("apple")
-                || p.file_name()?.to_str()?.contains("darwin"))
-            {
-                return None;
-            }
-        }
-
-        if let OperatingSystem::Linux = target.operating_system {
-            if !p.file_name()?.to_str()?.contains("linux") {
-                return None;
-            }
-        }
-
-        Some(p.to_path_buf())
-    }
-
-    fn compile_c(
-        &self,
-        wasm_object_path: PathBuf,
-        target_triple: Option<wasmer::Triple>,
-        output_path: PathBuf,
-    ) -> anyhow::Result<()> {
-        let tempdir = tempdir::TempDir::new("compile-c")?;
-        let tempdir_path = tempdir.path();
-
-        // write C src to disk
-        let c_src_path = tempdir_path.join("wasmer_main.c");
-        #[cfg(not(windows))]
-        let c_src_obj = tempdir_path.join("wasmer_main.o");
-        #[cfg(windows)]
-        let c_src_obj = tempdir_path.join("wasmer_main.obj");
-
-        std::fs::write(
-            &c_src_path,
-            WASMER_MAIN_C_SOURCE
-                .replace("// WASI_DEFINES", "#define WASI")
-                .as_bytes(),
-        )?;
-
-        run_c_compile(&c_src_path, &c_src_obj, target_triple.clone())
-            .context("Failed to compile C source code")?;
-
-        LinkCode {
-            object_paths: vec![c_src_obj, wasm_object_path],
-            output_path,
-            additional_libraries: self.libraries.clone(),
-            target: target_triple,
-            ..Default::default()
-        }
-        .run()
-        .context("Failed to link objects together")?;
-
-        Ok(())
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn compile_zig(
-        &self,
-        setup: &CrossCompileSetup,
-        output_path: PathBuf,
-        debug_dir: Option<PathBuf>,
-        working_dir: &PathBuf,
-        config: &CompileZigConfig,
-    ) -> anyhow::Result<()> {
-        let mut object_paths = Vec::new();
-        let mut pirita_volume_path = None;
-
-        /*
-            let entrypoint_str = match entrypoint {
-                Entrypoint::Single(s) => s,
-                Entrypoint::Multi(m) => {
-                    return Err(anyhow::anyhow!(
-                        "CreateExe::compile_zig: multi-command-exe not yet implemented"
+        let target = if let Some(target_triple) = target_triple {
+            target_triple
+        } else {
+            return Err(anyhow!(
+                "To cross-compile an executable, you must specify a target triple with --target"
+            ));
+        };
+        if let Some(tarball_path) = cross_subc.tarball.as_mut() {
+            if tarball_path.is_relative() {
+                *tarball_path = starting_cd.join(&tarball_path);
+                if !tarball_path.exists() {
+                    return Err(anyhow!(
+                        "Tarball path `{}` does not exist.",
+                        tarball_path.display()
+                    ));
+                } else if tarball_path.is_dir() {
+                    return Err(anyhow!(
+                        "Tarball path `{}` is a directory.",
+                        tarball_path.display()
                     ));
                 }
-            };
-
-            let object_file_path = working_dir
-                .join("atoms")
-                .join(&format!("{entrypoint_str}.o"));
-            let static_defs_file_path = working_dir
-                .join("atoms")
-                .join(&entrypoint_str)
-                .join("static_defs.h");
-        */
-
-        let tempdir = tempdir::TempDir::new("wasmer-static-compile-zig")?;
-        let tempdir_path = match debug_dir.as_ref() {
-            Some(s) => s.clone(),
-            None => tempdir.path().to_path_buf(),
-        };
-        let c_src_path = tempdir_path.join("wasmer_main.c");
-        let CrossCompileSetup {
-            ref target,
-            ref zig_binary_path,
-            ref library,
-        } = setup;
-
-        let mut include_dir = library.clone();
-        include_dir.pop();
-        include_dir.pop();
-        include_dir.push("include");
-
-        if !include_dir.exists() {
-            println!(
-                "Warning: include path {} does not exist",
-                include_dir.display()
-            );
+            }
         }
-
-        println!("Library Path: {}", library.display());
-        /* Cross compilation is only possible with zig */
-        println!("Using zig binary: {}", zig_binary_path.display());
-        let zig_triple = triple_to_zig_triple(target);
-        println!("Using zig target triple: {}", &zig_triple);
-
-        if let Some(entrypoint) = pirita_main_atom.as_ref() {
-            let c_code = Self::generate_pirita_wasmer_main_c_static(pirita_atoms, entrypoint)?;
-            std::fs::write(&c_src_path, c_code)?;
+        let zig_binary_path = find_zig_binary(cross_subc.zig_binary_path.as_ref().and_then(|p| {
+            if p.is_absolute() {
+                p.canonicalize().ok()
+            } else {
+                starting_cd.join(p).canonicalize().ok()
+            }
+        }))?;
+        let library = if let Some(v) = cross_subc.library_path.clone() {
+            v.canonicalize().unwrap_or(v)
         } else {
-            std::fs::write(&c_src_path, WASMER_STATIC_MAIN_C_SOURCE)?;
-        }
-
-        let mut header_code_paths = match entrypoint {
-            Entrypoint::Single(s) => vec![format!()],
-            Entrypoint::Multi(m) => vec![
-                return Err(anyhow::anyhow!("CreateExe::compile_zig: multi-command exe not yet implemented"));
-            ],
-        };
-        header_code_paths.to_vec();
-
-        let temp_include_dir = tempdir_path.join("include");
-        std::fs::create_dir_all(&temp_include_dir)?;
-
-        header_code_paths.push(include_dir.clone());
-
-        // copy all include files into one folder for easier debugging
-        for h in header_code_paths.iter_mut() {
-            if h.display().to_string().is_empty() {
-                *h = std::env::current_dir()?;
-            }
-            if h.is_dir() {
-                if debug_dir.is_some() {
-                    println!("copying {} to {}", h.display(), temp_include_dir.display());
-                }
-                for file in std::fs::read_dir(&h).unwrap().filter_map(|p| p.ok()) {
-                    std::fs::copy(file.path(), temp_include_dir.join(file.file_name()))?;
-                }
-            } else if h.is_file() {
-                if debug_dir.is_some() {
-                    println!("copying {} to {}", h.display(), temp_include_dir.display());
-                }
-                std::fs::copy(&h, temp_include_dir.join(h.file_name().unwrap()))?;
-            }
-        }
-
-        /* Compile main function */
-        let compilation = {
-            if debug_dir.is_some() {
-                println!("cross compile setup: {:#?}", setup);
-            }
-
-            let mut cmd = Command::new(zig_binary_path);
-            cmd.arg("build-exe");
-            cmd.arg("--verbose-cc");
-            cmd.arg("--verbose-link");
-            cmd.arg("-target");
-            cmd.arg(&zig_triple);
-            cmd.arg(&format!(
-                "-I{}/",
-                temp_include_dir.canonicalize().unwrap().display()
-            ));
-            if zig_triple.contains("windows") {
-                cmd.arg("-lc++");
+            let (filename, tarball_dir) = if let Some(local_tarball) = cross_subc.tarball.as_ref() {
+                Self::find_filename(local_tarball, &target)
             } else {
-                cmd.arg("-lc");
-            }
-            cmd.arg("-lunwind");
-            cmd.arg("-OReleaseSafe");
-            cmd.arg("-fno-compiler-rt");
-            cmd.arg("-fno-lto");
-            cmd.arg(&format!("-femit-bin={}", output_path.display()));
-
-            for o in object_paths {
-                let target_path = tempdir_path.join(o.file_name().unwrap());
-
-                if debug_dir.is_some() {
-                    println!(
-                        "copying object file {} to {}",
-                        o.display(),
-                        target_path.display()
-                    );
-                }
-
-                std::fs::copy(o, &target_path).map_err(|e| anyhow::anyhow!("{e}"))?;
-                cmd.arg(target_path);
-            }
-
-            if debug_dir.is_some() {
-                let target_c_file_path = tempdir_path.join("wasmer_main.c");
-                std::fs::copy(&c_src_path, &target_c_file_path)?;
-                cmd.arg(target_c_file_path);
-                let target_libwasmer_path = tempdir_path.join("libwasmer.a");
-                std::fs::copy(&setup.library, &target_libwasmer_path)?;
-                cmd.arg(target_libwasmer_path);
-            } else {
-                cmd.arg(&c_src_path.canonicalize().unwrap());
-                cmd.arg(&setup.library);
-            }
-
-            if zig_triple.contains("windows") {
-                let mut winsdk_path = library.clone();
-                winsdk_path.pop();
-                winsdk_path.pop();
-                winsdk_path.push("winsdk");
-
-                let files_winsdk = std::fs::read_dir(winsdk_path)
-                    .ok()
-                    .map(|res| res.filter_map(|r| Some(r.ok()?.path())).collect::<Vec<_>>())
-                    .unwrap_or_default();
-                for f in files_winsdk {
-                    let target_path = tempdir_path.join(f.file_name().unwrap());
-                    if debug_dir.is_some() {
-                        println!(
-                            "copying winsdk file {} to {}",
-                            f.display(),
-                            target_path.display()
-                        );
-                    }
-                    std::fs::copy(f, &target_path)?;
-                    cmd.arg(target_path);
-                }
-            }
-
-            if let Some(volume_obj) = pirita_volume_path.as_ref() {
-                let target_path = tempdir_path.join("volume.obj");
-                if debug_dir.is_some() {
-                    println!(
-                        "copying volume.obj file {} to {}",
-                        volume_obj.display(),
-                        target_path.display()
-                    );
-                }
-                std::fs::copy(volume_obj, &target_path)?;
-                cmd.arg(target_path);
-            }
-
-            if debug_dir.is_some() {
-                println!("{:?}", cmd);
-                cmd.stdout(Stdio::inherit());
-                cmd.stderr(Stdio::inherit());
-            }
-
-            cmd.output().context("Could not execute `zig`")?
-        };
-        if !compilation.status.success() {
-            return Err(anyhow::anyhow!(String::from_utf8_lossy(
-                &compilation.stderr
-            )
-            .to_string()));
-        }
-        Ok(())
-    }
-
-    // Write the volumes.o file
-    #[cfg(feature = "webc_runner")]
-    fn write_volume_obj(
-        volume_bytes: &[u8],
-        target: &Target,
-        output_path: &Path,
-    ) -> anyhow::Result<PathBuf> {
-        #[cfg(not(windows))]
-        let volume_object_path = output_path.join("volumes.o");
-        #[cfg(windows)]
-        let volume_object_path = output_path.join("volumes.obj");
-
-        let mut volumes_object = get_object_for_target(target.triple())?;
-        emit_serialized(
-            &mut volumes_object,
-            volume_bytes,
-            target.triple(),
-            "VOLUMES",
-        )?;
-
-        let mut writer = BufWriter::new(File::create(&volume_object_path)?);
-        volumes_object
-            .write_stream(&mut writer)
-            .map_err(|err| anyhow::anyhow!(err.to_string()))?;
-        writer.flush()?;
-        drop(writer);
-
-        Ok(volume_object_path)
-    }
-
-    #[cfg(feature = "webc_runner")]
-    pub(crate) fn create_objs_pirita(
-        store: &Store,
-        file: &WebCMmap,
-        target: &Target,
-        output_path: &Path,
-        object_format: ObjectFormat,
-    ) -> anyhow::Result<()> {
-        if !output_path.is_dir() {
-            return Err(anyhow::anyhow!(
-                "Expected {} to be an output directory, not a file",
-                output_path.display()
-            ));
-        }
-
-        std::fs::create_dir_all(output_path)?;
-        std::fs::create_dir_all(output_path.join("atoms"))?;
-
-        let atom_to_run = file
-            .manifest
-            .entrypoint
-            .as_ref()
-            .and_then(|s| file.get_atom_name_for_command("wasi", s).ok());
-        if let Some(atom_to_run) = atom_to_run.as_ref() {
-            std::fs::write(output_path.join("entrypoint"), atom_to_run)?;
-        } else if file.manifest.commands.len() > 1 {
-            let entrypoint_json = file
-                .manifest
-                .commands
-                .iter()
-                .filter_map(|(name, _)| {
-                    Some(CommandEntrypoint {
-                        command: name,
-                        atom: file.get_atom_name_for_command("wasi", name).ok()?,
-                        object_type: object_format,
+                // check if the tarball for the target already exists locally
+                let local_tarball = std::fs::read_dir(get_libwasmer_cache_path()?)?
+                    .filter_map(|e| e.ok())
+                    .filter_map(|e| {
+                        let path = format!("{}", e.path().display());
+                        if path.ends_with(".tar.gz") {
+                            Some(e.path())
+                        } else {
+                            None
+                        }
                     })
-                })
-                .collect::<Vec<_>>();
-            std::fs::write(
-                output_path.join("entrypoint.json"),
-                serde_json::to_string_pretty(&entrypoint_json)?,
-            )?;
-        }
+                    .filter_map(|p| Self::filter_tarballs(&p, &target))
+                    .next();
 
-        for (atom_name, atom_bytes) in file.get_all_atoms() {
-            std::fs::create_dir_all(output_path.join("atoms"))?;
-
-            #[cfg(not(windows))]
-            let object_path = output_path.join("atoms").join(&format!("{atom_name}.o"));
-            #[cfg(windows)]
-            let object_path = output_path.join("atoms").join(&format!("{atom_name}.obj"));
-
-            match object_format {
-                ObjectFormat::Serialized => {
-                    let module = Module::new(&store, &atom_bytes)
-                        .context(format!("Failed to compile atom {atom_name:?} to wasm"))?;
-                    let bytes = module.serialize()?;
-                    let mut obj = get_object_for_target(target.triple())?;
-                    let atom_name_uppercase = atom_name.to_uppercase();
-                    emit_serialized(&mut obj, &bytes, target.triple(), &atom_name_uppercase)?;
-
-                    let mut writer = BufWriter::new(File::create(&object_path)?);
-                    obj.write_stream(&mut writer)
-                        .map_err(|err| anyhow::anyhow!(err.to_string()))?;
-                    writer.flush()?;
-                    drop(writer);
+                if let Some(local_tarball) = local_tarball.as_ref() {
+                    Self::find_filename(local_tarball, &target)
+                } else {
+                    let release = http_fetch::get_latest_release()?;
+                    let tarball = http_fetch::download_release(release, target.clone())?;
+                    Self::find_filename(&tarball, &target)
                 }
-                #[cfg(feature = "static-artifact-create")]
-                ObjectFormat::Symbols => {
-                    std::fs::create_dir_all(output_path.join("atoms").join(&atom_name))?;
+            }?;
 
-                    let header_path = output_path
-                        .join("atoms")
-                        .join(&atom_name)
-                        .join("static_defs.h");
-
-                    let engine = store.engine();
-                    let engine_inner = engine.inner();
-                    let compiler = engine_inner.compiler()?;
-                    let features = engine_inner.features();
-                    let tunables = store.tunables();
-                    let atom_name = CreateExe::normalize_atom_name(&atom_name);
-                    let prefixer: Option<PrefixerFn> = Some(Box::new(move |_| atom_name.clone()));
-                    let (module_info, obj, metadata_length, symbol_registry) =
-                        Artifact::generate_object(
-                            compiler, atom_bytes, prefixer, target, tunables, features,
-                        )?;
-
-                    let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
-                        &module_info,
-                        &*symbol_registry,
-                        metadata_length,
-                    );
-
-                    let mut writer = BufWriter::new(File::create(&object_path)?);
-                    obj.write_stream(&mut writer)
-                        .map_err(|err| anyhow::anyhow!(err.to_string()))?;
-                    writer.flush()?;
-
-                    let mut writer = BufWriter::new(File::create(&header_path)?);
-                    writer.write_all(header_file_src.as_bytes())?;
-                    writer.flush()?;
-                }
-                #[cfg(not(feature = "static-artifact-create"))]
-                ObjectFormat::Symbols => {
-                    return Err(anyhow!("Objects cannot be compiled in format \"symbols\" without static-artifact-create feature"));
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    #[cfg(feature = "webc_runner")]
-    #[allow(clippy::too_many_arguments)]
-    fn link_exe_from_dir(
-        &self,
-        volume_bytes: &[u8],
-        _store: &Store,
-        target: &Target,
-        cross_compilation: Option<CrossCompileSetup>,
-        working_dir: &Path,
-        output_path: PathBuf,
-        debug_dir: Option<PathBuf>,
-        object_format: ObjectFormat,
-    ) -> anyhow::Result<()> {
-        let tempdir = tempdir::TempDir::new("link-exe-from-dir")?;
-        let tempdir_path = tempdir.path();
-
-        let entrypoint = if let Ok(s) = std::fs::read_to_string(working_dir.join("entrypoint")) {
-            Entrypoint::Single(s)
-        } else if let Ok(s) = std::fs::read_to_string(working_dir.join("entrypoint.json")) {
-            let json = serde_json::from_str(&s)
-                .map_err(|e| anyhow::anyhow!("could not deserialize entrypoint.json: {e}"))?;
-            Entrypoint::Multi(json)
-        } else {
-            return Err(anyhow::anyhow!(
-                "no /entrypoint or /entrypoint.json found in {}",
-                working_dir.display()
-            ));
+            tarball_dir.join(&filename)
         };
-
-        if !working_dir.join("atoms").exists() {
-            return Err(anyhow::anyhow!("file has no atoms to compile"));
-        }
-
-        let mut atom_names = Vec::new();
-        for obj in std::fs::read_dir(working_dir.join("atoms"))? {
-            let path = obj?.path();
-            if !path.is_dir() {
-                if let Some(s) = path.file_stem() {
-                    atom_names.push(
-                        s.to_str()
-                            .ok_or_else(|| anyhow::anyhow!("wrong atom name"))?
-                            .to_string(),
-                    );
-                }
-            }
-        }
-
-        match object_format {
-            ObjectFormat::Serialized => {
-                let mut link_objects: Vec<PathBuf> = Vec::new();
-
-                let volume_object_path =
-                    Self::write_volume_obj(volume_bytes, target, tempdir_path)?;
-
-                #[cfg(not(windows))]
-                let c_src_obj = working_dir.join("wasmer_main.o");
-                #[cfg(windows)]
-                let c_src_obj = working_dir.join("wasmer_main.obj");
-
-                for obj in std::fs::read_dir(working_dir.join("atoms"))? {
-                    let path = obj?.path();
-                    if !path.is_dir() {
-                        link_objects.push(path.to_path_buf());
-                    }
-                }
-
-                let c_code = Self::generate_pirita_wasmer_main_c(&atom_names, &entrypoint);
-
-                let c_src_path = working_dir.join("wasmer_main.c");
-
-                std::fs::write(&c_src_path, c_code.as_bytes())
-                    .context("Failed to open C source code file")?;
-
-                // TODO: this branch is never hit because object format serialized +
-                // cross compilation doesn't work
-                if let Some(setup) = cross_compilation {
-                    // zig treats .o files the same as .c files
-                    link_objects.push(c_src_path);
-
-                    self.compile_zig(
-                        output_path,
-                        debug_dir,
-                        &link_objects,
-                        &[],
-                        &setup,
-                        &atom_names,
-                        Some(&entrypoint),
-                        Some(volume_object_path),
-                    )?;
-                } else {
-                    // compile with cc instead of zig
-                    run_c_compile(c_src_path.as_path(), &c_src_obj, self.target_triple.clone())
-                        .context("Failed to compile C source code")?;
-
-                    link_objects.push(c_src_obj);
-                    link_objects.push(volume_object_path);
-
-                    LinkCode {
-                        object_paths: link_objects,
-                        output_path,
-                        additional_libraries: self.libraries.clone(),
-                        target: self.target_triple.clone(),
-                        ..Default::default()
-                    }
-                    .run()
-                    .context("Failed to link objects together")?;
-                }
-            }
-            ObjectFormat::Symbols => {
-                let volumes_obj_path = Self::write_volume_obj(volume_bytes, target, tempdir_path)?;
-                if let Some(setup) = cross_compilation.as_ref() {
-                    self.compile_zig(
-                        output_path,
-                        self.debug_dir.clone(),
-                        &entrypoint,
-                        setup,
-                        &atom_names,
-                        Some(&entrypoint),
-                        Some(volumes_obj_path),
-                    )?;
-                } else {
-                    self.link(
-                        output_path,
-                        &atom_names,
-                        Some(&entrypoint),
-                        Some(volumes_obj_path),
-                    )?;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    fn normalize_atom_name(s: &str) -> String {
-        s.chars()
-            .filter_map(|c| {
-                if char::is_alphabetic(c) {
-                    Some(c)
-                } else if c == '-' {
-                    Some('_')
-                } else {
-                    None
-                }
-            })
-            .collect()
-    }
-
-    fn generate_pirita_wasmer_main_c_static(
-        atom_names: &[String],
-        entrypoint: &Entrypoint,
-    ) -> String {
-        let atom_to_run = match entrypoint {
-            Entrypoint::Single(s) => s,
-            Entrypoint::Multi(m) => {
-                return Err(anyhow::anyhow!("generate_pirita_wasmer_main_c_static: not yet able to generate multi-command exe"));
-            }
+        let ccs = CrossCompileSetup {
+            target,
+            zig_binary_path,
+            library,
         };
+        Ok(Some(ccs))
+    } else {
+        Ok(None)
+    }
+}
 
-        let mut c_code_to_instantiate = String::new();
-        let mut deallocate_module = String::new();
-        let mut c_code_to_instantiate = String::new();
-        let mut deallocate_module = String::new();
+fn find_filename(
+    local_tarball: &Path,
+    target: &Triple,
+) -> Result<(String, PathBuf), anyhow::Error> {
+    let target_file_path = local_tarball
+        .parent()
+        .and_then(|parent| Some(parent.join(local_tarball.file_stem()?)))
+        .unwrap_or_else(|| local_tarball.to_path_buf());
 
-        let atom_to_run = Self::normalize_atom_name(atom_to_run);
+    let target_file_path = target_file_path
+        .parent()
+        .and_then(|parent| Some(parent.join(target_file_path.file_stem()?)))
+        .unwrap_or_else(|| target_file_path.clone());
 
-        for atom_name in atom_names.iter() {
-            let atom_name = Self::normalize_atom_name(atom_name);
+    std::fs::create_dir_all(&target_file_path)
+        .map_err(|e| anyhow::anyhow!("{e}"))
+        .context(anyhow::anyhow!("{}", target_file_path.display()))?;
+    let files = untar(local_tarball.to_path_buf(), target_file_path.clone())?;
+    let tarball_dir = target_file_path.canonicalize().unwrap_or(target_file_path);
 
-            write!(
-                c_code_to_instantiate,
-                "
+    let file = files
+    .iter()
+    .find(|f| f.ends_with("libwasmer.a")).cloned()
+    .ok_or_else(|| {
+        anyhow!("Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})", target)
+    })?;
 
-            wasm_module_t *atom_{atom_name} = wasmer_object_module_new(store, \"{atom_name}\");
+    Ok((file, tarball_dir))
+}
 
-            if (!atom_{atom_name}) {{
-                fprintf(stderr, \"Failed to create module from atom \\\"{atom_name}\\\"\\n\");
-                print_wasmer_error();
-                return -1;
-            }}
-            "
-            )
-            .unwrap();
-            write!(deallocate_module, "wasm_module_delete(atom_{atom_name});").unwrap();
+fn filter_tarballs(p: &Path, target: &Triple) -> Option<PathBuf> {
+    if let Architecture::Aarch64(_) = target.architecture {
+        if !p.file_name()?.to_str()?.contains("aarch64") {
+            return None;
         }
-
-        write!(
-            c_code_to_instantiate,
-            "wasm_module_t *module = atom_{atom_to_run};"
-        )
-        .unwrap();
-
-        WASMER_STATIC_MAIN_C_SOURCE
-            .replace("#define WASI", "#define WASI\r\n#define WASI_PIRITA")
-            .replace("// INSTANTIATE_MODULES", &c_code_to_instantiate)
-            .replace("##atom-name##", &atom_to_run)
-            .replace("wasm_module_delete(module);", &deallocate_module)
     }
 
-    #[cfg(feature = "webc_runner")]
-    fn generate_pirita_wasmer_main_c(
-        atom_names: &[String],
-        entrypoint: &Entrypoint,
-    ) -> Result<String, anyhow::Error> {
-        let atom_to_run = match entrypoint {
+    if let Architecture::X86_64 = target.architecture {
+        if !p.file_name()?.to_str()?.contains("x86_64") {
+            return None;
+        }
+    }
+
+    if let OperatingSystem::Windows = target.operating_system {
+        if !p.file_name()?.to_str()?.contains("windows") {
+            return None;
+        }
+    }
+
+    if let OperatingSystem::Darwin = target.operating_system {
+        if !(p.file_name()?.to_str()?.contains("apple")
+            || p.file_name()?.to_str()?.contains("darwin"))
+        {
+            return None;
+        }
+    }
+
+    if let OperatingSystem::Linux = target.operating_system {
+        if !p.file_name()?.to_str()?.contains("linux") {
+            return None;
+        }
+    }
+
+    Some(p.to_path_buf())
+}
+
+fn compile_c(
+    &self,
+    wasm_object_path: PathBuf,
+    target_triple: Option<wasmer::Triple>,
+    output_path: PathBuf,
+) -> anyhow::Result<()> {
+    let tempdir = tempdir::TempDir::new("compile-c")?;
+    let tempdir_path = tempdir.path();
+
+    // write C src to disk
+    let c_src_path = tempdir_path.join("wasmer_main.c");
+    #[cfg(not(windows))]
+    let c_src_obj = tempdir_path.join("wasmer_main.o");
+    #[cfg(windows)]
+    let c_src_obj = tempdir_path.join("wasmer_main.obj");
+
+    std::fs::write(
+        &c_src_path,
+        WASMER_MAIN_C_SOURCE
+            .replace("// WASI_DEFINES", "#define WASI")
+            .as_bytes(),
+    )?;
+
+    run_c_compile(&c_src_path, &c_src_obj, target_triple.clone())
+        .context("Failed to compile C source code")?;
+
+    LinkCode {
+        object_paths: vec![c_src_obj, wasm_object_path],
+        output_path,
+        additional_libraries: self.libraries.clone(),
+        target: target_triple,
+        ..Default::default()
+    }
+    .run()
+    .context("Failed to link objects together")?;
+
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn compile_zig(
+    &self,
+    setup: &CrossCompileSetup,
+    output_path: PathBuf,
+    debug_dir: Option<PathBuf>,
+    working_dir: &PathBuf,
+    config: &CompileZigConfig,
+) -> anyhow::Result<()> {
+    let mut object_paths = Vec::new();
+    let mut pirita_volume_path = None;
+
+    /*
+        let entrypoint_str = match entrypoint {
             Entrypoint::Single(s) => s,
             Entrypoint::Multi(m) => {
                 return Err(anyhow::anyhow!(
-                    "generate_pirita_wasmer_main_c: not yet able to generate multi-command exe"
+                    "CreateExe::compile_zig: multi-command-exe not yet implemented"
                 ));
             }
         };
 
-        let mut c_code_to_add = String::new();
-        let mut c_code_to_instantiate = String::new();
-        let mut deallocate_module = String::new();
+        let object_file_path = working_dir
+            .join("atoms")
+            .join(&format!("{entrypoint_str}.o"));
+        let static_defs_file_path = working_dir
+            .join("atoms")
+            .join(&entrypoint_str)
+            .join("static_defs.h");
+    */
 
-        for atom_name in atom_names.iter() {
-            let atom_name = Self::normalize_atom_name(atom_name);
-            let atom_name_uppercase = atom_name.to_uppercase();
+    let tempdir = tempdir::TempDir::new("wasmer-static-compile-zig")?;
+    let tempdir_path = match debug_dir.as_ref() {
+        Some(s) => s.clone(),
+        None => tempdir.path().to_path_buf(),
+    };
+    let c_src_path = tempdir_path.join("wasmer_main.c");
+    let CrossCompileSetup {
+        ref target,
+        ref zig_binary_path,
+        ref library,
+    } = setup;
 
-            c_code_to_add.push_str(&format!(
-                "
-            extern size_t {atom_name_uppercase}_LENGTH asm(\"{atom_name_uppercase}_LENGTH\");
-            extern char {atom_name_uppercase}_DATA asm(\"{atom_name_uppercase}_DATA\");
-            "
-            ));
+    let mut include_dir = library.clone();
+    include_dir.pop();
+    include_dir.pop();
+    include_dir.push("include");
 
-            c_code_to_instantiate.push_str(&format!("
-            wasm_byte_vec_t atom_{atom_name}_byte_vec = {{
-                .size = {atom_name_uppercase}_LENGTH,
-                .data = &{atom_name_uppercase}_DATA,
-            }};
-            wasm_module_t *atom_{atom_name} = wasm_module_deserialize(store, &atom_{atom_name}_byte_vec);
-
-            if (!atom_{atom_name}) {{
-                fprintf(stderr, \"Failed to create module from atom \\\"{atom_name}\\\"\\n\");
-                print_wasmer_error();
-                return -1;
-            }}
-            "));
-            deallocate_module.push_str(&format!("wasm_module_delete(atom_{atom_name});"));
-        }
-
-        c_code_to_instantiate.push_str(&format!("wasm_module_t *module = atom_{atom_to_run};"));
-
-        WASMER_MAIN_C_SOURCE
-            .replace("#define WASI", "#define WASI\r\n#define WASI_PIRITA")
-            .replace("// DECLARE_MODULES", &c_code_to_add)
-            .replace("// INSTANTIATE_MODULES", &c_code_to_instantiate)
-            .replace("##atom-name##", atom_to_run)
-            .replace("wasm_module_delete(module);", &deallocate_module)
+    if !include_dir.exists() {
+        println!(
+            "Warning: include path {} does not exist",
+            include_dir.display()
+        );
     }
 
-    #[cfg(feature = "webc_runner")]
-    fn create_exe_pirita(
-        &self,
-        file: &WebCMmap,
-        target: Target,
-        cross_compilation: Option<CrossCompileSetup>,
-        output_path: PathBuf,
-        debug_dir: Option<PathBuf>,
-        object_format: ObjectFormat,
-    ) -> anyhow::Result<()> {
-        let working_dir = match debug_dir.as_ref() {
-            None => temp_dir.path().to_path_buf(),
-            Some(s) => s.clone(),
-        };
-        let _ = std::fs::create_dir_all(&working_dir);
-        let (store, _) = self.compiler.get_store_for_target(target.clone())?;
-        let _ = std::fs::create_dir_all(&working_dir);
-        let (store, _) = self.compiler.get_store_for_target(target.clone())?;
+    println!("Library Path: {}", library.display());
+    /* Cross compilation is only possible with zig */
+    println!("Using zig binary: {}", zig_binary_path.display());
+    let zig_triple = triple_to_zig_triple(target);
+    println!("Using zig target triple: {}", &zig_triple);
 
-        let volumes_obj = file.get_volumes_as_fileblock();
-
-        let volumes_obj = file.get_volumes_as_fileblock();
-        self.link_exe_from_dir(
-            volumes_obj.as_slice(),
-            &store,
-            &target,
-            cross_compilation,
-            debug_dir,
-            output_path,
-            debug_dir,
-            object_format,
-        )?;
-
-        Ok(())
+    if let Some(entrypoint) = pirita_main_atom.as_ref() {
+        let c_code = Self::generate_pirita_wasmer_main_c_static(pirita_atoms, entrypoint)?;
+        std::fs::write(&c_src_path, c_code)?;
+    } else {
+        std::fs::write(&c_src_path, WASMER_STATIC_MAIN_C_SOURCE)?;
     }
 
-    #[cfg(feature = "static-artifact-create")]
-    fn link(
-        &self,
-        output_path: PathBuf,
-        pirita_atoms: &[String],
-        pirita_entrypoint: Option<&Entrypoint>,
-        pirita_volume_path: Option<PathBuf>,
-    ) -> anyhow::Result<()> {
-        let tempdir = tempdir::TempDir::new("wasmer-static-compile")?;
-        let tempdir_path = tempdir.path();
+    let mut header_code_paths = match entrypoint {
+        Entrypoint::Single(s) => vec![format!()],
+        Entrypoint::Multi(m) => vec![
+            return Err(anyhow::anyhow!("CreateExe::compile_zig: multi-command exe not yet implemented"));
+        ],
+    };
+    header_code_paths.to_vec();
 
-        let mut object_paths = vec![object_path, "main_obj.obj".into()];
-        if let Some(volume_obj) = pirita_volume_path.as_ref() {
-            object_paths.push(volume_obj.to_path_buf());
+    let temp_include_dir = tempdir_path.join("include");
+    std::fs::create_dir_all(&temp_include_dir)?;
+
+    header_code_paths.push(include_dir.clone());
+
+    // copy all include files into one folder for easier debugging
+    for h in header_code_paths.iter_mut() {
+        if h.display().to_string().is_empty() {
+            *h = std::env::current_dir()?;
+        }
+        if h.is_dir() {
+            if debug_dir.is_some() {
+                println!("copying {} to {}", h.display(), temp_include_dir.display());
+            }
+            for file in std::fs::read_dir(&h).unwrap().filter_map(|p| p.ok()) {
+                std::fs::copy(file.path(), temp_include_dir.join(file.file_name()))?;
+            }
+        } else if h.is_file() {
+            if debug_dir.is_some() {
+                println!("copying {} to {}", h.display(), temp_include_dir.display());
+            }
+            std::fs::copy(&h, temp_include_dir.join(h.file_name().unwrap()))?;
+        }
+    }
+
+    /* Compile main function */
+    let compilation = {
+        if debug_dir.is_some() {
+            println!("cross compile setup: {:#?}", setup);
         }
 
-        let linkcode = LinkCode {
-            object_paths,
-            output_path,
-            ..Default::default()
-        };
-        let c_src_path = tempdir_path.join("wasmer_main.c");
-        let mut libwasmer_path = get_libwasmer_path()?
-            .canonicalize()
-            .context("Failed to find libwasmer")?;
-
-        let lib_filename = libwasmer_path
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
-        libwasmer_path.pop();
-
-        if let Some(entrypoint) = pirita_main_atom.as_ref() {
-            let c_code = Self::generate_pirita_wasmer_main_c_static(pirita_atoms, entrypoint);
-            std::fs::write(&c_src_path, c_code)?;
+        let mut cmd = Command::new(zig_binary_path);
+        cmd.arg("build-exe");
+        cmd.arg("--verbose-cc");
+        cmd.arg("--verbose-link");
+        cmd.arg("-target");
+        cmd.arg(&zig_triple);
+        cmd.arg(&format!(
+            "-I{}/",
+            temp_include_dir.canonicalize().unwrap().display()
+        ));
+        if zig_triple.contains("windows") {
+            cmd.arg("-lc++");
         } else {
-            std::fs::write(&c_src_path, WASMER_STATIC_MAIN_C_SOURCE)?;
+            cmd.arg("-lc");
+        }
+        cmd.arg("-lunwind");
+        cmd.arg("-OReleaseSafe");
+        cmd.arg("-fno-compiler-rt");
+        cmd.arg("-fno-lto");
+        cmd.arg(&format!("-femit-bin={}", output_path.display()));
+
+        for o in object_paths {
+            let target_path = tempdir_path.join(o.file_name().unwrap());
+
+            if debug_dir.is_some() {
+                println!(
+                    "copying object file {} to {}",
+                    o.display(),
+                    target_path.display()
+                );
+            }
+
+            std::fs::copy(o, &target_path).map_err(|e| anyhow::anyhow!("{e}"))?;
+            cmd.arg(target_path);
         }
 
-        if !header_code_path.is_dir() {
-            header_code_path.pop();
+        if debug_dir.is_some() {
+            let target_c_file_path = tempdir_path.join("wasmer_main.c");
+            std::fs::copy(&c_src_path, &target_c_file_path)?;
+            cmd.arg(target_c_file_path);
+            let target_libwasmer_path = tempdir_path.join("libwasmer.a");
+            std::fs::copy(&setup.library, &target_libwasmer_path)?;
+            cmd.arg(target_libwasmer_path);
+        } else {
+            cmd.arg(&c_src_path.canonicalize().unwrap());
+            cmd.arg(&setup.library);
         }
 
-        if header_code_path.display().to_string().is_empty() {
-            header_code_path = std::env::current_dir()?;
+        if zig_triple.contains("windows") {
+            let mut winsdk_path = library.clone();
+            winsdk_path.pop();
+            winsdk_path.pop();
+            winsdk_path.push("winsdk");
+
+            let files_winsdk = std::fs::read_dir(winsdk_path)
+                .ok()
+                .map(|res| res.filter_map(|r| Some(r.ok()?.path())).collect::<Vec<_>>())
+                .unwrap_or_default();
+            for f in files_winsdk {
+                let target_path = tempdir_path.join(f.file_name().unwrap());
+                if debug_dir.is_some() {
+                    println!(
+                        "copying winsdk file {} to {}",
+                        f.display(),
+                        target_path.display()
+                    );
+                }
+                std::fs::copy(f, &target_path)?;
+                cmd.arg(target_path);
+            }
         }
 
-        let wasmer_include_dir = get_wasmer_include_directory()?;
-        let wasmer_h_path = wasmer_include_dir.join("wasmer.h");
-        if !wasmer_h_path.exists() {
-            return Err(anyhow::anyhow!(
-                "Could not find wasmer.h in {}",
-                wasmer_include_dir.display()
-            ));
+        if let Some(volume_obj) = pirita_volume_path.as_ref() {
+            let target_path = tempdir_path.join("volume.obj");
+            if debug_dir.is_some() {
+                println!(
+                    "copying volume.obj file {} to {}",
+                    volume_obj.display(),
+                    target_path.display()
+                );
+            }
+            std::fs::copy(volume_obj, &target_path)?;
+            cmd.arg(target_path);
         }
-        let wasm_h_path = wasmer_include_dir.join("wasm.h");
-        if !wasm_h_path.exists() {
-            return Err(anyhow::anyhow!(
-                "Could not find wasm.h in {}",
-                wasmer_include_dir.display()
-            ));
-        }
-        std::fs::copy(wasmer_h_path, header_code_path.join("wasmer.h"))?;
-        std::fs::copy(wasm_h_path, header_code_path.join("wasm.h"))?;
 
-        /* Compile main function */
-        let compilation = {
-            Command::new("cc")
-                .arg("-c")
-                .arg(&c_src_path)
-                .arg(if linkcode.optimization_flag.is_empty() {
-                    "-O2"
-                } else {
-                    linkcode.optimization_flag.as_str()
-                })
-                .arg(&format!("-L{}", libwasmer_path.display()))
-                .arg(&format!("-l:{}", lib_filename))
-                //.arg("-lwasmer")
-                // Add libraries required per platform.
-                // We need userenv, sockets (Ws2_32), advapi32 for some system calls and bcrypt for random numbers.
-                //#[cfg(windows)]
-                //    .arg("-luserenv")
-                //    .arg("-lWs2_32")
-                //    .arg("-ladvapi32")
-                //    .arg("-lbcrypt")
-                // On unix we need dlopen-related symbols, libmath for a few things, and pthreads.
-                //#[cfg(not(windows))]
-                .arg("-ldl")
-                .arg("-lm")
-                .arg("-pthread")
-                .arg(&format!("-I{}", header_code_path.display()))
-                .arg("-v")
-                .arg("-o")
-                .arg("main_obj.obj")
-                .output()?
-        };
-        if !compilation.status.success() {
-            return Err(anyhow::anyhow!(String::from_utf8_lossy(
-                &compilation.stderr
-            )
-            .to_string()));
+        if debug_dir.is_some() {
+            println!("{:?}", cmd);
+            cmd.stdout(Stdio::inherit());
+            cmd.stderr(Stdio::inherit());
         }
-        linkcode.run().context("Failed to link objects together")?;
-        Ok(())
+
+        cmd.output().context("Could not execute `zig`")?
+    };
+    if !compilation.status.success() {
+        return Err(anyhow::anyhow!(String::from_utf8_lossy(
+            &compilation.stderr
+        )
+        .to_string()));
     }
+    Ok(())
 }
 
-enum CompileZigConfig {
-    /*
-        output_path,
-        &[wasm_module_path],
-        &[std::path::Path::new("static_defs.h").into()],
-        setup,
-        &[],
-        None,
-        None,
-    */
-    CompileWasmModule {
-        wasm_module_path: PathBuf,
-        static_defs_h: PathBuf,
-    },
+// Write the volumes.o file
+#[cfg(feature = "webc_runner")]
+fn write_volume_obj(
+    volume_bytes: &[u8],
+    target: &Target,
+    output_path: &Path,
+) -> anyhow::Result<PathBuf> {
+    #[cfg(not(windows))]
+    let volume_object_path = output_path.join("volumes.o");
+    #[cfg(windows)]
+    let volume_object_path = output_path.join("volumes.obj");
 
-    /*
-        output_path,
-        &[object_file_path],
-        &[std::path::Path::new("static_defs.h").into()],
-        setup,
-        &[],
-        None,
-        None,
-    */
-    CompileObjectFile {
-        object_file_path: PathBuf,
-        static_defs_h: PathBuf,
-    },
+    let mut volumes_object = get_object_for_target(target.triple())?;
+    emit_serialized(
+        &mut volumes_object,
+        volume_bytes,
+        target.triple(),
+        "VOLUMES",
+    )?;
 
-    /*
-        output_path,
-        &link_objects,
-        &[],
-        &setup,
-        &atom_names,
-        Some(&entrypoint),
-        Some(volume_object_path),
-    */
-    CreateExePiritaFromExistingDirSerialized {
-        wasmer_main_c: String,
-        entrypoint: Entrypoint,
-        volume_object_path: PathBuf,
-    },
+    let mut writer = BufWriter::new(File::create(&volume_object_path)?);
+    volumes_object
+        .write_stream(&mut writer)
+        .map_err(|err| anyhow::anyhow!(err.to_string()))?;
+    writer.flush()?;
+    drop(writer);
 
-    /*
-        output_path,
-        self.debug_dir.clone(),
-        &[object_file_path],
-        &[static_defs_file_path],
-        setup,
-        &atom_names,
-        Some(&entrypoint),
-        Some(volumes_obj_path),
-    */
-    CreateExePiritaFromExistingDirSymbols {
-        entrypoint: Entrypoint,
-        volume_object_path: PathBuf,
-    },
+    Ok(volume_object_path)
 }
 
-enum LinkConfig {
-    /*
-        output_path,
-        wasm_module_path,
-        std::path::Path::new("static_defs.h").into(),
-        &[],
-        None,
-        None,
-    */
-    LinkFromWasmModule {
-        wasm_module_path: PathBuf,
-        static_defs_h: PathBuf,
-    },
+#[cfg(feature = "webc_runner")]
+pub(crate) fn create_objs_pirita(
+    store: &Store,
+    file: &WebCMmap,
+    target: &Target,
+    output_path: &Path,
+    object_format: ObjectFormat,
+) -> anyhow::Result<()> {
+    if !output_path.is_dir() {
+        return Err(anyhow::anyhow!(
+            "Expected {} to be an output directory, not a file",
+            output_path.display()
+        ));
+    }
 
-    /*
-        output_path,
-        object_file_path,
-        std::path::Path::new("static_defs.h").into(),
-        &[],
-        None,
-        None,
-    */
-    LinkFromObjectFile {
-        object_file_path: PathBuf,
-        static_defs_h: PathBuf,
-    },
+    std::fs::create_dir_all(output_path)?;
+    std::fs::create_dir_all(output_path.join("atoms"))?;
 
-    /*
-        &atom_names,
-        Some(&entrypoint),
-        Some(volumes_obj_path),
-    */
-    LinkPirita {
-        atom_names: Vec<String>,
-        entrypoint: Entrypoint,
-        volume_obj_path: PathBuf,
-    },
+    let atom_to_run = file
+        .manifest
+        .entrypoint
+        .as_ref()
+        .and_then(|s| file.get_atom_name_for_command("wasi", s).ok());
+    if let Some(atom_to_run) = atom_to_run.as_ref() {
+        std::fs::write(output_path.join("entrypoint"), atom_to_run)?;
+    } else if file.manifest.commands.len() > 1 {
+        let entrypoint_json = file
+            .manifest
+            .commands
+            .iter()
+            .filter_map(|(name, _)| {
+                Some(CommandEntrypoint {
+                    command: name,
+                    atom: file.get_atom_name_for_command("wasi", name).ok()?,
+                    object_type: object_format,
+                })
+            })
+            .collect::<Vec<_>>();
+        std::fs::write(
+            output_path.join("entrypoint.json"),
+            serde_json::to_string_pretty(&entrypoint_json)?,
+        )?;
+    }
+
+    for (atom_name, atom_bytes) in file.get_all_atoms() {
+        std::fs::create_dir_all(output_path.join("atoms"))?;
+
+        #[cfg(not(windows))]
+        let object_path = output_path.join("atoms").join(&format!("{atom_name}.o"));
+        #[cfg(windows)]
+        let object_path = output_path.join("atoms").join(&format!("{atom_name}.obj"));
+
+        match object_format {
+            ObjectFormat::Serialized => {
+                let module = Module::new(&store, &atom_bytes)
+                    .context(format!("Failed to compile atom {atom_name:?} to wasm"))?;
+                let bytes = module.serialize()?;
+                let mut obj = get_object_for_target(target.triple())?;
+                let atom_name_uppercase = atom_name.to_uppercase();
+                emit_serialized(&mut obj, &bytes, target.triple(), &atom_name_uppercase)?;
+
+                let mut writer = BufWriter::new(File::create(&object_path)?);
+                obj.write_stream(&mut writer)
+                    .map_err(|err| anyhow::anyhow!(err.to_string()))?;
+                writer.flush()?;
+                drop(writer);
+            }
+            #[cfg(feature = "static-artifact-create")]
+            ObjectFormat::Symbols => {
+                std::fs::create_dir_all(output_path.join("atoms").join(&atom_name))?;
+
+                let header_path = output_path
+                    .join("atoms")
+                    .join(&atom_name)
+                    .join("static_defs.h");
+
+                let engine = store.engine();
+                let engine_inner = engine.inner();
+                let compiler = engine_inner.compiler()?;
+                let features = engine_inner.features();
+                let tunables = store.tunables();
+                let atom_name = CreateExe::normalize_atom_name(&atom_name);
+                let prefixer: Option<PrefixerFn> = Some(Box::new(move |_| atom_name.clone()));
+                let (module_info, obj, metadata_length, symbol_registry) =
+                    Artifact::generate_object(
+                        compiler, atom_bytes, prefixer, target, tunables, features,
+                    )?;
+
+                let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
+                    &module_info,
+                    &*symbol_registry,
+                    metadata_length,
+                );
+
+                let mut writer = BufWriter::new(File::create(&object_path)?);
+                obj.write_stream(&mut writer)
+                    .map_err(|err| anyhow::anyhow!(err.to_string()))?;
+                writer.flush()?;
+
+                let mut writer = BufWriter::new(File::create(&header_path)?);
+                writer.write_all(header_file_src.as_bytes())?;
+                writer.flush()?;
+            }
+            #[cfg(not(feature = "static-artifact-create"))]
+            ObjectFormat::Symbols => {
+                return Err(anyhow!("Objects cannot be compiled in format \"symbols\" without static-artifact-create feature"));
+            }
+        }
+    }
+
+    Ok(())
 }
 
-#[test]
-fn test_normalize_atom_name() {
-    assert_eq!(
-        CreateExe::normalize_atom_name("atom-name-with-dash"),
-        "atom_name_with_dash".to_string()
-    );
+fn normalize_atom_name(s: &str) -> String {
+    s.chars()
+        .filter_map(|c| {
+            if char::is_alphabetic(c) {
+                Some(c)
+            } else if c == '-' {
+                Some('_')
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn generate_pirita_wasmer_main_c_static(atom_names: &[String], entrypoint: &Entrypoint) -> String {
+    let atom_to_run = match entrypoint {
+        Entrypoint::Single(s) => s,
+        Entrypoint::Multi(m) => {
+            return Err(anyhow::anyhow!(
+                "generate_pirita_wasmer_main_c_static: not yet able to generate multi-command exe"
+            ));
+        }
+    };
+
+    let mut c_code_to_instantiate = String::new();
+    let mut deallocate_module = String::new();
+    let mut c_code_to_instantiate = String::new();
+    let mut deallocate_module = String::new();
+
+    let atom_to_run = Self::normalize_atom_name(atom_to_run);
+
+    for atom_name in atom_names.iter() {
+        let atom_name = Self::normalize_atom_name(atom_name);
+
+        write!(
+            c_code_to_instantiate,
+            "
+
+        wasm_module_t *atom_{atom_name} = wasmer_object_module_new(store, \"{atom_name}\");
+
+        if (!atom_{atom_name}) {{
+            fprintf(stderr, \"Failed to create module from atom \\\"{atom_name}\\\"\\n\");
+            print_wasmer_error();
+            return -1;
+        }}
+        "
+        )
+        .unwrap();
+        write!(deallocate_module, "wasm_module_delete(atom_{atom_name});").unwrap();
+    }
+
+    write!(
+        c_code_to_instantiate,
+        "wasm_module_t *module = atom_{atom_to_run};"
+    )
+    .unwrap();
+
+    WASMER_STATIC_MAIN_C_SOURCE
+        .replace("#define WASI", "#define WASI\r\n#define WASI_PIRITA")
+        .replace("// INSTANTIATE_MODULES", &c_code_to_instantiate)
+        .replace("##atom-name##", &atom_to_run)
+        .replace("wasm_module_delete(module);", &deallocate_module)
+}
+
+#[cfg(feature = "webc_runner")]
+fn generate_pirita_wasmer_main_c(
+    atom_names: &[String],
+    entrypoint: &Entrypoint,
+) -> Result<String, anyhow::Error> {
+    let atom_to_run = match entrypoint {
+        Entrypoint::Single(s) => s,
+        Entrypoint::Multi(m) => {
+            return Err(anyhow::anyhow!(
+                "generate_pirita_wasmer_main_c: not yet able to generate multi-command exe"
+            ));
+        }
+    };
+
+    let mut c_code_to_add = String::new();
+    let mut c_code_to_instantiate = String::new();
+    let mut deallocate_module = String::new();
+
+    for atom_name in atom_names.iter() {
+        let atom_name = Self::normalize_atom_name(atom_name);
+        let atom_name_uppercase = atom_name.to_uppercase();
+
+        c_code_to_add.push_str(&format!(
+            "
+        extern size_t {atom_name_uppercase}_LENGTH asm(\"{atom_name_uppercase}_LENGTH\");
+        extern char {atom_name_uppercase}_DATA asm(\"{atom_name_uppercase}_DATA\");
+        "
+        ));
+
+        c_code_to_instantiate.push_str(&format!("
+        wasm_byte_vec_t atom_{atom_name}_byte_vec = {{
+            .size = {atom_name_uppercase}_LENGTH,
+            .data = &{atom_name_uppercase}_DATA,
+        }};
+        wasm_module_t *atom_{atom_name} = wasm_module_deserialize(store, &atom_{atom_name}_byte_vec);
+
+        if (!atom_{atom_name}) {{
+            fprintf(stderr, \"Failed to create module from atom \\\"{atom_name}\\\"\\n\");
+            print_wasmer_error();
+            return -1;
+        }}
+        "));
+        deallocate_module.push_str(&format!("wasm_module_delete(atom_{atom_name});"));
+    }
+
+    c_code_to_instantiate.push_str(&format!("wasm_module_t *module = atom_{atom_to_run};"));
+
+    WASMER_MAIN_C_SOURCE
+        .replace("#define WASI", "#define WASI\r\n#define WASI_PIRITA")
+        .replace("// DECLARE_MODULES", &c_code_to_add)
+        .replace("// INSTANTIATE_MODULES", &c_code_to_instantiate)
+        .replace("##atom-name##", atom_to_run)
+        .replace("wasm_module_delete(module);", &deallocate_module)
+}
+
+#[cfg(feature = "webc_runner")]
+fn create_exe_pirita(
+    &self,
+    file: &WebCMmap,
+    target: Target,
+    cross_compilation: Option<CrossCompileSetup>,
+    output_path: PathBuf,
+    debug_dir: Option<PathBuf>,
+    object_format: ObjectFormat,
+) -> anyhow::Result<()> {
+    let working_dir = match debug_dir.as_ref() {
+        None => temp_dir.path().to_path_buf(),
+        Some(s) => s.clone(),
+    };
+    let _ = std::fs::create_dir_all(&working_dir);
+    let (store, _) = self.compiler.get_store_for_target(target.clone())?;
+    let _ = std::fs::create_dir_all(&working_dir);
+    let (store, _) = self.compiler.get_store_for_target(target.clone())?;
+
+    let volumes_obj = file.get_volumes_as_fileblock();
+
+    let volumes_obj = file.get_volumes_as_fileblock();
+    self.link_exe_from_dir(
+        volumes_obj.as_slice(),
+        &store,
+        &target,
+        cross_compilation,
+        debug_dir,
+        output_path,
+        debug_dir,
+        object_format,
+    )?;
+
+    Ok(())
+}
+
+#[cfg(feature = "webc_runner")]
+#[allow(clippy::too_many_arguments)]
+fn link_exe_from_dir(
+    &self,
+    volume_bytes: &[u8],
+    _store: &Store,
+    target: &Target,
+    cross_compilation: Option<CrossCompileSetup>,
+    working_dir: &Path,
+    output_path: PathBuf,
+    debug_dir: Option<PathBuf>,
+    object_format: ObjectFormat,
+) -> anyhow::Result<()> {
+    let tempdir = tempdir::TempDir::new("link-exe-from-dir")?;
+    let tempdir_path = tempdir.path();
+
+    let entrypoint = if let Ok(s) = std::fs::read_to_string(working_dir.join("entrypoint")) {
+        Entrypoint::Single(s)
+    } else if let Ok(s) = std::fs::read_to_string(working_dir.join("entrypoint.json")) {
+        let json = serde_json::from_str(&s)
+            .map_err(|e| anyhow::anyhow!("could not deserialize entrypoint.json: {e}"))?;
+        Entrypoint::Multi(json)
+    } else {
+        return Err(anyhow::anyhow!(
+            "no /entrypoint or /entrypoint.json found in {}",
+            working_dir.display()
+        ));
+    };
+
+    if !working_dir.join("atoms").exists() {
+        return Err(anyhow::anyhow!("file has no atoms to compile"));
+    }
+
+    let mut atom_names = Vec::new();
+    for obj in std::fs::read_dir(working_dir.join("atoms"))? {
+        let path = obj?.path();
+        if !path.is_dir() {
+            if let Some(s) = path.file_stem() {
+                atom_names.push(
+                    s.to_str()
+                        .ok_or_else(|| anyhow::anyhow!("wrong atom name"))?
+                        .to_string(),
+                );
+            }
+        }
+    }
+
+    match object_format {
+        ObjectFormat::Serialized => {
+            let mut link_objects: Vec<PathBuf> = Vec::new();
+
+            let volume_object_path = Self::write_volume_obj(volume_bytes, target, tempdir_path)?;
+
+            #[cfg(not(windows))]
+            let c_src_obj = working_dir.join("wasmer_main.o");
+            #[cfg(windows)]
+            let c_src_obj = working_dir.join("wasmer_main.obj");
+
+            for obj in std::fs::read_dir(working_dir.join("atoms"))? {
+                let path = obj?.path();
+                if !path.is_dir() {
+                    link_objects.push(path.to_path_buf());
+                }
+            }
+
+            let c_code = Self::generate_pirita_wasmer_main_c(&atom_names, &entrypoint);
+
+            let c_src_path = working_dir.join("wasmer_main.c");
+
+            std::fs::write(&c_src_path, c_code.as_bytes())
+                .context("Failed to open C source code file")?;
+
+            // TODO: this branch is never hit because object format serialized +
+            // cross compilation doesn't work
+            if let Some(setup) = cross_compilation {
+                // zig treats .o files the same as .c files
+                link_objects.push(c_src_path);
+
+                self.compile_zig(
+                    output_path,
+                    debug_dir,
+                    &link_objects,
+                    &[],
+                    &setup,
+                    &atom_names,
+                    Some(&entrypoint),
+                    Some(volume_object_path),
+                )?;
+            } else {
+                // compile with cc instead of zig
+                run_c_compile(c_src_path.as_path(), &c_src_obj, self.target_triple.clone())
+                    .context("Failed to compile C source code")?;
+
+                link_objects.push(c_src_obj);
+                link_objects.push(volume_object_path);
+
+                LinkCode {
+                    object_paths: link_objects,
+                    output_path,
+                    additional_libraries: self.libraries.clone(),
+                    target: self.target_triple.clone(),
+                    ..Default::default()
+                }
+                .run()
+                .context("Failed to link objects together")?;
+            }
+        }
+        ObjectFormat::Symbols => {
+            let volumes_obj_path = Self::write_volume_obj(volume_bytes, target, tempdir_path)?;
+            if let Some(setup) = cross_compilation.as_ref() {
+                self.compile_zig(
+                    output_path,
+                    self.debug_dir.clone(),
+                    &entrypoint,
+                    setup,
+                    &atom_names,
+                    Some(&entrypoint),
+                    Some(volumes_obj_path),
+                )?;
+            } else {
+                self.link(
+                    output_path,
+                    &atom_names,
+                    Some(&entrypoint),
+                    Some(volumes_obj_path),
+                )?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "static-artifact-create")]
+fn link(&self, output_path: PathBuf, config: LinkConfig) -> anyhow::Result<()> {
+    let tempdir = tempdir::TempDir::new("wasmer-static-compile")?;
+    let tempdir_path = tempdir.path();
+
+    let mut object_paths = vec![object_path, "main_obj.obj".into()];
+    if let Some(volume_obj) = pirita_volume_path.as_ref() {
+        object_paths.push(volume_obj.to_path_buf());
+    }
+
+    let linkcode = LinkCode {
+        object_paths,
+        output_path,
+        ..Default::default()
+    };
+    let c_src_path = tempdir_path.join("wasmer_main.c");
+    let mut libwasmer_path = get_libwasmer_path()?
+        .canonicalize()
+        .context("Failed to find libwasmer")?;
+
+    let lib_filename = libwasmer_path
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    libwasmer_path.pop();
+
+    if let Some(entrypoint) = pirita_main_atom.as_ref() {
+        let c_code = Self::generate_pirita_wasmer_main_c_static(pirita_atoms, entrypoint);
+        std::fs::write(&c_src_path, c_code)?;
+    } else {
+        std::fs::write(&c_src_path, WASMER_STATIC_MAIN_C_SOURCE)?;
+    }
+
+    if !header_code_path.is_dir() {
+        header_code_path.pop();
+    }
+
+    if header_code_path.display().to_string().is_empty() {
+        header_code_path = std::env::current_dir()?;
+    }
+
+    let wasmer_include_dir = get_wasmer_include_directory()?;
+    let wasmer_h_path = wasmer_include_dir.join("wasmer.h");
+    if !wasmer_h_path.exists() {
+        return Err(anyhow::anyhow!(
+            "Could not find wasmer.h in {}",
+            wasmer_include_dir.display()
+        ));
+    }
+    let wasm_h_path = wasmer_include_dir.join("wasm.h");
+    if !wasm_h_path.exists() {
+        return Err(anyhow::anyhow!(
+            "Could not find wasm.h in {}",
+            wasmer_include_dir.display()
+        ));
+    }
+    std::fs::copy(wasmer_h_path, header_code_path.join("wasmer.h"))?;
+    std::fs::copy(wasm_h_path, header_code_path.join("wasm.h"))?;
+
+    /* Compile main function */
+    let compilation = {
+        Command::new("cc")
+            .arg("-c")
+            .arg(&c_src_path)
+            .arg(if linkcode.optimization_flag.is_empty() {
+                "-O2"
+            } else {
+                linkcode.optimization_flag.as_str()
+            })
+            .arg(&format!("-L{}", libwasmer_path.display()))
+            .arg(&format!("-l:{}", lib_filename))
+            //.arg("-lwasmer")
+            // Add libraries required per platform.
+            // We need userenv, sockets (Ws2_32), advapi32 for some system calls and bcrypt for random numbers.
+            //#[cfg(windows)]
+            //    .arg("-luserenv")
+            //    .arg("-lWs2_32")
+            //    .arg("-ladvapi32")
+            //    .arg("-lbcrypt")
+            // On unix we need dlopen-related symbols, libmath for a few things, and pthreads.
+            //#[cfg(not(windows))]
+            .arg("-ldl")
+            .arg("-lm")
+            .arg("-pthread")
+            .arg(&format!("-I{}", header_code_path.display()))
+            .arg("-v")
+            .arg("-o")
+            .arg("main_obj.obj")
+            .output()?
+    };
+    if !compilation.status.success() {
+        return Err(anyhow::anyhow!(String::from_utf8_lossy(
+            &compilation.stderr
+        )
+        .to_string()));
+    }
+    linkcode.run().context("Failed to link objects together")?;
+    Ok(())
 }
 
 fn triple_to_zig_triple(target_triple: &Triple) -> String {
@@ -1999,4 +1989,12 @@ fn find_zig_binary(path: Option<PathBuf>) -> Result<PathBuf> {
     } else {
         Ok(retval)
     }
+}
+
+#[test]
+fn test_normalize_atom_name() {
+    assert_eq!(
+        CreateExe::normalize_atom_name("atom-name-with-dash"),
+        "atom_name_with_dash".to_string()
+    );
 }
