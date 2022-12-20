@@ -362,7 +362,7 @@ check-wasmer:
 check-wasmer-wasm:
 	$(CARGO_BINARY) check --manifest-path lib/cli-compiler/Cargo.toml --target wasm32-wasi --features singlepass,cranelift --bin wasmer-compiler
 
-check-capi: capi-setup
+check-capi:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) check $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml  \
 		--no-default-features --features wat,compiler,wasi,middlewares $(capi_compiler_features)
 
@@ -417,12 +417,7 @@ endif
 build-docs:
 	$(CARGO_BINARY) doc $(CARGO_TARGET) --release $(compiler_features) --document-private-items --no-deps --workspace --exclude wasmer-c-api
 
-capi-setup:
-ifeq ($(IS_WINDOWS), 1)
-  RUSTFLAGS += -C target-feature=+crt-static
-endif
-
-build-docs-capi: capi-setup
+build-docs-capi:
 	# `wasmer-c-api` lib's name is `wasmer`. To avoid a conflict
 	# when generating the documentation, we rename it to its
 	# crate's name. Then we restore the lib's name.
@@ -430,37 +425,37 @@ build-docs-capi: capi-setup
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) doc $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,compiler,cranelift,wasi
 	sed "$(SEDI)"  -e 's/name = "wasmer_c_api" # ##lib.name##/name = "wasmer" # ##lib.name##/' lib/c-api/Cargo.toml
 
-build-capi: capi-setup
+build-capi:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,wasi,middlewares,webc_runner $(capi_compiler_features)
 
-build-capi-singlepass: capi-setup
+build-capi-singlepass:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,singlepass,wasi,middlewares,webc_runner
 
-build-capi-singlepass-universal: capi-setup
+build-capi-singlepass-universal:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,singlepass,wasi,middlewares,webc_runner
 
-build-capi-cranelift: capi-setup
+build-capi-cranelift:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,cranelift,wasi,middlewares,webc_runner
 
-build-capi-cranelift-universal: capi-setup
+build-capi-cranelift-universal:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,cranelift,wasi,middlewares,webc_runner
 
-build-capi-llvm: capi-setup
+build-capi-llvm:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,llvm,wasi,middlewares,webc_runner
 
-build-capi-llvm-universal: capi-setup
+build-capi-llvm-universal:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,llvm,wasi,middlewares,webc_runner
 
 # Headless (we include the minimal to be able to run)
 
-build-capi-headless: capi-setup
+build-capi-headless:
 ifeq ($(CARGO_TARGET),)
 	RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) build --target $(HOST_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features compiler-headless,wasi
@@ -469,7 +464,7 @@ else
 		--no-default-features --features compiler-headless,wasi
 endif
 
-build-capi-headless-ios: capi-setup
+build-capi-headless-ios:
 	RUSTFLAGS="${RUSTFLAGS} -C panic=abort" cargo lipo --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features compiler-headless,wasi
 
@@ -554,15 +549,15 @@ test-capi: build-capi package-capi test-capi-ci
 
 
 test-capi-crate-%:
-	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
+	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) $(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,wasi,middlewares,webc_runner $(capi_compiler_features) -- --nocapture
 
 test-capi-integration-%:
 	# note: you need to do make build-capi and make package-capi first!
 	# Test the Wasmer C API tests for C
-	cd lib/c-api/tests; RUSTFLAGS="${RUSTFLAGS}" WASMER_DIR=`pwd`/../../../package make test
+	cd lib/c-api/tests; WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make test
 	# Test the Wasmer C API examples
-	cd lib/c-api/examples; RUSTFLAGS="${RUSTFLAGS}" WASMER_DIR=`pwd`/../../../package make run
+	cd lib/c-api/examples; WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make run
 
 test-wasi-unit:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --manifest-path lib/wasi/Cargo.toml --release
