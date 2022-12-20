@@ -187,7 +187,7 @@ impl Init {
             Some(s) => {
                 let _ = std::fs::create_dir_all(s)
                     .map_err(|e| anyhow::anyhow!("{e}"))
-                    .with_context(|| anyhow::anyhow!("{s}"))?;
+                    .with_context(|| anyhow::anyhow!("{}", s.display()))?;
                 let package_name = self
                     .package_name
                     .clone()
@@ -218,7 +218,7 @@ impl Init {
                     }
 
                     let key = format!("./{path}");
-                    let value =  PathBuf::from(format!("/{path}"));
+                    let value = PathBuf::from(format!("/{path}"));
 
                     (key, value)
                 })
@@ -486,8 +486,12 @@ fn parse_cargo_toml(manifest_path: &PathBuf) -> Result<MiniCargoTomlPackage, any
     metadata.no_deps();
     metadata.features(CargoOpt::AllFeatures);
 
-    let metadata = metadata.exec()
-        .with_context(|| format!("Unable to load metadata from \"{}\"", manifest_path.display()))?;
+    let metadata = metadata.exec().with_context(|| {
+        format!(
+            "Unable to load metadata from \"{}\"",
+            manifest_path.display()
+        )
+    })?;
 
     let package = metadata
         .root_package()

@@ -11,7 +11,13 @@ use time::{self, OffsetDateTime};
 use wasmer_registry::publish::SignArchiveResult;
 use wasmer_registry::{PartialWapmConfig, PACKAGE_TOML_FALLBACK_NAME};
 
-const CURRENT_DATA_VERSION: i32 = 3;
+const MIGRATIONS: &[(i32, &'static str)] = &[
+    (0, include_str!("../../sql/migrations/0000.sql")),
+    (1, include_str!("../../sql/migrations/0001.sql")),
+    (2, include_str!("../../sql/migrations/0002.sql")),
+];
+
+const CURRENT_DATA_VERSION: usize = MIGRATIONS.len();
 
 /// CLI options for the `wasmer publish` command
 #[derive(Debug, Parser)]
@@ -302,15 +308,13 @@ pub fn sign_compressed_archive(
         log::warn!("Active key does not have a private key location registered with it!");
         return Err(anyhow!("Cannot sign package, no private key"));
     };
-    let public_key = minisign::PublicKey::from_base64(
-        &personal_key.public_key_value,
-    )?;
+    let public_key = minisign::PublicKey::from_base64(&personal_key.public_key_value)?;
     let signature = minisign::sign(
-            Some(&public_key),
-            &private_key,
-            compressed_archive,
-            None,
-            None,
+        Some(&public_key),
+        &private_key,
+        compressed_archive,
+        None,
+        None,
     )?;
     Ok(SignArchiveResult::Ok {
         public_key_id: personal_key.public_key_id,
@@ -339,7 +343,7 @@ pub fn apply_migrations(conn: &mut Connection) -> anyhow::Result<()> {
     let user_version = conn.pragma_query_value(None, "user_version", |val| val.get(0))?;
     for data_version in user_version..CURRENT_DATA_VERSION {
         log::debug!("Applying migration {}", data_version);
-        apply_migration(conn, data_version)?;
+        apply_migration(conn, data_version as i32)?;
     }
     Ok(())
 }
@@ -363,13 +367,7 @@ fn apply_migration(conn: &mut Connection, migration_number: i32) -> Result<(), M
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(|e| MigrationError::TransactionFailed(migration_number, format!("{}", e)))?;
 
-    let migrations = &[
-        (0, include_str!("../../sql/migrations/0000.sql")),
-        (1, include_str!("../../sql/migrations/0001.sql")),
-        (2, include_str!("../../sql/migrations/0002.sql")),
-    ];
-
-    let migration_to_apply = migrations
+    let migration_to_apply = MIGRATIONS
         .iter()
         .find_map(|(number, sql)| {
             if *number == migration_number {
@@ -379,7 +377,10 @@ fn apply_migration(conn: &mut Connection, migration_number: i32) -> Result<(), M
             }
         })
         .ok_or({
-            MigrationError::MigrationNumberDoesNotExist(migration_number, CURRENT_DATA_VERSION)
+            MigrationError::MigrationNumberDoesNotExist(
+                migration_number,
+                CURRENT_DATA_VERSION as i32,
+            )
         })?;
 
     tx.execute_batch(migration_to_apply)
