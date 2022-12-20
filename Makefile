@@ -546,11 +546,11 @@ test-cranelift: $(foreach cranelift_engine,$(filter cranelift-%,$(compilers_engi
 test-llvm: $(foreach llvm_engine,$(filter llvm-%,$(compilers_engines)),test-$(llvm_engine))
 
 # same as test-capi, but without the build-capi step first
-test-capi-ci: capi-setup $(foreach compiler_engine,$(capi_compilers_engines),test-capi-crate-$(compiler_engine) test-capi-integration-$(compiler_engine))
+test-capi-ci: $(foreach compiler_engine,$(capi_compilers_engines),test-capi-crate-$(compiler_engine) test-capi-integration-$(compiler_engine))
 
 # This test requires building the capi with all the available
 # compilers first
-test-capi: capi-setup build-capi package-capi test-capi-ci
+test-capi: build-capi package-capi test-capi-ci
 
 
 test-capi-crate-%:
