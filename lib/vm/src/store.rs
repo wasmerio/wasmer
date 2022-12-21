@@ -111,8 +111,10 @@ impl StoreObjects {
     }
 
     /// Set a global, at index idx. Will panic if idx is out of range
-    pub fn set_global(&self, idx: usize, val: u128) {
-        assert!(idx >= self.globals.len());
+    /// Safety: the caller should check taht the raw value is compatible
+    /// with destination VMGlobal type
+    pub fn set_global_unchecked(&self, idx: usize, val: u128) {
+        assert!(idx < self.globals.len());
         unsafe {
             self.globals[idx].vmglobal().as_mut().val.u128 = val;
         }
