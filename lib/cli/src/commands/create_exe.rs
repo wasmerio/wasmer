@@ -148,27 +148,38 @@ impl CreateExe {
             link_exe_from_dir(&input_path, output_path, &cross_compilation)?;
         } else if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
             // pirita file
-            let tempdir = tempdir::TempDir::new("pirita-compile").unwrap();
+            let temp = tempdir::TempDir::new("pirita-compile")?;
+            let tempdir = match self.debug_dir.as_ref() {
+                Some(s) => s.clone(),
+                None => temp.path().to_path_buf(),
+            };
+            std::fs::create_dir_all(&tempdir)?;
             compile_pirita_into_directory(
                 &pirita,
-                &tempdir.path(),
+                &tempdir,
                 &self.compiler,
                 &self.cpu_features,
                 &cross_compilation.target,
                 self.object_format.unwrap_or_default(),
             )?;
-            link_exe_from_dir(tempdir.path(), output_path, &cross_compilation)?;
+            link_exe_from_dir(&tempdir, output_path, &cross_compilation)?;
         } else {
             // wasm file
-            let tempdir = tempdir::TempDir::new("wasm-compile").unwrap();
+            let temp = tempdir::TempDir::new("pirita-compile")?;
+            let tempdir = match self.debug_dir.as_ref() {
+                Some(s) => s.clone(),
+                None => temp.path().to_path_buf(),
+            };
+            std::fs::create_dir_all(&tempdir)?;
             prepare_directory_from_single_wasm_file(
                 &input_path,
-                &tempdir.path(),
+                &tempdir,
                 &self.compiler,
                 &cross_compilation.target,
+                &self.cpu_features,
                 self.object_format.unwrap_or_default(),
             )?;
-            link_exe_from_dir(tempdir.path(), output_path, &cross_compilation)?;
+            link_exe_from_dir(&tempdir, output_path, &cross_compilation)?;
         }
 
         if self.target_triple.is_some() {
@@ -215,13 +226,6 @@ pub(super) fn compile_pirita_into_directory(
         anyhow::anyhow!("cannot create /atoms dir in {}: {e}", target_dir.display())
     })?;
 
-    std::fs::create_dir_all(target_dir.join("include")).map_err(|e| {
-        anyhow::anyhow!(
-            "cannot create /include dir in {}: {e}",
-            target_dir.display()
-        )
-    })?;
-
     let mut atoms_from_file = Vec::new();
     let mut target_paths = Vec::new();
 
@@ -229,11 +233,20 @@ pub(super) fn compile_pirita_into_directory(
         atoms_from_file.push((atom_name.clone(), atom_bytes.to_vec()));
         let atom_path = target_dir.join("atoms").join(format!("{atom_name}.o"));
         let header_path = match object_format {
-            ObjectFormat::Symbols => Some(
-                target_dir
-                    .join("include")
-                    .join(format!("static_defs_{atom_name}.h")),
-            ),
+            ObjectFormat::Symbols => {
+                std::fs::create_dir_all(target_dir.join("include")).map_err(|e| {
+                    anyhow::anyhow!(
+                        "cannot create /include dir in {}: {e}",
+                        target_dir.display()
+                    )
+                })?;
+
+                Some(
+                    target_dir
+                        .join("include")
+                        .join(format!("static_defs_{atom_name}.h")),
+                )
+            }
             ObjectFormat::Serialized => None,
         };
         target_paths.push((atom_name, atom_path, header_path));
@@ -294,14 +307,14 @@ fn conpile_atoms(
     use std::io::BufWriter;
     use std::io::Write;
 
-    let (store, _compiler_type) = compiler.get_store_for_target(target.clone())?;
-
     for (atom_name, data) in atoms {
-        let output_object_path = output_dir.join("{atom_name}.o");
-        let output_header_path = header_dir.join("static_defs_{atom_name}.h");
+        let (store, _) = compiler.get_store_for_target(target.clone())?;
+        let output_object_path = output_dir.join(format!("{atom_name}.o"));
 
         match object_format {
             ObjectFormat::Symbols => {
+                let output_header_path = header_dir.join(format!("static_defs_{atom_name}.h"));
+
                 let engine = store.engine();
                 let engine_inner = engine.inner();
                 let compiler = engine_inner.compiler()?;
@@ -431,12 +444,85 @@ fn write_volume_obj(
 
 /// Given a .wasm file, compiles the .wasm file into the target directory and creates the entrypoint.json
 pub(super) fn prepare_directory_from_single_wasm_file(
-    _wasm_file: &Path,
-    _target_dir: &Path,
-    _compiler: &CompilerOptions,
-    _target: &Triple,
-    _object_format: ObjectFormat,
+    wasm_file: &Path,
+    target_dir: &Path,
+    compiler: &CompilerOptions,
+    triple: &Triple,
+    cpu_features: &[CpuFeature],
+    object_format: ObjectFormat,
 ) -> anyhow::Result<()> {
+    let bytes = std::fs::read(wasm_file)?;
+    let target = &utils::target_triple_to_target(&triple, cpu_features);
+
+    std::fs::create_dir_all(target_dir.join("atoms")).map_err(|e| {
+        anyhow::anyhow!("cannot create /atoms dir in {}: {e}", target_dir.display())
+    })?;
+
+    let mut atoms_from_file = Vec::new();
+    let mut target_paths = Vec::new();
+
+    let all_files = vec![("main".to_string(), bytes)];
+
+    for (atom_name, atom_bytes) in all_files.iter() {
+        atoms_from_file.push((atom_name.clone(), atom_bytes.to_vec()));
+        let atom_path = target_dir.join("atoms").join(format!("{atom_name}.o"));
+        let header_path = match object_format {
+            ObjectFormat::Symbols => {
+                std::fs::create_dir_all(target_dir.join("include")).map_err(|e| {
+                    anyhow::anyhow!(
+                        "cannot create /include dir in {}: {e}",
+                        target_dir.display()
+                    )
+                })?;
+
+                Some(
+                    target_dir
+                        .join("include")
+                        .join(format!("static_defs_{atom_name}.h")),
+                )
+            }
+            ObjectFormat::Serialized => None,
+        };
+        target_paths.push((atom_name, atom_path, header_path));
+    }
+
+    conpile_atoms(
+        &atoms_from_file,
+        &target_dir.join("atoms"),
+        &target_dir.join("include"),
+        compiler,
+        target,
+        object_format,
+    )?;
+
+    let mut atoms = Vec::new();
+    for (atom_name, atom_path, opt_header_path) in target_paths {
+        atoms.push(CommandEntrypoint {
+            // TODO: improve, "--command pip" should be able to invoke atom "python" with args "-m pip"
+            command: atom_name.clone(),
+            atom: atom_name.clone(),
+            path: atom_path,
+            header: opt_header_path,
+        });
+    }
+
+    let entrypoint = Entrypoint {
+        atoms,
+        volumes: Vec::new(),
+        object_format,
+    };
+
+    std::fs::write(
+        target_dir.join("entrypoint.json"),
+        serde_json::to_string_pretty(&entrypoint).unwrap_or_default(),
+    )
+    .map_err(|e| {
+        anyhow::anyhow!(
+            "cannot create entrypoint.json dir in {}: {e}",
+            target_dir.display()
+        )
+    })?;
+
     Ok(())
 }
 

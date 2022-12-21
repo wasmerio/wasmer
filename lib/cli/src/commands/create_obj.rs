@@ -83,6 +83,7 @@ impl CreateObj {
                 &output_path,
                 &self.compiler,
                 &target_triple,
+                &self.cpu_features,
                 object_format,
             )?;
         }
