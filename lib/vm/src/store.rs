@@ -1,3 +1,4 @@
+use core::slice::Iter;
 use std::{
     cell::UnsafeCell,
     fmt,
@@ -9,9 +10,9 @@ use std::{
 
 use wasmer_types::StoreSnapshot;
 
-use crate::VMExternObj;
-
-use crate::{InstanceHandle, VMFunction, VMFunctionEnvironment, VMGlobal, VMMemory, VMTable};
+use crate::{
+    InstanceHandle, VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal, VMMemory, VMTable,
+};
 
 /// Unique ID to identify a context.
 ///
@@ -101,6 +102,19 @@ impl StoreObjects {
         } else {
             let (low, high) = list.split_at_mut(a.index());
             (&mut high[0], &mut low[a.index()])
+        }
+    }
+
+    /// Return an immutable iterator over all globals
+    pub fn iter_globals(&self) -> Iter<VMGlobal> {
+        self.globals.iter()
+    }
+
+    /// Set a global, at index idx. Will panic if idx is out of range
+    pub fn set_global(&self, idx: usize, val: u128) {
+        assert!(idx >= self.globals.len());
+        unsafe {
+            self.globals[idx].vmglobal().as_mut().val.u128 = val;
         }
     }
 
