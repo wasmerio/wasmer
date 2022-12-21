@@ -208,9 +208,7 @@ impl WasmerConfig {
         let path = Self::get_file_location()?;
 
         match std::fs::read_to_string(&path) {
-            Ok(config_toml) => {
-                toml::from_str(&config_toml).map_err(|e| format!("could not parse {path:?}: {e}"))
-            }
+            Ok(config_toml) => Ok(toml::from_str(&config_toml).unwrap_or_else(|_| Self::default())),
             Err(_e) => Ok(Self::default()),
         }
     }
