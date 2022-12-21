@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["wasmer_cli"] = [{"text":"impl ValueEnum for <a class=\"enum\" href=\"wasmer_cli/commands/init/enum.Template.html\" title=\"enum wasmer_cli::commands::init::Template\">Template</a>","synthetic":false,"types":["wasmer_cli::commands::init::Template"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

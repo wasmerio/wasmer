@@ -250,6 +250,60 @@
 <span id="244">244</span>
 <span id="245">245</span>
 <span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">graphql_client</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">reqwest</span>::{
     <span class="ident">blocking</span>::{<span class="ident">multipart::Form</span>, <span class="ident">Client</span>},
@@ -351,6 +405,60 @@
     }
 }
 
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">GraphQLQuery</span>)]</span>
+<span class="attribute">#[<span class="ident">graphql</span>(
+    <span class="ident">schema_path</span> <span class="op">=</span> <span class="string">&quot;graphql/schema.graphql&quot;</span>,
+    <span class="ident">query_path</span> <span class="op">=</span> <span class="string">&quot;graphql/queries/get_package_version.graphql&quot;</span>,
+    <span class="ident">response_derives</span> <span class="op">=</span> <span class="string">&quot;Debug&quot;</span>
+)]</span>
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">GetPackageVersionQuery</span>;
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">GraphQLQuery</span>)]</span>
+<span class="attribute">#[<span class="ident">graphql</span>(
+    <span class="ident">schema_path</span> <span class="op">=</span> <span class="string">&quot;graphql/schema.graphql&quot;</span>,
+    <span class="ident">query_path</span> <span class="op">=</span> <span class="string">&quot;graphql/queries/get_package_by_command.graphql&quot;</span>,
+    <span class="ident">response_derives</span> <span class="op">=</span> <span class="string">&quot;Debug&quot;</span>
+)]</span>
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">GetPackageByCommandQuery</span>;
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">GraphQLQuery</span>)]</span>
+<span class="attribute">#[<span class="ident">graphql</span>(
+    <span class="ident">schema_path</span> <span class="op">=</span> <span class="string">&quot;graphql/schema.graphql&quot;</span>,
+    <span class="ident">query_path</span> <span class="op">=</span> <span class="string">&quot;graphql/queries/test_if_registry_present.graphql&quot;</span>,
+    <span class="ident">response_derives</span> <span class="op">=</span> <span class="string">&quot;Debug&quot;</span>
+)]</span>
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">TestIfRegistryPresent</span>;
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">GraphQLQuery</span>)]</span>
+<span class="attribute">#[<span class="ident">graphql</span>(
+    <span class="ident">schema_path</span> <span class="op">=</span> <span class="string">&quot;graphql/schema.graphql&quot;</span>,
+    <span class="ident">query_path</span> <span class="op">=</span> <span class="string">&quot;graphql/queries/get_bindings.graphql&quot;</span>,
+    <span class="ident">response_derives</span> <span class="op">=</span> <span class="string">&quot;Debug,Clone,PartialEq,Eq&quot;</span>
+)]</span>
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">GetBindingsQuery</span>;
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">GraphQLQuery</span>)]</span>
+<span class="attribute">#[<span class="ident">graphql</span>(
+    <span class="ident">schema_path</span> <span class="op">=</span> <span class="string">&quot;graphql/schema.graphql&quot;</span>,
+    <span class="ident">query_path</span> <span class="op">=</span> <span class="string">&quot;graphql/queries/publish_package_chunked.graphql&quot;</span>,
+    <span class="ident">response_derives</span> <span class="op">=</span> <span class="string">&quot;Debug&quot;</span>
+)]</span>
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">PublishPackageMutationChunked</span>;
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">GraphQLQuery</span>)]</span>
+<span class="attribute">#[<span class="ident">graphql</span>(
+    <span class="ident">schema_path</span> <span class="op">=</span> <span class="string">&quot;graphql/schema.graphql&quot;</span>,
+    <span class="ident">query_path</span> <span class="op">=</span> <span class="string">&quot;graphql/queries/get_signed_url.graphql&quot;</span>,
+    <span class="ident">response_derives</span> <span class="op">=</span> <span class="string">&quot;Debug, Clone&quot;</span>
+)]</span>
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">GetSignedUrl</span>;
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">whoami_distro</span>() -&gt; <span class="ident">String</span> {
+    <span class="ident">whoami::os</span>().<span class="ident">to_lowercase</span>()
+}
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>))]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">whoami_distro</span>() -&gt; <span class="ident">String</span> {
     <span class="ident">whoami::distro</span>().<span class="ident">to_lowercase</span>()
 }

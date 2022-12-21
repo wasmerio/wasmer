@@ -197,12 +197,24 @@
 <span id="189">189</span>
 <span id="190">190</span>
 <span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Module for parsing and installing packages</span>
 
 <span class="kw">use</span> <span class="ident">anyhow::Context</span>;
 <span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
 <span class="kw">use</span> <span class="ident">std::str::FromStr</span>;
 <span class="kw">use</span> <span class="ident">url::Url</span>;
+<span class="kw">use</span> <span class="ident">wasmer_registry::PartialWapmConfig</span>;
 
 <span class="doccomment">/// Source of a package</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>)]</span>
@@ -246,7 +258,7 @@
     }
 
     <span class="doccomment">/// Downloads the package (if any) to the installation directory, returns the path</span>
-    <span class="doccomment">/// of the package directory (containing the wapm.toml)</span>
+    <span class="doccomment">/// of the package directory (containing the wasmer.toml)</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">download_and_get_filepath</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">url</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident"><span class="self">Self</span>::File</span>(<span class="ident">f</span>) =&gt; {
@@ -260,20 +272,28 @@
                 };
             }
             <span class="ident"><span class="self">Self</span>::Url</span>(<span class="ident">u</span>) =&gt; {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">path</span>) <span class="op">=</span> <span class="ident">wasmer_registry::Package::is_url_already_installed</span>(<span class="ident">u</span>) {
+                <span class="kw">let</span> <span class="ident">wasmer_dir</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::get_wasmer_dir</span>()
+                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no wasmer dir: {e}&quot;</span>))<span class="question-mark">?</span>;
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">path</span>) <span class="op">=</span>
+                    <span class="ident">wasmer_registry::Package::is_url_already_installed</span>(<span class="ident">u</span>, <span class="kw-2">&amp;</span><span class="ident">wasmer_dir</span>)
+                {
                     <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">path</span>);
                 } <span class="kw">else</span> {
                     <span class="ident">u</span>.<span class="ident">clone</span>()
                 }
             }
             <span class="ident"><span class="self">Self</span>::Package</span>(<span class="ident">p</span>) =&gt; {
+                <span class="kw">let</span> <span class="ident">wasmer_dir</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::get_wasmer_dir</span>()
+                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no wasmer dir: {e}&quot;</span>))<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">package_path</span> <span class="op">=</span> <span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">p</span>.<span class="ident">file</span>()).<span class="ident">to_path_buf</span>();
                 <span class="kw">if</span> <span class="ident">package_path</span>.<span class="ident">exists</span>() {
                     <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">package_path</span>);
-                } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">path</span>) <span class="op">=</span> <span class="ident">p</span>.<span class="ident">already_installed</span>() {
+                } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">path</span>) <span class="op">=</span> <span class="ident">p</span>.<span class="ident">already_installed</span>(<span class="kw-2">&amp;</span><span class="ident">wasmer_dir</span>) {
                     <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">path</span>);
                 } <span class="kw">else</span> {
-                    <span class="ident">p</span>.<span class="ident">url</span>()<span class="question-mark">?</span>
+                    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>(<span class="kw-2">&amp;</span><span class="ident">wasmer_dir</span>)
+                        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;error loading wasmer config file: {e}&quot;</span>))<span class="question-mark">?</span>;
+                    <span class="ident">p</span>.<span class="ident">url</span>(<span class="kw-2">&amp;</span><span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">get_current_registry</span>())<span class="question-mark">?</span>
                 }
             }
         };
@@ -284,8 +304,10 @@
             <span class="ident">String::new</span>()
         };
 
+        <span class="kw">let</span> <span class="ident">wasmer_dir</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::get_wasmer_dir</span>()
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no wasmer dir: {e}&quot;</span>))<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">sp</span> <span class="op">=</span> <span class="ident">start_spinner</span>(<span class="macro">format!</span>(<span class="string">&quot;Installing package {url} ...&quot;</span>));
-        <span class="kw">let</span> <span class="ident">opt_path</span> <span class="op">=</span> <span class="ident">wasmer_registry::install_package</span>(<span class="kw-2">&amp;</span><span class="ident">url</span>);
+        <span class="kw">let</span> <span class="ident">opt_path</span> <span class="op">=</span> <span class="ident">wasmer_registry::install_package</span>(<span class="kw-2">&amp;</span><span class="ident">wasmer_dir</span>, <span class="kw-2">&amp;</span><span class="ident">url</span>);
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">sp</span>) <span class="op">=</span> <span class="ident">sp</span>.<span class="ident">take</span>() {
             <span class="kw">use</span> <span class="ident">std::io::Write</span>;
             <span class="ident">sp</span>.<span class="ident">clear</span>();

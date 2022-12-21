@@ -1061,9 +1061,9 @@
     <span class="doccomment">/// are natively supported</span>
     <span class="doccomment">/// - VMOwnedMemory -&gt; VMMemory</span>
     <span class="doccomment">/// - Box&lt;dyn LinearMemory + &#39;static&gt; -&gt; VMMemory</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_custom</span><span class="op">&lt;</span><span class="ident">IntoVMMemory</span><span class="op">&gt;</span>(<span class="ident">memory</span>: <span class="ident">IntoVMMemory</span>) -&gt; <span class="ident">VMMemory</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_custom</span><span class="op">&lt;</span><span class="ident">IntoVMMemory</span><span class="op">&gt;</span>(<span class="ident">memory</span>: <span class="ident">IntoVMMemory</span>) -&gt; <span class="self">Self</span>
     <span class="kw">where</span>
-        <span class="ident">IntoVMMemory</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">VMMemory</span><span class="op">&gt;</span>,
+        <span class="ident">IntoVMMemory</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span>,
     {
         <span class="ident">memory</span>.<span class="ident">into</span>()
     }

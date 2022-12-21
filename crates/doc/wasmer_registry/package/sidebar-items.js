@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["Package",""]]};
+window.SIDEBAR_ITEMS = {"constant":[["REGEX_PACKAGE_WITH_VERSION",""]],"struct":[["PACKAGE_WITH_VERSION",""],["Package",""]]};

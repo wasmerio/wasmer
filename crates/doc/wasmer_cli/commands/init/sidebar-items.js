@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":[["NEWLINE",""]],"enum":[["BinOrLib",""],["GetBindingsResult",""],["Template","What template to use for the initialized wasmer.toml"]],"fn":[["construct_manifest",""],["parse_cargo_toml",""]],"static":[["NOTE",""],["WASMER_TOML_NAME",""]],"struct":[["Init","CLI args for the `wasmer init` command"],["MiniCargoTomlPackage",""]]};

@@ -1062,74 +1062,6 @@
 <span id="1056">1056</span>
 <span id="1057">1057</span>
 <span id="1058">1058</span>
-<span id="1059">1059</span>
-<span id="1060">1060</span>
-<span id="1061">1061</span>
-<span id="1062">1062</span>
-<span id="1063">1063</span>
-<span id="1064">1064</span>
-<span id="1065">1065</span>
-<span id="1066">1066</span>
-<span id="1067">1067</span>
-<span id="1068">1068</span>
-<span id="1069">1069</span>
-<span id="1070">1070</span>
-<span id="1071">1071</span>
-<span id="1072">1072</span>
-<span id="1073">1073</span>
-<span id="1074">1074</span>
-<span id="1075">1075</span>
-<span id="1076">1076</span>
-<span id="1077">1077</span>
-<span id="1078">1078</span>
-<span id="1079">1079</span>
-<span id="1080">1080</span>
-<span id="1081">1081</span>
-<span id="1082">1082</span>
-<span id="1083">1083</span>
-<span id="1084">1084</span>
-<span id="1085">1085</span>
-<span id="1086">1086</span>
-<span id="1087">1087</span>
-<span id="1088">1088</span>
-<span id="1089">1089</span>
-<span id="1090">1090</span>
-<span id="1091">1091</span>
-<span id="1092">1092</span>
-<span id="1093">1093</span>
-<span id="1094">1094</span>
-<span id="1095">1095</span>
-<span id="1096">1096</span>
-<span id="1097">1097</span>
-<span id="1098">1098</span>
-<span id="1099">1099</span>
-<span id="1100">1100</span>
-<span id="1101">1101</span>
-<span id="1102">1102</span>
-<span id="1103">1103</span>
-<span id="1104">1104</span>
-<span id="1105">1105</span>
-<span id="1106">1106</span>
-<span id="1107">1107</span>
-<span id="1108">1108</span>
-<span id="1109">1109</span>
-<span id="1110">1110</span>
-<span id="1111">1111</span>
-<span id="1112">1112</span>
-<span id="1113">1113</span>
-<span id="1114">1114</span>
-<span id="1115">1115</span>
-<span id="1116">1116</span>
-<span id="1117">1117</span>
-<span id="1118">1118</span>
-<span id="1119">1119</span>
-<span id="1120">1120</span>
-<span id="1121">1121</span>
-<span id="1122">1122</span>
-<span id="1123">1123</span>
-<span id="1124">1124</span>
-<span id="1125">1125</span>
-<span id="1126">1126</span>
 </pre><pre class="rust"><code><span class="doccomment">//! High-level interactions with the WAPM backend.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! The GraphQL schema can be updated by running `make` in the Wasmer repo&#39;s</span>
@@ -1152,8 +1084,10 @@
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">config</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">graphql</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">interface</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">login</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">package</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">publish</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">queries</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">utils</span>;
 
@@ -1163,7 +1097,10 @@
     <span class="ident">queries::get_bindings_query::ProgrammingLanguage</span>,
 };
 
-<span class="kw">pub</span> <span class="kw">static</span> <span class="ident">GLOBAL_CONFIG_FILE_NAME</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;wapm.toml&quot;</span>;
+<span class="kw">pub</span> <span class="kw">static</span> <span class="ident">PACKAGE_TOML_FILE_NAME</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;wasmer.toml&quot;</span>;
+<span class="kw">pub</span> <span class="kw">static</span> <span class="ident">PACKAGE_TOML_FALLBACK_NAME</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;wapm.toml&quot;</span>;
+
+<span class="kw">pub</span> <span class="kw">static</span> <span class="ident">GLOBAL_CONFIG_FILE_NAME</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;wasmer.toml&quot;</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Eq</span>, <span class="ident">Ord</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PackageDownloadInfo</span> {
@@ -1177,30 +1114,17 @@
     <span class="kw">pub</span> <span class="ident">pirita_url</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_package_local_dir</span>(
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">version</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident">get_checkouts_dir</span>(<span class="ident">test_name</span>)<span class="question-mark">?</span>;
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-    <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident">get_checkouts_dir</span>()<span class="question-mark">?</span>;
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_package_local_dir</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">version</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident">get_checkouts_dir</span>(<span class="ident">wasmer_dir</span>);
     <span class="kw">let</span> <span class="ident">url_hash</span> <span class="op">=</span> <span class="ident">Package::hash_url</span>(<span class="ident">url</span>);
     <span class="kw">let</span> <span class="ident">dir</span> <span class="op">=</span> <span class="ident">checkouts_dir</span>.<span class="ident">join</span>(<span class="macro">format!</span>(<span class="string">&quot;{url_hash}@{version}&quot;</span>));
     <span class="prelude-val">Some</span>(<span class="ident">dir</span>)
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_finding_local_command</span>(<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">cmd</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">LocalPackage</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    <span class="kw">let</span> <span class="ident">local_packages</span> <span class="op">=</span> <span class="ident">get_all_local_packages</span>(<span class="ident">test_name</span>);
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-    <span class="kw">let</span> <span class="ident">local_packages</span> <span class="op">=</span> <span class="ident">get_all_local_packages</span>();
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_finding_local_command</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">cmd</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">LocalPackage</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">local_packages</span> <span class="op">=</span> <span class="ident">get_all_local_packages</span>(<span class="ident">wasmer_dir</span>);
     <span class="kw">for</span> <span class="ident">p</span> <span class="kw">in</span> <span class="ident">local_packages</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
         <span class="kw">let</span> <span class="ident">commands</span> <span class="op">=</span> <span class="ident">p</span>.<span class="ident">get_commands</span>();
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-        <span class="kw">let</span> <span class="ident">commands</span> <span class="op">=</span> <span class="ident">p</span>.<span class="ident">get_commands</span>(<span class="ident">test_name</span>);
 
         <span class="kw">if</span> <span class="ident">commands</span>.<span class="ident">unwrap_or_default</span>().<span class="ident">iter</span>().<span class="ident">any</span>(<span class="op">|</span><span class="ident">c</span><span class="op">|</span> <span class="ident">c</span> <span class="op">==</span> <span class="ident">cmd</span>) {
             <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">p</span>);
@@ -1217,20 +1141,59 @@
     <span class="kw">pub</span> <span class="ident">path</span>: <span class="ident">PathBuf</span>,
 }
 
+<span class="kw">impl</span> <span class="ident">fmt::Display</span> <span class="kw">for</span> <span class="ident">LocalPackage</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
+        <span class="macro">write!</span>(
+            <span class="ident">f</span>,
+            <span class="string">&quot;{}@{} (registry {}, located at {})&quot;</span>,
+            <span class="self">self</span>.<span class="ident">name</span>,
+            <span class="self">self</span>.<span class="ident">version</span>,
+            <span class="self">self</span>.<span class="ident">registry</span>,
+            <span class="self">self</span>.<span class="ident">path</span>.<span class="ident">display</span>()
+        )
+    }
+}
+
 <span class="kw">impl</span> <span class="ident">LocalPackage</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_path</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">String</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_path</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">String</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">path</span>.<span class="ident">clone</span>())
     }
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_commands</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
+
+    <span class="doccomment">/// Returns the wasmer.toml path if it exists</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_wasmer_toml_path</span>(<span class="ident">base_path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">base_path</span>.<span class="ident">join</span>(<span class="ident">PACKAGE_TOML_FILE_NAME</span>);
+        <span class="kw">let</span> <span class="ident">fallback_path</span> <span class="op">=</span> <span class="ident">base_path</span>.<span class="ident">join</span>(<span class="ident">PACKAGE_TOML_FALLBACK_NAME</span>);
+        <span class="kw">if</span> <span class="ident">path</span>.<span class="ident">exists</span>() {
+            <span class="prelude-val">Ok</span>(<span class="ident">path</span>)
+        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">fallback_path</span>.<span class="ident">exists</span>() {
+            <span class="prelude-val">Ok</span>(<span class="ident">fallback_path</span>)
+        } <span class="kw">else</span> {
+            <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
+                <span class="string">&quot;neither {} nor {} exists&quot;</span>,
+                <span class="ident">path</span>.<span class="ident">display</span>(),
+                <span class="ident">fallback_path</span>.<span class="ident">display</span>()
+            ))
+        }
+    }
+
+    <span class="doccomment">/// Reads the wasmer.toml fron $PATH with wapm.toml as a fallback</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read_toml</span>(<span class="ident">base_path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">wasmer_toml::Manifest</span>, <span class="ident">String</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">wasmer_toml</span> <span class="op">=</span> <span class="ident">std::fs::read_to_string</span>(<span class="ident">base_path</span>.<span class="ident">join</span>(<span class="ident">PACKAGE_TOML_FILE_NAME</span>))
+            .<span class="ident">or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">std::fs::read_to_string</span>(<span class="ident">base_path</span>.<span class="ident">join</span>(<span class="ident">PACKAGE_TOML_FALLBACK_NAME</span>)))
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
+                <span class="macro">format!</span>(
+                    <span class="string">&quot;Path {} has no {PACKAGE_TOML_FILE_NAME} or {PACKAGE_TOML_FALLBACK_NAME}&quot;</span>,
+                    <span class="ident">base_path</span>.<span class="ident">display</span>()
+                )
+            })<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">wasmer_toml</span> <span class="op">=</span> <span class="ident">toml::from_str</span>::<span class="op">&lt;</span><span class="ident">wasmer_toml::Manifest</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">wasmer_toml</span>)
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;Could not parse toml for {:?}: {e}&quot;</span>, <span class="ident">base_path</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="ident">wasmer_toml</span>)
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_commands</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>, <span class="ident">String</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_path</span>()<span class="question-mark">?</span>;
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_path</span>(<span class="ident">test_name</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">toml_path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">join</span>(<span class="string">&quot;wapm.toml&quot;</span>);
-        <span class="kw">let</span> <span class="ident">toml</span> <span class="op">=</span> <span class="ident">std::fs::read_to_string</span>(<span class="kw-2">&amp;</span><span class="ident">toml_path</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;error reading {}: {e}&quot;</span>, <span class="ident">toml_path</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">toml_parsed</span> <span class="op">=</span> <span class="ident">toml::from_str</span>::<span class="op">&lt;</span><span class="ident">wapm_toml::Manifest</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">toml</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;error parsing {}: {e}&quot;</span>, <span class="ident">toml_path</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">toml_parsed</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::read_toml</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">toml_parsed</span>
             .<span class="ident">command</span>
             .<span class="ident">unwrap_or_default</span>()
@@ -1242,19 +1205,15 @@
 
 <span class="doccomment">/// Returns the (manifest, .wasm file name), given a package dir</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_executable_file_from_path</span>(
-    <span class="ident">package_dir</span>: <span class="kw-2">&amp;</span><span class="ident">PathBuf</span>,
+    <span class="ident">package_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
     <span class="ident">command</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
-) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">wapm_toml::Manifest</span>, <span class="ident">PathBuf</span>), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">wapm_toml</span> <span class="op">=</span> <span class="ident">std::fs::read_to_string</span>(<span class="ident">package_dir</span>.<span class="ident">join</span>(<span class="string">&quot;wapm.toml&quot;</span>))
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Package {package_dir:?} has no wapm.toml&quot;</span>))<span class="question-mark">?</span>;
+) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">wasmer_toml::Manifest</span>, <span class="ident">PathBuf</span>), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">wasmer_toml</span> <span class="op">=</span> <span class="ident">LocalPackage::read_toml</span>(<span class="ident">package_dir</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">wapm_toml</span> <span class="op">=</span> <span class="ident">toml::from_str</span>::<span class="op">&lt;</span><span class="ident">wapm_toml::Manifest</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">wapm_toml</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not parse toml for {package_dir:?}: {e}&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">wasmer_toml</span>.<span class="ident">package</span>.<span class="ident">name</span>.<span class="ident">clone</span>();
+    <span class="kw">let</span> <span class="ident">version</span> <span class="op">=</span> <span class="ident">wasmer_toml</span>.<span class="ident">package</span>.<span class="ident">version</span>.<span class="ident">clone</span>();
 
-    <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">wapm_toml</span>.<span class="ident">package</span>.<span class="ident">name</span>.<span class="ident">clone</span>();
-    <span class="kw">let</span> <span class="ident">version</span> <span class="op">=</span> <span class="ident">wapm_toml</span>.<span class="ident">package</span>.<span class="ident">version</span>.<span class="ident">clone</span>();
-
-    <span class="kw">let</span> <span class="ident">commands</span> <span class="op">=</span> <span class="ident">wapm_toml</span>.<span class="ident">command</span>.<span class="ident">clone</span>().<span class="ident">unwrap_or_default</span>();
+    <span class="kw">let</span> <span class="ident">commands</span> <span class="op">=</span> <span class="ident">wasmer_toml</span>.<span class="ident">command</span>.<span class="ident">clone</span>().<span class="ident">unwrap_or_default</span>();
     <span class="kw">let</span> <span class="ident">entrypoint_module</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">command</span> {
         <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="ident">commands</span>.<span class="ident">iter</span>().<span class="ident">find</span>(<span class="op">|</span><span class="ident">c</span><span class="op">|</span> <span class="ident">c</span>.<span class="ident">get_name</span>() <span class="op">==</span> <span class="ident">s</span>).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
             <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Cannot run {name}@{version}: package has no command {s:?}&quot;</span>)
@@ -1276,19 +1235,19 @@
     };
 
     <span class="kw">let</span> <span class="ident">module_name</span> <span class="op">=</span> <span class="ident">entrypoint_module</span>.<span class="ident">get_module</span>();
-    <span class="kw">let</span> <span class="ident">modules</span> <span class="op">=</span> <span class="ident">wapm_toml</span>.<span class="ident">module</span>.<span class="ident">clone</span>().<span class="ident">unwrap_or_default</span>();
+    <span class="kw">let</span> <span class="ident">modules</span> <span class="op">=</span> <span class="ident">wasmer_toml</span>.<span class="ident">module</span>.<span class="ident">clone</span>().<span class="ident">unwrap_or_default</span>();
     <span class="kw">let</span> <span class="ident">entrypoint_module</span> <span class="op">=</span> <span class="ident">modules</span>
         .<span class="ident">iter</span>()
         .<span class="ident">find</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span>.<span class="ident">name</span> <span class="op">==</span> <span class="ident">module_name</span>)
         .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
             <span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;Cannot run {name}@{version}: module {module_name} not found in wapm.toml&quot;</span>
+                <span class="string">&quot;Cannot run {name}@{version}: module {module_name} not found in {GLOBAL_CONFIG_FILE_NAME}&quot;</span>
             )
         })<span class="question-mark">?</span>;
 
     <span class="kw">let</span> <span class="ident">entrypoint_source</span> <span class="op">=</span> <span class="ident">package_dir</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">entrypoint_module</span>.<span class="ident">source</span>);
 
-    <span class="prelude-val">Ok</span>((<span class="ident">wapm_toml</span>, <span class="ident">entrypoint_source</span>))
+    <span class="prelude-val">Ok</span>((<span class="ident">wasmer_toml</span>, <span class="ident">entrypoint_source</span>))
 }
 
 <span class="kw">fn</span> <span class="ident">get_all_names_in_dir</span>(<span class="ident">dir</span>: <span class="kw-2">&amp;</span><span class="ident">PathBuf</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">PathBuf</span>, <span class="ident">String</span>)<span class="op">&gt;</span> {
@@ -1317,25 +1276,13 @@
 }
 
 <span class="doccomment">/// Returns a list of all locally installed packages</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_all_local_packages</span>(<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">LocalPackage</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_all_local_packages</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">LocalPackage</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">packages</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-    <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident">get_checkouts_dir</span>();
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident">get_checkouts_dir</span>(<span class="ident">test_name</span>);
-
-    <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">checkouts_dir</span> {
-        <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>,
-        <span class="prelude-val">None</span> =&gt; <span class="kw">return</span> <span class="ident">packages</span>,
-    };
+    <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident">get_checkouts_dir</span>(<span class="ident">wasmer_dir</span>);
 
     <span class="kw">for</span> (<span class="ident">path</span>, <span class="ident">url_hash_with_version</span>) <span class="kw">in</span> <span class="ident">get_all_names_in_dir</span>(<span class="kw-2">&amp;</span><span class="ident">checkouts_dir</span>) {
-        <span class="kw">let</span> <span class="ident">s</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">std::fs::read_to_string</span>(<span class="ident">path</span>.<span class="ident">join</span>(<span class="string">&quot;wapm.toml&quot;</span>)) {
-            <span class="prelude-val">Ok</span>(<span class="ident">o</span>) =&gt; <span class="ident">o</span>,
-            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">continue</span>,
-        };
-        <span class="kw">let</span> <span class="ident">manifest</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">wapm_toml::Manifest::parse</span>(<span class="kw-2">&amp;</span><span class="ident">s</span>) {
+        <span class="kw">let</span> <span class="ident">manifest</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">LocalPackage::read_toml</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>) {
             <span class="prelude-val">Ok</span>(<span class="ident">o</span>) =&gt; <span class="ident">o</span>,
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">continue</span>,
         };
@@ -1361,16 +1308,11 @@
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_local_package</span>(
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+    <span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
     <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
     <span class="ident">version</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
 ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">LocalPackage</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-    <span class="kw">let</span> <span class="ident">local_packages</span> <span class="op">=</span> <span class="ident">get_all_local_packages</span>();
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    <span class="kw">let</span> <span class="ident">local_packages</span> <span class="op">=</span> <span class="ident">get_all_local_packages</span>(<span class="ident">test_name</span>);
-
-    <span class="ident">local_packages</span>
+    <span class="ident">get_all_local_packages</span>(<span class="ident">wasmer_dir</span>)
         .<span class="ident">iter</span>()
         .<span class="ident">find</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> {
             <span class="kw">if</span> <span class="ident">p</span>.<span class="ident">name</span> <span class="op">!</span><span class="op">=</span> <span class="ident">name</span> {
@@ -1499,7 +1441,7 @@
         <span class="ident">QueryPackageError::ErrorSendingQuery</span>(<span class="macro">format!</span>(<span class="string">&quot;no package version for {name:?}&quot;</span>))
     })<span class="question-mark">?</span>;
 
-    <span class="kw">let</span> <span class="ident">manifest</span> <span class="op">=</span> <span class="ident">toml::from_str</span>::<span class="op">&lt;</span><span class="ident">wapm_toml::Manifest</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">v</span>.<span class="ident">manifest</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+    <span class="kw">let</span> <span class="ident">manifest</span> <span class="op">=</span> <span class="ident">toml::from_str</span>::<span class="op">&lt;</span><span class="ident">wasmer_toml::Manifest</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">v</span>.<span class="ident">manifest</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
         <span class="ident">QueryPackageError::ErrorSendingQuery</span>(<span class="macro">format!</span>(<span class="string">&quot;Invalid manifest for crate {name:?}: {e}&quot;</span>))
     })<span class="question-mark">?</span>;
 
@@ -1524,43 +1466,12 @@
     })
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_wasmer_root_dir</span>(<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    {
-        <span class="ident">PartialWapmConfig::get_folder</span>(<span class="ident">test_name</span>).<span class="ident">ok</span>()
-    }
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-    {
-        <span class="ident">PartialWapmConfig::get_folder</span>().<span class="ident">ok</span>()
-    }
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_checkouts_dir</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">PathBuf</span> {
+    <span class="ident">wasmer_dir</span>.<span class="ident">join</span>(<span class="string">&quot;checkouts&quot;</span>)
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_checkouts_dir</span>(<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    <span class="kw">let</span> <span class="ident">root_dir</span> <span class="op">=</span> <span class="ident">get_wasmer_root_dir</span>(<span class="ident">test_name</span>)<span class="question-mark">?</span>;
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-    <span class="kw">let</span> <span class="ident">root_dir</span> <span class="op">=</span> <span class="ident">get_wasmer_root_dir</span>()<span class="question-mark">?</span>;
-    <span class="prelude-val">Some</span>(<span class="ident">root_dir</span>.<span class="ident">join</span>(<span class="string">&quot;checkouts&quot;</span>))
-}
-
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_webc_dir</span>(<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    <span class="kw">let</span> <span class="ident">root_dir</span> <span class="op">=</span> <span class="ident">get_wasmer_root_dir</span>(<span class="ident">test_name</span>)<span class="question-mark">?</span>;
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-    <span class="kw">let</span> <span class="ident">root_dir</span> <span class="op">=</span> <span class="ident">get_wasmer_root_dir</span>()<span class="question-mark">?</span>;
-    <span class="prelude-val">Some</span>(<span class="ident">root_dir</span>.<span class="ident">join</span>(<span class="string">&quot;webc&quot;</span>))
-}
-
-<span class="doccomment">/// Returs the path to the directory where all packages on this computer are being stored</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_global_install_dir</span>(
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    <span class="ident">registry_host</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    <span class="kw">let</span> <span class="ident">root_dir</span> <span class="op">=</span> <span class="ident">get_checkouts_dir</span>(<span class="ident">test_name</span>)<span class="question-mark">?</span>;
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-    <span class="kw">let</span> <span class="ident">root_dir</span> <span class="op">=</span> <span class="ident">get_checkouts_dir</span>()<span class="question-mark">?</span>;
-    <span class="prelude-val">Some</span>(<span class="ident">root_dir</span>.<span class="ident">join</span>(<span class="ident">registry_host</span>))
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_webc_dir</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">PathBuf</span> {
+    <span class="ident">wasmer_dir</span>.<span class="ident">join</span>(<span class="string">&quot;webc&quot;</span>)
 }
 
 <span class="doccomment">/// Convenience function that will unpack .tar.gz files and .tar.bz</span>
@@ -1670,7 +1581,7 @@
 
 <span class="doccomment">/// Installs the .tar.gz if it doesn&#39;t yet exist, returns the</span>
 <span class="doccomment">/// (package dir, entrypoint .wasm file path)</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">install_package</span>(<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">install_package</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>, <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
     <span class="kw">use</span> <span class="ident">fs_extra::dir::copy</span>;
 
     <span class="kw">let</span> <span class="ident">tempdir</span> <span class="op">=</span> <span class="ident">tempdir::TempDir::new</span>(<span class="string">&quot;download&quot;</span>)
@@ -1695,21 +1606,13 @@
     )
     .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not unpack file downloaded from {url}&quot;</span>))<span class="question-mark">?</span>;
 
-    <span class="comment">// read {unpacked}/wapm.toml to get the name + version number</span>
-    <span class="kw">let</span> <span class="ident">toml_path</span> <span class="op">=</span> <span class="ident">unpacked_targz_path</span>.<span class="ident">join</span>(<span class="string">&quot;wapm.toml&quot;</span>);
-    <span class="kw">let</span> <span class="ident">toml</span> <span class="op">=</span> <span class="ident">std::fs::read_to_string</span>(<span class="kw-2">&amp;</span><span class="ident">toml_path</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;error reading {}: {e}&quot;</span>, <span class="ident">toml_path</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">toml_parsed</span> <span class="op">=</span> <span class="ident">toml::from_str</span>::<span class="op">&lt;</span><span class="ident">wapm_toml::Manifest</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="ident">toml</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;error parsing {}: {e}&quot;</span>, <span class="ident">toml_path</span>.<span class="ident">display</span>()))<span class="question-mark">?</span>;
+    <span class="comment">// read {unpacked}/wasmer.toml to get the name + version number</span>
+    <span class="kw">let</span> <span class="ident">toml_parsed</span> <span class="op">=</span> <span class="ident">LocalPackage::read_toml</span>(<span class="kw-2">&amp;</span><span class="ident">unpacked_targz_path</span>)
+        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;error reading package name / version number: {e}&quot;</span>))<span class="question-mark">?</span>;
 
     <span class="kw">let</span> <span class="ident">version</span> <span class="op">=</span> <span class="ident">toml_parsed</span>.<span class="ident">package</span>.<span class="ident">version</span>.<span class="ident">to_string</span>();
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::get_checkouts_dir</span>(<span class="ident">test_name</span>);
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-    <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::get_checkouts_dir</span>();
-
-    <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident">checkouts_dir</span>.<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no checkouts dir&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::get_checkouts_dir</span>(<span class="ident">wasmer_dir</span>);
 
     <span class="kw">let</span> <span class="ident">installation_path</span> <span class="op">=</span>
         <span class="ident">checkouts_dir</span>.<span class="ident">join</span>(<span class="macro">format!</span>(<span class="string">&quot;{}@{version}&quot;</span>, <span class="ident">Package::hash_url</span>(<span class="ident">url</span>.<span class="ident">as_ref</span>())));
@@ -1724,7 +1627,7 @@
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>))]</span>
     <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">filetime::set_file_mtime</span>(
-        <span class="ident">installation_path</span>.<span class="ident">join</span>(<span class="string">&quot;wapm.toml&quot;</span>),
+        <span class="ident">LocalPackage::get_wasmer_toml_path</span>(<span class="kw-2">&amp;</span><span class="ident">installation_path</span>)<span class="question-mark">?</span>,
         <span class="ident">filetime::FileTime::now</span>(),
     );
 
@@ -1732,16 +1635,14 @@
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">whoami</span>(
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+    <span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
     <span class="ident">registry</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
+    <span class="ident">token</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">String</span>), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
     <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::queries</span>::{<span class="ident">who_am_i_query</span>, <span class="ident">WhoAmIQuery</span>};
     <span class="kw">use</span> <span class="ident">graphql_client::GraphQLQuery</span>;
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>(<span class="ident">test_name</span>);
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>();
+    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>(<span class="ident">wasmer_dir</span>);
 
     <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">config</span>
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
@@ -1752,9 +1653,9 @@
         <span class="prelude-val">None</span> =&gt; <span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">get_current_registry</span>(),
     };
 
-    <span class="kw">let</span> <span class="ident">login_token</span> <span class="op">=</span> <span class="ident">config</span>
-        .<span class="ident">registry</span>
-        .<span class="ident">get_login_token_for_registry</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>)
+    <span class="kw">let</span> <span class="ident">login_token</span> <span class="op">=</span> <span class="ident">token</span>
+        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">to_string</span>())
+        .<span class="ident">or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">get_login_token_for_registry</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>))
         .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;not logged into registry {:?}&quot;</span>, <span class="ident">registry</span>))<span class="question-mark">?</span>;
 
     <span class="kw">let</span> <span class="ident">q</span> <span class="op">=</span> <span class="ident">WhoAmIQuery::build_query</span>(<span class="ident">who_am_i_query::Variables</span> {});
@@ -1789,11 +1690,8 @@
     <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_all_available_registries</span>(<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>(<span class="ident">test_name</span>)<span class="question-mark">?</span>;
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>()<span class="question-mark">?</span>;
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_all_available_registries</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>, <span class="ident">String</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>(<span class="ident">wasmer_dir</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">registries</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
     <span class="kw">match</span> <span class="ident">config</span>.<span class="ident">registry</span> {
@@ -1816,7 +1714,7 @@
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">install_webc_package</span>(
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+    <span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
     <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>,
     <span class="ident">checksum</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
@@ -1824,34 +1722,18 @@
         .<span class="ident">enable_all</span>()
         .<span class="ident">build</span>()
         .<span class="ident">unwrap</span>()
-        .<span class="ident">block_on</span>(<span class="kw">async</span> {
-            {
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-                {
-                    <span class="ident">install_webc_package_inner</span>(<span class="ident">test_name</span>, <span class="ident">url</span>, <span class="ident">checksum</span>).<span class="kw">await</span>
-                }
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-                {
-                    <span class="ident">install_webc_package_inner</span>(<span class="ident">url</span>, <span class="ident">checksum</span>).<span class="kw">await</span>
-                }
-            }
-        })
+        .<span class="ident">block_on</span>(<span class="kw">async</span> { <span class="ident">install_webc_package_inner</span>(<span class="ident">wasmer_dir</span>, <span class="ident">url</span>, <span class="ident">checksum</span>).<span class="kw">await</span> })
 }
 
 <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">install_webc_package_inner</span>(
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+    <span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
     <span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>,
     <span class="ident">checksum</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
     <span class="kw">use</span> <span class="ident">futures_util::StreamExt</span>;
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">get_webc_dir</span>(<span class="ident">test_name</span>).<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no webc dir&quot;</span>))<span class="question-mark">?</span>;
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-    <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">get_webc_dir</span>().<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no webc dir&quot;</span>))<span class="question-mark">?</span>;
-
+    <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">get_webc_dir</span>(<span class="ident">wasmer_dir</span>);
     <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>);
-
     <span class="kw">let</span> <span class="ident">webc_path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">join</span>(<span class="ident">checksum</span>);
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">std::fs::File::create</span>(<span class="kw-2">&amp;</span><span class="ident">webc_path</span>)
@@ -1895,28 +1777,12 @@
 }
 
 <span class="doccomment">/// Returns a list of all installed webc packages</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_all_installed_webc_packages</span>(<span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">RemoteWebcInfo</span><span class="op">&gt;</span> {
-    <span class="ident">get_all_installed_webc_packages_inner</span>(<span class="ident">test_name</span>)
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_all_installed_webc_packages</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">RemoteWebcInfo</span><span class="op">&gt;</span> {
+    <span class="ident">get_all_installed_webc_packages_inner</span>(<span class="ident">wasmer_dir</span>)
 }
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_all_installed_webc_packages</span>() -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">RemoteWebcInfo</span><span class="op">&gt;</span> {
-    <span class="ident">get_all_installed_webc_packages_inner</span>(<span class="string">&quot;&quot;</span>)
-}
-
-<span class="kw">fn</span> <span class="ident">get_all_installed_webc_packages_inner</span>(<span class="ident">_test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">RemoteWebcInfo</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    <span class="kw">let</span> <span class="ident">dir</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">get_webc_dir</span>(<span class="ident">_test_name</span>) {
-        <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>,
-        <span class="prelude-val">None</span> =&gt; <span class="kw">return</span> <span class="ident">Vec::new</span>(),
-    };
-
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-    <span class="kw">let</span> <span class="ident">dir</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">get_webc_dir</span>() {
-        <span class="prelude-val">Some</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>,
-        <span class="prelude-val">None</span> =&gt; <span class="kw">return</span> <span class="ident">Vec::new</span>(),
-    };
+<span class="kw">fn</span> <span class="ident">get_all_installed_webc_packages_inner</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">RemoteWebcInfo</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">dir</span> <span class="op">=</span> <span class="ident">get_webc_dir</span>(<span class="ident">wasmer_dir</span>);
 
     <span class="kw">let</span> <span class="ident">read_dir</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">std::fs::read_dir</span>(<span class="ident">dir</span>) {
         <span class="prelude-val">Ok</span>(<span class="ident">s</span>) =&gt; <span class="ident">s</span>,
@@ -2116,8 +1982,6 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_env</span> <span class="op">=</span> <span class="string">&quot;musl&quot;</span>))]</span>
 <span class="attribute">#[<span class="ident">test</span>]</span>
 <span class="kw">fn</span> <span class="ident">test_install_package</span>() {
-    <span class="kw">const</span> <span class="ident">TEST_NAME</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;test_install_package&quot;</span>;
-
     <span class="macro">println!</span>(<span class="string">&quot;test install package...&quot;</span>);
     <span class="kw">let</span> <span class="ident">registry</span> <span class="op">=</span> <span class="string">&quot;https://registry.wapm.io/graphql&quot;</span>;
     <span class="kw">if</span> <span class="op">!</span><span class="ident">test_if_registry_present</span>(<span class="ident">registry</span>).<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>) {
@@ -2141,25 +2005,25 @@
         <span class="string">&quot;https://registry-cdn.wapm.io/packages/wasmer/wabt/wabt-1.0.29.tar.gz&quot;</span>.<span class="ident">to_string</span>()
     );
 
-    <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">install_package</span>(<span class="ident">TEST_NAME</span>, <span class="kw-2">&amp;</span><span class="ident">url::Url::parse</span>(<span class="kw-2">&amp;</span><span class="ident">wabt</span>.<span class="ident">url</span>).<span class="ident">unwrap</span>()).<span class="ident">unwrap</span>();
+    <span class="kw">let</span> <span class="ident">fake_wasmer_dir</span> <span class="op">=</span> <span class="ident">tempdir::TempDir::new</span>(<span class="string">&quot;tmp&quot;</span>).<span class="ident">unwrap</span>();
+    <span class="kw">let</span> <span class="ident">wasmer_dir</span> <span class="op">=</span> <span class="ident">fake_wasmer_dir</span>.<span class="ident">path</span>();
+    <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">install_package</span>(<span class="ident">wasmer_dir</span>, <span class="kw-2">&amp;</span><span class="ident">url::Url::parse</span>(<span class="kw-2">&amp;</span><span class="ident">wabt</span>.<span class="ident">url</span>).<span class="ident">unwrap</span>()).<span class="ident">unwrap</span>();
 
     <span class="macro">println!</span>(<span class="string">&quot;package installed: {path:?}&quot;</span>);
 
     <span class="macro">assert_eq!</span>(
         <span class="ident">path</span>,
-        <span class="ident">get_checkouts_dir</span>(<span class="ident">TEST_NAME</span>)
-            .<span class="ident">unwrap</span>()
-            .<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}@1.0.29&quot;</span>, <span class="ident">Package::hash_url</span>(<span class="kw-2">&amp;</span><span class="ident">wabt</span>.<span class="ident">url</span>)))
+        <span class="ident">get_checkouts_dir</span>(<span class="ident">wasmer_dir</span>).<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}@1.0.29&quot;</span>, <span class="ident">Package::hash_url</span>(<span class="kw-2">&amp;</span><span class="ident">wabt</span>.<span class="ident">url</span>)))
     );
 
-    <span class="kw">let</span> <span class="ident">all_installed_packages</span> <span class="op">=</span> <span class="ident">get_all_local_packages</span>(<span class="ident">TEST_NAME</span>);
+    <span class="kw">let</span> <span class="ident">all_installed_packages</span> <span class="op">=</span> <span class="ident">get_all_local_packages</span>(<span class="ident">wasmer_dir</span>);
 
     <span class="kw">let</span> <span class="ident">is_installed</span> <span class="op">=</span> <span class="ident">all_installed_packages</span>
         .<span class="ident">iter</span>()
         .<span class="ident">any</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">name</span> <span class="op">==</span> <span class="string">&quot;wasmer/wabt&quot;</span> <span class="op">&amp;&amp;</span> <span class="ident">p</span>.<span class="ident">version</span> <span class="op">==</span> <span class="string">&quot;1.0.29&quot;</span>);
 
     <span class="kw">if</span> <span class="op">!</span><span class="ident">is_installed</span> {
-        <span class="kw">let</span> <span class="ident">panic_str</span> <span class="op">=</span> <span class="ident">get_all_local_packages</span>(<span class="ident">TEST_NAME</span>)
+        <span class="kw">let</span> <span class="ident">panic_str</span> <span class="op">=</span> <span class="ident">get_all_local_packages</span>(<span class="ident">wasmer_dir</span>)
             .<span class="ident">iter</span>()
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;{} {} {}&quot;</span>, <span class="ident">p</span>.<span class="ident">registry</span>, <span class="ident">p</span>.<span class="ident">name</span>, <span class="ident">p</span>.<span class="ident">version</span>))
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()

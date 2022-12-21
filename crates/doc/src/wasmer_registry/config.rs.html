@@ -307,22 +307,13 @@
 <span id="301">301</span>
 <span id="302">302</span>
 <span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
-<span id="307">307</span>
-<span id="308">308</span>
-<span id="309">309</span>
-<span id="310">310</span>
-<span id="311">311</span>
-<span id="312">312</span>
-<span id="313">313</span>
-<span id="314">314</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">graphql_client::GraphQLQuery</span>;
 <span class="kw">use</span> <span class="ident">serde::Deserialize</span>;
 <span class="kw">use</span> <span class="ident">serde::Serialize</span>;
 <span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
 <span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
+
+<span class="kw">pub</span> <span class="kw">static</span> <span class="ident">GLOBAL_CONFIG_DATABASE_FILE_NAME</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;wasmer.sqlite&quot;</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Deserialize</span>, <span class="ident">Default</span>, <span class="ident">Serialize</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">PartialWapmConfig</span> {
@@ -565,12 +556,8 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_file</span>(<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::get_file_location</span>(<span class="ident">test_name</span>)<span class="question-mark">?</span>;
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::get_file_location</span>()<span class="question-mark">?</span>;
-
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_file</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">String</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::get_file_location</span>(<span class="ident">wasmer_dir</span>);
         <span class="kw">match</span> <span class="ident">std::fs::read_to_string</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>) {
             <span class="prelude-val">Ok</span>(<span class="ident">config_toml</span>) =&gt; {
                 <span class="ident">toml::from_str</span>(<span class="kw-2">&amp;</span><span class="ident">config_toml</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;could not parse {path:?}: {e}&quot;</span>))
@@ -579,19 +566,8 @@
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_current_dir</span>() -&gt; <span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
-        <span class="ident">std::env::current_dir</span>()
-    }
-
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_folder</span>(<span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">test_dir</span> <span class="op">=</span> <span class="ident">std::env::temp_dir</span>().<span class="ident">join</span>(<span class="string">&quot;test_wasmer&quot;</span>).<span class="ident">join</span>(<span class="ident">test_name</span>);
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">test_dir</span>);
-        <span class="prelude-val">Ok</span>(<span class="ident">test_dir</span>)
-    }
-
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_folder</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">String</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Creates and returns the `WASMER_DIR` directory (or $HOME/.wasmer as a fallback)</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_wasmer_dir</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">String</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">folder_str</span>) <span class="op">=</span> <span class="ident">std::env::var</span>(<span class="string">&quot;WASMER_DIR&quot;</span>).<span class="ident">ok</span>().<span class="ident">filter</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="op">!</span><span class="ident">s</span>.<span class="ident">is_empty</span>()) {
                 <span class="kw">let</span> <span class="ident">folder</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="ident">folder_str</span>);
@@ -614,14 +590,16 @@
         )
     }
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_file_location</span>(<span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::get_folder</span>(<span class="ident">test_name</span>)<span class="question-mark">?</span>.<span class="ident">join</span>(<span class="ident"><span class="kw">crate</span>::GLOBAL_CONFIG_FILE_NAME</span>))
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_current_dir</span>() -&gt; <span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
+        <span class="ident">std::env::current_dir</span>()
     }
 
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_file_location</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident"><span class="self">Self</span>::get_folder</span>()<span class="question-mark">?</span>.<span class="ident">join</span>(<span class="ident"><span class="kw">crate</span>::GLOBAL_CONFIG_FILE_NAME</span>))
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_file_location</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">PathBuf</span> {
+        <span class="ident">wasmer_dir</span>.<span class="ident">join</span>(<span class="ident"><span class="kw">crate</span>::GLOBAL_CONFIG_FILE_NAME</span>)
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_database_file_path</span>(<span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="ident">PathBuf</span> {
+        <span class="ident">wasmer_dir</span>.<span class="ident">join</span>(<span class="ident">GLOBAL_CONFIG_DATABASE_FILE_NAME</span>)
     }
 }
 

@@ -191,37 +191,18 @@
 <span id="185">185</span>
 <span id="186">186</span>
 <span id="187">187</span>
-<span id="188">188</span>
-<span id="189">189</span>
-<span id="190">190</span>
-<span id="191">191</span>
-<span id="192">192</span>
-<span id="193">193</span>
-<span id="194">194</span>
-<span id="195">195</span>
-<span id="196">196</span>
-<span id="197">197</span>
-<span id="198">198</span>
-<span id="199">199</span>
-<span id="200">200</span>
-<span id="201">201</span>
-<span id="202">202</span>
-<span id="203">203</span>
-<span id="204">204</span>
-<span id="205">205</span>
-<span id="206">206</span>
-<span id="207">207</span>
-<span id="208">208</span>
-<span id="209">209</span>
-<span id="210">210</span>
-<span id="211">211</span>
-<span id="212">212</span>
-<span id="213">213</span>
-<span id="214">214</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::PartialWapmConfig</span>;
-<span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
+<span class="kw">use</span> <span class="ident">regex::Regex</span>;
+<span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fmt</span>, <span class="ident">str::FromStr</span>};
 <span class="kw">use</span> <span class="ident">url::Url</span>;
+
+<span class="kw">const</span> <span class="ident">REGEX_PACKAGE_WITH_VERSION</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span>
+    <span class="string">r#&quot;^([a-zA-Z0-9\-_]+)/([a-zA-Z0-9\-_]+)(@([a-zA-Z0-9\.\-_]+*))?$&quot;#</span>;
+
+<span class="macro">lazy_static::lazy_static!</span> {
+    <span class="kw">static</span> <span class="kw-2">ref</span> <span class="ident">PACKAGE_WITH_VERSION</span>: <span class="ident">Regex</span> <span class="op">=</span> <span class="ident">regex::Regex::new</span>(<span class="ident">REGEX_PACKAGE_WITH_VERSION</span>).<span class="ident">unwrap</span>();
+}
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Package</span> {
@@ -238,16 +219,11 @@
 
 <span class="kw">impl</span> <span class="ident">Package</span> {
     <span class="doccomment">/// Checks whether the package is already installed, if yes, returns the path to the root dir</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">already_installed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-        <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::get_checkouts_dir</span>()<span class="question-mark">?</span>;
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-        <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::get_checkouts_dir</span>(<span class="ident">test_name</span>)<span class="question-mark">?</span>;
-
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-        <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_hash</span>();
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-        <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_hash</span>(<span class="ident">test_name</span>);
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">already_installed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::get_checkouts_dir</span>(<span class="ident">wasmer_dir</span>);
+        <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>(<span class="ident">wasmer_dir</span>).<span class="ident">ok</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">current_registry</span> <span class="op">=</span> <span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">get_current_registry</span>();
+        <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_hash</span>(<span class="kw-2">&amp;</span><span class="ident">current_registry</span>);
 
         <span class="kw">let</span> <span class="ident">found</span> <span class="op">=</span> <span class="ident">std::fs::read_dir</span>(<span class="kw-2">&amp;</span><span class="ident">checkouts_dir</span>)
             .<span class="ident">ok</span>()<span class="question-mark">?</span>
@@ -261,11 +237,8 @@
 
     <span class="doccomment">/// Checks if the URL is already installed, note that `{url}@{version}`</span>
     <span class="doccomment">/// and `{url}` are treated the same</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_url_already_installed</span>(<span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>, <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-        <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::get_checkouts_dir</span>()<span class="question-mark">?</span>;
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-        <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::get_checkouts_dir</span>(<span class="ident">test_name</span>)<span class="question-mark">?</span>;
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_url_already_installed</span>(<span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>, <span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::get_checkouts_dir</span>(<span class="ident">wasmer_dir</span>);
 
         <span class="kw">let</span> <span class="ident">url_string</span> <span class="op">=</span> <span class="ident">url</span>.<span class="ident">to_string</span>();
         <span class="kw">let</span> (<span class="ident">url</span>, <span class="ident">version</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">url_string</span>.<span class="ident">split</span>(<span class="string">&#39;@&#39;</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()[..] {
@@ -296,22 +269,13 @@
 
     <span class="doccomment">/// Returns the hash of the package URL without the version</span>
     <span class="doccomment">/// (because the version is encoded as @version and isn&#39;t part of the hash itself)</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_hash</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">String</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-        <span class="kw">let</span> <span class="ident">url</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_url_without_version</span>(<span class="ident">test_name</span>);
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-        <span class="kw">let</span> <span class="ident">url</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_url_without_version</span>();
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_hash</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">String</span> {
+        <span class="kw">let</span> <span class="ident">url</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_url_without_version</span>(<span class="ident">registry</span>);
         <span class="ident"><span class="self">Self</span>::hash_url</span>(<span class="kw-2">&amp;</span><span class="ident">url</span>.<span class="ident">unwrap_or_default</span>())
     }
 
-    <span class="kw">fn</span> <span class="ident">get_url_without_version</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-        <span class="kw">let</span> <span class="ident">url</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">url</span>(<span class="ident">test_name</span>);
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-        <span class="kw">let</span> <span class="ident">url</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">url</span>();
+    <span class="kw">fn</span> <span class="ident">get_url_without_version</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">url</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">url</span>(<span class="ident">registry</span>);
         <span class="prelude-val">Ok</span>(<span class="macro">format!</span>(
             <span class="string">&quot;{}/{}/{}&quot;</span>,
             <span class="ident">url</span><span class="question-mark">?</span>.<span class="ident">origin</span>().<span class="ident">ascii_serialization</span>(),
@@ -336,16 +300,9 @@
     }
 
     <span class="doccomment">/// Returns the full URL including the version for this package</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">url</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Url</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-        <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>(<span class="ident">test_name</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not read wapm config: {e}&quot;</span>))<span class="question-mark">?</span>;
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-        <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>()
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not read wapm config: {e}&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">registry</span> <span class="op">=</span> <span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">get_current_registry</span>();
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">url</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Url</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">registry_tld</span> <span class="op">=</span> <span class="ident">tldextract::TldExtractor::new</span>(<span class="ident">tldextract::TldOption::default</span>())
-            .<span class="ident">extract</span>(<span class="kw-2">&amp;</span><span class="ident">registry</span>)
+            .<span class="ident">extract</span>(<span class="ident">registry</span>)
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Invalid registry: {}: {e}&quot;</span>, <span class="ident">registry</span>))<span class="question-mark">?</span>;
 
         <span class="kw">let</span> <span class="ident">registry_tld</span> <span class="op">=</span> <span class="macro">format!</span>(
@@ -368,18 +325,11 @@
 
     <span class="doccomment">/// Returns the path to the installation directory.</span>
     <span class="doccomment">/// Does not check whether the installation directory already exists.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_path</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-        <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::get_checkouts_dir</span>(<span class="ident">test_name</span>);
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-        <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::get_checkouts_dir</span>();
-
-        <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident">checkouts_dir</span>.<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no checkouts dir&quot;</span>))<span class="question-mark">?</span>;
-
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-        <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_hash</span>();
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-        <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_hash</span>(<span class="ident">test_name</span>);
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_path</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::get_checkouts_dir</span>(<span class="ident">wasmer_dir</span>);
+        <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>(<span class="ident">wasmer_dir</span>)
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not load config {e}&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_hash</span>(<span class="kw-2">&amp;</span><span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">get_current_registry</span>());
 
         <span class="kw">match</span> <span class="self">self</span>.<span class="ident">version</span>.<span class="ident">as_ref</span>() {
             <span class="prelude-val">Some</span>(<span class="ident">v</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">checkouts_dir</span>.<span class="ident">join</span>(<span class="macro">format!</span>(<span class="string">&quot;{}@{}&quot;</span>, <span class="ident">hash</span>, <span class="ident">v</span>))),
@@ -392,11 +342,7 @@
     <span class="kw">type</span> <span class="prelude-val">Err</span> <span class="op">=</span> <span class="ident">anyhow::Error</span>;
 
     <span class="kw">fn</span> <span class="ident">from_str</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident"><span class="self">Self</span>::Err</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">regex</span> <span class="op">=</span>
-            <span class="ident">regex::Regex::new</span>(<span class="string">r#&quot;^([a-zA-Z0-9\-_]+)/([a-zA-Z0-9\-_]+)(@([a-zA-Z0-9\.\-_]+*))?$&quot;#</span>)
-                .<span class="ident">unwrap</span>();
-
-        <span class="kw">let</span> <span class="ident">captures</span> <span class="op">=</span> <span class="ident">regex</span>
+        <span class="kw">let</span> <span class="ident">captures</span> <span class="op">=</span> <span class="ident">PACKAGE_WITH_VERSION</span>
             .<span class="ident">captures</span>(<span class="ident">s</span>.<span class="ident">trim</span>())
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">c</span><span class="op">|</span> {
                 <span class="ident">c</span>.<span class="ident">iter</span>()

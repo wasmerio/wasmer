@@ -214,6 +214,8 @@
 <span id="206">206</span>
 <span id="207">207</span>
 <span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::process</span>::{<span class="ident">Command</span>, <span class="ident">Stdio</span>};
 
 <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="ident">Error</span>};
@@ -292,7 +294,9 @@
         <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">registry</span> {
             <span class="prelude-val">Some</span>(<span class="ident">r</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">r</span>.<span class="ident">clone</span>()),
             <span class="prelude-val">None</span> =&gt; {
-                <span class="kw">let</span> <span class="ident">cfg</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>()
+                <span class="kw">let</span> <span class="ident">wasmer_dir</span> <span class="op">=</span>
+                    <span class="ident">PartialWapmConfig::get_wasmer_dir</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">cfg</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>(<span class="kw-2">&amp;</span><span class="ident">wasmer_dir</span>)
                     .<span class="ident">map_err</span>(<span class="ident">Error::msg</span>)
                     .<span class="ident">context</span>(<span class="string">&quot;Unable to load WAPM&#39;s config file&quot;</span>)<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(<span class="ident">cfg</span>.<span class="ident">registry</span>.<span class="ident">get_current_registry</span>())

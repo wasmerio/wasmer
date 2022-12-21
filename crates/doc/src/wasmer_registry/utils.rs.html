@@ -26,12 +26,7 @@
 <span id="20">20</span>
 <span id="21">21</span>
 <span id="22">22</span>
-<span id="23">23</span>
-<span id="24">24</span>
-<span id="25">25</span>
-<span id="26">26</span>
-<span id="27">27</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">graphql::execute_query</span>, <span class="ident">PartialWapmConfig</span>};
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql::execute_query</span>;
 <span class="kw">use</span> <span class="ident">graphql_client::GraphQLQuery</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">GraphQLQuery</span>)]</span>
@@ -42,12 +37,7 @@
 )]</span>
 <span class="kw">struct</span> <span class="ident">WhoAmIQuery</span>;
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_username</span>(<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span> <span class="ident">test_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
-    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>(<span class="ident">test_name</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">test</span>))]</span>
-    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
-    <span class="kw">let</span> <span class="ident">registry</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">get_current_registry</span>();
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_username</span>(<span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">q</span> <span class="op">=</span> <span class="ident">WhoAmIQuery::build_query</span>(<span class="ident">who_am_i_query::Variables</span> {});
     <span class="kw">let</span> <span class="ident">response</span>: <span class="ident">who_am_i_query::ResponseData</span> <span class="op">=</span> <span class="ident">execute_query</span>(<span class="ident">registry</span>, <span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">q</span>)<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(<span class="ident">response</span>.<span class="ident">viewer</span>.<span class="ident">map</span>(<span class="op">|</span><span class="ident">viewer</span><span class="op">|</span> <span class="ident">viewer</span>.<span class="ident">username</span>))
