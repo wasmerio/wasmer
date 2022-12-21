@@ -100,22 +100,17 @@ int main(int argc, char *argv[]) {
   wasm_config_t *config = wasm_config_new();
   wasm_engine_t *engine = wasm_engine_new_with_config(config);
   wasm_store_t *store = wasm_store_new(engine);
+  wasm_module_t *module = NULL;
 
-#ifdef WASI_PIRITA
-  // INSTANTIATE_MODULES
-#else
-  wasm_byte_vec_t module_byte_vec = {
-    .size = WASMER_MODULE_LENGTH,
-    .data = &WASMER_MODULE_DATA,
-  };
-  wasm_module_t *module = wasm_module_deserialize(store, &module_byte_vec);
-
-  if (!module) {
-    fprintf(stderr, "Failed to create module\n");
-    print_wasmer_error();
-    return -1;
+  const char* selected_atom = "main";
+  for (int i = 1; i < argc; i++) {
+      if (strcmp(argv[i], "--command") == 0 && i + 1 < argc) {
+        selected_atom = argv[i + 1];
+        break;
+      }
   }
-#endif
+
+  // INSTANTIATE_MODULES
 
   // We have now finished the memory buffer book keeping and we have a valid
   // Module.
@@ -142,7 +137,7 @@ int main(int argc, char *argv[]) {
       module,
       filesystem,
       &imports,
-      "##atom-name##"
+      selected_atom,
       );
   if (!wasi_env) {
     printf("Error setting filesystem\n");

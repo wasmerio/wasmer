@@ -17,8 +17,6 @@ use wasmer_object::{emit_serialized, get_object_for_target};
 #[cfg(feature = "webc_runner")]
 use webc::{ParseOptions, WebCMmap};
 
-const WASMER_SERIALIZED_HEADER: &[u8] = include_bytes!("wasmer_create_exe.h");
-
 #[derive(Debug, Parser)]
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateObj {
