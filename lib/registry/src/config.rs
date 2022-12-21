@@ -4,7 +4,6 @@ use std::path::{Path, PathBuf};
 
 #[derive(Deserialize, Default, Serialize, Debug, PartialEq, Eq)]
 pub struct WasmerConfig {
-
     /// Whether or not telemetry is enabled.
     #[serde(default)]
     pub telemetry_enabled: bool,
