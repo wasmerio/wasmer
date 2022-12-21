@@ -4,10 +4,6 @@ use std::path::{Path, PathBuf};
 
 #[derive(Deserialize, Default, Serialize, Debug, PartialEq, Eq)]
 pub struct WasmerConfig {
-    /// The number of seconds to wait before checking the registry for a new
-    /// version of the package.
-    #[serde(default = "wax_default_cooldown")]
-    pub wax_cooldown: i32,
 
     /// Whether or not telemetry is enabled.
     #[serde(default)]
