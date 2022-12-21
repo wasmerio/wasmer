@@ -112,6 +112,10 @@ fn run_whoami_works() -> anyhow::Result<()> {
     }
 
     let ciuser_token = std::env::var("WAPM_DEV_TOKEN").expect("no CIUSER / WAPM_DEV_TOKEN token");
+    // Special case: GitHub secrets aren't visible to outside collaborators
+    if ciuser_token.is_empty() {
+        return Ok(());
+    }
 
     let output = Command::new(get_wasmer_path())
         .arg("login")
