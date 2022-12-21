@@ -701,10 +701,23 @@ fn link_c_compilation() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+#[allow(dead_code)]
+fn generate_wasmer_main_c_static(entrypoint: &Entrypoint) -> Result<String, anyhow::Error> {
+    generate_wasmer_main_c_inner(entrypoint, true)
+}
+
+fn generate_wasmer_main_c(entrypoint: &Entrypoint) -> Result<String, anyhow::Error> {
+    generate_wasmer_main_c_inner(entrypoint, false)
+}
+
 /// Generate the wasmer_main.c that links all object files together
 /// (depending on the object format / atoms number)
-fn generate_wasmer_main_c(entrypoint: &Entrypoint) -> Result<String, anyhow::Error> {
+fn generate_wasmer_main_c_inner(
+    entrypoint: &Entrypoint,
+    compile_static: bool,
+) -> Result<String, anyhow::Error> {
     const WASMER_MAIN_C_SOURCE: &str = include_str!("wasmer_create_exe_main.c");
+    const WASMER_STATIC_MAIN_C_SOURCE: &str = include_str!("wasmer_static_create_exe_main.c");
 
     match entrypoint.object_format {
         ObjectFormat::Serialized => {
@@ -732,22 +745,40 @@ fn generate_wasmer_main_c(entrypoint: &Entrypoint) -> Result<String, anyhow::Err
                 "
                 ));
 
-                c_code_to_instantiate.push_str(&format!("
-                wasm_byte_vec_t atom_{atom_name}_byte_vec = {{
-                    .size = {atom_name_uppercase}_LENGTH,
-                    .data = &{atom_name_uppercase}_DATA,
-                }};
-                wasm_module_t *atom_{atom_name} = wasm_module_deserialize(store, &atom_{atom_name}_byte_vec);
-                if (!atom_{atom_name}) {{
-                    fprintf(stderr, \"Failed to create module from atom \\\"{atom_name}\\\"\\n\");
-                    print_wasmer_error();
-                    return -1;
-                }}
-                "));
+                if compile_static {
+                    c_code_to_instantiate.push_str(&format!("
+                    wasm_module_t *atom_{atom_name} = wasmer_object_module_new(store, \"{atom_name}\");
+                    if (!atom_{atom_name}) {{
+                        fprintf(stderr, \"Failed to create module from atom \\\"{atom_name}\\\"\\n\");
+                        print_wasmer_error();
+                        return -1;
+                    }}
+                    "));
+                } else {
+                    c_code_to_instantiate.push_str(&format!("
+                    wasm_byte_vec_t atom_{atom_name}_byte_vec = {{
+                        .size = {atom_name_uppercase}_LENGTH,
+                        .data = &{atom_name_uppercase}_DATA,
+                    }};
+                    wasm_module_t *atom_{atom_name} = wasm_module_deserialize(store, &atom_{atom_name}_byte_vec);
+                    if (!atom_{atom_name}) {{
+                        fprintf(stderr, \"Failed to create module from atom \\\"{atom_name}\\\"\\n\");
+                        print_wasmer_error();
+                        return -1;
+                    }}
+                    "));
+                }
+
                 deallocate_module.push_str(&format!("wasm_module_delete(atom_{atom_name});"));
             }
 
-            let return_str = WASMER_MAIN_C_SOURCE
+            let base_str = if compile_static {
+                WASMER_STATIC_MAIN_C_SOURCE
+            } else {
+                WASMER_MAIN_C_SOURCE
+            };
+
+            let return_str = base_str
                 .replace("#define WASI", "#define WASI\r\n#define WASI_PIRITA")
                 .replace("// DECLARE_MODULES", &c_code_to_add)
                 .replace("wasm_module_delete(module);", &deallocate_module);
