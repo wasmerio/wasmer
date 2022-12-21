@@ -356,12 +356,12 @@ fn test_wasmer_run_works_with_dir() -> anyhow::Result<()> {
 
     std::fs::copy(wasi_test_wasm_path(), &qjs_path)?;
     std::fs::copy(
-        format!("{}/{}", C_ASSET_PATH, "qjs-wapm.toml"),
-        temp_dir.path().join("wapm.toml"),
+        format!("{}/{}", C_ASSET_PATH, "qjs-wasmer.toml"),
+        temp_dir.path().join("wasmer.toml"),
     )?;
 
     assert!(temp_dir.path().exists());
-    assert!(temp_dir.path().join("wapm.toml").exists());
+    assert!(temp_dir.path().join("wasmer.toml").exists());
     assert!(temp_dir.path().join("qjs.wasm").exists());
 
     // test with "wasmer qjs.wasm"

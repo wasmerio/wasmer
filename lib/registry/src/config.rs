@@ -4,6 +4,8 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+pub static GLOBAL_CONFIG_DATABASE_FILE_NAME: &str = "wasmer.sqlite";
+
 #[derive(Deserialize, Default, Serialize, Debug, PartialEq, Eq)]
 pub struct PartialWapmConfig {
     /// The number of seconds to wait before checking the registry for a new
@@ -245,12 +247,8 @@ impl PartialWapmConfig {
         Ok(())
     }
 
-    pub fn from_file(#[cfg(test)] test_name: &str) -> Result<Self, String> {
-        #[cfg(test)]
-        let path = Self::get_file_location(test_name)?;
-        #[cfg(not(test))]
-        let path = Self::get_file_location()?;
-
+    pub fn from_file(wasmer_dir: &Path) -> Result<Self, String> {
+        let path = Self::get_file_location(wasmer_dir);
         match std::fs::read_to_string(&path) {
             Ok(config_toml) => {
                 toml::from_str(&config_toml).map_err(|e| format!("could not parse {path:?}: {e}"))
@@ -259,19 +257,8 @@ impl PartialWapmConfig {
         }
     }
 
-    pub fn get_current_dir() -> std::io::Result<PathBuf> {
-        std::env::current_dir()
-    }
-
-    #[cfg(test)]
-    pub fn get_folder(test_name: &str) -> Result<PathBuf, String> {
-        let test_dir = std::env::temp_dir().join("test_wasmer").join(test_name);
-        let _ = std::fs::create_dir_all(&test_dir);
-        Ok(test_dir)
-    }
-
-    #[cfg(not(test))]
-    pub fn get_folder() -> Result<PathBuf, String> {
+    /// Creates and returns the `WASMER_DIR` directory (or $HOME/.wasmer as a fallback)
+    pub fn get_wasmer_dir() -> Result<PathBuf, String> {
         Ok(
             if let Some(folder_str) = std::env::var("WASMER_DIR").ok().filter(|s| !s.is_empty()) {
                 let folder = PathBuf::from(folder_str);
@@ -294,14 +281,16 @@ impl PartialWapmConfig {
         )
     }
 
-    #[cfg(test)]
-    pub fn get_file_location(test_name: &str) -> Result<PathBuf, String> {
-        Ok(Self::get_folder(test_name)?.join(crate::GLOBAL_CONFIG_FILE_NAME))
+    pub fn get_current_dir() -> std::io::Result<PathBuf> {
+        std::env::current_dir()
     }
 
-    #[cfg(not(test))]
-    pub fn get_file_location() -> Result<PathBuf, String> {
-        Ok(Self::get_folder()?.join(crate::GLOBAL_CONFIG_FILE_NAME))
+    pub fn get_file_location(wasmer_dir: &Path) -> PathBuf {
+        wasmer_dir.join(crate::GLOBAL_CONFIG_FILE_NAME)
+    }
+
+    pub fn get_database_file_path(wasmer_dir: &Path) -> PathBuf {
+        wasmer_dir.join(GLOBAL_CONFIG_DATABASE_FILE_NAME)
     }
 }
 
