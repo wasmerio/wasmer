@@ -13,7 +13,7 @@ use wasmer_emscripten::{
 };
 use webc::{Command, WebCMmap};
 
-#[derive(Debug, Default, Clone, PartialEq, PartialOrd, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Hash, Serialize, Deserialize)]
 pub struct EmscriptenRunner {
     args: Vec<String>,
 }

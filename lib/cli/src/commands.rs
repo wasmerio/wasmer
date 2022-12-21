@@ -46,6 +46,12 @@ pub enum ObjectFormat {
     Symbols,
 }
 
+impl Default for ObjectFormat {
+    fn default() -> Self {
+        ObjectFormat::Symbols
+    }
+}
+
 #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
 impl std::str::FromStr for ObjectFormat {
     type Err = &'static str;

@@ -93,6 +93,7 @@ default = [
     "compiler",
     "wasmer-artifact-create",
     "static-artifact-create",
+    "webc_runner",
 ]
 cache = ["wasmer-cache"]
 cache-blake3-pure = ["wasmer-cache/blake3-pure"]
