@@ -73,6 +73,7 @@ impl CreateObj {
                 &pirita,
                 &output_path,
                 &self.compiler,
+                &self.cpu_features,
                 &target_triple,
                 object_format,
             )?;

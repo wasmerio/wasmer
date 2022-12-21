@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
+use wasmer_types::compilation::target;
 use webc::{ParseOptions, WebCMmap};
 
 /// The `prefixer` returns the a String to prefix each of the
@@ -152,6 +153,7 @@ impl CreateExe {
                 &pirita,
                 &tempdir.path(),
                 &self.compiler,
+                &self.cpu_features,
                 &cross_compilation.target,
                 self.object_format.unwrap_or_default(),
             )?;
@@ -188,13 +190,241 @@ impl CreateExe {
 
 /// Given a pirita file, compiles the .wasm files into the target directory
 pub(super) fn compile_pirita_into_directory(
-    _pirita: &WebCMmap,
-    _target_dir: &Path,
-    _compiler: &CompilerOptions,
-    _target: &Triple,
-    _object_format: ObjectFormat,
+    pirita: &WebCMmap,
+    target_dir: &Path,
+    compiler: &CompilerOptions,
+    cpu_features: &[CpuFeature],
+    triple: &Triple,
+    object_format: ObjectFormat,
 ) -> anyhow::Result<()> {
-    // let volume_object_path = Self::write_volume_obj(volume_bytes, target, tempdir_path)?;
+    let target = &utils::target_triple_to_target(&triple, cpu_features);
+
+    std::fs::create_dir_all(target_dir.join("volumes")).map_err(|e| {
+        anyhow::anyhow!(
+            "cannot create /volumes dir in {}: {e}",
+            target_dir.display()
+        )
+    })?;
+
+    let volume_bytes = pirita.get_volumes_as_fileblock();
+    let volume_name = "VOLUMES";
+    let volume_path = target_dir.join("volumes").join("volume.o");
+    write_volume_obj(&volume_bytes, &volume_name, &volume_path, &target)?;
+
+    std::fs::create_dir_all(target_dir.join("atoms")).map_err(|e| {
+        anyhow::anyhow!("cannot create /atoms dir in {}: {e}", target_dir.display())
+    })?;
+
+    std::fs::create_dir_all(target_dir.join("include")).map_err(|e| {
+        anyhow::anyhow!(
+            "cannot create /include dir in {}: {e}",
+            target_dir.display()
+        )
+    })?;
+
+    let mut atoms_from_file = Vec::new();
+    let mut target_paths = Vec::new();
+
+    for (atom_name, atom_bytes) in pirita.get_all_atoms() {
+        atoms_from_file.push((atom_name.clone(), atom_bytes.to_vec()));
+        let atom_path = target_dir.join("atoms").join(format!("{atom_name}.o"));
+        let header_path = match object_format {
+            ObjectFormat::Symbols => Some(
+                target_dir
+                    .join("include")
+                    .join(format!("static_defs_{atom_name}.h")),
+            ),
+            ObjectFormat::Serialized => None,
+        };
+        target_paths.push((atom_name, atom_path, header_path));
+    }
+
+    conpile_atoms(
+        &atoms_from_file,
+        &target_dir.join("atoms"),
+        &target_dir.join("include"),
+        compiler,
+        target,
+        object_format,
+    )?;
+
+    let mut atoms = Vec::new();
+    for (atom_name, atom_path, opt_header_path) in target_paths {
+        atoms.push(CommandEntrypoint {
+            // TODO: improve, "--command pip" should be able to invoke atom "python" with args "-m pip"
+            command: atom_name.clone(),
+            atom: atom_name.clone(),
+            path: atom_path,
+            header: opt_header_path,
+        });
+    }
+
+    let entrypoint = Entrypoint {
+        atoms,
+        volumes: vec![Volume {
+            name: volume_name.to_string(),
+            obj_file: volume_path,
+        }],
+        object_format,
+    };
+
+    std::fs::write(
+        target_dir.join("entrypoint.json"),
+        serde_json::to_string_pretty(&entrypoint).unwrap_or_default(),
+    )
+    .map_err(|e| {
+        anyhow::anyhow!(
+            "cannot create entrypoint.json dir in {}: {e}",
+            target_dir.display()
+        )
+    })?;
+
+    Ok(())
+}
+
+fn conpile_atoms(
+    atoms: &[(String, Vec<u8>)],
+    output_dir: &Path,
+    header_dir: &Path,
+    compiler: &CompilerOptions,
+    target: &Target,
+    object_format: ObjectFormat,
+) -> Result<()> {
+    use std::fs::File;
+    use std::io::BufWriter;
+    use std::io::Write;
+
+    let (store, _compiler_type) = compiler.get_store_for_target(target.clone())?;
+
+    for (atom_name, data) in atoms {
+        let output_object_path = output_dir.join("{atom_name}.o");
+        let output_header_path = header_dir.join("static_defs_{atom_name}.h");
+
+        match object_format {
+            ObjectFormat::Symbols => {
+                let engine = store.engine();
+                let engine_inner = engine.inner();
+                let compiler = engine_inner.compiler()?;
+                let features = engine_inner.features();
+                let tunables = store.tunables();
+                let atom_name_copy = atom_name.clone();
+                let prefixer: Option<PrefixerFn> = Some(Box::new(move |_| {
+                    utils::normalize_atom_name(&atom_name_copy)
+                }));
+                let (module_info, obj, metadata_length, symbol_registry) =
+                    Artifact::generate_object(
+                        compiler, &data, prefixer, &target, tunables, features,
+                    )?;
+
+                let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
+                    &module_info,
+                    &*symbol_registry,
+                    metadata_length,
+                );
+                // Write object file with functions
+                let mut writer = BufWriter::new(File::create(&output_object_path)?);
+                obj.write_stream(&mut writer)
+                    .map_err(|err| anyhow::anyhow!(err.to_string()))?;
+                writer.flush()?;
+
+                // Write down header file that includes pointer arrays and the deserialize function
+                let mut writer = BufWriter::new(File::create(output_header_path)?);
+                writer.write_all(header_file_src.as_bytes())?;
+                writer.flush()?;
+            }
+            ObjectFormat::Serialized => {
+                let module =
+                    Module::from_binary(&store, &data).context("failed to compile Wasm")?;
+                let bytes = module.serialize()?;
+                let mut obj = get_object_for_target(target.triple())?;
+                emit_serialized(
+                    &mut obj,
+                    &bytes,
+                    target.triple(),
+                    &format!(
+                        "WASMER_MODULE_{}",
+                        utils::normalize_atom_name(atom_name).to_uppercase()
+                    ),
+                )?;
+
+                let mut writer = BufWriter::new(File::create(&output_object_path)?);
+                obj.write_stream(&mut writer)
+                    .map_err(|err| anyhow::anyhow!(err.to_string()))?;
+                writer.flush()?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Compile the C code.
+#[allow(dead_code)]
+fn run_c_compile(path_to_c_src: &Path, output_name: &Path, target: Triple) -> anyhow::Result<()> {
+    #[cfg(not(windows))]
+    let c_compiler = "cc";
+    // We must use a C++ compiler on Windows because wasm.h uses `static_assert`
+    // which isn't available in `clang` on Windows.
+    #[cfg(windows)]
+    let c_compiler = "clang++";
+
+    let mut command = Command::new(c_compiler);
+    let command = command
+        .arg("-Wall")
+        .arg("-O2")
+        .arg("-c")
+        .arg(path_to_c_src)
+        .arg("-I")
+        .arg(utils::get_wasmer_include_directory()?)
+        .arg("-target")
+        .arg(format!("{}", target));
+
+    let output = command.arg("-o").arg(output_name).output()?;
+    eprintln!(
+        "run_c_compile: stdout: {}\n\nstderr: {}",
+        std::str::from_utf8(&output.stdout)
+            .expect("stdout is not utf8! need to handle arbitrary bytes"),
+        std::str::from_utf8(&output.stderr)
+            .expect("stderr is not utf8! need to handle arbitrary bytes")
+    );
+
+    if !output.status.success() {
+        bail!(
+            "C code compile failed with: stdout: {}\n\nstderr: {}",
+            std::str::from_utf8(&output.stdout)
+                .expect("stdout is not utf8! need to handle arbitrary bytes"),
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
+
+    Ok(())
+}
+
+fn write_volume_obj(
+    volume_bytes: &[u8],
+    object_name: &str,
+    output_path: &Path,
+    target: &Target,
+) -> anyhow::Result<()> {
+    use std::fs::File;
+    use std::io::BufWriter;
+    use std::io::Write;
+
+    let mut volumes_object = get_object_for_target(target.triple())?;
+    emit_serialized(
+        &mut volumes_object,
+        volume_bytes,
+        target.triple(),
+        object_name,
+    )?;
+
+    let mut writer = BufWriter::new(File::create(&output_path)?);
+    volumes_object
+        .write_stream(&mut writer)
+        .map_err(|err| anyhow::anyhow!(err.to_string()))?;
+    writer.flush()?;
+    drop(writer);
 
     Ok(())
 }
