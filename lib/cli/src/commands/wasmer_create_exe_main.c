@@ -1,24 +1,16 @@
 
 #include "wasmer.h"
-//#include "my_wasm.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+// EXTRA_HEADERS
 
 #define own
 
-
 #define WASI
-
-#ifdef WASI_PIRITA
-extern size_t VOLUMES_LENGTH asm("VOLUMES_LENGTH");
-extern char VOLUMES_DATA asm("VOLUMES_DATA");
+ 
+// DECLARE_VOLUMES
 // DECLARE_MODULES
-#else
-extern size_t WASMER_MODULE_LENGTH asm("WASMER_MODULE_LENGTH");
-extern char WASMER_MODULE_DATA asm("WASMER_MODULE_DATA");
-#endif
 
 static void print_wasmer_error() {
   int error_len = wasmer_last_error_length();
@@ -137,7 +129,7 @@ int main(int argc, char *argv[]) {
       module,
       filesystem,
       &imports,
-      selected_atom,
+      selected_atom
       );
   if (!wasi_env) {
     printf("Error setting filesystem\n");

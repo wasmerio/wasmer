@@ -48,10 +48,10 @@ pub struct CreateObj {
     /// This flag accepts two options: `symbols` or `serialized`.
     /// - (default) `symbols` creates an object where all functions and metadata of the module are regular object symbols
     /// - `serialized` creates an object where the module is zero-copy serialized as raw data
-    #[clap(name = "OBJECT_FORMAT", long = "object-format", verbatim_doc_comment)]
+    #[clap(name = "OBJECT_FORMAT", long, verbatim_doc_comment)]
     object_format: Option<ObjectFormat>,
 
-    #[clap(short = 'm', multiple = true, number_of_values = 1)]
+    #[clap(long, short = 'm', multiple = true, number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
 
     #[clap(flatten)]

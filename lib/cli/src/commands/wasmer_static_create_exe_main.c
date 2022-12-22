@@ -1,18 +1,15 @@
 #include "wasmer.h"
-#include "static_defs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+// EXTRA_HEADERS
 
 #define own
 
 // TODO: make this define templated so that the Rust code can toggle it on/off
 #define WASI
 
-#ifdef WASI_PIRITA
-extern size_t VOLUMES_LENGTH asm("VOLUMES_LENGTH");
-extern char VOLUMES_DATA asm("VOLUMES_DATA");
-#endif
+// DECLARE_VOLUMES
 
 extern wasm_module_t* wasmer_object_module_new(wasm_store_t* store,const char* wasm_name) asm("wasmer_object_module_new");
 
@@ -97,11 +94,15 @@ int main(int argc, char *argv[]) {
   wasm_engine_t *engine = wasm_engine_new_with_config(config);
   wasm_store_t *store = wasm_store_new(engine);
 
-  #ifdef WASI_PIRITA
-    // INSTANTIATE_MODULES
-  #else
-    wasm_module_t *module = wasmer_object_module_new(store, "module");
-  #endif
+  const char* selected_atom = "main";
+  for (int i = 1; i < argc; i++) {
+      if (strcmp(argv[i], "--command") == 0 && i + 1 < argc) {
+        selected_atom = argv[i + 1];
+        break;
+      }
+  }
+
+  // INSTANTIATE_MODULES
 
   if (!module) {
     fprintf(stderr, "Failed to create module\n");

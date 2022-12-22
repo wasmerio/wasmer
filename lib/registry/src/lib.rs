@@ -91,7 +91,6 @@ impl fmt::Display for LocalPackage {
 }
 
 impl LocalPackage {
-
     pub fn get_path(&self) -> Result<PathBuf, String> {
         Ok(self.path.clone())
     }

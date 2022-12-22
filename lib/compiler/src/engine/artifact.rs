@@ -51,9 +51,6 @@ pub struct Artifact {
 #[cfg(feature = "static-artifact-create")]
 pub type PrefixerFn = Box<dyn Fn(&[u8]) -> String + Send>;
 
-#[cfg(feature = "static-artifact-create")]
-const WASMER_METADATA_SYMBOL: &[u8] = b"WASMER_METADATA";
-
 impl Artifact {
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
     #[cfg(feature = "compiler")]
@@ -472,6 +469,7 @@ impl Artifact {
     pub fn generate_object<'data>(
         compiler: &dyn Compiler,
         data: &[u8],
+        object_name: &str,
         prefixer: Option<PrefixerFn>,
         target: &'data Target,
         tunables: &dyn Tunables,
@@ -550,7 +548,7 @@ impl Artifact {
             )?;
         let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
 
-        emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary, 1)
+        emit_data(&mut obj, object_name.as_bytes(), &metadata_binary, 1)
             .map_err(to_compile_error)?;
 
         emit_compilation(&mut obj, compilation, &symbol_registry, target_triple)
