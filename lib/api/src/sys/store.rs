@@ -3,7 +3,7 @@ use derivative::Derivative;
 use std::fmt;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{AsEngineRef, Engine, EngineBuilder, EngineRef, Tunables};
-use wasmer_types::{OnCalledAction, StoreSnapshot};
+use wasmer_types::OnCalledAction;
 use wasmer_vm::{init_traps, StoreId, TrapHandler, TrapHandlerFn};
 
 use wasmer_vm::StoreObjects;
@@ -28,18 +28,6 @@ pub(crate) struct StoreInner {
     pub(crate) trap_handler: Option<Box<TrapHandlerFn<'static>>>,
     #[derivative(Debug = "ignore")]
     pub(crate) on_called: Option<OnCalledHandler>,
-}
-
-impl StoreInner {
-    // Serializes the mutable things into a snapshot
-    pub fn save_snapshot(&self) -> StoreSnapshot {
-        self.objects.save_snapshot()
-    }
-
-    // Serializes the mutable things into a snapshot
-    pub fn restore_snapshot(&mut self, snapshot: &StoreSnapshot) {
-        self.objects.restore_snapshot(snapshot);
-    }
 }
 
 /// The store represents all global state that can be manipulated by
@@ -290,11 +278,6 @@ impl<'a> StoreRef<'a> {
         a.inner.engine.id() == b.inner.engine.id()
     }
 
-    /// Serializes the mutable things into a snapshot
-    pub fn save_snapshot(&self) -> StoreSnapshot {
-        self.inner.save_snapshot()
-    }
-
     /// The signal handler
     #[inline]
     pub fn signal_handler(&self) -> Option<*const TrapHandlerFn<'static>> {
@@ -329,16 +312,6 @@ impl<'a> StoreMut<'a> {
     /// tunables are excluded from the logic.
     pub fn same(a: &Self, b: &Self) -> bool {
         a.inner.engine.id() == b.inner.engine.id()
-    }
-
-    /// Serializes the mutable things into a snapshot
-    pub fn save_snapshot(&self) -> StoreSnapshot {
-        self.inner.save_snapshot()
-    }
-
-    /// Restores a snapshot back into the store
-    pub fn restore_snapshot(&mut self, snapshot: &StoreSnapshot) {
-        self.inner.restore_snapshot(snapshot);
     }
 
     #[cfg(feature = "compiler")]

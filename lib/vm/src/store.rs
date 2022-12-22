@@ -8,8 +8,6 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use wasmer_types::StoreSnapshot;
-
 use crate::{
     InstanceHandle, VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal, VMMemory, VMTable,
 };
@@ -117,22 +115,6 @@ impl StoreObjects {
         assert!(idx < self.globals.len());
         unsafe {
             self.globals[idx].vmglobal().as_mut().val.u128 = val;
-        }
-    }
-
-    /// Serializes the mutable things into a snapshot
-    pub fn save_snapshot(&self) -> StoreSnapshot {
-        let mut ret = StoreSnapshot::default();
-        for (index, global) in self.globals.iter().enumerate() {
-            global.save_snapshot(index, &mut ret);
-        }
-        ret
-    }
-
-    /// Serializes the mutable things into a snapshot
-    pub fn restore_snapshot(&mut self, snapshot: &StoreSnapshot) {
-        for (index, global) in self.globals.iter_mut().enumerate() {
-            global.restore_snapshot(index, snapshot);
         }
     }
 }
