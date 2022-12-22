@@ -10,8 +10,7 @@ use std::fmt;
 use tracing::trace;
 use wasm_bindgen::{JsCast, JsValue};
 use wasmer_types::{
-    ExternType, FunctionType, GlobalType, MemoryError, MemoryType, Pages, StoreSnapshot, TableType,
-    WASM_PAGE_SIZE,
+    ExternType, FunctionType, GlobalType, MemoryError, MemoryType, Pages, TableType, WASM_PAGE_SIZE,
 };
 
 /// Represents linear memory that is managed by the javascript runtime
@@ -109,29 +108,6 @@ pub struct VMGlobal {
 impl VMGlobal {
     pub(crate) fn new(global: Global, ty: GlobalType) -> Self {
         Self { global, ty }
-    }
-
-    /// Saves the global value into the snapshot
-    pub fn save_snapshot(&self, index: usize, snapshot: &mut StoreSnapshot) {
-        if let Some(val) = self.global.as_f64() {
-            let entry = snapshot.globals.entry(index as u32).or_default();
-            *entry = val as u128;
-        }
-    }
-
-    /// Restores the global value from the snapshot
-    pub fn restore_snapshot(&mut self, index: usize, snapshot: &StoreSnapshot) {
-        let index = index as u32;
-        if let Some(entry) = snapshot.globals.get(&index) {
-            if let Some(existing) = self.global.as_f64() {
-                let existing = existing as u128;
-                if existing == *entry {
-                    return;
-                }
-            }
-            let value = JsValue::from_f64(*entry as _);
-            self.global.set_value(&value);
-        }
     }
 }
 

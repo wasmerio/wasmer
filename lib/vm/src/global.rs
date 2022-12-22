@@ -1,7 +1,7 @@
 use crate::{store::MaybeInstanceOwned, vmcontext::VMGlobalDefinition};
 use derivative::Derivative;
 use std::{cell::UnsafeCell, ptr::NonNull};
-use wasmer_types::{GlobalType, StoreSnapshot};
+use wasmer_types::GlobalType;
 
 /// A Global instance
 #[derive(Derivative)]
@@ -43,27 +43,6 @@ impl VMGlobal {
                 vm_global_definition: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(
                     self.vm_global_definition.as_ptr().as_ref().clone(),
                 ))),
-            }
-        }
-    }
-
-    /// Saves the global value into the snapshot
-    pub fn save_snapshot(&self, index: usize, snapshot: &mut StoreSnapshot) {
-        let entry = snapshot.globals.entry(index as u32).or_default();
-
-        let val = unsafe { self.vm_global_definition.as_ptr().as_ref().val.u128 };
-        *entry = val;
-    }
-
-    /// Restores the global value from the snapshot
-    pub fn restore_snapshot(&mut self, index: usize, snapshot: &StoreSnapshot) {
-        let index = index as u32;
-        if let Some(entry) = snapshot.globals.get(&index) {
-            let existing = unsafe { self.vm_global_definition.as_ptr().as_ref().val.u128 };
-            if existing != *entry {
-                unsafe {
-                    self.vm_global_definition.as_ptr().as_mut().val.u128 = *entry;
-                }
             }
         }
     }

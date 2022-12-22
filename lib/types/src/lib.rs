@@ -62,7 +62,6 @@ mod libcalls;
 mod memory;
 mod module;
 mod serialize;
-mod store;
 mod table;
 mod trapcode;
 mod types;
@@ -128,8 +127,6 @@ pub use crate::compilation::sourceloc::SourceLoc;
 pub use crate::compilation::symbols::{Symbol, SymbolRegistry};
 pub use crate::compilation::trap::TrapInformation;
 pub use crate::compilation::unwind::CompiledFunctionUnwindInfo;
-
-pub use crate::store::StoreSnapshot;
 
 /// Offset in bytes from the beginning of the function.
 pub type CodeOffset = u32;
