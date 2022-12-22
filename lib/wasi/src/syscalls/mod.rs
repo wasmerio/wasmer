@@ -61,8 +61,7 @@ pub use wasm::*;
 pub(crate) use wasmer::{
     vm::VMMemory, AsStoreMut, AsStoreRef, Extern, Function, FunctionEnv, FunctionEnvMut, Global,
     Instance, Memory, Memory32, Memory64, MemoryAccessError, MemoryError, MemorySize, MemoryView,
-    Module, OnCalledAction, Pages, RuntimeError, Store, StoreSnapshot, TypedFunction, Value,
-    WasmPtr, WasmSlice,
+    Module, OnCalledAction, Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
 };
 pub(crate) use wasmer_vbus::{
     BusInvocationEvent, BusSpawnedProcess, SignalHandlerAbi, SpawnOptionsConfig, StdioMode,
@@ -87,9 +86,6 @@ pub(crate) use self::types::{
     },
     *,
 };
-use crate::fs::{
-    fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind, MAX_SYMLINKS,
-};
 pub(crate) use crate::os::task::{
     process::{WasiProcessId, WasiProcessWait},
     thread::{WasiThread, WasiThreadId},
@@ -111,6 +107,13 @@ pub(crate) use crate::{
     utils::{self, map_io_err},
     VirtualTaskManager, WasiEnv, WasiEnvInner, WasiError, WasiFunctionEnv,
     WasiRuntimeImplementation, WasiVFork, DEFAULT_STACK_SIZE,
+};
+use crate::{
+    fs::{
+        fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind,
+        MAX_SYMLINKS,
+    },
+    utils::store::InstanceSnapshot,
 };
 pub(crate) use crate::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 
@@ -796,14 +799,14 @@ pub(crate) fn rewind<M: MemorySize>(
     super::REWIND.with(|cell| cell.replace(Some(memory_stack)));
 
     // Deserialize the store data back into a snapshot
-    let store_snapshot = match StoreSnapshot::deserialize(&store_data[..]) {
+    let store_snapshot = match InstanceSnapshot::deserialize(&store_data[..]) {
         Ok(a) => a,
         Err(err) => {
             warn!("snapshot restore failed - the store snapshot could not be deserialized");
             return Errno::Fault;
         }
     };
-    ctx.as_store_mut().restore_snapshot(&store_snapshot);
+    crate::utils::store::restore_snapshot(&mut ctx.as_store_mut(), &store_snapshot);
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 

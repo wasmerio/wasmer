@@ -76,7 +76,9 @@ pub fn proc_fork<M: MemorySize>(
         let pid_offset: u64 = pid_offset.into();
         return unwind::<M, _>(ctx, move |mut ctx, mut memory_stack, rewind_stack| {
             // Grab all the globals and serialize them
-            let store_data = ctx.as_store_ref().save_snapshot().serialize();
+            let store_data = crate::utils::store::capture_snapshot(&mut ctx.as_store_mut())
+                .serialize()
+                .unwrap();
             let store_data = Bytes::from(store_data);
 
             // We first fork the environment and replace the current environment
@@ -121,7 +123,9 @@ pub fn proc_fork<M: MemorySize>(
     // Perform the unwind action
     unwind::<M, _>(ctx, move |mut ctx, mut memory_stack, rewind_stack| {
         // Grab all the globals and serialize them
-        let store_data = ctx.as_store_ref().save_snapshot().serialize();
+        let store_data = crate::utils::store::capture_snapshot(&mut ctx.as_store_mut())
+            .serialize()
+            .unwrap();
         let store_data = Bytes::from(store_data);
 
         // Fork the memory and copy the module (compiled code)
