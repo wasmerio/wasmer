@@ -138,7 +138,7 @@ pub fn proc_fork<M: MemorySize>(
                 );
                 MemoryError::Generic(format!("the memory could not be cloned"))
             })
-            .and_then(|mut memory| memory.fork())
+            .and_then(|mut memory| memory.duplicate())
         {
             Ok(memory) => memory.into(),
             Err(err) => {
