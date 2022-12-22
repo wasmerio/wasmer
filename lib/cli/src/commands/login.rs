@@ -52,8 +52,8 @@ impl Login {
     /// execute [List]
     pub fn execute(&self) -> Result<(), anyhow::Error> {
         let token = self.get_token_or_ask_user()?;
-        let wasmer_dir = WasmerConfig::get_wasmer_dir()
-            .map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
+        let wasmer_dir =
+            WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
         match wasmer_registry::login::login_and_save_token(&wasmer_dir, &self.registry, &token)? {
             Some(s) => println!("Login for WAPM user {:?} saved", s),
             None => println!(

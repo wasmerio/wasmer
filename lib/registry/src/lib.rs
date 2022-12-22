@@ -624,7 +624,6 @@ pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
     Ok(true)
 }
 
-
 pub fn get_all_available_registries(wasmer_dir: &Path) -> Result<Vec<String>, String> {
     let config = WasmerConfig::from_file(wasmer_dir)?;
     let mut registries = Vec::new();

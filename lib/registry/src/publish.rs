@@ -39,8 +39,7 @@ pub fn try_chunked_uploading(
     let registry = match registry.as_ref() {
         Some(s) => format_graphql(s),
         None => {
-            let wasmer_dir =
-                WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
+            let wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
 
             let config = WasmerConfig::from_file(&wasmer_dir);
 
@@ -54,8 +53,7 @@ pub fn try_chunked_uploading(
     let token = match token.as_ref() {
         Some(s) => s.to_string(),
         None => {
-            let wasmer_dir =
-                WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
+            let wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
 
             let config = WasmerConfig::from_file(&wasmer_dir);
 

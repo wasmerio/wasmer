@@ -223,8 +223,9 @@ impl Config {
         }
 
         if flags.config_path {
-            let path = WasmerConfig::get_file_location()
-                .map_err(|e| anyhow::anyhow!("could not find config file: {e}"))?;
+            let wasmer_dir = WasmerConfig::get_wasmer_dir()
+                .map_err(|e| anyhow::anyhow!("could not find wasmer dir: {e}"))?;
+            let path = WasmerConfig::get_file_location(&wasmer_dir);
             println!("{}", path.display());
         }
 
@@ -234,52 +235,50 @@ impl Config {
 
 impl GetOrSet {
     fn execute(&self) -> Result<()> {
-        let config_file = WasmerConfig::get_file_location()
-            .map_err(|e| anyhow::anyhow!("could not find config file {e}"))?;
-        let mut config = WasmerConfig::from_file().map_err(|e| {
+        let wasmer_dir = WasmerConfig::get_wasmer_dir()
+            .map_err(|e| anyhow::anyhow!("could not find wasmer dir: {e}"))?;
+        let config_file = WasmerConfig::get_file_location(&wasmer_dir);
+        let mut config = WasmerConfig::from_file(&wasmer_dir).map_err(|e| {
             anyhow::anyhow!(
                 "could not find config file {e} at {}",
                 config_file.display()
             )
         })?;
         match self {
-            GetOrSet::Get(g) => {
-                let config = WasmerConfig::from_file()
-                    .map_err(|e| anyhow::anyhow!("could not find config file: {e}"))?;
-
-                match g {
-                    RetrievableConfigField::RegistryUrl => {
-                        println!("{}", config.registry.get_current_registry());
-                    }
-                    RetrievableConfigField::RegistryToken => {
-                        if let Some(s) = config
-                            .registry
-                            .get_login_token_for_registry(&config.registry.get_current_registry())
-                        {
-                            println!("{s}");
-                        }
-                    }
-                    RetrievableConfigField::TelemetryEnabled => {
-                        println!("{:?}", config.telemetry_enabled);
-                    }
-                    RetrievableConfigField::UpdateNotificationsEnabled => {
-                        println!("{:?}", config.update_notifications_enabled);
-                    }
-                    RetrievableConfigField::ProxyUrl => {
-                        if let Some(s) = config.proxy.url.as_ref() {
-                            println!("{s}");
-                        } else {
-                            println!("none");
-                        }
+            GetOrSet::Get(g) => match g {
+                RetrievableConfigField::RegistryUrl => {
+                    println!("{}", config.registry.get_current_registry());
+                }
+                RetrievableConfigField::RegistryToken => {
+                    if let Some(s) = config
+                        .registry
+                        .get_login_token_for_registry(&config.registry.get_current_registry())
+                    {
+                        println!("{s}");
                     }
                 }
-            }
+                RetrievableConfigField::TelemetryEnabled => {
+                    println!("{:?}", config.telemetry_enabled);
+                }
+                RetrievableConfigField::UpdateNotificationsEnabled => {
+                    println!("{:?}", config.update_notifications_enabled);
+                }
+                RetrievableConfigField::ProxyUrl => {
+                    if let Some(s) = config.proxy.url.as_ref() {
+                        println!("{s}");
+                    } else {
+                        println!("none");
+                    }
+                }
+            },
             GetOrSet::Set(s) => {
                 match s {
                     StorableConfigField::RegistryUrl(s) => {
                         config.registry.set_current_registry(&s.url);
                         let current_registry = config.registry.get_current_registry();
-                        if let Some(u) = wasmer_registry::utils::get_username().ok().and_then(|o| o)
+                        if let Some(u) = wasmer_registry::utils::get_username(&current_registry)
+                            .ok()
+                            .and_then(|o| o)
                         {
                             println!(
                                 "Successfully logged into registry {current_registry:?} as user {u:?}"

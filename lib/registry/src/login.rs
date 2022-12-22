@@ -2,7 +2,6 @@ use crate::config::{format_graphql, UpdateRegistry};
 use crate::WasmerConfig;
 use std::path::Path;
 
-
 /// Login to a registry and save the token associated with it.
 ///
 /// Also sets the registry as the currently active registry to provide a better UX.

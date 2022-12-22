@@ -94,8 +94,8 @@ impl PackageSource {
             String::new()
         };
 
-        let wasmer_dir = WasmerConfig::get_wasmer_dir()
-            .map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
+        let wasmer_dir =
+            WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
         let mut sp = start_spinner(format!("Installing package {url} ..."));
         let opt_path = wasmer_registry::install_package(&wasmer_dir, &url);
         if let Some(sp) = sp.take() {

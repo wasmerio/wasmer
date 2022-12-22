@@ -1,4 +1,4 @@
-use crate::{graphql::execute_query, WasmerConfig};
+use crate::graphql::execute_query;
 use graphql_client::GraphQLQuery;
 
 #[derive(GraphQLQuery)]
@@ -8,7 +8,6 @@ use graphql_client::GraphQLQuery;
     response_derives = "Debug"
 )]
 struct WhoAmIQuery;
-
 
 pub fn get_username(registry: &str) -> anyhow::Result<Option<String>> {
     let q = WhoAmIQuery::build_query(who_am_i_query::Variables {});
