@@ -213,9 +213,6 @@ jobs:
      #  shell: bash
      #  run: |
      #    make build-wasmer-wasm
-      - name: Build Wapm binary
-        run: |
-          make build-wapm
       - name: Install Nightly Rust for Headless
         uses: dtolnay/rust-toolchain@nightly
         with:
