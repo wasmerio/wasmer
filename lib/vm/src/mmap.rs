@@ -317,8 +317,10 @@ impl Mmap {
 
     /// Copies the memory to a new swap file (using copy-on-write if available)
     #[cfg(not(target_os = "windows"))]
-    pub fn fork(&mut self, hint_used: Option<usize>) -> Result<Self, String> {
+    pub fn duplicate(&mut self, hint_used: Option<usize>) -> Result<Self, String> {
         // Empty memory is an edge case
+
+        use std::os::unix::prelude::FromRawFd;
         if self.len == 0 {
             return Ok(Self::new());
         }
@@ -355,28 +357,11 @@ impl Mmap {
                 };
 
                 // The shallow copy failed so we have to do it the hard way
-                let mut off_in: libc::off_t = 0;
-                let mut off_out: libc::off_t = 0;
 
-                cfg_if::cfg_if! {
-                    if #[cfg(not(any(target_env = "musl", target_vendor = "apple")))]
-                    {
-                        let ret = libc::copy_file_range(self.fd.0, &mut off_in, fd.0, &mut off_out, len, 0);
-                    } else {
-                        // TODO: don't use as casts...
-                        let ret = match copy_file_range_impl(self.fd.0, off_in as u64, fd.0, off_out as u64, len) {
-                            Ok(_) => 0,
-                            Err(_err) => -1,
-                        };
-                    }
-                }
-
-                if ret < 0 {
-                    return Err(format!(
-                        "failed to copy temporary file data - {}",
-                        io::Error::last_os_error()
-                    ));
-                }
+                let mut source = std::fs::File::from_raw_fd(self.fd.0);
+                let mut out = std::fs::File::from_raw_fd(fd.0);
+                copy_file_range(&mut source, 0, &mut out, 0, len)
+                    .map_err(|err| format!("Could not copy memory: {err}"))?;
 
                 #[cfg(feature = "tracing")]
                 trace!("memory copy finished (size={})", len);
@@ -410,7 +395,7 @@ impl Mmap {
 
     /// Copies the memory to a new swap file (using copy-on-write if available)
     #[cfg(target_os = "windows")]
-    pub fn fork(&mut self, hint_used: Option<usize>) -> Result<Self, String> {
+    pub fn duplicate(&mut self, hint_used: Option<usize>) -> Result<Self, String> {
         // Create a new memory which we will copy to
         let new_mmap = Self::with_at_least(self.len)?;
 
@@ -434,66 +419,6 @@ impl Mmap {
         trace!("memory copy finished (size={})", len);
         Ok(new_mmap)
     }
-}
-
-/// Rust implementation of libc::copy_file_range.
-///
-/// Needed because that function is not available on all platforms.
-// TODO: better implementation! (this is very quick, low effort)
-// TODO: this function needs tests!
-#[cfg(target_family = "unix")]
-#[allow(dead_code)]
-fn copy_file_range_impl(
-    source_fd: i32,
-    source_offset: u64,
-    out_fd: i32,
-    out_offset: u64,
-    len: usize,
-) -> Result<(), std::io::Error> {
-    use std::{
-        io::{Seek, SeekFrom},
-        os::unix::io::FromRawFd,
-    };
-
-    let mut f1 = unsafe { std::fs::File::from_raw_fd(source_fd) };
-    let f1_original_pos = f1.stream_position()?;
-
-    // TODO: don't cast with as
-    f1.seek(SeekFrom::Start(source_offset))?;
-
-    let mut f2 = unsafe { std::fs::File::from_raw_fd(out_fd) };
-    let f2_original_pos = f2.stream_position()?;
-    f2.seek(SeekFrom::Start(out_offset))?;
-
-    let mut reader = std::io::BufReader::new(f1);
-    let mut writer = std::io::BufWriter::new(f2);
-
-    let mut buffer = vec![0u8; 4096];
-
-    let mut offset = 0;
-    let end = len.saturating_sub(buffer.len());
-    while offset < end {
-        let read = reader.read(&mut buffer)?;
-        writer.write_all(&buffer)?;
-        offset += read;
-    }
-    // Need to read the last chunk.
-    let remaining = len - offset;
-    if remaining > 0 {
-        reader.read_exact(&mut buffer[0..remaining])?;
-        writer.write_all(&buffer[0..remaining])?;
-    }
-
-    writer.flush()?;
-
-    // Restore files to original position.
-    let mut f1 = reader.into_inner();
-    f1.seek(SeekFrom::Start(f1_original_pos))?;
-
-    let mut f2 = writer.into_inner()?;
-    f2.seek(SeekFrom::Start(f2_original_pos))?;
-
-    Ok(())
 }
 
 impl Drop for Mmap {
@@ -522,6 +447,54 @@ fn _assert() {
     _assert_send_sync::<Mmap>();
 }
 
+/// Copy a range of a file to another file.
+// We could also use libc::copy_file_range on some systems, but it's
+// hard to do this because it is not available on many libc implementations.
+// (not on Mac OS, musl, ...)
+#[cfg(target_family = "unix")]
+fn copy_file_range(
+    source: &mut std::fs::File,
+    source_offset: u64,
+    out: &mut std::fs::File,
+    out_offset: u64,
+    len: usize,
+) -> Result<(), std::io::Error> {
+    use std::io::{Seek, SeekFrom};
+
+    let source_original_pos = source.stream_position()?;
+    source.seek(SeekFrom::Start(source_offset))?;
+
+    // TODO: don't cast with as
+
+    let out_original_pos = out.stream_position()?;
+    out.seek(SeekFrom::Start(out_offset))?;
+
+    // TODO: don't do this horrible "triple buffering" below".
+    // let mut reader = std::io::BufReader::new(source);
+
+    // TODO: larger buffer?
+    let mut buffer = vec![0u8; 4096];
+
+    let mut to_read = len;
+    while to_read > 0 {
+        let chunk_size = std::cmp::min(to_read, buffer.len());
+        let read = source.read(&mut buffer[0..chunk_size])?;
+        out.write_all(&buffer[0..read])?;
+        to_read -= read;
+    }
+
+    // Need to read the last chunk.
+    out.flush()?;
+
+    // Restore files to original position.
+    source.seek(SeekFrom::Start(source_original_pos))?;
+    out.flush()?;
+    out.sync_data()?;
+    out.seek(SeekFrom::Start(out_original_pos))?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -532,5 +505,60 @@ mod tests {
         assert_eq!(round_up_to_page_size(1, 4096), 4096);
         assert_eq!(round_up_to_page_size(4096, 4096), 4096);
         assert_eq!(round_up_to_page_size(4097, 4096), 8192);
+    }
+
+    #[cfg(target_family = "unix")]
+    #[test]
+    fn test_copy_file_range() -> Result<(), std::io::Error> {
+        // I know tempfile:: exists, but this doesn't bring in an extra
+        // dependency.
+
+        use std::{fs::OpenOptions, io::Seek};
+
+        let dir = std::env::temp_dir().join("wasmer/copy_file_range");
+        if dir.is_dir() {
+            std::fs::remove_dir_all(&dir).unwrap()
+        }
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let pa = dir.join("a");
+        let pb = dir.join("b");
+
+        let data: Vec<u8> = (0..100).collect();
+        let mut a = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(&pa)
+            .unwrap();
+        a.write_all(&data).unwrap();
+
+        let datb: Vec<u8> = (100..200).collect();
+        let mut b = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(&pb)
+            .unwrap();
+        b.write_all(&datb).unwrap();
+
+        a.seek(io::SeekFrom::Start(30)).unwrap();
+        b.seek(io::SeekFrom::Start(99)).unwrap();
+        copy_file_range(&mut a, 10, &mut b, 40, 15).unwrap();
+
+        assert_eq!(a.stream_position().unwrap(), 30);
+        assert_eq!(b.stream_position().unwrap(), 99);
+
+        b.seek(io::SeekFrom::Start(0)).unwrap();
+        let mut out = Vec::new();
+        let len = b.read_to_end(&mut out).unwrap();
+        assert_eq!(len, 100);
+        assert_eq!(out[0..40], datb[0..40]);
+        assert_eq!(out[40..55], data[10..25]);
+        assert_eq!(out[55..100], datb[55..100]);
+
+        // TODO: needs more variant tests, but this is enough for now.
+
+        Ok(())
     }
 }
