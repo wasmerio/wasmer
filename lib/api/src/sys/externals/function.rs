@@ -1,32 +1,29 @@
+use wasmer_types::RawValue;
+use wasmer_vm::{
+    on_host_stack, raise_user_trap, resume_panic, InternalStoreHandle, StoreHandle, VMContext,
+    VMDynamicFunctionContext, VMExtern, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionKind,
+    VMTrampoline,
+};
+
 use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
 use crate::sys::store::{AsStoreMut, AsStoreRef};
-use crate::sys::FunctionType;
-use crate::sys::TypedFunction;
+use crate::sys::{FunctionType, RuntimeError, TypedFunction};
 use crate::FunctionEnv;
 
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
+
 #[cfg(feature = "compiler")]
 use {
     crate::{
-        sys::{
-            store::{StoreInner, StoreMut},
-            RuntimeError,
-        },
+        sys::store::{StoreInner, StoreMut},
         FunctionEnvMut, Value,
     },
     inner::StaticFunction,
     std::{cell::UnsafeCell, cmp::max, ffi::c_void},
-    wasmer_types::RawValue,
     wasmer_vm::{
-        on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, MaybeInstanceOwned,
-        VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionBody,
-        VMFunctionContext, VMTrampoline,
+        wasmer_call_trampoline, MaybeInstanceOwned, VMCallerCheckedAnyfunc, VMFunctionContext,
     },
-};
-
-use wasmer_vm::{
-    InternalStoreHandle, StoreHandle, VMExtern, VMFuncRef, VMFunction, VMFunctionKind,
 };
 
 /// A WebAssembly `function` instance.
@@ -803,19 +800,16 @@ impl<'a> Exportable<'a> for Function {
 }
 
 /// Host state for a dynamic function.
-#[cfg(feature = "compiler")]
 pub(crate) struct DynamicFunction<F> {
     func: F,
 }
 
-#[cfg(feature = "compiler")]
 impl<F> DynamicFunction<F>
 where
     F: Fn(*mut RawValue) -> Result<(), RuntimeError> + 'static,
 {
     // This function wraps our func, to make it compatible with the
     // reverse trampoline signature
-    #[cfg(feature = "compiler")]
     unsafe extern "C" fn func_wrapper(
         this: &mut VMDynamicFunctionContext<Self>,
         values_vec: *mut RawValue,
@@ -832,12 +826,10 @@ where
         }
     }
 
-    #[cfg(feature = "compiler")]
     fn func_body_ptr(&self) -> *const VMFunctionBody {
         Self::func_wrapper as *const VMFunctionBody
     }
 
-    #[cfg(feature = "compiler")]
     fn call_trampoline_address(&self) -> VMTrampoline {
         Self::call_trampoline
     }
@@ -870,7 +862,6 @@ mod inner {
     use crate::sys::NativeWasmTypeInto;
     use crate::{AsStoreMut, AsStoreRef, ExternRef, FunctionEnv, StoreMut};
 
-    #[cfg(feature = "compiler")]
     use crate::Function;
 
     /// A trait to convert a Rust value to a `WasmNativeType` value,
