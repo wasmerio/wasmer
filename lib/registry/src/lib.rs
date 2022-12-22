@@ -8,7 +8,6 @@
 //! curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
 //! ```
 
-use crate::config::Registries;
 use anyhow::Context;
 use core::ops::Range;
 use reqwest::header::{ACCEPT, RANGE};
@@ -20,18 +19,22 @@ use url::Url;
 
 pub mod config;
 pub mod graphql;
+pub mod interface;
 pub mod login;
 pub mod package;
+pub mod publish;
 pub mod queries;
 pub mod utils;
 
 pub use crate::{
-    config::{format_graphql, PartialWapmConfig},
+    config::{format_graphql, WasmerConfig},
     package::Package,
     queries::get_bindings_query::ProgrammingLanguage,
 };
 
-pub static GLOBAL_CONFIG_FILE_NAME: &str = "wapm.toml";
+pub static PACKAGE_TOML_FILE_NAME: &str = "wasmer.toml";
+pub static PACKAGE_TOML_FALLBACK_NAME: &str = "wapm.toml";
+pub static GLOBAL_CONFIG_FILE_NAME: &str = "wasmer.toml";
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 pub struct PackageDownloadInfo {
@@ -45,30 +48,17 @@ pub struct PackageDownloadInfo {
     pub pirita_url: Option<String>,
 }
 
-pub fn get_package_local_dir(
-    #[cfg(test)] test_name: &str,
-    url: &str,
-    version: &str,
-) -> Option<PathBuf> {
-    #[cfg(test)]
-    let checkouts_dir = get_checkouts_dir(test_name)?;
-    #[cfg(not(test))]
-    let checkouts_dir = get_checkouts_dir()?;
+pub fn get_package_local_dir(wasmer_dir: &Path, url: &str, version: &str) -> Option<PathBuf> {
+    let checkouts_dir = get_checkouts_dir(wasmer_dir);
     let url_hash = Package::hash_url(url);
     let dir = checkouts_dir.join(format!("{url_hash}@{version}"));
     Some(dir)
 }
 
-pub fn try_finding_local_command(#[cfg(test)] test_name: &str, cmd: &str) -> Option<LocalPackage> {
-    #[cfg(test)]
-    let local_packages = get_all_local_packages(test_name);
-    #[cfg(not(test))]
-    let local_packages = get_all_local_packages();
+pub fn try_finding_local_command(wasmer_dir: &Path, cmd: &str) -> Option<LocalPackage> {
+    let local_packages = get_all_local_packages(wasmer_dir);
     for p in local_packages {
-        #[cfg(not(test))]
         let commands = p.get_commands();
-        #[cfg(test)]
-        let commands = p.get_commands(test_name);
 
         if commands.unwrap_or_default().iter().any(|c| c == cmd) {
             return Some(p);
@@ -85,20 +75,59 @@ pub struct LocalPackage {
     pub path: PathBuf,
 }
 
+impl fmt::Display for LocalPackage {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}@{} (registry {}, located at {})",
+            self.name,
+            self.version,
+            self.registry,
+            self.path.display()
+        )
+    }
+}
+
 impl LocalPackage {
-    pub fn get_path(&self, #[cfg(test)] test_name: &str) -> Result<PathBuf, String> {
+    pub fn get_path(&self) -> Result<PathBuf, String> {
         Ok(self.path.clone())
     }
-    pub fn get_commands(&self, #[cfg(test)] test_name: &str) -> Result<Vec<String>, String> {
-        #[cfg(not(test))]
+
+    /// Returns the wasmer.toml path if it exists
+    pub fn get_wasmer_toml_path(base_path: &Path) -> Result<PathBuf, anyhow::Error> {
+        let path = base_path.join(PACKAGE_TOML_FILE_NAME);
+        let fallback_path = base_path.join(PACKAGE_TOML_FALLBACK_NAME);
+        if path.exists() {
+            Ok(path)
+        } else if fallback_path.exists() {
+            Ok(fallback_path)
+        } else {
+            Err(anyhow::anyhow!(
+                "neither {} nor {} exists",
+                path.display(),
+                fallback_path.display()
+            ))
+        }
+    }
+
+    /// Reads the wasmer.toml fron $PATH with wapm.toml as a fallback
+    pub fn read_toml(base_path: &Path) -> Result<wasmer_toml::Manifest, String> {
+        let wasmer_toml = std::fs::read_to_string(base_path.join(PACKAGE_TOML_FILE_NAME))
+            .or_else(|_| std::fs::read_to_string(base_path.join(PACKAGE_TOML_FALLBACK_NAME)))
+            .map_err(|_| {
+                format!(
+                    "Path {} has no {PACKAGE_TOML_FILE_NAME} or {PACKAGE_TOML_FALLBACK_NAME}",
+                    base_path.display()
+                )
+            })?;
+        let wasmer_toml = toml::from_str::<wasmer_toml::Manifest>(&wasmer_toml)
+            .map_err(|e| format!("Could not parse toml for {:?}: {e}", base_path.display()))?;
+        Ok(wasmer_toml)
+    }
+
+    pub fn get_commands(&self) -> Result<Vec<String>, String> {
         let path = self.get_path()?;
-        #[cfg(test)]
-        let path = self.get_path(test_name)?;
-        let toml_path = path.join("wapm.toml");
-        let toml = std::fs::read_to_string(&toml_path)
-            .map_err(|e| format!("error reading {}: {e}", toml_path.display()))?;
-        let toml_parsed = toml::from_str::<wapm_toml::Manifest>(&toml)
-            .map_err(|e| format!("error parsing {}: {e}", toml_path.display()))?;
+        let toml_parsed = Self::read_toml(&path)?;
         Ok(toml_parsed
             .command
             .unwrap_or_default()
@@ -110,19 +139,15 @@ impl LocalPackage {
 
 /// Returns the (manifest, .wasm file name), given a package dir
 pub fn get_executable_file_from_path(
-    package_dir: &PathBuf,
+    package_dir: &Path,
     command: Option<&str>,
-) -> Result<(wapm_toml::Manifest, PathBuf), anyhow::Error> {
-    let wapm_toml = std::fs::read_to_string(package_dir.join("wapm.toml"))
-        .map_err(|_| anyhow::anyhow!("Package {package_dir:?} has no wapm.toml"))?;
+) -> Result<(wasmer_toml::Manifest, PathBuf), anyhow::Error> {
+    let wasmer_toml = LocalPackage::read_toml(package_dir).map_err(|e| anyhow::anyhow!("{e}"))?;
 
-    let wapm_toml = toml::from_str::<wapm_toml::Manifest>(&wapm_toml)
-        .map_err(|e| anyhow::anyhow!("Could not parse toml for {package_dir:?}: {e}"))?;
+    let name = wasmer_toml.package.name.clone();
+    let version = wasmer_toml.package.version.clone();
 
-    let name = wapm_toml.package.name.clone();
-    let version = wapm_toml.package.version.clone();
-
-    let commands = wapm_toml.command.clone().unwrap_or_default();
+    let commands = wasmer_toml.command.clone().unwrap_or_default();
     let entrypoint_module = match command {
         Some(s) => commands.iter().find(|c| c.get_name() == s).ok_or_else(|| {
             anyhow::anyhow!("Cannot run {name}@{version}: package has no command {s:?}")
@@ -144,19 +169,19 @@ pub fn get_executable_file_from_path(
     };
 
     let module_name = entrypoint_module.get_module();
-    let modules = wapm_toml.module.clone().unwrap_or_default();
+    let modules = wasmer_toml.module.clone().unwrap_or_default();
     let entrypoint_module = modules
         .iter()
         .find(|m| m.name == module_name)
         .ok_or_else(|| {
             anyhow::anyhow!(
-                "Cannot run {name}@{version}: module {module_name} not found in wapm.toml"
+                "Cannot run {name}@{version}: module {module_name} not found in {GLOBAL_CONFIG_FILE_NAME}"
             )
         })?;
 
     let entrypoint_source = package_dir.join(&entrypoint_module.source);
 
-    Ok((wapm_toml, entrypoint_source))
+    Ok((wasmer_toml, entrypoint_source))
 }
 
 fn get_all_names_in_dir(dir: &PathBuf) -> Vec<(PathBuf, String)> {
@@ -185,25 +210,13 @@ fn get_all_names_in_dir(dir: &PathBuf) -> Vec<(PathBuf, String)> {
 }
 
 /// Returns a list of all locally installed packages
-pub fn get_all_local_packages(#[cfg(test)] test_name: &str) -> Vec<LocalPackage> {
+pub fn get_all_local_packages(wasmer_dir: &Path) -> Vec<LocalPackage> {
     let mut packages = Vec::new();
 
-    #[cfg(not(test))]
-    let checkouts_dir = get_checkouts_dir();
-    #[cfg(test)]
-    let checkouts_dir = get_checkouts_dir(test_name);
-
-    let checkouts_dir = match checkouts_dir {
-        Some(s) => s,
-        None => return packages,
-    };
+    let checkouts_dir = get_checkouts_dir(wasmer_dir);
 
     for (path, url_hash_with_version) in get_all_names_in_dir(&checkouts_dir) {
-        let s = match std::fs::read_to_string(path.join("wapm.toml")) {
-            Ok(o) => o,
-            Err(_) => continue,
-        };
-        let manifest = match wapm_toml::Manifest::parse(&s) {
+        let manifest = match LocalPackage::read_toml(&path) {
             Ok(o) => o,
             Err(_) => continue,
         };
@@ -229,16 +242,11 @@ pub fn get_all_local_packages(#[cfg(test)] test_name: &str) -> Vec<LocalPackage>
 }
 
 pub fn get_local_package(
-    #[cfg(test)] test_name: &str,
+    wasmer_dir: &Path,
     name: &str,
     version: Option<&str>,
 ) -> Option<LocalPackage> {
-    #[cfg(not(test))]
-    let local_packages = get_all_local_packages();
-    #[cfg(test)]
-    let local_packages = get_all_local_packages(test_name);
-
-    local_packages
+    get_all_local_packages(wasmer_dir)
         .iter()
         .find(|p| {
             if p.name != name {
@@ -367,7 +375,7 @@ pub fn query_package_from_registry(
         QueryPackageError::ErrorSendingQuery(format!("no package version for {name:?}"))
     })?;
 
-    let manifest = toml::from_str::<wapm_toml::Manifest>(&v.manifest).map_err(|e| {
+    let manifest = toml::from_str::<wasmer_toml::Manifest>(&v.manifest).map_err(|e| {
         QueryPackageError::ErrorSendingQuery(format!("Invalid manifest for crate {name:?}: {e}"))
     })?;
 
@@ -392,43 +400,12 @@ pub fn query_package_from_registry(
     })
 }
 
-pub fn get_wasmer_root_dir(#[cfg(test)] test_name: &str) -> Option<PathBuf> {
-    #[cfg(test)]
-    {
-        PartialWapmConfig::get_folder(test_name).ok()
-    }
-    #[cfg(not(test))]
-    {
-        PartialWapmConfig::get_folder().ok()
-    }
+pub fn get_checkouts_dir(wasmer_dir: &Path) -> PathBuf {
+    wasmer_dir.join("checkouts")
 }
 
-pub fn get_checkouts_dir(#[cfg(test)] test_name: &str) -> Option<PathBuf> {
-    #[cfg(test)]
-    let root_dir = get_wasmer_root_dir(test_name)?;
-    #[cfg(not(test))]
-    let root_dir = get_wasmer_root_dir()?;
-    Some(root_dir.join("checkouts"))
-}
-
-pub fn get_webc_dir(#[cfg(test)] test_name: &str) -> Option<PathBuf> {
-    #[cfg(test)]
-    let root_dir = get_wasmer_root_dir(test_name)?;
-    #[cfg(not(test))]
-    let root_dir = get_wasmer_root_dir()?;
-    Some(root_dir.join("webc"))
-}
-
-/// Returs the path to the directory where all packages on this computer are being stored
-pub fn get_global_install_dir(
-    #[cfg(test)] test_name: &str,
-    registry_host: &str,
-) -> Option<PathBuf> {
-    #[cfg(test)]
-    let root_dir = get_checkouts_dir(test_name)?;
-    #[cfg(not(test))]
-    let root_dir = get_checkouts_dir()?;
-    Some(root_dir.join(registry_host))
+pub fn get_webc_dir(wasmer_dir: &Path) -> PathBuf {
+    wasmer_dir.join("webc")
 }
 
 /// Convenience function that will unpack .tar.gz files and .tar.bz
@@ -538,7 +515,7 @@ where
 
 /// Installs the .tar.gz if it doesn't yet exist, returns the
 /// (package dir, entrypoint .wasm file path)
-pub fn install_package(#[cfg(test)] test_name: &str, url: &Url) -> Result<PathBuf, anyhow::Error> {
+pub fn install_package(wasmer_dir: &Path, url: &Url) -> Result<PathBuf, anyhow::Error> {
     use fs_extra::dir::copy;
 
     let tempdir = tempdir::TempDir::new("download")
@@ -563,21 +540,13 @@ pub fn install_package(#[cfg(test)] test_name: &str, url: &Url) -> Result<PathBu
     )
     .with_context(|| anyhow::anyhow!("Could not unpack file downloaded from {url}"))?;
 
-    // read {unpacked}/wapm.toml to get the name + version number
-    let toml_path = unpacked_targz_path.join("wapm.toml");
-    let toml = std::fs::read_to_string(&toml_path)
-        .map_err(|e| anyhow::anyhow!("error reading {}: {e}", toml_path.display()))?;
-    let toml_parsed = toml::from_str::<wapm_toml::Manifest>(&toml)
-        .map_err(|e| anyhow::anyhow!("error parsing {}: {e}", toml_path.display()))?;
+    // read {unpacked}/wasmer.toml to get the name + version number
+    let toml_parsed = LocalPackage::read_toml(&unpacked_targz_path)
+        .map_err(|e| anyhow::anyhow!("error reading package name / version number: {e}"))?;
 
     let version = toml_parsed.package.version.to_string();
 
-    #[cfg(test)]
-    let checkouts_dir = crate::get_checkouts_dir(test_name);
-    #[cfg(not(test))]
-    let checkouts_dir = crate::get_checkouts_dir();
-
-    let checkouts_dir = checkouts_dir.ok_or_else(|| anyhow::anyhow!("no checkouts dir"))?;
+    let checkouts_dir = crate::get_checkouts_dir(wasmer_dir);
 
     let installation_path =
         checkouts_dir.join(format!("{}@{version}", Package::hash_url(url.as_ref())));
@@ -592,7 +561,7 @@ pub fn install_package(#[cfg(test)] test_name: &str, url: &Url) -> Result<PathBu
 
     #[cfg(not(target_os = "wasi"))]
     let _ = filetime::set_file_mtime(
-        installation_path.join("wapm.toml"),
+        LocalPackage::get_wasmer_toml_path(&installation_path)?,
         filetime::FileTime::now(),
     );
 
@@ -600,16 +569,14 @@ pub fn install_package(#[cfg(test)] test_name: &str, url: &Url) -> Result<PathBu
 }
 
 pub fn whoami(
-    #[cfg(test)] test_name: &str,
+    wasmer_dir: &Path,
     registry: Option<&str>,
+    token: Option<&str>,
 ) -> Result<(String, String), anyhow::Error> {
     use crate::queries::{who_am_i_query, WhoAmIQuery};
     use graphql_client::GraphQLQuery;
 
-    #[cfg(test)]
-    let config = PartialWapmConfig::from_file(test_name);
-    #[cfg(not(test))]
-    let config = PartialWapmConfig::from_file();
+    let config = WasmerConfig::from_file(wasmer_dir);
 
     let config = config
         .map_err(|e| anyhow::anyhow!("{e}"))
@@ -620,9 +587,9 @@ pub fn whoami(
         None => config.registry.get_current_registry(),
     };
 
-    let login_token = config
-        .registry
-        .get_login_token_for_registry(&registry)
+    let login_token = token
+        .map(|s| s.to_string())
+        .or_else(|| config.registry.get_login_token_for_registry(&registry))
         .ok_or_else(|| anyhow::anyhow!("not logged into registry {:?}", registry))?;
 
     let q = WhoAmIQuery::build_query(who_am_i_query::Variables {});
@@ -657,22 +624,11 @@ pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
     Ok(true)
 }
 
-pub fn get_all_available_registries(#[cfg(test)] test_name: &str) -> Result<Vec<String>, String> {
-    #[cfg(test)]
-    let config = PartialWapmConfig::from_file(test_name)?;
-    #[cfg(not(test))]
-    let config = PartialWapmConfig::from_file()?;
-
+pub fn get_all_available_registries(wasmer_dir: &Path) -> Result<Vec<String>, String> {
+    let config = WasmerConfig::from_file(wasmer_dir)?;
     let mut registries = Vec::new();
-    match config.registry {
-        Registries::Single(s) => {
-            registries.push(format_graphql(&s.url));
-        }
-        Registries::Multi(m) => {
-            for key in m.tokens.keys() {
-                registries.push(format_graphql(key));
-            }
-        }
+    for login in config.registry.tokens {
+        registries.push(format_graphql(&login.registry));
     }
     Ok(registries)
 }
@@ -684,7 +640,7 @@ pub struct RemoteWebcInfo {
 }
 
 pub fn install_webc_package(
-    #[cfg(test)] test_name: &str,
+    wasmer_dir: &Path,
     url: &Url,
     checksum: &str,
 ) -> Result<(), anyhow::Error> {
@@ -692,34 +648,18 @@ pub fn install_webc_package(
         .enable_all()
         .build()
         .unwrap()
-        .block_on(async {
-            {
-                #[cfg(test)]
-                {
-                    install_webc_package_inner(test_name, url, checksum).await
-                }
-                #[cfg(not(test))]
-                {
-                    install_webc_package_inner(url, checksum).await
-                }
-            }
-        })
+        .block_on(async { install_webc_package_inner(wasmer_dir, url, checksum).await })
 }
 
 async fn install_webc_package_inner(
-    #[cfg(test)] test_name: &str,
+    wasmer_dir: &Path,
     url: &Url,
     checksum: &str,
 ) -> Result<(), anyhow::Error> {
     use futures_util::StreamExt;
 
-    #[cfg(test)]
-    let path = get_webc_dir(test_name).ok_or_else(|| anyhow::anyhow!("no webc dir"))?;
-    #[cfg(not(test))]
-    let path = get_webc_dir().ok_or_else(|| anyhow::anyhow!("no webc dir"))?;
-
+    let path = get_webc_dir(wasmer_dir);
     let _ = std::fs::create_dir_all(&path);
-
     let webc_path = path.join(checksum);
 
     let mut file = std::fs::File::create(&webc_path)
@@ -763,28 +703,12 @@ async fn install_webc_package_inner(
 }
 
 /// Returns a list of all installed webc packages
-#[cfg(test)]
-pub fn get_all_installed_webc_packages(test_name: &str) -> Vec<RemoteWebcInfo> {
-    get_all_installed_webc_packages_inner(test_name)
+pub fn get_all_installed_webc_packages(wasmer_dir: &Path) -> Vec<RemoteWebcInfo> {
+    get_all_installed_webc_packages_inner(wasmer_dir)
 }
 
-#[cfg(not(test))]
-pub fn get_all_installed_webc_packages() -> Vec<RemoteWebcInfo> {
-    get_all_installed_webc_packages_inner("")
-}
-
-fn get_all_installed_webc_packages_inner(_test_name: &str) -> Vec<RemoteWebcInfo> {
-    #[cfg(test)]
-    let dir = match get_webc_dir(_test_name) {
-        Some(s) => s,
-        None => return Vec::new(),
-    };
-
-    #[cfg(not(test))]
-    let dir = match get_webc_dir() {
-        Some(s) => s,
-        None => return Vec::new(),
-    };
+fn get_all_installed_webc_packages_inner(wasmer_dir: &Path) -> Vec<RemoteWebcInfo> {
+    let dir = get_webc_dir(wasmer_dir);
 
     let read_dir = match std::fs::read_dir(dir) {
         Ok(s) => s,
@@ -984,8 +908,6 @@ fn get_bytes(
 #[cfg(not(target_env = "musl"))]
 #[test]
 fn test_install_package() {
-    const TEST_NAME: &str = "test_install_package";
-
     println!("test install package...");
     let registry = "https://registry.wapm.io/graphql";
     if !test_if_registry_present(registry).unwrap_or(false) {
@@ -1009,25 +931,25 @@ fn test_install_package() {
         "https://registry-cdn.wapm.io/packages/wasmer/wabt/wabt-1.0.29.tar.gz".to_string()
     );
 
-    let path = install_package(TEST_NAME, &url::Url::parse(&wabt.url).unwrap()).unwrap();
+    let fake_wasmer_dir = tempdir::TempDir::new("tmp").unwrap();
+    let wasmer_dir = fake_wasmer_dir.path();
+    let path = install_package(wasmer_dir, &url::Url::parse(&wabt.url).unwrap()).unwrap();
 
     println!("package installed: {path:?}");
 
     assert_eq!(
         path,
-        get_checkouts_dir(TEST_NAME)
-            .unwrap()
-            .join(&format!("{}@1.0.29", Package::hash_url(&wabt.url)))
+        get_checkouts_dir(wasmer_dir).join(&format!("{}@1.0.29", Package::hash_url(&wabt.url)))
     );
 
-    let all_installed_packages = get_all_local_packages(TEST_NAME);
+    let all_installed_packages = get_all_local_packages(wasmer_dir);
 
     let is_installed = all_installed_packages
         .iter()
         .any(|p| p.name == "wasmer/wabt" && p.version == "1.0.29");
 
     if !is_installed {
-        let panic_str = get_all_local_packages(TEST_NAME)
+        let panic_str = get_all_local_packages(wasmer_dir)
             .iter()
             .map(|p| format!("{} {} {}", p.registry, p.name, p.version))
             .collect::<Vec<_>>()
