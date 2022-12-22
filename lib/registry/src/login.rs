@@ -1,5 +1,5 @@
 use crate::config::{format_graphql, UpdateRegistry};
-use crate::PartialWapmConfig;
+use crate::WasmerConfig;
 use std::path::Path;
 
 /// Login to a registry and save the token associated with it.
@@ -11,7 +11,7 @@ pub fn login_and_save_token(
     token: &str,
 ) -> Result<Option<String>, anyhow::Error> {
     let registry = format_graphql(registry);
-    let mut config = PartialWapmConfig::from_file(wasmer_dir)
+    let mut config = WasmerConfig::from_file(wasmer_dir)
         .map_err(|e| anyhow::anyhow!("config from file: {e}"))?;
     config.registry.set_current_registry(&registry);
     config.registry.set_login_token_for_registry(
@@ -19,7 +19,7 @@ pub fn login_and_save_token(
         token,
         UpdateRegistry::Update,
     );
-    let path = PartialWapmConfig::get_file_location(wasmer_dir);
+    let path = WasmerConfig::get_file_location(wasmer_dir);
     config.save(&path)?;
     crate::utils::get_username_registry_token(&registry, token)
 }

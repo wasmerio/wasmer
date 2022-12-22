@@ -1,28 +1,21 @@
 use graphql_client::GraphQLQuery;
-use serde::Deserialize;
-use serde::Serialize;
-use std::collections::BTreeMap;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 pub static GLOBAL_CONFIG_DATABASE_FILE_NAME: &str = "wasmer.sqlite";
 
 #[derive(Deserialize, Default, Serialize, Debug, PartialEq, Eq)]
-pub struct PartialWapmConfig {
-    /// The number of seconds to wait before checking the registry for a new
-    /// version of the package.
-    #[serde(default = "wax_default_cooldown")]
-    pub wax_cooldown: i32,
-
-    /// The registry that wapm will connect to.
-    pub registry: Registries,
-
+pub struct WasmerConfig {
     /// Whether or not telemetry is enabled.
     #[serde(default)]
-    pub telemetry: Telemetry,
+    pub telemetry_enabled: bool,
 
     /// Whether or not updated notifications are enabled.
     #[serde(default)]
-    pub update_notifications: UpdateNotifications,
+    pub update_notifications_enabled: bool,
+
+    /// The registry that wapm will connect to.
+    pub registry: MultiRegistry,
 
     /// The proxy to use when connecting to the Internet.
     #[serde(default)]
@@ -38,38 +31,31 @@ pub struct Proxy {
     pub url: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Default)]
-pub struct UpdateNotifications {
-    pub enabled: String,
-}
-
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Default)]
-pub struct Telemetry {
-    pub enabled: String,
-}
-
-#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
-#[serde(untagged)]
-pub enum Registries {
-    Single(Registry),
-    Multi(MultiRegistry),
-}
-
+/// Struct to store login tokens for multiple registry URLs
+/// inside of the wasmer.toml configuration file
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
 pub struct MultiRegistry {
     /// Currently active registry
-    pub current: String,
+    pub active_registry: String,
     /// Map from "RegistryUrl" to "LoginToken", in order to
     /// be able to be able to easily switch between registries
-    pub tokens: BTreeMap<String, String>,
+    pub tokens: Vec<RegistryLogin>,
 }
 
-impl Default for Registries {
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
+pub struct RegistryLogin {
+    /// Registry URL to login to
+    pub registry: String,
+    /// Login token for the registry
+    pub token: String,
+}
+
+impl Default for MultiRegistry {
     fn default() -> Self {
-        Registries::Single(Registry {
-            url: format_graphql("https://registry.wapm.io"),
-            token: None,
-        })
+        MultiRegistry {
+            active_registry: format_graphql("wapm.io"),
+            tokens: Vec::new(),
+        }
     }
 }
 
@@ -112,7 +98,7 @@ pub enum UpdateRegistry {
 
 #[test]
 fn test_registries_switch_token() {
-    let mut registries = Registries::default();
+    let mut registries = MultiRegistry::default();
 
     registries.set_current_registry("https://registry.wapm.dev");
     assert_eq!(
@@ -144,18 +130,12 @@ fn test_registries_switch_token() {
     );
 }
 
-impl Registries {
+impl MultiRegistry {
     /// Gets the current (active) registry URL
     pub fn clear_current_registry_token(&mut self) {
-        match self {
-            Registries::Single(s) => {
-                s.token = None;
-            }
-            Registries::Multi(m) => {
-                m.tokens.remove(&m.current);
-                m.tokens.remove(&format_graphql(&m.current));
-            }
-        }
+        self.tokens.retain(|i| i.registry != self.active_registry);
+        self.tokens
+            .retain(|i| i.registry != format_graphql(&self.active_registry));
     }
 
     pub fn get_graphql_url(&self) -> String {
@@ -165,10 +145,7 @@ impl Registries {
 
     /// Gets the current (active) registry URL
     pub fn get_current_registry(&self) -> String {
-        match self {
-            Registries::Single(s) => format_graphql(&s.url),
-            Registries::Multi(m) => format_graphql(&m.current),
-        }
+        format_graphql(&self.active_registry)
     }
 
     /// Sets the current (active) registry URL
@@ -178,25 +155,17 @@ impl Registries {
             println!("Error when trying to ping registry {registry:?}: {e}");
             println!("WARNING: Registry {registry:?} will be used, but commands may not succeed.");
         }
-        match self {
-            Registries::Single(s) => s.url = registry,
-            Registries::Multi(m) => m.current = registry,
-        }
+        self.active_registry = registry;
     }
 
     /// Returns the login token for the registry
     pub fn get_login_token_for_registry(&self, registry: &str) -> Option<String> {
-        match self {
-            Registries::Single(s) if s.url == registry || format_graphql(registry) == s.url => {
-                s.token.clone()
-            }
-            Registries::Multi(m) => m
-                .tokens
-                .get(registry)
-                .or_else(|| m.tokens.get(&format_graphql(registry)))
-                .cloned(),
-            _ => None,
-        }
+        let registry_formatted = format_graphql(registry);
+        self.tokens
+            .iter()
+            .filter(|login| login.registry == registry || login.registry == registry_formatted)
+            .last()
+            .map(|login| login.token.clone())
     }
 
     /// Sets the login token for the registry URL
@@ -206,38 +175,20 @@ impl Registries {
         token: &str,
         update_current_registry: UpdateRegistry,
     ) {
-        let new_map = match self {
-            Registries::Single(s) => {
-                if s.url == registry {
-                    Registries::Single(Registry {
-                        url: format_graphql(registry),
-                        token: Some(token.to_string()),
-                    })
-                } else {
-                    let mut map = BTreeMap::new();
-                    if let Some(token) = s.token.clone() {
-                        map.insert(format_graphql(&s.url), token);
-                    }
-                    map.insert(format_graphql(registry), token.to_string());
-                    Registries::Multi(MultiRegistry {
-                        current: format_graphql(&s.url),
-                        tokens: map,
-                    })
-                }
-            }
-            Registries::Multi(m) => {
-                m.tokens.insert(format_graphql(registry), token.to_string());
-                if update_current_registry == UpdateRegistry::Update {
-                    m.current = format_graphql(registry);
-                }
-                Registries::Multi(m.clone())
-            }
-        };
-        *self = new_map;
+        let registry_formatted = format_graphql(registry);
+        self.tokens
+            .retain(|login| !(login.registry == registry || login.registry == registry_formatted));
+        self.tokens.push(RegistryLogin {
+            registry: format_graphql(registry),
+            token: token.to_string(),
+        });
+        if update_current_registry == UpdateRegistry::Update {
+            self.active_registry = format_graphql(registry);
+        }
     }
 }
 
-impl PartialWapmConfig {
+impl WasmerConfig {
     /// Save the config to a file
     pub fn save<P: AsRef<Path>>(&self, to: P) -> anyhow::Result<()> {
         use std::{fs::File, io::Write};
@@ -250,9 +201,7 @@ impl PartialWapmConfig {
     pub fn from_file(wasmer_dir: &Path) -> Result<Self, String> {
         let path = Self::get_file_location(wasmer_dir);
         match std::fs::read_to_string(&path) {
-            Ok(config_toml) => {
-                toml::from_str(&config_toml).map_err(|e| format!("could not parse {path:?}: {e}"))
-            }
+            Ok(config_toml) => Ok(toml::from_str(&config_toml).unwrap_or_else(|_| Self::default())),
             Err(_e) => Ok(Self::default()),
         }
     }

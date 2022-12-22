@@ -4,7 +4,7 @@ use clap::Parser;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
-use wasmer_registry::PartialWapmConfig;
+use wasmer_registry::WasmerConfig;
 
 static NOTE: &str =
     "# See more keys and definitions at https://docs.wasmer.io/ecosystem/wapm/manifest";
@@ -365,7 +365,7 @@ fn construct_manifest(
             .map(|p| &p.name)
             .unwrap_or(fallback_package_name)
     });
-    let wasmer_dir = PartialWapmConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
+    let wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
     let namespace = namespace.or_else(|| {
         wasmer_registry::whoami(&wasmer_dir, None, None)
             .ok()
