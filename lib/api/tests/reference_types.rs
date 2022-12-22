@@ -364,7 +364,7 @@ pub mod reference_types {
         let global: &Global = instance.exports.get_global("global")?;
         {
             let er = ExternRef::new(&mut store, 3usize);
-            global.set(&mut store, Value::ExternRef(Some(er.clone())))?;
+            global.set(&mut store, Value::ExternRef(Some(er)))?;
         }
         let get_from_global: TypedFunction<(), Option<ExternRef>> = instance
             .exports
@@ -395,7 +395,7 @@ pub mod reference_types {
 
         let er = ExternRef::new(&mut store, 3usize);
 
-        let result = pass_extern_ref.call(&mut store, Some(er.clone()));
+        let result = pass_extern_ref.call(&mut store, Some(er));
         assert!(result.is_err());
 
         Ok(())
@@ -439,7 +439,7 @@ pub mod reference_types {
             let result = grow_table_with_ref.call(&mut store, Some(er1.clone()), 10_000)?;
             assert_eq!(result, -1);
 
-            let result = grow_table_with_ref.call(&mut store, Some(er1.clone()), 8)?;
+            let result = grow_table_with_ref.call(&mut store, Some(er1), 8)?;
             assert_eq!(result, 2);
 
             for i in 2..10 {
@@ -451,7 +451,7 @@ pub mod reference_types {
         }
 
         {
-            fill_table_with_ref.call(&mut store, Some(er2.clone()), 0, 2)?;
+            fill_table_with_ref.call(&mut store, Some(er2), 0, 2)?;
         }
 
         {
@@ -459,7 +459,7 @@ pub mod reference_types {
             table2.set(&mut store, 1, Value::ExternRef(Some(er3.clone())))?;
             table2.set(&mut store, 2, Value::ExternRef(Some(er3.clone())))?;
             table2.set(&mut store, 3, Value::ExternRef(Some(er3.clone())))?;
-            table2.set(&mut store, 4, Value::ExternRef(Some(er3.clone())))?;
+            table2.set(&mut store, 4, Value::ExternRef(Some(er3)))?;
         }
 
         {

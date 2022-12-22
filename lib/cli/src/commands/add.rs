@@ -76,7 +76,9 @@ impl Add {
         match &self.registry {
             Some(r) => Ok(r.clone()),
             None => {
-                let cfg = PartialWapmConfig::from_file()
+                let wasmer_dir =
+                    PartialWapmConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
+                let cfg = PartialWapmConfig::from_file(&wasmer_dir)
                     .map_err(Error::msg)
                     .context("Unable to load WAPM's config file")?;
                 Ok(cfg.registry.get_current_registry())

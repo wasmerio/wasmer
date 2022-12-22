@@ -9,6 +9,10 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## Fixed
+
+  - [#3439](https://github.com/wasmerio/wasmer/pull/3439) Use GNU/Linux frame registration code for FreeBSD too
+
 ## 3.1.0 - 12/12/2022
 
 ## Added
