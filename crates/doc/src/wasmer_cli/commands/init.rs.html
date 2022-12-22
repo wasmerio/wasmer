@@ -529,7 +529,7 @@
 <span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
 <span class="kw">use</span> <span class="ident">std::path::Path</span>;
 <span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
-<span class="kw">use</span> <span class="ident">wasmer_registry::PartialWapmConfig</span>;
+<span class="kw">use</span> <span class="ident">wasmer_registry::WasmerConfig</span>;
 
 <span class="kw">static</span> <span class="ident">NOTE</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span>
     <span class="string">&quot;# See more keys and definitions at https://docs.wasmer.io/ecosystem/wapm/manifest&quot;</span>;
@@ -890,7 +890,7 @@
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="ident">p</span>.<span class="ident">name</span>)
             .<span class="ident">unwrap_or</span>(<span class="ident">fallback_package_name</span>)
     });
-    <span class="kw">let</span> <span class="ident">wasmer_dir</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::get_wasmer_dir</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">wasmer_dir</span> <span class="op">=</span> <span class="ident">WasmerConfig::get_wasmer_dir</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
     <span class="kw">let</span> <span class="ident">namespace</span> <span class="op">=</span> <span class="ident">namespace</span>.<span class="ident">or_else</span>(<span class="op">|</span><span class="op">|</span> {
         <span class="ident">wasmer_registry::whoami</span>(<span class="kw-2">&amp;</span><span class="ident">wasmer_dir</span>, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
             .<span class="ident">ok</span>()

@@ -191,7 +191,7 @@
 <span id="185">185</span>
 <span id="186">186</span>
 <span id="187">187</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::PartialWapmConfig</span>;
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::WasmerConfig</span>;
 <span class="kw">use</span> <span class="ident">regex::Regex</span>;
 <span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fmt</span>, <span class="ident">str::FromStr</span>};
@@ -221,7 +221,7 @@
     <span class="doccomment">/// Checks whether the package is already installed, if yes, returns the path to the root dir</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">already_installed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::get_checkouts_dir</span>(<span class="ident">wasmer_dir</span>);
-        <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>(<span class="ident">wasmer_dir</span>).<span class="ident">ok</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">WasmerConfig::from_file</span>(<span class="ident">wasmer_dir</span>).<span class="ident">ok</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">current_registry</span> <span class="op">=</span> <span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">get_current_registry</span>();
         <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_hash</span>(<span class="kw-2">&amp;</span><span class="ident">current_registry</span>);
 
@@ -327,7 +327,7 @@
     <span class="doccomment">/// Does not check whether the installation directory already exists.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_path</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">wasmer_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">checkouts_dir</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::get_checkouts_dir</span>(<span class="ident">wasmer_dir</span>);
-        <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">PartialWapmConfig::from_file</span>(<span class="ident">wasmer_dir</span>)
+        <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">WasmerConfig::from_file</span>(<span class="ident">wasmer_dir</span>)
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not load config {e}&quot;</span>))<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">hash</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_hash</span>(<span class="kw-2">&amp;</span><span class="ident">config</span>.<span class="ident">registry</span>.<span class="ident">get_current_registry</span>());
 
