@@ -576,7 +576,7 @@ pub fn whoami(
     use crate::queries::{who_am_i_query, WhoAmIQuery};
     use graphql_client::GraphQLQuery;
 
-    let config = PartialWapmConfig::from_file(wasmer_dir);
+    let config = WasmerConfig::from_file(wasmer_dir);
 
     let config = config
         .map_err(|e| anyhow::anyhow!("{e}"))
@@ -626,7 +626,7 @@ pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
 
 
 pub fn get_all_available_registries(wasmer_dir: &Path) -> Result<Vec<String>, String> {
-    let config = PartialWapmConfig::from_file(wasmer_dir)?;
+    let config = WasmerConfig::from_file(wasmer_dir)?;
     let mut registries = Vec::new();
     for login in config.registry.tokens {
         registries.push(format_graphql(&login.registry));
