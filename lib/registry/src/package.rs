@@ -1,4 +1,4 @@
-use crate::PartialWapmConfig;
+use crate::WasmerConfig;
 use regex::Regex;
 use std::path::{Path, PathBuf};
 use std::{fmt, str::FromStr};
@@ -28,7 +28,7 @@ impl Package {
     /// Checks whether the package is already installed, if yes, returns the path to the root dir
     pub fn already_installed(&self, wasmer_dir: &Path) -> Option<PathBuf> {
         let checkouts_dir = crate::get_checkouts_dir(wasmer_dir);
-        let config = PartialWapmConfig::from_file(wasmer_dir).ok()?;
+        let config = WasmerConfig::from_file(wasmer_dir).ok()?;
         let current_registry = config.registry.get_current_registry();
         let hash = self.get_hash(&current_registry);
 
@@ -134,7 +134,7 @@ impl Package {
     /// Does not check whether the installation directory already exists.
     pub fn get_path(&self, wasmer_dir: &Path) -> Result<PathBuf, anyhow::Error> {
         let checkouts_dir = crate::get_checkouts_dir(wasmer_dir);
-        let config = PartialWapmConfig::from_file(wasmer_dir)
+        let config = WasmerConfig::from_file(wasmer_dir)
             .map_err(|e| anyhow::anyhow!("could not load config {e}"))?;
         let hash = self.get_hash(&config.registry.get_current_registry());
 

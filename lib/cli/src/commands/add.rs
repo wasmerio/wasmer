@@ -2,7 +2,7 @@ use std::process::{Command, Stdio};
 
 use anyhow::{Context, Error};
 use clap::Parser;
-use wasmer_registry::{Bindings, PartialWapmConfig, ProgrammingLanguage};
+use wasmer_registry::{Bindings, ProgrammingLanguage, WasmerConfig};
 
 /// Add a WAPM package's bindings to your application.
 #[derive(Debug, Parser)]
@@ -77,8 +77,8 @@ impl Add {
             Some(r) => Ok(r.clone()),
             None => {
                 let wasmer_dir =
-                    PartialWapmConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
-                let cfg = PartialWapmConfig::from_file(&wasmer_dir)
+                    WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
+                let cfg = WasmerConfig::from_file(&wasmer_dir)
                     .map_err(Error::msg)
                     .context("Unable to load WAPM's config file")?;
                 Ok(cfg.registry.get_current_registry())

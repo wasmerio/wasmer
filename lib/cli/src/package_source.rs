@@ -4,7 +4,7 @@ use anyhow::Context;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use url::Url;
-use wasmer_registry::PartialWapmConfig;
+use wasmer_registry::WasmerConfig;
 
 /// Source of a package
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -62,7 +62,7 @@ impl PackageSource {
                 };
             }
             Self::Url(u) => {
-                let wasmer_dir = PartialWapmConfig::get_wasmer_dir()
+                let wasmer_dir = WasmerConfig::get_wasmer_dir()
                     .map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
                 if let Some(path) =
                     wasmer_registry::Package::is_url_already_installed(u, &wasmer_dir)
@@ -73,7 +73,7 @@ impl PackageSource {
                 }
             }
             Self::Package(p) => {
-                let wasmer_dir = PartialWapmConfig::get_wasmer_dir()
+                let wasmer_dir = WasmerConfig::get_wasmer_dir()
                     .map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
                 let package_path = Path::new(&p.file()).to_path_buf();
                 if package_path.exists() {
@@ -81,7 +81,7 @@ impl PackageSource {
                 } else if let Some(path) = p.already_installed(&wasmer_dir) {
                     return Ok(path);
                 } else {
-                    let config = PartialWapmConfig::from_file(&wasmer_dir)
+                    let config = WasmerConfig::from_file(&wasmer_dir)
                         .map_err(|e| anyhow::anyhow!("error loading wasmer config file: {e}"))?;
                     p.url(&config.registry.get_current_registry())?
                 }
@@ -94,8 +94,8 @@ impl PackageSource {
             String::new()
         };
 
-        let wasmer_dir = PartialWapmConfig::get_wasmer_dir()
-            .map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
+        let wasmer_dir =
+            WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
         let mut sp = start_spinner(format!("Installing package {url} ..."));
         let opt_path = wasmer_registry::install_package(&wasmer_dir, &url);
         if let Some(sp) = sp.take() {

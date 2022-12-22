@@ -1,6 +1,6 @@
 use crate::graphql::{execute_query_modifier_inner, get_signed_url, GetSignedUrl};
 use crate::graphql::{publish_package_mutation_chunked, PublishPackageMutationChunked};
-use crate::{format_graphql, PartialWapmConfig};
+use crate::{format_graphql, WasmerConfig};
 use console::{style, Emoji};
 use graphql_client::GraphQLQuery;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
@@ -39,10 +39,9 @@ pub fn try_chunked_uploading(
     let registry = match registry.as_ref() {
         Some(s) => format_graphql(s),
         None => {
-            let wasmer_dir =
-                PartialWapmConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
+            let wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
 
-            let config = PartialWapmConfig::from_file(&wasmer_dir);
+            let config = WasmerConfig::from_file(&wasmer_dir);
 
             config
                 .map_err(|e| anyhow::anyhow!("{e}"))?
@@ -54,10 +53,9 @@ pub fn try_chunked_uploading(
     let token = match token.as_ref() {
         Some(s) => s.to_string(),
         None => {
-            let wasmer_dir =
-                PartialWapmConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
+            let wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
 
-            let config = PartialWapmConfig::from_file(&wasmer_dir);
+            let config = WasmerConfig::from_file(&wasmer_dir);
 
             config
                 .map_err(|e| anyhow::anyhow!("{e}"))?
