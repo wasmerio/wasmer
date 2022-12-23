@@ -145,7 +145,13 @@ impl CreateExe {
 
         if input_path.is_dir() {
             // assumes that the input directory has been created with create-obj
-            link_exe_from_dir(&input_path, output_path, &cross_compilation, true)?;
+            link_exe_from_dir(
+                &input_path,
+                output_path,
+                &cross_compilation,
+                &self.libraries,
+                true,
+            )?;
         } else if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
             // pirita file
             let temp = tempdir::TempDir::new("pirita-compile")?;
@@ -166,6 +172,7 @@ impl CreateExe {
                 &tempdir,
                 output_path,
                 &cross_compilation,
+                &self.libraries,
                 self.debug_dir.is_some(),
             )?;
         } else {
@@ -188,6 +195,7 @@ impl CreateExe {
                 &tempdir,
                 output_path,
                 &cross_compilation,
+                &self.libraries,
                 self.debug_dir.is_some(),
             )?;
         }
@@ -573,6 +581,7 @@ fn link_exe_from_dir(
     directory: &Path,
     output_path: PathBuf,
     cross_compilation: &CrossCompileSetup,
+    additional_libraries: &[String],
     debug: bool,
 ) -> anyhow::Result<()> {
     let entrypoint_json =
@@ -666,13 +675,36 @@ fn link_exe_from_dir(
     }
 
     // compilation done, now link
+    if cross_compilation.zig_binary_path.is_none() {
+        #[cfg(not(windows))]
+        let linker = "cc";
+        #[cfg(windows)]
+        let linker = "clang";
+        let optimization_flag = "-O2";
 
-    let zig_binary_path = cross_compilation.zig_binary_path.as_ref().ok_or_else(|| {
-        anyhow::anyhow!(
-            "could not write wasmer_main.c in dir {}",
-            directory.display()
-        )
-    })?;
+        let object_path = match directory.join("wasmer_main.o").canonicalize() {
+            Ok(s) => s,
+            Err(_) => directory.join("wasmer_main.c"),
+        };
+
+        object_paths.push(object_path);
+
+        link_objects_system_linker(
+            &library_path,
+            linker,
+            &optimization_flag,
+            &object_paths,
+            &cross_compilation.target,
+            &additional_libraries,
+            &output_path,
+            debug,
+        )?;
+    }
+
+    let zig_binary_path = cross_compilation
+        .zig_binary_path
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("could not find zig in $PATH {}", directory.display()))?;
 
     let mut cmd = Command::new(&zig_binary_path);
     cmd.arg("build-exe");
@@ -765,6 +797,64 @@ fn link_exe_from_dir(
     Ok(())
 }
 
+/// Link compiled objects using the system linker
+fn link_objects_system_linker(
+    libwasmer_path: &Path,
+    linker_cmd: &str,
+    optimization_flag: &str,
+    object_paths: &[PathBuf],
+    target: &Triple,
+    additional_libraries: &[String],
+    output_path: &Path,
+    debug: bool,
+) -> Result<(), anyhow::Error> {
+    let libwasmer_path = libwasmer_path
+        .canonicalize()
+        .context("Failed to find libwasmer")?;
+    println!(
+        "Using path `{}` as libwasmer path.",
+        libwasmer_path.display()
+    );
+    let mut command = Command::new(linker_cmd);
+    let command = command
+        .arg("-Wall")
+        .arg(optimization_flag)
+        .args(object_paths.iter().map(|path| path.canonicalize().unwrap()))
+        .arg(&libwasmer_path)
+        .arg("-target")
+        .arg(format!("{}", target));
+
+    // Add libraries required per platform.
+    // We need userenv, sockets (Ws2_32), advapi32 for some system calls and bcrypt for random numbers.
+    #[cfg(windows)]
+    let command = command
+        .arg("-luserenv")
+        .arg("-lWs2_32")
+        .arg("-ladvapi32")
+        .arg("-lbcrypt");
+
+    // On unix we need dlopen-related symbols, libmath for a few things, and pthreads.
+    #[cfg(not(windows))]
+    let command = command.arg("-ldl").arg("-lm").arg("-pthread");
+    let link_against_extra_libs = additional_libraries.iter().map(|lib| format!("-l{}", lib));
+    let command = command.args(link_against_extra_libs);
+    let command = command.arg("-o").arg(output_path);
+    if debug {
+        println!("{:#?}", command);
+    }
+    let output = command.output()?;
+
+    if !output.status.success() {
+        bail!(
+            "linking failed with: stdout: {}\n\nstderr: {}",
+            std::str::from_utf8(&output.stdout)
+                .expect("stdout is not utf8! need to handle arbitrary bytes"),
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
+    Ok(())
+}
 /// Generate the wasmer_main.c that links all object files together
 /// (depending on the object format / atoms number)
 fn generate_wasmer_main_c(entrypoint: &Entrypoint) -> Result<String, anyhow::Error> {
@@ -1009,11 +1099,11 @@ pub(super) mod utils {
 
         let file = files
         .iter()
-        .find(|f| f.ends_with("libwasmer-headless.a"))
+        .find(|f| f.ends_with("libwasmer-headless.a") || f.ends_with("wasmer-headless.lib"))
         .or_else(|| {
             files
             .iter()
-            .find(|f| f.ends_with("libwasmer.a"))
+            .find(|f| f.ends_with("libwasmer.a") || f.ends_with("wasmer.lib"))
         })
         .cloned()
         .ok_or_else(|| {
