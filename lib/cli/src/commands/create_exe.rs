@@ -1014,7 +1014,13 @@ pub(super) mod utils {
 
         let file = files
         .iter()
-        .find(|f| f.ends_with("libwasmer.a")).cloned()
+        .find(|f| f.ends_with("libwasmer-headless.a"))
+        .or_else(|| {
+            files
+            .iter()
+            .find(|f| f.ends_with("libwasmer.a"))
+        })
+        .cloned()
         .ok_or_else(|| {
             anyhow!("Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})", target)
         })?;
@@ -1096,15 +1102,7 @@ pub(super) mod utils {
     }
 
     pub(super) fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
-        Ok(PathBuf::from(
-            env::var("WASMER_DIR")
-                .or_else(|e| {
-                    option_env!("WASMER_INSTALL_PREFIX")
-                        .map(str::to_string)
-                        .ok_or(e)
-                })
-                .context("Trying to read env var `WASMER_DIR`")?,
-        ))
+        wasmer_registry::WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))
     }
 
     pub(super) fn get_wasmer_include_directory() -> anyhow::Result<PathBuf> {
