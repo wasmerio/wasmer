@@ -2,18 +2,15 @@
 //! Create a standalone native executable for a given Wasm file.
 
 use super::ObjectFormat;
-use crate::{commands::PrefixerFn, store::CompilerOptions};
-use anyhow::{Context, Result};
+use crate::store::CompilerOptions;
+use anyhow::Result;
 use clap::Parser;
 use std::env;
-use std::fs;
-use std::fs::File;
-use std::io::prelude::*;
-use std::io::BufWriter;
+
 use std::path::PathBuf;
-use std::process::Command;
+
 use wasmer::*;
-use wasmer_object::{emit_serialized, get_object_for_target};
+
 #[cfg(feature = "webc_runner")]
 use webc::{ParseOptions, WebCMmap};
 
@@ -61,7 +58,7 @@ pub struct CreateObj {
 impl CreateObj {
     /// Runs logic for the `create-obj` subcommand
     pub fn execute(&self) -> Result<()> {
-        let target_triple = self.target_triple.clone().unwrap_or_else(|| Triple::host());
+        let target_triple = self.target_triple.clone().unwrap_or_else(Triple::host);
         let starting_cd = env::current_dir()?;
         let input_path = starting_cd.join(&self.path);
         let output_path = starting_cd.join(&self.output);

@@ -6,12 +6,11 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::env;
-use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
-use wasmer_types::compilation::target;
+
 use webc::{ParseOptions, WebCMmap};
 
 /// The `prefixer` returns the a String to prefix each of the
@@ -130,7 +129,7 @@ pub struct Volume {
 impl CreateExe {
     /// Runs logic for the `compile` subcommand
     pub fn execute(&self) -> Result<()> {
-        let target_triple = self.target_triple.clone().unwrap_or_else(|| Triple::host());
+        let target_triple = self.target_triple.clone().unwrap_or_else(Triple::host);
         let mut cc = CrossCompile {
             library_path: self.cross_compile.library_path.clone(),
             zig_binary_path: self.cross_compile.zig_binary_path.clone(),
@@ -146,7 +145,7 @@ impl CreateExe {
 
         if input_path.is_dir() {
             // assumes that the input directory has been created with create-obj
-            link_exe_from_dir(&input_path, output_path, &cross_compilation)?;
+            link_exe_from_dir(&input_path, output_path, &cross_compilation, true)?;
         } else if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
             // pirita file
             let temp = tempdir::TempDir::new("pirita-compile")?;
@@ -163,7 +162,12 @@ impl CreateExe {
                 &cross_compilation.target,
                 self.object_format.unwrap_or_default(),
             )?;
-            link_exe_from_dir(&tempdir, output_path, &cross_compilation)?;
+            link_exe_from_dir(
+                &tempdir,
+                output_path,
+                &cross_compilation,
+                self.debug_dir.is_some(),
+            )?;
         } else {
             // wasm file
             let temp = tempdir::TempDir::new("pirita-compile")?;
@@ -180,7 +184,12 @@ impl CreateExe {
                 &self.cpu_features,
                 self.object_format.unwrap_or_default(),
             )?;
-            link_exe_from_dir(&tempdir, output_path, &cross_compilation)?;
+            link_exe_from_dir(
+                &tempdir,
+                output_path,
+                &cross_compilation,
+                self.debug_dir.is_some(),
+            )?;
         }
 
         if self.target_triple.is_some() {
@@ -213,7 +222,7 @@ pub(super) fn compile_pirita_into_directory(
         .map_err(|e| anyhow::anyhow!("cannot create / dir in {}: {e}", target_dir.display()))?;
 
     let target_dir = target_dir.canonicalize()?;
-    let target = &utils::target_triple_to_target(&triple, cpu_features);
+    let target = &utils::target_triple_to_target(triple, cpu_features);
 
     std::fs::create_dir_all(target_dir.join("volumes")).map_err(|e| {
         anyhow::anyhow!(
@@ -225,7 +234,7 @@ pub(super) fn compile_pirita_into_directory(
     let volume_bytes = pirita.get_volumes_as_fileblock();
     let volume_name = "VOLUMES";
     let volume_path = target_dir.join("volumes").join("volume.o");
-    write_volume_obj(&volume_bytes, &volume_name, &volume_path, &target)?;
+    write_volume_obj(&volume_bytes, volume_name, &volume_path, target)?;
     let volume_path = volume_path.canonicalize()?;
     let volume_path = pathdiff::diff_paths(&volume_path, &target_dir).unwrap();
 
@@ -237,8 +246,10 @@ pub(super) fn compile_pirita_into_directory(
     let mut target_paths = Vec::new();
 
     for (atom_name, atom_bytes) in pirita.get_all_atoms() {
-        atoms_from_file.push((atom_name.clone(), atom_bytes.to_vec()));
-        let atom_path = target_dir.join("atoms").join(format!("{atom_name}.o"));
+        atoms_from_file.push((utils::normalize_atom_name(&atom_name), atom_bytes.to_vec()));
+        let atom_path = target_dir
+            .join("atoms")
+            .join(format!("{}.o", utils::normalize_atom_name(&atom_name)));
         let header_path = match object_format {
             ObjectFormat::Symbols => {
                 std::fs::create_dir_all(target_dir.join("include")).map_err(|e| {
@@ -248,15 +259,19 @@ pub(super) fn compile_pirita_into_directory(
                     )
                 })?;
 
-                Some(
-                    target_dir
-                        .join("include")
-                        .join(format!("static_defs_{atom_name}.h")),
-                )
+                Some(target_dir.join("include").join(format!(
+                    "static_defs_{}.h",
+                    utils::normalize_atom_name(&atom_name)
+                )))
             }
             ObjectFormat::Serialized => None,
         };
-        target_paths.push((atom_name, atom_path, header_path));
+        target_paths.push((
+            atom_name.clone(),
+            utils::normalize_atom_name(&atom_name),
+            atom_path,
+            header_path,
+        ));
     }
 
     conpile_atoms(
@@ -270,20 +285,21 @@ pub(super) fn compile_pirita_into_directory(
 
     // target_dir
     let mut atoms = Vec::new();
-    for (atom_name, atom_path, opt_header_path) in target_paths {
-        if let Ok(atom_path) = atom_path.canonicalize() {
-            let header_path = opt_header_path.and_then(|p| p.canonicalize().ok());
-            let atom_path =
-                pathdiff::diff_paths(&atom_path, &target_dir).unwrap_or_else(|| atom_path.clone());
-            let header_path = header_path.and_then(|h| pathdiff::diff_paths(&h, &target_dir));
-            atoms.push(CommandEntrypoint {
-                // TODO: improve, "--command pip" should be able to invoke atom "python" with args "-m pip"
-                command: atom_name.clone(),
-                atom: atom_name.clone(),
-                path: atom_path,
-                header: header_path,
-            });
+    for (command_name, atom_name, a, opt_header_path) in target_paths {
+        let mut atom_path = a;
+        let mut header_path = opt_header_path;
+        if let Ok(a) = atom_path.canonicalize() {
+            let opt_header_path = header_path.and_then(|p| p.canonicalize().ok());
+            atom_path = pathdiff::diff_paths(&a, &target_dir).unwrap_or_else(|| a.clone());
+            header_path = opt_header_path.and_then(|h| pathdiff::diff_paths(&h, &target_dir));
         }
+        atoms.push(CommandEntrypoint {
+            // TODO: improve, "--command pip" should be able to invoke atom "python" with args "-m pip"
+            command: command_name,
+            atom: atom_name,
+            path: atom_path,
+            header: header_path,
+        });
     }
 
     let entrypoint = Entrypoint {
@@ -324,6 +340,7 @@ fn conpile_atoms(
     for (a, data) in atoms {
         let (store, _) = compiler.get_store_for_target(target.clone())?;
         let atom_name = utils::normalize_atom_name(a);
+        let atom_name_uppercase = atom_name.to_uppercase();
         let output_object_path = output_dir.join(format!("{atom_name}.o"));
         let module_name = format!(
             "WASMER_MODULE_{}",
@@ -341,19 +358,20 @@ fn conpile_atoms(
                 let prefixer: Option<PrefixerFn> = Some(Box::new(move |_| {
                     utils::normalize_atom_name(&atom_name_copy)
                 }));
-                println!("generating object file {module_name}");
                 let (module_info, obj, metadata_length, symbol_registry) =
                     Artifact::generate_object(
                         compiler,
-                        &data,
+                        data,
                         &module_name,
                         prefixer,
-                        &target,
+                        target,
                         tunables,
                         features,
                     )?;
 
                 let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
+                    &atom_name,
+                    &format!("WASMER_MODULE_{atom_name_uppercase}"),
                     &module_info,
                     &*symbol_registry,
                     metadata_length,
@@ -370,8 +388,7 @@ fn conpile_atoms(
                 writer.flush()?;
             }
             ObjectFormat::Serialized => {
-                let module =
-                    Module::from_binary(&store, &data).context("failed to compile Wasm")?;
+                let module = Module::from_binary(&store, data).context("failed to compile Wasm")?;
                 let bytes = module.serialize()?;
                 let mut obj = get_object_for_target(target.triple())?;
                 emit_serialized(&mut obj, &bytes, target.triple(), &module_name)?;
@@ -468,7 +485,7 @@ pub(super) fn prepare_directory_from_single_wasm_file(
     object_format: ObjectFormat,
 ) -> anyhow::Result<()> {
     let bytes = std::fs::read(wasm_file)?;
-    let target = &utils::target_triple_to_target(&triple, cpu_features);
+    let target = &utils::target_triple_to_target(triple, cpu_features);
 
     std::fs::create_dir_all(target_dir)
         .map_err(|e| anyhow::anyhow!("cannot create / dir in {}: {e}", target_dir.display()))?;
@@ -557,6 +574,7 @@ fn link_exe_from_dir(
     directory: &Path,
     output_path: PathBuf,
     cross_compilation: &CrossCompileSetup,
+    debug: bool,
 ) -> anyhow::Result<()> {
     let entrypoint_json =
         std::fs::read_to_string(directory.join("entrypoint.json")).map_err(|e| {
@@ -608,10 +626,6 @@ fn link_exe_from_dir(
             .iter()
             .filter_map(|v| directory.join(&v.obj_file).canonicalize().ok()),
     );
-
-    println!("linking volume objects: {:#?}", entrypoint.volumes);
-    println!("object_paths: {:#?}", object_paths);
-    println!("object_paths: {:#?}", entrypoint.atoms);
 
     let zig_triple = utils::triple_to_zig_triple(&cross_compilation.target);
     let include_dirs = entrypoint
@@ -715,8 +729,12 @@ fn link_exe_from_dir(
                 cmd.args(files_winsdk);
             }
 
-            println!("{cmd:?}");
-            let compilation = cmd.output().context("Could not execute `zig`")?;
+            if debug {
+                println!("{cmd:?}");
+            }
+            let compilation = cmd
+                .output()
+                .context(anyhow!("Could not execute `zig`: {cmd:?}"))?;
 
             if !compilation.status.success() {
                 return Err(anyhow::anyhow!(String::from_utf8_lossy(
@@ -725,6 +743,8 @@ fn link_exe_from_dir(
                 .to_string()));
             }
 
+            // remove file if it exists - if not done, can lead to errors on copy
+            let _ = std::fs::remove_file(&output_path);
             std::fs::copy(&out_path, &output_path).map_err(|e| {
                 anyhow::anyhow!(
                     "could not copy from {} to {}: {e}",
@@ -744,21 +764,11 @@ fn link_c_compilation() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-#[allow(dead_code)]
-fn generate_wasmer_main_c_static(entrypoint: &Entrypoint) -> Result<String, anyhow::Error> {
-    generate_wasmer_main_c_inner(entrypoint, true)
-}
-
-fn generate_wasmer_main_c(entrypoint: &Entrypoint) -> Result<String, anyhow::Error> {
-    generate_wasmer_main_c_inner(entrypoint, false)
-}
-
 /// Generate the wasmer_main.c that links all object files together
 /// (depending on the object format / atoms number)
-fn generate_wasmer_main_c_inner(
-    entrypoint: &Entrypoint,
-    compile_static: bool,
-) -> Result<String, anyhow::Error> {
+fn generate_wasmer_main_c(entrypoint: &Entrypoint) -> Result<String, anyhow::Error> {
+    use std::fmt::Write;
+
     const WASMER_MAIN_C_SOURCE: &str = include_str!("wasmer_create_exe_main.c");
     const WASMER_STATIC_MAIN_C_SOURCE: &str = include_str!("wasmer_static_create_exe_main.c");
 
@@ -767,6 +777,8 @@ fn generate_wasmer_main_c_inner(
             Ok(WASMER_MAIN_C_SOURCE.replace("// WASI_DEFINES", "#define WASI"))
         }
         ObjectFormat::Symbols => {
+            let compile_static = true;
+            // always with compile zig + static_defs.h
             let atom_names = entrypoint
                 .atoms
                 .iter()
@@ -776,30 +788,34 @@ fn generate_wasmer_main_c_inner(
             let mut c_code_to_add = String::new();
             let mut c_code_to_instantiate = String::new();
             let mut deallocate_module = String::new();
+            let mut extra_headers = Vec::new();
 
             for a in atom_names.iter() {
-                let atom_name = utils::normalize_atom_name(&a);
+                let atom_name = utils::normalize_atom_name(a);
                 let atom_name_uppercase = atom_name.to_uppercase();
                 let module_name = format!("WASMER_MODULE_{atom_name_uppercase}");
 
-                c_code_to_add.push_str(&format!(
+                extra_headers.push(format!("#include \"static_defs_{atom_name}.h\""));
+
+                write!(
+                    c_code_to_add,
                     "
                 extern size_t {module_name}_LENGTH asm(\"{module_name}_LENGTH\");
                 extern char {module_name}_DATA asm(\"{module_name}_DATA\");
                 "
-                ));
+                )?;
 
                 if compile_static {
-                    c_code_to_instantiate.push_str(&format!("
-                    wasm_module_t *atom_{atom_name} = wasmer_object_module_new(store, \"{atom_name}\");
+                    write!(c_code_to_instantiate, "
+                    wasm_module_t *atom_{atom_name} = wasmer_object_module_new_{atom_name}(store, \"{atom_name}\");
                     if (!atom_{atom_name}) {{
                         fprintf(stderr, \"Failed to create module from atom \\\"{atom_name}\\\"\\n\");
                         print_wasmer_error();
                         return -1;
                     }}
-                    "));
+                    ")?;
                 } else {
-                    c_code_to_instantiate.push_str(&format!("
+                    write!(c_code_to_instantiate, "
                     wasm_byte_vec_t atom_{atom_name}_byte_vec = {{
                         .size = {module_name}_LENGTH,
                         .data = &{module_name}_DATA,
@@ -810,13 +826,12 @@ fn generate_wasmer_main_c_inner(
                         print_wasmer_error();
                         return -1;
                     }}
-                    "));
+                    ")?;
                 }
 
-                deallocate_module.push_str(&format!("wasm_module_delete(atom_{atom_name});"));
+                write!(deallocate_module, "wasm_module_delete(atom_{atom_name});")?;
             }
 
-            println!("entrypoint volumes: {:?}", entrypoint.volumes);
             let volumes_str = entrypoint
                 .volumes
                 .iter()
@@ -848,36 +863,39 @@ fn generate_wasmer_main_c_inner(
                 )
                 .replace("// DECLARE_MODULES", &c_code_to_add)
                 .replace("// DECLARE_VOLUMES", &volumes_str)
+                .replace("// EXTRA_HEADERS", &extra_headers.join("\r\n"))
                 .replace("wasm_module_delete(module);", &deallocate_module);
 
             if atom_names.len() == 1 {
                 let atom_to_run = &atom_names[0];
-                c_code_to_instantiate.push_str(&format!("module = atom_{atom_to_run};"));
+                write!(c_code_to_instantiate, "module = atom_{atom_to_run};")?;
             } else {
                 for a in atom_names.iter() {
-                    c_code_to_instantiate.push_str(&format!(
-                        "if (strcmp(selected_atom, \"{a}\") == 0) {{ module = atom_{}; }}\n",
+                    writeln!(
+                        c_code_to_instantiate,
+                        "if (strcmp(selected_atom, \"{a}\") == 0) {{ module = atom_{}; }}",
                         utils::normalize_atom_name(a)
-                    ));
+                    )?;
                 }
             }
 
-            c_code_to_instantiate.push_str(&format!(
+            write!(
+                c_code_to_instantiate,
                 "
             if (!module) {{
                 fprintf(stderr, \"No --command given, available commands are:\\n\");
                 fprintf(stderr, \"\\n\");
                 {commands}
-                print_wasmer_error();
+                fprintf(stderr, \"\\n\");
                 return -1;
             }}
             ",
                 commands = atom_names
                     .iter()
-                    .map(|a| format!("fprintf(stderr, \"{a}\\n\");"))
+                    .map(|a| format!("fprintf(stderr, \"    {a}\\n\");"))
                     .collect::<Vec<_>>()
                     .join("\n")
-            ));
+            )?;
 
             Ok(return_str.replace("// INSTANTIATE_MODULES", &c_code_to_instantiate))
         }
@@ -898,10 +916,7 @@ pub(super) mod utils {
         target_triple: &Triple,
         cpu_features: &[CpuFeature],
     ) -> Target {
-        let mut features = cpu_features
-            .clone()
-            .into_iter()
-            .fold(CpuFeature::set(), |a, b| a | *b);
+        let mut features = cpu_features.iter().fold(CpuFeature::set(), |a, b| a | *b);
         // Cranelift requires SSE2, so we have this "hack" for now to facilitate
         // usage
         if target_triple.architecture == Architecture::X86_64 {
@@ -947,7 +962,7 @@ pub(super) mod utils {
             Some(v.canonicalize().unwrap_or(v))
         } else {
             if let Some(local_tarball) = cross_subc.tarball.as_ref() {
-                find_filename(local_tarball, &target)
+                find_filename(local_tarball, target)
             } else {
                 // check if the tarball for the target already exists locally
                 let local_tarball = std::fs::read_dir(get_libwasmer_cache_path()?)?
@@ -960,15 +975,15 @@ pub(super) mod utils {
                             None
                         }
                     })
-                    .filter_map(|p| filter_tarballs(&p, &target))
+                    .filter_map(|p| filter_tarballs(&p, target))
                     .next();
 
                 if let Some(local_tarball) = local_tarball.as_ref() {
-                    find_filename(local_tarball, &target)
+                    find_filename(local_tarball, target)
                 } else {
                     let release = super::http_fetch::get_latest_release()?;
                     let tarball = super::http_fetch::download_release(release, target.clone())?;
-                    find_filename(&tarball, &target)
+                    find_filename(&tarball, target)
                 }
             }
             .ok()
@@ -1054,7 +1069,7 @@ pub(super) mod utils {
             .filter_map(|c| {
                 if char::is_alphabetic(c) {
                     Some(c)
-                } else if c == '-' {
+                } else if c == '-' || c == '_' {
                     Some('_')
                 } else {
                     None

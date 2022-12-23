@@ -326,7 +326,7 @@ fn test_run() {
             if !config.wasmer_dir.is_empty() {
                 command.arg("-L");
                 command.arg(&format!("{}/lib/", config.wasmer_dir));
-                command.arg(&"-lwasmer".to_string());
+                command.arg("-lwasmer");
                 command.arg(&format!("-Wl,-rpath,{}/lib/", config.wasmer_dir));
             }
             command.arg("-o");

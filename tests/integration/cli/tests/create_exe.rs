@@ -189,7 +189,7 @@ fn create_exe_works_multi_command() -> anyhow::Result<()> {
     .run()
     .context("Failed to create-exe wasm with Wasmer")?;
 
-    let result = run_code(
+    let _result = run_code(
         &operating_dir,
         &executable_path,
         &["--command".to_string(), "wabt".to_string()],

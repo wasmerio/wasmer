@@ -93,6 +93,7 @@ int main(int argc, char *argv[]) {
   wasm_config_t *config = wasm_config_new();
   wasm_engine_t *engine = wasm_engine_new_with_config(config);
   wasm_store_t *store = wasm_store_new(engine);
+  wasm_module_t *module = NULL;
 
   const char* selected_atom = "main";
   for (int i = 1; i < argc; i++) {

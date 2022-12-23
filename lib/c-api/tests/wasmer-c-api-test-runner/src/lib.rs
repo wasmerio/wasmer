@@ -203,7 +203,7 @@ fn test_ok() {
     let libwasmer_so_path = format!("{}/lib/libwasmer.so", config.wasmer_dir);
     let exe_dir = format!("{manifest_dir}/../wasm-c-api/example");
     let path = std::env::var("PATH").unwrap_or_default();
-    let newpath = format!("{};{path}", wasmer_dll_dir.to_string().replace('/', "\\"));
+    let newpath = format!("{};{path}", wasmer_dll_dir.replace('/', "\\"));
 
     if target.contains("msvc") {
         for test in CAPI_BASE_TESTS.iter() {
@@ -347,7 +347,7 @@ fn test_ok() {
             if !config.wasmer_dir.is_empty() {
                 command.arg("-L");
                 command.arg(&format!("{}/lib/", config.wasmer_dir));
-                command.arg(&"-lwasmer".to_string());
+                command.arg("-lwasmer");
                 command.arg(&format!("-Wl,-rpath,{}/lib/", config.wasmer_dir));
             }
             command.arg("-o");
