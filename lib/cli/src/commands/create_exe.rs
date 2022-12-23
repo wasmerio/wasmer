@@ -405,7 +405,6 @@ fn conpile_atoms(
 }
 
 /// Compile the C code.
-#[allow(dead_code)]
 fn run_c_compile(path_to_c_src: &Path, output_name: &Path, target: &Triple) -> anyhow::Result<()> {
     #[cfg(not(windows))]
     let c_compiler = "cc";
@@ -657,110 +656,112 @@ fn link_exe_from_dir(
                         directory.display()
                     )
                 })?;
-
-                link_c_compilation()
             } else {
-                Err(anyhow::anyhow!(
+                return Err(anyhow::anyhow!(
                     "ObjectFormat::Serialized + cross compilation not implemented"
-                ))
+                ));
             }
         }
-        ObjectFormat::Symbols => {
-            let zig_binary_path = cross_compilation.zig_binary_path.as_ref().ok_or_else(|| {
-                anyhow::anyhow!(
-                    "could not write wasmer_main.c in dir {}",
-                    directory.display()
-                )
-            })?;
-
-            let mut cmd = Command::new(&zig_binary_path);
-            cmd.arg("build-exe");
-            cmd.arg("--verbose-cc");
-            cmd.arg("--verbose-link");
-            cmd.arg("-target");
-            cmd.arg(&zig_triple);
-
-            if zig_triple.contains("windows") {
-                cmd.arg("-lc++");
-            } else {
-                cmd.arg("-lc");
-            }
-
-            let mut include_dirs = include_dirs
-                .iter()
-                .map(|i| format!("{}", i.display()))
-                .collect::<Vec<_>>();
-            include_dirs.sort();
-            include_dirs.dedup();
-            for include_dir in include_dirs {
-                cmd.arg(format!("-I{include_dir}"));
-            }
-
-            let mut include_path = library_path.clone();
-            include_path.pop();
-            include_path.pop();
-            include_path.push("include");
-            cmd.arg(format!("-I{}", include_path.display()));
-
-            cmd.arg("-lunwind");
-            cmd.arg("-OReleaseSafe");
-            cmd.arg("-fno-compiler-rt");
-            cmd.arg("-fno-lto");
-            #[cfg(target_os = "windows")]
-            let out_path = directory.join("wasmer_main.exe");
-            #[cfg(not(target_os = "windows"))]
-            let out_path = directory.join("wasmer_main");
-            cmd.arg(&format!("-femit-bin={}", out_path.display()));
-            cmd.args(&object_paths);
-            cmd.arg(&library_path);
-            cmd.arg(directory.join("wasmer_main.c").canonicalize().unwrap());
-
-            if zig_triple.contains("windows") {
-                let mut winsdk_path = library_path.clone();
-                winsdk_path.pop();
-                winsdk_path.pop();
-                winsdk_path.push("winsdk");
-
-                let files_winsdk = std::fs::read_dir(winsdk_path)
-                    .ok()
-                    .map(|res| res.filter_map(|r| Some(r.ok()?.path())).collect::<Vec<_>>())
-                    .unwrap_or_default();
-
-                cmd.args(files_winsdk);
-            }
-
-            if debug {
-                println!("{cmd:?}");
-            }
-            let compilation = cmd
-                .output()
-                .context(anyhow!("Could not execute `zig`: {cmd:?}"))?;
-
-            if !compilation.status.success() {
-                return Err(anyhow::anyhow!(String::from_utf8_lossy(
-                    &compilation.stderr
-                )
-                .to_string()));
-            }
-
-            // remove file if it exists - if not done, can lead to errors on copy
-            let _ = std::fs::remove_file(&output_path);
-            std::fs::copy(&out_path, &output_path).map_err(|e| {
-                anyhow::anyhow!(
-                    "could not copy from {} to {}: {e}",
-                    out_path.display(),
-                    output_path.display()
-                )
-            })?;
-
-            Ok(())
-        }
+        ObjectFormat::Symbols => {}
     }
-}
 
-/// Link compiled objects together using the system linker
-fn link_c_compilation() -> Result<(), anyhow::Error> {
-    // TODO
+    // compilation done, now link
+
+    let zig_binary_path = cross_compilation.zig_binary_path.as_ref().ok_or_else(|| {
+        anyhow::anyhow!(
+            "could not write wasmer_main.c in dir {}",
+            directory.display()
+        )
+    })?;
+
+    let mut cmd = Command::new(&zig_binary_path);
+    cmd.arg("build-exe");
+    cmd.arg("--verbose-cc");
+    cmd.arg("--verbose-link");
+    cmd.arg("-target");
+    cmd.arg(&zig_triple);
+
+    if zig_triple.contains("windows") {
+        cmd.arg("-lc++");
+    } else {
+        cmd.arg("-lc");
+    }
+
+    let mut include_dirs = include_dirs
+        .iter()
+        .map(|i| format!("{}", i.display()))
+        .collect::<Vec<_>>();
+    include_dirs.sort();
+    include_dirs.dedup();
+    for include_dir in include_dirs {
+        cmd.arg(format!("-I{include_dir}"));
+    }
+
+    let mut include_path = library_path.clone();
+    include_path.pop();
+    include_path.pop();
+    include_path.push("include");
+    cmd.arg(format!("-I{}", include_path.display()));
+
+    cmd.arg("-lunwind");
+    cmd.arg("-OReleaseSafe");
+    cmd.arg("-fno-compiler-rt");
+    cmd.arg("-fno-lto");
+    #[cfg(target_os = "windows")]
+    let out_path = directory.join("wasmer_main.exe");
+    #[cfg(not(target_os = "windows"))]
+    let out_path = directory.join("wasmer_main");
+    cmd.arg(&format!("-femit-bin={}", out_path.display()));
+    cmd.args(&object_paths);
+    cmd.arg(&library_path);
+    cmd.arg(
+        directory
+            .join(match entrypoint.object_format {
+                ObjectFormat::Serialized => "wasmer_main.o",
+                ObjectFormat::Symbols => "wasmer_main.c",
+            })
+            .canonicalize()
+            .expect("could not find wasmer_main.c / wasmer_main.o"),
+    );
+
+    if zig_triple.contains("windows") {
+        let mut winsdk_path = library_path.clone();
+        winsdk_path.pop();
+        winsdk_path.pop();
+        winsdk_path.push("winsdk");
+
+        let files_winsdk = std::fs::read_dir(winsdk_path)
+            .ok()
+            .map(|res| res.filter_map(|r| Some(r.ok()?.path())).collect::<Vec<_>>())
+            .unwrap_or_default();
+
+        cmd.args(files_winsdk);
+    }
+
+    if debug {
+        println!("{cmd:?}");
+    }
+    let compilation = cmd
+        .output()
+        .context(anyhow!("Could not execute `zig`: {cmd:?}"))?;
+
+    if !compilation.status.success() {
+        return Err(anyhow::anyhow!(String::from_utf8_lossy(
+            &compilation.stderr
+        )
+        .to_string()));
+    }
+
+    // remove file if it exists - if not done, can lead to errors on copy
+    let _ = std::fs::remove_file(&output_path);
+    std::fs::copy(&out_path, &output_path).map_err(|e| {
+        anyhow::anyhow!(
+            "could not copy from {} to {}: {e}",
+            out_path.display(),
+            output_path.display()
+        )
+    })?;
+
     Ok(())
 }
 
@@ -771,129 +772,124 @@ fn generate_wasmer_main_c(entrypoint: &Entrypoint) -> Result<String, anyhow::Err
 
     const WASMER_MAIN_C_SOURCE: &str = include_str!("wasmer_create_exe_main.c");
 
-    match entrypoint.object_format {
-        ObjectFormat::Serialized => {
-            Ok(WASMER_MAIN_C_SOURCE.replace("// WASI_DEFINES", "#define WASI"))
-        }
-        ObjectFormat::Symbols => {
-            let compile_static = true;
-            // always with compile zig + static_defs.h
-            let atom_names = entrypoint
-                .atoms
-                .iter()
-                .map(|a| &a.command)
-                .collect::<Vec<_>>();
+    let compile_static = entrypoint.object_format == ObjectFormat::Symbols;
 
-            let mut c_code_to_add = String::new();
-            let mut c_code_to_instantiate = String::new();
-            let mut deallocate_module = String::new();
-            let mut extra_headers = Vec::new();
+    // always with compile zig + static_defs.h
+    let atom_names = entrypoint
+        .atoms
+        .iter()
+        .map(|a| &a.command)
+        .collect::<Vec<_>>();
 
-            for a in atom_names.iter() {
-                let atom_name = utils::normalize_atom_name(a);
-                let atom_name_uppercase = atom_name.to_uppercase();
-                let module_name = format!("WASMER_MODULE_{atom_name_uppercase}");
+    let mut c_code_to_add = String::new();
+    let mut c_code_to_instantiate = String::new();
+    let mut deallocate_module = String::new();
+    let mut extra_headers = Vec::new();
 
-                extra_headers.push(format!("#include \"static_defs_{atom_name}.h\""));
+    for a in atom_names.iter() {
+        let atom_name = utils::normalize_atom_name(a);
+        let atom_name_uppercase = atom_name.to_uppercase();
+        let module_name = format!("WASMER_MODULE_{atom_name_uppercase}");
 
-                write!(
-                    c_code_to_add,
-                    "
-                extern size_t {module_name}_LENGTH asm(\"{module_name}_LENGTH\");
-                extern char {module_name}_DATA asm(\"{module_name}_DATA\");
-                "
-                )?;
+        write!(
+            c_code_to_add,
+            "
+            extern size_t {module_name}_LENGTH asm(\"{module_name}_LENGTH\");
+            extern char {module_name}_DATA asm(\"{module_name}_DATA\");
+            "
+        )?;
 
-                if compile_static {
-                    write!(c_code_to_instantiate, "
-                    wasm_module_t *atom_{atom_name} = wasmer_object_module_new_{atom_name}(store, \"{atom_name}\");
-                    if (!atom_{atom_name}) {{
-                        fprintf(stderr, \"Failed to create module from atom \\\"{atom_name}\\\"\\n\");
-                        print_wasmer_error();
-                        return -1;
-                    }}
-                    ")?;
-                } else {
-                    write!(c_code_to_instantiate, "
-                    wasm_byte_vec_t atom_{atom_name}_byte_vec = {{
-                        .size = {module_name}_LENGTH,
-                        .data = &{module_name}_DATA,
-                    }};
-                    wasm_module_t *atom_{atom_name} = wasm_module_deserialize(store, &atom_{atom_name}_byte_vec);
-                    if (!atom_{atom_name}) {{
-                        fprintf(stderr, \"Failed to create module from atom \\\"{atom_name}\\\"\\n\");
-                        print_wasmer_error();
-                        return -1;
-                    }}
-                    ")?;
-                }
+        if compile_static {
+            extra_headers.push(format!("#include \"static_defs_{atom_name}.h\""));
 
-                write!(deallocate_module, "wasm_module_delete(atom_{atom_name});")?;
-            }
-
-            let volumes_str = entrypoint
-                .volumes
-                .iter()
-                .map(|v| utils::normalize_atom_name(&v.name).to_uppercase())
-                .map(|uppercase| {
-                    vec![
-                        format!("extern size_t {uppercase}_LENGTH asm(\"{uppercase}_LENGTH\");"),
-                        format!("extern char {uppercase}_DATA asm(\"{uppercase}_DATA\");"),
-                    ]
-                    .join("\r\n")
-                })
-                .collect::<Vec<_>>();
-
-            let base_str = WASMER_MAIN_C_SOURCE;
-            let volumes_str = volumes_str.join("\r\n");
-            let return_str = base_str
-                .replace(
-                    "#define WASI",
-                    if !volumes_str.trim().is_empty() {
-                        "#define WASI\r\n#define WASI_PIRITA"
-                    } else {
-                        "#define WASI"
-                    },
-                )
-                .replace("// DECLARE_MODULES", &c_code_to_add)
-                .replace("// DECLARE_VOLUMES", &volumes_str)
-                .replace("// EXTRA_HEADERS", &extra_headers.join("\r\n"))
-                .replace("wasm_module_delete(module);", &deallocate_module);
-
-            if atom_names.len() == 1 {
-                let atom_to_run = &atom_names[0];
-                write!(c_code_to_instantiate, "module = atom_{atom_to_run};")?;
-            } else {
-                for a in atom_names.iter() {
-                    writeln!(
-                        c_code_to_instantiate,
-                        "if (strcmp(selected_atom, \"{a}\") == 0) {{ module = atom_{}; }}",
-                        utils::normalize_atom_name(a)
-                    )?;
-                }
-            }
-
-            write!(
-                c_code_to_instantiate,
-                "
-            if (!module) {{
-                fprintf(stderr, \"No --command given, available commands are:\\n\");
-                fprintf(stderr, \"\\n\");
-                {commands}
-                fprintf(stderr, \"\\n\");
+            write!(c_code_to_instantiate, "
+            wasm_module_t *atom_{atom_name} = wasmer_object_module_new_{atom_name}(store, \"{atom_name}\");
+            if (!atom_{atom_name}) {{
+                fprintf(stderr, \"Failed to create module from atom \\\"{atom_name}\\\"\\n\");
+                print_wasmer_error();
                 return -1;
             }}
-            ",
-                commands = atom_names
-                    .iter()
-                    .map(|a| format!("fprintf(stderr, \"    {a}\\n\");"))
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            )?;
+            ")?;
+        } else {
+            extra_headers.push(format!("const extern unsigned char {module_name}[];\r\n"));
+            write!(c_code_to_instantiate, "
+            wasm_byte_vec_t atom_{atom_name}_byte_vec = {{
+                .size = {module_name}_LENGTH,
+                .data = &{module_name}_DATA,
+            }};
+            wasm_module_t *atom_{atom_name} = wasm_module_deserialize(store, &atom_{atom_name}_byte_vec);
+            if (!atom_{atom_name}) {{
+                fprintf(stderr, \"Failed to create module from atom \\\"{atom_name}\\\"\\n\");
+                print_wasmer_error();
+                return -1;
+            }}
+            ")?;
+        }
 
-            Ok(return_str.replace("// INSTANTIATE_MODULES", &c_code_to_instantiate))
+        write!(deallocate_module, "wasm_module_delete(atom_{atom_name});")?;
+    }
+
+    let volumes_str = entrypoint
+        .volumes
+        .iter()
+        .map(|v| utils::normalize_atom_name(&v.name).to_uppercase())
+        .map(|uppercase| {
+            vec![
+                format!("extern size_t {uppercase}_LENGTH asm(\"{uppercase}_LENGTH\");"),
+                format!("extern char {uppercase}_DATA asm(\"{uppercase}_DATA\");"),
+            ]
+            .join("\r\n")
+        })
+        .collect::<Vec<_>>();
+
+    let base_str = WASMER_MAIN_C_SOURCE;
+    let volumes_str = volumes_str.join("\r\n");
+    let return_str = base_str
+        .replace(
+            "#define WASI",
+            if !volumes_str.trim().is_empty() {
+                "#define WASI\r\n#define WASI_PIRITA"
+            } else {
+                "#define WASI"
+            },
+        )
+        .replace("// DECLARE_MODULES", &c_code_to_add)
+        .replace("// DECLARE_VOLUMES", &volumes_str)
+        .replace("// EXTRA_HEADERS", &extra_headers.join("\r\n"))
+        .replace("wasm_module_delete(module);", &deallocate_module);
+
+    if atom_names.len() == 1 {
+        let atom_to_run = &atom_names[0];
+        write!(c_code_to_instantiate, "module = atom_{atom_to_run};")?;
+    } else {
+        for a in atom_names.iter() {
+            writeln!(
+                c_code_to_instantiate,
+                "if (strcmp(selected_atom, \"{a}\") == 0) {{ module = atom_{}; }}",
+                utils::normalize_atom_name(a)
+            )?;
         }
     }
+
+    write!(
+        c_code_to_instantiate,
+        "
+    if (!module) {{
+        fprintf(stderr, \"No --command given, available commands are:\\n\");
+        fprintf(stderr, \"\\n\");
+        {commands}
+        fprintf(stderr, \"\\n\");
+        return -1;
+    }}
+    ",
+        commands = atom_names
+            .iter()
+            .map(|a| format!("fprintf(stderr, \"    {a}\\n\");"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    )?;
+
+    Ok(return_str.replace("// INSTANTIATE_MODULES", &c_code_to_instantiate))
 }
 
 #[allow(dead_code)]
@@ -901,7 +897,6 @@ pub(super) mod utils {
 
     use super::{CrossCompile, CrossCompileSetup};
     use anyhow::Context;
-    use std::env;
     use std::path::{Path, PathBuf};
     use target_lexicon::{Architecture, OperatingSystem, Triple};
     use wasmer_types::{CpuFeature, Target};
