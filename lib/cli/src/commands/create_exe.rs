@@ -72,6 +72,10 @@ pub struct CreateExe {
 // Cross-compilation options with `zig`
 #[derive(Debug, Clone, Default, Parser)]
 pub(crate) struct CrossCompile {
+    /// Use the system linker instead of zig instead of zig for linking
+    #[clap(long)]
+    use_system_linker: bool,
+
     /// Cross-compilation library path (path to libwasmer.a / wasmer.lib)
     #[clap(long = "library-path", requires = "target")]
     library_path: Option<PathBuf>,
@@ -130,11 +134,7 @@ impl CreateExe {
     /// Runs logic for the `compile` subcommand
     pub fn execute(&self) -> Result<()> {
         let target_triple = self.target_triple.clone().unwrap_or_else(Triple::host);
-        let mut cc = CrossCompile {
-            library_path: self.cross_compile.library_path.clone(),
-            zig_binary_path: self.cross_compile.zig_binary_path.clone(),
-            tarball: self.cross_compile.tarball.clone(),
-        };
+        let mut cc = self.cross_compile.clone();
         let target = utils::target_triple_to_target(&target_triple, &self.cpu_features);
 
         let starting_cd = env::current_dir()?;
@@ -689,7 +689,7 @@ fn link_exe_from_dir(
 
         object_paths.push(object_path);
 
-        link_objects_system_linker(
+        return link_objects_system_linker(
             &library_path,
             linker,
             &optimization_flag,
@@ -698,7 +698,7 @@ fn link_exe_from_dir(
             &additional_libraries,
             &output_path,
             debug,
-        )?;
+        );
     }
 
     let zig_binary_path = cross_compilation
@@ -1028,14 +1028,18 @@ pub(super) mod utils {
             }
         }
 
-        let zig_binary_path = find_zig_binary(cross_subc.zig_binary_path.as_ref().and_then(|p| {
-            if p.is_absolute() {
-                p.canonicalize().ok()
-            } else {
-                starting_cd.join(p).canonicalize().ok()
-            }
-        }))
-        .ok();
+        let zig_binary_path = if !cross_subc.use_system_linker {
+            find_zig_binary(cross_subc.zig_binary_path.as_ref().and_then(|p| {
+                if p.is_absolute() {
+                    p.canonicalize().ok()
+                } else {
+                    starting_cd.join(p).canonicalize().ok()
+                }
+            }))
+            .ok()
+        } else {
+            None
+        };
 
         let library = if let Some(v) = cross_subc.library_path.clone() {
             Some(v.canonicalize().unwrap_or(v))
