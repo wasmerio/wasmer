@@ -770,7 +770,6 @@ fn generate_wasmer_main_c(entrypoint: &Entrypoint) -> Result<String, anyhow::Err
     use std::fmt::Write;
 
     const WASMER_MAIN_C_SOURCE: &str = include_str!("wasmer_create_exe_main.c");
-    const WASMER_STATIC_MAIN_C_SOURCE: &str = include_str!("wasmer_static_create_exe_main.c");
 
     match entrypoint.object_format {
         ObjectFormat::Serialized => {
@@ -845,12 +844,7 @@ fn generate_wasmer_main_c(entrypoint: &Entrypoint) -> Result<String, anyhow::Err
                 })
                 .collect::<Vec<_>>();
 
-            let base_str = if compile_static {
-                WASMER_STATIC_MAIN_C_SOURCE
-            } else {
-                WASMER_MAIN_C_SOURCE
-            };
-
+            let base_str = WASMER_MAIN_C_SOURCE;
             let volumes_str = volumes_str.join("\r\n");
             let return_str = base_str
                 .replace(
