@@ -106,6 +106,9 @@ pub use crate::{
     wapm::parse_static_webc,
 };
 
+#[cfg(target_os = "linux")]
+pub use crate::utils::fd_memory;
+
 pub use crate::utils::is_wasix_module;
 
 pub use crate::{
