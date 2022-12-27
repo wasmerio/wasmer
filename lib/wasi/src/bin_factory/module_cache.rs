@@ -198,7 +198,9 @@ impl ModuleCache {
                 let module_bytes = Bytes::from(data);
 
                 // Load the module
-                let module = unsafe { Module::deserialize(store, &module_bytes[..]).unwrap() };
+                let module = unsafe {
+                    Module::deserialize(store.as_store_ref().engine(), &module_bytes[..]).unwrap()
+                };
 
                 if let Some(cache) = &self.cached_modules {
                     let mut cache = cache.write().unwrap();
