@@ -6,10 +6,10 @@ use std::{
     ptr, slice,
 };
 
-/// Round `size` up to the nearest multiple of `page_size`.
-fn round_up_to_page_size(size: usize, page_size: usize) -> usize {
-    (size + (page_size - 1)) & !(page_size - 1)
-}
+// /// Round `size` up to the nearest multiple of `page_size`.
+// fn round_up_to_page_size(size: usize, page_size: usize) -> usize {
+//     (size + (page_size - 1)) & !(page_size - 1)
+// }
 
 /// A simple struct consisting of a page-aligned pointer to page-aligned
 /// and initially-zeroed memory and a length.
@@ -65,12 +65,12 @@ impl FdMmap {
         }
     }
 
-    /// Create a new `Mmap` pointing to at least `size` bytes of page-aligned accessible memory.
-    pub fn with_at_least(size: usize) -> Result<Self, String> {
-        let page_size = region::page::size();
-        let rounded_size = round_up_to_page_size(size, page_size);
-        Self::accessible_reserved(rounded_size, rounded_size)
-    }
+    // /// Create a new `Mmap` pointing to at least `size` bytes of page-aligned accessible memory.
+    // pub fn with_at_least(size: usize) -> Result<Self, String> {
+    //     let page_size = region::page::size();
+    //     let rounded_size = round_up_to_page_size(size, page_size);
+    //     Self::accessible_reserved(rounded_size, rounded_size)
+    // }
 
     /// Create a new `Mmap` pointing to `accessible_size` bytes of page-aligned accessible memory,
     /// within a reserved mapping of `mapping_size` bytes. `accessible_size` and `mapping_size`
@@ -81,7 +81,7 @@ impl FdMmap {
         mapping_size: usize,
     ) -> Result<Self, String> {
         let page_size = region::page::size();
-        assert_le!(accessible_size, mapping_size);
+        assert!(accessible_size <= mapping_size);
         assert_eq!(mapping_size & (page_size - 1), 0);
         assert_eq!(accessible_size & (page_size - 1), 0);
 
@@ -236,8 +236,8 @@ impl FdMmap {
         let page_size = region::page::size();
         assert_eq!(start & (page_size - 1), 0);
         assert_eq!(len & (page_size - 1), 0);
-        assert_lt!(len, self.len);
-        assert_lt!(start, self.len - len);
+        assert!(len < self.len);
+        assert!(start < self.len - len);
 
         // Commit the accessible size.
         let ptr = self.ptr as *const u8;
@@ -287,10 +287,10 @@ impl FdMmap {
         unsafe { slice::from_raw_parts_mut(self.ptr as *mut u8, self.len) }
     }
 
-    /// Return the allocated memory as a pointer to u8.
-    pub fn as_ptr(&self) -> *const u8 {
-        self.ptr as *const u8
-    }
+    // /// Return the allocated memory as a pointer to u8.
+    // pub fn as_ptr(&self) -> *const u8 {
+    //     self.ptr as *const u8
+    // }
 
     /// Return the allocated memory as a mutable pointer to u8.
     pub fn as_mut_ptr(&mut self) -> *mut u8 {
@@ -302,10 +302,10 @@ impl FdMmap {
         self.len
     }
 
-    /// Return whether any memory has been allocated.
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
+    // /// Return whether any memory has been allocated.
+    // pub fn is_empty(&self) -> bool {
+    //     self.len() == 0
+    // }
 
     /// Copies the memory to a new swap file (using copy-on-write if available)
     #[cfg(not(target_os = "windows"))]
@@ -491,13 +491,13 @@ fn copy_file_range(
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_round_up_to_page_size() {
-        assert_eq!(round_up_to_page_size(0, 4096), 0);
-        assert_eq!(round_up_to_page_size(1, 4096), 4096);
-        assert_eq!(round_up_to_page_size(4096, 4096), 4096);
-        assert_eq!(round_up_to_page_size(4097, 4096), 8192);
-    }
+    // #[test]
+    // fn test_round_up_to_page_size() {
+    //     assert_eq!(round_up_to_page_size(0, 4096), 0);
+    //     assert_eq!(round_up_to_page_size(1, 4096), 4096);
+    //     assert_eq!(round_up_to_page_size(4096, 4096), 4096);
+    //     assert_eq!(round_up_to_page_size(4097, 4096), 8192);
+    // }
 
     #[cfg(target_family = "unix")]
     #[test]
