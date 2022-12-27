@@ -314,15 +314,11 @@ fn create_obj(args: Vec<&'static str>, keyword_needle: &str, keyword: &str) -> a
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
-    let wasm_path = operating_dir.join(create_exe_test_wasm_path());
+    let wasm_path = operating_dir.as_path().join(create_exe_test_wasm_path());
 
-    #[cfg(not(windows))]
-    let object_path = operating_dir.join("wasm.o");
-    #[cfg(windows)]
-    let object_path = operating_dir.join("wasm.obj");
-
+    let object_path = operating_dir.as_path().join("wasm");
     let output: Vec<u8> = WasmerCreateObj {
-        current_dir: operating_dir,
+        current_dir: operating_dir.clone(),
         wasm_path,
         output_object_path: object_path.clone(),
         compiler: Compiler::Cranelift,
@@ -337,8 +333,11 @@ fn create_obj(args: Vec<&'static str>, keyword_needle: &str, keyword: &str) -> a
         "create-obj successfully completed but object output file `{}` missing",
         object_path.display()
     );
-    let mut object_header_path = object_path;
-    object_header_path.set_extension("h");
+    let object_header_path = operating_dir
+        .as_path()
+        .join("wasm")
+        .join("include")
+        .join("static_defs_main.h");
     assert!(
         object_header_path.exists(),
         "create-obj successfully completed but object output header file `{}` missing",

@@ -4327,6 +4327,7 @@ dependencies = [
  "semver 1.0.14",
  "serde",
  "serde_json",
+ "sha2",
  "spinoff",
  "tar",
  "target-lexicon 0.12.5",
