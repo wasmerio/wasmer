@@ -313,6 +313,18 @@ mod objects {
                 (&mut high[0], &mut low[a.index()])
             }
         }
+
+        /// Return an immutable iterator over all globals
+        pub fn iter_globals(&self) -> core::slice::Iter<VMGlobal> {
+            self.globals.iter()
+        }
+
+        /// Set a global, at index idx. Will panic if idx is out of range
+        /// Safety: the caller should check taht the raw value is compatible
+        /// with destination VMGlobal type
+        pub fn set_global_unchecked(&self, _idx: usize, _val: u128) {
+            unimplemented!("Store global setter not implemented yet")
+        }
     }
 
     /// Handle to an object managed by a context.

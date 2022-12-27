@@ -23,7 +23,15 @@ pub fn capture_snapshot(store: &mut impl wasmer::AsStoreMut) -> InstanceSnapshot
             // Safety:
             // We have a mutable reference to the store,
             // which means no-one else can alter the globals or drop the memory.
-            unsafe { v.vmglobal().as_ref().val.u128 }
+            #[cfg(feature = "sys")]
+            unsafe {
+                v.vmglobal().as_ref().val.u128
+            }
+            #[cfg(not(feature = "sys"))]
+            {
+                let _ = v;
+                unimplemented!("capture_snapshot is not implemented for js")
+            }
         })
         .collect();
 

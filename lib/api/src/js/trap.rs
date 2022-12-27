@@ -2,8 +2,7 @@
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsValue;
+use wasm_bindgen::{convert::FromWasmAbi, prelude::*, JsValue};
 use wasm_bindgen_downcast::DowncastJS;
 
 pub trait CoreError: fmt::Debug + fmt::Display {
