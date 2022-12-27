@@ -13,7 +13,7 @@ use std::{
 
 use wasmer::{Bytes, MemoryError, MemoryType, Pages};
 use wasmer_types::MemoryStyle;
-use wasmer_vm::{MaybeInstanceOwned, Trap, VMMemoryDefinition};
+use wasmer_vm::{LinearMemory, MaybeInstanceOwned, Trap, VMMemoryDefinition};
 
 use super::fd_mmap::FdMmap;
 
@@ -588,44 +588,4 @@ pub unsafe fn initialize_memory_with_data(
     to_init.copy_from_slice(data);
 
     Ok(())
-}
-
-/// Represents memory that is used by the WebAsssembly module
-pub trait LinearMemory
-where
-    Self: std::fmt::Debug + Send,
-{
-    /// Returns the type for this memory.
-    fn ty(&self) -> MemoryType;
-
-    /// Returns the size of hte memory in pages
-    fn size(&self) -> Pages;
-
-    /// Returns the memory style for this memory.
-    fn style(&self) -> MemoryStyle;
-
-    /// Grow memory by the specified amount of wasm pages.
-    ///
-    /// Returns `None` if memory can't be grown by the specified amount
-    /// of wasm pages.
-    fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError>;
-
-    /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
-    fn vmmemory(&self) -> NonNull<VMMemoryDefinition>;
-
-    /// Attempts to clone this memory (if its clonable)
-    fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>>;
-
-    #[doc(hidden)]
-    /// # Safety
-    /// This function is unsafe because WebAssembly specification requires that data is always set at initialization time.
-    /// It should be the implementors responsibility to make sure this respects the spec
-    unsafe fn initialize_with_data(&self, start: usize, data: &[u8]) -> Result<(), Trap> {
-        let memory = self.vmmemory().as_ref();
-
-        initialize_memory_with_data(memory, start, data)
-    }
-
-    /// Copies this memory to a new memory
-    fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
 }
