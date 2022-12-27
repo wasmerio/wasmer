@@ -109,6 +109,26 @@ impl CreateObj {
 
         // Copy output files into target path, depending on whether
         // there are one or many files being compiled
+        let file_paths = std::fs::read_dir(output_directory_path.join("atoms"))
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "could not read {}: {e}",
+                    output_directory_path.join("atoms").display()
+                )
+            })?
+            .filter_map(|path| Some(path.ok()?.path()))
+            .collect::<Vec<_>>();
+
+        if file_paths.is_empty() {
+            return Err(anyhow::anyhow!(
+                "could not compile object file: no output objects in {}",
+                output_directory_path.join("atoms").display()
+            ));
+        }
+
+        if file_paths.len() == 1 {
+            std::fs::copy(&file_paths[0], &self.output)?;
+        }
 
         eprintln!(
             "✔ Object compiled successfully to directory `{}`",
