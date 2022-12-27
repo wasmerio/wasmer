@@ -20,6 +20,7 @@ wasmer-wasi-types = { path = "../wasi-types", version = "=3.1.0" }
 wasmer-types = { path = "../types", version = "=3.1.0", default-features = false }
 wasmer = { path = "../api", version = "=3.1.0", default-features = false, features = ["wat", "js-serializable-module"] }
 wasmer-vfs = { path = "../vfs", version = "=3.1.0", default-features = false, features = ["webc-fs"] }
+wasmer-vm = { path = "../vm", version = "=3.1.0" }
 wasmer-vbus = { path = "../vbus", version = "=3.1.0", default-features = false }
 wasmer-vnet = { path = "../vnet", version = "=3.1.0", default-features = false }
 wasmer-wasi-local-networking = { path = "../wasi-local-networking", version = "=3.1.0", default-features = false, optional = true }
@@ -60,6 +61,7 @@ wasmer-compiler-singlepass = { version = "3.0.0-beta", path = "../compiler-singl
 wasmer-compiler = { version = "3.0.0-beta", path = "../compiler", features = [ "translator" ], optional = true }
 http = "0.2.8"
 wai-bindgen-wasmer = { path = "../wai-bindgen-wasmer", version = "0.2.3", features = ["tracing"] }
+region = { version = "3.0" }
 
 [dependencies.reqwest]
 version = "0.11"
