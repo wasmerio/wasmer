@@ -401,18 +401,6 @@ else
 	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless
 endif
 
-WAPM_VERSION = v0.5.3
-get-wapm:
-	[ -d "wapm-cli" ] || git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
-
-build-wapm: get-wapm
-ifeq ($(IS_DARWIN), 1)
-	# We build it without bundling sqlite, as is included by default in macos
-	$(CARGO_BINARY) build $(CARGO_TARGET) --release --manifest-path wapm-cli/Cargo.toml --no-default-features --features "full packagesigning telemetry update-notifications"
-else
-	$(CARGO_BINARY) build $(CARGO_TARGET) --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
-endif
-
 build-docs:
 	$(CARGO_BINARY) doc $(CARGO_TARGET) --release $(compiler_features) --document-private-items --no-deps --workspace --exclude wasmer-c-api
 
@@ -552,6 +540,7 @@ test-examples:
 	$(CARGO_BINARY) test $(CARGO_TARGET) --release $(compiler_features) --features wasi --examples
 
 test-integration-cli:
+	rustup target add wasm32-wasi
 	$(CARGO_BINARY) test $(CARGO_TARGET) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
 
 test-integration-ios:
@@ -566,23 +555,6 @@ generate-wasi-tests:
 # Packaging.
 #
 #####
-
-package-wapm:
-	mkdir -p "package/bin"
-ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
-	if [ -d "wapm-cli" ]; then \
-		cp wapm-cli/$(TARGET_DIR)/wapm package/bin/ ;\
-		echo -e "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax ;\
-		chmod +x package/bin/wax ;\
-	fi
-else
-	if [ -d "wapm-cli" ]; then \
-		cp wapm-cli/$(TARGET_DIR)/wapm package/bin/ ;\
-	fi
-ifeq ($(IS_DARWIN), 1)
-	codesign -s - package/bin/wapm || true
-endif
-endif
 
 package-minimal-headless-wasmer:
 ifeq ($(IS_WINDOWS), 1)

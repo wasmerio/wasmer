@@ -1,4 +1,4 @@
-use crate::{graphql::execute_query, PartialWapmConfig};
+use crate::graphql::execute_query;
 use graphql_client::GraphQLQuery;
 
 #[derive(GraphQLQuery)]
@@ -9,12 +9,7 @@ use graphql_client::GraphQLQuery;
 )]
 struct WhoAmIQuery;
 
-pub fn get_username(#[cfg(test)] test_name: &str) -> anyhow::Result<Option<String>> {
-    #[cfg(test)]
-    let config = PartialWapmConfig::from_file(test_name).map_err(|e| anyhow::anyhow!("{e}"))?;
-    #[cfg(not(test))]
-    let config = PartialWapmConfig::from_file().map_err(|e| anyhow::anyhow!("{e}"))?;
-    let registry = &config.registry.get_current_registry();
+pub fn get_username(registry: &str) -> anyhow::Result<Option<String>> {
     let q = WhoAmIQuery::build_query(who_am_i_query::Variables {});
     let response: who_am_i_query::ResponseData = execute_query(registry, "", &q)?;
     Ok(response.viewer.map(|viewer| viewer.username))

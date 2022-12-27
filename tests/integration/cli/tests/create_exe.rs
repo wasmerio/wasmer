@@ -277,7 +277,7 @@ fn create_obj(args: Vec<&'static str>, keyword_needle: &str, keyword: &str) -> a
     let object_path = operating_dir.join("wasm.obj");
 
     let output: Vec<u8> = WasmerCreateObj {
-        current_dir: operating_dir.clone(),
+        current_dir: operating_dir,
         wasm_path,
         output_object_path: object_path.clone(),
         compiler: Compiler::Cranelift,
@@ -292,7 +292,7 @@ fn create_obj(args: Vec<&'static str>, keyword_needle: &str, keyword: &str) -> a
         "create-obj successfully completed but object output file `{}` missing",
         object_path.display()
     );
-    let mut object_header_path = object_path.clone();
+    let mut object_header_path = object_path;
     object_header_path.set_extension("h");
     assert!(
         object_header_path.exists(),

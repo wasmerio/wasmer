@@ -37,9 +37,11 @@ wasmer-wasi-experimental-io-devices = { version = "=3.1.0", path = "../wasi-expe
 wasmer-wast = { version = "=3.1.0", path = "../../tests/lib/wast", optional = true }
 wasmer-cache = { version = "=3.1.0", path = "../cache", optional = true }
 wasmer-types = { version = "=3.1.0", path = "../types" }
-wasmer-registry = { version = "=3.1.0", path = "../registry" }
+wasmer-registry = { version = "=4.0.0", path = "../registry" }
 wasmer-object = { version = "=3.1.0", path = "../object", optional = true }
 wasmer-vfs  = { version = "=3.1.0", path = "../vfs", default-features = false, features = ["host-fs"] }
+wasmer-wasm-interface = { version = "3.1.0", path = "../wasm-interface" }
+wasmparser = "0.51.4"
 atty = "0.2"
 colored = "2.0"
 anyhow = "1.0"
@@ -52,7 +54,6 @@ bytesize = "1.0"
 cfg-if = "1.0"
 # For debug feature
 fern = { version = "0.6", features = ["colored"], optional = true }
-log = { version = "0.4", optional = true }
 tempfile = "3"
 tempdir = "0.3.7"
 http_req  = { version="^0.8", default-features = false, features = ["rust-tls"] }
@@ -62,18 +63,28 @@ dirs = { version = "4.0" }
 serde_json = { version = "1.0" }
 target-lexicon = { version = "0.12", features = ["std"] }
 prettytable-rs = "0.9.0"
-wapm-toml = "0.2.0"
+wasmer-toml = "0.5.0"
 walkdir = "2.3.2"
 regex = "1.6.0"
 toml = "0.5.9"
 url = "2.3.1"
 libc = { version = "^0.2", default-features = false }
 nuke-dir = { version = "0.1.0", optional = true }
-webc = { version = "0.4.1", optional = true }
+webc = { version = "4.0.0", optional = true }
 isatty = "0.1.9"
 dialoguer = "0.10.2"
 tldextract = "0.6.0"
 hex = "0.4.3"
+flate2 = "1.0.25"
+cargo_metadata = "0.15.2"
+rusqlite = { version = "0.28.0", features = ["bundled"] }
+tar = "0.4.38"
+thiserror = "1.0.37"
+time = { version = "0.3.17", default-features = false, features = ["parsing", "std", "formatting"] }
+log = "0.4.17"
+minisign = "0.7.2"
+semver = "1.0.14"
+rpassword = "7.2.0"
 
 [build-dependencies]
 chrono = { version = "^0.4", default-features = false, features = [ "std", "clock" ] }
@@ -146,7 +157,7 @@ llvm = [
     "wasmer-compiler-llvm",
     "compiler",
 ]
-debug = ["fern", "log"]
+debug = ["fern", "wasmer-wasi/logging"]
 disable-all-logging = ["wasmer-wasi/disable-all-logging"]
 headless = []
 headless-minimal = ["headless", "disable-all-logging", "wasi"]

@@ -93,7 +93,6 @@ impl Memory {
     pub(crate) fn new_internal(ty: MemoryType) -> Result<js_sys::WebAssembly::Memory, MemoryError> {
         let descriptor = js_sys::Object::new();
         #[allow(unused_unsafe)]
-        #[allow(unused_unsafe)]
         unsafe {
             js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.0.into()).unwrap();
             if let Some(max) = ty.maximum {

@@ -60,7 +60,10 @@ impl UnwindRegistry {
 
     #[allow(clippy::cast_ptr_alignment)]
     unsafe fn register_frames(&mut self, eh_frame: &[u8]) {
-        if cfg!(all(target_os = "linux", target_env = "gnu")) {
+        if cfg!(any(
+            all(target_os = "linux", target_env = "gnu"),
+            target_os = "freebsd"
+        )) {
             // Registering an empty `eh_frame` (i.e. which
             // contains empty FDEs) cause problems on Linux when
             // deregistering it. We must avoid this

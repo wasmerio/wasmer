@@ -267,11 +267,11 @@ impl Module {
     /// # }
     /// ```
     pub unsafe fn deserialize(
-        store: &impl AsStoreRef,
+        engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
         let bytes = bytes.into_bytes();
-        let artifact = store.as_store_ref().engine().deserialize(&bytes)?;
+        let artifact = engine.as_engine_ref().engine().deserialize(&bytes)?;
         Ok(Self::from_artifact(artifact))
     }
 
@@ -294,11 +294,11 @@ impl Module {
     /// # }
     /// ```
     pub unsafe fn deserialize_from_file(
-        store: &impl AsStoreRef,
+        engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        let artifact = store
-            .as_store_ref()
+        let artifact = engine
+            .as_engine_ref()
             .engine()
             .deserialize_from_file(path.as_ref())?;
         Ok(Self::from_artifact(artifact))
@@ -451,15 +451,6 @@ impl Module {
     /// ```
     pub fn exports(&self) -> ExportsIterator<impl Iterator<Item = ExportType> + '_> {
         self.module_info.exports()
-    }
-
-    /// Returns true if the module is still ok - this will be
-    /// false if the module was passed between threads in a
-    /// way that it became undefined (JS does not share objects
-    /// between threads except via a post_message())
-    pub fn is_ok(&self) -> bool {
-        // As RUST is a type safe language modules in SYS are always ok
-        true
     }
 
     /// Get the custom sections of the module given a `name`.

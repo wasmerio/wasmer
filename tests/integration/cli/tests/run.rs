@@ -112,6 +112,10 @@ fn run_whoami_works() -> anyhow::Result<()> {
     }
 
     let ciuser_token = std::env::var("WAPM_DEV_TOKEN").expect("no CIUSER / WAPM_DEV_TOKEN token");
+    // Special case: GitHub secrets aren't visible to outside collaborators
+    if ciuser_token.is_empty() {
+        return Ok(());
+    }
 
     let output = Command::new(get_wasmer_path())
         .arg("login")
@@ -352,12 +356,12 @@ fn test_wasmer_run_works_with_dir() -> anyhow::Result<()> {
 
     std::fs::copy(wasi_test_wasm_path(), &qjs_path)?;
     std::fs::copy(
-        format!("{}/{}", C_ASSET_PATH, "qjs-wapm.toml"),
-        temp_dir.path().join("wapm.toml"),
+        format!("{}/{}", C_ASSET_PATH, "qjs-wasmer.toml"),
+        temp_dir.path().join("wasmer.toml"),
     )?;
 
     assert!(temp_dir.path().exists());
-    assert!(temp_dir.path().join("wapm.toml").exists());
+    assert!(temp_dir.path().join("wasmer.toml").exists());
     assert!(temp_dir.path().join("qjs.wasm").exists());
 
     // test with "wasmer qjs.wasm"
