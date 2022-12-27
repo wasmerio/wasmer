@@ -184,7 +184,7 @@ impl CreateExe {
                 &self.precompiled_atom,
                 AllowMultiWasm::Allow,
             )?;
-            get_module_infos(&input_path, &atoms)?;
+            get_module_infos(&tempdir, &atoms)?;
             let entrypoint = get_entrypoint(&tempdir)?;
             create_header_files_in_dir(&tempdir, &entrypoint, &self.precompiled_atom)?;
             link_exe_from_dir(
@@ -212,7 +212,7 @@ impl CreateExe {
                 self.object_format.unwrap_or_default(),
                 &self.precompiled_atom,
             )?;
-            get_module_infos(&input_path, &atoms)?;
+            get_module_infos(&tempdir, &atoms)?;
             let entrypoint = get_entrypoint(&tempdir)?;
             create_header_files_in_dir(&tempdir, &entrypoint, &self.precompiled_atom)?;
             link_exe_from_dir(
@@ -802,12 +802,13 @@ fn get_module_infos(
     directory: &Path,
     atoms: &[(String, Vec<u8>)],
 ) -> Result<BTreeMap<String, ModuleInfo>, anyhow::Error> {
-    let mut entrypoint = get_entrypoint(directory)?;
+    let mut entrypoint =
+        get_entrypoint(directory).with_context(|| anyhow::anyhow!("get module infos"))?;
 
     let mut module_infos = BTreeMap::new();
     for (atom_name, atom_bytes) in atoms {
         let store = Store::default();
-        let module = unsafe { Module::deserialize(&store, atom_bytes.as_slice()) }
+        let module = Module::from_binary(&store, atom_bytes.as_slice())
             .map_err(|e| anyhow::anyhow!("could not deserialize module {atom_name}: {e}"))?;
         if let Some(s) = entrypoint
             .atoms
@@ -860,13 +861,22 @@ fn create_header_files_in_dir(
             .map_err(|e| anyhow::anyhow!("could not read {}: {e}", object_file_src.display()))?;
         let module_name = format!("WASMER_{prefix}_METADATA");
         let obj_file = object::File::parse(&*object_file)?;
-        let section = obj_file.section_by_name(&module_name).ok_or_else(|| {
-            anyhow::anyhow!(
-                "missing section {module_name} in object file {}",
-                object_file_src.display()
-            )
-        })?;
-        let metadata_length = section.size();
+        let sections = obj_file
+            .sections()
+            .filter_map(|s| s.name().ok().map(|s| s.to_string()))
+            .collect::<Vec<_>>();
+        let section = obj_file
+            .section_by_name(".data")
+            .unwrap()
+            .data()
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "missing section {module_name} in object file {} (sections = {:#?}",
+                    object_file_src.display(),
+                    sections
+                )
+            })?;
+        let metadata_length = section.len();
 
         let module_info = atom
             .module_info
@@ -903,7 +913,8 @@ fn link_exe_from_dir(
     debug: bool,
     prefixes: &[String],
 ) -> anyhow::Result<()> {
-    let entrypoint = get_entrypoint(directory)?;
+    let entrypoint =
+        get_entrypoint(directory).with_context(|| anyhow::anyhow!("link exe from dir"))?;
 
     let prefix_map = entrypoint
         .atoms
@@ -1191,9 +1202,14 @@ fn generate_wasmer_main_c(
     let mut extra_headers = Vec::new();
 
     for a in atom_names.iter() {
-        let prefix = prefixes.get_prefix_for_atom(a).ok_or_else(|| {
-            anyhow::anyhow!("cannot find prefix for atom {a} when generating wasmer_main.c")
-        })?;
+        let prefix = prefixes
+            .get_prefix_for_atom(&utils::normalize_atom_name(a))
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "cannot find prefix for atom {a} when generating wasmer_main.c ({:#?})",
+                    prefixes
+                )
+            })?;
         let atom_name = utils::normalize_atom_name(&prefix);
         let atom_name_uppercase = atom_name.to_uppercase();
         let module_name = format!("WASMER_{atom_name_uppercase}_METADATA");
@@ -1370,7 +1386,6 @@ pub(super) mod utils {
                     .filter_map(|e| {
                         let path = format!("{}", e.path().display());
                         if path.ends_with(".tar.gz") {
-                            println!("found {} (target: {target})", e.path().display());
                             Some(e.path())
                         } else {
                             None
