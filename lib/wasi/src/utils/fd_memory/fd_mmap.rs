@@ -75,7 +75,6 @@ impl FdMmap {
     /// Create a new `Mmap` pointing to `accessible_size` bytes of page-aligned accessible memory,
     /// within a reserved mapping of `mapping_size` bytes. `accessible_size` and `mapping_size`
     /// must be native page-size multiples.
-    #[cfg(not(target_os = "windows"))]
     pub fn accessible_reserved(
         accessible_size: usize,
         mapping_size: usize,
@@ -165,73 +164,9 @@ impl FdMmap {
         })
     }
 
-    /// Create a new `Mmap` pointing to `accessible_size` bytes of page-aligned accessible memory,
-    /// within a reserved mapping of `mapping_size` bytes. `accessible_size` and `mapping_size`
-    /// must be native page-size multiples.
-    #[cfg(target_os = "windows")]
-    pub fn accessible_reserved(
-        accessible_size: usize,
-        mapping_size: usize,
-    ) -> Result<Self, String> {
-        use winapi::um::memoryapi::VirtualAlloc;
-        use winapi::um::winnt::{MEM_COMMIT, MEM_RESERVE, PAGE_NOACCESS, PAGE_READWRITE};
-
-        let page_size = region::page::size();
-        assert_le!(accessible_size, mapping_size);
-        assert_eq!(mapping_size & (page_size - 1), 0);
-        assert_eq!(accessible_size & (page_size - 1), 0);
-
-        // VirtualAlloc may return ERROR_INVALID_PARAMETER if the size is zero,
-        // so just special-case that.
-        if mapping_size == 0 {
-            return Ok(Self::new());
-        }
-        if accessible_size == mapping_size {
-            // Allocate a single read-write region at once.
-            let ptr = unsafe {
-                VirtualAlloc(
-                    ptr::null_mut(),
-                    mapping_size,
-                    MEM_RESERVE | MEM_COMMIT,
-                    PAGE_READWRITE,
-                )
-            };
-            if ptr.is_null() {
-                return Err(io::Error::last_os_error().to_string());
-            }
-
-            Ok(Self {
-                ptr: ptr as usize,
-                len: mapping_size,
-                fd: FdGuard::default(),
-            })
-        } else {
-            // Reserve the mapping size.
-            let ptr =
-                unsafe { VirtualAlloc(ptr::null_mut(), mapping_size, MEM_RESERVE, PAGE_NOACCESS) };
-            if ptr.is_null() {
-                return Err(io::Error::last_os_error().to_string());
-            }
-
-            let mut result = Self {
-                ptr: ptr as usize,
-                len: mapping_size,
-                fd: FdGuard::default(),
-            };
-
-            if accessible_size != 0 {
-                // Commit the accessible size.
-                result.make_accessible(0, accessible_size)?;
-            }
-
-            Ok(result)
-        }
-    }
-
     /// Make the memory starting at `start` and extending for `len` bytes accessible.
     /// `start` and `len` must be native page-size multiples and describe a range within
     /// `self`'s reserved memory.
-    #[cfg(not(target_os = "windows"))]
     pub fn make_accessible(&mut self, start: usize, len: usize) -> Result<(), String> {
         let page_size = region::page::size();
         assert_eq!(start & (page_size - 1), 0);
@@ -243,38 +178,6 @@ impl FdMmap {
         let ptr = self.ptr as *const u8;
         unsafe { region::protect(ptr.add(start), len, region::Protection::READ_WRITE) }
             .map_err(|e| e.to_string())
-    }
-
-    /// Make the memory starting at `start` and extending for `len` bytes accessible.
-    /// `start` and `len` must be native page-size multiples and describe a range within
-    /// `self`'s reserved memory.
-    #[cfg(target_os = "windows")]
-    pub fn make_accessible(&mut self, start: usize, len: usize) -> Result<(), String> {
-        use winapi::ctypes::c_void;
-        use winapi::um::memoryapi::VirtualAlloc;
-        use winapi::um::winnt::{MEM_COMMIT, PAGE_READWRITE};
-        let page_size = region::page::size();
-        assert_eq!(start & (page_size - 1), 0);
-        assert_eq!(len & (page_size - 1), 0);
-        assert_lt!(len, self.len);
-        assert_lt!(start, self.len - len);
-
-        // Commit the accessible size.
-        let ptr = self.ptr as *const u8;
-        if unsafe {
-            VirtualAlloc(
-                ptr.add(start) as *mut c_void,
-                len,
-                MEM_COMMIT,
-                PAGE_READWRITE,
-            )
-        }
-        .is_null()
-        {
-            return Err(io::Error::last_os_error().to_string());
-        }
-
-        Ok(())
     }
 
     /// Return the allocated memory as a slice of u8.
@@ -308,7 +211,6 @@ impl FdMmap {
     // }
 
     /// Copies the memory to a new swap file (using copy-on-write if available)
-    #[cfg(not(target_os = "windows"))]
     pub fn duplicate(&mut self, hint_used: Option<usize>) -> Result<Self, String> {
         // Empty memory is an edge case
 
@@ -384,59 +286,15 @@ impl FdMmap {
             fd,
         })
     }
-
-    /// Copies the memory to a new swap file (using copy-on-write if available)
-    #[cfg(target_os = "windows")]
-    pub fn duplicate(&mut self, hint_used: Option<usize>) -> Result<Self, String> {
-        // Create a new memory which we will copy to
-        let new_mmap = Self::with_at_least(self.len)?;
-
-        #[cfg(feature = "tracing")]
-        trace!("memory copy started");
-
-        // Determine host much to copy
-        let len = match hint_used {
-            Some(a) => a,
-            None => self.len,
-        };
-
-        // Copy the data to the new memory
-        let dst = new_mmap.ptr as *mut u8;
-        let src = self.ptr as *const u8;
-        unsafe {
-            std::ptr::copy_nonoverlapping(src, dst, len);
-        }
-
-        #[cfg(feature = "tracing")]
-        trace!("memory copy finished (size={})", len);
-        Ok(new_mmap)
-    }
 }
 
 impl Drop for FdMmap {
-    #[cfg(not(target_os = "windows"))]
     fn drop(&mut self) {
         if self.len != 0 {
             let r = unsafe { libc::munmap(self.ptr as *mut libc::c_void, self.len) };
             assert_eq!(r, 0, "munmap failed: {}", io::Error::last_os_error());
         }
     }
-
-    #[cfg(target_os = "windows")]
-    fn drop(&mut self) {
-        if self.len != 0 {
-            use winapi::ctypes::c_void;
-            use winapi::um::memoryapi::VirtualFree;
-            use winapi::um::winnt::MEM_RELEASE;
-            let r = unsafe { VirtualFree(self.ptr as *mut c_void, 0, MEM_RELEASE) };
-            assert_ne!(r, 0);
-        }
-    }
-}
-
-fn _assert() {
-    fn _assert_send_sync<T: Send + Sync>() {}
-    _assert_send_sync::<FdMmap>();
 }
 
 /// Copy a range of a file to another file.
