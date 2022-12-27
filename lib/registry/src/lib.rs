@@ -8,7 +8,6 @@
 //! curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
 //! ```
 
-use crate::config::Registries;
 use anyhow::Context;
 use core::ops::Range;
 use reqwest::header::{ACCEPT, RANGE};
@@ -28,14 +27,13 @@ pub mod queries;
 pub mod utils;
 
 pub use crate::{
-    config::{format_graphql, PartialWapmConfig},
+    config::{format_graphql, WasmerConfig},
     package::Package,
     queries::get_bindings_query::ProgrammingLanguage,
 };
 
 pub static PACKAGE_TOML_FILE_NAME: &str = "wasmer.toml";
 pub static PACKAGE_TOML_FALLBACK_NAME: &str = "wapm.toml";
-
 pub static GLOBAL_CONFIG_FILE_NAME: &str = "wasmer.toml";
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
@@ -578,7 +576,7 @@ pub fn whoami(
     use crate::queries::{who_am_i_query, WhoAmIQuery};
     use graphql_client::GraphQLQuery;
 
-    let config = PartialWapmConfig::from_file(wasmer_dir);
+    let config = WasmerConfig::from_file(wasmer_dir);
 
     let config = config
         .map_err(|e| anyhow::anyhow!("{e}"))
@@ -627,18 +625,10 @@ pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
 }
 
 pub fn get_all_available_registries(wasmer_dir: &Path) -> Result<Vec<String>, String> {
-    let config = PartialWapmConfig::from_file(wasmer_dir)?;
-
+    let config = WasmerConfig::from_file(wasmer_dir)?;
     let mut registries = Vec::new();
-    match config.registry {
-        Registries::Single(s) => {
-            registries.push(format_graphql(&s.url));
-        }
-        Registries::Multi(m) => {
-            for key in m.tokens.keys() {
-                registries.push(format_graphql(key));
-            }
-        }
+    for login in config.registry.tokens {
+        registries.push(format_graphql(&login.registry));
     }
     Ok(registries)
 }

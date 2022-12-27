@@ -1,5 +1,5 @@
 use clap::Parser;
-use wasmer_registry::PartialWapmConfig;
+use wasmer_registry::WasmerConfig;
 
 /// Subcommand for listing packages
 #[derive(Debug, Copy, Clone, Parser)]
@@ -9,8 +9,8 @@ impl List {
     /// execute [List]
     pub fn execute(&self) -> Result<(), anyhow::Error> {
         use prettytable::{format, row, Table};
-        let wasmer_dir = PartialWapmConfig::get_wasmer_dir()
-            .map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
+        let wasmer_dir =
+            WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
         let rows = wasmer_registry::get_all_local_packages(&wasmer_dir)
             .into_iter()
             .filter_map(|pkg| {
