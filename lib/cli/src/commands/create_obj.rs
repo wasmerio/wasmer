@@ -3,7 +3,7 @@
 
 use super::ObjectFormat;
 use crate::store::CompilerOptions;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use std::env;
 
@@ -30,18 +30,15 @@ pub struct CreateObj {
     #[clap(long, name = "DEBUG PATH", parse(from_os_str))]
     debug_dir: Option<PathBuf>,
 
-    /// Prefix for every input file, e.g. "wat2wasm:sha256abc123" would
-    /// prefix every function in the wat2wasm input object with the "sha256abc123" hash
+    /// Prefix for the function names in the input file in the compiled object file.
     ///
-    /// If only a single value is given without containing a ":", this value is used for
-    /// all input files. If no value is given, the prefix is always equal to
-    /// the sha256 of the input .wasm file
-    #[clap(
-        use_value_delimiter = true,
-        value_delimiter = ',',
-        name = "FILE:PREFIX"
-    )]
-    prefix: Vec<String>,
+    /// Default value = sha256 of the input file
+    #[clap(long, name = "PREFIX")]
+    prefix: Option<String>,
+
+    /// Atom name to compile when compiling multi-atom pirita files
+    #[clap(long, name = "ATOM")]
+    atom: Option<String>,
 
     /// Compilation Target triple
     ///
@@ -85,27 +82,33 @@ impl CreateObj {
             None => temp_dir.path(),
         };
         let object_format = self.object_format.unwrap_or_default();
-        if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
-            crate::commands::create_exe::compile_pirita_into_directory(
-                &pirita,
-                output_directory_path,
-                &self.compiler,
-                &self.cpu_features,
-                &target_triple,
-                object_format,
-                &self.prefix,
-            )?;
-        } else {
-            crate::commands::create_exe::prepare_directory_from_single_wasm_file(
-                &input_path,
-                output_directory_path,
-                &self.compiler,
-                &target_triple,
-                &self.cpu_features,
-                object_format,
-                &self.prefix,
-            )?;
-        }
+        let prefix = match self.prefix.as_ref() {
+            Some(s) => vec![s.clone()],
+            None => Vec::new(),
+        };
+        let atoms =
+            if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
+                crate::commands::create_exe::compile_pirita_into_directory(
+                    &pirita,
+                    output_directory_path,
+                    &self.compiler,
+                    &self.cpu_features,
+                    &target_triple,
+                    object_format,
+                    &prefix,
+                    crate::commands::AllowMultiWasm::Reject(self.atom.clone()),
+                )
+            } else {
+                crate::commands::create_exe::prepare_directory_from_single_wasm_file(
+                    &input_path,
+                    output_directory_path,
+                    &self.compiler,
+                    &target_triple,
+                    &self.cpu_features,
+                    object_format,
+                    &prefix,
+                )
+            }?;
 
         // Copy output files into target path, depending on whether
         // there are one or many files being compiled
@@ -129,10 +132,20 @@ impl CreateObj {
         if file_paths.len() == 1 {
             std::fs::copy(&file_paths[0], &self.output)?;
         } else {
-            std::fs::create_dir_all(&self.output.join("atoms"))?;
-            for f in file_paths {
-                std::fs::copy(&f, self.output.join(f.file_name().unwrap()))?;
-            }
+            let keys = atoms
+                .iter()
+                .map(|(name, _)| name.clone())
+                .collect::<Vec<_>>();
+            return Err(anyhow::anyhow!(
+                "where <ATOM> is one of: {}",
+                keys.join(", ")
+            ))
+            .context(anyhow::anyhow!(
+                "note: use --atom <ATOM> to specify which atom to compile"
+            ))
+            .context(anyhow::anyhow!(
+                "cannot compile more than one atom at a time"
+            ));
         }
 
         eprintln!(

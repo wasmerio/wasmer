@@ -182,6 +182,7 @@ impl CreateExe {
                 &cross_compilation.target,
                 self.object_format.unwrap_or_default(),
                 &self.precompiled_atom,
+                AllowMultiWasm::Allow,
             )?;
             get_module_infos(&input_path, &atoms)?;
             let entrypoint = get_entrypoint(&tempdir)?;
@@ -277,6 +278,16 @@ fn get_entrypoint(directory: &Path) -> Result<Entrypoint, anyhow::Error> {
     Ok(entrypoint)
 }
 
+/// In pirita mode, specifies whether multi-atom
+/// pirita files should be allowed or rejected
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum AllowMultiWasm {
+    /// allow
+    Allow,
+    /// reject
+    Reject(Option<String>),
+}
+
 /// Given a pirita file, compiles the .wasm files into the target directory
 pub(super) fn compile_pirita_into_directory(
     pirita: &WebCMmap,
@@ -286,7 +297,44 @@ pub(super) fn compile_pirita_into_directory(
     triple: &Triple,
     object_format: ObjectFormat,
     prefixes: &[String],
+    allow_multi_wasm: AllowMultiWasm,
 ) -> anyhow::Result<Vec<(String, Vec<u8>)>> {
+    let all_atoms = match &allow_multi_wasm {
+        AllowMultiWasm::Allow | AllowMultiWasm::Reject(None) => {
+            pirita.get_all_atoms().into_iter().collect::<Vec<_>>()
+        }
+        AllowMultiWasm::Reject(Some(s)) => {
+            vec![(
+                s.to_string(),
+                pirita
+                    .get_atom(&pirita.get_package_name(), s)
+                    .with_context(|| {
+                        anyhow::anyhow!(
+                            "could not find atom {s} in package {}",
+                            pirita.get_package_name()
+                        )
+                    })?,
+            )]
+        }
+    };
+
+    if allow_multi_wasm == AllowMultiWasm::Reject(None) && all_atoms.len() > 1 {
+        let keys = all_atoms
+            .iter()
+            .map(|(name, _)| name.clone())
+            .collect::<Vec<_>>();
+        return Err(anyhow::anyhow!(
+            "where <ATOM> is one of: {}",
+            keys.join(", ")
+        ))
+        .context(anyhow::anyhow!(
+            "note: use --atom <ATOM> to specify which atom to compile"
+        ))
+        .context(anyhow::anyhow!(
+            "cannot compile more than one atom at a time"
+        ));
+    }
+
     std::fs::create_dir_all(target_dir)
         .map_err(|e| anyhow::anyhow!("cannot create / dir in {}: {e}", target_dir.display()))?;
 
@@ -314,7 +362,7 @@ pub(super) fn compile_pirita_into_directory(
     let mut atoms_from_file = Vec::new();
     let mut target_paths = Vec::new();
 
-    for (atom_name, atom_bytes) in pirita.get_all_atoms() {
+    for (atom_name, atom_bytes) in all_atoms {
         atoms_from_file.push((utils::normalize_atom_name(&atom_name), atom_bytes.to_vec()));
         let atom_path = target_dir
             .join("atoms")
