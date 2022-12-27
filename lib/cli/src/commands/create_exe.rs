@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
+use wasmer_types::ModuleInfo;
 
 use webc::{ParseOptions, WebCMmap};
 
@@ -137,6 +138,8 @@ pub struct CommandEntrypoint {
     pub path: PathBuf,
     /// Optional path to the static_defs.h header file, relative to the entrypoint.json parent dir
     pub header: Option<PathBuf>,
+    /// Module info, set when the wasm file is compiled
+    pub module_info: Option<ModuleInfo>,
 }
 
 /// Volume object file (name + path to object file)
@@ -162,15 +165,7 @@ impl CreateExe {
             utils::get_cross_compile_setup(&mut cc, &target_triple, &starting_cd)?;
 
         if input_path.is_dir() {
-            // assumes that the input directory has been created with create-obj
-            link_exe_from_dir(
-                &input_path,
-                output_path,
-                &cross_compilation,
-                &self.libraries,
-                true,
-                &self.precompiled_atom,
-            )?;
+            return Err(anyhow::anyhow!("input path cannot be a directory"));
         } else if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
             // pirita file
             let temp = tempdir::TempDir::new("pirita-compile")?;
@@ -179,7 +174,7 @@ impl CreateExe {
                 None => temp.path().to_path_buf(),
             };
             std::fs::create_dir_all(&tempdir)?;
-            compile_pirita_into_directory(
+            let atoms = compile_pirita_into_directory(
                 &pirita,
                 &tempdir,
                 &self.compiler,
@@ -188,6 +183,9 @@ impl CreateExe {
                 self.object_format.unwrap_or_default(),
                 &self.precompiled_atom,
             )?;
+            get_module_infos(&input_path, &atoms)?;
+            let entrypoint = get_entrypoint(&tempdir)?;
+            create_header_files_in_dir(&tempdir, &entrypoint, &self.precompiled_atom)?;
             link_exe_from_dir(
                 &tempdir,
                 output_path,
@@ -204,7 +202,7 @@ impl CreateExe {
                 None => temp.path().to_path_buf(),
             };
             std::fs::create_dir_all(&tempdir)?;
-            prepare_directory_from_single_wasm_file(
+            let atoms = prepare_directory_from_single_wasm_file(
                 &input_path,
                 &tempdir,
                 &self.compiler,
@@ -213,6 +211,9 @@ impl CreateExe {
                 self.object_format.unwrap_or_default(),
                 &self.precompiled_atom,
             )?;
+            get_module_infos(&input_path, &atoms)?;
+            let entrypoint = get_entrypoint(&tempdir)?;
+            create_header_files_in_dir(&tempdir, &entrypoint, &self.precompiled_atom)?;
             link_exe_from_dir(
                 &tempdir,
                 output_path,
@@ -240,6 +241,42 @@ impl CreateExe {
     }
 }
 
+fn write_entrypoint(directory: &Path, entrypoint: &Entrypoint) -> Result<(), anyhow::Error> {
+    std::fs::write(
+        directory.join("entrypoint.json"),
+        serde_json::to_string_pretty(&entrypoint).unwrap(),
+    )
+    .map_err(|e| {
+        anyhow::anyhow!(
+            "cannot create entrypoint.json dir in {}: {e}",
+            directory.display()
+        )
+    })
+}
+
+fn get_entrypoint(directory: &Path) -> Result<Entrypoint, anyhow::Error> {
+    let entrypoint_json =
+        std::fs::read_to_string(directory.join("entrypoint.json")).map_err(|e| {
+            anyhow::anyhow!(
+                "could not read entrypoint.json in {}: {e}",
+                directory.display()
+            )
+        })?;
+
+    let entrypoint: Entrypoint = serde_json::from_str(&entrypoint_json).map_err(|e| {
+        anyhow::anyhow!(
+            "could not parse entrypoint.json in {}: {e}",
+            directory.display()
+        )
+    })?;
+
+    if entrypoint.atoms.is_empty() {
+        return Err(anyhow::anyhow!("file has no atoms to compile"));
+    }
+
+    Ok(entrypoint)
+}
+
 /// Given a pirita file, compiles the .wasm files into the target directory
 pub(super) fn compile_pirita_into_directory(
     pirita: &WebCMmap,
@@ -249,7 +286,7 @@ pub(super) fn compile_pirita_into_directory(
     triple: &Triple,
     object_format: ObjectFormat,
     prefixes: &[String],
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Vec<(String, Vec<u8>)>> {
     std::fs::create_dir_all(target_dir)
         .map_err(|e| anyhow::anyhow!("cannot create / dir in {}: {e}", target_dir.display()))?;
 
@@ -307,7 +344,7 @@ pub(super) fn compile_pirita_into_directory(
     }
 
     let prefix_map = PrefixMapCompilation::from_input(&atoms_from_file, prefixes, false)?;
-    conpile_atoms(
+    let module_infos = conpile_atoms(
         &atoms_from_file,
         &target_dir.join("atoms"),
         compiler,
@@ -329,9 +366,10 @@ pub(super) fn compile_pirita_into_directory(
         atoms.push(CommandEntrypoint {
             // TODO: improve, "--command pip" should be able to invoke atom "python" with args "-m pip"
             command: command_name,
-            atom: atom_name,
+            atom: atom_name.clone(),
             path: atom_path,
             header: header_path,
+            module_info: module_infos.get(&atom_name).cloned(),
         });
     }
 
@@ -344,18 +382,9 @@ pub(super) fn compile_pirita_into_directory(
         object_format,
     };
 
-    std::fs::write(
-        target_dir.join("entrypoint.json"),
-        serde_json::to_string_pretty(&entrypoint).unwrap_or_default(),
-    )
-    .map_err(|e| {
-        anyhow::anyhow!(
-            "cannot create entrypoint.json dir in {}: {e}",
-            target_dir.display()
-        )
-    })?;
+    write_entrypoint(&target_dir, &entrypoint)?;
 
-    Ok(())
+    Ok(atoms_from_file)
 }
 
 /// Prefix map used during compilation of object files
@@ -504,11 +533,12 @@ fn conpile_atoms(
     target: &Target,
     object_format: ObjectFormat,
     prefixes: &PrefixMapCompilation,
-) -> Result<()> {
+) -> Result<BTreeMap<String, ModuleInfo>, anyhow::Error> {
     use std::fs::File;
     use std::io::BufWriter;
     use std::io::Write;
 
+    let mut module_infos = BTreeMap::new();
     for (a, data) in atoms {
         let prefix = prefixes
             .get_prefix_for_atom(a)
@@ -526,7 +556,7 @@ fn conpile_atoms(
                 let tunables = store.tunables();
                 let prefix_copy = prefix.to_string();
                 let prefixer: Option<PrefixerFn> = Some(Box::new(move |_| prefix_copy.to_string()));
-                let (_, obj, _, _) = Artifact::generate_object(
+                let (module_info, obj, _, _) = Artifact::generate_object(
                     compiler,
                     data,
                     &module_name,
@@ -535,6 +565,7 @@ fn conpile_atoms(
                     tunables,
                     features,
                 )?;
+                module_infos.insert(atom_name, module_info);
                 // Write object file with functions
                 let mut writer = BufWriter::new(File::create(&output_object_path)?);
                 obj.write_stream(&mut writer)
@@ -555,7 +586,7 @@ fn conpile_atoms(
         }
     }
 
-    Ok(())
+    Ok(module_infos)
 }
 
 /// Compile the C code.
@@ -637,7 +668,7 @@ pub(super) fn prepare_directory_from_single_wasm_file(
     cpu_features: &[CpuFeature],
     object_format: ObjectFormat,
     prefix: &[String],
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Vec<(String, Vec<u8>)>, anyhow::Error> {
     let bytes = std::fs::read(wasm_file)?;
     let target = &utils::target_triple_to_target(triple, cpu_features);
 
@@ -684,7 +715,7 @@ pub(super) fn prepare_directory_from_single_wasm_file(
     }
 
     let prefix_map = PrefixMapCompilation::from_input(&atoms_from_file, prefix, false)?;
-    conpile_atoms(
+    let module_infos = conpile_atoms(
         &atoms_from_file,
         &target_dir.join("atoms"),
         compiler,
@@ -701,6 +732,7 @@ pub(super) fn prepare_directory_from_single_wasm_file(
             atom: atom_name.clone(),
             path: atom_path,
             header: opt_header_path,
+            module_info: module_infos.get(atom_name).cloned(),
         });
     }
 
@@ -710,32 +742,50 @@ pub(super) fn prepare_directory_from_single_wasm_file(
         object_format,
     };
 
-    std::fs::write(
-        target_dir.join("entrypoint.json"),
-        serde_json::to_string_pretty(&entrypoint).unwrap_or_default(),
-    )
-    .map_err(|e| {
-        anyhow::anyhow!(
-            "cannot create entrypoint.json dir in {}: {e}",
-            target_dir.display()
-        )
-    })?;
+    write_entrypoint(&target_dir, &entrypoint)?;
 
-    Ok(())
+    Ok(all_files)
+}
+
+// Given the input file paths, correctly resolves the .wasm files,
+// reads the module info from the wasm module and writes the ModuleInfo for each file
+// into the entrypoint.json file
+fn get_module_infos(
+    directory: &Path,
+    atoms: &[(String, Vec<u8>)],
+) -> Result<BTreeMap<String, ModuleInfo>, anyhow::Error> {
+    let mut entrypoint = get_entrypoint(directory)?;
+
+    let mut module_infos = BTreeMap::new();
+    for (atom_name, atom_bytes) in atoms {
+        let store = Store::default();
+        let module = unsafe { Module::deserialize(&store, atom_bytes.as_slice()) }
+            .map_err(|e| anyhow::anyhow!("could not deserialize module {atom_name}: {e}"))?;
+        if let Some(s) = entrypoint
+            .atoms
+            .iter_mut()
+            .find(|a| a.atom.as_str() == atom_name.as_str())
+        {
+            s.module_info = Some(module.info().clone());
+            module_infos.insert(atom_name.clone(), module.info().clone());
+        }
+    }
+
+    write_entrypoint(directory, &entrypoint)?;
+
+    Ok(module_infos)
 }
 
 /// Create the static_defs.h header files in the /include directory
 fn create_header_files_in_dir(
     directory: &Path,
-    atoms: &[(String, Vec<u8>)],
     entrypoint: &Entrypoint,
     prefixes: &[String],
-    object_format: ObjectFormat,
 ) -> anyhow::Result<()> {
     use object::{Object, ObjectSection};
     use wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
 
-    if object_format == ObjectFormat::Serialized {
+    if entrypoint.object_format == ObjectFormat::Serialized {
         return Ok(());
     }
 
@@ -754,15 +804,8 @@ fn create_header_files_in_dir(
     for atom in entrypoint.atoms.iter() {
         let atom_name = &atom.atom;
         let prefix = prefixes
-            .get_prefix_for_atom(&atom_name)
+            .get_prefix_for_atom(atom_name)
             .ok_or_else(|| anyhow::anyhow!("cannot get prefix for atom {atom_name}"))?;
-
-        let atom_bytes = atoms
-            .iter()
-            .find_map(|(name, bytes)| if name == atom_name { Some(bytes) } else { None })
-            .ok_or_else(|| {
-                anyhow::anyhow!("could not find bytes for atom {atom_name} in generate-header step")
-            })?;
 
         let object_file_src = directory.join(&atom.path);
         let object_file = std::fs::read(&object_file_src)
@@ -777,22 +820,19 @@ fn create_header_files_in_dir(
         })?;
         let metadata_length = section.size();
 
-        let store = Store::default();
-        let module_info =
-            unsafe { Module::deserialize(&store, atom_bytes.as_slice()) }.map_err(|e| {
-                anyhow::anyhow!(
-                    "could not deserialized module {atom_name} in generate-header step: {e}"
-                )
-            })?;
+        let module_info = atom
+            .module_info
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("no module info for atom {atom_name:?}"))?;
 
         let header_file_path = directory
             .join("include")
             .join(format!("static_defs_{prefix}.h"));
 
         let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
-            &atom_name,
+            atom_name,
             &format!("WASMER_{prefix}_METADATA"),
-            &module_info.info(),
+            module_info,
             &ModuleMetadataSymbolRegistry { prefix },
             metadata_length as usize,
         );
@@ -815,24 +855,7 @@ fn link_exe_from_dir(
     debug: bool,
     prefixes: &[String],
 ) -> anyhow::Result<()> {
-    let entrypoint_json =
-        std::fs::read_to_string(directory.join("entrypoint.json")).map_err(|e| {
-            anyhow::anyhow!(
-                "could not read entrypoint.json in {}: {e}",
-                directory.display()
-            )
-        })?;
-
-    let entrypoint: Entrypoint = serde_json::from_str(&entrypoint_json).map_err(|e| {
-        anyhow::anyhow!(
-            "could not parse entrypoint.json in {}: {e}",
-            directory.display()
-        )
-    })?;
-
-    if entrypoint.atoms.is_empty() {
-        return Err(anyhow::anyhow!("file has no atoms to compile"));
-    }
+    let entrypoint = get_entrypoint(directory)?;
 
     let prefix_map = entrypoint
         .atoms

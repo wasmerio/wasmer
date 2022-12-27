@@ -128,6 +128,11 @@ impl CreateObj {
 
         if file_paths.len() == 1 {
             std::fs::copy(&file_paths[0], &self.output)?;
+        } else {
+            std::fs::create_dir_all(&self.output.join("atoms"))?;
+            for f in file_paths {
+                std::fs::copy(&f, self.output.join(f.file_name().unwrap()))?;
+            }
         }
 
         eprintln!(

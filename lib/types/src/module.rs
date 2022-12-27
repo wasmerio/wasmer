@@ -67,6 +67,34 @@ impl From<(String, String, u32)> for ImportKey {
     }
 }
 
+#[cfg(feature = "enable-serde")]
+mod serde_imports {
+
+    use crate::ImportIndex;
+    use crate::ImportKey;
+    use indexmap::IndexMap;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    type InitialType = IndexMap<ImportKey, ImportIndex>;
+    type SerializedType = Vec<(ImportKey, ImportIndex)>;
+    // IndexMap<ImportKey, ImportIndex>
+    // Vec<
+    pub fn serialize<S: Serializer>(s: &InitialType, serializer: S) -> Result<S::Ok, S::Error> {
+        let vec: SerializedType = s
+            .iter()
+            .map(|(a, b)| (a.clone(), b.clone()))
+            .collect::<Vec<_>>();
+        vec.serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<InitialType, D::Error> {
+        let serialized = <SerializedType as Deserialize>::deserialize(deserializer)?;
+        Ok(serialized.into_iter().collect())
+    }
+}
+
 /// A translated WebAssembly module, excluding the function bodies and
 /// memory initializers.
 #[derive(Debug, Clone, Default)]
@@ -89,6 +117,7 @@ pub struct ModuleInfo {
     /// Keeping the `index_of_the_import` is important, as there can be
     /// two same references to the same import, and we don't want to confuse
     /// them.
+    #[cfg_attr(feature = "enable-serde", serde(with = "serde_imports"))]
     pub imports: IndexMap<ImportKey, ImportIndex>,
 
     /// Exported entities.
