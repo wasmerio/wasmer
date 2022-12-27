@@ -294,11 +294,11 @@ impl Module {
     /// # }
     /// ```
     pub unsafe fn deserialize_from_file(
-        engine: &impl AsEngineRef,
+        store: &impl AsStoreRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        let artifact = engine
-            .as_engine_ref()
+        let artifact = store
+            .as_store_ref()
             .engine()
             .deserialize_from_file(path.as_ref())?;
         Ok(Self::from_artifact(artifact))
