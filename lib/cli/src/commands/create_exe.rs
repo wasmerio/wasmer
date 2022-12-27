@@ -185,14 +185,15 @@ impl CreateExe {
                 AllowMultiWasm::Allow,
             )?;
             get_module_infos(&tempdir, &atoms)?;
-            let entrypoint = get_entrypoint(&tempdir)?;
-            create_header_files_in_dir(&tempdir, &entrypoint, &self.precompiled_atom)?;
+            let mut entrypoint = get_entrypoint(&tempdir)?;
+            create_header_files_in_dir(&tempdir, &mut entrypoint, &atoms, &self.precompiled_atom)?;
             link_exe_from_dir(
                 &tempdir,
                 output_path,
                 &cross_compilation,
                 &self.libraries,
                 self.debug_dir.is_some(),
+                &atoms,
                 &self.precompiled_atom,
             )?;
         } else {
@@ -213,14 +214,15 @@ impl CreateExe {
                 &self.precompiled_atom,
             )?;
             get_module_infos(&tempdir, &atoms)?;
-            let entrypoint = get_entrypoint(&tempdir)?;
-            create_header_files_in_dir(&tempdir, &entrypoint, &self.precompiled_atom)?;
+            let mut entrypoint = get_entrypoint(&tempdir)?;
+            create_header_files_in_dir(&tempdir, &mut entrypoint, &atoms, &self.precompiled_atom)?;
             link_exe_from_dir(
                 &tempdir,
                 output_path,
                 &cross_compilation,
                 &self.libraries,
                 self.debug_dir.is_some(),
+                &atoms,
                 &self.precompiled_atom,
             )?;
         }
@@ -556,7 +558,8 @@ impl PrefixMapCompilation {
         let mut hasher = Sha256::new();
         hasher.update(bytes);
         let result = hasher.finalize();
-        hex::encode(&result[..])
+        let result = hex::encode(&result[..]);
+        result
     }
 
     fn get_prefix_for_atom(&self, atom_name: &str) -> Option<String> {
@@ -594,7 +597,7 @@ fn conpile_atoms(
         let (store, _) = compiler.get_store_for_target(target.clone())?;
         let atom_name = utils::normalize_atom_name(a);
         let output_object_path = output_dir.join(format!("{atom_name}.o"));
-        let module_name = format!("WASMER_{prefix}_METADATA");
+        let module_name = format!("WASMER_{}_METADATA", prefix.to_uppercase());
         match object_format {
             ObjectFormat::Symbols => {
                 let engine = store.engine();
@@ -732,34 +735,19 @@ pub(super) fn prepare_directory_from_single_wasm_file(
     let mut atoms_from_file = Vec::new();
     let mut target_paths = Vec::new();
 
-    let all_files = vec![("main".to_string(), bytes)];
+    let all_files = vec![(
+        wasm_file
+            .file_stem()
+            .and_then(|f| f.to_str())
+            .unwrap_or("main")
+            .to_string(),
+        bytes,
+    )];
 
     for (atom_name, atom_bytes) in all_files.iter() {
         atoms_from_file.push((atom_name.clone(), atom_bytes.to_vec()));
-        let mut atom_path = target_dir.join("atoms").join(format!("{atom_name}.o"));
-        let mut header_path = match object_format {
-            ObjectFormat::Symbols => {
-                std::fs::create_dir_all(target_dir.join("include")).map_err(|e| {
-                    anyhow::anyhow!(
-                        "cannot create /include dir in {}: {e}",
-                        target_dir.display()
-                    )
-                })?;
-
-                Some(
-                    target_dir
-                        .join("include")
-                        .join(format!("static_defs_{atom_name}.h")),
-                )
-            }
-            ObjectFormat::Serialized => None,
-        };
-        if let Ok(a) = atom_path.canonicalize() {
-            let opt_header_path = header_path.and_then(|p| p.canonicalize().ok());
-            atom_path = pathdiff::diff_paths(&a, &target_dir).unwrap_or_else(|| a.clone());
-            header_path = opt_header_path.and_then(|h| pathdiff::diff_paths(&h, &target_dir));
-        }
-        target_paths.push((atom_name, atom_path, header_path));
+        let atom_path = target_dir.join("atoms").join(format!("{atom_name}.o"));
+        target_paths.push((atom_name, atom_path));
     }
 
     let prefix_map = PrefixMapCompilation::from_input(&atoms_from_file, prefix, false)?;
@@ -773,13 +761,13 @@ pub(super) fn prepare_directory_from_single_wasm_file(
     )?;
 
     let mut atoms = Vec::new();
-    for (atom_name, atom_path, opt_header_path) in target_paths {
+    for (atom_name, atom_path) in target_paths {
         atoms.push(CommandEntrypoint {
             // TODO: improve, "--command pip" should be able to invoke atom "python" with args "-m pip"
             command: atom_name.clone(),
             atom: atom_name.clone(),
             path: atom_path,
-            header: opt_header_path,
+            header: None,
             module_info: module_infos.get(atom_name).cloned(),
         });
     }
@@ -828,13 +816,15 @@ fn get_module_infos(
 /// Create the static_defs.h header files in the /include directory
 fn create_header_files_in_dir(
     directory: &Path,
-    entrypoint: &Entrypoint,
+    entrypoint: &mut Entrypoint,
+    atoms: &[(String, Vec<u8>)],
     prefixes: &[String],
 ) -> anyhow::Result<()> {
     use object::{Object, ObjectSection};
     use wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
 
     if entrypoint.object_format == ObjectFormat::Serialized {
+        write_entrypoint(&directory, &entrypoint)?;
         return Ok(());
     }
 
@@ -842,15 +832,9 @@ fn create_header_files_in_dir(
         anyhow::anyhow!("cannot create /include dir in {}: {e}", directory.display())
     })?;
 
-    let prefix_map = entrypoint
-        .atoms
-        .iter()
-        .map(|a| (a.atom.clone(), Vec::new()))
-        .collect::<Vec<_>>();
+    let prefixes = PrefixMapCompilation::from_input(atoms, prefixes, false)?;
 
-    let prefixes = PrefixMapCompilation::from_input(&prefix_map, prefixes, false)?;
-
-    for atom in entrypoint.atoms.iter() {
+    for atom in entrypoint.atoms.iter_mut() {
         let atom_name = &atom.atom;
         let prefix = prefixes
             .get_prefix_for_atom(atom_name)
@@ -859,7 +843,7 @@ fn create_header_files_in_dir(
         let object_file_src = directory.join(&atom.path);
         let object_file = std::fs::read(&object_file_src)
             .map_err(|e| anyhow::anyhow!("could not read {}: {e}", object_file_src.display()))?;
-        let module_name = format!("WASMER_{prefix}_METADATA");
+        let module_name = format!("WASMER_{}_METADATA", prefix.to_uppercase());
         let obj_file = object::File::parse(&*object_file)?;
         let sections = obj_file
             .sections()
@@ -883,15 +867,16 @@ fn create_header_files_in_dir(
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("no module info for atom {atom_name:?}"))?;
 
-        let header_file_path = directory
-            .join("include")
-            .join(format!("static_defs_{prefix}.h"));
+        let base_path = Path::new("include").join(format!("static_defs_{prefix}.h"));
+        let header_file_path = directory.join(&base_path);
 
         let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
-            atom_name,
-            &format!("WASMER_{prefix}_METADATA"),
+            &prefix,
+            &format!("WASMER_{}_METADATA", prefix.to_uppercase()),
             module_info,
-            &ModuleMetadataSymbolRegistry { prefix },
+            &ModuleMetadataSymbolRegistry {
+                prefix: prefix.clone(),
+            },
             metadata_length as usize,
         );
 
@@ -900,7 +885,12 @@ fn create_header_files_in_dir(
                 "could not write static_defs.h for atom {atom_name} in generate-header step: {e}"
             )
         })?;
+
+        atom.header = Some(base_path);
     }
+
+    write_entrypoint(&directory, &entrypoint)?;
+
     Ok(())
 }
 
@@ -911,18 +901,13 @@ fn link_exe_from_dir(
     cross_compilation: &CrossCompileSetup,
     additional_libraries: &[String],
     debug: bool,
+    atoms: &[(String, Vec<u8>)],
     prefixes: &[String],
 ) -> anyhow::Result<()> {
     let entrypoint =
         get_entrypoint(directory).with_context(|| anyhow::anyhow!("link exe from dir"))?;
 
-    let prefix_map = entrypoint
-        .atoms
-        .iter()
-        .map(|a| (a.atom.clone(), Vec::new()))
-        .collect::<Vec<_>>();
-
-    let prefixes = PrefixMapCompilation::from_input(&prefix_map, prefixes, true)?;
+    let prefixes = PrefixMapCompilation::from_input(atoms, prefixes, true)?;
     let wasmer_main_c = generate_wasmer_main_c(&entrypoint, &prefixes).map_err(|e| {
         anyhow::anyhow!(
             "could not generate wasmer_main.c in dir {}: {e}",
@@ -1210,9 +1195,8 @@ fn generate_wasmer_main_c(
                     prefixes
                 )
             })?;
-        let atom_name = utils::normalize_atom_name(&prefix);
-        let atom_name_uppercase = atom_name.to_uppercase();
-        let module_name = format!("WASMER_{atom_name_uppercase}_METADATA");
+        let atom_name = prefix.clone();
+        let module_name = format!("WASMER_{}_METADATA", prefix.to_uppercase());
 
         write!(
             c_code_to_add,
@@ -1228,7 +1212,7 @@ fn generate_wasmer_main_c(
             write!(c_code_to_instantiate, "
             wasm_module_t *atom_{atom_name} = wasmer_object_module_new_{atom_name}(store, \"{atom_name}\");
             if (!atom_{atom_name}) {{
-                fprintf(stderr, \"Failed to create module from atom \\\"{atom_name}\\\"\\n\");
+                fprintf(stderr, \"Failed to create module from atom \\\"{a}\\\"\\n\");
                 print_wasmer_error();
                 return -1;
             }}
@@ -1282,14 +1266,30 @@ fn generate_wasmer_main_c(
         .replace("wasm_module_delete(module);", &deallocate_module);
 
     if atom_names.len() == 1 {
-        let atom_to_run = &atom_names[0];
-        write!(c_code_to_instantiate, "module = atom_{atom_to_run};")?;
+        let prefix = prefixes
+            .get_prefix_for_atom(&utils::normalize_atom_name(&atom_names[0]))
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "cannot find prefix for atom {} when generating wasmer_main.c ({:#?})",
+                    &atom_names[0],
+                    prefixes
+                )
+            })?;
+        write!(c_code_to_instantiate, "module = atom_{prefix};")?;
     } else {
         for a in atom_names.iter() {
+            let prefix = prefixes
+                .get_prefix_for_atom(&utils::normalize_atom_name(a))
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "cannot find prefix for atom {a} when generating wasmer_main.c ({:#?})",
+                        prefixes
+                    )
+                })?;
             writeln!(
                 c_code_to_instantiate,
                 "if (strcmp(selected_atom, \"{a}\") == 0) {{ module = atom_{}; }}",
-                utils::normalize_atom_name(a)
+                prefix
             )?;
         }
     }
