@@ -79,8 +79,7 @@ impl FuncTranslator {
         environ: &mut FE,
     ) -> WasmResult<()> {
         let _tt = timing::wasm_translate_function();
-        #[cfg(feature = "verbose")]
-        tracing::info!(
+        tracing::trace!(
             "translate({} bytes, {}{})",
             reader.bytes_remaining(),
             func.name,
