@@ -1198,14 +1198,6 @@ fn generate_wasmer_main_c(
         let atom_name = prefix.clone();
         let module_name = format!("WASMER_{}_METADATA", prefix.to_uppercase());
 
-        write!(
-            c_code_to_add,
-            "
-            extern size_t {module_name}_LENGTH asm(\"{module_name}_LENGTH\");
-            extern char {module_name}_DATA asm(\"{module_name}_DATA\");
-            "
-        )?;
-
         if compile_static {
             extra_headers.push(format!("#include \"static_defs_{atom_name}.h\""));
 
@@ -1219,6 +1211,15 @@ fn generate_wasmer_main_c(
             ")?;
         } else {
             extra_headers.push(format!("const extern unsigned char {module_name}[];\r\n"));
+
+            write!(
+                c_code_to_add,
+                "
+                extern size_t {module_name}_LENGTH asm(\"{module_name}_LENGTH\");
+                extern char {module_name}_DATA asm(\"{module_name}_DATA\");
+                "
+            )?;
+
             write!(c_code_to_instantiate, "
             wasm_byte_vec_t atom_{atom_name}_byte_vec = {{
                 .size = {module_name}_LENGTH,
