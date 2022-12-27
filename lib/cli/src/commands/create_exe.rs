@@ -724,6 +724,88 @@ pub(super) fn prepare_directory_from_single_wasm_file(
     Ok(())
 }
 
+/// Create the static_defs.h header files in the /include directory
+fn create_header_files_in_dir(
+    directory: &Path,
+    atoms: &[(String, Vec<u8>)],
+    entrypoint: &Entrypoint,
+    prefixes: &[String],
+    object_format: ObjectFormat,
+) -> anyhow::Result<()> {
+    use object::{Object, ObjectSection};
+    use wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
+
+    if object_format == ObjectFormat::Serialized {
+        return Ok(());
+    }
+
+    std::fs::create_dir_all(directory.join("include")).map_err(|e| {
+        anyhow::anyhow!("cannot create /include dir in {}: {e}", directory.display())
+    })?;
+
+    let prefix_map = entrypoint
+        .atoms
+        .iter()
+        .map(|a| (a.atom.clone(), Vec::new()))
+        .collect::<Vec<_>>();
+
+    let prefixes = PrefixMapCompilation::from_input(&prefix_map, prefixes, false)?;
+
+    for atom in entrypoint.atoms.iter() {
+        let atom_name = &atom.atom;
+        let prefix = prefixes
+            .get_prefix_for_atom(&atom_name)
+            .ok_or_else(|| anyhow::anyhow!("cannot get prefix for atom {atom_name}"))?;
+
+        let atom_bytes = atoms
+            .iter()
+            .find_map(|(name, bytes)| if name == atom_name { Some(bytes) } else { None })
+            .ok_or_else(|| {
+                anyhow::anyhow!("could not find bytes for atom {atom_name} in generate-header step")
+            })?;
+
+        let object_file_src = directory.join(&atom.path);
+        let object_file = std::fs::read(&object_file_src)
+            .map_err(|e| anyhow::anyhow!("could not read {}: {e}", object_file_src.display()))?;
+        let module_name = format!("WASMER_{prefix}_METADATA");
+        let obj_file = object::File::parse(&*object_file)?;
+        let section = obj_file.section_by_name(&module_name).ok_or_else(|| {
+            anyhow::anyhow!(
+                "missing section {module_name} in object file {}",
+                object_file_src.display()
+            )
+        })?;
+        let metadata_length = section.size();
+
+        let store = Store::default();
+        let module_info =
+            unsafe { Module::deserialize(&store, atom_bytes.as_slice()) }.map_err(|e| {
+                anyhow::anyhow!(
+                    "could not deserialized module {atom_name} in generate-header step: {e}"
+                )
+            })?;
+
+        let header_file_path = directory
+            .join("include")
+            .join(format!("static_defs_{prefix}.h"));
+
+        let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
+            &atom_name,
+            &format!("WASMER_{prefix}_METADATA"),
+            &module_info.info(),
+            &ModuleMetadataSymbolRegistry { prefix },
+            metadata_length as usize,
+        );
+
+        std::fs::write(&header_file_path, &header_file_src).map_err(|e| {
+            anyhow::anyhow!(
+                "could not write static_defs.h for atom {atom_name} in generate-header step: {e}"
+            )
+        })?;
+    }
+    Ok(())
+}
+
 /// Given a directory, links all the objects from the directory appropriately
 fn link_exe_from_dir(
     directory: &Path,

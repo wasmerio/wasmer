@@ -2254,6 +2254,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "object"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "239da7f290cfa979f43f85a8efeee9a8a76d0827c356d37f9d3d7254d6b537fb"
+dependencies = [
+ "flate2",
+ "memchr",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4318,6 +4328,7 @@ dependencies = [
  "log",
  "minisign",
  "nuke-dir",
+ "object 0.30.0",
  "pathdiff",
  "prettytable-rs",
  "regex",
