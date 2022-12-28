@@ -81,11 +81,22 @@ impl CreateObj {
             Some(s) => s.as_path(),
             None => temp_dir.path(),
         };
+        std::fs::create_dir_all(&output_directory_path)?;
         let object_format = self.object_format.unwrap_or_default();
         let prefix = match self.prefix.as_ref() {
             Some(s) => vec![s.clone()],
             None => Vec::new(),
         };
+
+        let target = crate::commands::create_exe::utils::target_triple_to_target(
+            &target_triple,
+            &self.cpu_features,
+        );
+        let (_, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+        println!("Compiler: {}", compiler_type.to_string());
+        println!("Target: {}", target.triple());
+        println!("Format: {:?}", object_format);
+
         let atoms =
             if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
                 crate::commands::create_exe::compile_pirita_into_directory(
@@ -119,7 +130,7 @@ impl CreateObj {
                     output_directory_path.join("atoms").display()
                 )
             })?
-            .filter_map(|path| Some(path.ok()?.path()))
+            .filter_map(|path| Some(path.ok()?.path().canonicalize().ok()?))
             .collect::<Vec<_>>();
 
         if file_paths.is_empty() {
@@ -130,7 +141,20 @@ impl CreateObj {
         }
 
         if file_paths.len() == 1 {
-            std::fs::copy(&file_paths[0], &self.output)?;
+            if let Some(parent) = self.output.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::copy(
+                std::env::current_dir().unwrap().join(&file_paths[0]),
+                std::env::current_dir().unwrap().join(&self.output),
+            )
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "{} -> {}: {e}",
+                    &file_paths[0].display(),
+                    self.output.display()
+                )
+            })?;
         } else {
             let keys = atoms
                 .iter()
@@ -150,7 +174,7 @@ impl CreateObj {
 
         eprintln!(
             "✔ Object compiled successfully to directory `{}`",
-            self.output.display()
+            self.output.canonicalize().unwrap().display()
         );
 
         Ok(())

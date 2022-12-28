@@ -112,7 +112,7 @@ pub(crate) struct CrossCompile {
 pub(crate) struct CrossCompileSetup {
     pub(crate) target: Triple,
     pub(crate) zig_binary_path: Option<PathBuf>,
-    pub(crate) library: Option<PathBuf>,
+    pub(crate) library: PathBuf,
 }
 
 /// Given a pirita file, determines whether the file has one
@@ -167,7 +167,21 @@ impl CreateExe {
 
         if input_path.is_dir() {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
-        } else if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
+        }
+
+        let (_, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+        println!("Compiler: {}", compiler_type.to_string());
+        println!("Target: {}", target.triple());
+        println!("Format: {:?}", object_format);
+        println!(
+            "Using path `{}` as libwasmer path.",
+            cross_compilation.library.display()
+        );
+        if !cross_compilation.library.exists() {
+            return Err(anyhow::anyhow!("library path does not exist"));
+        }
+
+        if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
             // pirita file
             let temp = tempdir::TempDir::new("pirita-compile")?;
             let tempdir = match self.debug_dir.as_ref() {
@@ -394,7 +408,9 @@ pub(super) fn compile_pirita_into_directory(
         ));
     }
 
-    let prefix_map = PrefixMapCompilation::from_input(&atoms_from_file, prefixes, false)?;
+    let prefix_map = PrefixMapCompilation::from_input(&atoms_from_file, prefixes, false)
+        .with_context(|| anyhow::anyhow!("compile_pirita_into_directory"))?;
+
     let module_infos = conpile_atoms(
         &atoms_from_file,
         &target_dir.join("atoms"),
@@ -439,7 +455,7 @@ pub(super) fn compile_pirita_into_directory(
 }
 
 /// Prefix map used during compilation of object files
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 struct PrefixMapCompilation {
     /// Sha256 hashes for the input files
     input_hashes: BTreeMap<String, String>,
@@ -450,17 +466,45 @@ struct PrefixMapCompilation {
     compilation_objects: BTreeMap<String, Vec<u8>>,
 }
 
+#[test]
+fn test_prefix_parsing() {
+    let tempdir = tempdir::TempDir::new("test-prefix-parsing").unwrap();
+    let path = tempdir.path();
+    std::fs::write(path.join("test.obj"), b"").unwrap();
+    let str1 = format!("ATOM_NAME:{}:PREFIX", path.join("test.obj").display());
+    let prefix = PrefixMapCompilation::from_input(
+        &[("ATOM_NAME".to_string(), b"".to_vec())],
+        &[str1.to_string()],
+        false,
+    );
+    assert_eq!(
+        prefix.unwrap(),
+        PrefixMapCompilation {
+            input_hashes: BTreeMap::new(),
+            manual_prefixes: vec![("ATOM_NAME".to_string(), "PREFIX".to_string())]
+                .into_iter()
+                .collect(),
+            compilation_objects: vec![("ATOM_NAME".to_string(), b"".to_vec())]
+                .into_iter()
+                .collect(),
+        }
+    );
+}
+
 impl PrefixMapCompilation {
     /// Sets up the prefix map from a collection like "sha123123" or "wasmfile:sha123123" or "wasmfile:/tmp/filepath/:sha123123"
     fn from_input(
         atoms: &[(String, Vec<u8>)],
         prefixes: &[String],
-        compilation_object_mode: bool,
+        only_validate_prefixes: bool,
     ) -> Result<Self, anyhow::Error> {
+        // No atoms: no prefixes necessary
         if atoms.is_empty() {
             return Ok(Self::default());
         }
 
+        // default case: no prefixes have been specified:
+        // for all atoms, calculate the sha256
         if prefixes.is_empty() {
             return Ok(Self {
                 input_hashes: atoms
@@ -472,6 +516,7 @@ impl PrefixMapCompilation {
             });
         }
 
+        // if prefixes are specified, have to match the atom names exactly
         if prefixes.len() != atoms.len() {
             return Err(anyhow::anyhow!(
                 "invalid mapping of prefix and atoms: expected prefixes for {} atoms, got {} prefixes", 
@@ -479,72 +524,56 @@ impl PrefixMapCompilation {
             ));
         }
 
-        // Only on single atom mapping is using a raw input allowed, all other prefix
-        // have to carry something like "nameofatom:sha256hash" instead of just "sha256hash"
-        if atoms.len() == 1 && !compilation_object_mode {
-            let prefix = &prefixes[0];
-            let (atom_name, _atom_bytes) = &atoms[0];
-            let atom_prefix = format!("{atom_name}:");
-
-            if prefix.contains(':') && !prefix.contains(&atom_prefix) {
-                return Err(anyhow::anyhow!("invalid prefix in prefix {prefix}"));
-            }
-
-            let prefix_without_atom_name = prefix.replacen(&atom_prefix, "", 1);
-            if !prefix_without_atom_name
-                .chars()
-                .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
-            {
-                return Err(anyhow::anyhow!("invalid prefix {prefix}"));
-            }
-            return Ok(Self {
-                input_hashes: BTreeMap::new(),
-                manual_prefixes: IntoIterator::into_iter([(
-                    atom_name.clone(),
-                    prefix_without_atom_name,
-                )])
-                .collect(),
-                compilation_objects: BTreeMap::new(),
-            });
-        }
-
+        let available_atoms = atoms.iter().map(|(k, _)| k.clone()).collect::<Vec<_>>();
         let mut manual_prefixes = BTreeMap::new();
         let mut compilation_objects = BTreeMap::new();
-        for (atom_name, _atom_bytes) in atoms {
-            let prefix_start_str = format!("{atom_name}:");
-            let prefix = match prefixes.iter().find(|p| p.contains(&prefix_start_str)) {
-                Some(s) => s,
-                None => {
-                    return Err(anyhow::anyhow!(
-                        "could not find prefix for atom {atom_name:?}"
-                    ))
-                }
-            };
-            let prefix_without_atom_name = prefix.replacen(&prefix_start_str, "", 1);
-            match prefix_without_atom_name
-                .split(':')
-                .collect::<Vec<_>>()
-                .as_slice()
-            {
-                &[path, prefix] => {
-                    let bytes = std::fs::read(path).map_err(|e| {
-                        anyhow::anyhow!("could not read file for prefix {prefix} ({path}): {e}")
-                    })?;
-                    compilation_objects.insert(atom_name.clone(), bytes);
-                }
-                _ => {
-                    if compilation_object_mode {
-                        return Err(anyhow::anyhow!("invalid prefix format {prefix}"));
+
+        for p in prefixes.iter() {
+            let prefix_split = p.split(':').collect::<Vec<_>>();
+
+            match prefix_split.as_slice() {
+                // ATOM:PATH:PREFIX
+                &[atom, path, prefix] => {
+                    if only_validate_prefixes {
+                        // only insert the prefix in order to not error out of the fs::read(path)
+                        manual_prefixes.insert(atom.to_string(), prefix.to_string());
+                    } else {
+                        let atom_hash = atoms
+                        .iter()
+                        .find_map(|(name, _)| if name == atom { Some(prefix) } else { None })
+                        .ok_or_else(|| anyhow::anyhow!("no atom {atom:?} found, for prefix {p:?}, available atoms are {available_atoms:?}"))?;
+
+                        let bytes = std::fs::read(path).map_err(|e| {
+                            anyhow::anyhow!("could not read file for prefix {p} ({path}): {e}")
+                        })?;
+
+                        compilation_objects.insert(atom.to_string(), bytes);
+                        manual_prefixes.insert(atom.to_string(), atom_hash.to_string());
                     }
                 }
-            };
-            if !prefix_without_atom_name
-                .chars()
-                .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
-            {
-                return Err(anyhow::anyhow!("invalid prefix {prefix}"));
+                // atom + path, but default SHA256 prefix
+                &[atom, path] => {
+                    let atom_hash = atoms
+                    .iter()
+                    .find_map(|(name, bytes)| if name == atom { Some(Self::hash_for_bytes(bytes)) } else { None })
+                    .ok_or_else(|| anyhow::anyhow!("no atom {atom:?} found, for prefix {p:?}, available atoms are {available_atoms:?}"))?;
+                    manual_prefixes.insert(atom.to_string(), atom_hash.to_string());
+
+                    if !only_validate_prefixes {
+                        let bytes = std::fs::read(path).map_err(|e| {
+                            anyhow::anyhow!("could not read file for prefix {p} ({path}): {e}")
+                        })?;
+                        compilation_objects.insert(atom.to_string(), bytes);
+                    }
+                }
+                // only prefix if atoms.len() == 1
+                &[prefix] if atoms.len() == 1 => {
+                    manual_prefixes.insert(atoms[0].0.clone(), prefix.to_string());
+                }
+                _ => {
+                    return Err(anyhow::anyhow!("invalid --precompiled-atom {p:?} - correct format is ATOM:PATH:PREFIX or ATOM:PATH"));
+                }
             }
-            manual_prefixes.insert(atom_name.clone(), prefix_without_atom_name);
         }
 
         Ok(Self {
@@ -764,7 +793,9 @@ pub(super) fn prepare_directory_from_single_wasm_file(
         target_paths.push((atom_name, atom_path));
     }
 
-    let prefix_map = PrefixMapCompilation::from_input(&atoms_from_file, prefix, false)?;
+    let prefix_map = PrefixMapCompilation::from_input(&atoms_from_file, prefix, false)
+        .with_context(|| anyhow::anyhow!("prepare_directory_from_single_wasm_file"))?;
+
     let module_infos = conpile_atoms(
         &atoms_from_file,
         &target_dir.join("atoms"),
@@ -846,7 +877,8 @@ fn create_header_files_in_dir(
         anyhow::anyhow!("cannot create /include dir in {}: {e}", directory.display())
     })?;
 
-    let prefixes = PrefixMapCompilation::from_input(atoms, prefixes, false)?;
+    let prefixes = PrefixMapCompilation::from_input(atoms, prefixes, false)
+        .with_context(|| anyhow::anyhow!("create_header_files_in_dir"))?;
 
     for atom in entrypoint.atoms.iter_mut() {
         let atom_name = &atom.atom;
@@ -921,7 +953,9 @@ fn link_exe_from_dir(
     let entrypoint =
         get_entrypoint(directory).with_context(|| anyhow::anyhow!("link exe from dir"))?;
 
-    let prefixes = PrefixMapCompilation::from_input(atoms, prefixes, true)?;
+    let prefixes = PrefixMapCompilation::from_input(atoms, prefixes, true)
+        .with_context(|| anyhow::anyhow!("link_exe_from_dir"))?;
+
     let wasmer_main_c = generate_wasmer_main_c(&entrypoint, &prefixes).map_err(|e| {
         anyhow::anyhow!(
             "could not generate wasmer_main.c in dir {}: {e}",
@@ -936,10 +970,7 @@ fn link_exe_from_dir(
         )
     })?;
 
-    let library_path = cross_compilation
-        .library
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("libwasmer.a / wasmer.lib not found"))?;
+    let library_path = &cross_compilation.library;
 
     let mut object_paths = entrypoint
         .atoms
@@ -1132,10 +1163,6 @@ fn link_objects_system_linker(
     let libwasmer_path = libwasmer_path
         .canonicalize()
         .context("Failed to find libwasmer")?;
-    println!(
-        "Using path `{}` as libwasmer path.",
-        libwasmer_path.display()
-    );
     let mut command = Command::new(linker_cmd);
     let command = command
         .arg("-Wall")
@@ -1450,6 +1477,10 @@ pub(super) mod utils {
             .ok()
             .map(|(filename, tarball_dir)| tarball_dir.join(&filename))
         };
+
+        let library =
+            library.ok_or_else(|| anyhow::anyhow!("libwasmer.a / wasmer.lib not found"))?;
+
         let ccs = CrossCompileSetup {
             target: target.clone(),
             zig_binary_path,

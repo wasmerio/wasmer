@@ -234,9 +234,9 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
         WasmerCLIOptions::Run(Run::from_binfmt_args())
     } else {
         match command.unwrap_or(&"".to_string()).as_ref() {
-            "add" | "cache" | "compile" | "config" | "create-exe" | "help" | "inspect" | "init"
-            | "run" | "self-update" | "validate" | "wast" | "binfmt" | "list" | "login"
-            | "publish" => WasmerCLIOptions::parse(),
+            "add" | "cache" | "compile" | "config" | "create-obj" | "create-exe" | "help"
+            | "inspect" | "init" | "run" | "self-update" | "validate" | "wast" | "binfmt"
+            | "list" | "login" | "publish" => WasmerCLIOptions::parse(),
             _ => {
                 WasmerCLIOptions::try_parse_from(args.iter()).unwrap_or_else(|e| {
                     match e.kind() {
