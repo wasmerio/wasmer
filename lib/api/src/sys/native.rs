@@ -48,10 +48,6 @@ impl<Args: WasmTypeList, Rets: WasmTypeList> Clone for TypedFunction<Args, Rets>
     }
 }
 
-thread_local! {
-    static ON_CALLED: Cell<Option<OnCalledHandler>> = Cell::new(None);
-}
-
 macro_rules! impl_native_traits {
     (  $( $x:ident ),* ) => {
         #[allow(unused_parens, non_snake_case)]
