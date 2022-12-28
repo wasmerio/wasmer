@@ -158,7 +158,8 @@ impl Mmap {
 
             Self {
                 ptr: ptr as usize,
-                len: mapping_size,
+                total_size: mapping_size,
+                accessible_size,
             }
         } else {
             // Reserve the mapping size.
@@ -170,7 +171,8 @@ impl Mmap {
 
             let mut result = Self {
                 ptr: ptr as usize,
-                len: mapping_size,
+                total_size: mapping_size,
+                accessible_size,
             };
 
             if accessible_size != 0 {
@@ -210,8 +212,8 @@ impl Mmap {
         let page_size = region::page::size();
         assert_eq!(start & (page_size - 1), 0);
         assert_eq!(len & (page_size - 1), 0);
-        assert_lt!(len, self.len);
-        assert_lt!(start, self.len - len);
+        assert_lt!(len, self.len());
+        assert_lt!(start, self.len() - len);
 
         // Commit the accessible size.
         let ptr = self.ptr as *const u8;
@@ -291,7 +293,7 @@ impl Drop for Mmap {
 
     #[cfg(target_os = "windows")]
     fn drop(&mut self) {
-        if self.len != 0 {
+        if self.len() != 0 {
             use winapi::ctypes::c_void;
             use winapi::um::memoryapi::VirtualFree;
             use winapi::um::winnt::MEM_RELEASE;
