@@ -161,8 +161,9 @@ impl CreateExe {
         let starting_cd = env::current_dir()?;
         let input_path = starting_cd.join(&self.path);
         let output_path = starting_cd.join(&self.output);
+        let object_format = self.object_format.unwrap_or_default();
         let cross_compilation =
-            utils::get_cross_compile_setup(&mut cc, &target_triple, &starting_cd)?;
+            utils::get_cross_compile_setup(&mut cc, &target_triple, &starting_cd, &object_format)?;
 
         if input_path.is_dir() {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
@@ -180,7 +181,7 @@ impl CreateExe {
                 &self.compiler,
                 &self.cpu_features,
                 &cross_compilation.target,
-                self.object_format.unwrap_or_default(),
+                object_format,
                 &self.precompiled_atom,
                 AllowMultiWasm::Allow,
             )?;
@@ -210,7 +211,7 @@ impl CreateExe {
                 &self.compiler,
                 &cross_compilation.target,
                 &self.cpu_features,
-                self.object_format.unwrap_or_default(),
+                object_format,
                 &self.precompiled_atom,
             )?;
             get_module_infos(&tempdir, &atoms)?;
@@ -641,7 +642,12 @@ fn conpile_atoms(
 }
 
 /// Compile the C code.
-fn run_c_compile(path_to_c_src: &Path, output_name: &Path, target: &Triple) -> anyhow::Result<()> {
+fn run_c_compile(
+    path_to_c_src: &Path,
+    output_name: &Path,
+    target: &Triple,
+    debug: bool,
+) -> anyhow::Result<()> {
     #[cfg(not(windows))]
     let c_compiler = "cc";
     // We must use a C++ compiler on Windows because wasm.h uses `static_assert`
@@ -658,16 +664,24 @@ fn run_c_compile(path_to_c_src: &Path, output_name: &Path, target: &Triple) -> a
         .arg("-I")
         .arg(utils::get_wasmer_include_directory()?)
         .arg("-target")
-        .arg(format!("{}", target));
+        .arg(format!("{}", target))
+        .arg("-o")
+        .arg(output_name);
 
-    let output = command.arg("-o").arg(output_name).output()?;
-    eprintln!(
-        "run_c_compile: stdout: {}\n\nstderr: {}",
-        std::str::from_utf8(&output.stdout)
-            .expect("stdout is not utf8! need to handle arbitrary bytes"),
-        std::str::from_utf8(&output.stderr)
-            .expect("stderr is not utf8! need to handle arbitrary bytes")
-    );
+    if debug {
+        println!("{command:#?}");
+    }
+
+    let output = command.output()?;
+    if debug {
+        eprintln!(
+            "run_c_compile: stdout: {}\n\nstderr: {}",
+            std::str::from_utf8(&output.stdout)
+                .expect("stdout is not utf8! need to handle arbitrary bytes"),
+            std::str::from_utf8(&output.stderr)
+                .expect("stderr is not utf8! need to handle arbitrary bytes")
+        );
+    }
 
     if !output.status.success() {
         bail!(
@@ -963,6 +977,7 @@ fn link_exe_from_dir(
                     &directory.join("wasmer_main.c"),
                     &directory.join("wasmer_main.o"),
                     &cross_compilation.target,
+                    debug,
                 )
                 .map_err(|e| {
                     anyhow::anyhow!(
@@ -1210,8 +1225,6 @@ fn generate_wasmer_main_c(
             }}
             ")?;
         } else {
-            extra_headers.push(format!("const extern unsigned char {module_name}[];\r\n"));
-
             write!(
                 c_code_to_add,
                 "
@@ -1319,7 +1332,7 @@ fn generate_wasmer_main_c(
 #[allow(dead_code)]
 pub(super) mod utils {
 
-    use super::{CrossCompile, CrossCompileSetup};
+    use super::{CrossCompile, CrossCompileSetup, ObjectFormat};
     use anyhow::Context;
     use std::path::{Path, PathBuf};
     use target_lexicon::{Architecture, OperatingSystem, Triple};
@@ -1342,8 +1355,13 @@ pub(super) mod utils {
         cross_subc: &mut CrossCompile,
         target_triple: &Triple,
         starting_cd: &Path,
+        object_format: &ObjectFormat,
     ) -> Result<CrossCompileSetup, anyhow::Error> {
         let target = target_triple;
+
+        if *object_format == ObjectFormat::Serialized && *target_triple != Triple::host() {
+            return Err(anyhow::anyhow!("cannot cross-compile: --object-format serialized + cross-compilation is not supported"));
+        }
 
         if let Some(tarball_path) = cross_subc.tarball.as_mut() {
             if tarball_path.is_relative() {
@@ -1381,21 +1399,47 @@ pub(super) mod utils {
             if let Some(local_tarball) = cross_subc.tarball.as_ref() {
                 find_filename(local_tarball, target)
             } else {
-                // check if the tarball for the target already exists locally
-                let local_tarball = std::fs::read_dir(get_libwasmer_cache_path()?)?
-                    .filter_map(|e| e.ok())
-                    .filter_map(|e| {
-                        let path = format!("{}", e.path().display());
-                        if path.ends_with(".tar.gz") {
-                            Some(e.path())
-                        } else {
-                            None
+                // check WASMER_DIR if Target = native
+                let mut local = None;
+                if *target_triple == Triple::host() && std::env::var("WASMER_DIR").is_ok() {
+                    let wasmer_dir = wasmer_registry::WasmerConfig::get_wasmer_dir().ok();
+                    if let Some(library) = wasmer_dir.as_ref().and_then(|wasmer_dir| {
+                        find_libwasmer_in_files(&target, &super::http_fetch::list_dir(wasmer_dir))
+                            .ok()
+                    }) {
+                        if Path::new(&library).exists() {
+                            local = Some((
+                                format!(
+                                    "{}",
+                                    Path::new(&library).canonicalize().unwrap().display()
+                                ),
+                                wasmer_dir.unwrap(),
+                            ));
                         }
-                    })
-                    .filter_map(|p| filter_tarballs(&p, target))
-                    .next();
+                    }
+                }
 
-                if let Some(local_tarball) = local_tarball.as_ref() {
+                // check if the tarball for the target already exists locally
+                let local_tarball = if local.is_some() {
+                    None
+                } else {
+                    std::fs::read_dir(get_libwasmer_cache_path()?)?
+                        .filter_map(|e| e.ok())
+                        .filter_map(|e| {
+                            let path = format!("{}", e.path().display());
+                            if path.ends_with(".tar.gz") {
+                                Some(e.path())
+                            } else {
+                                None
+                            }
+                        })
+                        .filter_map(|p| filter_tarballs(&p, target))
+                        .next()
+                };
+
+                if let Some(local) = local {
+                    Ok(local)
+                } else if let Some(local_tarball) = local_tarball.as_ref() {
                     find_filename(local_tarball, target)
                 } else {
                     let release = super::http_fetch::get_latest_release()?;
@@ -1431,11 +1475,14 @@ pub(super) mod utils {
         std::fs::create_dir_all(&target_file_path)
             .map_err(|e| anyhow::anyhow!("{e}"))
             .with_context(|| anyhow::anyhow!("{}", target_file_path.display()))?;
-        let files =
-            super::http_fetch::untar(local_tarball.to_path_buf(), target_file_path.clone())?;
+        let files = super::http_fetch::untar(local_tarball, &target_file_path)?;
         let tarball_dir = target_file_path.canonicalize().unwrap_or(target_file_path);
+        let file = find_libwasmer_in_files(&target, &files)?;
+        Ok((file, tarball_dir))
+    }
 
-        let file = files
+    fn find_libwasmer_in_files(target: &Triple, files: &[String]) -> Result<String, anyhow::Error> {
+        files
         .iter()
         .find(|f| f.ends_with("libwasmer-headless.a") || f.ends_with("wasmer-headless.lib"))
         .or_else(|| {
@@ -1446,9 +1493,7 @@ pub(super) mod utils {
         .cloned()
         .ok_or_else(|| {
             anyhow!("Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})", target)
-        })?;
-
-        Ok((file, tarball_dir))
+        })
     }
 
     pub(super) fn filter_tarballs(p: &Path, target: &Triple) -> Option<PathBuf> {
@@ -1661,6 +1706,7 @@ mod http_fetch {
     use anyhow::{anyhow, Context, Result};
     use http_req::{request::Request, response::StatusCode, uri::Uri};
     use std::convert::TryFrom;
+    use std::path::Path;
     use target_lexicon::OperatingSystem;
 
     pub(super) fn get_latest_release() -> Result<serde_json::Value> {
@@ -1917,18 +1963,17 @@ mod http_fetch {
         }
     }
 
-    pub(super) fn untar(
-        tarball: std::path::PathBuf,
-        target: std::path::PathBuf,
-    ) -> Result<Vec<String>> {
+    pub(crate) fn list_dir(target: &Path) -> Vec<String> {
         use walkdir::WalkDir;
-
-        wasmer_registry::try_unpack_targz(&tarball, &target, false)?;
-
-        Ok(WalkDir::new(&target)
+        WalkDir::new(&target)
             .into_iter()
             .filter_map(|e| e.ok())
             .map(|entry| format!("{}", entry.path().display()))
-            .collect())
+            .collect()
+    }
+
+    pub(super) fn untar(tarball: &Path, target: &Path) -> Result<Vec<String>> {
+        wasmer_registry::try_unpack_targz(tarball, target, false)?;
+        Ok(list_dir(target))
     }
 }

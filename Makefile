@@ -450,15 +450,15 @@ build-capi-llvm-universal: capi-setup
 build-capi-headless: capi-setup
 ifeq ($(CARGO_TARGET),)
 	RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) build --target $(HOST_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features compiler-headless,wasi  --target-dir target/$(CARGO_TARGET)/headless
+		--no-default-features --features compiler-headless,wasi,webc_runner  --target-dir target/$(CARGO_TARGET)/headless
 else
 	RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) build $(CARGO_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features compiler-headless,wasi --target-dir target/$(CARGO_TARGET)/headless
+		--no-default-features --features compiler-headless,wasi,webc_runner --target-dir target/$(CARGO_TARGET)/headless
 endif
 
 build-capi-headless-ios: capi-setup
 	RUSTFLAGS="${RUSTFLAGS} -C panic=abort" cargo lipo --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features compiler-headless,wasi --target-dir target/$(CARGO_TARGET)/headless
+		--no-default-features --features compiler-headless,wasi,webc_runner --target-dir target/$(CARGO_TARGET)/headless
 
 #####
 #
