@@ -107,7 +107,7 @@ impl Bindings for WitBindings {
         container: &WapmContainer,
         value: &serde_cbor::Value,
     ) -> Result<Self, String> {
-        let value: webc::WitBindingsExtended =
+        let value: webc::BindingsExtended =
             serde_cbor::from_slice(&serde_cbor::to_vec(value).unwrap())
                 .map_err(|e| format!("could not parse WitBindings annotations: {e}"))?;
 
