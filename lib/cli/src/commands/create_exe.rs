@@ -1209,18 +1209,16 @@ fn link_exe_from_dir(
     }
 
     // remove file if it exists - if not done, can lead to errors on copy
-    let _ = std::fs::remove_file(&output_path);
-    std::fs::copy(&out_path, &output_path).map_err(|e| {
-        std::process::Command::new("ls")
-            .arg(out_path.parent().unwrap())
-            .stdout(std::process::Stdio::inherit())
-            .stderr(std::process::Stdio::inherit())
-            .output()
-            .unwrap();
+    let _ = std::fs::remove_file(&normalize_path(&format!("{}", out_path.display())));
+    std::fs::copy(
+        &normalize_path(&format!("{}", out_path.display())),
+        &normalize_path(&format!("{}", output_path.display())),
+    )
+    .map_err(|e| {
         anyhow::anyhow!(
             "could not copy from {} to {}: {e}",
-            out_path.display(),
-            output_path.display()
+            normalize_path(&format!("{}", out_path.display())),
+            normalize_path(&format!("{}", output_path.display()))
         )
     })?;
 
