@@ -1148,6 +1148,9 @@ fn link_exe_from_dir(
     include_path.push("include");
     cmd.arg(format!("-I{}", include_path.display()));
 
+    if !zig_triple.contains("windows") {
+        cmd.arg("-lunwind");
+    }
     cmd.arg("-OReleaseSafe");
     cmd.arg("-fno-compiler-rt");
     cmd.arg("-fno-lto");
@@ -1432,7 +1435,10 @@ pub(super) mod utils {
 
     use super::{CrossCompile, CrossCompileSetup, ObjectFormat};
     use anyhow::Context;
-    use std::path::{Path, PathBuf};
+    use std::{
+        ffi::OsStr,
+        path::{Path, PathBuf},
+    };
     use target_lexicon::{Architecture, OperatingSystem, Triple};
     use wasmer_types::{CpuFeature, Target};
 
@@ -1507,10 +1513,7 @@ pub(super) mod utils {
                     }) {
                         if Path::new(&library).exists() {
                             local = Some((
-                                format!(
-                                    "{}",
-                                    Path::new(&library).canonicalize().unwrap().display()
-                                ),
+                                Path::new(&library).canonicalize().unwrap(),
                                 wasmer_dir.unwrap(),
                             ));
                         }
@@ -1563,7 +1566,7 @@ pub(super) mod utils {
     pub(super) fn find_filename(
         local_tarball: &Path,
         target: &Triple,
-    ) -> Result<(String, PathBuf), anyhow::Error> {
+    ) -> Result<(PathBuf, PathBuf), anyhow::Error> {
         let target_file_path = local_tarball
             .parent()
             .and_then(|parent| Some(parent.join(local_tarball.file_stem()?)))
@@ -1583,10 +1586,15 @@ pub(super) mod utils {
         Ok((file, tarball_dir))
     }
 
-    fn find_libwasmer_in_files(target: &Triple, files: &[String]) -> Result<String, anyhow::Error> {
+    fn find_libwasmer_in_files(
+        target: &Triple,
+        files: &[PathBuf],
+    ) -> Result<PathBuf, anyhow::Error> {
+        let a = OsStr::new("libwasmer.a");
+        let b = OsStr::new("wasmer.lib");
         files
         .iter()
-        .find(|f| f.ends_with("libwasmer.a") || f.ends_with("wasmer.lib"))
+        .find(|f| f.file_name().map(|s| s.clone()) == Some(a) || f.file_name().map(|s| s.clone()) == Some(b))
         .cloned()
         .ok_or_else(|| {
             anyhow!("Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})", target)
@@ -1734,7 +1742,6 @@ pub(super) mod utils {
 
     pub(super) fn find_zig_binary(path: Option<PathBuf>) -> Result<PathBuf, anyhow::Error> {
         use std::env::split_paths;
-        use std::ffi::OsStr;
         #[cfg(unix)]
         use std::os::unix::ffi::OsStrExt;
         let path_var = std::env::var("PATH").unwrap_or_default();
@@ -2085,16 +2092,18 @@ mod http_fetch {
         }
     }
 
-    pub(crate) fn list_dir(target: &Path) -> Vec<String> {
+    use std::path::PathBuf;
+
+    pub(crate) fn list_dir(target: &Path) -> Vec<PathBuf> {
         use walkdir::WalkDir;
         WalkDir::new(&target)
             .into_iter()
             .filter_map(|e| e.ok())
-            .map(|entry| format!("{}", entry.path().display()))
+            .map(|entry| entry.path().to_path_buf())
             .collect()
     }
 
-    pub(super) fn untar(tarball: &Path, target: &Path) -> Result<Vec<String>> {
+    pub(super) fn untar(tarball: &Path, target: &Path) -> Result<Vec<PathBuf>> {
         println!("unzipping {} into {}", tarball.display(), target.display());
         wasmer_registry::try_unpack_targz(tarball, target, false)?;
         Ok(list_dir(target))
