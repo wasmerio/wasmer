@@ -4,7 +4,7 @@
 
 use crate::hash::Hash;
 use std::error::Error;
-use wasmer::{Module, Store};
+use wasmer::{AsEngineRef, Module};
 
 /// A generic cache for storing and loading compiled wasm modules.
 pub trait Cache {
@@ -17,7 +17,11 @@ pub trait Cache {
     ///
     /// # Safety
     /// This function is unsafe as the cache store could be tampered with.
-    unsafe fn load(&self, store: &Store, key: Hash) -> Result<Module, Self::DeserializeError>;
+    unsafe fn load(
+        &self,
+        engine: &impl AsEngineRef,
+        key: Hash,
+    ) -> Result<Module, Self::DeserializeError>;
 
     /// Store a [`Module`] into the cache with the given [`Hash`].
     fn store(&mut self, key: Hash, module: &Module) -> Result<(), Self::SerializeError>;

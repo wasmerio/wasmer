@@ -210,6 +210,8 @@ impl<T: AsStoreMut> AsStoreMut for &'_ mut T {
 pub use objects::*;
 
 mod objects {
+    use wasm_bindgen::JsValue;
+
     use crate::js::{
         export::{VMFunction, VMGlobal, VMMemory, VMTable},
         function_env::VMFunctionEnvironment,
@@ -322,8 +324,11 @@ mod objects {
         /// Set a global, at index idx. Will panic if idx is out of range
         /// Safety: the caller should check taht the raw value is compatible
         /// with destination VMGlobal type
-        pub fn set_global_unchecked(&self, _idx: usize, _val: u128) {
-            unimplemented!("Store global setter not implemented yet")
+        pub fn set_global_unchecked(&self, idx: usize, val: u128) {
+            assert!(idx < self.globals.len());
+
+            let value = JsValue::from(val);
+            self.globals[idx].global.set_value(&value);
         }
     }
 
