@@ -743,17 +743,20 @@ fn run_c_compile(
     let c_compiler = "clang++";
 
     let mut command = Command::new(c_compiler);
-    let command = command
+    let mut command = command
         .arg("-Wall")
         .arg("-O2")
         .arg("-c")
         .arg(path_to_c_src)
         .arg("-I")
-        .arg(utils::get_wasmer_include_directory()?)
-        .arg("-target")
-        .arg(format!("{}", target))
-        .arg("-o")
-        .arg(output_name);
+        .arg(utils::get_wasmer_include_directory()?);
+
+    // On some compiler -target isn't implemented
+    if *target != Triple::host() {
+        command = command.arg("-target").arg(format!("{}", target));
+    }
+
+    let command = command.arg("-o").arg(output_name);
 
     if debug {
         println!("{command:#?}");
@@ -1684,6 +1687,12 @@ pub(super) mod utils {
         }
         path.push("include");
         if !path.clone().join("wasmer.h").exists() {
+            if !path.exists() {
+                return Err(anyhow::anyhow!(
+                    "WASMER_DIR path {} does not exist",
+                    path.display()
+                ));
+            }
             println!(
                 "wasmer.h does not exist in {}, will probably default to the system path",
                 path.canonicalize().unwrap().display()
