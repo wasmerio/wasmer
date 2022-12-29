@@ -1137,7 +1137,7 @@ fn link_exe_from_dir(
     include_dirs.dedup();
     for include_dir in include_dirs {
         cmd.arg("-I");
-        cmd.arg(include_dir);
+        cmd.arg(format!("{}", include_dir.display()));
     }
 
     let mut include_path = library_path.clone();
@@ -1145,7 +1145,7 @@ fn link_exe_from_dir(
     include_path.pop();
     include_path.push("include");
     cmd.arg("-I");
-    cmd.arg(include_path);
+    cmd.arg(format!("{}", include_path.display()));
 
     if !zig_triple.contains("windows") {
         cmd.arg("-lunwind");
@@ -1158,17 +1158,24 @@ fn link_exe_from_dir(
     #[cfg(not(target_os = "windows"))]
     let out_path = directory.join("wasmer_main");
     cmd.arg(&format!("-femit-bin={}", out_path.display()));
-    cmd.args(&object_paths);
-    cmd.arg(&library_path);
-    cmd.arg(
+    cmd.args(
+        &object_paths
+            .iter()
+            .map(|o| format!("{}", o.display()))
+            .collect::<Vec<_>>(),
+    );
+    cmd.arg(&format!("{}", library_path.display()));
+    cmd.arg(format!(
+        "{}",
         directory
             .join(match entrypoint.object_format {
                 ObjectFormat::Serialized => "wasmer_main.o",
                 ObjectFormat::Symbols => "wasmer_main.c",
             })
             .canonicalize()
-            .expect("could not find wasmer_main.c / wasmer_main.o"),
-    );
+            .expect("could not find wasmer_main.c / wasmer_main.o")
+            .display()
+    ));
 
     if zig_triple.contains("windows") {
         let mut winsdk_path = library_path.clone();
@@ -1178,7 +1185,10 @@ fn link_exe_from_dir(
 
         let files_winsdk = std::fs::read_dir(winsdk_path)
             .ok()
-            .map(|res| res.filter_map(|r| Some(r.ok()?.path())).collect::<Vec<_>>())
+            .map(|res| {
+                res.filter_map(|r| Some(format!("{}", r.ok()?.path().display())))
+                    .collect::<Vec<_>>()
+            })
             .unwrap_or_default();
 
         cmd.args(files_winsdk);
