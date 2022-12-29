@@ -1137,7 +1137,7 @@ fn link_exe_from_dir(
     include_dirs.dedup();
     for include_dir in include_dirs {
         cmd.arg("-I");
-        cmd.arg(format!("{}", include_dir.display()));
+        cmd.arg(normalize_path(&format!("{}", include_dir.display())));
     }
 
     let mut include_path = library_path.clone();
@@ -1145,7 +1145,7 @@ fn link_exe_from_dir(
     include_path.pop();
     include_path.push("include");
     cmd.arg("-I");
-    cmd.arg(format!("{}", include_path.display()));
+    cmd.arg(normalize_path(&format!("{}", include_path.display())));
 
     if !zig_triple.contains("windows") {
         cmd.arg("-lunwind");
@@ -1161,11 +1161,11 @@ fn link_exe_from_dir(
     cmd.args(
         &object_paths
             .iter()
-            .map(|o| format!("{}", o.display()))
+            .map(|o| normalize_path(&format!("{}", o.display())))
             .collect::<Vec<_>>(),
     );
-    cmd.arg(&format!("{}", library_path.display()));
-    cmd.arg(format!(
+    cmd.arg(&normalize_path(&format!("{}", library_path.display())));
+    cmd.arg(normalize_path(&format!(
         "{}",
         directory
             .join(match entrypoint.object_format {
@@ -1175,7 +1175,7 @@ fn link_exe_from_dir(
             .canonicalize()
             .expect("could not find wasmer_main.c / wasmer_main.o")
             .display()
-    ));
+    )));
 
     if zig_triple.contains("windows") {
         let mut winsdk_path = library_path.clone();
@@ -1186,7 +1186,7 @@ fn link_exe_from_dir(
         let files_winsdk = std::fs::read_dir(winsdk_path)
             .ok()
             .map(|res| {
-                res.filter_map(|r| Some(format!("{}", r.ok()?.path().display())))
+                res.filter_map(|r| Some(normalize_path(&format!("{}", r.ok()?.path().display()))))
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
@@ -1225,6 +1225,14 @@ fn link_exe_from_dir(
     })?;
 
     Ok(())
+}
+
+fn normalize_path(s: &str) -> String {
+    if s.starts_with("\\\\?\\") {
+        s.replacen("\\\\?\\", "", 1)
+    } else {
+        s.to_string()
+    }
 }
 
 /// Link compiled objects using the system linker
