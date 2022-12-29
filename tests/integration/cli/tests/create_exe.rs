@@ -195,7 +195,7 @@ fn create_exe_works_multi_command() -> anyhow::Result<()> {
     .run()
     .context("Failed to create-exe wasm with Wasmer")?;
 
-    let _result = run_code(
+    let result = run_code(
         &operating_dir,
         &executable_path,
         &[
@@ -205,6 +205,9 @@ fn create_exe_works_multi_command() -> anyhow::Result<()> {
         ],
     )
     .context("Failed to run generated executable")?;
+
+    let result_lines = result.lines().collect::<Vec<&str>>();
+    assert_eq!(result_lines, vec!["1.0.37 (git~v1.0.37)"]);
 
     let result = run_code(
         &operating_dir,
@@ -218,7 +221,7 @@ fn create_exe_works_multi_command() -> anyhow::Result<()> {
     .context("Failed to run generated executable")?;
 
     let result_lines = result.lines().collect::<Vec<&str>>();
-    assert_eq!(result_lines, vec!["\"Hello, World\""],);
+    assert_eq!(result_lines, vec!["1.0.37 (git~v1.0.37)"]);
 
     Ok(())
 }
@@ -395,8 +398,6 @@ fn create_exe_with_object_input(mut args: Vec<String>) -> anyhow::Result<()> {
 
     args.push("--prefix".to_string());
     args.push("abc123".to_string());
-    args.push("--debug-dir".to_string());
-    args.push("tmp".to_string());
 
     WasmerCreateObj {
         current_dir: operating_dir.clone(),

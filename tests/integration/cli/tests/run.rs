@@ -63,8 +63,6 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
             output.arg(wasi_test_python_path());
             output.arg("--target");
             output.arg(t);
-            output.arg("--debug-dir");
-            output.arg(&format!("./{t}-{c}"));
             output.arg("-o");
             output.arg(python_wasmer_path.clone());
             output.arg(format!("--{c}"));

@@ -223,7 +223,10 @@ pub unsafe extern "C" fn wasm_func_call(
 
             None
         }
-        Err(e) => Some(Box::new(e.into())),
+        Err(e) => {
+            println!("error: {e}");
+            Some(Box::new(e.into()))
+        }
     }
 }
 

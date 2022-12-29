@@ -234,8 +234,15 @@ int main(int argc, char *argv[]) {
   wasm_val_vec_t results = WASM_EMPTY_VEC;
   own wasm_trap_t *trap = wasm_func_call(start_function, &args, &results);
   if (trap) {
-    fprintf(stderr, "Trap is not NULL: TODO:\n");
-    return -1;
+    wasm_message_t retrieved_message;
+    // TODO: this is a shitty solution, but it's good enough for now
+    wasm_trap_message(trap, &retrieved_message);
+    if (strcmp(retrieved_message.data, "WASI exited with code: 0") == 0) {
+      wasm_trap_delete(trap);
+    } else {
+      fprintf(stderr, "%s", retrieved_message.data);
+      return -1;
+    }
   }
 #endif
 
