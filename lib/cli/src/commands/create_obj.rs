@@ -130,7 +130,7 @@ impl CreateObj {
                     output_directory_path.join("atoms").display()
                 )
             })?
-            .filter_map(|path| Some(path.ok()?.path().canonicalize().ok()?))
+            .filter_map(|path| path.ok()?.path().canonicalize().ok())
             .collect::<Vec<_>>();
 
         if file_paths.is_empty() {

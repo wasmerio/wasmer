@@ -47,7 +47,7 @@ static void pass_mapdir_arg(wasi_config_t *wasi_config, char *mapdir) {
 // We try to parse out `--dir` and `--mapdir` ahead of time and process those
 // specially. All other arguments are passed to the guest program.
 static void handle_arguments(wasi_config_t *wasi_config, int argc,
-                             char *argv[]) {
+                             char *argv[], bool command_was_invoked) {
   for (int i = 1; i < argc; ++i) {
     // We probably want special args like `--dir` and `--mapdir` to not be
     // passed directly
@@ -80,6 +80,14 @@ static void handle_arguments(wasi_config_t *wasi_config, int argc,
       // this arg is a mapdir
       char *mapdir = argv[i] + strlen("--mapdir=");
       pass_mapdir_arg(wasi_config, mapdir);
+    } else if (command_was_invoked && (strcmp(argv[i], "--command") == 0 || strcmp(argv[i], "-c") == 0)) {
+      // next arg is a command
+      if ((i + 1) < argc) {
+        i++;
+      } else {
+        fprintf(stderr, "--command expects a commmand name\n");
+        exit(-1);
+      } 
     } else {
       // guest argument
       wasi_config_arg(wasi_config, argv[i]);
@@ -95,11 +103,34 @@ int main(int argc, char *argv[]) {
   wasm_module_t *module = NULL;
 
   const char* selected_atom = "main";
-  for (int i = 1; i < argc; i++) {
-      if (strcmp(argv[i], "--command") == 0 && i + 1 < argc) {
-        selected_atom = argv[i + 1];
+  bool command_was_invoked = false;
+  int dash_dash_position = argc + 1;
+  int number_of_commands = 1;
+  // SET_NUMBER_OF_COMMANDS
+
+  if (number_of_commands > 1) {
+    // check if arguments contain "--" earlier than "--command" or "-c"
+    for (int i = 1; i < argc; i++) {
+      if (strcmp(argv[i], "--") == 0) {
+        dash_dash_position = i;
         break;
       }
+    }
+    
+    // select the --command only if if was given before a "--", such 
+    for (int i = 1; i < argc; i++) {
+      if ((strcmp(argv[i], "--command") == 0 || strcmp(argv[i], "-c") == 0) && dash_dash_position > i) {
+        // next arg is a command
+        if ((i + 1) < argc) {
+          selected_atom = argv[i + 1];
+          command_was_invoked = true;
+          break;
+        } else {
+          fprintf(stderr, "--command expects a commmand name\n");
+          exit(-1);
+        } 
+      }
+    }
   }
 
   // INSTANTIATE_MODULES
@@ -109,7 +140,7 @@ int main(int argc, char *argv[]) {
 
 #ifdef WASI_PIRITA
   wasi_config_t *wasi_config = wasi_config_new(argv[0]);
-  handle_arguments(wasi_config, argc, argv);
+  handle_arguments(wasi_config, argc, argv, command_was_invoked);
 
   wasm_byte_vec_t volume_bytes = {
     .size = VOLUMES_LENGTH,
@@ -137,7 +168,7 @@ int main(int argc, char *argv[]) {
   }
 #else
   wasi_config_t *wasi_config = wasi_config_new(argv[0]);
-  handle_arguments(wasi_config, argc, argv);
+  handle_arguments(wasi_config, argc, argv, command_was_invoked);
 
   wasi_env_t *wasi_env = wasi_env_new(store, wasi_config);
   if (!wasi_env) {

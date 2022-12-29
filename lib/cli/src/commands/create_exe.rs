@@ -306,6 +306,7 @@ pub enum AllowMultiWasm {
 }
 
 /// Given a pirita file, compiles the .wasm files into the target directory
+#[allow(clippy::too_many_arguments)]
 pub(super) fn compile_pirita_into_directory(
     pirita: &WebCMmap,
     target_dir: &Path,
@@ -474,7 +475,7 @@ fn test_prefix_parsing() {
     let str1 = format!("ATOM_NAME:{}:PREFIX", path.join("test.obj").display());
     let prefix = PrefixMapCompilation::from_input(
         &[("ATOM_NAME".to_string(), b"".to_vec())],
-        &[str1.to_string()],
+        &[str1],
         false,
     );
     assert_eq!(
@@ -531,9 +532,9 @@ impl PrefixMapCompilation {
         for p in prefixes.iter() {
             let prefix_split = p.split(':').collect::<Vec<_>>();
 
-            match prefix_split.as_slice() {
+            match *prefix_split.as_slice() {
                 // ATOM:PATH:PREFIX
-                &[atom, path, prefix] => {
+                [atom, path, prefix] => {
                     if only_validate_prefixes {
                         // only insert the prefix in order to not error out of the fs::read(path)
                         manual_prefixes.insert(atom.to_string(), prefix.to_string());
@@ -552,7 +553,7 @@ impl PrefixMapCompilation {
                     }
                 }
                 // atom + path, but default SHA256 prefix
-                &[atom, path] => {
+                [atom, path] => {
                     let atom_hash = atoms
                     .iter()
                     .find_map(|(name, bytes)| if name == atom { Some(Self::hash_for_bytes(bytes)) } else { None })
@@ -567,7 +568,7 @@ impl PrefixMapCompilation {
                     }
                 }
                 // only prefix if atoms.len() == 1
-                &[prefix] if atoms.len() == 1 => {
+                [prefix] if atoms.len() == 1 => {
                     manual_prefixes.insert(atoms[0].0.clone(), prefix.to_string());
                 }
                 _ => {
@@ -588,8 +589,8 @@ impl PrefixMapCompilation {
         let mut hasher = Sha256::new();
         hasher.update(bytes);
         let result = hasher.finalize();
-        let result = hex::encode(&result[..]);
-        result
+
+        hex::encode(&result[..])
     }
 
     fn get_prefix_for_atom(&self, atom_name: &str) -> Option<String> {
@@ -869,7 +870,7 @@ fn create_header_files_in_dir(
     use wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
 
     if entrypoint.object_format == ObjectFormat::Serialized {
-        write_entrypoint(&directory, &entrypoint)?;
+        write_entrypoint(directory, entrypoint)?;
         return Ok(());
     }
 
@@ -935,7 +936,7 @@ fn create_header_files_in_dir(
         atom.header = Some(base_path);
     }
 
-    write_entrypoint(&directory, &entrypoint)?;
+    write_entrypoint(directory, entrypoint)?;
 
     Ok(())
 }
@@ -1303,12 +1304,16 @@ fn generate_wasmer_main_c(
         )
         .replace("// DECLARE_MODULES", &c_code_to_add)
         .replace("// DECLARE_VOLUMES", &volumes_str)
+        .replace(
+            "// SET_NUMBER_OF_COMMANDS",
+            &format!("number_of_commands = {};", atom_names.len()),
+        )
         .replace("// EXTRA_HEADERS", &extra_headers.join("\r\n"))
         .replace("wasm_module_delete(module);", &deallocate_module);
 
     if atom_names.len() == 1 {
         let prefix = prefixes
-            .get_prefix_for_atom(&utils::normalize_atom_name(&atom_names[0]))
+            .get_prefix_for_atom(&utils::normalize_atom_name(atom_names[0]))
             .ok_or_else(|| {
                 anyhow::anyhow!(
                     "cannot find prefix for atom {} when generating wasmer_main.c ({:#?})",
@@ -1431,7 +1436,7 @@ pub(super) mod utils {
                 if *target_triple == Triple::host() && std::env::var("WASMER_DIR").is_ok() {
                     let wasmer_dir = wasmer_registry::WasmerConfig::get_wasmer_dir().ok();
                     if let Some(library) = wasmer_dir.as_ref().and_then(|wasmer_dir| {
-                        find_libwasmer_in_files(&target, &super::http_fetch::list_dir(wasmer_dir))
+                        find_libwasmer_in_files(target, &super::http_fetch::list_dir(wasmer_dir))
                             .ok()
                     }) {
                         if Path::new(&library).exists() {
@@ -1508,7 +1513,7 @@ pub(super) mod utils {
             .with_context(|| anyhow::anyhow!("{}", target_file_path.display()))?;
         let files = super::http_fetch::untar(local_tarball, &target_file_path)?;
         let tarball_dir = target_file_path.canonicalize().unwrap_or(target_file_path);
-        let file = find_libwasmer_in_files(&target, &files)?;
+        let file = find_libwasmer_in_files(target, &files)?;
         Ok((file, tarball_dir))
     }
 
@@ -1538,7 +1543,8 @@ pub(super) mod utils {
 
         if let Architecture::X86_64 = target.architecture {
             if !(p.file_name()?.to_str()?.contains("x86_64")
-                || p.file_name()?.to_str()?.contains("-gnu64"))
+                || p.file_name()?.to_str()?.contains("-gnu64")
+                || p.file_name()?.to_str()?.contains("amd64"))
             {
                 return None;
             }
@@ -1722,6 +1728,23 @@ pub(super) mod utils {
         } else {
             Ok(retval)
         }
+    }
+
+    #[test]
+    fn test_filter_tarballs() -> Result<(), anyhow::Error> {
+        let paths = &[
+            "/test/.wasmer/cache/wasmer-darwin-amd64.tar.gz",
+            "/test/.wasmer/cache/wasmer-darwin-arm64.tar.gz",
+            "/test/.wasmer/cache/wasmer-linux-amd64.tar.gz",
+        ];
+        let paths = paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
+        let t1 = Triple::from_str("x86_64-linux-gnu").unwrap();
+        let linux = paths.iter().find_map(|p| filter_tarballs(p, &t1)).unwrap();
+        assert_eq!(
+            format!("{}", linux.display()),
+            "/test/.wasmer/cache/wasmer-linux-amd64.tar.gz".to_string()
+        );
+        Ok(())
     }
 
     #[test]

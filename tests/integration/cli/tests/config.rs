@@ -1,5 +1,4 @@
-use anyhow::bail;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 use wasmer_integration_tests_cli::get_wasmer_path;
 
@@ -212,7 +211,7 @@ fn config_works() -> anyhow::Result<()> {
 
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        format!("{}\n", original_token.to_string().trim().to_string())
+        format!("{}\n", original_token.to_string().trim())
     );
 
     let output = Command::new(get_wasmer_path())

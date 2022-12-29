@@ -198,14 +198,22 @@ fn create_exe_works_multi_command() -> anyhow::Result<()> {
     let _result = run_code(
         &operating_dir,
         &executable_path,
-        &["--command".to_string(), "wasm2wat".to_string()],
+        &[
+            "--command".to_string(),
+            "wasm2wat".to_string(),
+            "--version".to_string(),
+        ],
     )
     .context("Failed to run generated executable")?;
 
     let result = run_code(
         &operating_dir,
         &executable_path,
-        &["-c".to_string(), "wasm-validate".to_string()],
+        &[
+            "-c".to_string(),
+            "wasm-validate".to_string(),
+            "--version".to_string(),
+        ],
     )
     .context("Failed to run generated executable")?;
 
@@ -324,7 +332,7 @@ fn create_obj(args: Vec<String>, keyword_needle: &str, keyword: &str) -> anyhow:
 
     let object_path = operating_dir.as_path().join("wasm");
     let output: Vec<u8> = WasmerCreateObj {
-        current_dir: operating_dir.clone(),
+        current_dir: operating_dir,
         wasm_path,
         output_object_path: object_path.clone(),
         compiler: Compiler::Cranelift,
@@ -414,7 +422,7 @@ fn create_exe_with_object_input(mut args: Vec<String>) -> anyhow::Result<()> {
 
     WasmerCreateExe {
         current_dir: std::env::current_dir().unwrap(),
-        wasm_path: wasm_path,
+        wasm_path,
         native_executable_path: executable_path.clone(),
         compiler: Compiler::Cranelift,
         extra_cli_flags: vec![
