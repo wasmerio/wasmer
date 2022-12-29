@@ -1132,21 +1132,20 @@ fn link_exe_from_dir(
 
     cmd.arg("-lc");
 
-    let mut include_dirs = include_dirs
-        .iter()
-        .map(|i| format!("{}", i.display()))
-        .collect::<Vec<_>>();
+    let mut include_dirs = include_dirs;
     include_dirs.sort();
     include_dirs.dedup();
     for include_dir in include_dirs {
-        cmd.arg(format!("-I{include_dir}"));
+        cmd.arg("-I");
+        cmd.arg(include_dir);
     }
 
     let mut include_path = library_path.clone();
     include_path.pop();
     include_path.pop();
     include_path.push("include");
-    cmd.arg(format!("-I{}", include_path.display()));
+    cmd.arg("-I");
+    cmd.arg(include_path);
 
     if !zig_triple.contains("windows") {
         cmd.arg("-lunwind");
