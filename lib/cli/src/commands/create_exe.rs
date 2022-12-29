@@ -154,12 +154,13 @@ pub struct Volume {
 impl CreateExe {
     /// Runs logic for the `compile` subcommand
     pub fn execute(&self) -> Result<()> {
+        let path = normalize_path(&format!("{}", self.path.display()));
         let target_triple = self.target_triple.clone().unwrap_or_else(Triple::host);
         let mut cc = self.cross_compile.clone();
         let target = utils::target_triple_to_target(&target_triple, &self.cpu_features);
 
         let starting_cd = env::current_dir()?;
-        let input_path = starting_cd.join(&self.path);
+        let input_path = starting_cd.join(&path);
         let output_path = starting_cd.join(&self.output);
         let object_format = self.object_format.unwrap_or_default();
         let cross_compilation =
@@ -1225,7 +1226,7 @@ fn link_exe_from_dir(
     Ok(())
 }
 
-fn normalize_path(s: &str) -> String {
+pub(crate) fn normalize_path(s: &str) -> String {
     if s.starts_with("\\\\?\\") {
         s.replacen("\\\\?\\", "", 1)
     } else {

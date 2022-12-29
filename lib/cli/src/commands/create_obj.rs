@@ -73,9 +73,10 @@ pub struct CreateObj {
 impl CreateObj {
     /// Runs logic for the `create-obj` subcommand
     pub fn execute(&self) -> Result<()> {
+        let path = crate::commands::create_exe::normalize_path(&format!("{}", self.path.display()));
         let target_triple = self.target_triple.clone().unwrap_or_else(Triple::host);
         let starting_cd = env::current_dir()?;
-        let input_path = starting_cd.join(&self.path);
+        let input_path = starting_cd.join(&path);
         let temp_dir = tempdir::TempDir::new("create-obj-intermediate")?;
         let output_directory_path = match self.debug_dir.as_ref() {
             Some(s) => s.as_path(),
