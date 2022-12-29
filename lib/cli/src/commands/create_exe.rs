@@ -535,8 +535,8 @@ impl PrefixMapCompilation {
             let prefix_split = Self::split_prefix(p);
 
             match prefix_split.as_slice() {
-                // ATOM:PATH:PREFIX
-                [atom, path, prefix] => {
+                // ATOM:PREFIX:PATH
+                [atom, prefix, path] => {
                     if only_validate_prefixes {
                         // only insert the prefix in order to not error out of the fs::read(path)
                         manual_prefixes.insert(atom.to_string(), prefix.to_string());
@@ -574,7 +574,7 @@ impl PrefixMapCompilation {
                     manual_prefixes.insert(atoms[0].0.clone(), prefix.to_string());
                 }
                 _ => {
-                    return Err(anyhow::anyhow!("invalid --precompiled-atom {p:?} - correct format is ATOM:PATH:PREFIX or ATOM:PATH"));
+                    return Err(anyhow::anyhow!("invalid --precompiled-atom {p:?} - correct format is ATOM:PREFIX:PATH or ATOM:PATH"));
                 }
             }
         }
@@ -587,8 +587,9 @@ impl PrefixMapCompilation {
     }
 
     fn split_prefix(s: &str) -> Vec<String> {
-        let regex = regex::Regex::new(r#"^([a-zA-Z0-9\-_]+):(.*):([a-zA-Z0-9\.\-_]+)?$"#).unwrap();
-        let captures = regex
+        let regex =
+            regex::Regex::new(r#"^([a-zA-Z0-9\-_]+)(:([a-zA-Z0-9\.\-_]+))?(:(.+*))?"#).unwrap();
+        let mut captures = regex
             .captures(s.trim())
             .map(|c| {
                 c.iter()
@@ -600,6 +601,13 @@ impl PrefixMapCompilation {
             .unwrap_or_default();
         if captures.is_empty() {
             vec![s.to_string()]
+        } else if captures.len() == 5 {
+            captures.remove(1);
+            captures.remove(2);
+            captures
+        } else if captures.len() == 3 {
+            captures.remove(1);
+            captures
         } else {
             captures
         }
@@ -632,25 +640,25 @@ impl PrefixMapCompilation {
 #[test]
 fn test_split_prefix() {
     let split = PrefixMapCompilation::split_prefix(
-        "qjs:C:\\Users\\felix\\AppData\\Local\\Temp\\.tmpoccCjV\\wasm.obj:abc123",
+        "qjs:abc123:C:\\Users\\felix\\AppData\\Local\\Temp\\.tmpoccCjV\\wasm.obj",
     );
     assert_eq!(
         split,
         vec![
             "qjs".to_string(),
-            "C:\\Users\\felix\\AppData\\Local\\Temp\\.tmpoccCjV\\wasm.obj".to_string(),
             "abc123".to_string(),
+            "C:\\Users\\felix\\AppData\\Local\\Temp\\.tmpoccCjV\\wasm.obj".to_string(),
         ]
     );
     let split2 = PrefixMapCompilation::split_prefix(
-        "qjs:/var/folders/65/2zzy98b16xz254jccxjzqb8w0000gn/T/.tmpNdgVaq/wasm.o:abc123",
+        "qjs:abc123:/var/folders/65/2zzy98b16xz254jccxjzqb8w0000gn/T/.tmpNdgVaq/wasm.o",
     );
     assert_eq!(
         split2,
         vec![
             "qjs".to_string(),
-            "/var/folders/65/2zzy98b16xz254jccxjzqb8w0000gn/T/.tmpNdgVaq/wasm.o".to_string(),
             "abc123".to_string(),
+            "/var/folders/65/2zzy98b16xz254jccxjzqb8w0000gn/T/.tmpNdgVaq/wasm.o".to_string(),
         ]
     );
     let split3 = PrefixMapCompilation::split_prefix(

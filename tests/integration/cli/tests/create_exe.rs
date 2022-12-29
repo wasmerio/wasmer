@@ -427,7 +427,7 @@ fn create_exe_with_object_input(mut args: Vec<String>) -> anyhow::Result<()> {
         compiler: Compiler::Cranelift,
         extra_cli_flags: vec![
             "--precompiled-atom".to_string(),
-            format!("qjs:{}:abc123", object_path.display()),
+            format!("qjs:abc123:{}", object_path.display()),
         ],
         ..Default::default()
     }
