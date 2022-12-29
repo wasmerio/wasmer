@@ -530,9 +530,11 @@ impl PrefixMapCompilation {
         let mut compilation_objects = BTreeMap::new();
 
         for p in prefixes.iter() {
-            let prefix_split = p.split(':').collect::<Vec<_>>();
+            // On windows, we have to account for paths like "C://", which would
+            // prevent a simple .split(":") or a regex
+            let prefix_split = Self::split_prefix(p);
 
-            match *prefix_split.as_slice() {
+            match prefix_split.as_slice() {
                 // ATOM:PATH:PREFIX
                 [atom, path, prefix] => {
                     if only_validate_prefixes {
@@ -541,10 +543,10 @@ impl PrefixMapCompilation {
                     } else {
                         let atom_hash = atoms
                         .iter()
-                        .find_map(|(name, _)| if name == atom { Some(prefix) } else { None })
+                        .find_map(|(name, _)| if name.as_str() == atom.as_str() { Some(prefix.to_string()) } else { None })
                         .ok_or_else(|| anyhow::anyhow!("no atom {atom:?} found, for prefix {p:?}, available atoms are {available_atoms:?}"))?;
 
-                        let bytes = std::fs::read(path).map_err(|e| {
+                        let bytes = std::fs::read(&path).map_err(|e| {
                             anyhow::anyhow!("could not read file for prefix {p} ({path}): {e}")
                         })?;
 
@@ -556,12 +558,12 @@ impl PrefixMapCompilation {
                 [atom, path] => {
                     let atom_hash = atoms
                     .iter()
-                    .find_map(|(name, bytes)| if name == atom { Some(Self::hash_for_bytes(bytes)) } else { None })
+                    .find_map(|(name, bytes)| if name.as_str() == atom.as_str() { Some(Self::hash_for_bytes(bytes)) } else { None })
                     .ok_or_else(|| anyhow::anyhow!("no atom {atom:?} found, for prefix {p:?}, available atoms are {available_atoms:?}"))?;
                     manual_prefixes.insert(atom.to_string(), atom_hash.to_string());
 
                     if !only_validate_prefixes {
-                        let bytes = std::fs::read(path).map_err(|e| {
+                        let bytes = std::fs::read(&path).map_err(|e| {
                             anyhow::anyhow!("could not read file for prefix {p} ({path}): {e}")
                         })?;
                         compilation_objects.insert(atom.to_string(), bytes);
@@ -582,6 +584,25 @@ impl PrefixMapCompilation {
             manual_prefixes,
             compilation_objects,
         })
+    }
+
+    fn split_prefix(s: &str) -> Vec<String> {
+        let regex = regex::Regex::new(r#"^([a-zA-Z0-9\-_]+):(.*):([a-zA-Z0-9\.\-_]+)?$"#).unwrap();
+        let captures = regex
+            .captures(s.trim())
+            .map(|c| {
+                c.iter()
+                    .skip(1)
+                    .flatten()
+                    .map(|m| m.as_str().to_owned())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        if captures.is_empty() {
+            vec![s.to_string()]
+        } else {
+            captures
+        }
     }
 
     fn hash_for_bytes(bytes: &[u8]) -> String {
@@ -606,6 +627,42 @@ impl PrefixMapCompilation {
             .get(atom_name)
             .map(|s| s.as_slice())
     }
+}
+
+#[test]
+fn test_split_prefix() {
+    let split = PrefixMapCompilation::split_prefix(
+        "qjs:C:\\Users\\felix\\AppData\\Local\\Temp\\.tmpoccCjV\\wasm.obj:abc123",
+    );
+    assert_eq!(
+        split,
+        vec![
+            "qjs".to_string(),
+            "C:\\Users\\felix\\AppData\\Local\\Temp\\.tmpoccCjV\\wasm.obj".to_string(),
+            "abc123".to_string(),
+        ]
+    );
+    let split2 = PrefixMapCompilation::split_prefix(
+        "qjs:/var/folders/65/2zzy98b16xz254jccxjzqb8w0000gn/T/.tmpNdgVaq/wasm.o:abc123",
+    );
+    assert_eq!(
+        split2,
+        vec![
+            "qjs".to_string(),
+            "/var/folders/65/2zzy98b16xz254jccxjzqb8w0000gn/T/.tmpNdgVaq/wasm.o".to_string(),
+            "abc123".to_string(),
+        ]
+    );
+    let split3 = PrefixMapCompilation::split_prefix(
+        "qjs:/var/folders/65/2zzy98b16xz254jccxjzqb8w0000gn/T/.tmpNdgVaq/wasm.o",
+    );
+    assert_eq!(
+        split3,
+        vec![
+            "qjs".to_string(),
+            "/var/folders/65/2zzy98b16xz254jccxjzqb8w0000gn/T/.tmpNdgVaq/wasm.o".to_string(),
+        ]
+    );
 }
 
 fn conpile_atoms(
@@ -1738,6 +1795,7 @@ pub(super) mod utils {
 
     #[test]
     fn test_filter_tarballs() -> Result<(), anyhow::Error> {
+        use std::str::FromStr;
         let paths = &[
             "/test/.wasmer/cache/wasmer-darwin-amd64.tar.gz",
             "/test/.wasmer/cache/wasmer-darwin-arm64.tar.gz",
@@ -2033,6 +2091,7 @@ mod http_fetch {
     }
 
     pub(super) fn untar(tarball: &Path, target: &Path) -> Result<Vec<String>> {
+        println!("unzipping {} into {}", tarball.display(), target.display());
         wasmer_registry::try_unpack_targz(tarball, target, false)?;
         Ok(list_dir(target))
     }
