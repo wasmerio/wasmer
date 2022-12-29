@@ -1133,11 +1133,7 @@ fn link_exe_from_dir(
     cmd.arg("-target");
     cmd.arg(&zig_triple);
 
-    if zig_triple.contains("windows") {
-        cmd.arg("-lc++");
-    } else {
-        cmd.arg("-lc");
-    }
+    cmd.arg("-lc");
 
     let mut include_dirs = include_dirs
         .iter()
