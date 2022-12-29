@@ -1122,10 +1122,10 @@ fn link_exe_from_dir(
         cmd.args(files_winsdk);
     }
 
-    if debug {
-        println!("{cmd:?}");
-    }
+    println!("{cmd:?}");
+
     let compilation = cmd
+        .stdout(std::process::Stdio::inherit())
         .output()
         .context(anyhow!("Could not execute `zig`: {cmd:?}"))?;
 
@@ -1139,6 +1139,12 @@ fn link_exe_from_dir(
     // remove file if it exists - if not done, can lead to errors on copy
     let _ = std::fs::remove_file(&output_path);
     std::fs::copy(&out_path, &output_path).map_err(|e| {
+        std::process::Command::new("ls")
+            .arg(out_path.parent().unwrap())
+            .stdout(std::process::Stdio::inherit())
+            .stderr(std::process::Stdio::inherit())
+            .output()
+            .unwrap();
         anyhow::anyhow!(
             "could not copy from {} to {}: {e}",
             out_path.display(),
