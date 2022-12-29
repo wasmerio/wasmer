@@ -473,11 +473,8 @@ fn test_prefix_parsing() {
     let path = tempdir.path();
     std::fs::write(path.join("test.obj"), b"").unwrap();
     let str1 = format!("ATOM_NAME:{}:PREFIX", path.join("test.obj").display());
-    let prefix = PrefixMapCompilation::from_input(
-        &[("ATOM_NAME".to_string(), b"".to_vec())],
-        &[str1],
-        false,
-    );
+    let prefix =
+        PrefixMapCompilation::from_input(&[("ATOM_NAME".to_string(), b"".to_vec())], &[str1], true);
     assert_eq!(
         prefix.unwrap(),
         PrefixMapCompilation {
@@ -1022,7 +1019,7 @@ fn link_exe_from_dir(
     let entrypoint =
         get_entrypoint(directory).with_context(|| anyhow::anyhow!("link exe from dir"))?;
 
-    let prefixes = PrefixMapCompilation::from_input(atoms, prefixes, true)
+    let prefixes = PrefixMapCompilation::from_input(atoms, prefixes, false)
         .with_context(|| anyhow::anyhow!("link_exe_from_dir"))?;
 
     let wasmer_main_c = generate_wasmer_main_c(&entrypoint, &prefixes).map_err(|e| {
@@ -1151,7 +1148,6 @@ fn link_exe_from_dir(
     include_path.push("include");
     cmd.arg(format!("-I{}", include_path.display()));
 
-    cmd.arg("-lunwind");
     cmd.arg("-OReleaseSafe");
     cmd.arg("-fno-compiler-rt");
     cmd.arg("-fno-lto");
@@ -1590,12 +1586,7 @@ pub(super) mod utils {
     fn find_libwasmer_in_files(target: &Triple, files: &[String]) -> Result<String, anyhow::Error> {
         files
         .iter()
-        .find(|f| f.ends_with("libwasmer-headless.a") || f.ends_with("wasmer-headless.lib"))
-        .or_else(|| {
-            files
-            .iter()
-            .find(|f| f.ends_with("libwasmer.a") || f.ends_with("wasmer.lib"))
-        })
+        .find(|f| f.ends_with("libwasmer.a") || f.ends_with("wasmer.lib"))
         .cloned()
         .ok_or_else(|| {
             anyhow!("Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})", target)
