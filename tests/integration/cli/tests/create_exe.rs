@@ -437,7 +437,7 @@ fn create_exe_with_object_input(mut args: Vec<String>) -> anyhow::Result<()> {
 
     let create_exe_stdout = std::str::from_utf8(&create_exe_stdout).unwrap();
     assert!(
-        create_exe_stdout.contains("cache hit for atom \"qjs\""),
+        create_exe_stdout.contains("Using cached object file for atom \"qjs\"."),
         "missed cache hit"
     );
 

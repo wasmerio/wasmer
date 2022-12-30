@@ -699,7 +699,7 @@ fn conpile_atoms(
             std::fs::write(&output_object_path, atom)
                 .map_err(|e| anyhow::anyhow!("{}: {e}", output_object_path.display()))?;
             if debug {
-                println!("cache hit for atom {a:?}");
+                println!("Using cached object file for atom {a:?}.");
             }
             continue;
         }
@@ -834,6 +834,7 @@ fn write_volume_obj(
 }
 
 /// Given a .wasm file, compiles the .wasm file into the target directory and creates the entrypoint.json
+#[allow(clippy::too_many_arguments)]
 pub(super) fn prepare_directory_from_single_wasm_file(
     wasm_file: &Path,
     target_dir: &Path,
