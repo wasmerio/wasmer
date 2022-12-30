@@ -10,7 +10,7 @@ use crate::{WasiCallingId, WasiThreadError};
 use super::{SpawnType, VirtualTaskManager};
 
 /// A task manager that uses tokio to spawn tasks.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TokioTaskManager(std::sync::Arc<Runtime>);
 
 impl TokioTaskManager {
