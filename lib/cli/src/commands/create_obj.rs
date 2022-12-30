@@ -109,6 +109,7 @@ impl CreateObj {
                     object_format,
                     &prefix,
                     crate::commands::AllowMultiWasm::Reject(self.atom.clone()),
+                    self.debug_dir.is_some(),
                 )
             } else {
                 crate::commands::create_exe::prepare_directory_from_single_wasm_file(
@@ -119,6 +120,7 @@ impl CreateObj {
                     &self.cpu_features,
                     object_format,
                     &prefix,
+                    self.debug_dir.is_some(),
                 )
             }?;
 

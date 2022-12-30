@@ -199,6 +199,7 @@ impl CreateExe {
                 object_format,
                 &self.precompiled_atom,
                 AllowMultiWasm::Allow,
+                self.debug_dir.is_some(),
             )?;
             get_module_infos(&tempdir, &atoms)?;
             let mut entrypoint = get_entrypoint(&tempdir)?;
@@ -228,6 +229,7 @@ impl CreateExe {
                 &self.cpu_features,
                 object_format,
                 &self.precompiled_atom,
+                self.debug_dir.is_some(),
             )?;
             get_module_infos(&tempdir, &atoms)?;
             let mut entrypoint = get_entrypoint(&tempdir)?;
@@ -317,6 +319,7 @@ pub(super) fn compile_pirita_into_directory(
     object_format: ObjectFormat,
     prefixes: &[String],
     allow_multi_wasm: AllowMultiWasm,
+    debug: bool,
 ) -> anyhow::Result<Vec<(String, Vec<u8>)>> {
     let all_atoms = match &allow_multi_wasm {
         AllowMultiWasm::Allow | AllowMultiWasm::Reject(None) => {
@@ -420,6 +423,7 @@ pub(super) fn compile_pirita_into_directory(
         target,
         object_format,
         &prefix_map,
+        debug,
     )?;
 
     // target_dir
@@ -678,6 +682,7 @@ fn conpile_atoms(
     target: &Target,
     object_format: ObjectFormat,
     prefixes: &PrefixMapCompilation,
+    debug: bool,
 ) -> Result<BTreeMap<String, ModuleInfo>, anyhow::Error> {
     use std::fs::File;
     use std::io::BufWriter;
@@ -688,9 +693,17 @@ fn conpile_atoms(
         let prefix = prefixes
             .get_prefix_for_atom(a)
             .ok_or_else(|| anyhow::anyhow!("no prefix given for atom {a}"))?;
-        let (store, _) = compiler.get_store_for_target(target.clone())?;
         let atom_name = utils::normalize_atom_name(a);
         let output_object_path = output_dir.join(format!("{atom_name}.o"));
+        if let Some(atom) = prefixes.get_compilation_object_for_atom(a) {
+            std::fs::write(&output_object_path, atom)
+                .map_err(|e| anyhow::anyhow!("{}: {e}", output_object_path.display()))?;
+            if debug {
+                println!("cache hit for atom {a:?}");
+            }
+            continue;
+        }
+        let (store, _) = compiler.get_store_for_target(target.clone())?;
         let module_name = format!("WASMER_{}_METADATA", prefix.to_uppercase());
         match object_format {
             ObjectFormat::Symbols => {
@@ -829,6 +842,7 @@ pub(super) fn prepare_directory_from_single_wasm_file(
     cpu_features: &[CpuFeature],
     object_format: ObjectFormat,
     prefix: &[String],
+    debug: bool,
 ) -> anyhow::Result<Vec<(String, Vec<u8>)>, anyhow::Error> {
     let bytes = std::fs::read(wasm_file)?;
     let target = &utils::target_triple_to_target(triple, cpu_features);
@@ -870,6 +884,7 @@ pub(super) fn prepare_directory_from_single_wasm_file(
         target,
         object_format,
         &prefix_map,
+        debug,
     )?;
 
     let mut atoms = Vec::new();

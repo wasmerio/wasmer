@@ -421,7 +421,7 @@ fn create_exe_with_object_input(mut args: Vec<String>) -> anyhow::Result<()> {
     #[cfg(windows)]
     let executable_path = operating_dir.join("wasm.exe");
 
-    WasmerCreateExe {
+    let create_exe_stdout = WasmerCreateExe {
         current_dir: std::env::current_dir().unwrap(),
         wasm_path,
         native_executable_path: executable_path.clone(),
@@ -434,6 +434,12 @@ fn create_exe_with_object_input(mut args: Vec<String>) -> anyhow::Result<()> {
     }
     .run()
     .context("Failed to create-exe wasm with Wasmer")?;
+
+    let create_exe_stdout = std::str::from_utf8(&create_exe_stdout).unwrap();
+    assert!(
+        create_exe_stdout.contains("cache hit for atom \"qjs\""),
+        "missed cache hit"
+    );
 
     let result = run_code(
         &operating_dir,
