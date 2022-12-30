@@ -14,16 +14,16 @@ use super::{SpawnType, VirtualTaskManager};
 pub struct TokioTaskManager(std::sync::Arc<Runtime>);
 
 impl TokioTaskManager {
+    pub fn new(rt: Arc<Runtime>) -> TokioTaskManager {
+        TokioTaskManager(rt)
+    }
+    
     pub fn runtime_handle(&self) -> tokio::runtime::Handle {
         self.0.handle().clone()
     }
 }
 
 impl Default for TokioTaskManager {
-    pub fn new(rt: Arc<Runtime>) -> TokioTaskManager {
-        TokioTaskManager(rt)
-    }
-
     fn default() -> Self {
         let runtime: std::sync::Arc<Runtime> =
             std::sync::Arc::new(Builder::new_current_thread().enable_all().build().unwrap());
