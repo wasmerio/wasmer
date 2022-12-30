@@ -176,7 +176,7 @@ impl CreateObj {
         }
 
         eprintln!(
-            "✔ Object compiled successfully to directory `{}`",
+            "✔ Object compiled successfully to `{}`",
             self.output.canonicalize().unwrap().display()
         );
 

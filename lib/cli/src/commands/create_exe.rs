@@ -472,28 +472,6 @@ struct PrefixMapCompilation {
     compilation_objects: BTreeMap<String, Vec<u8>>,
 }
 
-#[test]
-fn test_prefix_parsing() {
-    let tempdir = tempdir::TempDir::new("test-prefix-parsing").unwrap();
-    let path = tempdir.path();
-    std::fs::write(path.join("test.obj"), b"").unwrap();
-    let str1 = format!("ATOM_NAME:{}:PREFIX", path.join("test.obj").display());
-    let prefix =
-        PrefixMapCompilation::from_input(&[("ATOM_NAME".to_string(), b"".to_vec())], &[str1], true);
-    assert_eq!(
-        prefix.unwrap(),
-        PrefixMapCompilation {
-            input_hashes: BTreeMap::new(),
-            manual_prefixes: vec![("ATOM_NAME".to_string(), "PREFIX".to_string())]
-                .into_iter()
-                .collect(),
-            compilation_objects: vec![("ATOM_NAME".to_string(), b"".to_vec())]
-                .into_iter()
-                .collect(),
-        }
-    );
-}
-
 impl PrefixMapCompilation {
     /// Sets up the prefix map from a collection like "sha123123" or "wasmfile:sha123123" or "wasmfile:/tmp/filepath/:sha123123"
     fn from_input(
@@ -548,8 +526,10 @@ impl PrefixMapCompilation {
                         .find_map(|(name, _)| if name.as_str() == atom.as_str() { Some(prefix.to_string()) } else { None })
                         .ok_or_else(|| anyhow::anyhow!("no atom {atom:?} found, for prefix {p:?}, available atoms are {available_atoms:?}"))?;
 
+                        let current_dir = std::env::current_dir().unwrap().canonicalize().unwrap();
+                        let path = current_dir.join(path.replace("./", ""));
                         let bytes = std::fs::read(&path).map_err(|e| {
-                            anyhow::anyhow!("could not read file for prefix {p} ({path}): {e}")
+                            anyhow::anyhow!("could not read file for atom {atom:?} (prefix {p}, path {} in dir {}): {e}", path.display(), current_dir.display())
                         })?;
 
                         compilation_objects.insert(atom.to_string(), bytes);
@@ -565,8 +545,10 @@ impl PrefixMapCompilation {
                     manual_prefixes.insert(atom.to_string(), atom_hash.to_string());
 
                     if !only_validate_prefixes {
+                        let current_dir = std::env::current_dir().unwrap().canonicalize().unwrap();
+                        let path = current_dir.join(path.replace("./", ""));
                         let bytes = std::fs::read(&path).map_err(|e| {
-                            anyhow::anyhow!("could not read file for prefix {p} ({path}): {e}")
+                            anyhow::anyhow!("could not read file for atom {atom:?} (prefix {p}, path {} in dir {}): {e}", path.display(), current_dir.display())
                         })?;
                         compilation_objects.insert(atom.to_string(), bytes);
                     }
@@ -608,8 +590,7 @@ impl PrefixMapCompilation {
             captures.remove(2);
             captures
         } else if captures.len() == 3 {
-            captures.remove(1);
-            captures
+            s.splitn(2, ':').map(|s| s.to_string()).collect()
         } else {
             captures
         }
@@ -640,6 +621,26 @@ impl PrefixMapCompilation {
 }
 
 #[test]
+fn test_prefix_parsing() {
+    let tempdir = tempdir::TempDir::new("test-prefix-parsing").unwrap();
+    let path = tempdir.path();
+    std::fs::write(path.join("test.obj"), b"").unwrap();
+    let str1 = format!("ATOM_NAME:PREFIX:{}", path.join("test.obj").display());
+    let prefix =
+        PrefixMapCompilation::from_input(&[("ATOM_NAME".to_string(), b"".to_vec())], &[str1], true);
+    assert_eq!(
+        prefix.unwrap(),
+        PrefixMapCompilation {
+            input_hashes: BTreeMap::new(),
+            manual_prefixes: vec![("ATOM_NAME".to_string(), "PREFIX".to_string())]
+                .into_iter()
+                .collect(),
+            compilation_objects: Vec::new().into_iter().collect(),
+        }
+    );
+}
+
+#[test]
 fn test_split_prefix() {
     let split = PrefixMapCompilation::split_prefix(
         "qjs:abc123:C:\\Users\\felix\\AppData\\Local\\Temp\\.tmpoccCjV\\wasm.obj",
@@ -652,6 +653,8 @@ fn test_split_prefix() {
             "C:\\Users\\felix\\AppData\\Local\\Temp\\.tmpoccCjV\\wasm.obj".to_string(),
         ]
     );
+    let split = PrefixMapCompilation::split_prefix("qjs:./tmp.obj");
+    assert_eq!(split, vec!["qjs".to_string(), "./tmp.obj".to_string(),]);
     let split2 = PrefixMapCompilation::split_prefix(
         "qjs:abc123:/var/folders/65/2zzy98b16xz254jccxjzqb8w0000gn/T/.tmpNdgVaq/wasm.o",
     );
@@ -1230,7 +1233,7 @@ fn link_exe_from_dir(
     }
 
     // remove file if it exists - if not done, can lead to errors on copy
-    let _ = std::fs::remove_file(&normalize_path(&format!("{}", out_path.display())));
+    let _ = std::fs::remove_file(&normalize_path(&format!("{}", output_path.display())));
     std::fs::copy(
         &normalize_path(&format!("{}", out_path.display())),
         &normalize_path(&format!("{}", output_path.display())),
