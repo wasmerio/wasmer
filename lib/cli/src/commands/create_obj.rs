@@ -77,10 +77,10 @@ impl CreateObj {
         let target_triple = self.target_triple.clone().unwrap_or_else(Triple::host);
         let starting_cd = env::current_dir()?;
         let input_path = starting_cd.join(&path);
-        let temp_dir = tempdir::TempDir::new("create-obj-intermediate")?;
+        let temp_dir = tempfile::tempdir();
         let output_directory_path = match self.debug_dir.as_ref() {
-            Some(s) => s.as_path(),
-            None => temp_dir.path(),
+            Some(s) => s.clone(),
+            None => temp_dir?.path().to_path_buf(),
         };
         std::fs::create_dir_all(&output_directory_path)?;
         let object_format = self.object_format.unwrap_or_default();
@@ -102,7 +102,7 @@ impl CreateObj {
             if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
                 crate::commands::create_exe::compile_pirita_into_directory(
                     &pirita,
-                    output_directory_path,
+                    &output_directory_path,
                     &self.compiler,
                     &self.cpu_features,
                     &target_triple,
@@ -114,7 +114,7 @@ impl CreateObj {
             } else {
                 crate::commands::create_exe::prepare_directory_from_single_wasm_file(
                     &input_path,
-                    output_directory_path,
+                    &output_directory_path,
                     &self.compiler,
                     &target_triple,
                     &self.cpu_features,

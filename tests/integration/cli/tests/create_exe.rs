@@ -61,8 +61,9 @@ impl WasmerCreateExe {
         output.args(self.extra_cli_flags.iter());
         output.arg("-o");
         output.arg(&self.native_executable_path);
-
         let cmd = format!("{:?}", output);
+
+        println!("(integration-test) running create-exe: {cmd}");
 
         let output = output.output()?;
 
@@ -125,6 +126,8 @@ impl WasmerCreateObj {
         output.arg(&self.output_object_path);
 
         let cmd = format!("{:?}", output);
+
+        println!("(integration-test) running create-obj: {cmd}");
 
         let output = output.output()?;
 
@@ -385,7 +388,7 @@ fn create_obj_serialized() -> anyhow::Result<()> {
     )
 }
 
-fn create_exe_with_object_input(mut args: Vec<String>) -> anyhow::Result<()> {
+fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
@@ -396,15 +399,21 @@ fn create_exe_with_object_input(mut args: Vec<String>) -> anyhow::Result<()> {
     #[cfg(windows)]
     let object_path = operating_dir.join("wasm.obj");
 
-    args.push("--prefix".to_string());
-    args.push("abc123".to_string());
+    let mut create_obj_args = args.clone();
+    create_obj_args.push("--prefix".to_string());
+    create_obj_args.push("abc123".to_string());
+    create_obj_args.push("--debug-dir".to_string());
+    create_obj_args.push(format!(
+        "{}",
+        operating_dir.join("compile-create-obj").display()
+    ));
 
     WasmerCreateObj {
         current_dir: operating_dir.clone(),
         wasm_path: wasm_path.clone(),
         output_object_path: object_path.clone(),
         compiler: Compiler::Cranelift,
-        extra_cli_flags: args,
+        extra_cli_flags: create_obj_args,
         ..Default::default()
     }
     .run()
@@ -421,15 +430,21 @@ fn create_exe_with_object_input(mut args: Vec<String>) -> anyhow::Result<()> {
     #[cfg(windows)]
     let executable_path = operating_dir.join("wasm.exe");
 
+    let mut create_exe_args = args.clone();
+    create_exe_args.push("--precompiled-atom".to_string());
+    create_exe_args.push(format!("qjs:abc123:{}", object_path.display()));
+    create_exe_args.push("--debug-dir".to_string());
+    create_exe_args.push(format!(
+        "{}",
+        operating_dir.join("compile-create-exe").display()
+    ));
+
     let create_exe_stdout = WasmerCreateExe {
         current_dir: std::env::current_dir().unwrap(),
         wasm_path,
         native_executable_path: executable_path.clone(),
         compiler: Compiler::Cranelift,
-        extra_cli_flags: vec![
-            "--precompiled-atom".to_string(),
-            format!("qjs:abc123:{}", object_path.display()),
-        ],
+        extra_cli_flags: create_exe_args,
         ..Default::default()
     }
     .run()

@@ -163,6 +163,7 @@ impl CreateExe {
         let input_path = starting_cd.join(&path);
         let output_path = starting_cd.join(&self.output);
         let object_format = self.object_format.unwrap_or_default();
+
         let cross_compilation =
             utils::get_cross_compile_setup(&mut cc, &target_triple, &starting_cd, &object_format)?;
 
@@ -182,14 +183,15 @@ impl CreateExe {
             return Err(anyhow::anyhow!("library path does not exist"));
         }
 
+        let temp = tempfile::tempdir();
+        let tempdir = match self.debug_dir.as_ref() {
+            Some(s) => s.clone(),
+            None => temp?.path().to_path_buf(),
+        };
+        std::fs::create_dir_all(&tempdir)?;
+
         if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
             // pirita file
-            let temp = tempdir::TempDir::new("pirita-compile")?;
-            let tempdir = match self.debug_dir.as_ref() {
-                Some(s) => s.clone(),
-                None => temp.path().to_path_buf(),
-            };
-            std::fs::create_dir_all(&tempdir)?;
             let atoms = compile_pirita_into_directory(
                 &pirita,
                 &tempdir,
@@ -215,12 +217,6 @@ impl CreateExe {
             )?;
         } else {
             // wasm file
-            let temp = tempdir::TempDir::new("pirita-compile")?;
-            let tempdir = match self.debug_dir.as_ref() {
-                Some(s) => s.clone(),
-                None => temp.path().to_path_buf(),
-            };
-            std::fs::create_dir_all(&tempdir)?;
             let atoms = prepare_directory_from_single_wasm_file(
                 &input_path,
                 &tempdir,

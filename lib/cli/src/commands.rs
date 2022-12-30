@@ -43,8 +43,10 @@ pub use {
 #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
 pub enum ObjectFormat {
     /// Serialize the entire module into an object file.
+    #[clap(name = "serialized")]
     Serialized,
     /// Serialize only the module metadata into an object file and emit functions as symbols.
+    #[clap(name = "symbols")]
     Symbols,
 }
 
