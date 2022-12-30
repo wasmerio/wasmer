@@ -4,6 +4,7 @@ use anyhow::Context;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use url::Url;
+use wasmer_registry::WasmerConfig;
 
 /// Source of a package
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -47,7 +48,7 @@ impl PackageSource {
     }
 
     /// Downloads the package (if any) to the installation directory, returns the path
-    /// of the package directory (containing the wapm.toml)
+    /// of the package directory (containing the wasmer.toml)
     pub fn download_and_get_filepath(&self) -> Result<PathBuf, anyhow::Error> {
         let url = match self {
             Self::File(f) => {
@@ -61,20 +62,28 @@ impl PackageSource {
                 };
             }
             Self::Url(u) => {
-                if let Some(path) = wasmer_registry::Package::is_url_already_installed(u) {
+                let wasmer_dir = WasmerConfig::get_wasmer_dir()
+                    .map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
+                if let Some(path) =
+                    wasmer_registry::Package::is_url_already_installed(u, &wasmer_dir)
+                {
                     return Ok(path);
                 } else {
                     u.clone()
                 }
             }
             Self::Package(p) => {
+                let wasmer_dir = WasmerConfig::get_wasmer_dir()
+                    .map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
                 let package_path = Path::new(&p.file()).to_path_buf();
                 if package_path.exists() {
                     return Ok(package_path);
-                } else if let Some(path) = p.already_installed() {
+                } else if let Some(path) = p.already_installed(&wasmer_dir) {
                     return Ok(path);
                 } else {
-                    p.url()?
+                    let config = WasmerConfig::from_file(&wasmer_dir)
+                        .map_err(|e| anyhow::anyhow!("error loading wasmer config file: {e}"))?;
+                    p.url(&config.registry.get_current_registry())?
                 }
             }
         };
@@ -85,8 +94,10 @@ impl PackageSource {
             String::new()
         };
 
+        let wasmer_dir =
+            WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
         let mut sp = start_spinner(format!("Installing package {url} ..."));
-        let opt_path = wasmer_registry::install_package(&url);
+        let opt_path = wasmer_registry::install_package(&wasmer_dir, &url);
         if let Some(sp) = sp.take() {
             use std::io::Write;
             sp.clear();

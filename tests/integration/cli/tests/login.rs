@@ -1,7 +1,7 @@
 use anyhow::bail;
-use std::path::PathBuf;
+
 use std::process::Command;
-use wasmer_integration_tests_cli::{get_repo_root_path, get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
+use wasmer_integration_tests_cli::get_wasmer_path;
 
 #[test]
 fn login_works() -> anyhow::Result<()> {

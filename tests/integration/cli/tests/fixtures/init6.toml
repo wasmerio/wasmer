@@ -1,0 +1,13 @@
+[package]
+name = "WAPMUSERNAME/largewasmfile"
+version = "RANDOMVERSION1.RANDOMVERSION2.RANDOMVERSION3"
+description = "published from wasmer largewasmfile"
+
+[[module]]
+name = "largewasmfile"
+source = "largewasmfile.wasm"
+abi = "wasi"
+
+[[command]]
+name = "largewasmfile"
+module = "largewasmfile"
