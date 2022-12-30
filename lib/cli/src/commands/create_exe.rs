@@ -1610,7 +1610,7 @@ pub(super) mod utils {
         let b = OsStr::new("wasmer.lib");
         files
         .iter()
-        .find(|f| f.file_name().map(|s| s.clone()) == Some(a) || f.file_name().map(|s| s.clone()) == Some(b))
+        .find(|f| f.file_name() == Some(a) || f.file_name() == Some(b))
         .cloned()
         .ok_or_else(|| {
             anyhow!("Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})", target)
