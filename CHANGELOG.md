@@ -12,6 +12,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## Fixed
 
   - [#3439](https://github.com/wasmerio/wasmer/pull/3439) Use GNU/Linux frame registration code for FreeBSD too
+  - [#3448](https://github.com/wasmerio/wasmer/pull/3448) Fix `make install-capi-lib` install paths
 
 ## 3.1.0 - 12/12/2022
 
