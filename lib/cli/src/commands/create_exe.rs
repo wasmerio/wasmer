@@ -1218,6 +1218,7 @@ fn link_exe_from_dir(
 
     let compilation = cmd
         .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
         .output()
         .context(anyhow!("Could not execute `zig`: {cmd:?}"))?;
 
