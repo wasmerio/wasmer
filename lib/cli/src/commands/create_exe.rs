@@ -201,7 +201,7 @@ impl CreateExe {
                 AllowMultiWasm::Allow,
                 self.debug_dir.is_some(),
             )?;
-            get_module_infos(&tempdir, &atoms)?;
+            get_module_infos(&tempdir, &atoms, object_format)?;
             let mut entrypoint = get_entrypoint(&tempdir)?;
             create_header_files_in_dir(&tempdir, &mut entrypoint, &atoms, &self.precompiled_atom)?;
             link_exe_from_dir(
@@ -231,7 +231,7 @@ impl CreateExe {
                 &self.precompiled_atom,
                 self.debug_dir.is_some(),
             )?;
-            get_module_infos(&tempdir, &atoms)?;
+            get_module_infos(&tempdir, &atoms, object_format)?;
             let mut entrypoint = get_entrypoint(&tempdir)?;
             create_header_files_in_dir(&tempdir, &mut entrypoint, &atoms, &self.precompiled_atom)?;
             link_exe_from_dir(
@@ -917,6 +917,7 @@ pub(super) fn prepare_directory_from_single_wasm_file(
 fn get_module_infos(
     directory: &Path,
     atoms: &[(String, Vec<u8>)],
+    object_format: ObjectFormat,
 ) -> Result<BTreeMap<String, ModuleInfo>, anyhow::Error> {
     let mut entrypoint =
         get_entrypoint(directory).with_context(|| anyhow::anyhow!("get module infos"))?;
@@ -935,6 +936,8 @@ fn get_module_infos(
             module_infos.insert(atom_name.clone(), module.info().clone());
         }
     }
+
+    entrypoint.object_format = object_format;
 
     write_entrypoint(directory, &entrypoint)?;
 
