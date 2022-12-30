@@ -20,6 +20,10 @@ impl TokioTaskManager {
 }
 
 impl Default for TokioTaskManager {
+    pub fn new(rt: Arc<Runtime>) -> TokioTaskManager {
+        TokioTaskManager(rt)
+    }
+
     fn default() -> Self {
         let runtime: std::sync::Arc<Runtime> =
             std::sync::Arc::new(Builder::new_current_thread().enable_all().build().unwrap());
