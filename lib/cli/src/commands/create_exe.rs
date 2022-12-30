@@ -46,7 +46,7 @@ pub struct CreateExe {
         long,
         use_value_delimiter = true,
         value_delimiter = ',',
-        name = "FILE:PATH:PREFIX"
+        name = "FILE:PREFIX:PATH"
     )]
     precompiled_atom: Vec<String>,
 
