@@ -61,11 +61,11 @@ jobs:
             ~/.cargo/*
             ./target/*
           key: r22-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-lint-linux-x64
-          aws-s3-bucket: wasmer-rust-artifacts-cache
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          aws-s3-bucket: wasmer-github-ci-cache
+          aws-access-key-id: ${{ secrets.GOOGLE_CACHE_ID }}
+          aws-secret-access-key: ${{ secrets.GOOGLE_CACHE_SECRET }}
           aws-region: auto
-          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-endpoint: https://storage.googleapis.com
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
       - run: make lint
@@ -327,11 +327,11 @@ jobs:
             ./target/*
             $CARGO_ROOT_DIR/*
           key: r22-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-${{ matrix.metadata.build }}
-          aws-s3-bucket: wasmer-rust-artifacts-cache
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          aws-s3-bucket: wasmer-github-ci-cache
+          aws-access-key-id: ${{ secrets.GOOGLE_CACHE_ID }}
+          aws-secret-access-key: ${{ secrets.GOOGLE_CACHE_SECRET }}
           aws-region: auto
-          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-endpoint: https://storage.googleapis.com
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
       - name: Build C-API
@@ -514,11 +514,11 @@ jobs:
             ~/.cargo/*
             ./target/*
           key: r22-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-${{ matrix.stage.make }}-${{ matrix.metadata.build }}
-          aws-s3-bucket: wasmer-rust-artifacts-cache
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          aws-s3-bucket: wasmer-github-ci-cache
+          aws-access-key-id: ${{ secrets.GOOGLE_CACHE_ID }}
+          aws-secret-access-key: ${{ secrets.GOOGLE_CACHE_SECRET }}
           aws-region: auto
-          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-endpoint: https://storage.googleapis.com
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
       - name: ${{ matrix.stage.description }}
@@ -586,11 +586,11 @@ jobs:
             ~/.cargo/*
             ./target/*
           key: r22-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-integration-cli-${{ matrix.build }}
-          aws-s3-bucket: wasmer-rust-artifacts-cache
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          aws-s3-bucket: wasmer-github-ci-cache
+          aws-access-key-id: ${{ secrets.GOOGLE_CACHE_ID }}
+          aws-secret-access-key: ${{ secrets.GOOGLE_CACHE_SECRET }}
           aws-region: auto
-          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-endpoint: https://storage.googleapis.com
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
       - name: Unzip Artifacts
