@@ -1966,34 +1966,6 @@ pub(super) mod utils {
     }
 
     #[test]
-    fn test_download_again() {
-        use std::str::FromStr;
-        let triple = Triple::from_str("x86_64-unknown-linux-gnu").unwrap();
-        get_cross_compile_setup(
-            &mut CrossCompile::default(),
-            &triple,
-            &Path::new("/tmp"),
-            &ObjectFormat::Symbols,
-        )
-        .unwrap();
-        get_cross_compile_setup(
-            &mut CrossCompile::default(),
-            &triple,
-            &Path::new("/tmp"),
-            &ObjectFormat::Symbols,
-        )
-        .unwrap();
-        let ccs = get_cross_compile_setup(
-            &mut CrossCompile::default(),
-            &triple,
-            &Path::new("/tmp"),
-            &ObjectFormat::Symbols,
-        )
-        .unwrap();
-        println!("{:#?}", ccs);
-    }
-
-    #[test]
     fn test_normalize_atom_name() {
         assert_eq!(
             normalize_atom_name("atom-name-with-dash"),
