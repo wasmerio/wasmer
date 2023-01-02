@@ -173,24 +173,22 @@ pub(crate) fn poll_oneoff_internal(
             .or_insert_with(|| HashMap::<state::PollEventSet, Subscription>::default());
         entry.extend(in_events.into_iter());
     }
-    
+
     // In order to prevent polling from smashing the CPU we add a minimum
     // sleep time which is roughly equal the size of a Linux time interval
     // that exponentially builds up when file descriptors are not being triggered
     if let Some(sleep_time) = time_to_sleep.clone() {
-        time_to_sleep = Some(
-            match env.poll_backoff {
-                a if a < 50 => sleep_time,
-                a if a < 100 => Duration::from_millis(1).max(sleep_time),
-                a if a < 150 => Duration::from_millis(2).max(sleep_time),
-                a if a < 200 => Duration::from_millis(5).max(sleep_time),
-                a if a < 250 => Duration::from_millis(10).max(sleep_time),
-                a if a < 300 => Duration::from_millis(20).max(sleep_time),
-                a if a < 350 => Duration::from_millis(50).max(sleep_time),
-                a if a < 400 => Duration::from_millis(100).max(sleep_time),
-                _ => Duration::from_millis(200).max(sleep_time),
-            }
-        );
+        time_to_sleep = Some(match env.poll_backoff {
+            a if a < 50 => sleep_time,
+            a if a < 100 => Duration::from_millis(1).max(sleep_time),
+            a if a < 150 => Duration::from_millis(2).max(sleep_time),
+            a if a < 200 => Duration::from_millis(5).max(sleep_time),
+            a if a < 250 => Duration::from_millis(10).max(sleep_time),
+            a if a < 300 => Duration::from_millis(20).max(sleep_time),
+            a if a < 350 => Duration::from_millis(50).max(sleep_time),
+            a if a < 400 => Duration::from_millis(100).max(sleep_time),
+            _ => Duration::from_millis(200).max(sleep_time),
+        });
     }
     drop(env);
 

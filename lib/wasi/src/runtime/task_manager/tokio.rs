@@ -33,12 +33,10 @@ impl Default for TokioTaskManager {
 
 struct TokioRuntimeGuard<'g> {
     #[allow(unused)]
-    inner: tokio::runtime::EnterGuard<'g>
+    inner: tokio::runtime::EnterGuard<'g>,
 }
-impl<'g> Drop
-for TokioRuntimeGuard<'g> {
-    fn drop(&mut self) {
-    }
+impl<'g> Drop for TokioRuntimeGuard<'g> {
+    fn drop(&mut self) {}
 }
 
 impl VirtualTaskManager for TokioTaskManager {
@@ -83,7 +81,7 @@ impl VirtualTaskManager for TokioTaskManager {
     #[allow(dyn_drop)]
     fn runtime_enter<'g>(&'g self) -> Box<dyn std::ops::Drop + 'g> {
         Box::new(TokioRuntimeGuard {
-            inner: self.0.enter()
+            inner: self.0.enter(),
         })
     }
 

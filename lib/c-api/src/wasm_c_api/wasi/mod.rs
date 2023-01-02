@@ -540,6 +540,7 @@ mod tests {
     #[cfg(target_os = "windows")]
     use wasmer_inline_c::assert_c;
 
+    #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_wasi_get_wasi_version_snapshot0() {
         (assert_c! {
@@ -573,6 +574,7 @@ mod tests {
         .success();
     }
 
+    #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_wasi_get_wasi_version_snapshot1() {
         (assert_c! {
@@ -606,6 +608,7 @@ mod tests {
         .success();
     }
 
+    #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_wasi_get_wasi_version_invalid() {
         (assert_c! {

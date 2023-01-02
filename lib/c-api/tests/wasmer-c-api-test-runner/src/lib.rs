@@ -1,5 +1,7 @@
 #[cfg(test)]
 use std::error::Error;
+#[cfg(test)]
+use std::process::Stdio;
 
 #[cfg(test)]
 static INCLUDE_REGEX: &str = "#include \"(.*)\"";
@@ -23,52 +25,7 @@ impl Config {
         if config.wasmer_dir.is_empty() {
             println!("manifest dir = {manifest_dir}, wasmer root dir = {wasmer_base_dir}");
             config.wasmer_dir = wasmer_base_dir.clone() + "/package";
-            if !std::path::Path::new(&config.wasmer_dir).exists() {
-                println!("running make build-capi...");
-                // run make build-capi
-                let mut cmd = std::process::Command::new("make");
-                cmd.arg("build-capi");
-                cmd.current_dir(wasmer_base_dir.clone());
-                let result = cmd.output();
-                println!("make build-capi: {result:#?}");
-
-                println!("running make package...");
-                // run make package-capi
-                let mut cmd = std::process::Command::new("make");
-                cmd.arg("package-capi");
-                cmd.current_dir(wasmer_base_dir.clone());
-                let result = cmd.output();
-                make_package();
-                println!("make package: {result:#?}");
-
-                println!("list {}", config.wasmer_dir);
-                match std::fs::read_dir(&config.wasmer_dir) {
-                    Ok(o) => {
-                        for entry in o {
-                            let entry = entry.unwrap();
-                            let path = entry.path();
-                            println!("    {:?}", path.file_name());
-                        }
-                    }
-                    Err(e) => {
-                        println!("error in reading config.wasmer_dir: {e}");
-                    }
-                };
-
-                println!("list {}/include", config.wasmer_dir);
-                match std::fs::read_dir(&format!("{}/include", config.wasmer_dir)) {
-                    Ok(o) => {
-                        for entry in o {
-                            let entry = entry.unwrap();
-                            let path = entry.path();
-                            println!("    {:?}", path.file_name());
-                        }
-                    }
-                    Err(e) => {
-                        println!("error in reading config.wasmer_dir: {e}");
-                    }
-                };
-            }
+            assert!(std::path::Path::new(&config.wasmer_dir).exists());
         }
         if config.root_dir.is_empty() {
             config.root_dir = wasmer_base_dir + "/lib/c-api/tests";
@@ -130,41 +87,6 @@ impl Drop for RemoveTestsOnDrop {
             }
         }
     }
-}
-
-fn make_package() {
-    let wasmer_root_dir = find_wasmer_base_dir();
-    let _ = std::fs::create_dir_all(&format!("{wasmer_root_dir}/package/lib"));
-    let _ = std::fs::create_dir_all(&format!("{wasmer_root_dir}/package/include"));
-    let _ = std::fs::copy(
-        &format!("{wasmer_root_dir}/lib/c-api/tests/wasm.h"),
-        &format!("{wasmer_root_dir}/package/include/wasm.h"),
-    );
-    let _ = std::fs::copy(
-        &format!("{wasmer_root_dir}/lib/c-api/tests/wasmer.h"),
-        &format!("{wasmer_root_dir}/package/include/wasmer.h"),
-    );
-    #[cfg(target_os = "windows")]
-    let _ = std::fs::copy(
-        &format!("{wasmer_root_dir}/target/release/wasmer.dll"),
-        &format!("{wasmer_root_dir}/package/lib"),
-    );
-    #[cfg(target_os = "windows")]
-    let _ = std::fs::copy(
-        &format!("{wasmer_root_dir}/target/release/wasmer.dll.lib"),
-        &format!("{wasmer_root_dir}/package/lib"),
-    );
-    #[cfg(not(target_os = "windows"))]
-    let _ = std::fs::copy(
-        &format!("{wasmer_root_dir}/target/release/libwasmer.so"),
-        &format!("{wasmer_root_dir}/package/lib"),
-    );
-    #[cfg(not(target_os = "windows"))]
-    let _ = std::fs::copy(
-        &format!("{wasmer_root_dir}/target/release/libwasmer.lib"),
-        &format!("{wasmer_root_dir}/package/lib"),
-    );
-    println!("copying done (make package)");
 }
 
 #[cfg(test)]
@@ -358,6 +280,9 @@ fn test_ok() {
             println!("compile: {command:#?}");
             // compile
             let output = command
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::inherit())
+                .current_dir(find_wasmer_base_dir())
                 .output()
                 .expect(&format!("failed to compile {command:#?}"));
             if !output.status.success() {
@@ -397,6 +322,14 @@ fn print_wasmer_root_to_stdout(config: &Config) {
 
     use walkdir::WalkDir;
 
+    println!(
+        "wasmer dir: {}",
+        std::path::Path::new(&config.wasmer_dir)
+            .canonicalize()
+            .unwrap()
+            .display()
+    );
+
     for entry in WalkDir::new(&config.wasmer_dir)
         .into_iter()
         .filter_map(Result::ok)
@@ -404,6 +337,14 @@ fn print_wasmer_root_to_stdout(config: &Config) {
         let f_name = String::from(entry.path().canonicalize().unwrap().to_string_lossy());
         println!("{f_name}");
     }
+
+    println!(
+        "root dir: {}",
+        std::path::Path::new(&config.root_dir)
+            .canonicalize()
+            .unwrap()
+            .display()
+    );
 
     for entry in WalkDir::new(&config.root_dir)
         .into_iter()

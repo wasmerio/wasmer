@@ -347,7 +347,11 @@ fn shared_object_dir() -> PathBuf {
     // We either find `target` or the target triple if cross-compiling.
     if shared_object_dir.file_name() != Some(OsStr::new("target")) {
         let target = env::var("TARGET").unwrap();
-        assert_eq!(shared_object_dir.file_name(), Some(OsStr::new(&target)));
+        if shared_object_dir.file_name() != Some(OsStr::new("llvm-cov-target")) {
+            assert_eq!(shared_object_dir.file_name(), Some(OsStr::new(&target)));
+        } else {
+            shared_object_dir.set_file_name(&target);
+        }
     }
 
     shared_object_dir.push(env::var("PROFILE").unwrap());
