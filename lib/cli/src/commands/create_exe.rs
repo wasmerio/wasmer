@@ -190,56 +190,46 @@ impl CreateExe {
         };
         std::fs::create_dir_all(&tempdir)?;
 
-        if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
-            // pirita file
-            let atoms = compile_pirita_into_directory(
-                &pirita,
-                &tempdir,
-                &self.compiler,
-                &self.cpu_features,
-                &cross_compilation.target,
-                object_format,
-                &self.precompiled_atom,
-                AllowMultiWasm::Allow,
-                self.debug_dir.is_some(),
-            )?;
-            get_module_infos(&tempdir, &atoms, object_format)?;
-            let mut entrypoint = get_entrypoint(&tempdir)?;
-            create_header_files_in_dir(&tempdir, &mut entrypoint, &atoms, &self.precompiled_atom)?;
-            link_exe_from_dir(
-                &tempdir,
-                output_path,
-                &cross_compilation,
-                &self.libraries,
-                self.debug_dir.is_some(),
-                &atoms,
-                &self.precompiled_atom,
-            )?;
-        } else {
-            // wasm file
-            let atoms = prepare_directory_from_single_wasm_file(
-                &input_path,
-                &tempdir,
-                &self.compiler,
-                &cross_compilation.target,
-                &self.cpu_features,
-                object_format,
-                &self.precompiled_atom,
-                self.debug_dir.is_some(),
-            )?;
-            get_module_infos(&tempdir, &atoms, object_format)?;
-            let mut entrypoint = get_entrypoint(&tempdir)?;
-            create_header_files_in_dir(&tempdir, &mut entrypoint, &atoms, &self.precompiled_atom)?;
-            link_exe_from_dir(
-                &tempdir,
-                output_path,
-                &cross_compilation,
-                &self.libraries,
-                self.debug_dir.is_some(),
-                &atoms,
-                &self.precompiled_atom,
-            )?;
-        }
+        let atoms =
+            if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
+                // pirita file
+                compile_pirita_into_directory(
+                    &pirita,
+                    &tempdir,
+                    &self.compiler,
+                    &self.cpu_features,
+                    &cross_compilation.target,
+                    object_format,
+                    &self.precompiled_atom,
+                    AllowMultiWasm::Allow,
+                    self.debug_dir.is_some(),
+                )
+            } else {
+                // wasm file
+                prepare_directory_from_single_wasm_file(
+                    &input_path,
+                    &tempdir,
+                    &self.compiler,
+                    &cross_compilation.target,
+                    &self.cpu_features,
+                    object_format,
+                    &self.precompiled_atom,
+                    self.debug_dir.is_some(),
+                )
+            }?;
+
+        get_module_infos(&tempdir, &atoms, object_format)?;
+        let mut entrypoint = get_entrypoint(&tempdir)?;
+        create_header_files_in_dir(&tempdir, &mut entrypoint, &atoms, &self.precompiled_atom)?;
+        link_exe_from_dir(
+            &tempdir,
+            output_path,
+            &cross_compilation,
+            &self.libraries,
+            self.debug_dir.is_some(),
+            &atoms,
+            &self.precompiled_atom,
+        )?;
 
         if self.target_triple.is_some() {
             eprintln!(
