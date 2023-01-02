@@ -1139,7 +1139,11 @@ fn link_exe_from_dir(
     cmd.arg("-target");
     cmd.arg(&zig_triple);
 
-    cmd.arg("-lc");
+    if zig_triple.contains("windows") {
+        cmd.arg("-lc++");
+    } else {
+        cmd.arg("-lc");
+    }
 
     let mut include_dirs = include_dirs;
     include_dirs.sort();
@@ -1156,9 +1160,8 @@ fn link_exe_from_dir(
     cmd.arg("-I");
     cmd.arg(normalize_path(&format!("{}", include_path.display())));
 
-    if !zig_triple.contains("windows") {
-        cmd.arg("-lunwind");
-    }
+    #[cfg(not(windows))]
+    cmd.arg("-lunwind");
     cmd.arg("-OReleaseSafe");
     cmd.arg("-fno-compiler-rt");
     cmd.arg("-fno-lto");
