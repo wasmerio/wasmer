@@ -104,7 +104,7 @@ pub(crate) struct CrossCompile {
     tarball: Option<PathBuf>,
 
     /// Specify `zig` binary path (defaults to `zig` in $PATH if not present)
-    #[clap(long = "zig-binary-path", requires = "target")]
+    #[clap(long = "zig-binary-path", requires = "target", env)]
     zig_binary_path: Option<PathBuf>,
 }
 
