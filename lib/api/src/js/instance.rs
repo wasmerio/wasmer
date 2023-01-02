@@ -66,7 +66,9 @@ impl Instance {
             .instantiate(&mut store, imports)
             .map_err(|e| InstantiationError::Start(e))?;
 
-        let self_instance = Self::from_module_and_instance(store, module, externs, instance)?;
+        let instance = instance.get(store.objects_mut()).clone();
+        let mut self_instance = Self::from_module_and_instance(store, module, instance)?;
+        self_instance.check_memory(store, externs);
         //self_instance.init_envs(&imports.iter().map(Extern::to_export).collect::<Vec<_>>())?;
         Ok(self_instance)
     }
@@ -105,15 +107,13 @@ impl Instance {
     pub fn from_module_and_instance(
         mut store: &mut impl AsStoreMut,
         module: &Module,
-        externs: Vec<Extern>,
-        handle: StoreHandle<WebAssembly::Instance>,
+        instance: WebAssembly::Instance,
     ) -> Result<Self, InstantiationError> {
         use crate::js::externals::VMExtern;
 
-        let instance = handle.get(store.objects_mut());
         let instance_exports = instance.exports();
 
-        let mut exports = module
+        let exports = module
             .exports()
             .map(|export_type| {
                 let name = export_type.name();
@@ -130,23 +130,27 @@ impl Instance {
             })
             .collect::<Result<Exports, InstantiationError>>()?;
 
-        // If the memory is imported then also export it for backwards compatibility reasons
-        // (many will assume the memory is always exported) - later we can remove this
-        if exports.get_memory("memory").is_err() {
-            if let Some(memory) = externs
-                .iter()
-                .filter(|a| a.ty(store).memory().is_some())
-                .next()
-            {
-                exports.insert("memory", memory.clone());
-            }
-        }
-
+        let handle = StoreHandle::new(store.as_store_mut().objects_mut(), instance);
         Ok(Self {
             _handle: handle,
             module: module.clone(),
             exports,
         })
+    }
+
+    /// This will check the memory is correctly setup
+    /// If the memory is imported then also export it for backwards compatibility reasons
+    /// (many will assume the memory is always exported) - later we can remove this
+    pub fn check_memory(&mut self, store: &mut impl AsStoreMut, externs: Vec<Extern>) {
+        if self.exports.get_memory("memory").is_err() {
+            if let Some(memory) = externs
+                .iter()
+                .filter(|a| a.ty(store).memory().is_some())
+                .next()
+            {
+                self.exports.insert("memory", memory.clone());
+            }
+        }
     }
 
     /// Gets the [`Module`] associated with this instance.
