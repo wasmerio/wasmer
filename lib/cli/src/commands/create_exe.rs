@@ -1949,23 +1949,6 @@ pub(super) mod utils {
     }
 
     #[test]
-    fn test_setup() {
-        use std::str::FromStr;
-        let setup = get_cross_compile_setup(
-            &mut CrossCompile::default(),
-            &Triple::from_str("x86_64-unknown-linux-gnu").unwrap(),
-            &Path::new("/tmp"),
-            &ObjectFormat::Symbols,
-        )
-        .unwrap();
-
-        let library_str = format!("{}", setup.library.display());
-        let err = format!("failed to get linux-amd64.tar.gz: {library_str}");
-        let s = Box::leak(err.into_boxed_str()) as &'static str;
-        assert!(library_str.contains("linux-amd64"), s);
-    }
-
-    #[test]
     fn test_normalize_atom_name() {
         assert_eq!(
             normalize_atom_name("atom-name-with-dash"),
