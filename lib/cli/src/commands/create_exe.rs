@@ -1812,7 +1812,7 @@ pub(super) mod utils {
             &version[..]
         };
 
-        let version_slice = String::from_utf8_lossy(&version_slice);
+        let version_slice = String::from_utf8_lossy(version_slice);
         let version_semver = semver::Version::parse(&version_slice)
             .map_err(|e| anyhow!("could not parse zig version: {version_slice}: {e}"))?;
 

@@ -234,12 +234,10 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
     } else {
         match WasmerCLIOptions::try_parse_from(args.iter()) {
             Ok(o) => o,
-            Err(e) => {
-                match e.kind() {
-                    ErrorKind::DisplayVersion | ErrorKind::DisplayHelp => e.exit(),
-                    _ => WasmerCLIOptions::Run(Run::parse()),
-                }
-            }
+            Err(e) => match e.kind() {
+                ErrorKind::DisplayVersion | ErrorKind::DisplayHelp => e.exit(),
+                _ => WasmerCLIOptions::Run(Run::parse()),
+            },
         }
     };
 
