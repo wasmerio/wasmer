@@ -97,7 +97,7 @@ CARGO_BINARY ?= cargo
 CARGO_TARGET ?= 
 CARGO_TARGET_STR ?=
 
-ifeq ($(CARGO_TARGET),)
+ifneq ($(CARGO_TARGET),)
 CARGO_TARGET_STR := --target $(CARGO_TARGET_STR)
 endif
 
