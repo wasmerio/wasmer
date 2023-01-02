@@ -1160,7 +1160,6 @@ fn link_exe_from_dir(
     cmd.arg("-I");
     cmd.arg(normalize_path(&format!("{}", include_path.display())));
 
-    #[cfg(not(windows))]
     cmd.arg("-lunwind");
     cmd.arg("-OReleaseSafe");
     cmd.arg("-fno-compiler-rt");
