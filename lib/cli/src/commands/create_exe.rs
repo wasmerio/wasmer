@@ -20,6 +20,10 @@ use webc::{ParseOptions, WebCMmap};
 /// so we can assure no collisions.
 pub type PrefixerFn = Box<dyn Fn(&[u8]) -> String + Send>;
 
+const LINK_SYSTEM_LIBRARIES_WINDOWS: &[&str] = &["userenv", "Ws2_32", "advapi32", "bcrypt"];
+
+const LINK_SYSTEM_LIBRARIES_UNIX: &[&str] = &["dl", "m", "pthread"];
+
 #[derive(Debug, Parser)]
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateExe {
@@ -1261,16 +1265,12 @@ fn link_objects_system_linker(
 
     // Add libraries required per platform.
     // We need userenv, sockets (Ws2_32), advapi32 for some system calls and bcrypt for random numbers.
-    #[cfg(windows)]
-    let command = command
-        .arg("-luserenv")
-        .arg("-lWs2_32")
-        .arg("-ladvapi32")
-        .arg("-lbcrypt");
-
-    // On unix we need dlopen-related symbols, libmath for a few things, and pthreads.
-    #[cfg(not(windows))]
-    let command = command.arg("-ldl").arg("-lm").arg("-pthread");
+    let mut additional_libraries = additional_libraries.to_vec();
+    if target.operating_system == OperatingSystem::Windows {
+        additional_libraries.extend(LINK_SYSTEM_LIBRARIES_WINDOWS.iter().map(|s| s.to_string()));
+    } else {
+        additional_libraries.extend(LINK_SYSTEM_LIBRARIES_UNIX.iter().map(|s| s.to_string()));
+    }
     let link_against_extra_libs = additional_libraries.iter().map(|lib| format!("-l{}", lib));
     let command = command.args(link_against_extra_libs);
     let command = command.arg("-o").arg(output_path);
@@ -1282,10 +1282,8 @@ fn link_objects_system_linker(
     if !output.status.success() {
         bail!(
             "linking failed with: stdout: {}\n\nstderr: {}",
-            std::str::from_utf8(&output.stdout)
-                .expect("stdout is not utf8! need to handle arbitrary bytes"),
-            std::str::from_utf8(&output.stderr)
-                .expect("stderr is not utf8! need to handle arbitrary bytes")
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
         );
     }
     Ok(())
