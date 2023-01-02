@@ -229,15 +229,25 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
         _ => {}
     }
 
+    let command = args.get(1);
     let options = if cfg!(target_os = "linux") && binpath.ends_with("wasmer-binfmt-interpreter") {
         WasmerCLIOptions::Run(Run::from_binfmt_args())
     } else {
-        match WasmerCLIOptions::try_parse_from(args.iter()) {
-            Ok(o) => o,
-            Err(e) => match e.kind() {
-                ErrorKind::DisplayVersion | ErrorKind::DisplayHelp => e.exit(),
-                _ => WasmerCLIOptions::Run(Run::parse()),
-            },
+        match command.unwrap_or(&"".to_string()).as_ref() {
+            "add" | "cache" | "compile" | "config" | "create-obj" | "create-exe" | "help"
+            | "inspect" | "init" | "run" | "self-update" | "validate" | "wast" | "binfmt"
+            | "list" | "login" | "publish" => WasmerCLIOptions::parse(),
+            _ => {
+                WasmerCLIOptions::try_parse_from(args.iter()).unwrap_or_else(|e| {
+                    match e.kind() {
+                        // This fixes a issue that:
+                        // 1. Shows the version twice when doing `wasmer -V`
+                        // 2. Shows the run help (instead of normal help) when doing `wasmer --help`
+                        ErrorKind::DisplayVersion | ErrorKind::DisplayHelp => e.exit(),
+                        _ => WasmerCLIOptions::Run(Run::parse()),
+                    }
+                })
+            }
         }
     };
 
