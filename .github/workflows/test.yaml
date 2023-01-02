@@ -153,7 +153,7 @@ jobs:
         env:
           CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
           CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: --target aarch64-unknown-linux-gnu
+          CARGO_TARGET: aarch64-unknown-linux-gnu
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_ALLOW_CROSS: true
           ENABLE_LLVM: 0
@@ -341,7 +341,7 @@ jobs:
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
-          CARGO_TARGET: --target ${{ matrix.metadata.target }}
+          CARGO_TARGET: ${{ matrix.metadata.target }}
       - name: Build Wasmer
         shell: bash
         if: ${{ matrix.build-what.key == 'wasmer' && matrix.metadata.build != 'windows-gnu' }}
@@ -349,7 +349,7 @@ jobs:
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
-          CARGO_TARGET: --target ${{ matrix.metadata.target }}
+          CARGO_TARGET: ${{ matrix.metadata.target }}
       - name: Test C-API
         shell: bash
         if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm' || matrix.metadata.build == 'windows-gnu') }}
@@ -357,7 +357,7 @@ jobs:
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
-          CARGO_TARGET: --target ${{ matrix.metadata.target }}
+          CARGO_TARGET: ${{ matrix.metadata.target }}
       # C-API tests were disabled for linux-musl and macos-arm (we can't run them)
       - name: Test C-API integration
         shell: bash
@@ -366,7 +366,7 @@ jobs:
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
-          CARGO_TARGET: --target ${{ matrix.metadata.target }}
+          CARGO_TARGET: ${{ matrix.metadata.target }}
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -526,7 +526,7 @@ jobs:
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
-          CARGO_TARGET: --target ${{ matrix.metadata.target }}
+          CARGO_TARGET: ${{ matrix.metadata.target }}
 
   test_integration_cli: 
     name: CLI integration tests on ${{ matrix.build }}
@@ -608,6 +608,6 @@ jobs:
         env:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
-          CARGO_TARGET: --target ${{ matrix.target }}
+          CARGO_TARGET: ${{ matrix.target }}
           WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
