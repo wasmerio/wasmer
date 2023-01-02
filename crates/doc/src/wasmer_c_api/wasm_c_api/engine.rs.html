@@ -470,6 +470,7 @@
 <span id="462">462</span>
 <span id="463">463</span>
 <span id="464">464</span>
+<span id="465">465</span>
 </pre><pre class="rust"><code><span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::engine::wasmer_is_compiler_available</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::unstable::engine</span>::{<span class="ident">wasm_config_set_features</span>, <span class="ident">wasm_config_set_target</span>};
@@ -917,6 +918,7 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
     <span class="kw">use</span> <span class="ident">wasmer_inline_c::assert_c</span>;
 
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">coverage</span>, <span class="ident">ignore</span>)]</span>
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_engine_new</span>() {
         (<span class="macro">assert_c!</span> {

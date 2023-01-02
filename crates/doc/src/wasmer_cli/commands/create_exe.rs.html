@@ -2196,9 +2196,9 @@
 
         <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">files</span>
         .<span class="ident">iter</span>()
-        .<span class="ident">find</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">ends_with</span>(<span class="string">&quot;libwasmer.a&quot;</span>)).<span class="ident">cloned</span>()
+        .<span class="ident">find</span>(<span class="op">|</span><span class="ident">f</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">ends_with</span>(<span class="string">&quot;libwasmer.a&quot;</span>) <span class="op">|</span><span class="op">|</span> <span class="ident">f</span>.<span class="ident">ends_with</span>(<span class="string">&quot;wasmer.lib&quot;</span>)).<span class="ident">cloned</span>()
         .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> {
-            <span class="macro">anyhow!</span>(<span class="string">&quot;Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})&quot;</span>, <span class="ident">target</span>)
+            <span class="macro">anyhow!</span>(<span class="string">&quot;Could not find libwasmer.a / wasmer.lib for {} target in the provided tarball path (files = {files:#?})&quot;</span>, <span class="ident">target</span>)
         })<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>((<span class="ident">file</span>, <span class="ident">tarball_dir</span>))

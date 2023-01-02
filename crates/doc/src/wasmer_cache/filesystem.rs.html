@@ -122,13 +122,17 @@
 <span id="116">116</span>
 <span id="117">117</span>
 <span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">cfg_attr</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;filesystem&quot;</span>), <span class="ident">allow</span>(<span class="ident">unused</span>))]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::cache::Cache</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::hash::Hash</span>;
 <span class="kw">use</span> <span class="ident">std::fs</span>::{<span class="ident">create_dir_all</span>, <span class="ident">File</span>};
 <span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Write</span>};
 <span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
-<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">DeserializeError</span>, <span class="ident">Module</span>, <span class="ident">SerializeError</span>, <span class="ident">AsEngineRef</span>};
+<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">AsEngineRef</span>, <span class="ident">DeserializeError</span>, <span class="ident">Module</span>, <span class="ident">SerializeError</span>};
 
 <span class="doccomment">/// Representation of a directory that contains compiled wasm artifacts.</span>
 <span class="doccomment">///</span>
@@ -215,7 +219,11 @@
     <span class="kw">type</span> <span class="ident">DeserializeError</span> <span class="op">=</span> <span class="ident">DeserializeError</span>;
     <span class="kw">type</span> <span class="ident">SerializeError</span> <span class="op">=</span> <span class="ident">SerializeError</span>;
 
-    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">load</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsEngineRef</span>, <span class="ident">key</span>: <span class="ident">Hash</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Module</span>, <span class="ident"><span class="self">Self</span>::DeserializeError</span><span class="op">&gt;</span> {
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">load</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsEngineRef</span>,
+        <span class="ident">key</span>: <span class="ident">Hash</span>,
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Module</span>, <span class="ident"><span class="self">Self</span>::DeserializeError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">filename</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="kw-2">ref</span> <span class="ident">ext</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">ext</span> {
             <span class="macro">format!</span>(<span class="string">&quot;{}.{}&quot;</span>, <span class="ident">key</span>.<span class="ident">to_string</span>(), <span class="ident">ext</span>)
         } <span class="kw">else</span> {

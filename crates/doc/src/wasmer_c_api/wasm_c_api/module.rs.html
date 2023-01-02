@@ -863,6 +863,12 @@
 <span id="855">855</span>
 <span id="856">856</span>
 <span id="857">857</span>
+<span id="858">858</span>
+<span id="859">859</span>
+<span id="860">860</span>
+<span id="861">861</span>
+<span id="862">862</span>
+<span id="863">863</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::store::wasm_store_t</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::types</span>::{<span class="ident">wasm_byte_vec_t</span>, <span class="ident">wasm_exporttype_vec_t</span>, <span class="ident">wasm_importtype_vec_t</span>};
 <span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
@@ -1350,6 +1356,7 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
     <span class="kw">use</span> <span class="ident">wasmer_inline_c::assert_c</span>;
 
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">coverage</span>, <span class="ident">ignore</span>)]</span>
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_module_validate</span>() {
         (<span class="macro">assert_c!</span> {
@@ -1377,6 +1384,7 @@
         .<span class="ident">success</span>();
     }
 
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">coverage</span>, <span class="ident">ignore</span>)]</span>
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_module_new</span>() {
         (<span class="macro">assert_c!</span> {
@@ -1406,6 +1414,7 @@
         .<span class="ident">success</span>();
     }
 
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">coverage</span>, <span class="ident">ignore</span>)]</span>
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_module_exports</span>() {
         (<span class="macro">assert_c!</span> {
@@ -1514,6 +1523,7 @@
         .<span class="ident">success</span>();
     }
 
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">coverage</span>, <span class="ident">ignore</span>)]</span>
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_module_imports</span>() {
         (<span class="macro">assert_c!</span> {
@@ -1632,6 +1642,7 @@
         .<span class="ident">success</span>();
     }
 
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">coverage</span>, <span class="ident">ignore</span>)]</span>
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_module_serialize</span>() {
         (<span class="macro">assert_c!</span> {
@@ -1666,6 +1677,7 @@
         .<span class="ident">success</span>();
     }
 
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">coverage</span>, <span class="ident">ignore</span>)]</span>
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_module_serialize_and_deserialize</span>() {
         (<span class="macro">assert_c!</span> {

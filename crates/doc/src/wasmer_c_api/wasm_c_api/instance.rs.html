@@ -317,6 +317,7 @@
 <span id="309">309</span>
 <span id="310">310</span>
 <span id="311">311</span>
+<span id="312">312</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::externals</span>::{<span class="ident">wasm_extern_t</span>, <span class="ident">wasm_extern_vec_t</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::module::wasm_module_t</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::store</span>::{<span class="ident">wasm_store_t</span>, <span class="ident">StoreRef</span>};
@@ -531,6 +532,7 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
     <span class="kw">use</span> <span class="ident">wasmer_inline_c::assert_c</span>;
 
+    <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">coverage</span>, <span class="ident">ignore</span>)]</span>
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_instance_new</span>() {
         (<span class="macro">assert_c!</span> {
