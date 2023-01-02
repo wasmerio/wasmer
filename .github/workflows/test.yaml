@@ -552,6 +552,9 @@ jobs:
             target: x86_64-unknown-linux-musl
             os: ubuntu-22.04
             container: alpine:latest
+          - build: windows-x64
+            os: windows-2019
+            target: x86_64-pc-windows-msvc
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
