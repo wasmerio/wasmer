@@ -774,20 +774,16 @@ fn run_c_compile(
     if debug {
         eprintln!(
             "run_c_compile: stdout: {}\n\nstderr: {}",
-            std::str::from_utf8(&output.stdout)
-                .expect("stdout is not utf8! need to handle arbitrary bytes"),
-            std::str::from_utf8(&output.stderr)
-                .expect("stderr is not utf8! need to handle arbitrary bytes")
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
         );
     }
 
     if !output.status.success() {
         bail!(
             "C code compile failed with: stdout: {}\n\nstderr: {}",
-            std::str::from_utf8(&output.stdout)
-                .expect("stdout is not utf8! need to handle arbitrary bytes"),
-            std::str::from_utf8(&output.stderr)
-                .expect("stderr is not utf8! need to handle arbitrary bytes")
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
         );
     }
 
