@@ -41,7 +41,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.63
+          toolchain: 1.64
           components: rustfmt, clippy
       - name: Install libtinfo
         shell: bash
@@ -93,7 +93,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.63
+          toolchain: 1.64
       - name: Install NodeJS
         uses: actions/setup-node@v2
         with:
@@ -241,7 +241,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.63
+          toolchain: 1.64
           target: ${{ matrix.metadata.target }}
       - name: Install Windows-GNU linker
         if: ${{ matrix.metadata.build == 'windows-gnu' }}
@@ -470,7 +470,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.63
+          toolchain: 1.64
           target: ${{ matrix.metadata.target }}
       - name: Choco install LLVM
         uses: crazy-max/ghaction-chocolatey@v2
@@ -579,7 +579,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.63
+          toolchain: 1.64
           target: ${{ matrix.metadata.target }}
       - name: Cache
         uses: whywaita/actions-cache-s3@v2
