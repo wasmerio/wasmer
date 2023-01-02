@@ -1156,7 +1156,6 @@ fn link_exe_from_dir(
     cmd.arg("-I");
     cmd.arg(normalize_path(&format!("{}", include_path.display())));
 
-    cmd.arg("-lunwind");
     cmd.arg("-OReleaseFast");
     cmd.arg("-fno-compiler-rt");
     cmd.arg("-fno-lto");
