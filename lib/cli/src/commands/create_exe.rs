@@ -1814,8 +1814,12 @@ pub(super) mod utils {
             &version[..]
         };
 
-        if version_slice < b"0.10.0".as_ref() {
-            Err(anyhow!("`zig` binary in PATH (`{}`) is not a new enough version (`{}`): please use version `0.10.0` or newer.", retval.display(), String::from_utf8_lossy(version_slice)))
+        let version_slice = String::from_utf8_lossy(&version_slice);
+        let version_semver = semver::Version::parse(&version_slice)
+            .map_err(|e| anyhow!("could not parse zig version: {version_slice}: {e}"))?;
+
+        if version_semver < semver::Version::parse("0.10.0").unwrap() {
+            Err(anyhow!("`zig` binary in PATH (`{}`) is not a new enough version (`{version_slice}`): please use version `0.10.0` or newer.", retval.display()))
         } else {
             Ok(retval)
         }
