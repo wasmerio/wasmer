@@ -1454,7 +1454,7 @@ pub(super) mod utils {
         ffi::OsStr,
         path::{Path, PathBuf},
     };
-    use target_lexicon::{Architecture, OperatingSystem, Triple};
+    use target_lexicon::{Architecture, Environment, OperatingSystem, Triple};
     use wasmer_types::{CpuFeature, Target};
 
     pub(in crate::commands) fn target_triple_to_target(
@@ -1549,7 +1549,7 @@ pub(super) mod utils {
                                 None
                             }
                         })
-                        .find(|p| crate::commands::utils::filter_tarball(p, &target))
+                        .find(|p| crate::commands::utils::filter_tarball(p, target))
                 };
 
                 if let Some(local) = local {
@@ -1582,6 +1582,16 @@ pub(super) mod utils {
     }
 
     fn filter_tarball_internal(p: &Path, target: &Triple) -> Option<bool> {
+        if !p.file_name()?.to_str()?.ends_with(".tar.gz") {
+            return None;
+        }
+
+        if target.environment == Environment::Musl && !p.file_name()?.to_str()?.contains("musl")
+            || p.file_name()?.to_str()?.contains("musl") && target.environment != Environment::Musl
+        {
+            return None;
+        }
+
         if let Architecture::Aarch64(_) = target.architecture {
             if !(p.file_name()?.to_str()?.contains("aarch64")
                 || p.file_name()?.to_str()?.contains("arm64"))
@@ -1847,120 +1857,102 @@ pub(super) mod utils {
         assert_eq!(
             paths
                 .iter()
-                .find(|p| crate::commands::utils::filter_tarball(
+                .filter(|p| crate::commands::utils::filter_tarball(
                     p,
                     &Triple::from_str("x86_64-windows").unwrap()
                 ))
-                .unwrap()
-                .to_str()
-                .unwrap(),
-            "/test/wasmer-windows-gnu64.tar.gz",
+                .collect::<Vec<_>>(),
+            vec![&Path::new("/test/wasmer-windows-gnu64.tar.gz")],
         );
 
         let paths = test_paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
         assert_eq!(
             paths
                 .iter()
-                .find(|p| crate::commands::utils::filter_tarball(
+                .filter(|p| crate::commands::utils::filter_tarball(
                     p,
                     &Triple::from_str("x86_64-windows-gnu").unwrap()
                 ))
-                .unwrap()
-                .to_str()
-                .unwrap(),
-            "/test/wasmer-windows-gnu64.tar.gz",
+                .collect::<Vec<_>>(),
+            vec![&Path::new("/test/wasmer-windows-gnu64.tar.gz")],
         );
 
         let paths = test_paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
         assert_eq!(
             paths
                 .iter()
-                .find(|p| crate::commands::utils::filter_tarball(
+                .filter(|p| crate::commands::utils::filter_tarball(
                     p,
                     &Triple::from_str("x86_64-windows-msvc").unwrap()
                 ))
-                .unwrap()
-                .to_str()
-                .unwrap(),
-            "/test/wasmer-windows-gnu64.tar.gz",
+                .collect::<Vec<_>>(),
+            vec![&Path::new("/test/wasmer-windows-gnu64.tar.gz")],
         );
 
         assert_eq!(
             paths
                 .iter()
-                .find(|p| crate::commands::utils::filter_tarball(
+                .filter(|p| crate::commands::utils::filter_tarball(
                     p,
                     &Triple::from_str("x86_64-darwin").unwrap()
                 ))
-                .unwrap()
-                .to_str()
-                .unwrap(),
-            "/test/wasmer-darwin-amd64.tar.gz",
+                .collect::<Vec<_>>(),
+            vec![&Path::new("/test/wasmer-darwin-amd64.tar.gz")],
         );
 
         assert_eq!(
             paths
                 .iter()
-                .find(|p| crate::commands::utils::filter_tarball(
+                .filter(|p| crate::commands::utils::filter_tarball(
                     p,
                     &Triple::from_str("x86_64-unknown-linux-gnu").unwrap()
                 ))
-                .unwrap()
-                .to_str()
-                .unwrap(),
-            "/test/wasmer-linux-amd64.tar.gz",
+                .collect::<Vec<_>>(),
+            vec![&Path::new("/test/wasmer-linux-amd64.tar.gz")],
         );
 
         assert_eq!(
             paths
                 .iter()
-                .find(|p| crate::commands::utils::filter_tarball(
+                .filter(|p| crate::commands::utils::filter_tarball(
                     p,
                     &Triple::from_str("x86_64-linux-gnu").unwrap()
                 ))
-                .unwrap()
-                .to_str()
-                .unwrap(),
-            "/test/wasmer-linux-amd64.tar.gz",
+                .collect::<Vec<_>>(),
+            vec![&Path::new("/test/wasmer-linux-amd64.tar.gz")],
         );
 
         assert_eq!(
             paths
                 .iter()
-                .find(|p| crate::commands::utils::filter_tarball(
+                .filter(|p| crate::commands::utils::filter_tarball(
                     p,
                     &Triple::from_str("aarch64-linux-gnu").unwrap()
                 ))
-                .unwrap()
-                .to_str()
-                .unwrap(),
-            "/test/wasmer-linux-aarch64.tar.gz",
+                .collect::<Vec<_>>(),
+            vec![&Path::new("/test/wasmer-linux-aarch64.tar.gz")],
         );
 
         assert_eq!(
             paths
                 .iter()
-                .find(|p| crate::commands::utils::filter_tarball(
+                .filter(|p| crate::commands::utils::filter_tarball(
                     p,
                     &Triple::from_str("x86_64-windows-gnu").unwrap()
                 ))
-                .unwrap()
-                .to_str()
-                .unwrap(),
-            "/test/wasmer-windows-gnu64.tar.gz",
+                .collect::<Vec<_>>(),
+            vec![&Path::new("/test/wasmer-windows-gnu64.tar.gz")],
         );
 
         assert_eq!(
             paths
                 .iter()
-                .find(|p| crate::commands::utils::filter_tarball(
+                .filter(|p| crate::commands::utils::filter_tarball(
                     p,
                     &Triple::from_str("aarch64-darwin").unwrap()
                 ))
-                .unwrap()
-                .to_str()
-                .unwrap(),
-            "/test/wasmer-darwin-arm64.tar.gz",
+                .collect::<Vec<_>>(),
+            vec![&Path::new("/test/wasmer-darwin-arm64.tar.gz")],
         );
     }
     #[test]
@@ -1977,7 +1969,6 @@ mod http_fetch {
     use http_req::{request::Request, response::StatusCode, uri::Uri};
     use std::convert::TryFrom;
     use std::path::Path;
-    use target_lexicon::OperatingSystem;
 
     pub(super) fn get_latest_release() -> Result<serde_json::Value> {
         let mut writer = Vec::new();
@@ -2030,44 +2021,6 @@ mod http_fetch {
         mut release: serde_json::Value,
         target_triple: wasmer::Triple,
     ) -> Result<std::path::PathBuf> {
-        let check_arch = |name: &str| -> bool {
-            match target_triple.architecture {
-                wasmer_types::Architecture::X86_64 => {
-                    name.contains("x86_64") || name.contains("amd64")
-                }
-                wasmer_types::Architecture::Aarch64(wasmer_types::Aarch64Architecture::Aarch64) => {
-                    name.contains("arm64") || name.contains("aarch64")
-                }
-                _ => false,
-            }
-        };
-
-        let check_vendor = |name: &str| -> bool {
-            match target_triple.vendor {
-                wasmer_types::Vendor::Apple => {
-                    name.contains("apple") || name.contains("macos") || name.contains("darwin")
-                }
-                wasmer_types::Vendor::Pc => name.contains("windows"),
-                _ => true,
-            }
-        };
-        let check_os = |name: &str| -> bool {
-            match target_triple.operating_system {
-                wasmer_types::OperatingSystem::Darwin => {
-                    name.contains("apple") || name.contains("darwin") || name.contains("macos")
-                }
-                wasmer_types::OperatingSystem::Windows => name.contains("windows"),
-                wasmer_types::OperatingSystem::Linux => name.contains("linux"),
-                _ => false,
-            }
-        };
-        let check_env = |name: &str| -> bool {
-            match target_triple.environment {
-                wasmer_types::Environment::Musl => name.contains("musl"),
-                _ => !name.contains("musl"),
-            }
-        };
-
         // Test if file has been already downloaded
         if let Ok(mut cache_path) = super::utils::get_libwasmer_cache_path() {
             let paths = std::fs::read_dir(&cache_path).and_then(|r| {
@@ -2077,22 +2030,7 @@ mod http_fetch {
 
             if let Ok(mut entries) = paths {
                 entries.retain(|p| p.to_str().map(|p| p.ends_with(".tar.gz")).unwrap_or(false));
-
-                // create-exe on Windows is special: we use the windows-gnu64.tar.gz (GNU ABI)
-                // to link, not the windows-amd64.tar.gz (MSVC ABI)
-                if target_triple.operating_system == OperatingSystem::Windows {
-                    entries.retain(|p| {
-                        p.to_str()
-                            .map(|p| p.contains("windows") && p.contains("gnu64"))
-                            .unwrap_or(false)
-                    });
-                } else {
-                    entries.retain(|p| p.to_str().map(|p| check_arch(p)).unwrap_or(true));
-                    entries.retain(|p| p.to_str().map(|p| check_vendor(p)).unwrap_or(true));
-                    entries.retain(|p| p.to_str().map(|p| check_os(p)).unwrap_or(true));
-                    entries.retain(|p| p.to_str().map(|p| check_env(p)).unwrap_or(true));
-                }
-
+                entries.retain(|p| super::utils::filter_tarball(p, &target_triple));
                 if !entries.is_empty() {
                     cache_path.push(&entries[0]);
                     if cache_path.exists() {
@@ -2115,48 +2053,13 @@ mod http_fetch {
             }
         };
 
-        // create-exe on Windows is special: we use the windows-gnu64.tar.gz (GNU ABI)
-        // to link, not the windows-amd64.tar.gz (MSVC ABI)
-        if target_triple.operating_system == OperatingSystem::Windows {
-            assets.retain(|a| {
-                if let Some(name) = a["name"].as_str() {
-                    name.contains("windows") && name.contains("gnu64")
-                } else {
-                    false
-                }
-            });
-        } else {
-            assets.retain(|a| {
-                if let Some(name) = a["name"].as_str() {
-                    check_arch(name)
-                } else {
-                    false
-                }
-            });
-            assets.retain(|a| {
-                if let Some(name) = a["name"].as_str() {
-                    check_vendor(name)
-                } else {
-                    false
-                }
-            });
-
-            assets.retain(|a| {
-                if let Some(name) = a["name"].as_str() {
-                    check_os(name)
-                } else {
-                    false
-                }
-            });
-
-            assets.retain(|a| {
-                if let Some(name) = a["name"].as_str() {
-                    check_env(name)
-                } else {
-                    false
-                }
-            });
-        }
+        assets.retain(|a| {
+            let name = match a["name"].as_str() {
+                Some(s) => s,
+                None => return false,
+            };
+            super::utils::filter_tarball(Path::new(&name), &target_triple)
+        });
 
         if assets.len() != 1 {
             return Err(anyhow!(
@@ -2245,7 +2148,6 @@ mod http_fetch {
     }
 
     pub(super) fn untar(tarball: &Path, target: &Path) -> Result<Vec<PathBuf>> {
-        println!("unzipping {} into {}", tarball.display(), target.display());
         wasmer_registry::try_unpack_targz(tarball, target, false)?;
         Ok(list_dir(target))
     }
