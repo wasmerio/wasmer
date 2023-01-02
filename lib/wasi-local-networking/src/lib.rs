@@ -430,6 +430,10 @@ impl VirtualConnectedSocket for LocalTcpStream {
         work.await.map_err(io_err_into_net_error)
     }
 
+    fn close(&mut self) -> Result<()> {
+        Ok(())
+    }
+
     async fn recv(&mut self) -> Result<SocketReceive> {
         use tokio::io::AsyncReadExt;
         let max_buf_size = 8192;
@@ -901,6 +905,10 @@ impl VirtualConnectedSocket for LocalUdpSocket {
     }
 
     async fn flush(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    fn close(&mut self) -> Result<()> {
         Ok(())
     }
 

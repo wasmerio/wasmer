@@ -327,6 +327,9 @@ pub trait VirtualConnectedSocket: VirtualSocket + fmt::Debug + Send + Sync + 'st
     /// FLushes all the datagrams
     async fn flush(&mut self) -> Result<()>;
 
+    /// Closes the socket
+    fn close(&mut self) -> Result<()>;
+
     /// Recv a packet from the socket
     async fn recv(&mut self) -> Result<SocketReceive>;
 

@@ -1,6 +1,7 @@
 use std::{
     future::Future,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    ops::DerefMut,
     pin::Pin,
     sync::{Arc, RwLock},
     time::Duration,
@@ -11,8 +12,8 @@ use bytes::{Buf, Bytes};
 use serde_derive::{Deserialize, Serialize};
 use wasmer_types::MemorySize;
 use wasmer_vnet::{
-    DynVirtualNetworking, TimeType, VirtualIcmpSocket, VirtualRawSocket, VirtualTcpListener,
-    VirtualTcpSocket, VirtualUdpSocket, VirtualWebSocket,
+    DynVirtualNetworking, TimeType, VirtualConnectedSocket, VirtualIcmpSocket, VirtualRawSocket,
+    VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket, VirtualWebSocket,
 };
 use wasmer_wasi_types::wasi::{
     Addressfamily, Errno, Fdflags, Rights, SockProto, Sockoption, Socktype,
@@ -288,6 +289,52 @@ impl InodeSocket {
             _ => Err(Errno::Notsup),
         }?;
         Ok((sock, addr))
+    }
+
+    pub fn close(&self) -> Result<(), Errno> {
+        let mut inner = self.inner.write().unwrap();
+        match &mut inner.kind {
+            InodeSocketKind::TcpListener(_) => {}
+            InodeSocketKind::TcpStream(sock) => {
+                sock.close().map_err(net_error_into_wasi_err)?;
+            }
+            InodeSocketKind::Icmp(_) => {}
+            InodeSocketKind::UdpSocket(sock) => {
+                sock.close().map_err(net_error_into_wasi_err)?;
+            }
+            InodeSocketKind::WebSocket(_) => {}
+            InodeSocketKind::Raw(_) => {}
+            InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
+            InodeSocketKind::Closed => return Err(Errno::Notconn),
+        };
+        Ok(())
+    }
+
+    pub async fn flush(&self) -> Result<(), Errno> {
+        let mut inner = self.inner.write().unwrap();
+        match &mut inner.kind {
+            InodeSocketKind::TcpListener(_) => {}
+            InodeSocketKind::TcpStream(sock) => {
+                VirtualTcpSocket::flush(sock.deref_mut())
+                    .await
+                    .map_err(net_error_into_wasi_err)?;
+            }
+            InodeSocketKind::Icmp(_) => {}
+            InodeSocketKind::UdpSocket(sock) => {
+                VirtualConnectedSocket::flush(sock.as_mut())
+                    .await
+                    .map_err(net_error_into_wasi_err)?;
+            }
+            InodeSocketKind::WebSocket(_) => {}
+            InodeSocketKind::Raw(sock) => {
+                VirtualRawSocket::flush(sock.deref_mut())
+                    .await
+                    .map_err(net_error_into_wasi_err)?;
+            }
+            InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
+            InodeSocketKind::Closed => return Err(Errno::Notconn),
+        };
+        Ok(())
     }
 
     pub async fn connect(
