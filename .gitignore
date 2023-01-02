@@ -20,3 +20,7 @@ wasmer.toml
 /core
 /vendor
 out.txt
+wapm.toml
+build-capi.tar.gz
+build-wasmer.tar.gz
+lcov.info
