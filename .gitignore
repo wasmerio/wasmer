@@ -18,3 +18,7 @@ wasmer.toml
 /avd
 /core
 out.txt
+wapm.toml
+build-capi.tar.gz
+build-wasmer.tar.gz
+lcov.info
