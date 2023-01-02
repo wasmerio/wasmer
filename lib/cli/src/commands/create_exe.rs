@@ -1549,8 +1549,7 @@ pub(super) mod utils {
                                 None
                             }
                         })
-                        .filter_map(|p| filter_tarballs(&p, target))
-                        .next()
+                        .find(|p| crate::commands::utils::filter_tarball(p, &target))
                 };
 
                 if let Some(local) = local {
@@ -1576,6 +1575,54 @@ pub(super) mod utils {
             library,
         };
         Ok(ccs)
+    }
+
+    pub(super) fn filter_tarball(p: &Path, target: &Triple) -> bool {
+        filter_tarball_internal(p, target).unwrap_or(false)
+    }
+
+    fn filter_tarball_internal(p: &Path, target: &Triple) -> Option<bool> {
+        if let Architecture::Aarch64(_) = target.architecture {
+            if !(p.file_name()?.to_str()?.contains("aarch64")
+                || p.file_name()?.to_str()?.contains("arm64"))
+            {
+                return None;
+            }
+        }
+
+        if let Architecture::X86_64 = target.architecture {
+            if target.operating_system == OperatingSystem::Windows {
+                if !p.file_name()?.to_str()?.contains("gnu64") {
+                    return None;
+                }
+            } else if !(p.file_name()?.to_str()?.contains("x86_64")
+                || p.file_name()?.to_str()?.contains("amd64"))
+            {
+                return None;
+            }
+        }
+
+        if let OperatingSystem::Windows = target.operating_system {
+            if !p.file_name()?.to_str()?.contains("windows") {
+                return None;
+            }
+        }
+
+        if let OperatingSystem::Darwin = target.operating_system {
+            if !(p.file_name()?.to_str()?.contains("apple")
+                || p.file_name()?.to_str()?.contains("darwin"))
+            {
+                return None;
+            }
+        }
+
+        if let OperatingSystem::Linux = target.operating_system {
+            if !p.file_name()?.to_str()?.contains("linux") {
+                return None;
+            }
+        }
+
+        Some(true)
     }
 
     pub(super) fn find_filename(
@@ -1614,47 +1661,6 @@ pub(super) mod utils {
         .ok_or_else(|| {
             anyhow!("Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})", target)
         })
-    }
-
-    pub(super) fn filter_tarballs(p: &Path, target: &Triple) -> Option<PathBuf> {
-        if let Architecture::Aarch64(_) = target.architecture {
-            if !(p.file_name()?.to_str()?.contains("aarch64")
-                || p.file_name()?.to_str()?.contains("-arm"))
-            {
-                return None;
-            }
-        }
-
-        if let Architecture::X86_64 = target.architecture {
-            if !(p.file_name()?.to_str()?.contains("x86_64")
-                || p.file_name()?.to_str()?.contains("-gnu64")
-                || p.file_name()?.to_str()?.contains("amd64"))
-            {
-                return None;
-            }
-        }
-
-        if let OperatingSystem::Windows = target.operating_system {
-            if !p.file_name()?.to_str()?.contains("windows") {
-                return None;
-            }
-        }
-
-        if let OperatingSystem::Darwin = target.operating_system {
-            if !(p.file_name()?.to_str()?.contains("apple")
-                || p.file_name()?.to_str()?.contains("darwin"))
-            {
-                return None;
-            }
-        }
-
-        if let OperatingSystem::Linux = target.operating_system {
-            if !p.file_name()?.to_str()?.contains("linux") {
-                return None;
-            }
-        }
-
-        Some(p.to_path_buf())
     }
 
     pub(super) fn normalize_atom_name(s: &str) -> String {
@@ -1824,23 +1830,139 @@ pub(super) mod utils {
     }
 
     #[test]
-    fn test_filter_tarballs() -> Result<(), anyhow::Error> {
+    fn test_filter_tarball() {
         use std::str::FromStr;
-        let paths = &[
-            "/test/.wasmer/cache/wasmer-darwin-amd64.tar.gz",
-            "/test/.wasmer/cache/wasmer-darwin-arm64.tar.gz",
-            "/test/.wasmer/cache/wasmer-linux-amd64.tar.gz",
+        let test_paths = vec![
+            "/test/wasmer-darwin-amd64.tar.gz",
+            "/test/wasmer-darwin-arm64.tar.gz",
+            "/test/wasmer-linux-aarch64.tar.gz",
+            "/test/wasmer-linux-amd64.tar.gz",
+            "/test/wasmer-linux-musl-amd64.tar.gz",
+            "/test/wasmer-windows-amd64.tar.gz",
+            "/test/wasmer-windows-gnu64.tar.gz",
+            "/test/wasmer-windows.exe",
         ];
-        let paths = paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
-        let t1 = Triple::from_str("x86_64-linux-gnu").unwrap();
-        let linux = paths.iter().find_map(|p| filter_tarballs(p, &t1)).unwrap();
-        assert_eq!(
-            format!("{}", linux.display()),
-            "/test/.wasmer/cache/wasmer-linux-amd64.tar.gz".to_string()
-        );
-        Ok(())
-    }
 
+        let paths = test_paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
+        assert_eq!(
+            paths
+                .iter()
+                .find(|p| crate::commands::utils::filter_tarball(
+                    p,
+                    &Triple::from_str("x86_64-windows").unwrap()
+                ))
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "/test/wasmer-windows-gnu64.tar.gz",
+        );
+
+        let paths = test_paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
+        assert_eq!(
+            paths
+                .iter()
+                .find(|p| crate::commands::utils::filter_tarball(
+                    p,
+                    &Triple::from_str("x86_64-windows-gnu").unwrap()
+                ))
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "/test/wasmer-windows-gnu64.tar.gz",
+        );
+
+        let paths = test_paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
+        assert_eq!(
+            paths
+                .iter()
+                .find(|p| crate::commands::utils::filter_tarball(
+                    p,
+                    &Triple::from_str("x86_64-windows-msvc").unwrap()
+                ))
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "/test/wasmer-windows-gnu64.tar.gz",
+        );
+
+        assert_eq!(
+            paths
+                .iter()
+                .find(|p| crate::commands::utils::filter_tarball(
+                    p,
+                    &Triple::from_str("x86_64-darwin").unwrap()
+                ))
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "/test/wasmer-darwin-amd64.tar.gz",
+        );
+
+        assert_eq!(
+            paths
+                .iter()
+                .find(|p| crate::commands::utils::filter_tarball(
+                    p,
+                    &Triple::from_str("x86_64-unknown-linux-gnu").unwrap()
+                ))
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "/test/wasmer-linux-amd64.tar.gz",
+        );
+
+        assert_eq!(
+            paths
+                .iter()
+                .find(|p| crate::commands::utils::filter_tarball(
+                    p,
+                    &Triple::from_str("x86_64-linux-gnu").unwrap()
+                ))
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "/test/wasmer-linux-amd64.tar.gz",
+        );
+
+        assert_eq!(
+            paths
+                .iter()
+                .find(|p| crate::commands::utils::filter_tarball(
+                    p,
+                    &Triple::from_str("aarch64-linux-gnu").unwrap()
+                ))
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "/test/wasmer-linux-aarch64.tar.gz",
+        );
+
+        assert_eq!(
+            paths
+                .iter()
+                .find(|p| crate::commands::utils::filter_tarball(
+                    p,
+                    &Triple::from_str("x86_64-windows-gnu").unwrap()
+                ))
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "/test/wasmer-windows-gnu64.tar.gz",
+        );
+
+        assert_eq!(
+            paths
+                .iter()
+                .find(|p| crate::commands::utils::filter_tarball(
+                    p,
+                    &Triple::from_str("aarch64-darwin").unwrap()
+                ))
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "/test/wasmer-darwin-arm64.tar.gz",
+        );
+    }
     #[test]
     fn test_normalize_atom_name() {
         assert_eq!(
