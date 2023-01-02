@@ -402,7 +402,7 @@ pub(super) fn compile_pirita_into_directory(
     let prefix_map = PrefixMapCompilation::from_input(&atoms_from_file, prefixes, false)
         .with_context(|| anyhow::anyhow!("compile_pirita_into_directory"))?;
 
-    let module_infos = conpile_atoms(
+    let module_infos = compile_atoms(
         &atoms_from_file,
         &target_dir.join("atoms"),
         compiler,
@@ -664,7 +664,7 @@ fn test_split_prefix() {
     );
 }
 
-fn conpile_atoms(
+fn compile_atoms(
     atoms: &[(String, Vec<u8>)],
     output_dir: &Path,
     compiler: &CompilerOptions,
@@ -867,7 +867,7 @@ pub(super) fn prepare_directory_from_single_wasm_file(
     let prefix_map = PrefixMapCompilation::from_input(&atoms_from_file, prefix, false)
         .with_context(|| anyhow::anyhow!("prepare_directory_from_single_wasm_file"))?;
 
-    let module_infos = conpile_atoms(
+    let module_infos = compile_atoms(
         &atoms_from_file,
         &target_dir.join("atoms"),
         compiler,
