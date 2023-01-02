@@ -5,6 +5,7 @@ use std::fs;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::process::Command;
+use tempfile::TempDir;
 use wasmer_integration_tests_cli::*;
 
 fn create_exe_wabt_path() -> String {
@@ -142,6 +143,112 @@ impl WasmerCreateObj {
         }
         Ok(output.stdout)
     }
+}
+
+#[test]
+fn test_create_exe_with_pirita_works_1() {
+    let tempdir = TempDir::new().unwrap();
+    let path = tempdir.path();
+    let wasm_out = path.join("out.obj");
+    let cmd = Command::new(get_wasmer_path())
+        .arg("create-obj")
+        .arg(create_exe_wabt_path())
+        .arg("-o")
+        .arg(&wasm_out)
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&cmd.stderr);
+
+    assert_eq!(stderr.lines().map(|s| s.trim().to_string()).collect::<Vec<_>>(), vec![
+        format!("error: cannot compile more than one atom at a time"),
+        format!("│   1: note: use --atom <ATOM> to specify which atom to compile"),
+        format!("╰─▶ 2: where <ATOM> is one of: wabt, wasm-interp, wasm-strip, wasm-validate, wasm2wat, wast2json, wat2wasm"),
+    ]);
+
+    assert!(!cmd.status.success());
+
+    let cmd = Command::new(get_wasmer_path())
+        .arg("create-obj")
+        .arg(create_exe_wabt_path())
+        .arg("--atom")
+        .arg("wasm2wat")
+        .arg("-o")
+        .arg(&wasm_out)
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&cmd.stderr);
+
+    let real_out = wasm_out.canonicalize().unwrap().display().to_string();
+    let real_out = real_out
+        .strip_prefix(r"\\?\")
+        .unwrap_or(&real_out)
+        .to_string();
+    assert_eq!(
+        stderr
+            .lines()
+            .map(|s| s.trim().to_string())
+            .collect::<Vec<_>>(),
+        vec![format!("✔ Object compiled successfully to `{real_out}`"),]
+    );
+
+    assert!(cmd.status.success());
+}
+
+#[test]
+fn test_create_exe_with_precompiled_works_1() {
+    use object::{Object, ObjectSymbol};
+
+    let tempdir = TempDir::new().unwrap();
+    let path = tempdir.path();
+    let wasm_out = path.join("out.obj");
+    let _ = Command::new(get_wasmer_path())
+        .arg("create-obj")
+        .arg(create_exe_test_wasm_path())
+        .arg("--prefix")
+        .arg("sha123123")
+        .arg("-o")
+        .arg(&wasm_out)
+        .output()
+        .unwrap();
+
+    let file = std::fs::read(&wasm_out).unwrap();
+    let obj_file = object::File::parse(&*file).unwrap();
+    let names = obj_file
+        .symbols()
+        .filter_map(|s| Some(s.name().ok()?.to_string()))
+        .collect::<Vec<_>>();
+
+    assert!(
+        names.contains(&"_wasmer_function_sha123123_1".to_string())
+            || names.contains(&"wasmer_function_sha123123_1".to_string())
+    );
+
+    let _ = Command::new(get_wasmer_path())
+        .arg("create-obj")
+        .arg(create_exe_test_wasm_path())
+        .arg("-o")
+        .arg(&wasm_out)
+        .output()
+        .unwrap();
+
+    let file = std::fs::read(&wasm_out).unwrap();
+    let obj_file = object::File::parse(&*file).unwrap();
+    let names = obj_file
+        .symbols()
+        .filter_map(|s| Some(s.name().ok()?.to_string()))
+        .collect::<Vec<_>>();
+
+    assert!(
+        names.contains(
+            &"_wasmer_function_6f62a6bc5c8f8e3e12a54e2ecbc5674ccfe1c75f91d8e4dd6ebb3fec422a4d6c_1"
+                .to_string()
+        ) || names.contains(
+            &"wasmer_function_6f62a6bc5c8f8e3e12a54e2ecbc5674ccfe1c75f91d8e4dd6ebb3fec422a4d6c_1"
+                .to_string()
+        )
+    );
 }
 
 #[test]

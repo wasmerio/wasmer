@@ -4540,6 +4540,7 @@ version = "3.1.0"
 dependencies = [
  "anyhow",
  "flate2",
+ "object 0.30.0",
  "pretty_assertions",
  "rand 0.8.5",
  "tar",
