@@ -1206,8 +1206,6 @@ fn link_exe_from_dir(
         cmd.args(files_winsdk);
     }
 
-    println!("{cmd:?}");
-
     let compilation = cmd
         .stdout(std::process::Stdio::inherit())
         .stderr(std::process::Stdio::inherit())
@@ -1517,56 +1515,40 @@ pub(super) mod utils {
 
         let library = if let Some(v) = cross_subc.library_path.clone() {
             Some(v.canonicalize().unwrap_or(v))
+        } else if let Some(local_tarball) = cross_subc.tarball.as_ref() {
+            let (filename, tarball_dir) = find_filename(local_tarball, target)?;
+            Some(tarball_dir.join(&filename))
         } else {
-            if let Some(local_tarball) = cross_subc.tarball.as_ref() {
-                find_filename(local_tarball, target)
-            } else {
-                // check WASMER_DIR if Target = native
-                let mut local = None;
+            // check if the tarball for the target already exists locally
+            let local_tarball = std::fs::read_dir(
                 if *target_triple == Triple::host() && std::env::var("WASMER_DIR").is_ok() {
-                    let wasmer_dir = wasmer_registry::WasmerConfig::get_wasmer_dir().ok();
-                    if let Some(library) = wasmer_dir.as_ref().and_then(|wasmer_dir| {
-                        find_libwasmer_in_files(target, &super::http_fetch::list_dir(wasmer_dir))
-                            .ok()
-                    }) {
-                        if Path::new(&library).exists() {
-                            local = Some((
-                                Path::new(&library).canonicalize().unwrap(),
-                                wasmer_dir.unwrap(),
-                            ));
-                        }
-                    }
-                }
-
-                // check if the tarball for the target already exists locally
-                let local_tarball = if local.is_some() {
+                    wasmer_registry::WasmerConfig::get_wasmer_dir()
+                        .map_err(|e| anyhow::anyhow!("{e}"))?
+                        .join("cache")
+                } else {
+                    get_libwasmer_cache_path()?
+                },
+            )?
+            .filter_map(|e| e.ok())
+            .filter_map(|e| {
+                let path = format!("{}", e.path().display());
+                if path.ends_with(".tar.gz") {
+                    Some(e.path())
+                } else {
                     None
-                } else {
-                    std::fs::read_dir(get_libwasmer_cache_path()?)?
-                        .filter_map(|e| e.ok())
-                        .filter_map(|e| {
-                            let path = format!("{}", e.path().display());
-                            if path.ends_with(".tar.gz") {
-                                Some(e.path())
-                            } else {
-                                None
-                            }
-                        })
-                        .find(|p| crate::commands::utils::filter_tarball(p, target))
-                };
-
-                if let Some(local) = local {
-                    Ok(local)
-                } else if let Some(local_tarball) = local_tarball.as_ref() {
-                    find_filename(local_tarball, target)
-                } else {
-                    let release = super::http_fetch::get_latest_release()?;
-                    let tarball = super::http_fetch::download_release(release, target.clone())?;
-                    find_filename(&tarball, target)
                 }
+            })
+            .find(|p| crate::commands::utils::filter_tarball(p, target));
+
+            if let Some(local_tarball) = local_tarball.as_ref() {
+                let (filename, tarball_dir) = find_filename(local_tarball, target)?;
+                Some(tarball_dir.join(&filename))
+            } else {
+                let release = super::http_fetch::get_latest_release()?;
+                let tarball = super::http_fetch::download_release(release, target.clone())?;
+                let (filename, tarball_dir) = find_filename(&tarball, target)?;
+                Some(tarball_dir.join(&filename))
             }
-            .ok()
-            .map(|(filename, tarball_dir)| tarball_dir.join(&filename))
         };
 
         let library =
@@ -1655,7 +1637,14 @@ pub(super) mod utils {
         std::fs::create_dir_all(&target_file_path)
             .map_err(|e| anyhow::anyhow!("{e}"))
             .with_context(|| anyhow::anyhow!("{}", target_file_path.display()))?;
-        let files = super::http_fetch::untar(local_tarball, &target_file_path)?;
+        let files =
+            super::http_fetch::untar(local_tarball, &target_file_path).with_context(|| {
+                anyhow::anyhow!(
+                    "{} -> {}",
+                    local_tarball.display(),
+                    target_file_path.display()
+                )
+            })?;
         let tarball_dir = target_file_path.canonicalize().unwrap_or(target_file_path);
         let file = find_libwasmer_in_files(target, &files)?;
         Ok((file, tarball_dir))
@@ -1958,6 +1947,52 @@ pub(super) mod utils {
             vec![&Path::new("/test/wasmer-darwin-arm64.tar.gz")],
         );
     }
+
+    #[test]
+    fn test_setup() {
+        use std::str::FromStr;
+        let setup = get_cross_compile_setup(
+            &mut CrossCompile::default(),
+            &Triple::from_str("x86_64-unknown-linux-gnu").unwrap(),
+            &Path::new("/tmp"),
+            &ObjectFormat::Symbols,
+        )
+        .unwrap();
+
+        let library_str = format!("{}", setup.library.display());
+        let err = format!("failed to get linux-amd64.tar.gz: {library_str}");
+        let s = Box::leak(err.into_boxed_str()) as &'static str;
+        assert!(library_str.contains("linux-amd64"), s);
+    }
+
+    #[test]
+    fn test_download_again() {
+        use std::str::FromStr;
+        let triple = Triple::from_str("x86_64-unknown-linux-gnu").unwrap();
+        get_cross_compile_setup(
+            &mut CrossCompile::default(),
+            &triple,
+            &Path::new("/tmp"),
+            &ObjectFormat::Symbols,
+        )
+        .unwrap();
+        get_cross_compile_setup(
+            &mut CrossCompile::default(),
+            &triple,
+            &Path::new("/tmp"),
+            &ObjectFormat::Symbols,
+        )
+        .unwrap();
+        let ccs = get_cross_compile_setup(
+            &mut CrossCompile::default(),
+            &triple,
+            &Path::new("/tmp"),
+            &ObjectFormat::Symbols,
+        )
+        .unwrap();
+        println!("{:#?}", ccs);
+    }
+
     #[test]
     fn test_normalize_atom_name() {
         assert_eq!(
@@ -2151,6 +2186,7 @@ mod http_fetch {
     }
 
     pub(super) fn untar(tarball: &Path, target: &Path) -> Result<Vec<PathBuf>> {
+        let _ = std::fs::remove_dir(target);
         wasmer_registry::try_unpack_targz(tarball, target, false)?;
         Ok(list_dir(target))
     }

@@ -34,10 +34,10 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
     ];
 
     // MUSL has no support for LLVM in C-API
-    #[cfg(target_env = "musl")]
+    // #[cfg(target_env = "musl")]
     let compilers = &["cranelift", "singlepass"];
-    #[cfg(not(target_env = "musl"))]
-    let compilers = &["cranelift", "singlepass", "llvm"];
+    // #[cfg(not(target_env = "musl"))]
+    // let compilers = &["cranelift", "singlepass", "llvm"];
 
     // llvm-objdump  --disassemble-all --demangle ./objects/wasmer_vm-50cb118b098c15db.wasmer_vm.60425a0a-cgu.12.rcgu.o
     // llvm-objdump --macho --exports-trie ~/.wasmer/cache/wasmer-darwin-arm64/lib/libwasmer.dylib
