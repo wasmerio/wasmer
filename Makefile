@@ -98,7 +98,7 @@ CARGO_TARGET ?=
 CARGO_TARGET_STR ?=
 
 ifneq ($(CARGO_TARGET),)
-CARGO_TARGET_STR := --target $(CARGO_TARGET_STR)
+CARGO_TARGET_STR := --target $(CARGO_TARGET)
 endif
 
 # Variables that can be overridden by the users to force to enable or
