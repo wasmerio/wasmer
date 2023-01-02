@@ -214,19 +214,22 @@ where
 {
     let mut env = ctx.data();
 
-    /*
+    // Check if we need to exit the asynchronous loop
+    if env.should_exit().is_some() {
+        return Ok(Err(Errno::Intr));
+    }
+
     // Fast path (inline synchronous)
-    {
-        let _guard = env.tasks.enter();
+    let pinned_work = {
+        let _guard = env.tasks.runtime_enter();
         let waker = WasiDummyWaker.into_waker();
         let mut cx = Context::from_waker(&waker);
-        let pinned_work = Box::pin(work);
-        let mut pinned_work = pinned_work.as_mut();
-        if let Poll::Ready(i) = pinned_work.poll(&mut cx) {
-            return i;
+        let mut pinned_work = Box::pin(work);
+        if let Poll::Ready(i) = pinned_work.as_mut().poll(&mut cx) {
+            return Ok(i);
         }
-    }
-    */
+        pinned_work
+    };
 
     // Slow path (will may put the thread to sleep)
     //let mut env = ctx.data();
@@ -261,18 +264,13 @@ where
         signaler
     };
 
-    // Check if we need to exit the asynchronous loop
-    if env.should_exit().is_some() {
-        return Ok(Err(Errno::Intr));
-    }
-
     // Block on the work and process process
     let tasks_inner = tasks.clone();
     tasks.block_on(async move {
         Ok(tokio::select! {
             // The main work we are doing
-            ret = work => ret,
-            // If a signaller is triggered then we interrupt the main process
+            ret = pinned_work => ret,
+            // If a signaler is triggered then we interrupt the main process
             _ = signaler.recv() => {
                 ctx.data().clone().process_signals(ctx)?;
                 Err(Errno::Intr)
