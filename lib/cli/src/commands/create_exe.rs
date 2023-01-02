@@ -417,8 +417,7 @@ impl CreateExe {
                                     None
                                 }
                             })
-                            .filter_map(|p| Self::filter_tarballs(&p, &target))
-                            .next();
+                            .find(|p| Self::filter_tarball(p, &target));
 
                         if let Some(local_tarball) = local_tarball.as_ref() {
                             Self::find_filename(local_tarball, &target)
@@ -472,15 +471,27 @@ impl CreateExe {
         Ok((file, tarball_dir))
     }
 
-    fn filter_tarballs(p: &Path, target: &Triple) -> Option<PathBuf> {
+    fn filter_tarball(p: &Path, target: &Triple) -> bool {
+        Self::filter_tarball_internal(p, target).unwrap_or(false)
+    }
+
+    fn filter_tarball_internal(p: &Path, target: &Triple) -> Option<bool> {
         if let Architecture::Aarch64(_) = target.architecture {
-            if !p.file_name()?.to_str()?.contains("aarch64") {
+            if !(p.file_name()?.to_str()?.contains("aarch64")
+                || p.file_name()?.to_str()?.contains("arm64"))
+            {
                 return None;
             }
         }
 
         if let Architecture::X86_64 = target.architecture {
-            if !p.file_name()?.to_str()?.contains("x86_64") {
+            if target.operating_system == OperatingSystem::Windows {
+                if !p.file_name()?.to_str()?.contains("gnu64") {
+                    return None;
+                }
+            } else if !(p.file_name()?.to_str()?.contains("x86_64")
+                || p.file_name()?.to_str()?.contains("amd64"))
+            {
                 return None;
             }
         }
@@ -505,7 +516,7 @@ impl CreateExe {
             }
         }
 
-        Some(p.to_path_buf())
+        Some(true)
     }
 
     fn compile_c(
@@ -1721,4 +1732,111 @@ fn find_zig_binary(path: Option<PathBuf>) -> Result<PathBuf> {
     } else {
         Ok(retval)
     }
+}
+
+#[test]
+fn test_filter_tarball() {
+    use std::str::FromStr;
+    let test_paths = vec![
+        "/test/wasmer-darwin-amd64.tar.gz",
+        "/test/wasmer-darwin-arm64.tar.gz",
+        "/test/wasmer-linux-aarch64.tar.gz",
+        "/test/wasmer-linux-amd64.tar.gz",
+        "/test/wasmer-linux-musl-amd64.tar.gz",
+        "/test/wasmer-windows-amd64.tar.gz",
+        "/test/wasmer-windows-gnu64.tar.gz",
+        "/test/wasmer-windows.exe",
+    ];
+
+    let paths = test_paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
+    assert_eq!(
+        paths
+            .iter()
+            .find(|p| CreateExe::filter_tarball(p, &Triple::from_str("x86_64-windows").unwrap()))
+            .unwrap()
+            .to_str()
+            .unwrap(),
+        "/test/wasmer-windows-gnu64.tar.gz",
+    );
+
+    let paths = test_paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
+    assert_eq!(
+        paths
+            .iter()
+            .find(|p| CreateExe::filter_tarball(
+                p,
+                &Triple::from_str("x86_64-windows-gnu").unwrap()
+            ))
+            .unwrap()
+            .to_str()
+            .unwrap(),
+        "/test/wasmer-windows-gnu64.tar.gz",
+    );
+
+    let paths = test_paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
+    assert_eq!(
+        paths
+            .iter()
+            .find(|p| CreateExe::filter_tarball(
+                p,
+                &Triple::from_str("x86_64-windows-msvc").unwrap()
+            ))
+            .unwrap()
+            .to_str()
+            .unwrap(),
+        "/test/wasmer-windows-gnu64.tar.gz",
+    );
+
+    assert_eq!(
+        paths
+            .iter()
+            .find(|p| CreateExe::filter_tarball(p, &Triple::from_str("x86_64-darwin").unwrap()))
+            .unwrap()
+            .to_str()
+            .unwrap(),
+        "/test/wasmer-darwin-amd64.tar.gz",
+    );
+
+    assert_eq!(
+        paths
+            .iter()
+            .find(|p| CreateExe::filter_tarball(p, &Triple::from_str("x86_64-linux-gnu").unwrap()))
+            .unwrap()
+            .to_str()
+            .unwrap(),
+        "/test/wasmer-linux-amd64.tar.gz",
+    );
+
+    assert_eq!(
+        paths
+            .iter()
+            .find(|p| CreateExe::filter_tarball(p, &Triple::from_str("aarch64-linux-gnu").unwrap()))
+            .unwrap()
+            .to_str()
+            .unwrap(),
+        "/test/wasmer-linux-aarch64.tar.gz",
+    );
+
+    assert_eq!(
+        paths
+            .iter()
+            .find(|p| CreateExe::filter_tarball(
+                p,
+                &Triple::from_str("x86_64-windows-gnu").unwrap()
+            ))
+            .unwrap()
+            .to_str()
+            .unwrap(),
+        "/test/wasmer-windows-gnu64.tar.gz",
+    );
+
+    assert_eq!(
+        paths
+            .iter()
+            .find(|p| CreateExe::filter_tarball(p, &Triple::from_str("aarch64-darwin").unwrap()))
+            .unwrap()
+            .to_str()
+            .unwrap(),
+        "/test/wasmer-darwin-arm64.tar.gz",
+    );
 }
