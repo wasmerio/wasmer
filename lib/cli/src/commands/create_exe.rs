@@ -1236,11 +1236,7 @@ fn link_exe_from_dir(
 }
 
 pub(crate) fn normalize_path(s: &str) -> String {
-    if s.starts_with("\\\\?\\") {
-        s.replacen("\\\\?\\", "", 1)
-    } else {
-        s.to_string()
-    }
+    s.strip_prefix(r"\\?\").unwrap_or(s).to_string()
 }
 
 /// Link compiled objects using the system linker
