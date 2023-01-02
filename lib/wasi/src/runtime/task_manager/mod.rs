@@ -29,6 +29,7 @@ pub enum SpawnType {
 /// An implementation of task management
 #[allow(unused_variables)]
 pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
+
     /// Invokes whenever a WASM thread goes idle. In some runtimes (like singlethreaded
     /// execution environments) they will need to do asynchronous work whenever the main
     /// thread goes idle and this is the place to hook for that.
@@ -51,6 +52,10 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     // TODO: return output future?
     // TODO: should be fallible
     fn block_on_generic<'a>(&self, task: Pin<Box<dyn Future<Output = ()> + 'a>>);
+
+    /// Enters a runtime context
+    #[allow(dyn_drop)]
+    fn runtime_enter<'g>(&'g self) -> Box<dyn std::ops::Drop + 'g>;
 
     /// Starts an asynchronous task will will run on a dedicated thread
     /// pulled from the worker pool that has a stateful thread local variable
@@ -114,6 +119,12 @@ impl VirtualTaskManager for StubTaskManager {
 
     #[allow(unused_variables)]
     fn block_on_generic<'a>(&self, task: Pin<Box<dyn Future<Output = ()> + 'a>>) {
+        unimplemented!("asynchronous operations are not supported on this task manager");
+    }
+
+    #[allow(dyn_drop)]
+    #[allow(unused_variables)]
+    fn runtime_enter<'g>(&'g self) -> Box<dyn std::ops::Drop + 'g> {
         unimplemented!("asynchronous operations are not supported on this task manager");
     }
 
