@@ -662,7 +662,7 @@ package-capi:
 	if [ -f target/headless/$(CARGO_TARGET)/release/libwasmer.a ]; then \
 		cp target/headless/$(CARGO_TARGET)/release/libwasmer.a package/lib/libwasmer-headless.a ;\
 
-  if [ -f target/$(HOST_TARGET)/release/wasmer.dll ]; then \
+	if [ -f target/$(HOST_TARGET)/release/wasmer.dll ]; then \
 		cp target/$(HOST_TARGET)/release/wasmer.dll package/lib/wasmer.dll ;\
 	fi
 	
