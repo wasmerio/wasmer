@@ -68,7 +68,7 @@ impl Instance {
 
         let instance = instance.get(store.objects_mut()).clone();
         let mut self_instance = Self::from_module_and_instance(store, module, instance)?;
-        self_instance.check_memory(store, externs);
+        self_instance.ensure_memory_export(store, externs);
         //self_instance.init_envs(&imports.iter().map(Extern::to_export).collect::<Vec<_>>())?;
         Ok(self_instance)
     }
@@ -141,7 +141,7 @@ impl Instance {
     /// This will check the memory is correctly setup
     /// If the memory is imported then also export it for backwards compatibility reasons
     /// (many will assume the memory is always exported) - later we can remove this
-    pub fn check_memory(&mut self, store: &mut impl AsStoreMut, externs: Vec<Extern>) {
+    pub fn ensure_memory_export(&mut self, store: &mut impl AsStoreMut, externs: Vec<Extern>) {
         if self.exports.get_memory("memory").is_err() {
             if let Some(memory) = externs
                 .iter()
