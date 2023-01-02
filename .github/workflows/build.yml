@@ -100,7 +100,6 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.63
           target: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v1
         if: matrix.use_sccache != true
@@ -272,7 +271,6 @@ jobs:
           sudo apt install -y mingw-w64
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.61
           target: x86_64-pc-windows-gnu
       - name: Install Windows-GNU target
         shell: bash
@@ -303,6 +301,8 @@ jobs:
         shell: bash
         run: |
           cargo build --release --target x86_64-pc-windows-gnu --manifest-path lib/c-api/Cargo.toml --no-default-features --features wat,compiler,wasi,middlewares,webc_runner --features cranelift,singlepass,wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
+        env:
+          RUSTFLAGS: -Cpanic=abort
       - name: Dist
         run: |
           make distribution-gnu
@@ -321,7 +321,6 @@ jobs:
       - uses: actions/checkout@v2
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.61
           target: aarch64-unknown-linux-gnu
       - name: Build cross image
         run: |
