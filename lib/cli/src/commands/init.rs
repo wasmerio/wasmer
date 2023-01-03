@@ -439,9 +439,10 @@ fn construct_manifest(
             );
             let diff = outpath_str
                 .strip_prefix(&manifest_canonicalized)
-                .unwrap_or(&outpath_str);
+                .unwrap_or(&outpath_str)
+                .replace('\\', "/");
             // Format in UNIX fashion (forward slashes)
-            let relative_str = diff.strip_prefix('/').unwrap_or(diff).replace('\\', "/");
+            let relative_str = diff.strip_prefix('/').unwrap_or(&diff);
             Path::new(&relative_str).to_path_buf()
         })
         .unwrap_or_else(|| Path::new(&format!("{package_name}.wasm")).to_path_buf());
