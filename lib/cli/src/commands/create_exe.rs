@@ -69,6 +69,12 @@ pub struct CreateExe {
     #[clap(long = "target")]
     target_triple: Option<Triple>,
 
+    /// Can specify either a release version (such as "3.0.1") or a URL to a tarball to use
+    /// for linking. By default, create-exe will always pull the latest release tarball from GitHub,
+    /// this flag can be used to override that behaviour.
+    #[clap(long, name = "URL_OR_RELEASE_VERSION")]
+    use_wasmer_release: Option<String>,
+
     /// Object format options
     ///
     /// This flag accepts two options: `symbols` or `serialized`.
@@ -90,6 +96,36 @@ pub struct CreateExe {
 
     #[clap(flatten)]
     compiler: CompilerOptions,
+}
+
+/// Url or version to download the release from
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum UrlOrVersion {
+    /// URL to download
+    Url(url::Url),
+    /// Release version to download
+    Version(semver::Version),
+}
+
+impl UrlOrVersion {
+    fn from_str(s: &str) -> Result<Self, anyhow::Error> {
+        let mut err;
+        match url::Url::parse(s) {
+            Ok(o) => return Ok(Self::Url(o)),
+            Err(e) => {
+                err = anyhow::anyhow!("could not parse as URL: {e}");
+            }
+        }
+
+        match semver::Version::parse(s) {
+            Ok(o) => return Ok(Self::Version(o)),
+            Err(e) => {
+                err = anyhow::anyhow!("could not parse as URL or version: {e}").context(err);
+            }
+        }
+
+        Err(err)
+    }
 }
 
 // Cross-compilation options with `zig`
@@ -168,8 +204,23 @@ impl CreateExe {
         let output_path = starting_cd.join(&self.output);
         let object_format = self.object_format.unwrap_or_default();
 
-        let cross_compilation =
-            utils::get_cross_compile_setup(&mut cc, &target_triple, &starting_cd, &object_format)?;
+        let url_or_version = match self
+            .use_wasmer_release
+            .as_deref()
+            .map(|e| UrlOrVersion::from_str(e))
+        {
+            Some(Ok(o)) => Some(o),
+            Some(Err(e)) => return Err(e),
+            None => None,
+        };
+
+        let cross_compilation = utils::get_cross_compile_setup(
+            &mut cc,
+            &target_triple,
+            &starting_cd,
+            &object_format,
+            url_or_version,
+        )?;
 
         if input_path.is_dir() {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
@@ -1447,7 +1498,7 @@ fn generate_wasmer_main_c(
 #[allow(dead_code)]
 pub(super) mod utils {
 
-    use super::{CrossCompile, CrossCompileSetup, ObjectFormat};
+    use super::{CrossCompile, CrossCompileSetup, ObjectFormat, UrlOrVersion};
     use anyhow::Context;
     use std::{
         ffi::OsStr,
@@ -1474,6 +1525,7 @@ pub(super) mod utils {
         target_triple: &Triple,
         starting_cd: &Path,
         object_format: &ObjectFormat,
+        specific_release: Option<UrlOrVersion>,
     ) -> Result<CrossCompileSetup, anyhow::Error> {
         let target = target_triple;
 
@@ -1541,8 +1593,15 @@ pub(super) mod utils {
             if let Some(local_tarball) = local_tarball.as_ref() {
                 let (filename, tarball_dir) = find_filename(local_tarball, target)?;
                 Some(tarball_dir.join(&filename))
+            } else if let Some(UrlOrVersion::Url(wasmer_release)) = specific_release.as_ref() {
+                unimplemented!("cannot lookup release URL {}", wasmer_release)
+            } else if let Some(UrlOrVersion::Version(wasmer_release)) = specific_release.as_ref() {
+                let release = super::http_fetch::get_release(Some(wasmer_release.clone()))?;
+                let tarball = super::http_fetch::download_release(release, target.clone())?;
+                let (filename, tarball_dir) = find_filename(&tarball, target)?;
+                Some(tarball_dir.join(&filename))
             } else {
-                let release = super::http_fetch::get_latest_release()?;
+                let release = super::http_fetch::get_release(None)?;
                 let tarball = super::http_fetch::download_release(release, target.clone())?;
                 let (filename, tarball_dir) = find_filename(&tarball, target)?;
                 Some(tarball_dir.join(&filename))
@@ -1961,7 +2020,9 @@ mod http_fetch {
     use std::convert::TryFrom;
     use std::path::Path;
 
-    pub(super) fn get_latest_release() -> Result<serde_json::Value> {
+    pub(super) fn get_release(
+        release_version: Option<semver::Version>,
+    ) -> Result<serde_json::Value> {
         let mut writer = Vec::new();
         let uri = Uri::try_from("https://api.github.com/repos/wasmerio/wasmer/releases").unwrap();
 
@@ -1998,8 +2059,30 @@ mod http_fetch {
                 r["tag_name"].is_string() && !r["tag_name"].as_str().unwrap().is_empty()
             });
             releases.sort_by_cached_key(|r| r["tag_name"].as_str().unwrap_or_default().to_string());
-            if let Some(latest) = releases.pop() {
-                return Ok(latest);
+            match release_version {
+                Some(specific_version) => {
+                    let mut all_versions = Vec::new();
+                    for r in releases.iter() {
+                        if r["tag_name"].as_str().unwrap_or_default()
+                            == specific_version.to_string()
+                        {
+                            return Ok(r.clone());
+                        } else {
+                            all_versions
+                                .push(r["tag_name"].as_str().unwrap_or_default().to_string());
+                        }
+                    }
+                    return Err(anyhow::anyhow!(
+                        "could not find release version {}, available versions are: {}",
+                        specific_version,
+                        all_versions.join(", ")
+                    ));
+                }
+                None => {
+                    if let Some(latest) = releases.pop() {
+                        return Ok(latest);
+                    }
+                }
             }
         }
 
