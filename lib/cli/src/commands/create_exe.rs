@@ -195,13 +195,10 @@ pub struct Volume {
 impl CreateExe {
     /// Runs logic for the `compile` subcommand
     pub fn execute(&self) -> Result<()> {
-        println!("create execute 1");
         let path = normalize_path(&format!("{}", self.path.display()));
         let target_triple = self.target_triple.clone().unwrap_or_else(Triple::host);
         let mut cc = self.cross_compile.clone();
         let target = utils::target_triple_to_target(&target_triple, &self.cpu_features);
-
-        println!("create execute 2");
 
         let starting_cd = env::current_dir()?;
         let input_path = starting_cd.join(&path);
@@ -218,8 +215,6 @@ impl CreateExe {
             None => None,
         };
 
-        println!("create execute 3");
-
         let cross_compilation = utils::get_cross_compile_setup(
             &mut cc,
             &target_triple,
@@ -227,8 +222,6 @@ impl CreateExe {
             &object_format,
             url_or_version,
         )?;
-
-        println!("create execute 4");
 
         if input_path.is_dir() {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
@@ -252,8 +245,6 @@ impl CreateExe {
             None => temp?.path().to_path_buf(),
         };
         std::fs::create_dir_all(&tempdir)?;
-
-        println!("create execute 5");
 
         let atoms =
             if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
@@ -283,8 +274,6 @@ impl CreateExe {
                 )
             }?;
 
-        println!("create execute 6");
-
         get_module_infos(&tempdir, &atoms, object_format)?;
         let mut entrypoint = get_entrypoint(&tempdir)?;
         create_header_files_in_dir(&tempdir, &mut entrypoint, &atoms, &self.precompiled_atom)?;
@@ -297,8 +286,6 @@ impl CreateExe {
             &atoms,
             &self.precompiled_atom,
         )?;
-
-        println!("create execute 7");
 
         if self.target_triple.is_some() {
             eprintln!(
@@ -1292,8 +1279,6 @@ fn link_exe_from_dir(
     }
 
     let compilation = cmd
-        .stdout(std::process::Stdio::inherit())
-        .stderr(std::process::Stdio::inherit())
         .output()
         .context(anyhow!("Could not execute `zig`: {cmd:?}"))?;
 
@@ -1569,8 +1554,6 @@ pub(super) mod utils {
             return Err(anyhow::anyhow!("cannot cross-compile: --object-format serialized + cross-compilation is not supported"));
         }
 
-        println!("create exe 3.5");
-
         if let Some(tarball_path) = cross_subc.tarball.as_mut() {
             if tarball_path.is_relative() {
                 *tarball_path = starting_cd.join(&tarball_path);
@@ -1588,8 +1571,6 @@ pub(super) mod utils {
             }
         }
 
-        println!("create exe 3.6");
-
         let zig_binary_path = if !cross_subc.use_system_linker {
             find_zig_binary(cross_subc.zig_binary_path.as_ref().and_then(|p| {
                 if p.is_absolute() {
@@ -1603,17 +1584,12 @@ pub(super) mod utils {
             None
         };
 
-        println!("create exe 3.7");
-
         let library = if let Some(v) = cross_subc.library_path.clone() {
-            println!("create exe 3.8");
             Some(v.canonicalize().unwrap_or(v))
         } else if let Some(local_tarball) = cross_subc.tarball.as_ref() {
-            println!("create exe 3.9");
             let (filename, tarball_dir) = find_filename(local_tarball, target)?;
             Some(tarball_dir.join(&filename))
         } else {
-            println!("create exe 4.0");
             let wasmer_cache_dir =
                 if *target_triple == Triple::host() && std::env::var("WASMER_DIR").is_ok() {
                     wasmer_registry::WasmerConfig::get_wasmer_dir()
@@ -1623,15 +1599,6 @@ pub(super) mod utils {
                     get_libwasmer_cache_path()
                 }
                 .ok();
-
-            println!("wasmer_cache_dir: {:?}", wasmer_cache_dir);
-            println!(
-                "exists: {:?}",
-                wasmer_cache_dir
-                    .as_ref()
-                    .map(|wc| wc.exists())
-                    .unwrap_or(false)
-            );
 
             // check if the tarball for the target already exists locally
             let local_tarball = wasmer_cache_dir.as_ref().and_then(|wc| {
@@ -1649,11 +1616,8 @@ pub(super) mod utils {
                     .find(|p| crate::commands::utils::filter_tarball(p, target))
             });
 
-            println!("create exe 4.1");
-
             if let Some(UrlOrVersion::Url(wasmer_release)) = specific_release.as_ref() {
                 let tarball = super::http_fetch::download_url(wasmer_release.as_ref())?;
-                println!("downloaded to tarball {}", tarball.display());
                 let (filename, tarball_dir) = find_filename(&tarball, target)?;
                 Some(tarball_dir.join(&filename))
             } else if let Some(UrlOrVersion::Version(wasmer_release)) = specific_release.as_ref() {
@@ -1665,23 +1629,15 @@ pub(super) mod utils {
                 let (filename, tarball_dir) = find_filename(local_tarball, target)?;
                 Some(tarball_dir.join(&filename))
             } else {
-                println!("create exe 4.2");
                 let release = super::http_fetch::get_release(None)?;
-                println!("create exe 4.3");
                 let tarball = super::http_fetch::download_release(release, target.clone())?;
-                println!("create exe 4.4");
                 let (filename, tarball_dir) = find_filename(&tarball, target)?;
-                println!("create exe 4.5");
                 Some(tarball_dir.join(&filename))
             }
         };
 
-        println!("create exe 4.6");
-
         let library =
             library.ok_or_else(|| anyhow::anyhow!("libwasmer.a / wasmer.lib not found"))?;
-
-        println!("create exe 4.7");
 
         let ccs = CrossCompileSetup {
             target: target.clone(),

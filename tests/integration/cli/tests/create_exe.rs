@@ -67,10 +67,7 @@ impl WasmerCreateExe {
 
         println!("(integration-test) running create-exe: {cmd}");
 
-        let output = output
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .output()?;
+        let output = output.output()?;
 
         if !output.status.success() {
             bail!(
@@ -134,10 +131,7 @@ impl WasmerCreateObj {
 
         println!("(integration-test) running create-obj: {cmd}");
 
-        let output = output
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .output()?;
+        let output = output.output()?;
 
         if !output.status.success() {
             bail!(
