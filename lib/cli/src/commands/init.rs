@@ -429,17 +429,19 @@ fn construct_manifest(
             let canonicalized_outpath = outpath.canonicalize().unwrap_or(outpath);
             let outpath_str =
                 crate::commands::normalize_path(&canonicalized_outpath.display().to_string());
-            let manifest_canonicalized = manifest_path
-                .parent()
-                .and_then(|p| p.canonicalize().ok())
-                .unwrap_or_else(|| manifest_path.to_path_buf());
-            let diff = pathdiff::diff_paths(&outpath_str, &manifest_canonicalized).unwrap();
+            let manifest_canonicalized = crate::commands::normalize_path(
+                &manifest_path
+                    .parent()
+                    .and_then(|p| p.canonicalize().ok())
+                    .unwrap_or_else(|| manifest_path.to_path_buf())
+                    .display()
+                    .to_string(),
+            );
+            let diff = outpath_str
+                .strip_prefix(&manifest_canonicalized)
+                .unwrap_or(&outpath_str);
             // Format in UNIX fashion (forward slashes)
-            let diff_str = diff.display().to_string();
-            let relative_str = diff_str
-                .strip_prefix('/')
-                .unwrap_or(&diff_str)
-                .replace("\\", "/");
+            let relative_str = diff.strip_prefix('/').unwrap_or(diff).replace('\\', "/");
             Path::new(&relative_str).to_path_buf()
         })
         .unwrap_or_else(|| Path::new(&format!("{package_name}.wasm")).to_path_buf());

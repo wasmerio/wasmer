@@ -251,6 +251,7 @@ fn test_create_exe_with_precompiled_works_1() {
     );
 }
 
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn create_exe_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
@@ -284,6 +285,7 @@ fn create_exe_works() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn create_exe_works_multi_command() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
@@ -336,6 +338,7 @@ fn create_exe_works_multi_command() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn create_exe_works_with_file() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
@@ -576,16 +579,19 @@ fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn create_exe_with_object_input_default() -> anyhow::Result<()> {
     create_exe_with_object_input(vec![])
 }
 
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn create_exe_with_object_input_symbols() -> anyhow::Result<()> {
     create_exe_with_object_input(vec!["--object-format".to_string(), "symbols".to_string()])
 }
 
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn create_exe_with_object_input_serialized() -> anyhow::Result<()> {
     create_exe_with_object_input(vec![
