@@ -1569,6 +1569,8 @@ pub(super) mod utils {
             return Err(anyhow::anyhow!("cannot cross-compile: --object-format serialized + cross-compilation is not supported"));
         }
 
+        println!("create exe 3.5");
+
         if let Some(tarball_path) = cross_subc.tarball.as_mut() {
             if tarball_path.is_relative() {
                 *tarball_path = starting_cd.join(&tarball_path);
@@ -1586,6 +1588,8 @@ pub(super) mod utils {
             }
         }
 
+        println!("create exe 3.6");
+
         let zig_binary_path = if !cross_subc.use_system_linker {
             find_zig_binary(cross_subc.zig_binary_path.as_ref().and_then(|p| {
                 if p.is_absolute() {
@@ -1599,12 +1603,17 @@ pub(super) mod utils {
             None
         };
 
+        println!("create exe 3.7");
+
         let library = if let Some(v) = cross_subc.library_path.clone() {
+            println!("create exe 3.8");
             Some(v.canonicalize().unwrap_or(v))
         } else if let Some(local_tarball) = cross_subc.tarball.as_ref() {
+            println!("create exe 3.9");
             let (filename, tarball_dir) = find_filename(local_tarball, target)?;
             Some(tarball_dir.join(&filename))
         } else {
+            println!("create exe 4.0");
             // check if the tarball for the target already exists locally
             let local_tarball = std::fs::read_dir(
                 if *target_triple == Triple::host() && std::env::var("WASMER_DIR").is_ok() {
@@ -1626,6 +1635,8 @@ pub(super) mod utils {
             })
             .find(|p| crate::commands::utils::filter_tarball(p, target));
 
+            println!("create exe 4.1");
+
             if let Some(UrlOrVersion::Url(wasmer_release)) = specific_release.as_ref() {
                 let tarball = super::http_fetch::download_url(wasmer_release.as_ref())?;
                 println!("downloaded to tarball {}", tarball.display());
@@ -1640,15 +1651,23 @@ pub(super) mod utils {
                 let (filename, tarball_dir) = find_filename(local_tarball, target)?;
                 Some(tarball_dir.join(&filename))
             } else {
+                println!("create exe 4.2");
                 let release = super::http_fetch::get_release(None)?;
+                println!("create exe 4.3");
                 let tarball = super::http_fetch::download_release(release, target.clone())?;
+                println!("create exe 4.4");
                 let (filename, tarball_dir) = find_filename(&tarball, target)?;
+                println!("create exe 4.5");
                 Some(tarball_dir.join(&filename))
             }
         };
 
+        println!("create exe 4.6");
+
         let library =
             library.ok_or_else(|| anyhow::anyhow!("libwasmer.a / wasmer.lib not found"))?;
+
+        println!("create exe 4.7");
 
         let ccs = CrossCompileSetup {
             target: target.clone(),
