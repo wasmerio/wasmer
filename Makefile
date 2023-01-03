@@ -565,7 +565,7 @@ test-integration-cli:
 
 test-integration-cli-ci:
 	rustup target add wasm32-wasi
-	$(CARGO_BINARY) test $(CARGO_TARGET_STR) --features webc_runner -p wasmer-integration-tests-cli -- --nocapture || $(CARGO_BINARY) test $(CARGO_TARGET_STR) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
+	$(CARGO_BINARY) test $(CARGO_TARGET_STR) --features webc_runner -p wasmer-integration-tests-cli -- --nocapture --test-threads=1 || $(CARGO_BINARY) test $(CARGO_TARGET_STR) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
 
 test-integration-ios:
 	$(CARGO_BINARY) test $(CARGO_TARGET_STR) --features webc_runner -p wasmer-integration-tests-ios
