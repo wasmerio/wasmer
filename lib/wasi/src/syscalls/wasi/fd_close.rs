@@ -25,7 +25,7 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
     let is_non_blocking = fd_entry.flags.contains(Fdflags::NONBLOCK);
     let inode_idx = fd_entry.inode;
 
-    {
+    let ret = {
         let (mut memory, _, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
         let inode = &inodes.arena[inode_idx];
         let mut guard = inode.write();
@@ -34,20 +34,17 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
                 let socket = socket.clone();
                 drop(guard);
                 drop(inodes);
-
-                wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-                    socket.flush().await?;
-                    socket.close()?;
-                    socket.flush().await
-                })?);
+                socket.close()
+                    .map(|()| Errno::Success)
+                    .unwrap_or_else(|a| a)
             }
-            _ => {}
+            _ => Errno::Success
         }
-    }
-
+    };
+    
     env = ctx.data();
     let (_, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
     wasi_try_ok!(state.fs.close_fd(inodes.deref(), fd));
 
-    Ok(Errno::Success)
+    Ok(ret)
 }
