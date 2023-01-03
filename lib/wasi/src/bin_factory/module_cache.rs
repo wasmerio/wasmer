@@ -9,7 +9,7 @@ use crate::{syscalls::platform_clock_time_get, VirtualTaskManager, WasiRuntimeIm
 
 pub const DEFAULT_COMPILED_PATH: &'static str = "~/.wasmer/compiled";
 pub const DEFAULT_WEBC_PATH: &'static str = "~/.wasmer/webc";
-pub const DEFAULT_CACHE_TIME: u128 = std::time::Duration::from_secs(30).as_nanos();
+pub const DEFAULT_CACHE_TIME: std::time::Duration = std::time::Duration::from_secs(30);
 
 #[derive(Debug)]
 pub struct ModuleCache {
@@ -18,6 +18,8 @@ pub struct ModuleCache {
 
     pub(crate) cache_webc: RwLock<HashMap<String, BinaryPackage>>,
     pub(crate) cache_webc_dir: String,
+
+    pub(crate) cache_time: std::time::Duration,
 }
 
 // FIXME: remove impls!
@@ -77,6 +79,7 @@ impl ModuleCache {
             cache_compile_dir,
             cache_webc: RwLock::new(HashMap::default()),
             cache_webc_dir,
+            cache_time: DEFAULT_CACHE_TIME,
         }
     }
 
@@ -102,7 +105,7 @@ impl ModuleCache {
             if let Some(data) = cache.get(&name) {
                 if let Some(when_cached) = data.when_cached.as_ref() {
                     let delta = now - *when_cached;
-                    if delta <= DEFAULT_CACHE_TIME {
+                    if delta <= self.cache_time.as_nanos() {
                         return Some(data.clone());
                     }
                 } else {
@@ -118,7 +121,7 @@ impl ModuleCache {
         if let Some(data) = cache.get(&name) {
             if let Some(when_cached) = data.when_cached.as_ref() {
                 let delta = now - *when_cached;
-                if delta <= DEFAULT_CACHE_TIME {
+                if delta <= self.cache_time.as_nanos() {
                     return Some(data.clone());
                 }
             } else {
@@ -247,16 +250,35 @@ impl ModuleCache {
 }
 #[cfg(test)]
 mod tests {
+    use tracing_subscriber::{
+        filter, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
+    };
+
     use crate::{runtime::task_manager::tokio::TokioTaskManager, PluggableRuntimeImplementation};
 
     use super::*;
 
     #[test]
     fn test_module_cache() {
-        let cache = ModuleCache::new(None, None, true);
+        tracing_subscriber::registry()
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .pretty()
+                    .with_filter(filter::LevelFilter::INFO),
+            )
+            .init();
+
+        let mut cache = ModuleCache::new(None, None, true);
+        cache.cache_time = std::time::Duration::from_millis(500);
 
         let tasks = TokioTaskManager::default();
         let rt = PluggableRuntimeImplementation::default();
-        let _webc = cache.get_webc("sharrattj/dash", &rt, &tasks).unwrap();
+
+        let mut store = Vec::new();
+        for _ in 0..2 {
+            let webc = cache.get_webc("sharrattj/dash", &rt, &tasks).unwrap();
+            store.push(webc);
+            tasks.block_on_generic(tasks.sleep_now(0.into(), 1000));
+        }
     }
 }
