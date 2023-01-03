@@ -446,6 +446,7 @@ impl Function {
         // Call the trampoline.
         let result = {
             let mut r;
+            //TODO: This loop is needed for async. It will be refactor with https://github.com/wasmerio/wasmer/issues/3451
             loop {
                 let vm_function = self.handle.get(store.as_store_ref().objects());
                 r = unsafe {

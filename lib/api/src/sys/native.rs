@@ -96,6 +96,7 @@ macro_rules! impl_native_traits {
                 };
 
                 let mut r;
+                //TODO: This loop is needed for async. It will be refactor with https://github.com/wasmerio/wasmer/issues/3451
                 loop {
                     r = unsafe {
                         wasmer_vm::wasmer_call_trampoline(

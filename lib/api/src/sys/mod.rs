@@ -40,6 +40,7 @@ pub use wasmer_compiler::{
 pub use wasmer_compiler::{Features, FrameInfo, LinkError, RuntimeError, Tunables};
 pub use wasmer_derive::ValueType;
 pub use wasmer_types::is_wasm;
+//TODO: OnCalledAction is needed for async. It will be refactor with https://github.com/wasmerio/wasmer/issues/3451
 pub use wasmer_types::{
     CpuFeature, ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType,
     Mutability, OnCalledAction, TableType, Target, Type,
