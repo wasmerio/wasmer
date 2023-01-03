@@ -25,12 +25,21 @@ fn test_no_start_wat_path() -> PathBuf {
 fn test_cross_compile_python_windows() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;
 
+    #[cfg(not(windows))]
     let targets = &[
         "aarch64-darwin",
         "x86_64-darwin",
         "x86_64-linux-gnu",
         "aarch64-linux-gnu",
         "x86_64-windows-gnu",
+    ];
+
+    #[cfg(windows)]
+    let targets = &[
+        "aarch64-darwin",
+        "x86_64-darwin",
+        "x86_64-linux-gnu",
+        "aarch64-linux-gnu",
     ];
 
     // MUSL has no support for LLVM in C-API
@@ -202,7 +211,7 @@ fn package_directory(in_dir: &PathBuf, out: &PathBuf) {
 
 /// TODO: on linux-musl, the packaging of libwasmer.a doesn't work properly
 /// Tracked in https://github.com/wasmerio/wasmer/issues/3271
-#[cfg(not(target_env = "musl"))]
+#[cfg(not(any(target_env = "musl", target_os = "windows")))]
 #[cfg(feature = "webc_runner")]
 #[test]
 fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
