@@ -136,7 +136,6 @@ languages**, so you can use WebAssembly _anywhere_.
 | ![PHP logo] | [**PHP**][PHP integration] | [`wasm` PECL package] | [Learn][php docs] |
 | ![Ruby logo] | [**Ruby**][Ruby integration] | [`wasmer` Ruby Gem] | [Learn][ruby docs] |
 | ![Java logo] | [**Java**][Java integration] | [`wasmer/wasmer-jni` Bintray package] | [Learn][java docs] |
-| ![Elixir logo] | [**Elixir**][Elixir integration] | [`wasmex` hex package] | [Learn][elixir docs] |
 | ![R logo] | [**R**][R integration] | *no published package* | [Learn][r docs] |
 | ![Postgres logo] | [**Postgres**][Postgres integration] | *no published package* | [Learn][postgres docs] |
 | ![Swift logo] | [**Swift**][Swift integration] | *no published package* | |
