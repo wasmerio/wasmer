@@ -1614,26 +1614,40 @@ pub(super) mod utils {
             Some(tarball_dir.join(&filename))
         } else {
             println!("create exe 4.0");
-            // check if the tarball for the target already exists locally
-            let local_tarball = std::fs::read_dir(
+            let wasmer_cache_dir =
                 if *target_triple == Triple::host() && std::env::var("WASMER_DIR").is_ok() {
                     wasmer_registry::WasmerConfig::get_wasmer_dir()
-                        .map_err(|e| anyhow::anyhow!("{e}"))?
-                        .join("cache")
+                        .map_err(|e| anyhow::anyhow!("{e}"))
+                        .map(|o| o.join("cache"))
                 } else {
-                    get_libwasmer_cache_path()?
-                },
-            )?
-            .filter_map(|e| e.ok())
-            .filter_map(|e| {
-                let path = format!("{}", e.path().display());
-                if path.ends_with(".tar.gz") {
-                    Some(e.path())
-                } else {
-                    None
+                    get_libwasmer_cache_path()
                 }
-            })
-            .find(|p| crate::commands::utils::filter_tarball(p, target));
+                .ok();
+
+            println!("wasmer_cache_dir: {:?}", wasmer_cache_dir);
+            println!(
+                "exists: {:?}",
+                wasmer_cache_dir
+                    .as_ref()
+                    .map(|wc| wc.exists())
+                    .unwrap_or(false)
+            );
+
+            // check if the tarball for the target already exists locally
+            let local_tarball = wasmer_cache_dir.as_ref().and_then(|wc| {
+                let wasmer_cache = std::fs::read_dir(wc).ok()?;
+                wasmer_cache
+                    .filter_map(|e| e.ok())
+                    .filter_map(|e| {
+                        let path = format!("{}", e.path().display());
+                        if path.ends_with(".tar.gz") {
+                            Some(e.path())
+                        } else {
+                            None
+                        }
+                    })
+                    .find(|p| crate::commands::utils::filter_tarball(p, target))
+            });
 
             println!("create exe 4.1");
 
