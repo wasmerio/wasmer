@@ -5,7 +5,6 @@ use std::fs;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::process::Command;
-use std::process::Stdio;
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::*;
 
