@@ -110,6 +110,7 @@ pub enum UrlOrVersion {
 impl UrlOrVersion {
     fn from_str(s: &str) -> Result<Self, anyhow::Error> {
         let mut err;
+        let s = s.strip_prefix('v').unwrap_or(s);
         match url::Url::parse(s) {
             Ok(o) => return Ok(Self::Url(o)),
             Err(e) => {
@@ -207,7 +208,7 @@ impl CreateExe {
         let url_or_version = match self
             .use_wasmer_release
             .as_deref()
-            .map(|e| UrlOrVersion::from_str(e))
+            .map(UrlOrVersion::from_str)
         {
             Some(Ok(o)) => Some(o),
             Some(Err(e)) => return Err(e),
@@ -1127,32 +1128,38 @@ fn link_exe_from_dir(
         })
         .collect::<Vec<_>>();
 
-    match entrypoint.object_format {
-        ObjectFormat::Serialized => {
-            if cross_compilation.target == Triple::host() {
-                run_c_compile(
-                    &directory.join("wasmer_main.c"),
-                    &directory.join("wasmer_main.o"),
-                    &cross_compilation.target,
-                    debug,
-                )
-                .map_err(|e| {
-                    anyhow::anyhow!(
-                        "could not write wasmer_main.c in dir {}: {e}",
-                        directory.display()
-                    )
-                })?;
-            } else {
-                return Err(anyhow::anyhow!(
-                    "ObjectFormat::Serialized + cross compilation not implemented"
-                ));
-            }
-        }
-        ObjectFormat::Symbols => {}
+    // On Windows, cross-compilation to Windows itself with zig does not work due
+    // to libunwind and libstdc++ not compiling, so we fake this special case of cross-compilation
+    // by falling back to the system compilation + system linker
+    if cross_compilation.target == Triple::host()
+        && (entrypoint.object_format == ObjectFormat::Serialized
+            || cross_compilation.target.operating_system == OperatingSystem::Windows)
+    {
+        run_c_compile(
+            &directory.join("wasmer_main.c"),
+            &directory.join("wasmer_main.o"),
+            &cross_compilation.target,
+            debug,
+        )
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "could not write wasmer_main.c in dir {}: {e}",
+                directory.display()
+            )
+        })?;
+    } else if entrypoint.object_format == ObjectFormat::Serialized
+        && cross_compilation.target != Triple::host()
+    {
+        return Err(anyhow::anyhow!(
+            "ObjectFormat::Serialized + cross compilation not implemented"
+        ));
     }
 
     // compilation done, now link
-    if cross_compilation.zig_binary_path.is_none() {
+    if cross_compilation.zig_binary_path.is_none()
+        || (cross_compilation.target == Triple::host()
+            && cross_compilation.target.operating_system == OperatingSystem::Windows)
+    {
         #[cfg(not(windows))]
         let linker = "cc";
         #[cfg(windows)]
@@ -1190,6 +1197,16 @@ fn link_exe_from_dir(
     cmd.arg("-target");
     cmd.arg(&zig_triple);
 
+    // On Windows, libstdc++ does not compile with zig due to zig-internal problems,
+    // so we link with only -lc
+    #[cfg(not(target_os = "windows"))]
+    if zig_triple.contains("windows") {
+        cmd.arg("-lc++");
+    } else {
+        cmd.arg("-lc");
+    }
+
+    #[cfg(target_os = "windows")]
     cmd.arg("-lc");
 
     let mut include_dirs = include_dirs;
@@ -1207,6 +1224,12 @@ fn link_exe_from_dir(
     cmd.arg("-I");
     cmd.arg(normalize_path(&format!("{}", include_path.display())));
 
+    // On Windows, libunwind does not compile, so we have
+    // to create binaries without libunwind.
+    #[cfg(not(target_os = "windows"))]
+    cmd.arg("-lunwind");
+
+    #[cfg(target_os = "windows")]
     if !zig_triple.contains("windows") {
         cmd.arg("-lunwind");
     }
@@ -1590,15 +1613,18 @@ pub(super) mod utils {
             })
             .find(|p| crate::commands::utils::filter_tarball(p, target));
 
-            if let Some(local_tarball) = local_tarball.as_ref() {
-                let (filename, tarball_dir) = find_filename(local_tarball, target)?;
+            if let Some(UrlOrVersion::Url(wasmer_release)) = specific_release.as_ref() {
+                let tarball = super::http_fetch::download_url(wasmer_release.as_ref())?;
+                println!("downloaded to tarball {}", tarball.display());
+                let (filename, tarball_dir) = find_filename(&tarball, target)?;
                 Some(tarball_dir.join(&filename))
-            } else if let Some(UrlOrVersion::Url(wasmer_release)) = specific_release.as_ref() {
-                unimplemented!("cannot lookup release URL {}", wasmer_release)
             } else if let Some(UrlOrVersion::Version(wasmer_release)) = specific_release.as_ref() {
                 let release = super::http_fetch::get_release(Some(wasmer_release.clone()))?;
                 let tarball = super::http_fetch::download_release(release, target.clone())?;
                 let (filename, tarball_dir) = find_filename(&tarball, target)?;
+                Some(tarball_dir.join(&filename))
+            } else if let Some(local_tarball) = local_tarball.as_ref() {
+                let (filename, tarball_dir) = find_filename(local_tarball, target)?;
                 Some(tarball_dir.join(&filename))
             } else {
                 let release = super::http_fetch::get_release(None)?;
@@ -2149,6 +2175,12 @@ mod http_fetch {
             ));
         };
 
+        download_url(&browser_download_url)
+    }
+
+    pub(crate) fn download_url(
+        browser_download_url: &str,
+    ) -> Result<std::path::PathBuf, anyhow::Error> {
         let filename = browser_download_url
             .split('/')
             .last()
@@ -2172,7 +2204,7 @@ mod http_fetch {
             .build()
             .map_err(anyhow::Error::new)
             .context("Could not lookup wasmer artifact on Github.")?
-            .get(browser_download_url.as_str())
+            .get(browser_download_url)
             .send()
             .map_err(anyhow::Error::new)
             .context("Could not lookup wasmer artifact on Github.")?;
