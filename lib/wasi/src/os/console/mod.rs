@@ -250,8 +250,7 @@ impl Console {
             config,
             &self.runtime,
             self.compiled_modules.as_ref(),
-        )
-        .unwrap();
+        )?;
 
         // Return the process
         Ok((process, wasi_process))
