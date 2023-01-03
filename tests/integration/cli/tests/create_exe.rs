@@ -5,6 +5,7 @@ use std::fs;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::process::Command;
+use std::process::Stdio;
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::*;
 
@@ -66,7 +67,10 @@ impl WasmerCreateExe {
 
         println!("(integration-test) running create-exe: {cmd}");
 
-        let output = output.output()?;
+        let output = output
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .output()?;
 
         if !output.status.success() {
             bail!(
@@ -130,7 +134,10 @@ impl WasmerCreateObj {
 
         println!("(integration-test) running create-obj: {cmd}");
 
-        let output = output.output()?;
+        let output = output
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .output()?;
 
         if !output.status.success() {
             bail!(

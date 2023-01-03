@@ -195,10 +195,13 @@ pub struct Volume {
 impl CreateExe {
     /// Runs logic for the `compile` subcommand
     pub fn execute(&self) -> Result<()> {
+        println!("create execute 1");
         let path = normalize_path(&format!("{}", self.path.display()));
         let target_triple = self.target_triple.clone().unwrap_or_else(Triple::host);
         let mut cc = self.cross_compile.clone();
         let target = utils::target_triple_to_target(&target_triple, &self.cpu_features);
+
+        println!("create execute 2");
 
         let starting_cd = env::current_dir()?;
         let input_path = starting_cd.join(&path);
@@ -215,6 +218,8 @@ impl CreateExe {
             None => None,
         };
 
+        println!("create execute 3");
+
         let cross_compilation = utils::get_cross_compile_setup(
             &mut cc,
             &target_triple,
@@ -222,6 +227,8 @@ impl CreateExe {
             &object_format,
             url_or_version,
         )?;
+
+        println!("create execute 4");
 
         if input_path.is_dir() {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
@@ -245,6 +252,8 @@ impl CreateExe {
             None => temp?.path().to_path_buf(),
         };
         std::fs::create_dir_all(&tempdir)?;
+
+        println!("create execute 5");
 
         let atoms =
             if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
@@ -274,6 +283,8 @@ impl CreateExe {
                 )
             }?;
 
+        println!("create execute 6");
+
         get_module_infos(&tempdir, &atoms, object_format)?;
         let mut entrypoint = get_entrypoint(&tempdir)?;
         create_header_files_in_dir(&tempdir, &mut entrypoint, &atoms, &self.precompiled_atom)?;
@@ -286,6 +297,8 @@ impl CreateExe {
             &atoms,
             &self.precompiled_atom,
         )?;
+
+        println!("create execute 7");
 
         if self.target_triple.is_some() {
             eprintln!(
