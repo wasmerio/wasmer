@@ -34,14 +34,15 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
                 let socket = socket.clone();
                 drop(guard);
                 drop(inodes);
-                socket.close()
+                socket
+                    .close()
                     .map(|()| Errno::Success)
                     .unwrap_or_else(|a| a)
             }
-            _ => Errno::Success
+            _ => Errno::Success,
         }
     };
-    
+
     env = ctx.data();
     let (_, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
     wasi_try_ok!(state.fs.close_fd(inodes.deref(), fd));
