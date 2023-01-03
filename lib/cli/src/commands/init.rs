@@ -418,27 +418,35 @@ fn construct_manifest(
         log::warn!("{msg}");
     }
 
+    let module_source = cargo_toml
+        .as_ref()
+        .map(|p| {
+            // Normalize the path to /target/release to be relative to the parent of the Cargo.toml
+            let outpath = p
+                .build_dir
+                .join("release")
+                .join(&format!("{package_name}.wasm"));
+            let canonicalized_outpath = outpath.canonicalize().unwrap_or(outpath);
+            let outpath_str =
+                crate::commands::normalize_path(&canonicalized_outpath.display().to_string());
+            let manifest_canonicalized = manifest_path
+                .parent()
+                .and_then(|p| p.canonicalize().ok())
+                .unwrap_or_else(|| manifest_path.to_path_buf());
+            let diff = pathdiff::diff_paths(&outpath_str, &manifest_canonicalized).unwrap();
+            // Format in UNIX fashion (forward slashes)
+            let diff_str = diff.display().to_string();
+            let relative_str = diff_str
+                .strip_prefix('/')
+                .unwrap_or(&diff_str)
+                .replace("\\", "/");
+            Path::new(&relative_str).to_path_buf()
+        })
+        .unwrap_or_else(|| Path::new(&format!("{package_name}.wasm")).to_path_buf());
+
     let modules = vec![wasmer_toml::Module {
         name: package_name.to_string(),
-        source: cargo_toml
-            .as_ref()
-            .map(|p| {
-                // Normalize the path to /target/release to be relative to the parent of the Cargo.toml
-                let outpath = p
-                    .build_dir
-                    .join("release")
-                    .join(&format!("{package_name}.wasm"));
-                let canonicalized_outpath = outpath.canonicalize().unwrap_or(outpath);
-                let outpath_str = format!("{}", canonicalized_outpath.display());
-                let manifest_canonicalized = manifest_path
-                    .parent()
-                    .and_then(|p| p.canonicalize().ok())
-                    .unwrap_or_else(|| manifest_path.to_path_buf());
-                let manifest_str = format!("{}/", manifest_canonicalized.display());
-                let relative_str = outpath_str.replacen(&manifest_str, "", 1);
-                Path::new(&relative_str).to_path_buf()
-            })
-            .unwrap_or_else(|| Path::new(&format!("{package_name}.wasm")).to_path_buf()),
+        source: module_source,
         kind: None,
         abi: default_abi,
         bindings: bindings.as_ref().and_then(|b| b.first_binding()),

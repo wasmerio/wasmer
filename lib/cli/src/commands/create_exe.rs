@@ -817,8 +817,8 @@ fn run_c_compile(
         .arg(utils::get_wasmer_include_directory()?);
 
     for i in include_dirs {
-        command.arg("-I");
-        command.arg(normalize_path(&i.display().to_string()));
+        command = command.arg("-I");
+        command = command.arg(normalize_path(&i.display().to_string()));
     }
 
     // On some compiler -target isn't implemented
