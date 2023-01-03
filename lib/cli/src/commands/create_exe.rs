@@ -798,6 +798,7 @@ fn run_c_compile(
     output_name: &Path,
     target: &Triple,
     debug: bool,
+    include_dirs: &[PathBuf],
 ) -> anyhow::Result<()> {
     #[cfg(not(windows))]
     let c_compiler = "cc";
@@ -814,6 +815,11 @@ fn run_c_compile(
         .arg(path_to_c_src)
         .arg("-I")
         .arg(utils::get_wasmer_include_directory()?);
+
+    for i in include_dirs {
+        command.arg("-I");
+        command.arg(normalize_path(&i.display().to_string()));
+    }
 
     // On some compiler -target isn't implemented
     if *target != Triple::host() {
@@ -1128,6 +1134,10 @@ fn link_exe_from_dir(
         })
         .collect::<Vec<_>>();
 
+    let mut include_dirs = include_dirs;
+    include_dirs.sort();
+    include_dirs.dedup();
+
     // On Windows, cross-compilation to Windows itself with zig does not work due
     // to libunwind and libstdc++ not compiling, so we fake this special case of cross-compilation
     // by falling back to the system compilation + system linker
@@ -1140,10 +1150,11 @@ fn link_exe_from_dir(
             &directory.join("wasmer_main.o"),
             &cross_compilation.target,
             debug,
+            &include_dirs,
         )
         .map_err(|e| {
             anyhow::anyhow!(
-                "could not write wasmer_main.c in dir {}: {e}",
+                "could not run c compile of wasmer_main.c in dir {}: {e}",
                 directory.display()
             )
         })?;
@@ -1209,9 +1220,6 @@ fn link_exe_from_dir(
     #[cfg(target_os = "windows")]
     cmd.arg("-lc");
 
-    let mut include_dirs = include_dirs;
-    include_dirs.sort();
-    include_dirs.dedup();
     for include_dir in include_dirs {
         cmd.arg("-I");
         cmd.arg(normalize_path(&format!("{}", include_dir.display())));

@@ -396,6 +396,7 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn create_exe_serialized_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;

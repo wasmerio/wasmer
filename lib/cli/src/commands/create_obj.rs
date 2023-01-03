@@ -175,10 +175,13 @@ impl CreateObj {
             ));
         }
 
-        eprintln!(
-            "✔ Object compiled successfully to `{}`",
-            self.output.canonicalize().unwrap().display()
-        );
+        let output_file = self.output.canonicalize().unwrap().display().to_string();
+        let output_file = output_file
+            .strip_prefix(r"\\?\")
+            .unwrap_or(&output_file)
+            .to_string();
+
+        eprintln!("✔ Object compiled successfully to `{output_file}`");
 
         Ok(())
     }
