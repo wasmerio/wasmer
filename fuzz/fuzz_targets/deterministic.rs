@@ -46,7 +46,7 @@ fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
     compiler.enable_verifier();
     compile_and_compare(
         "universal-cranelift",
-        EngineBuilder::new(compiler.clone()),
+        EngineBuilder::new(compiler.clone()).engine(),
         &wasm_bytes,
     );
 
@@ -55,14 +55,14 @@ fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
     compiler.enable_verifier();
     compile_and_compare(
         "universal-llvm",
-        EngineBuilder::new(compiler.clone()),
+        EngineBuilder::new(compiler.clone()).engine(),
         &wasm_bytes,
     );
 
     let compiler = Singlepass::default();
     compile_and_compare(
         "universal-singlepass",
-        EngineBuilder::new(compiler.clone()),
+        EngineBuilder::new(compiler.clone()).engine(),
         &wasm_bytes,
     );
 });
