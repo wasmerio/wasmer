@@ -141,7 +141,7 @@ impl ModuleCache {
                 if let Some(existing) = cache.get_mut(&name) {
                     if existing.hash() == data.hash() && existing.version == data.version {
                         existing.when_cached = Some(now);
-                        return Some(data.clone());
+                        return Some(existing.clone());
                     }
                 }
                 cache.insert(name, data.clone());
