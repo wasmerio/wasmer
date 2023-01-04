@@ -1,4 +1,3 @@
-use crate::commands::PrefixerFn;
 use crate::store::CompilerOptions;
 use anyhow::Context;
 use clap::Parser;
@@ -95,17 +94,20 @@ impl GenCHeader {
             &self.cpu_features,
         );
         let (store, _) = CompilerOptions::default().get_store_for_target(target.clone())?;
-        let module_name = format!("WASMER_{}_METADATA", prefix.to_uppercase());
         let engine = store.engine();
         let engine_inner = engine.inner();
         let compiler = engine_inner.compiler()?;
         let features = engine_inner.features();
         let tunables = store.tunables();
-        let prefix_copy = prefix.to_string();
-        let prefixer: Option<PrefixerFn> = Some(Box::new(move |_| prefix_copy.to_string()));
-        let (metadata, _, _) =
-            Artifact::metadata(compiler, &file, prefixer, &target, tunables, features)
-                .map_err(|e| anyhow::anyhow!("could not generate metadata: {e}"))?;
+        let (metadata, _, _) = Artifact::metadata(
+            compiler,
+            &file,
+            Some(prefix.as_str()),
+            &target,
+            tunables,
+            features,
+        )
+        .map_err(|e| anyhow::anyhow!("could not generate metadata: {e}"))?;
 
         let serialized_data = metadata
             .serialize()
@@ -117,7 +119,6 @@ impl GenCHeader {
 
         let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
             &prefix,
-            &module_name,
             &metadata.compile_info.module,
             &ModuleMetadataSymbolRegistry {
                 prefix: prefix.clone(),
