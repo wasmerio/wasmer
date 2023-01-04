@@ -282,7 +282,8 @@ jobs:
           LLVM_DIR=$(pwd)
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
-          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
+          echo "llvm prefix:"
+          echo ${{ env.LLVM_SYS_120_PREFIX }}
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.metadata.os == 'macos-11.0' && !matrix.metadata.llvm_url
         run: |
