@@ -1,11 +1,11 @@
+use crate::commands::PrefixerFn;
 use crate::store::CompilerOptions;
 use anyhow::Context;
 use clap::Parser;
 use std::path::PathBuf;
-use wasmer::Target;
 use wasmer_compiler::Artifact;
-use wasmer_types::compilation::symbols::{ModuleMetadata, ModuleMetadataSymbolRegistry};
-use wasmer_types::{MetadataHeader, OwnedDataInitializer};
+use wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
+use wasmer_types::{CpuFeature, MetadataHeader, Triple};
 use webc::WebC;
 
 use super::normalize_path;
@@ -28,6 +28,24 @@ pub struct GenCHeader {
     /// Output file
     #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
     output: PathBuf,
+
+    /// Compilation Target triple
+    ///
+    /// Accepted target triple values must follow the
+    /// ['target_lexicon'](https://crates.io/crates/target-lexicon) crate format.
+    ///
+    /// The recommended targets we try to support are:
+    ///
+    /// - "x86_64-linux-gnu"
+    /// - "aarch64-linux-gnu"
+    /// - "x86_64-apple-darwin"
+    /// - "arm64-apple-darwin"
+    /// - "x86_64-windows-gnu"
+    #[clap(long = "target")]
+    target_triple: Option<Triple>,
+
+    #[clap(long, short = 'm', multiple = true, number_of_values = 1)]
+    cpu_features: Vec<CpuFeature>,
 }
 
 impl GenCHeader {
@@ -71,7 +89,11 @@ impl GenCHeader {
             }
         }
 
-        let target = Target::default();
+        let target_triple = self.target_triple.clone().unwrap_or_else(Triple::host);
+        let target = crate::commands::create_exe::utils::target_triple_to_target(
+            &target_triple,
+            &self.cpu_features,
+        );
         let (store, _) = CompilerOptions::default().get_store_for_target(target.clone())?;
         let module_name = format!("WASMER_{}_METADATA", prefix.to_uppercase());
         let engine = store.engine();
@@ -79,32 +101,11 @@ impl GenCHeader {
         let compiler = engine_inner.compiler()?;
         let features = engine_inner.features();
         let tunables = store.tunables();
-
-        #[allow(dead_code)]
-        let (compile_info, function_body_inputs, data_initializers, _) =
-            Artifact::generate_metadata(&file, compiler, tunables, features)?;
-
-        let data_initializers = data_initializers
-            .iter()
-            .map(OwnedDataInitializer::new)
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
-
-        // TODO: we currently supply all-zero function body lengths.
-        // We don't know the lengths until they're compiled, yet we have to
-        // supply the metadata as an input to the compile.
-        let function_body_lengths = function_body_inputs
-            .keys()
-            .map(|_function_body| 0u64)
-            .collect();
-
-        let metadata = ModuleMetadata {
-            compile_info: compile_info.clone(),
-            prefix: prefix.clone(),
-            data_initializers,
-            function_body_lengths,
-            cpu_features: target.cpu_features().as_u64(),
-        };
+        let prefix_copy = prefix.to_string();
+        let prefixer: Option<PrefixerFn> = Some(Box::new(move |_| prefix_copy.to_string()));
+        let (metadata, _, _) =
+            Artifact::metadata(compiler, &file, prefixer, &target, tunables, features)
+                .map_err(|e| anyhow::anyhow!("could not generate metadata: {e}"))?;
 
         let serialized_data = metadata
             .serialize()
@@ -117,7 +118,7 @@ impl GenCHeader {
         let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
             &prefix,
             &module_name,
-            &compile_info.module,
+            &metadata.compile_info.module,
             &ModuleMetadataSymbolRegistry {
                 prefix: prefix.clone(),
             },

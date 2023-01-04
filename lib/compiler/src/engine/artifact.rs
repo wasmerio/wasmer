@@ -460,6 +460,53 @@ impl Artifact {
         ))
     }
 
+    /// Generate the metadata object for the module
+    #[cfg(feature = "static-artifact-create")]
+    #[allow(clippy::type_complexity)]
+    pub fn metadata<'data, 'a>(
+        compiler: &dyn Compiler,
+        data: &'a [u8],
+        prefixer: Option<PrefixerFn>,
+        target: &'data Target,
+        tunables: &dyn Tunables,
+        features: &Features,
+    ) -> Result<
+        (
+            ModuleMetadata,
+            Option<ModuleTranslationState>,
+            PrimaryMap<LocalFunctionIndex, FunctionBodyData<'a>>,
+        ),
+        CompileError,
+    > {
+        #[allow(dead_code)]
+        let (compile_info, function_body_inputs, data_initializers, module_translation) =
+            Self::generate_metadata(data, compiler, tunables, features)?;
+
+        let data_initializers = data_initializers
+            .iter()
+            .map(OwnedDataInitializer::new)
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+
+        // TODO: we currently supply all-zero function body lengths.
+        // We don't know the lengths until they're compiled, yet we have to
+        // supply the metadata as an input to the compile.
+        let function_body_lengths = function_body_inputs
+            .keys()
+            .map(|_function_body| 0u64)
+            .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
+
+        let metadata = ModuleMetadata {
+            compile_info,
+            prefix: prefixer.as_ref().map(|p| p(data)).unwrap_or_default(),
+            data_initializers,
+            function_body_lengths,
+            cpu_features: target.cpu_features().as_u64(),
+        };
+
+        Ok((metadata, module_translation, function_body_inputs))
+    }
+
     /// Compile a module into an object file, which can be statically linked against.
     ///
     /// The `prefixer` returns the a String to prefix each of the
@@ -487,33 +534,10 @@ impl Artifact {
             CompileError::Codegen(format!("{}", err))
         }
 
-        #[allow(dead_code)]
-        let (compile_info, function_body_inputs, data_initializers, module_translation) =
-            Self::generate_metadata(data, compiler, tunables, features)?;
-
-        let data_initializers = data_initializers
-            .iter()
-            .map(OwnedDataInitializer::new)
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
-
         let target_triple = target.triple();
-
-        // TODO: we currently supply all-zero function body lengths.
-        // We don't know the lengths until they're compiled, yet we have to
-        // supply the metadata as an input to the compile.
-        let function_body_lengths = function_body_inputs
-            .keys()
-            .map(|_function_body| 0u64)
-            .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
-
-        let mut metadata = ModuleMetadata {
-            compile_info,
-            prefix: prefixer.as_ref().map(|p| p(data)).unwrap_or_default(),
-            data_initializers,
-            function_body_lengths,
-            cpu_features: target.cpu_features().as_u64(),
-        };
+        let (mut metadata, module_translation, function_body_inputs) =
+            Self::metadata(compiler, data, prefixer, target, tunables, features)
+                .map_err(to_compile_error)?;
 
         /*
         In the C file we need:
