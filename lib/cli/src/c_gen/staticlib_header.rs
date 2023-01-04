@@ -77,7 +77,7 @@ pub fn generate_header_file(
     symbol_registry: &dyn SymbolRegistry,
     metadata_length: usize,
 ) -> String {
-    let module_name = format!("WASMER_{}_METADATA", metadata_prefix.to_uppercase());
+    let module_name = format!("WASMER_METADATA_{}", metadata_prefix.to_uppercase());
     let atom_name = metadata_prefix;
     let mut c_statements = vec![
         CStatement::LiteralConstant {

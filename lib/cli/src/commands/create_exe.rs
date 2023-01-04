@@ -767,7 +767,7 @@ fn compile_atoms(
                 writer.flush()?;
             }
             ObjectFormat::Serialized => {
-                let module_name = format!("WASMER_{}_METADATA", prefix.to_uppercase());
+                let module_name = format!("WASMER_METADATA_{}", prefix.to_uppercase());
                 let module = Module::from_binary(&store, data).context("failed to compile Wasm")?;
                 let bytes = module.serialize()?;
                 let mut obj = get_object_for_target(target.triple())?;
@@ -1404,7 +1404,7 @@ fn generate_wasmer_main_c(
                 )
             })?;
         let atom_name = prefix.clone();
-        let module_name = format!("WASMER_{}_METADATA", prefix.to_uppercase());
+        let module_name = format!("WASMER_METADATA_{}", prefix.to_uppercase());
 
         if compile_static {
             extra_headers.push(format!("#include \"static_defs_{atom_name}.h\""));
