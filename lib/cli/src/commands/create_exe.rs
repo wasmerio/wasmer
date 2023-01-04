@@ -757,8 +757,8 @@ fn compile_atoms(
                 let compiler = engine_inner.compiler()?;
                 let features = engine_inner.features();
                 let tunables = store.tunables();
-                let prefix_copy = prefix.to_string();
-                let prefixer: Option<PrefixerFn> = Some(Box::new(move |_| prefix_copy.to_string()));
+                // let prefix_copy = prefix.to_string();
+                let prefixer: Option<PrefixerFn> = None;
                 let (module_info, obj, _, _) = Artifact::generate_object(
                     compiler,
                     data,
