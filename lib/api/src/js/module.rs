@@ -180,12 +180,7 @@ impl Module {
         let js_bytes = Uint8Array::view(binary);
         let module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
 
-        Self::from_js_module(
-            store,
-            module,
-            #[cfg(feature = "js-serializable-module")]
-            binary,
-        )
+        Self::from_js_module(store, module, binary)
     }
 
     /// Creates a new WebAssembly module skipping any kind of validation from a javascript module
@@ -193,9 +188,8 @@ impl Module {
     pub unsafe fn from_js_module(
         _store: &impl AsStoreRef,
         module: WebAssembly::Module,
-        #[cfg(feature = "js-serializable-module")] binary: impl IntoBytes,
+        binary: impl IntoBytes,
     ) -> Result<Self, CompileError> {
-        #[cfg(feature = "js-serializable-module")]
         let binary = binary.into_bytes();
         // The module is now validated, so we can safely parse it's types
         #[cfg(feature = "wasm-types-polyfill")]
