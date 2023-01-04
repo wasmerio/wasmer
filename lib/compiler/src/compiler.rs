@@ -80,7 +80,7 @@ where
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
 pub trait Compiler: Send {
     /// Returns a descriptive name for this compiler.
-    /// 
+    ///
     /// Note that this is an API breaking change since 3.0
     fn name(&self) -> &str;
 
