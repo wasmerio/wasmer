@@ -273,15 +273,11 @@ jobs:
           mkdir -p package
           mkdir -p package/winsdk
           cp -r /tmp/winsdk/* package/winsdk
-      - name: Choco install LLVM
-        uses: crazy-max/ghaction-chocolatey@v2
-        if: matrix.metadata.llvm_choco_version
-        with:
-          args: install llvm --version ${{ matrix.metadata.llvm_choco_version }} --allow-downgrade
-      - name: Install LLVM (Choco - Windows)
+      - name: Setup LLVM (Choco - Windows)
         if: matrix.metadata.llvm_choco_version
         shell: bash
         run: |
+          choco install llvm --version ${{ matrix.metadata.llvm_choco_version }} --allow-downgrade
           cd 'C:\Program Files\LLVM\'
           LLVM_DIR=$(pwd)
           echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
