@@ -169,8 +169,11 @@ impl LLVMCompiler {
                 .collect::<Vec<_>>()
                 .as_slice(),
         );
-        let metadata_gv =
-            merged_module.add_global(metadata_init.get_type(), None, "WASMER_METADATA");
+        let metadata_gv = merged_module.add_global(
+            metadata_init.get_type(),
+            None,
+            &symbol_registry.symbol_to_name(wasmer_types::Symbol::Metadata),
+        );
         metadata_gv.set_initializer(&metadata_init);
         metadata_gv.set_linkage(Linkage::DLLExport);
         metadata_gv.set_dll_storage_class(DLLStorageClass::Export);
