@@ -571,7 +571,7 @@ impl Artifact {
         let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
 
         let object_name = format!(
-            "WASMER_METADATA_{}",
+            "WASMER_{}_METADATA",
             metadata_prefix.unwrap_or_default().to_uppercase()
         );
         emit_data(&mut obj, object_name.as_bytes(), &metadata_binary, 1)

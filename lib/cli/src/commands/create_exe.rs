@@ -12,7 +12,8 @@ use std::process::Command;
 use std::process::Stdio;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
-use wasmer_types::ModuleInfo;
+use wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
+use wasmer_types::{ModuleInfo, SymbolRegistry};
 use webc::{ParseOptions, WebCMmap};
 
 const LINK_SYSTEM_LIBRARIES_WINDOWS: &[&str] = &["userenv", "Ws2_32", "advapi32", "bcrypt"];
@@ -767,7 +768,10 @@ fn compile_atoms(
                 writer.flush()?;
             }
             ObjectFormat::Serialized => {
-                let module_name = format!("WASMER_METADATA_{}", prefix.to_uppercase());
+                let module_name = ModuleMetadataSymbolRegistry {
+                    prefix: prefix.clone(),
+                }
+                .symbol_to_name(wasmer_types::Symbol::Metadata);
                 let module = Module::from_binary(&store, data).context("failed to compile Wasm")?;
                 let bytes = module.serialize()?;
                 let mut obj = get_object_for_target(target.triple())?;
@@ -991,7 +995,6 @@ pub(crate) fn create_header_files_in_dir(
     prefixes: &[String],
 ) -> anyhow::Result<()> {
     use object::{Object, ObjectSection};
-    use wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
 
     if entrypoint.object_format == ObjectFormat::Serialized {
         write_entrypoint(directory, entrypoint)?;
@@ -1404,7 +1407,11 @@ fn generate_wasmer_main_c(
                 )
             })?;
         let atom_name = prefix.clone();
-        let module_name = format!("WASMER_METADATA_{}", prefix.to_uppercase());
+
+        let module_name = ModuleMetadataSymbolRegistry {
+            prefix: prefix.clone(),
+        }
+        .symbol_to_name(wasmer_types::Symbol::Metadata);
 
         if compile_static {
             extra_headers.push(format!("#include \"static_defs_{atom_name}.h\""));

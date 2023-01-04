@@ -72,13 +72,11 @@ fn gen_helper_functions(atom_name: &str, module_name: &str) -> String {
 
 /// Generate the header file that goes with the generated object file.
 pub fn generate_header_file(
-    metadata_prefix: &str,
+    atom_name: &str,
     module_info: &ModuleInfo,
     symbol_registry: &dyn SymbolRegistry,
     metadata_length: usize,
 ) -> String {
-    let module_name = format!("WASMER_METADATA_{}", metadata_prefix.to_uppercase());
-    let atom_name = metadata_prefix;
     let mut c_statements = vec![
         CStatement::LiteralConstant {
             value: "#include \"wasmer.h\"\n#include <stdlib.h>\n#include <string.h>\n\n"
@@ -97,7 +95,7 @@ pub fn generate_header_file(
             })),
         },
         CStatement::Declaration {
-            name: module_name.to_string(),
+            name: symbol_registry.symbol_to_name(Symbol::Metadata),
             is_extern: true,
             is_const: true,
             ctype: CType::Array {
@@ -292,7 +290,7 @@ pub fn generate_header_file(
     }
 
     c_statements.push(CStatement::LiteralConstant {
-        value: gen_helper_functions(atom_name, &module_name),
+        value: gen_helper_functions(atom_name, &symbol_registry.symbol_to_name(Symbol::Metadata)),
     });
 
     c_statements.push(CStatement::LiteralConstant {
