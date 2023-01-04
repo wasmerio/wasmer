@@ -528,6 +528,8 @@ impl Artifact {
         ),
         CompileError,
     > {
+        use wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, SymbolRegistry};
+
         fn to_compile_error(err: impl std::error::Error) -> CompileError {
             CompileError::Codegen(format!("{}", err))
         }
@@ -570,10 +572,11 @@ impl Artifact {
             )?;
         let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
 
-        let object_name = format!(
-            "WASMER_{}_METADATA",
-            metadata_prefix.unwrap_or_default().to_uppercase()
-        );
+        let object_name = ModuleMetadataSymbolRegistry {
+            prefix: metadata_prefix.unwrap_or_default().to_string(),
+        }
+        .symbol_to_name(wasmer_types::Symbol::Metadata);
+
         emit_data(&mut obj, object_name.as_bytes(), &metadata_binary, 1)
             .map_err(to_compile_error)?;
 

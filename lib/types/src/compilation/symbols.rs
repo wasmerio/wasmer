@@ -149,7 +149,7 @@ impl SymbolRegistry for ModuleMetadataSymbolRegistry {
     fn symbol_to_name(&self, symbol: Symbol) -> String {
         match symbol {
             Symbol::Metadata => {
-                format!("WASMER_METADATA_{}", self.prefix)
+                format!("WASMER_METADATA_{}", self.prefix.to_uppercase())
             }
             Symbol::LocalFunction(index) => {
                 format!("wasmer_function_{}_{}", self.prefix, index.index())
