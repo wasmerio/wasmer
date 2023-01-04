@@ -348,6 +348,7 @@ jobs:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
+          LLVM_SYS_120_PREFIX: ${{ env.LLVM_SYS_120_PREFIX }}
       - name: Test C-API
         shell: bash
         if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm' || matrix.metadata.build == 'windows-gnu') }}
