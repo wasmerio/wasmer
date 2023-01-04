@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 /// possible after translation (such as the features used for compiling,
 /// or the `MemoryStyle` and `TableStyle`).
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[derive(Debug, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
+#[derive(Debug, Clone, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
 pub struct CompileModuleInfo {
     /// The features used for compiling the module
     pub features: Features,

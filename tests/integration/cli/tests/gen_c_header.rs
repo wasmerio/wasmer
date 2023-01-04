@@ -30,7 +30,7 @@ fn gen_c_header_works() -> anyhow::Result<()> {
     let file = std::fs::read_to_string(&out_path).expect("no header.h file");
     assert!(file.contains("wasmer_function_6f62a6bc5c8f8e3e12a54e2ecbc5674ccfe1c75f91d8e4dd6ebb3fec422a4d6c_0"), "no wasmer_function_6f62a6bc5c8f8e3e12a54e2ecbc5674ccfe1c75f91d8e4dd6ebb3fec422a4d6c_0 in file");
 
-    let cmd = Command::new(get_wasmer_path())
+    let _ = Command::new(get_wasmer_path())
         .arg("gen-c-header")
         .arg(&wasm_path)
         .arg("-o")

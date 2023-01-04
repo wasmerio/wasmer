@@ -4,7 +4,8 @@ use clap::Parser;
 use std::path::PathBuf;
 use wasmer::Target;
 use wasmer_compiler::Artifact;
-use wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
+use wasmer_types::compilation::symbols::{ModuleMetadata, ModuleMetadataSymbolRegistry};
+use wasmer_types::{MetadataHeader, OwnedDataInitializer};
 use webc::WebC;
 
 use super::normalize_path;
@@ -70,27 +71,57 @@ impl GenCHeader {
             }
         }
 
-        let (store, _) = CompilerOptions::default().get_store_for_target(Target::default())?;
+        let target = Target::default();
+        let (store, _) = CompilerOptions::default().get_store_for_target(target.clone())?;
         let module_name = format!("WASMER_{}_METADATA", prefix.to_uppercase());
         let engine = store.engine();
         let engine_inner = engine.inner();
         let compiler = engine_inner.compiler()?;
         let features = engine_inner.features();
         let tunables = store.tunables();
-        let (compile_info, _, _, _) =
-            Artifact::generate_metadata(&file, compiler, tunables, features)?;
-        let module_info = compile_info.module;
 
-        let metadata_length = 0;
+        #[allow(dead_code)]
+        let (compile_info, function_body_inputs, data_initializers, _) =
+            Artifact::generate_metadata(&file, compiler, tunables, features)?;
+
+        let data_initializers = data_initializers
+            .iter()
+            .map(OwnedDataInitializer::new)
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+
+        // TODO: we currently supply all-zero function body lengths.
+        // We don't know the lengths until they're compiled, yet we have to
+        // supply the metadata as an input to the compile.
+        let function_body_lengths = function_body_inputs
+            .keys()
+            .map(|_function_body| 0u64)
+            .collect();
+
+        let metadata = ModuleMetadata {
+            compile_info: compile_info.clone(),
+            prefix: prefix.clone(),
+            data_initializers,
+            function_body_lengths,
+            cpu_features: target.cpu_features().as_u64(),
+        };
+
+        let serialized_data = metadata
+            .serialize()
+            .map_err(|e| anyhow::anyhow!("failed to serialize: {e}"))?;
+        let mut metadata_binary = vec![];
+        metadata_binary.extend(MetadataHeader::new(serialized_data.len()).into_bytes());
+        metadata_binary.extend(serialized_data);
+        let metadata_length = metadata_binary.len();
 
         let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
             &prefix,
             &module_name,
-            &module_info,
+            &compile_info.module,
             &ModuleMetadataSymbolRegistry {
                 prefix: prefix.clone(),
             },
-            metadata_length as usize,
+            metadata_length,
         );
 
         let output = normalize_path(&self.output.display().to_string());
