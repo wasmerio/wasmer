@@ -327,6 +327,7 @@ impl<'a> StoreMut<'a> {
         Self { inner: &mut *raw }
     }
 
+    //TODO: OnCalledAction is needed for async. It will be refactor with https://github.com/wasmerio/wasmer/issues/3451
     /// Sets the unwind callback which will be invoked when the call finishes
     pub fn on_called<F>(&mut self, callback: F)
     where
