@@ -12,6 +12,10 @@ fn create_exe_wabt_path() -> String {
     format!("{}/{}", C_ASSET_PATH, "wabt-1.0.37.wasmer")
 }
 
+fn create_exe_python_wasmer() -> String {
+    format!("{}/{}", C_ASSET_PATH, "python-0.1.0.wasmer")
+}
+
 fn create_exe_test_wasm_path() -> String {
     format!("{}/{}", C_ASSET_PATH, "qjs.wasm")
 }
@@ -277,10 +281,76 @@ fn create_exe_works() -> anyhow::Result<()> {
         &operating_dir,
         &executable_path,
         &["--eval".to_string(), "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));".to_string()],
+        false,
     )
     .context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
     assert_eq!(result_lines, vec!["\"Hello, World\""],);
+
+    Ok(())
+}
+
+/// Tests that "-c" and "-- -c" are treated differently
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn create_exe_works_multi_command_args_handling() -> anyhow::Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let operating_dir: PathBuf = temp_dir.path().to_owned();
+
+    let wasm_path = operating_dir.join(create_exe_wabt_path());
+    #[cfg(not(windows))]
+    let executable_path = operating_dir.join("multicommand.out");
+    #[cfg(windows)]
+    let executable_path = operating_dir.join("multicommand.exe");
+
+    WasmerCreateExe {
+        current_dir: operating_dir.clone(),
+        wasm_path,
+        native_executable_path: executable_path.clone(),
+        compiler: Compiler::Cranelift,
+        ..Default::default()
+    }
+    .run()
+    .context("Failed to create-exe wasm with Wasmer")?;
+
+    let result = run_code(
+        &operating_dir,
+        &executable_path,
+        &[
+            "--command".to_string(),
+            "wasm-strip".to_string(),
+            "--".to_string(),
+            "-c".to_string(),
+        ],
+        true,
+    )
+    .context("Failed to run generated executable")?;
+    let result_lines = result.lines().collect::<Vec<&str>>();
+    assert_eq!(
+        result_lines,
+        vec![
+            "wasm-strip: unknown option '-c'",
+            "Try '--help' for more information.",
+            "WASI exited with code: 1"
+        ]
+    );
+
+    let result = run_code(
+        &operating_dir,
+        &executable_path,
+        &["-c".to_string(), "wasm-strip".to_string()],
+        true,
+    )
+    .context("Failed to run generated executable")?;
+    let result_lines = result.lines().collect::<Vec<&str>>();
+    assert_eq!(
+        result_lines,
+        vec![
+            "wasm-strip: expected filename argument.",
+            "Try '--help' for more information.",
+            "WASI exited with code: 1"
+        ]
+    );
 
     Ok(())
 }
@@ -315,6 +385,7 @@ fn create_exe_works_multi_command() -> anyhow::Result<()> {
             "wasm2wat".to_string(),
             "--version".to_string(),
         ],
+        false,
     )
     .context("Failed to run generated executable")?;
 
@@ -329,6 +400,7 @@ fn create_exe_works_multi_command() -> anyhow::Result<()> {
             "wasm-validate".to_string(),
             "--version".to_string(),
         ],
+        false,
     )
     .context("Failed to run generated executable")?;
 
@@ -377,6 +449,7 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
             "--script".to_string(),
             "test.js".to_string(),
         ],
+        false,
     )
     .context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
@@ -391,6 +464,7 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
             "--script".to_string(),
             "abc/test.js".to_string(),
         ],
+        false,
     )
     .context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
@@ -426,6 +500,7 @@ fn create_exe_serialized_works() -> anyhow::Result<()> {
         &operating_dir,
         &executable_path,
         &["--eval".to_string(), "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));".to_string()],
+        false,
     )
     .context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
@@ -571,6 +646,7 @@ fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
         &operating_dir,
         &executable_path,
         &["--eval".to_string(), "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));".to_string()],
+        false,
     )
     .context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
