@@ -1242,7 +1242,7 @@ fn link_exe_from_dir(
         cmd.arg("-lunwind");
     }
 
-    cmd.arg("-OReleaseFast");
+    cmd.arg("-OReleaseSafe");
     cmd.arg("-fno-compiler-rt");
     cmd.arg("-fno-lto");
     #[cfg(target_os = "windows")]
