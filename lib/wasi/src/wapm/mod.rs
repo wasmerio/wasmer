@@ -370,8 +370,6 @@ where
     )));
     pck.webc_top_level_dirs = top_level_dirs;
 
-    let root_package = webc.get_package_name();
-
     for (command, action) in webc.get_metadata().commands.iter() {
         let api = if action
             .runner
