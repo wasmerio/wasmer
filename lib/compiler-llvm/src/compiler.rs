@@ -43,7 +43,7 @@ struct ShortNames {}
 impl SymbolRegistry for ShortNames {
     fn symbol_to_name(&self, symbol: Symbol) -> String {
         match symbol {
-            Symbol::Metadata(prefix) => format!("M{}", prefix),
+            Symbol::Metadata => "M".to_string(),
             Symbol::LocalFunction(index) => format!("f{}", index.index()),
             Symbol::Section(index) => format!("s{}", index.index()),
             Symbol::FunctionCallTrampoline(index) => format!("t{}", index.index()),
@@ -57,7 +57,7 @@ impl SymbolRegistry for ShortNames {
         }
         let (ty, idx) = name.split_at(1);
         if ty.starts_with('M') {
-            return Some(Symbol::Metadata(idx.to_string()));
+            return Some(Symbol::Metadata);
         }
 
         let idx = idx.parse::<u32>().ok()?;

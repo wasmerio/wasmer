@@ -17,10 +17,11 @@ use serde::{Deserialize, Serialize};
     RkyvSerialize, RkyvDeserialize, Archive, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[archive(as = "Self")]
 pub enum Symbol {
     /// A metadata section, indexed by a unique prefix
     /// (usually the wasm file SHA256 hash)
-    Metadata(String),
+    Metadata,
 
     /// A function defined in the wasm.
     LocalFunction(LocalFunctionIndex),
@@ -147,8 +148,8 @@ impl ModuleMetadata {
 impl SymbolRegistry for ModuleMetadataSymbolRegistry {
     fn symbol_to_name(&self, symbol: Symbol) -> String {
         match symbol {
-            Symbol::Metadata(prefix) => {
-                format!("WASMER_METADATA_{}", prefix)
+            Symbol::Metadata => {
+                format!("WASMER_METADATA_{}", self.prefix)
             }
             Symbol::LocalFunction(index) => {
                 format!("wasmer_function_{}_{}", self.prefix, index.index())
@@ -172,8 +173,8 @@ impl SymbolRegistry for ModuleMetadataSymbolRegistry {
     }
 
     fn name_to_symbol(&self, name: &str) -> Option<Symbol> {
-        if let Some(prefix) = name.strip_prefix("WASMER_METADATA_") {
-            Some(Symbol::Metadata(prefix.to_string()))
+        if name == format!("WASMER_METADATA_{}", self.prefix) {
+            Some(Symbol::Metadata)
         } else if let Some(index) = name.strip_prefix(&format!("wasmer_function_{}_", self.prefix))
         {
             index
