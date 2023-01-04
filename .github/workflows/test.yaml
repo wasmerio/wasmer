@@ -282,6 +282,7 @@ jobs:
           LLVM_DIR=$(pwd)
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.metadata.os == 'macos-11.0' && !matrix.metadata.llvm_url
         run: |
@@ -307,22 +308,6 @@ jobs:
           target = "${{ matrix.metadata.target }}"
           EOF
         if: matrix.metadata.target
-      - name: which llvm-config
-        if: ${{ matrix.build-what.key == 'wasmer' && matrix.metadata.build == 'windows-x64' }}
-        run: which llvm-config
-        continue-on-error: true
-      - name: which llvm-config-12
-        if: ${{ matrix.build-what.key == 'wasmer' && matrix.metadata.build == 'windows-x64' }}
-        run: which llvm-config-12
-        continue-on-error: true
-      - name: which llvm-config-13
-        if: ${{ matrix.build-what.key == 'wasmer' && matrix.metadata.build == 'windows-x64' }}
-        run: which llvm-config-13
-        continue-on-error: true
-      - name: which llvm-config
-        if: ${{ matrix.build-what.key == 'wasmer' && matrix.metadata.build == 'windows-x64' }}
-        run: llvm-config --version || llvm-config-12 --version || llvm-config-13 --version
-        continue-on-error: true
       - name: which cargo
         if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
         run: which cargo
