@@ -255,7 +255,9 @@ fn test_create_exe_with_precompiled_works_1() {
     );
 }
 
-#[cfg(not(target_os = "windows"))]
+// Ignored because of -lunwind linker issue on Windows
+// see https://github.com/wasmerio/wasmer/issues/3459
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn create_exe_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
@@ -291,7 +293,9 @@ fn create_exe_works() -> anyhow::Result<()> {
 }
 
 /// Tests that "-c" and "-- -c" are treated differently
-#[cfg(not(target_os = "windows"))]
+// Ignored because of -lunwind linker issue on Windows
+// see https://github.com/wasmerio/wasmer/issues/3459
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn create_exe_works_multi_command_args_handling() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
@@ -355,7 +359,9 @@ fn create_exe_works_multi_command_args_handling() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(not(target_os = "windows"))]
+// Ignored because of -lunwind linker issue on Windows
+// see https://github.com/wasmerio/wasmer/issues/3459
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn create_exe_works_multi_command() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
@@ -410,7 +416,9 @@ fn create_exe_works_multi_command() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(not(target_os = "windows"))]
+// Ignored because of -lunwind linker issue on Windows
+// see https://github.com/wasmerio/wasmer/issues/3459
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn create_exe_works_with_file() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
@@ -473,7 +481,9 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(not(target_os = "windows"))]
+// Ignored because of -lunwind linker issue on Windows
+// see https://github.com/wasmerio/wasmer/issues/3459
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn create_exe_serialized_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
@@ -655,19 +665,25 @@ fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(not(target_os = "windows"))]
+// Ignored because of -lunwind linker issue on Windows
+// see https://github.com/wasmerio/wasmer/issues/3459
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn create_exe_with_object_input_default() -> anyhow::Result<()> {
     create_exe_with_object_input(vec![])
 }
 
-#[cfg(not(target_os = "windows"))]
+// Ignored because of -lunwind linker issue on Windows
+// see https://github.com/wasmerio/wasmer/issues/3459
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn create_exe_with_object_input_symbols() -> anyhow::Result<()> {
     create_exe_with_object_input(vec!["--object-format".to_string(), "symbols".to_string()])
 }
 
-#[cfg(not(target_os = "windows"))]
+// Ignored because of -lunwind linker issue on Windows
+// see https://github.com/wasmerio/wasmer/issues/3459
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn create_exe_with_object_input_serialized() -> anyhow::Result<()> {
     create_exe_with_object_input(vec![
