@@ -371,44 +371,86 @@ where
     pck.webc_top_level_dirs = top_level_dirs;
 
     let root_package = webc.get_package_name();
-    for (command, action) in webc.get_metadata().commands.iter() {
-        if let Some(Annotation::Map(annotations)) = action.annotations.get("wasi") {
-            let mut atom = None;
-            let mut package = root_package.clone();
-            for (k, v) in annotations {
-                match (k, v) {
-                    (Annotation::Text(k), Annotation::Text(v)) if k == "atom" => {
-                        atom = Some(v.clone());
-                    }
-                    (Annotation::Text(k), Annotation::Text(v)) if k == "package" => {
-                        package = v.clone();
-                    }
-                    _ => {}
-                }
-            }
 
-            // Load the atom as a command
-            if let Some(atom_name) = atom {
-                match webc.get_atom(package.as_str(), atom_name.as_str()) {
-                    Ok(atom) => {
-                        trace!(
-                            "added atom (name={}, size={}) for command [{}]",
-                            atom_name,
-                            atom.len(),
-                            command
-                        );
-                        let mut commands = pck.commands.write().unwrap();
-                        commands.push(BinaryPackageCommand::new_with_ownership(
-                            command.clone(),
-                            atom.into(),
-                            ownership.clone(),
-                        ));
+    for (command, action) in webc.get_metadata().commands.iter() {
+        let api = if action
+            .runner
+            .starts_with("https://webc.org/runner/emscripten")
+        {
+            "emscripten"
+        } else if action.runner.starts_with("https://webc.org/runner/wasi") {
+            "wasi"
+        } else {
+            warn!("unsupported runner - {}", action.runner);
+            continue;
+        };
+        let atom = webc.get_atom_name_for_command(api, command.as_str());
+        let atom = match atom {
+            Ok(a) => Some(a),
+            Err(err) => {
+                debug!(
+                    "failed to find atom name for entry command({}) - {} - falling back on the command name itself",
+                    command.as_str(),
+                    err
+                );
+                Some(command.clone())
+            }
+        };
+
+        // Load the atom as a command
+        if let Some(atom_name) = atom {
+            match webc.get_atom(package_name.as_str(), atom_name.as_str()) {
+                Ok(atom) => {
+                    trace!(
+                        "added atom (name={}, size={}) for command [{}]",
+                        atom_name,
+                        atom.len(),
+                        command
+                    );
+                    let mut commands = pck.commands.write().unwrap();
+                    commands.push(BinaryPackageCommand::new_with_ownership(
+                        command.clone(),
+                        atom.into(),
+                        ownership.clone(),
+                    ));
+                }
+                Err(err) => {
+                    debug!(
+                        "Failed to find atom [{}].[{}] - {} - falling back on the first atom",
+                        package_name, atom_name, err
+                    );
+
+                    if let Ok(files) = webc.atoms.get_all_files_and_directories_with_bytes() {
+                        if let Some(file) = files.iter().next() {
+                            if let Some(atom) = file.get_bytes() {
+                                trace!(
+                                    "added atom (name={}, size={}) for command [{}]",
+                                    atom_name,
+                                    atom.len(),
+                                    command
+                                );
+                                let mut commands = pck.commands.write().unwrap();
+                                commands.push(BinaryPackageCommand::new_with_ownership(
+                                    command.clone(),
+                                    atom.into(),
+                                    ownership.clone(),
+                                ));
+                                continue;
+                            }
+                        }
                     }
-                    Err(err) => {
-                        warn!(
-                            "Failed to find atom [{}].[{}] - {}",
-                            package, atom_name, err
-                        );
+
+                    debug!(
+                        "Failed to find atom [{}].[{}] - {} - command will be ignored",
+                        package_name, package_name, err
+                    );
+                    for (name, atom) in webc.manifest.atoms.iter() {
+                        tracing::debug!("found atom (name={}, kind={})", name, atom.kind);
+                    }
+                    if let Ok(files) = webc.atoms.get_all_files_and_directories_with_bytes() {
+                        for file in files.iter() {
+                            tracing::debug!("found file ({})", file.get_path().to_string_lossy());
+                        }
                     }
                 }
             }
