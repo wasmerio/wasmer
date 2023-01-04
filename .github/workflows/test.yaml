@@ -205,7 +205,7 @@ jobs:
             build: windows-x64,
             os: windows-2019,
             target: x86_64-pc-windows-msvc,
-            llvm_choco_version: 13.0.0
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-windows-amd64.tar.xz'
           },
           {
             build: windows-gnu,
@@ -273,17 +273,6 @@ jobs:
           mkdir -p package
           mkdir -p package/winsdk
           cp -r /tmp/winsdk/* package/winsdk
-      - name: Setup LLVM (Choco - Windows)
-        if: matrix.metadata.llvm_choco_version
-        shell: bash
-        run: |
-          choco install llvm --version ${{ matrix.metadata.llvm_choco_version }} --allow-downgrade
-          cd 'C:\Program Files\LLVM\'
-          LLVM_DIR=$(pwd)
-          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
-          echo "llvm prefix:"
-          echo ${{ env.LLVM_SYS_120_PREFIX }}
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.metadata.os == 'macos-11.0' && !matrix.metadata.llvm_url
         run: |
@@ -433,7 +422,7 @@ jobs:
             build: windows-x64,
             os: windows-2019,
             target: x86_64-pc-windows-msvc,
-            llvm_choco_version: 13.0.0
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-windows-amd64.tar.xz'
           },
           {
             build: linux-musl,
@@ -470,18 +459,6 @@ jobs:
         with:
           toolchain: 1.63
           target: ${{ matrix.metadata.target }}
-      - name: Choco install LLVM
-        uses: crazy-max/ghaction-chocolatey@v2
-        if: matrix.metadata.llvm_choco_version
-        with:
-          args: install llvm --version ${{ matrix.metadata.llvm_choco_version }} --allow-downgrade
-      - name: Install LLVM (Choco - Windows)
-        if: matrix.metadata.llvm_choco_version
-        shell: bash
-        run: |
-          cd 'C:\Program Files\LLVM\'
-          LLVM_DIR=$(pwd)
-          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.metadata.os == 'macos-11.0' && !matrix.metadata.llvm_url
         run: |
