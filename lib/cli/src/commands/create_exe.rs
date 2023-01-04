@@ -9,10 +9,10 @@ use std::collections::BTreeMap;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::process::Stdio;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 use wasmer_types::ModuleInfo;
-
 use webc::{ParseOptions, WebCMmap};
 
 /// The `prefixer` returns the a String to prefix each of the
@@ -1286,9 +1286,19 @@ fn link_exe_from_dir(
         cmd.args(files_winsdk);
     }
 
+    println!("running cmd: {cmd:?}");
+
     let compilation = cmd
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
         .output()
         .context(anyhow!("Could not execute `zig`: {cmd:?}"))?;
+
+    println!(
+        "file {} exists: {:?}",
+        out_path.display(),
+        out_path.exists()
+    );
 
     if !compilation.status.success() {
         return Err(anyhow::anyhow!(String::from_utf8_lossy(
@@ -1298,7 +1308,9 @@ fn link_exe_from_dir(
     }
 
     // remove file if it exists - if not done, can lead to errors on copy
-    let _ = std::fs::remove_file(&normalize_path(&format!("{}", output_path.display())));
+    let output_path_normalized = normalize_path(&format!("{}", output_path.display()));
+    println!("removing {output_path_normalized}");
+    let _ = std::fs::remove_file(&output_path_normalized);
     std::fs::copy(
         &normalize_path(&format!("{}", out_path.display())),
         &normalize_path(&format!("{}", output_path.display())),
