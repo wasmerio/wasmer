@@ -412,7 +412,7 @@ impl Artifact {
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "static-artifact-create")]
     /// Generate a compilation
-    fn generate_metadata<'data>(
+    pub fn generate_metadata<'data>(
         data: &'data [u8],
         compiler: &dyn Compiler,
         tunables: &dyn Tunables,

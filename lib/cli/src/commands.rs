@@ -10,6 +10,7 @@ mod config;
 mod create_exe;
 #[cfg(feature = "static-artifact-create")]
 mod create_obj;
+mod gen_c_header;
 mod init;
 mod inspect;
 mod list;
@@ -34,8 +35,8 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wast")]
 pub use wast::*;
 pub use {
-    add::*, cache::*, config::*, init::*, inspect::*, list::*, login::*, publish::*, run::*,
-    self_update::*, validate::*, whoami::*,
+    add::*, cache::*, config::*, gen_c_header::*, init::*, inspect::*, list::*, login::*,
+    publish::*, run::*, self_update::*, validate::*, whoami::*,
 };
 
 /// The kind of object format to emit.

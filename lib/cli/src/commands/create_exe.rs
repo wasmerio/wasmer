@@ -504,7 +504,7 @@ pub(super) fn compile_pirita_into_directory(
 
 /// Prefix map used during compilation of object files
 #[derive(Debug, Default, PartialEq)]
-struct PrefixMapCompilation {
+pub(crate) struct PrefixMapCompilation {
     /// Sha256 hashes for the input files
     input_hashes: BTreeMap<String, String>,
     /// Manual prefixes for input files (file:prefix)
@@ -638,7 +638,7 @@ impl PrefixMapCompilation {
         }
     }
 
-    fn hash_for_bytes(bytes: &[u8]) -> String {
+    pub(crate) fn hash_for_bytes(bytes: &[u8]) -> String {
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(bytes);
@@ -992,7 +992,7 @@ fn get_module_infos(
 }
 
 /// Create the static_defs.h header files in the /include directory
-fn create_header_files_in_dir(
+pub(crate) fn create_header_files_in_dir(
     directory: &Path,
     entrypoint: &mut Entrypoint,
     atoms: &[(String, Vec<u8>)],
