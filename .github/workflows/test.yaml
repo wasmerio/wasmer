@@ -223,7 +223,7 @@ jobs:
         if: matrix.metadata.build == 'linux-x64'
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y --allow-downgrades libstdc++6
+          sudo apt-get install -y --allow-downgrades libstdc++6 libtinfo5
           sudo apt-get install --reinstall g++
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
