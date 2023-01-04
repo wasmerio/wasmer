@@ -280,6 +280,7 @@ jobs:
           choco install llvm --version ${{ matrix.metadata.llvm_choco_version }} --allow-downgrade
           cd 'C:\Program Files\LLVM\'
           LLVM_DIR=$(pwd)
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.metadata.os == 'macos-11.0' && !matrix.metadata.llvm_url
