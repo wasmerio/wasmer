@@ -1339,13 +1339,16 @@ fn link_objects_system_linker(
         .canonicalize()
         .context("Failed to find libwasmer")?;
     let mut command = Command::new(linker_cmd);
-    let command = command
+    let mut command = command
         .arg("-Wall")
         .arg(optimization_flag)
         .args(object_paths.iter().map(|path| path.canonicalize().unwrap()))
-        .arg(&libwasmer_path)
-        .arg("-target")
-        .arg(format!("{}", target));
+        .arg(&libwasmer_path);
+
+    if *target != Triple::host() {
+        command = command.arg("-target");
+        command = command.arg(format!("{}", target));
+    }
 
     // Add libraries required per platform.
     // We need userenv, sockets (Ws2_32), advapi32 for some system calls and bcrypt for random numbers.
