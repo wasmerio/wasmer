@@ -314,7 +314,7 @@ impl Compiler for LLVMCompiler {
             let dwarf = Some(Dwarf::new(SectionIndex::from_u32(
                 module_custom_sections.len() as u32,
             )));
-            // Do net terminate darf info with a zero-length CIE.
+            // Do net terminate dwarf info with a zero-length CIE.
             // Because more info will be added later
             // in lib/object/src/module.rs emit_compilation
             module_custom_sections.push(CustomSection {
