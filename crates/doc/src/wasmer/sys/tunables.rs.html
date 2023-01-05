@@ -331,7 +331,7 @@
             <span class="kw">let</span> <span class="ident">sz</span> <span class="op">=</span> <span class="number">18</span> <span class="op">*</span> <span class="ident">WASM_PAGE_SIZE</span>;
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
             <span class="ident">memory</span>.<span class="ident">resize</span>(<span class="ident">sz</span>, <span class="number">0</span>);
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">VMTinyMemory</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="self">Self</span> {
                 <span class="ident">mem</span>: <span class="ident">memory</span>,
                 <span class="ident">memory_definition</span>: <span class="prelude-val">None</span>,
             };

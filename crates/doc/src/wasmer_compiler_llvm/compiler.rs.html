@@ -422,6 +422,7 @@
 <span class="kw">impl</span> <span class="ident">SymbolRegistry</span> <span class="kw">for</span> <span class="ident">ShortNames</span> {
     <span class="kw">fn</span> <span class="ident">symbol_to_name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">symbol</span>: <span class="ident">Symbol</span>) -&gt; <span class="ident">String</span> {
         <span class="kw">match</span> <span class="ident">symbol</span> {
+            <span class="ident">Symbol::Metadata</span> =&gt; <span class="string">&quot;M&quot;</span>.<span class="ident">to_string</span>(),
             <span class="ident">Symbol::LocalFunction</span>(<span class="ident">index</span>) =&gt; <span class="macro">format!</span>(<span class="string">&quot;f{}&quot;</span>, <span class="ident">index</span>.<span class="ident">index</span>()),
             <span class="ident">Symbol::Section</span>(<span class="ident">index</span>) =&gt; <span class="macro">format!</span>(<span class="string">&quot;s{}&quot;</span>, <span class="ident">index</span>.<span class="ident">index</span>()),
             <span class="ident">Symbol::FunctionCallTrampoline</span>(<span class="ident">index</span>) =&gt; <span class="macro">format!</span>(<span class="string">&quot;t{}&quot;</span>, <span class="ident">index</span>.<span class="ident">index</span>()),
@@ -434,6 +435,10 @@
             <span class="kw">return</span> <span class="prelude-val">None</span>;
         }
         <span class="kw">let</span> (<span class="ident">ty</span>, <span class="ident">idx</span>) <span class="op">=</span> <span class="ident">name</span>.<span class="ident">split_at</span>(<span class="number">1</span>);
+        <span class="kw">if</span> <span class="ident">ty</span>.<span class="ident">starts_with</span>(<span class="string">&#39;M&#39;</span>) {
+            <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">Symbol::Metadata</span>);
+        }
+
         <span class="kw">let</span> <span class="ident">idx</span> <span class="op">=</span> <span class="ident">idx</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>().<span class="ident">ok</span>()<span class="question-mark">?</span>;
         <span class="kw">match</span> <span class="ident">ty</span>.<span class="ident">chars</span>().<span class="ident">next</span>().<span class="ident">unwrap</span>() {
             <span class="string">&#39;f&#39;</span> =&gt; <span class="prelude-val">Some</span>(<span class="ident">Symbol::LocalFunction</span>(<span class="ident">LocalFunctionIndex::from_u32</span>(<span class="ident">idx</span>))),
@@ -543,8 +548,11 @@
                 .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
                 .<span class="ident">as_slice</span>(),
         );
-        <span class="kw">let</span> <span class="ident">metadata_gv</span> <span class="op">=</span>
-            <span class="ident">merged_module</span>.<span class="ident">add_global</span>(<span class="ident">metadata_init</span>.<span class="ident">get_type</span>(), <span class="prelude-val">None</span>, <span class="string">&quot;WASMER_METADATA&quot;</span>);
+        <span class="kw">let</span> <span class="ident">metadata_gv</span> <span class="op">=</span> <span class="ident">merged_module</span>.<span class="ident">add_global</span>(
+            <span class="ident">metadata_init</span>.<span class="ident">get_type</span>(),
+            <span class="prelude-val">None</span>,
+            <span class="kw-2">&amp;</span><span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">wasmer_types::Symbol::Metadata</span>),
+        );
         <span class="ident">metadata_gv</span>.<span class="ident">set_initializer</span>(<span class="kw-2">&amp;</span><span class="ident">metadata_init</span>);
         <span class="ident">metadata_gv</span>.<span class="ident">set_linkage</span>(<span class="ident">Linkage::DLLExport</span>);
         <span class="ident">metadata_gv</span>.<span class="ident">set_dll_storage_class</span>(<span class="ident">DLLStorageClass::Export</span>);
@@ -685,17 +693,9 @@
             <span class="kw">let</span> <span class="ident">dwarf</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Dwarf::new</span>(<span class="ident">SectionIndex::from_u32</span>(
                 <span class="ident">module_custom_sections</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u32</span>,
             )));
-            <span class="comment">// Terminating zero-length CIE.</span>
-            <span class="ident">frame_section_bytes</span>.<span class="ident">extend</span>(<span class="macro">vec!</span>[
-                <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="comment">// Length</span>
-                <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="comment">// CIE ID</span>
-                <span class="number">0x10</span>, <span class="comment">// Version (must be 1)</span>
-                <span class="number">0x00</span>, <span class="comment">// Augmentation data</span>
-                <span class="number">0x00</span>, <span class="comment">// Code alignment factor</span>
-                <span class="number">0x00</span>, <span class="comment">// Data alignment factor</span>
-                <span class="number">0x00</span>, <span class="comment">// Return address register</span>
-                <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="comment">// Padding to a multiple of 4 bytes</span>
-            ]);
+            <span class="comment">// Do not terminate dwarf info with a zero-length CIE.</span>
+            <span class="comment">// Because more info will be added later</span>
+            <span class="comment">// in lib/object/src/module.rs emit_compilation</span>
             <span class="ident">module_custom_sections</span>.<span class="ident">push</span>(<span class="ident">CustomSection</span> {
                 <span class="ident">protection</span>: <span class="ident">CustomSectionProtection::Read</span>,
                 <span class="ident">bytes</span>: <span class="ident">SectionBody::new_with_vec</span>(<span class="ident">frame_section_bytes</span>),

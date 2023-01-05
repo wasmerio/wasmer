@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["exec_module",""],["prepare_webc_env",""]],"struct":[["WasiRunner",""]]};

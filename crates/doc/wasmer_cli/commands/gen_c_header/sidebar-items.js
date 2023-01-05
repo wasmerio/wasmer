@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["GenCHeader","The options for the `wasmer gen-c-header` subcommand"]]};

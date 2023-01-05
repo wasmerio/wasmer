@@ -49,6 +49,11 @@
 <span id="43">43</span>
 <span id="44">44</span>
 <span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow::bail</span>;
 <span class="kw">use</span> <span class="ident">std::path::Path</span>;
 <span class="kw">use</span> <span class="ident">std::process::Command</span>;
@@ -74,13 +79,14 @@
     <span class="ident">operating_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
     <span class="ident">executable_path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
     <span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>],
+    <span class="ident">stderr</span>: <span class="ident">bool</span>,
 ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">Command::new</span>(<span class="ident">executable_path</span>.<span class="ident">canonicalize</span>()<span class="question-mark">?</span>)
         .<span class="ident">current_dir</span>(<span class="ident">operating_dir</span>)
         .<span class="ident">args</span>(<span class="ident">args</span>)
         .<span class="ident">output</span>()<span class="question-mark">?</span>;
 
-    <span class="kw">if</span> <span class="op">!</span><span class="ident">output</span>.<span class="ident">status</span>.<span class="ident">success</span>() {
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">output</span>.<span class="ident">status</span>.<span class="ident">success</span>() <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">stderr</span> {
         <span class="macro">bail!</span>(
             <span class="string">&quot;running executable failed: stdout: {}\n\nstderr: {}&quot;</span>,
             <span class="ident">std::str::from_utf8</span>(<span class="kw-2">&amp;</span><span class="ident">output</span>.<span class="ident">stdout</span>)
@@ -89,8 +95,12 @@
                 .<span class="ident">expect</span>(<span class="string">&quot;stderr is not utf8! need to handle arbitrary bytes&quot;</span>)
         );
     }
-    <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span>
-        <span class="ident">std::str::from_utf8</span>(<span class="kw-2">&amp;</span><span class="ident">output</span>.<span class="ident">stdout</span>).<span class="ident">expect</span>(<span class="string">&quot;output from running executable is not utf-8&quot;</span>);
+    <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">std::str::from_utf8</span>(<span class="kw">if</span> <span class="ident">stderr</span> {
+        <span class="kw-2">&amp;</span><span class="ident">output</span>.<span class="ident">stderr</span>
+    } <span class="kw">else</span> {
+        <span class="kw-2">&amp;</span><span class="ident">output</span>.<span class="ident">stdout</span>
+    })
+    .<span class="ident">expect</span>(<span class="string">&quot;output from running executable is not utf-8&quot;</span>);
 
     <span class="prelude-val">Ok</span>(<span class="ident">output</span>.<span class="ident">to_owned</span>())
 }

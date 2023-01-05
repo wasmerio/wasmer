@@ -44,7 +44,7 @@
 <span class="doccomment">/// possible after translation (such as the features used for compiling,</span>
 <span class="doccomment">/// or the `MemoryStyle` and `TableStyle`).</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CompileModuleInfo</span> {
     <span class="doccomment">/// The features used for compiling the module</span>
     <span class="kw">pub</span> <span class="ident">features</span>: <span class="ident">Features</span>,

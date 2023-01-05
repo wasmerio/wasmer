@@ -67,6 +67,14 @@
 <span id="59">59</span>
 <span id="60">60</span>
 <span id="61">61</span>
+<span id="62">62</span>
+<span id="63">63</span>
+<span id="64">64</span>
+<span id="65">65</span>
+<span id="66">66</span>
+<span id="67">67</span>
+<span id="68">68</span>
+<span id="69">69</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The commands available in the Wasmer binary.</span>
 <span class="kw">mod</span> <span class="ident">add</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
@@ -79,6 +87,7 @@
 <span class="kw">mod</span> <span class="ident">create_exe</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
 <span class="kw">mod</span> <span class="ident">create_obj</span>;
+<span class="kw">mod</span> <span class="ident">gen_c_header</span>;
 <span class="kw">mod</span> <span class="ident">init</span>;
 <span class="kw">mod</span> <span class="ident">inspect</span>;
 <span class="kw">mod</span> <span class="ident">list</span>;
@@ -99,21 +108,28 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">create_exe</span>::<span class="kw-2">*</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">create_obj</span>::<span class="kw-2">*</span>;
+<span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wast</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> {
-    <span class="ident">add</span>::<span class="kw-2">*</span>, <span class="ident">cache</span>::<span class="kw-2">*</span>, <span class="ident">config</span>::<span class="kw-2">*</span>, <span class="ident">init</span>::<span class="kw-2">*</span>, <span class="ident">inspect</span>::<span class="kw-2">*</span>, <span class="ident">list</span>::<span class="kw-2">*</span>, <span class="ident">login</span>::<span class="kw-2">*</span>, <span class="ident">publish</span>::<span class="kw-2">*</span>, <span class="ident">run</span>::<span class="kw-2">*</span>,
-    <span class="ident">self_update</span>::<span class="kw-2">*</span>, <span class="ident">validate</span>::<span class="kw-2">*</span>, <span class="ident">whoami</span>::<span class="kw-2">*</span>,
+    <span class="ident">add</span>::<span class="kw-2">*</span>, <span class="ident">cache</span>::<span class="kw-2">*</span>, <span class="ident">config</span>::<span class="kw-2">*</span>, <span class="ident">gen_c_header</span>::<span class="kw-2">*</span>, <span class="ident">init</span>::<span class="kw-2">*</span>, <span class="ident">inspect</span>::<span class="kw-2">*</span>, <span class="ident">list</span>::<span class="kw-2">*</span>, <span class="ident">login</span>::<span class="kw-2">*</span>,
+    <span class="ident">publish</span>::<span class="kw-2">*</span>, <span class="ident">run</span>::<span class="kw-2">*</span>, <span class="ident">self_update</span>::<span class="kw-2">*</span>, <span class="ident">validate</span>::<span class="kw-2">*</span>, <span class="ident">whoami</span>::<span class="kw-2">*</span>,
 };
 
 <span class="doccomment">/// The kind of object format to emit.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">clap::Parser</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">clap::Parser</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasmer-artifact-create&quot;</span>))]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ObjectFormat</span> {
     <span class="doccomment">/// Serialize the entire module into an object file.</span>
     <span class="ident">Serialized</span>,
     <span class="doccomment">/// Serialize only the module metadata into an object file and emit functions as symbols.</span>
     <span class="ident">Symbols</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">ObjectFormat</span> {
+    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
+        <span class="ident">ObjectFormat::Symbols</span>
+    }
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasmer-artifact-create&quot;</span>))]</span>

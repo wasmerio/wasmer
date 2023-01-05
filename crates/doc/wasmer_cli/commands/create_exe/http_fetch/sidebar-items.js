@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["download_release",""],["get_latest_release",""]]};
+window.SIDEBAR_ITEMS = {"fn":[["download_release",""],["download_url",""],["get_release",""],["list_dir",""],["untar",""]]};

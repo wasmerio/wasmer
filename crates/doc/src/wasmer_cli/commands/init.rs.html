@@ -523,6 +523,17 @@
 <span id="515">515</span>
 <span id="516">516</span>
 <span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow::Context</span>;
 <span class="kw">use</span> <span class="ident">cargo_metadata</span>::{<span class="ident">CargoOpt</span>, <span class="ident">MetadataCommand</span>};
 <span class="kw">use</span> <span class="ident">clap::Parser</span>;
@@ -943,27 +954,38 @@
         <span class="macro">log::warn!</span>(<span class="string">&quot;{msg}&quot;</span>);
     }
 
-    <span class="kw">let</span> <span class="ident">modules</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="ident">wasmer_toml::Module</span> {
-        <span class="ident">name</span>: <span class="ident">package_name</span>.<span class="ident">to_string</span>(),
-        <span class="ident">source</span>: <span class="ident">cargo_toml</span>
-            .<span class="ident">as_ref</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> {
-                <span class="comment">// Normalize the path to /target/release to be relative to the parent of the Cargo.toml</span>
-                <span class="kw">let</span> <span class="ident">outpath</span> <span class="op">=</span> <span class="ident">p</span>
-                    .<span class="ident">build_dir</span>
-                    .<span class="ident">join</span>(<span class="string">&quot;release&quot;</span>)
-                    .<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{package_name}.wasm&quot;</span>));
-                <span class="kw">let</span> <span class="ident">canonicalized_outpath</span> <span class="op">=</span> <span class="ident">outpath</span>.<span class="ident">canonicalize</span>().<span class="ident">unwrap_or</span>(<span class="ident">outpath</span>);
-                <span class="kw">let</span> <span class="ident">outpath_str</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">canonicalized_outpath</span>.<span class="ident">display</span>());
-                <span class="kw">let</span> <span class="ident">manifest_canonicalized</span> <span class="op">=</span> <span class="ident">manifest_path</span>
+    <span class="kw">let</span> <span class="ident">module_source</span> <span class="op">=</span> <span class="ident">cargo_toml</span>
+        .<span class="ident">as_ref</span>()
+        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> {
+            <span class="comment">// Normalize the path to /target/release to be relative to the parent of the Cargo.toml</span>
+            <span class="kw">let</span> <span class="ident">outpath</span> <span class="op">=</span> <span class="ident">p</span>
+                .<span class="ident">build_dir</span>
+                .<span class="ident">join</span>(<span class="string">&quot;release&quot;</span>)
+                .<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{package_name}.wasm&quot;</span>));
+            <span class="kw">let</span> <span class="ident">canonicalized_outpath</span> <span class="op">=</span> <span class="ident">outpath</span>.<span class="ident">canonicalize</span>().<span class="ident">unwrap_or</span>(<span class="ident">outpath</span>);
+            <span class="kw">let</span> <span class="ident">outpath_str</span> <span class="op">=</span>
+                <span class="ident"><span class="kw">crate</span>::commands::normalize_path</span>(<span class="kw-2">&amp;</span><span class="ident">canonicalized_outpath</span>.<span class="ident">display</span>().<span class="ident">to_string</span>());
+            <span class="kw">let</span> <span class="ident">manifest_canonicalized</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::commands::normalize_path</span>(
+                <span class="kw-2">&amp;</span><span class="ident">manifest_path</span>
                     .<span class="ident">parent</span>()
                     .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">canonicalize</span>().<span class="ident">ok</span>())
-                    .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">manifest_path</span>.<span class="ident">to_path_buf</span>());
-                <span class="kw">let</span> <span class="ident">manifest_str</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;{}/&quot;</span>, <span class="ident">manifest_canonicalized</span>.<span class="ident">display</span>());
-                <span class="kw">let</span> <span class="ident">relative_str</span> <span class="op">=</span> <span class="ident">outpath_str</span>.<span class="ident">replacen</span>(<span class="kw-2">&amp;</span><span class="ident">manifest_str</span>, <span class="string">&quot;&quot;</span>, <span class="number">1</span>);
-                <span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">relative_str</span>).<span class="ident">to_path_buf</span>()
-            })
-            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{package_name}.wasm&quot;</span>)).<span class="ident">to_path_buf</span>()),
+                    .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">manifest_path</span>.<span class="ident">to_path_buf</span>())
+                    .<span class="ident">display</span>()
+                    .<span class="ident">to_string</span>(),
+            );
+            <span class="kw">let</span> <span class="ident">diff</span> <span class="op">=</span> <span class="ident">outpath_str</span>
+                .<span class="ident">strip_prefix</span>(<span class="kw-2">&amp;</span><span class="ident">manifest_canonicalized</span>)
+                .<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="ident">outpath_str</span>)
+                .<span class="ident">replace</span>(<span class="string">&#39;\\&#39;</span>, <span class="string">&quot;/&quot;</span>);
+            <span class="comment">// Format in UNIX fashion (forward slashes)</span>
+            <span class="kw">let</span> <span class="ident">relative_str</span> <span class="op">=</span> <span class="ident">diff</span>.<span class="ident">strip_prefix</span>(<span class="string">&#39;/&#39;</span>).<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="ident">diff</span>);
+            <span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">relative_str</span>).<span class="ident">to_path_buf</span>()
+        })
+        .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{package_name}.wasm&quot;</span>)).<span class="ident">to_path_buf</span>());
+
+    <span class="kw">let</span> <span class="ident">modules</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="ident">wasmer_toml::Module</span> {
+        <span class="ident">name</span>: <span class="ident">package_name</span>.<span class="ident">to_string</span>(),
+        <span class="ident">source</span>: <span class="ident">module_source</span>,
         <span class="ident">kind</span>: <span class="prelude-val">None</span>,
         <span class="ident">abi</span>: <span class="ident">default_abi</span>,
         <span class="ident">bindings</span>: <span class="ident">bindings</span>.<span class="ident">as_ref</span>().<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">b</span><span class="op">|</span> <span class="ident">b</span>.<span class="ident">first_binding</span>()),

@@ -304,6 +304,9 @@
 <span id="296">296</span>
 <span id="297">297</span>
 <span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Generate a header file for the static object file produced.</span>
 
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">generate_c</span>, <span class="ident">CStatement</span>, <span class="ident">CType</span>};
@@ -311,71 +314,74 @@
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">Symbol</span>, <span class="ident">SymbolRegistry</span>};
 
 <span class="doccomment">/// Helper functions to simplify the usage of the static artifact.</span>
-<span class="kw">const</span> <span class="ident">HELPER_FUNCTIONS</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">r#&quot;
-wasm_byte_vec_t generate_serialized_data() {
+<span class="kw">fn</span> <span class="ident">gen_helper_functions</span>(<span class="ident">atom_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>, <span class="ident">module_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">String</span> {
+    <span class="macro">format!</span>(<span class="string">&quot;
+    wasm_byte_vec_t generate_serialized_data_{atom_name}() {{
         // We need to pass all the bytes as one big buffer so we have to do all this logic to memcpy
         // the various pieces together from the generated header file.
         //
         // We should provide a `deseralize_vectored` function to avoid requiring this extra work.
 
-        char* byte_ptr = (char*)&amp;WASMER_METADATA[0];
+        char* byte_ptr = (char*)&amp;{module_name}[0];
 
         size_t num_function_pointers
-                = sizeof(function_pointers) / sizeof(void*);
+                = sizeof(function_pointers_{atom_name}) / sizeof(void*);
         size_t num_function_trampolines
-                = sizeof(function_trampolines) / sizeof(void*);
+                = sizeof(function_trampolines_{atom_name}) / sizeof(void*);
         size_t num_dynamic_function_trampoline_pointers
-                = sizeof(dynamic_function_trampoline_pointers) / sizeof(void*);
+                = sizeof(dynamic_function_trampoline_pointers_{atom_name}) / sizeof(void*);
 
 
-        size_t buffer_size = module_bytes_len
-                + sizeof(size_t) + sizeof(function_pointers)
-                + sizeof(size_t) + sizeof(function_trampolines)
-                + sizeof(size_t) + sizeof(dynamic_function_trampoline_pointers);
+        size_t buffer_size = module_bytes_len_{atom_name}
+                + sizeof(size_t) + sizeof(function_pointers_{atom_name})
+                + sizeof(size_t) + sizeof(function_trampolines_{atom_name})
+                + sizeof(size_t) + sizeof(dynamic_function_trampoline_pointers_{atom_name});
 
         char* memory_buffer = (char*) malloc(buffer_size);
         size_t current_offset = 0;
 
-        memcpy(memory_buffer + current_offset, byte_ptr, module_bytes_len);
-        current_offset += module_bytes_len;
+        memcpy(memory_buffer + current_offset, byte_ptr, module_bytes_len_{atom_name});
+        current_offset += module_bytes_len_{atom_name};
 
         memcpy(memory_buffer + current_offset, (void*)&amp;num_function_pointers, sizeof(size_t));
         current_offset += sizeof(size_t);
 
-        memcpy(memory_buffer + current_offset, (void*)&amp;function_pointers[0], sizeof(function_pointers));
-        current_offset += sizeof(function_pointers);
+        memcpy(memory_buffer + current_offset, (void*)&amp;function_pointers_{atom_name}[0], sizeof(function_pointers_{atom_name}));
+        current_offset += sizeof(function_pointers_{atom_name});
 
         memcpy(memory_buffer + current_offset, (void*)&amp;num_function_trampolines, sizeof(size_t));
         current_offset += sizeof(size_t);
 
-        memcpy(memory_buffer + current_offset, (void*)&amp;function_trampolines[0], sizeof(function_trampolines));
-        current_offset += sizeof(function_trampolines);
+        memcpy(memory_buffer + current_offset, (void*)&amp;function_trampolines_{atom_name}[0], sizeof(function_trampolines_{atom_name}));
+        current_offset += sizeof(function_trampolines_{atom_name});
 
         memcpy(memory_buffer + current_offset, (void*)&amp;num_dynamic_function_trampoline_pointers, sizeof(size_t));
         current_offset += sizeof(size_t);
 
-        memcpy(memory_buffer + current_offset, (void*)&amp;dynamic_function_trampoline_pointers[0], sizeof(dynamic_function_trampoline_pointers));
-        current_offset += sizeof(dynamic_function_trampoline_pointers);
+        memcpy(memory_buffer + current_offset, (void*)&amp;dynamic_function_trampoline_pointers_{atom_name}[0], sizeof(dynamic_function_trampoline_pointers_{atom_name}));
+        current_offset += sizeof(dynamic_function_trampoline_pointers_{atom_name});
 
-        wasm_byte_vec_t module_byte_vec = {
+        wasm_byte_vec_t module_byte_vec = {{
                 .size = buffer_size,
                 .data = memory_buffer,
-        };
+        }};
         return module_byte_vec;
-}
+    }}
 
-wasm_module_t* wasmer_object_module_new(wasm_store_t* store, const char* wasm_name) {
-        // wasm_name intentionally unused for now: will be used in the future.
-        wasm_byte_vec_t module_byte_vec = generate_serialized_data();
-        wasm_module_t* module = wasm_module_deserialize(store, &amp;module_byte_vec);
-        free(module_byte_vec.data);
+    wasm_module_t* wasmer_object_module_new_{atom_name}(wasm_store_t* store, const char* wasm_name) {{
+            // wasm_name intentionally unused for now: will be used in the future.
+            wasm_byte_vec_t module_byte_vec = generate_serialized_data_{atom_name}();
+            wasm_module_t* module = wasm_module_deserialize(store, &amp;module_byte_vec);
+            free(module_byte_vec.data);
 
-        return module;
+            return module;
+    }}
+    &quot;</span>)
 }
-&quot;#</span>;
 
 <span class="doccomment">/// Generate the header file that goes with the generated object file.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">generate_header_file</span>(
+    <span class="ident">atom_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
     <span class="ident">module_info</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>,
     <span class="ident">symbol_registry</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">SymbolRegistry</span>,
     <span class="ident">metadata_length</span>: <span class="ident">usize</span>,
@@ -389,7 +395,7 @@ wasm_module_t* wasmer_object_module_new(wasm_store_t* store, const char* wasm_na
             <span class="ident">value</span>: <span class="string">&quot;#ifdef __cplusplus\nextern \&quot;C\&quot; {\n#endif\n\n&quot;</span>.<span class="ident">to_string</span>(),
         },
         <span class="ident">CStatement::Declaration</span> {
-            <span class="ident">name</span>: <span class="string">&quot;module_bytes_len&quot;</span>.<span class="ident">to_string</span>(),
+            <span class="ident">name</span>: <span class="macro">format!</span>(<span class="string">&quot;module_bytes_len_{atom_name}&quot;</span>),
             <span class="ident">is_extern</span>: <span class="bool-val">false</span>,
             <span class="ident">is_const</span>: <span class="bool-val">true</span>,
             <span class="ident">ctype</span>: <span class="ident">CType::U32</span>,
@@ -398,7 +404,7 @@ wasm_module_t* wasmer_object_module_new(wasm_store_t* store, const char* wasm_na
             })),
         },
         <span class="ident">CStatement::Declaration</span> {
-            <span class="ident">name</span>: <span class="string">&quot;WASMER_METADATA&quot;</span>.<span class="ident">to_string</span>(),
+            <span class="ident">name</span>: <span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol::Metadata</span>),
             <span class="ident">is_extern</span>: <span class="bool-val">true</span>,
             <span class="ident">is_const</span>: <span class="bool-val">true</span>,
             <span class="ident">ctype</span>: <span class="ident">CType::Array</span> {
@@ -460,7 +466,7 @@ wasm_module_t* wasmer_object_module_new(wasm_store_t* store, const char* wasm_na
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
         <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::Declaration</span> {
-            <span class="ident">name</span>: <span class="string">&quot;function_pointers&quot;</span>.<span class="ident">to_string</span>(),
+            <span class="ident">name</span>: <span class="macro">format!</span>(<span class="string">&quot;function_pointers_{atom_name}&quot;</span>),
             <span class="ident">is_extern</span>: <span class="bool-val">false</span>,
             <span class="ident">is_const</span>: <span class="bool-val">true</span>,
             <span class="ident">ctype</span>: <span class="ident">CType::Array</span> {
@@ -516,7 +522,7 @@ wasm_module_t* wasmer_object_module_new(wasm_store_t* store, const char* wasm_na
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
         <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::Declaration</span> {
-            <span class="ident">name</span>: <span class="string">&quot;function_trampolines&quot;</span>.<span class="ident">to_string</span>(),
+            <span class="ident">name</span>: <span class="macro">format!</span>(<span class="string">&quot;function_trampolines_{atom_name}&quot;</span>),
             <span class="ident">is_extern</span>: <span class="bool-val">false</span>,
             <span class="ident">is_const</span>: <span class="bool-val">true</span>,
             <span class="ident">ctype</span>: <span class="ident">CType::Array</span> {
@@ -580,7 +586,7 @@ wasm_module_t* wasmer_object_module_new(wasm_store_t* store, const char* wasm_na
             })
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
         <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::Declaration</span> {
-            <span class="ident">name</span>: <span class="string">&quot;dynamic_function_trampoline_pointers&quot;</span>.<span class="ident">to_string</span>(),
+            <span class="ident">name</span>: <span class="macro">format!</span>(<span class="string">&quot;dynamic_function_trampoline_pointers_{atom_name}&quot;</span>),
             <span class="ident">is_extern</span>: <span class="bool-val">false</span>,
             <span class="ident">is_const</span>: <span class="bool-val">true</span>,
             <span class="ident">ctype</span>: <span class="ident">CType::Array</span> {
@@ -593,7 +599,7 @@ wasm_module_t* wasmer_object_module_new(wasm_store_t* store, const char* wasm_na
     }
 
     <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::LiteralConstant</span> {
-        <span class="ident">value</span>: <span class="ident">HELPER_FUNCTIONS</span>.<span class="ident">to_string</span>(),
+        <span class="ident">value</span>: <span class="ident">gen_helper_functions</span>(<span class="ident">atom_name</span>, <span class="kw-2">&amp;</span><span class="ident">symbol_registry</span>.<span class="ident">symbol_to_name</span>(<span class="ident">Symbol::Metadata</span>)),
     });
 
     <span class="ident">c_statements</span>.<span class="ident">push</span>(<span class="ident">CStatement::LiteralConstant</span> {

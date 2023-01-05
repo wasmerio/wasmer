@@ -302,6 +302,11 @@
 <span id="294">294</span>
 <span id="295">295</span>
 <span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The logic for the Wasmer CLI tool.</span>
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
@@ -315,7 +320,8 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands::Wast</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands</span>::{
-    <span class="ident">Add</span>, <span class="ident">Cache</span>, <span class="ident">Config</span>, <span class="ident">Init</span>, <span class="ident">Inspect</span>, <span class="ident">List</span>, <span class="ident">Login</span>, <span class="ident">Publish</span>, <span class="ident">Run</span>, <span class="ident">SelfUpdate</span>, <span class="ident">Validate</span>, <span class="ident">Whoami</span>,
+    <span class="ident">Add</span>, <span class="ident">Cache</span>, <span class="ident">Config</span>, <span class="ident">GenCHeader</span>, <span class="ident">Init</span>, <span class="ident">Inspect</span>, <span class="ident">List</span>, <span class="ident">Login</span>, <span class="ident">Publish</span>, <span class="ident">Run</span>, <span class="ident">SelfUpdate</span>, <span class="ident">Validate</span>,
+    <span class="ident">Whoami</span>,
 };
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::PrettyError</span>;
 <span class="kw">use</span> <span class="ident">clap</span>::{<span class="ident">CommandFactory</span>, <span class="ident">ErrorKind</span>, <span class="ident">Parser</span>};
@@ -432,6 +438,9 @@
     <span class="attribute">#[<span class="ident">structopt</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;create-obj&quot;</span>, <span class="ident">verbatim_doc_comment</span>)]</span>
     <span class="ident">CreateObj</span>(<span class="ident">CreateObj</span>),
 
+    <span class="doccomment">/// Generate the C static_defs.h header file for the input .wasm module</span>
+    <span class="ident">GenCHeader</span>(<span class="ident">GenCHeader</span>),
+
     <span class="doccomment">/// Get various configuration information needed</span>
     <span class="doccomment">/// to compile programs which use Wasmer</span>
     <span class="ident">Config</span>(<span class="ident">Config</span>),
@@ -481,6 +490,7 @@
             <span class="ident"><span class="self">Self</span>::List</span>(<span class="ident">list</span>) =&gt; <span class="ident">list</span>.<span class="ident">execute</span>(),
             <span class="ident"><span class="self">Self</span>::Login</span>(<span class="ident">login</span>) =&gt; <span class="ident">login</span>.<span class="ident">execute</span>(),
             <span class="ident"><span class="self">Self</span>::Publish</span>(<span class="ident">publish</span>) =&gt; <span class="ident">publish</span>.<span class="ident">execute</span>(),
+            <span class="ident"><span class="self">Self</span>::GenCHeader</span>(<span class="ident">gen_heder</span>) =&gt; <span class="ident">gen_heder</span>.<span class="ident">execute</span>(),
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
             <span class="ident"><span class="self">Self</span>::Wast</span>(<span class="ident">wast</span>) =&gt; <span class="ident">wast</span>.<span class="ident">execute</span>(),
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
@@ -538,9 +548,9 @@
         <span class="ident">WasmerCLIOptions::Run</span>(<span class="ident">Run::from_binfmt_args</span>())
     } <span class="kw">else</span> {
         <span class="kw">match</span> <span class="ident">command</span>.<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="string">&quot;&quot;</span>.<span class="ident">to_string</span>()).<span class="ident">as_ref</span>() {
-            <span class="string">&quot;add&quot;</span> <span class="op">|</span> <span class="string">&quot;cache&quot;</span> <span class="op">|</span> <span class="string">&quot;compile&quot;</span> <span class="op">|</span> <span class="string">&quot;config&quot;</span> <span class="op">|</span> <span class="string">&quot;create-exe&quot;</span> <span class="op">|</span> <span class="string">&quot;help&quot;</span> <span class="op">|</span> <span class="string">&quot;inspect&quot;</span> <span class="op">|</span> <span class="string">&quot;init&quot;</span>
-            <span class="op">|</span> <span class="string">&quot;run&quot;</span> <span class="op">|</span> <span class="string">&quot;self-update&quot;</span> <span class="op">|</span> <span class="string">&quot;validate&quot;</span> <span class="op">|</span> <span class="string">&quot;wast&quot;</span> <span class="op">|</span> <span class="string">&quot;binfmt&quot;</span> <span class="op">|</span> <span class="string">&quot;list&quot;</span> <span class="op">|</span> <span class="string">&quot;login&quot;</span>
-            <span class="op">|</span> <span class="string">&quot;publish&quot;</span> =&gt; <span class="ident">WasmerCLIOptions::parse</span>(),
+            <span class="string">&quot;add&quot;</span> <span class="op">|</span> <span class="string">&quot;cache&quot;</span> <span class="op">|</span> <span class="string">&quot;compile&quot;</span> <span class="op">|</span> <span class="string">&quot;config&quot;</span> <span class="op">|</span> <span class="string">&quot;create-obj&quot;</span> <span class="op">|</span> <span class="string">&quot;create-exe&quot;</span> <span class="op">|</span> <span class="string">&quot;help&quot;</span>
+            <span class="op">|</span> <span class="string">&quot;gen-c-header&quot;</span> <span class="op">|</span> <span class="string">&quot;inspect&quot;</span> <span class="op">|</span> <span class="string">&quot;init&quot;</span> <span class="op">|</span> <span class="string">&quot;run&quot;</span> <span class="op">|</span> <span class="string">&quot;self-update&quot;</span> <span class="op">|</span> <span class="string">&quot;validate&quot;</span> <span class="op">|</span> <span class="string">&quot;wast&quot;</span>
+            <span class="op">|</span> <span class="string">&quot;binfmt&quot;</span> <span class="op">|</span> <span class="string">&quot;list&quot;</span> <span class="op">|</span> <span class="string">&quot;login&quot;</span> <span class="op">|</span> <span class="string">&quot;publish&quot;</span> =&gt; <span class="ident">WasmerCLIOptions::parse</span>(),
             <span class="kw">_</span> =&gt; {
                 <span class="ident">WasmerCLIOptions::try_parse_from</span>(<span class="ident">args</span>.<span class="ident">iter</span>()).<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
                     <span class="kw">match</span> <span class="ident">e</span>.<span class="ident">kind</span>() {
