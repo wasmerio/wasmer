@@ -314,17 +314,9 @@ impl Compiler for LLVMCompiler {
             let dwarf = Some(Dwarf::new(SectionIndex::from_u32(
                 module_custom_sections.len() as u32,
             )));
-            // Terminating zero-length CIE.
-            frame_section_bytes.extend(vec![
-                0x00, 0x00, 0x00, 0x00, // Length
-                0x00, 0x00, 0x00, 0x00, // CIE ID
-                0x10, // Version (must be 1)
-                0x00, // Augmentation data
-                0x00, // Code alignment factor
-                0x00, // Data alignment factor
-                0x00, // Return address register
-                0x00, 0x00, 0x00, // Padding to a multiple of 4 bytes
-            ]);
+            // Do net terminate darf info with a zero-length CIE.
+            // Because more info will be added later
+            // in lib/object/src/module.rs emit_compilation
             module_custom_sections.push(CustomSection {
                 protection: CustomSectionProtection::Read,
                 bytes: SectionBody::new_with_vec(frame_section_bytes),
