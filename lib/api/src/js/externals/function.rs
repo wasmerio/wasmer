@@ -418,7 +418,7 @@ impl Function {
 
         let result = {
             let mut r;
-            //TODO: This loop is needed for async. It will be refactor with https://github.com/wasmerio/wasmer/issues/3451
+            // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
             loop {
                 r = js_sys::Reflect::apply(
                     &self.handle.get(store.as_store_ref().objects()).function,

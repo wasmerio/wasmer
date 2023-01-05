@@ -120,7 +120,7 @@ impl FromStr for TrapCode {
     }
 }
 
-//TODO: OnCalledAction is needed for async. It will be refactor with https://github.com/wasmerio/wasmer/issues/3451
+// TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
 /// After the stack is unwound via asyncify what
 /// should the call loop do next
 #[derive(Debug)]
