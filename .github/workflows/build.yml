@@ -333,7 +333,7 @@ jobs:
         env:
           CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
           CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: --target aarch64-unknown-linux-gnu
+          CARGO_TARGET: aarch64-unknown-linux-gnu
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_ALLOW_CROSS: true
           ENABLE_LLVM: 0
@@ -344,7 +344,7 @@ jobs:
         env:
           CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
           CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: --target aarch64-unknown-linux-gnu
+          CARGO_TARGET: aarch64-unknown-linux-gnu
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_ALLOW_CROSS: true
           ENABLE_LLVM: 0
@@ -356,7 +356,7 @@ jobs:
         env:
           CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
           CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: --target aarch64-unknown-linux-gnu
+          CARGO_TARGET: aarch64-unknown-linux-gnu
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_ALLOW_CROSS: true
           ENABLE_LLVM: 0
@@ -366,7 +366,7 @@ jobs:
         env:
           CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
           CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: --target aarch64-unknown-linux-gnu
+          CARGO_TARGET: aarch64-unknown-linux-gnu
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_ALLOW_CROSS: true
           TARGET: aarch64-unknown-linux-gnu

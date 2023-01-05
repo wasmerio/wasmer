@@ -185,17 +185,17 @@ fn test_run() {
     let newpath = format!("{wasmer_dll_dir};{path}");
     let exe_dir = match std::path::Path::new(&manifest_dir).parent() {
         Some(parent) => format!("{}", parent.display()),
-        None => format!("{manifest_dir}"),
+        None => manifest_dir.to_string(),
     };
 
     for test in TESTS.iter() {
-        let mut manifest_dir_parent = std::path::Path::new(&manifest_dir);
-        let mut manifest_dir_parent = manifest_dir_parent.parent().unwrap();
+        let manifest_dir_parent = std::path::Path::new(&manifest_dir);
+        let manifest_dir_parent = manifest_dir_parent.parent().unwrap();
         let c_file_path = manifest_dir_parent.join(&format!("{test}.c"));
 
         if target.contains("msvc") {
             let mut build = cc::Build::new();
-            let mut build = build
+            let build = build
                 .cargo_metadata(false)
                 .warnings(true)
                 .static_crt(true)
@@ -217,12 +217,12 @@ fn test_run() {
                 fixup_symlinks(
                     &[
                         format!("{}/include", config.wasmer_dir),
-                        format!("{}", config.root_dir),
+                        config.root_dir.to_string(),
                     ],
                     &mut log,
                     &config.root_dir,
                 )
-                .expect(&format!("failed to fix symlinks: {log}"));
+                .unwrap_or_else(|_| panic!("failed to fix symlinks: {log}"));
                 println!("{log}");
             }
 
@@ -244,11 +244,11 @@ fn test_run() {
 
             let vcvars_bat_path = find_vcvarsall(&compiler).expect("no vcvarsall.bat");
             let vcvars_bat_path_parent = std::path::Path::new(&vcvars_bat_path).parent().unwrap();
-            let vcvars_modified_output = vcvars_bat_path_parent.join("compile-windows.bat");
+            let _vcvars_modified_output = vcvars_bat_path_parent.join("compile-windows.bat");
             let vcvars_bat_file = std::fs::read_to_string(&vcvars_bat_path).unwrap();
             let batch_formatted = format!("{}\\", vcvars_bat_path_parent.display());
             let vcvars_bat_file = vcvars_bat_file
-                .replace("%~dp0", &batch_formatted.replace("\\", "\\\\"))
+                .replace("%~dp0", &batch_formatted.replace('\\', "\\\\"))
                 .replace("\"%1\"", "\"x64\"");
             let vcvars_modified = format!("{vcvars_bat_file}\r\n{command:?}");
             let path = std::path::Path::new(&manifest_dir).join("compile-windows.bat");
@@ -292,7 +292,7 @@ fn test_run() {
             println!("setting current dir = {exe_dir}");
             let output = command
                 .output()
-                .expect(&format!("failed to run {command:#?}"));
+                .unwrap_or_else(|_| panic!("failed to run {command:#?}"));
             if !output.status.success() {
                 println!("{output:#?}");
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
@@ -315,18 +315,18 @@ fn test_run() {
                 fixup_symlinks(
                     &[
                         format!("{}/include", config.wasmer_dir),
-                        format!("{}", config.root_dir),
+                        config.root_dir.to_string(),
                     ],
                     &mut log,
                     &config.root_dir,
                 )
-                .expect(&format!("failed to fix symlinks: {log}"));
+                .unwrap_or_else(|_| panic!("failed to fix symlinks: {log}"));
             }
             command.arg(&c_file_path);
             if !config.wasmer_dir.is_empty() {
                 command.arg("-L");
                 command.arg(&format!("{}/lib/", config.wasmer_dir));
-                command.arg(&format!("-lwasmer"));
+                command.arg("-lwasmer");
                 command.arg(&format!("-Wl,-rpath,{}/lib/", config.wasmer_dir));
             }
             command.arg("-o");
@@ -365,7 +365,7 @@ fn test_run() {
             println!("execute: {command:#?}");
             let output = command
                 .output()
-                .expect(&format!("failed to run {command:#?}"));
+                .unwrap_or_else(|_| panic!("failed to run {command:#?}"));
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
@@ -434,7 +434,7 @@ fn fixup_symlinks(
             let entry = entry?;
             let path = entry.path();
             let path_display = format!("{}", path.display());
-            if path_display.ends_with("h") {
+            if path_display.ends_with('h') {
                 paths_headers.push(path_display);
             }
         }
@@ -488,7 +488,7 @@ fn find_vcvarsall(compiler: &cc::Tool) -> Option<String> {
 
     let path = compiler.path();
     let path = format!("{}", path.display());
-    let split = path.split("VC").nth(0)?;
+    let split = path.split("VC").next()?;
 
     Some(format!("{split}VC\\Auxiliary\\Build\\vcvarsall.bat"))
 }

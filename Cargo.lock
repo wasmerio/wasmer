@@ -2254,6 +2254,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "object"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "239da7f290cfa979f43f85a8efeee9a8a76d0827c356d37f9d3d7254d6b537fb"
+dependencies = [
+ "flate2",
+ "memchr",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2332,6 +2342,12 @@ name = "path-clean"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ecba01bf2678719532c5e3059e0b5f0811273d94b397088b82e3bd0a78c78fdd"
+
+[[package]]
+name = "pathdiff"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
 
 [[package]]
 name = "pbkdf2"
@@ -4312,6 +4328,8 @@ dependencies = [
  "log",
  "minisign",
  "nuke-dir",
+ "object 0.30.0",
+ "pathdiff",
  "prettytable-rs",
  "regex",
  "reqwest",
@@ -4320,6 +4338,7 @@ dependencies = [
  "semver 1.0.14",
  "serde",
  "serde_json",
+ "sha2",
  "spinoff",
  "tar",
  "target-lexicon 0.12.5",
@@ -4521,6 +4540,7 @@ version = "3.1.0"
 dependencies = [
  "anyhow",
  "flate2",
+ "object 0.30.0",
  "pretty_assertions",
  "rand 0.8.5",
  "tar",

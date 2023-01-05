@@ -43,6 +43,7 @@ struct ShortNames {}
 impl SymbolRegistry for ShortNames {
     fn symbol_to_name(&self, symbol: Symbol) -> String {
         match symbol {
+            Symbol::Metadata => "M".to_string(),
             Symbol::LocalFunction(index) => format!("f{}", index.index()),
             Symbol::Section(index) => format!("s{}", index.index()),
             Symbol::FunctionCallTrampoline(index) => format!("t{}", index.index()),
@@ -55,6 +56,10 @@ impl SymbolRegistry for ShortNames {
             return None;
         }
         let (ty, idx) = name.split_at(1);
+        if ty.starts_with('M') {
+            return Some(Symbol::Metadata);
+        }
+
         let idx = idx.parse::<u32>().ok()?;
         match ty.chars().next().unwrap() {
             'f' => Some(Symbol::LocalFunction(LocalFunctionIndex::from_u32(idx))),
@@ -164,8 +169,11 @@ impl LLVMCompiler {
                 .collect::<Vec<_>>()
                 .as_slice(),
         );
-        let metadata_gv =
-            merged_module.add_global(metadata_init.get_type(), None, "WASMER_METADATA");
+        let metadata_gv = merged_module.add_global(
+            metadata_init.get_type(),
+            None,
+            &symbol_registry.symbol_to_name(wasmer_types::Symbol::Metadata),
+        );
         metadata_gv.set_initializer(&metadata_init);
         metadata_gv.set_linkage(Linkage::DLLExport);
         metadata_gv.set_dll_storage_class(DLLStorageClass::Export);
@@ -306,17 +314,9 @@ impl Compiler for LLVMCompiler {
             let dwarf = Some(Dwarf::new(SectionIndex::from_u32(
                 module_custom_sections.len() as u32,
             )));
-            // Terminating zero-length CIE.
-            frame_section_bytes.extend(vec![
-                0x00, 0x00, 0x00, 0x00, // Length
-                0x00, 0x00, 0x00, 0x00, // CIE ID
-                0x10, // Version (must be 1)
-                0x00, // Augmentation data
-                0x00, // Code alignment factor
-                0x00, // Data alignment factor
-                0x00, // Return address register
-                0x00, 0x00, 0x00, // Padding to a multiple of 4 bytes
-            ]);
+            // Do not terminate dwarf info with a zero-length CIE.
+            // Because more info will be added later
+            // in lib/object/src/module.rs emit_compilation
             module_custom_sections.push(CustomSection {
                 protection: CustomSectionProtection::Read,
                 bytes: SectionBody::new_with_vec(frame_section_bytes),

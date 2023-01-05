@@ -69,7 +69,7 @@ mod tests {
             let sz = 18 * WASM_PAGE_SIZE;
             let mut memory = Vec::new();
             memory.resize(sz, 0);
-            let mut ret = VMTinyMemory {
+            let mut ret = Self {
                 mem: memory,
                 memory_definition: None,
             };

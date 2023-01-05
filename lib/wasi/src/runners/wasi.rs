@@ -11,7 +11,7 @@ use wasmer::{Cranelift, Instance, Module, Store};
 use wasmer_vfs::webc_fs::WebcFileSystem;
 use webc::{Command, WebCMmap};
 
-#[derive(Debug, Default, Clone, PartialEq, PartialOrd, Hash, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Hash, Serialize, Deserialize)]
 pub struct WasiRunner {
     args: Vec<String>,
 }
