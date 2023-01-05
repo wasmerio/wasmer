@@ -1,24 +1,16 @@
 
 #include "wasmer.h"
-//#include "my_wasm.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+// EXTRA_HEADERS
 
 #define own
 
-
 #define WASI
-
-#ifdef WASI_PIRITA
-extern size_t VOLUMES_LENGTH asm("VOLUMES_LENGTH");
-extern char VOLUMES_DATA asm("VOLUMES_DATA");
+ 
+// DECLARE_VOLUMES
 // DECLARE_MODULES
-#else
-extern size_t WASMER_MODULE_LENGTH asm("WASMER_MODULE_LENGTH");
-extern char WASMER_MODULE_DATA asm("WASMER_MODULE_DATA");
-#endif
 
 static void print_wasmer_error() {
   int error_len = wasmer_last_error_length();
@@ -54,8 +46,13 @@ static void pass_mapdir_arg(wasi_config_t *wasi_config, char *mapdir) {
 
 // We try to parse out `--dir` and `--mapdir` ahead of time and process those
 // specially. All other arguments are passed to the guest program.
-static void handle_arguments(wasi_config_t *wasi_config, int argc,
-                             char *argv[]) {
+static void handle_arguments(
+  wasi_config_t *wasi_config, 
+  int argc,
+  char *argv[], 
+  bool command_was_invoked, 
+  int dash_dash_position
+) {
   for (int i = 1; i < argc; ++i) {
     // We probably want special args like `--dir` and `--mapdir` to not be
     // passed directly
@@ -88,6 +85,16 @@ static void handle_arguments(wasi_config_t *wasi_config, int argc,
       // this arg is a mapdir
       char *mapdir = argv[i] + strlen("--mapdir=");
       pass_mapdir_arg(wasi_config, mapdir);
+    } else if (command_was_invoked && i == dash_dash_position && strcmp(argv[i], "--") == 0) {
+      continue;
+    } else if (command_was_invoked && dash_dash_position > i && (strcmp(argv[i], "--command") == 0 || strcmp(argv[i], "-c") == 0)) {
+      // next arg is a command
+      if ((i + 1) < argc) {
+        i++;
+      } else {
+        fprintf(stderr, "--command expects a commmand name\n");
+        exit(-1);
+      } 
     } else {
       // guest argument
       wasi_config_arg(wasi_config, argv[i]);
@@ -100,29 +107,47 @@ int main(int argc, char *argv[]) {
   wasm_config_t *config = wasm_config_new();
   wasm_engine_t *engine = wasm_engine_new_with_config(config);
   wasm_store_t *store = wasm_store_new(engine);
+  wasm_module_t *module = NULL;
 
-#ifdef WASI_PIRITA
-  // INSTANTIATE_MODULES
-#else
-  wasm_byte_vec_t module_byte_vec = {
-    .size = WASMER_MODULE_LENGTH,
-    .data = &WASMER_MODULE_DATA,
-  };
-  wasm_module_t *module = wasm_module_deserialize(store, &module_byte_vec);
+  const char* selected_atom = "main";
+  bool command_was_invoked = false;
+  int dash_dash_position = argc + 1;
+  int number_of_commands = 1;
+  // SET_NUMBER_OF_COMMANDS
 
-  if (!module) {
-    fprintf(stderr, "Failed to create module\n");
-    print_wasmer_error();
-    return -1;
+  if (number_of_commands > 1) {
+    // check if arguments contain "--" earlier than "--command" or "-c"
+    for (int i = 1; i < argc; i++) {
+      if (strcmp(argv[i], "--") == 0) {
+        dash_dash_position = i;
+        break;
+      }
+    }
+    
+    // select the --command only if if was given before a "--", such 
+    for (int i = 1; i < argc; i++) {
+      if ((strcmp(argv[i], "--command") == 0 || strcmp(argv[i], "-c") == 0) && dash_dash_position > i) {
+        // next arg is a command
+        if ((i + 1) < argc) {
+          selected_atom = argv[i + 1];
+          command_was_invoked = true;
+          break;
+        } else {
+          fprintf(stderr, "--command expects a commmand name\n");
+          exit(-1);
+        } 
+      }
+    }
   }
-#endif
+
+  // INSTANTIATE_MODULES
 
   // We have now finished the memory buffer book keeping and we have a valid
   // Module.
 
 #ifdef WASI_PIRITA
   wasi_config_t *wasi_config = wasi_config_new(argv[0]);
-  handle_arguments(wasi_config, argc, argv);
+  handle_arguments(wasi_config, argc, argv, command_was_invoked,dash_dash_position);
 
   wasm_byte_vec_t volume_bytes = {
     .size = VOLUMES_LENGTH,
@@ -142,7 +167,7 @@ int main(int argc, char *argv[]) {
       module,
       filesystem,
       &imports,
-      "##atom-name##"
+      selected_atom
       );
   if (!wasi_env) {
     printf("Error setting filesystem\n");
@@ -150,7 +175,7 @@ int main(int argc, char *argv[]) {
   }
 #else
   wasi_config_t *wasi_config = wasi_config_new(argv[0]);
-  handle_arguments(wasi_config, argc, argv);
+  handle_arguments(wasi_config, argc, argv, command_was_invoked, dash_dash_position);
 
   wasi_env_t *wasi_env = wasi_env_new(store, wasi_config);
   if (!wasi_env) {
@@ -216,8 +241,15 @@ int main(int argc, char *argv[]) {
   wasm_val_vec_t results = WASM_EMPTY_VEC;
   own wasm_trap_t *trap = wasm_func_call(start_function, &args, &results);
   if (trap) {
-    fprintf(stderr, "Trap is not NULL: TODO:\n");
-    return -1;
+    wasm_message_t retrieved_message;
+    // TODO: this is a shitty solution, but it's good enough for now
+    wasm_trap_message(trap, &retrieved_message);
+    if (strcmp(retrieved_message.data, "WASI exited with code: 0") == 0) {
+      wasm_trap_delete(trap);
+    } else {
+      fprintf(stderr, "%s", retrieved_message.data);
+      return -1;
+    }
   }
 #endif
 

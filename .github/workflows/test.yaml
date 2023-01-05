@@ -155,7 +155,7 @@ jobs:
         env:
           CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/aarch64 cross
           CROSS_DOCKER_IN_DOCKER: true
-          CARGO_TARGET: --target aarch64-unknown-linux-gnu
+          CARGO_TARGET: aarch64-unknown-linux-gnu
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_ALLOW_CROSS: true
           ENABLE_LLVM: 0
@@ -207,7 +207,7 @@ jobs:
             build: windows-x64,
             os: windows-2019,
             target: x86_64-pc-windows-msvc,
-            llvm_choco_version: 13.0.0
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-windows-amd64.tar.xz'
           },
           {
             build: windows-gnu,
@@ -225,7 +225,7 @@ jobs:
         if: matrix.metadata.build == 'linux-x64'
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y --allow-downgrades libstdc++6
+          sudo apt-get install -y --allow-downgrades libstdc++6 libtinfo5
           sudo apt-get install --reinstall g++
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
@@ -275,18 +275,6 @@ jobs:
           mkdir -p package
           mkdir -p package/winsdk
           cp -r /tmp/winsdk/* package/winsdk
-      - name: Choco install LLVM
-        uses: crazy-max/ghaction-chocolatey@v2
-        if: matrix.metadata.llvm_choco_version
-        with:
-          args: install llvm --version ${{ matrix.metadata.llvm_choco_version }} --allow-downgrade
-      - name: Install LLVM (Choco - Windows)
-        if: matrix.metadata.llvm_choco_version
-        shell: bash
-        run: |
-          cd 'C:\Program Files\LLVM\'
-          LLVM_DIR=$(pwd)
-          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.metadata.os == 'macos-11.0' && !matrix.metadata.llvm_url
         run: |
@@ -299,6 +287,7 @@ jobs:
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
           mkdir ${LLVM_DIR}
           tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
@@ -343,7 +332,7 @@ jobs:
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
-          CARGO_TARGET: --target ${{ matrix.metadata.target }}
+          CARGO_TARGET: ${{ matrix.metadata.target }}
       - name: Build Wasmer
         shell: bash
         if: ${{ matrix.build-what.key == 'wasmer' && matrix.metadata.build != 'windows-gnu' }}
@@ -351,7 +340,7 @@ jobs:
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
-          CARGO_TARGET: --target ${{ matrix.metadata.target }}
+          CARGO_TARGET: ${{ matrix.metadata.target }}
       - name: Test C-API
         shell: bash
         if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'macos-arm' || matrix.metadata.build == 'windows-gnu') }}
@@ -359,7 +348,7 @@ jobs:
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
-          CARGO_TARGET: --target ${{ matrix.metadata.target }}
+          CARGO_TARGET: ${{ matrix.metadata.target }}
       # C-API tests were disabled for linux-musl and macos-arm (we can't run them)
       - name: Test C-API integration
         shell: bash
@@ -368,7 +357,7 @@ jobs:
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
-          CARGO_TARGET: --target ${{ matrix.metadata.target }}
+          CARGO_TARGET: ${{ matrix.metadata.target }}
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -435,7 +424,7 @@ jobs:
             build: windows-x64,
             os: windows-2019,
             target: x86_64-pc-windows-msvc,
-            llvm_choco_version: 13.0.0
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-windows-amd64.tar.xz'
           },
           {
             build: linux-musl,
@@ -472,18 +461,6 @@ jobs:
         with:
           toolchain: 1.64
           target: ${{ matrix.metadata.target }}
-      - name: Choco install LLVM
-        uses: crazy-max/ghaction-chocolatey@v2
-        if: matrix.metadata.llvm_choco_version
-        with:
-          args: install llvm --version ${{ matrix.metadata.llvm_choco_version }} --allow-downgrade
-      - name: Install LLVM (Choco - Windows)
-        if: matrix.metadata.llvm_choco_version
-        shell: bash
-        run: |
-          cd 'C:\Program Files\LLVM\'
-          LLVM_DIR=$(pwd)
-          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.metadata.os == 'macos-11.0' && !matrix.metadata.llvm_url
         run: |
@@ -528,7 +505,7 @@ jobs:
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
-          CARGO_TARGET: --target ${{ matrix.metadata.target }}
+          CARGO_TARGET: ${{ matrix.metadata.target }}
 
   test_integration_cli: 
     name: CLI integration tests on ${{ matrix.build }}
@@ -554,6 +531,9 @@ jobs:
             target: x86_64-unknown-linux-musl
             os: ubuntu-22.04
             container: alpine:latest
+          - build: windows-x64
+            os: windows-2019
+            target: x86_64-pc-windows-msvc
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -610,6 +590,6 @@ jobs:
         env:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
-          CARGO_TARGET: --target ${{ matrix.target }}
+          CARGO_TARGET: ${{ matrix.target }}
           WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
