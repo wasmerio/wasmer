@@ -1,6 +1,10 @@
 use anyhow::{bail, Context};
+use std::{
+    ops::Deref,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use wasmer_vfs::FileSystem;
-use std::{ops::Deref, sync::Arc, path::{Path, PathBuf}};
 
 use tracing::*;
 #[allow(unused_imports)]
@@ -375,7 +379,8 @@ where
     // Add the memory footprint of the file system
     if let Some(webc_fs) = pck.webc_fs.as_ref() {
         let root_path = PathBuf::from("/");
-        pck.file_system_memory_footprint += count_file_system(webc_fs.as_ref(), root_path.as_path());
+        pck.file_system_memory_footprint +=
+            count_file_system(webc_fs.as_ref(), root_path.as_path());
     }
 
     // Add all the commands

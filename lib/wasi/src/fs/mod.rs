@@ -773,11 +773,7 @@ impl WasiFs {
     }
 
     /// refresh size from filesystem
-    pub fn filestat_resync_size(
-        &self,
-        inodes: &WasiInodes,
-        fd: WasiFd,
-    ) -> Result<Filesize, Errno> {
+    pub fn filestat_resync_size(&self, inodes: &WasiInodes, fd: WasiFd) -> Result<Filesize, Errno> {
         let inode = self.get_fd_inode(fd)?;
         let mut guard = inodes.arena[inode].write();
         match guard.deref_mut() {
