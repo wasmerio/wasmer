@@ -773,7 +773,7 @@ impl WasiFs {
     }
 
     /// refresh size from filesystem
-    pub(crate) fn filestat_resync_size(
+    pub fn filestat_resync_size(
         &self,
         inodes: &WasiInodes,
         fd: WasiFd,

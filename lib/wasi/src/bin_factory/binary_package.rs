@@ -74,6 +74,8 @@ pub struct BinaryPackage {
     pub commands: Arc<RwLock<Vec<BinaryPackageCommand>>>,
     pub uses: Vec<String>,
     pub version: Cow<'static, str>,
+    pub module_memory_footprint: u64,
+    pub combined_memory_footprint: u64,
 }
 
 impl BinaryPackage {
@@ -83,6 +85,7 @@ impl BinaryPackage {
             Some((a, b)) => (a.to_string(), b.to_string()),
             None => (package_name.to_string(), "1.0.0".to_string()),
         };
+        let module_memory_footprint = entry.as_ref().map(|a| a.len()).unwrap_or_default() as u64;
         Self {
             package_name: package_name.into(),
             when_cached: Some(now),
@@ -99,6 +102,8 @@ impl BinaryPackage {
             commands: Arc::new(RwLock::new(Vec::new())),
             uses: Vec::new(),
             version: version.into(),
+            module_memory_footprint: module_memory_footprint,
+            combined_memory_footprint: module_memory_footprint,
         }
     }
 

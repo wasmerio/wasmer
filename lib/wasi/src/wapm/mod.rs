@@ -1,5 +1,6 @@
 use anyhow::{bail, Context};
-use std::{ops::Deref, sync::Arc};
+use wasmer_vfs::FileSystem;
+use std::{ops::Deref, sync::Arc, path::{Path, PathBuf}};
 
 use tracing::*;
 #[allow(unused_imports)]
@@ -364,12 +365,20 @@ where
         })
         .collect::<Vec<_>>();
 
+    // Add the file system from the webc
     pck.webc_fs = Some(Arc::new(wasmer_vfs::webc_fs::WebcFileSystem::init(
         ownership.clone(),
         &package_name,
     )));
     pck.webc_top_level_dirs = top_level_dirs;
 
+    // Add the memory footprint of the file system
+    if let Some(webc_fs) = pck.webc_fs.as_ref() {
+        let root_path = PathBuf::from("/");
+        pck.combined_memory_footprint += count_file_system(webc_fs.as_ref(), root_path.as_path());
+    }
+
+    // Add all the commands
     for (command, action) in webc.get_metadata().commands.iter() {
         let api = if action
             .runner
@@ -456,4 +465,21 @@ where
     }
 
     Some(pck)
+}
+
+fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
+    let mut total = 0;
+    if let Ok(dir) = fs.read_dir(path) {
+        for entry in dir {
+            if let Ok(entry) = entry {
+                if let Ok(meta) = entry.metadata() {
+                    total += meta.len();
+                    if meta.is_dir() {
+                        total += count_file_system(fs, entry.path.as_path());
+                    }
+                }
+            }
+        }
+    }
+    total
 }

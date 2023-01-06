@@ -65,7 +65,12 @@ pub fn spawn_exec(
     config.env().state.fs.conditional_union(&binary);
 
     // Now run the module
-    spawn_exec_module(module, store, config, runtime)
+    let mut ret = spawn_exec_module(module, store, config, runtime);
+    if let Ok(ret) = ret.as_mut() {
+        ret.module_memory_footprint = binary.module_memory_footprint;
+        ret.combined_memory_footprint = binary.combined_memory_footprint;
+    }
+    ret
 }
 
 pub fn spawn_exec_module(
@@ -220,6 +225,8 @@ pub fn spawn_exec_module(
         stdout: None,
         stderr: None,
         signaler: Some(signaler),
+        module_memory_footprint: 0,
+        combined_memory_footprint: 0,
     })
 }
 

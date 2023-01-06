@@ -259,6 +259,8 @@ pub fn proc_fork<M: MemorySize>(
             stdout: None,
             stderr: None,
             signaler: Some(signaler),
+            module_memory_footprint: 0,
+            combined_memory_footprint: 0,
         };
         {
             trace!(

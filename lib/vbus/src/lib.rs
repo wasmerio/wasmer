@@ -241,6 +241,10 @@ pub struct BusSpawnedProcess {
     pub stderr: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     /// The signal handler for this process (if any)
     pub signaler: Option<Box<dyn SignalHandlerAbi + Send + Sync + 'static>>,
+    /// Amount of memory that the module uses
+    pub module_memory_footprint: u64,
+    /// Combined memory uses by the module and the file system
+    pub combined_memory_footprint: u64,
 }
 
 impl BusSpawnedProcess {
@@ -251,6 +255,8 @@ impl BusSpawnedProcess {
             stdout: None,
             stderr: None,
             signaler: None,
+            module_memory_footprint: 0,
+            combined_memory_footprint: 0,
         }
     }
 }
