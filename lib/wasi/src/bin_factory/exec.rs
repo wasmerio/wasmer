@@ -68,7 +68,7 @@ pub fn spawn_exec(
     let mut ret = spawn_exec_module(module, store, config, runtime);
     if let Ok(ret) = ret.as_mut() {
         ret.module_memory_footprint = binary.module_memory_footprint;
-        ret.combined_memory_footprint = binary.combined_memory_footprint;
+        ret.file_system_memory_footprint = binary.file_system_memory_footprint;
     }
     ret
 }
@@ -226,7 +226,7 @@ pub fn spawn_exec_module(
         stderr: None,
         signaler: Some(signaler),
         module_memory_footprint: 0,
-        combined_memory_footprint: 0,
+        file_system_memory_footprint: 0,
     })
 }
 

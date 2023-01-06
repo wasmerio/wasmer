@@ -244,7 +244,7 @@ pub struct BusSpawnedProcess {
     /// Amount of memory that the module uses
     pub module_memory_footprint: u64,
     /// Combined memory uses by the module and the file system
-    pub combined_memory_footprint: u64,
+    pub file_system_memory_footprint: u64,
 }
 
 impl BusSpawnedProcess {
@@ -256,7 +256,7 @@ impl BusSpawnedProcess {
             stderr: None,
             signaler: None,
             module_memory_footprint: 0,
-            combined_memory_footprint: 0,
+            file_system_memory_footprint: 0,
         }
     }
 }

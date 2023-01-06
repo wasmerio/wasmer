@@ -75,7 +75,7 @@ pub struct BinaryPackage {
     pub uses: Vec<String>,
     pub version: Cow<'static, str>,
     pub module_memory_footprint: u64,
-    pub combined_memory_footprint: u64,
+    pub file_system_memory_footprint: u64,
 }
 
 impl BinaryPackage {
@@ -103,7 +103,7 @@ impl BinaryPackage {
             uses: Vec::new(),
             version: version.into(),
             module_memory_footprint: module_memory_footprint,
-            combined_memory_footprint: module_memory_footprint,
+            file_system_memory_footprint: 0,
         }
     }
 

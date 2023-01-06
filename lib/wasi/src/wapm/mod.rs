@@ -375,7 +375,7 @@ where
     // Add the memory footprint of the file system
     if let Some(webc_fs) = pck.webc_fs.as_ref() {
         let root_path = PathBuf::from("/");
-        pck.combined_memory_footprint += count_file_system(webc_fs.as_ref(), root_path.as_path());
+        pck.file_system_memory_footprint += count_file_system(webc_fs.as_ref(), root_path.as_path());
     }
 
     // Add all the commands
