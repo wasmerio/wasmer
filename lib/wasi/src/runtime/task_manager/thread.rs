@@ -97,16 +97,6 @@ impl VirtualTaskManager for ThreadTaskManager {
         Err(WasiThreadError::Unsupported)
     }
 
-    /// Starts an asynchronous task will will run on a dedicated thread
-    /// pulled from the worker pool. It is ok for this task to block execution
-    /// and any async futures within its scope
-    fn task_dedicated_async(
-        &self,
-        task: Box<dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + 'static>> + Send + 'static>,
-    ) -> Result<(), WasiThreadError> {
-        Err(WasiThreadError::Unsupported)
-    }
-
     /// Returns the amount of parallelism that is possible on this platform
     fn thread_parallelism(&self) -> Result<usize, WasiThreadError> {
         Err(WasiThreadError::Unsupported)
@@ -196,19 +186,6 @@ impl VirtualTaskManager for ThreadTaskManager {
     ) -> Result<(), WasiThreadError> {
         std::thread::spawn(move || {
             task();
-        });
-        Ok(())
-    }
-
-    /// See [`VirtualTaskManager::task_dedicated_async`].
-    fn task_dedicated_async(
-        &self,
-        task: Box<dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + 'static>> + Send + 'static>,
-    ) -> Result<(), WasiThreadError> {
-        let runtime = self.runtime.clone();
-        std::thread::spawn(move || {
-            let fut = task();
-            runtime.block_on(fut);
         });
         Ok(())
     }

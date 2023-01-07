@@ -108,7 +108,7 @@ impl VirtualTaskManager for TokioTaskManager {
             SpawnType::Create => None,
         };
 
-        std::thread::spawn(move || {
+        self.0.spawn_blocking(move || {
             // Invoke the callback
             task(store, module, memory);
         });
@@ -120,21 +120,8 @@ impl VirtualTaskManager for TokioTaskManager {
         &self,
         task: Box<dyn FnOnce() + Send + 'static>,
     ) -> Result<(), WasiThreadError> {
-        std::thread::spawn(move || {
+        self.0.spawn_blocking(move || {
             task();
-        });
-        Ok(())
-    }
-
-    /// See [`VirtualTaskManager::task_dedicated_async`].
-    fn task_dedicated_async(
-        &self,
-        task: Box<dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + 'static>> + Send + 'static>,
-    ) -> Result<(), WasiThreadError> {
-        let runtime = self.0.clone();
-        std::thread::spawn(move || {
-            let fut = task();
-            runtime.block_on(fut);
         });
         Ok(())
     }

@@ -75,14 +75,6 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
         task: Box<dyn FnOnce() + Send + 'static>,
     ) -> Result<(), WasiThreadError>;
 
-    /// Starts an asynchronous task will will run on a dedicated thread
-    /// pulled from the worker pool. It is ok for this task to block execution
-    /// and any async futures within its scope
-    fn task_dedicated_async(
-        &self,
-        task: Box<dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + 'static>> + Send + 'static>,
-    ) -> Result<(), WasiThreadError>;
-
     /// Returns the amount of parallelism that is possible on this platform
     fn thread_parallelism(&self) -> Result<usize, WasiThreadError>;
 }
@@ -142,14 +134,6 @@ impl VirtualTaskManager for StubTaskManager {
     fn task_dedicated(
         &self,
         task: Box<dyn FnOnce() + Send + 'static>,
-    ) -> Result<(), WasiThreadError> {
-        Err(WasiThreadError::Unsupported)
-    }
-
-    #[allow(unused_variables)]
-    fn task_dedicated_async(
-        &self,
-        task: Box<dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + 'static>> + Send + 'static>,
     ) -> Result<(), WasiThreadError> {
         Err(WasiThreadError::Unsupported)
     }
