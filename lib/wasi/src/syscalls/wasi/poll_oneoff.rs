@@ -356,11 +356,11 @@ pub(crate) fn poll_oneoff_internal(
             };
             if debug_trace {
                 tracing::trace!(
-                    "wasi[{}:{}]::poll_oneoff clock_id={:?} (event={:?})",
+                    "wasi[{}:{}]::poll_oneoff clock_id={:?} (userdata={})",
                     pid,
                     tid,
                     clock_info.clock_id,
-                    evt
+                    evt.userdata,
                 );
             }
             triggered_events_tx.send(evt).unwrap();
