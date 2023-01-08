@@ -1,3 +1,5 @@
+use wasmer_wasi_types::wasi::SubscriptionClock;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -96,7 +98,7 @@ pub(crate) fn poll_oneoff_internal(
 
     // These are used when we capture what clocks (timeouts) are being
     // subscribed too
-    let mut clock_subs = vec![];
+    let mut clock_subs: Vec<(SubscriptionClock, u64)> = vec![];
     let mut time_to_sleep = None;
 
     // First we extract all the subscriptions into an array so that they
@@ -146,6 +148,9 @@ pub(crate) fn poll_oneoff_internal(
                 if clock_info.clock_id == Clockid::Realtime
                     || clock_info.clock_id == Clockid::Monotonic
                 {
+                    if clock_subs.iter().any(|c| c.0.clock_id == clock_info.clock_id && c.1 == s.userdata) {
+                        continue;
+                    }
                     if debug_trace {
                         tracing::trace!(
                             "wasi[{}:{}]::poll_oneoff clock_id={:?} (userdata={}, timeout={})",
