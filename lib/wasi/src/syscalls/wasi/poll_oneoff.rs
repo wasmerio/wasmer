@@ -287,11 +287,11 @@ pub(crate) fn poll_oneoff_internal(
                     for evt in evts {
                         if debug_trace {
                             tracing::trace!(
-                                "wasi[{}:{}]::poll_oneoff (fd_triggered={}, event={:?})",
+                                "wasi[{}:{}]::poll_oneoff (fd_triggered={}, userdata={})",
                                 pid,
                                 tid,
                                 guard.fd,
-                                evt
+                                evt.userdata,
                             );
                         }
                         triggered_events_tx.send(evt).unwrap();
