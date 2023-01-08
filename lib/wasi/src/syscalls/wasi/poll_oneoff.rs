@@ -288,7 +288,7 @@ pub(crate) fn poll_oneoff_internal(
                     for evt in evts {
                         if debug_trace {
                             tracing::trace!(
-                                "wasi[{}:{}]::poll_oneoff (fd_triggered={}, userdata={}, type={:?})",
+                                "wasi[{}:{}]::poll_oneoff triggered_fd (fd={}, userdata={}, type={:?})",
                                 pid,
                                 tid,
                                 guard.fd,
@@ -358,7 +358,7 @@ pub(crate) fn poll_oneoff_internal(
             };
             if debug_trace {
                 tracing::trace!(
-                    "wasi[{}:{}]::poll_oneoff clock_id={:?} (userdata={})",
+                    "wasi[{}:{}]::poll_oneoff triggered_clock id={:?} (userdata={})",
                     pid,
                     tid,
                     clock_info.clock_id,
