@@ -17,10 +17,12 @@ pub fn clock_time_get<M: MemorySize>(
     precision: Timestamp,
     time: WasmPtr<Timestamp, M>,
 ) -> Errno {
+    /*
     debug!(
         "wasi::clock_time_get clock_id: {}, precision: {}",
         clock_id as u8, precision
     );
+    */
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 
