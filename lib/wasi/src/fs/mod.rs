@@ -1679,7 +1679,7 @@ impl WasiFs {
         fd_map: &mut RwLockWriteGuard<HashMap<WasiFd, Fd>>,
         fd: WasiFd,
     ) -> Result<(), Errno> {
-        let pfd = fd_map.get(&fd).ok_or(Errno::Badf)?;
+        let pfd = fd_map.remove(&fd).map(|a| a.clone()).ok_or(Errno::Badf)?;
         let ref_cnt = pfd.ref_cnt.fetch_sub(1, Ordering::AcqRel);
         if ref_cnt > 1 {
             trace!(
@@ -1687,11 +1687,10 @@ impl WasiFs {
                 fd,
                 ref_cnt
             );
-            fd_map.remove(&fd);
             return Ok(());
         }
         trace!("closing file descriptor({}) - inode", fd);
-
+        
         let inode = pfd.inode;
         let inodeval = inodes.get_inodeval(inode)?;
         let is_preopened = inodeval.is_preopened;
