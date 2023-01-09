@@ -139,7 +139,6 @@ pub(crate) struct InodeSocketInner {
     pub kind: InodeSocketKind,
     pub read_buffer: Option<Bytes>,
     pub read_addr: Option<SocketAddr>,
-    pub silence_write_ready: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -155,7 +154,6 @@ impl InodeSocket {
                 kind,
                 read_buffer: None,
                 read_addr: None,
-                silence_write_ready: false,
             })),
         }
     }
@@ -902,10 +900,6 @@ impl InodeSocket {
             _ => Err(Errno::Notsup),
         }
         .map(|_| buf_len)?;
-
-        if ret > 0 {
-            inner.silence_write_ready = false;
-        }
         Ok(ret)
     }
 
@@ -916,7 +910,6 @@ impl InodeSocket {
     ) -> Result<usize, Errno> {
         let buf_len = buf.len();
         let mut inner = self.inner.write().unwrap();
-
         let ret = match &mut inner.kind {
             InodeSocketKind::Icmp(sock) => sock
                 .send_to(Bytes::from(buf), addr)
@@ -931,10 +924,6 @@ impl InodeSocket {
             _ => Err(Errno::Notsup),
         }
         .map(|_| buf_len)?;
-
-        if ret > 0 {
-            inner.silence_write_ready = false;
-        }
         Ok(ret)
     }
 
@@ -1127,7 +1116,6 @@ impl InodeSocket {
 
     pub async fn shutdown(&mut self, how: std::net::Shutdown) -> Result<(), Errno> {
         let mut inner = self.inner.write().unwrap();
-        inner.silence_write_ready = false;
         match &mut inner.kind {
             InodeSocketKind::TcpStream(sock) => {
                 sock.shutdown(how).await.map_err(net_error_into_wasi_err)?;
@@ -1182,9 +1170,6 @@ impl InodeSocket {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<wasmer_vnet::Result<usize>> {
         let mut inner = self.inner.write().unwrap();
-        if inner.silence_write_ready {
-            return std::task::Poll::Pending;
-        }
         let ret = match &mut inner.kind {
             InodeSocketKind::TcpListener(_) => std::task::Poll::Pending,
             InodeSocketKind::TcpStream(socket) => socket.poll_write_ready(cx),
@@ -1199,10 +1184,6 @@ impl InodeSocket {
                 std::task::Poll::Ready(Err(wasmer_vnet::NetworkError::ConnectionAborted))
             }
         };
-        if ret.is_ready() {
-            // TODO - This will suppress the write ready notifications
-            inner.silence_write_ready = true;
-        }
         ret
     }
 }

@@ -1690,7 +1690,7 @@ impl WasiFs {
             return Ok(());
         }
         trace!("closing file descriptor({}) - inode", fd);
-        
+
         let inode = pfd.inode;
         let inodeval = inodes.get_inodeval(inode)?;
         let is_preopened = inodeval.is_preopened;

@@ -86,10 +86,17 @@ pub(crate) fn poll_oneoff_internal(
     // Determine if we are in silent polling mode
     let mut env = ctx.data();
     let state = ctx.data().state.deref();
-    let debug_trace = env.poll_backoff == 0;
-    if debug_trace {
+    let poll_backoff = env.poll_backoff;
+    if poll_backoff == 0 {
         trace!(
             "wasi[{}:{}]::poll_oneoff (nsubscriptions={})",
+            pid,
+            tid,
+            subs.len(),
+        );
+    } else if env.poll_backoff == 1 {
+        trace!(
+            "wasi[{}:{}]::poll_oneoff (silenced) (nsubscriptions={})",
             pid,
             tid,
             subs.len(),
@@ -148,10 +155,13 @@ pub(crate) fn poll_oneoff_internal(
                 if clock_info.clock_id == Clockid::Realtime
                     || clock_info.clock_id == Clockid::Monotonic
                 {
-                    if clock_subs.iter().any(|c| c.0.clock_id == clock_info.clock_id && c.1 == s.userdata) {
+                    if clock_subs
+                        .iter()
+                        .any(|c| c.0.clock_id == clock_info.clock_id && c.1 == s.userdata)
+                    {
                         continue;
                     }
-                    if debug_trace {
+                    if poll_backoff == 0 {
                         tracing::trace!(
                             "wasi[{}:{}]::poll_oneoff clock_id={:?} (userdata={}, timeout={})",
                             pid,
@@ -257,7 +267,7 @@ pub(crate) fn poll_oneoff_internal(
                             }
                         }
                     };
-                    if debug_trace {
+                    if poll_backoff == 0 {
                         tracing::trace!(
                             "wasi[{}:{}]::poll_oneoff wait_for_fd={} type={:?}",
                             pid,
@@ -291,7 +301,7 @@ pub(crate) fn poll_oneoff_internal(
                     // that we can give to the caller
                     let evts = guard.wait().await;
                     for evt in evts {
-                        if debug_trace {
+                        if poll_backoff == 0 {
                             tracing::trace!(
                                 "wasi[{}:{}]::poll_oneoff triggered_fd (fd={}, userdata={}, type={:?})",
                                 pid,
@@ -321,7 +331,7 @@ pub(crate) fn poll_oneoff_internal(
         }
     };
 
-    if debug_trace {
+    if poll_backoff == 0 {
         if let Some(time_to_sleep) = time_to_sleep.as_ref() {
             tracing::trace!(
                 "wasi[{}:{}]::poll_oneoff wait_for_timeout={}",
@@ -340,59 +350,65 @@ pub(crate) fn poll_oneoff_internal(
     env = ctx.data();
     memory = env.memory_view(&ctx);
 
-    // If its a timeout then return an event for it
-    if let Err(Errno::Timedout) = ret {
-        ctx.data_mut().poll_backoff += 1;
-
-        // The timeout has triggerred so lets add that event
-        if clock_subs.len() <= 0 {
-            if debug_trace {
-                tracing::warn!(
-                    "wasi[{}:{}]::poll_oneoff triggered_timeout (without any clock subscriptions)",
-                    pid,
-                    tid
-                );
-            }
-        }
-        for (clock_info, userdata) in clock_subs {
-            let evt = Event {
-                userdata,
-                error: Errno::Success,
-                type_: Eventtype::Clock,
-                u: EventUnion { clock: 0 },
-            };
-            if debug_trace {
-                tracing::trace!(
-                    "wasi[{}:{}]::poll_oneoff triggered_clock id={:?} (userdata={})",
-                    pid,
-                    tid,
-                    clock_info.clock_id,
-                    evt.userdata,
-                );
-            }
-            triggered_events_tx.send(evt).unwrap();
-        }
-        ret = Ok(Errno::Success);
-    } else {
-        ctx.data_mut().poll_backoff = 0;
-    }
-    let ret = ret.unwrap_or_else(|a| a);
-    if ret != Errno::Success {
-        return Ok(Err(ret));
-    }
-
     // Process all the events that were triggered
     let mut event_array = Vec::new();
     while let Ok(event) = triggered_events_rx.try_recv() {
         event_array.push(event);
     }
-    if debug_trace {
+
+    // If its a timeout then return an event for it
+    if let Err(Errno::Timedout) = ret {
+        if event_array.is_empty() == true {
+            // The timeout has triggerred so lets add that event
+            if clock_subs.len() <= 0 {
+                if poll_backoff == 0 {
+                    tracing::warn!(
+                        "wasi[{}:{}]::poll_oneoff triggered_timeout (without any clock subscriptions)",
+                        pid,
+                        tid
+                    );
+                }
+            }
+            for (clock_info, userdata) in clock_subs {
+                let evt = Event {
+                    userdata,
+                    error: Errno::Success,
+                    type_: Eventtype::Clock,
+                    u: EventUnion { clock: 0 },
+                };
+                if poll_backoff == 0 {
+                    tracing::trace!(
+                        "wasi[{}:{}]::poll_oneoff triggered_clock id={:?} (userdata={})",
+                        pid,
+                        tid,
+                        clock_info.clock_id,
+                        evt.userdata,
+                    );
+                }
+                triggered_events_tx.send(evt).unwrap();
+            }
+        }
+        ret = Ok(Errno::Success);
+    }
+    if poll_backoff == 0 {
         tracing::trace!(
             "wasi[{}:{}]::poll_oneoff seen={}",
             ctx.data().pid(),
             ctx.data().tid(),
             event_array.len()
         );
+    }
+
+    // If there any useful events then reset the poll backoff
+    if event_array.iter().any(|a| a.type_ == Eventtype::FdRead) {
+        ctx.data_mut().poll_backoff = 0;
+    } else {
+        //ctx.data_mut().poll_backoff += 1;
+    }
+
+    let ret = ret.unwrap_or_else(|a| a);
+    if ret != Errno::Success {
+        return Ok(Err(ret));
     }
     Ok(Ok(event_array))
 }
