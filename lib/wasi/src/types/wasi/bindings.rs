@@ -534,7 +534,7 @@ pub mod output {
   }
   
   impl std::error::Error for BusErrno{}
-  wit_bindgen_rust::bitflags::bitflags! {
+  wai_bindgen_rust::bitflags::bitflags! {
     /// File descriptor rights, determining which actions may be performed.
     pub struct Rights: u64 {
       /// The right to invoke `fd_datasync`.
@@ -770,7 +770,7 @@ pub mod output {
       }
     }
   }
-  wit_bindgen_rust::bitflags::bitflags! {
+  wai_bindgen_rust::bitflags::bitflags! {
     /// File descriptor flags.
     pub struct Fdflags: u8 {
       /// Append mode: Data written to the file is always appended to the file's end.
@@ -812,7 +812,7 @@ pub mod output {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
       f.debug_struct("Fdstat").field("fs-filetype", &self.fs_filetype).field("fs-flags", &self.fs_flags).field("fs-rights-base", &self.fs_rights_base).field("fs-rights-inheriting", &self.fs_rights_inheriting).finish()}
   }
-  wit_bindgen_rust::bitflags::bitflags! {
+  wai_bindgen_rust::bitflags::bitflags! {
     /// Which file time attributes to adjust.
     /// TODO: wit appears to not have support for flags repr
     /// (@witx repr u16)
@@ -834,7 +834,7 @@ pub mod output {
               Self { bits }
         }
   }
-  wit_bindgen_rust::bitflags::bitflags! {
+  wai_bindgen_rust::bitflags::bitflags! {
     /// Flags determining the method of how paths are resolved.
     /// TODO: wit appears to not have support for flags repr
     /// (@witx repr u32)
@@ -850,7 +850,7 @@ pub mod output {
               Self { bits }
         }
   }
-  wit_bindgen_rust::bitflags::bitflags! {
+  wai_bindgen_rust::bitflags::bitflags! {
     /// Open flags used by `path_open`.
     /// TODO: wit appears to not have support for flags repr
     /// (@witx repr u16)
@@ -904,7 +904,7 @@ pub mod output {
       }
     }
   }
-  wit_bindgen_rust::bitflags::bitflags! {
+  wai_bindgen_rust::bitflags::bitflags! {
     /// Flags determining how to interpret the timestamp provided in
     /// `subscription-clock::timeout`.
     pub struct Subclockflags: u8 {
@@ -977,7 +977,7 @@ pub mod output {
       }
     }
   }
-  wit_bindgen_rust::bitflags::bitflags! {
+  wai_bindgen_rust::bitflags::bitflags! {
     /// The state of the file descriptor subscribed to with
     /// `eventtype::fd_read` or `eventtype::fd_write`.
     pub struct Eventrwflags: u8 {

@@ -8,7 +8,7 @@ use convert_case::{Case, Casing};
 use wit_parser::TypeDefKind;
 
 const WIT_1: &str = include_str!("../../wit-clean/output.wit");
-const BINDINGS_RS: &str = include_str!("../../src/wasi/bindings.rs");
+const BINDINGS_RS: &str = include_str!("../../wasi/bindings.rs");
 
 fn replace_in_string(s: &str, id: &str, ty: &str) -> String {
     let parts = s.split(&format!("impl {id} {{")).collect::<Vec<_>>();
@@ -58,7 +58,6 @@ fn main() {
     let path = std::path::Path::new(&target_path)
         .parent()
         .unwrap()
-        .join("src")
         .join("wasi")
         .join("extra.rs");
     let result = wit_parser::Interface::parse("output.wit", WIT_1).unwrap();
@@ -148,5 +147,11 @@ fn main() {
             );
         }
     }
+    
+    println!("writing to {}", path.display());
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
     std::fs::write(path, contents).unwrap();
+    println!("ok");
 }

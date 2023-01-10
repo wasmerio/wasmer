@@ -1,10 +1,5 @@
 #![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
 
-pub mod types {
-    pub use wasmer_wasi_types::types::*;
-    pub use wasmer_wasi_types::wasi;
-}
-
 #[cfg(any(
     target_os = "freebsd",
     target_os = "linux",
@@ -24,7 +19,9 @@ pub mod wasix32;
 #[cfg(feature = "wasix")]
 pub mod wasix64;
 
-use self::types::{
+use crate::state::{bus_error_into_wasi_err, wasi_error_into_bus_err, InodeHttpSocketType};
+use crate::types::{
+    types::*,
     wasi::{
         Addressfamily, Advice, Bid, BusDataFormat, BusErrno, BusHandles, Cid, Clockid, Dircookie,
         Dirent, Errno, Event, EventEnum, EventFdReadwrite, Eventrwflags, Eventtype, Fd as WasiFd,
@@ -35,7 +32,6 @@ use self::types::{
     },
     *,
 };
-use crate::state::{bus_error_into_wasi_err, wasi_error_into_bus_err, InodeHttpSocketType};
 use crate::utils::map_io_err;
 use crate::WasiBusProcessId;
 use crate::{

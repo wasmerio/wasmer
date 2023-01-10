@@ -16,7 +16,6 @@ thiserror = "1"
 generational-arena = { version = "0.2" }
 tracing = "0.1"
 getrandom = "0.2"
-wasmer-wasi-types = { path = "../wasi-types", version = "=3.1.0" }
 wasmer = { path = "../api", version = "=3.1.0", default-features = false }
 wasmer-vfs = { path = "../vfs", version = "=3.1.0", default-features = false }
 wasmer-vbus = { path = "../vbus", version = "=3.1.0", default-features = false }
@@ -54,11 +53,11 @@ webc_runner = ["webc", "serde_cbor", "anyhow", "serde", "wasmer/compiler", "wasm
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
 webc_runner_rt_wasi = []
 
-sys = ["wasmer/sys", "wasix", "wasmer-wasi-types/sys"]
+sys = ["wasmer/sys", "wasix"]
 sys-default = ["wasmer/wat", "wasmer/compiler", "sys", "logging", "host-fs", "sys-poll", "host-vnet" ]
 sys-poll = []
 
-js = ["wasmer/js", "mem-fs", "wasmer-vfs/no-time", "getrandom/js", "chrono", "wasmer-wasi-types/js"]
+js = ["wasmer/js", "mem-fs", "wasmer-vfs/no-time", "getrandom/js", "chrono"]
 js-default = ["js", "wasmer/js-default"]
 test-js = ["js", "wasmer/js-default", "wasmer/wat"]
 
@@ -77,5 +76,4 @@ enable-serde = [
     "bincode",
     "wasmer-vfs/enable-serde",
     "generational-arena/serde",
-    "wasmer-wasi-types/enable-serde",
 ]

@@ -38,6 +38,7 @@ mod macros;
 mod runtime;
 mod state;
 mod syscalls;
+pub mod types;
 mod utils;
 
 /// Runners for WASI / Emscripten
@@ -64,6 +65,7 @@ pub use wasmer_vfs::VirtualFile as WasiFile;
 pub use wasmer_vfs::{FsError, VirtualFile};
 pub use wasmer_vnet::{UnsupportedVirtualNetworking, VirtualNetworking};
 
+use crate::types::wasi::{BusErrno, Errno, Snapshot0Clockid};
 use derivative::*;
 use std::ops::Deref;
 use thiserror::Error;
@@ -73,7 +75,6 @@ use wasmer::{
     Imports, Instance, Memory, Memory32, MemoryAccessError, MemorySize, MemoryView, Module,
     TypedFunction,
 };
-use wasmer_wasi_types::wasi::{BusErrno, Errno, Snapshot0Clockid};
 
 pub use runtime::{
     PluggableRuntimeImplementation, WasiRuntimeImplementation, WasiThreadError, WasiTtyState,
