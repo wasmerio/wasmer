@@ -85,6 +85,7 @@ log = "0.4.17"
 minisign = "0.7.2"
 semver = "1.0.14"
 rpassword = "7.2.0"
+pathdiff = "0.2.1"
 
 [build-dependencies]
 chrono = { version = "^0.4", default-features = false, features = [ "std", "clock" ] }

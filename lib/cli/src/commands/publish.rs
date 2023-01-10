@@ -50,8 +50,6 @@ pub struct Publish {
 
 #[derive(Debug, Error)]
 enum PublishError {
-    #[error("Cannot publish without a module.")]
-    NoModule,
     #[error("Unable to publish the \"{module}\" module because \"{}\" is not a file", path.display())]
     SourceMustBeFile { module: String, path: PathBuf },
     #[error("Unable to load the bindings for \"{module}\" because \"{}\" doesn't exist", path.display())]
@@ -110,12 +108,16 @@ impl Publish {
 
         let manifest_string = toml::to_string(&manifest)?;
 
+        vendor_dependencies(&mut builder, &manifest, &cwd)?;
+
         let (readme, license) = construct_tar_gz(&mut builder, &manifest, &cwd)?;
 
         builder
             .finish()
             .map_err(|e| anyhow::anyhow!("failed to finish .tar.gz builder: {e}"))?;
-        let tar_archive_data = builder.into_inner().map_err(|_| PublishError::NoModule)?;
+        let tar_archive_data = builder
+            .into_inner()
+            .map_err(|e| PublishError::ErrorBuildingPackage(manifest.package.name.clone(), e))?;
         let archive_name = "package.tar.gz".to_string();
         let archive_dir = tempfile::TempDir::new()?;
         let archive_dir_path: &std::path::Path = archive_dir.as_ref();
@@ -166,13 +168,21 @@ impl Publish {
     }
 }
 
+fn vendor_dependencies(
+    _builder: &mut tar::Builder<Vec<u8>>,
+    _manifest: &wasmer_toml::Manifest,
+    _cwd: &Path,
+) -> Result<(), anyhow::Error> {
+    Ok(())
+}
+
 fn construct_tar_gz(
     builder: &mut tar::Builder<Vec<u8>>,
     manifest: &wasmer_toml::Manifest,
     cwd: &Path,
 ) -> Result<(Option<String>, Option<String>), anyhow::Error> {
     let package = &manifest.package;
-    let modules = manifest.module.as_ref().ok_or(PublishError::NoModule)?;
+    let modules = manifest.module.as_deref().unwrap_or_default();
 
     let readme = match package.readme.as_ref() {
         None => None,
@@ -218,20 +228,32 @@ fn construct_tar_gz(
     let default = std::collections::HashMap::default();
     for (_alias, path) in manifest.fs.as_ref().unwrap_or(&default).iter() {
         let normalized_path = normalize_path(cwd, path);
-        let path_metadata = normalized_path.metadata().map_err(|_| {
+        let path_metadata = normalized_path.canonicalize().map_err(|_| {
             PublishError::MissingManifestFsPath(normalized_path.to_string_lossy().to_string())
         })?;
+        let mut normalized_path = pathdiff::diff_paths(
+            &path_metadata,
+            &manifest.base_directory_path.canonicalize().unwrap(),
+        )
+        .unwrap();
+        if normalized_path.to_str().unwrap_or_default().is_empty() {
+            normalized_path = Path::new(".").to_path_buf();
+        }
         if path_metadata.is_dir() {
-            builder.append_dir_all(path, &normalized_path)
+            builder
+                .append_dir_all(&normalized_path, &path_metadata)
+                .map_err(|e| {
+                    PublishError::ErrorBuildingPackage(
+                        normalized_path.to_string_lossy().to_string(),
+                        e,
+                    )
+                })?;
         } else {
             return Err(PublishError::PackageFileSystemEntryMustBeDirectory(
-                path.to_string_lossy().to_string(),
+                path_metadata.to_string_lossy().to_string(),
             )
             .into());
         }
-        .map_err(|_| {
-            PublishError::MissingManifestFsPath(normalized_path.to_string_lossy().to_string())
-        })?;
     }
 
     Ok((readme, license_file))
