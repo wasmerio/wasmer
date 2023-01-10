@@ -275,11 +275,8 @@ impl PluggableRuntimeImplementation {
     pub fn set_engine(&mut self, engine: Option<wasmer::Engine>) {
         self.engine = engine;
     }
-}
 
-impl Default for PluggableRuntimeImplementation {
-    fn default() -> Self {
-        let rt = TokioTaskManager::default();
+    pub fn new_with_runtime(rt: TokioTaskManager) -> Self {
         // TODO: the cfg flags below should instead be handled by separate implementations.
         cfg_if::cfg_if! {
             if #[cfg(feature = "host-vnet")] {
@@ -306,6 +303,13 @@ impl Default for PluggableRuntimeImplementation {
             #[cfg(feature = "sys")]
             engine: None,
         }
+    }
+}
+
+impl Default for PluggableRuntimeImplementation {
+    fn default() -> Self {
+        let rt = TokioTaskManager::default();
+        Self::new_with_runtime(rt)
     }
 }
 
