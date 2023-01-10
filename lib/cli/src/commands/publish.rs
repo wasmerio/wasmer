@@ -10,6 +10,8 @@ use thiserror::Error;
 use time::{self, OffsetDateTime};
 use wasmer_registry::publish::SignArchiveResult;
 use wasmer_registry::{WasmerConfig, PACKAGE_TOML_FALLBACK_NAME};
+use std::collections::{BTreeMap, BTreeSet};
+use webc::{WebC, WebCMmap, Manifest, ParseOptions, UrlOrManifest, IndexMap, Volume, DirOrFile};
 
 const MIGRATIONS: &[(i32, &str)] = &[
     (0, include_str!("../../sql/migrations/0000.sql")),
@@ -108,8 +110,6 @@ impl Publish {
 
         let manifest_string = toml::to_string(&manifest)?;
 
-        vendor_dependencies(&mut builder, &manifest, &cwd)?;
-
         let (readme, license) = construct_tar_gz(&mut builder, &manifest, &cwd)?;
 
         builder
@@ -135,6 +135,8 @@ impl Publish {
 
         assert!(archive_path.exists());
         assert!(archive_path.is_file());
+
+        vendor_dependencies(&archive_path);
 
         if self.dry_run {
             // dry run: publish is done here
@@ -169,10 +171,34 @@ impl Publish {
 }
 
 fn vendor_dependencies(
-    _builder: &mut tar::Builder<Vec<u8>>,
-    _manifest: &wasmer_toml::Manifest,
-    _cwd: &Path,
+    targz_path: &Path,
 ) -> Result<(), anyhow::Error> {
+    let tempdir = tempfile::tempdir()?;
+    let webc_path = tempdir.join("temp.webc");
+    let vendored_path = tempdir.join("vendored.webc");
+    wapm_targz_to_pirita::convert_targz_to_pirita(
+        &targz_path.to_path_buf(),
+        &webc_path,
+        None,
+        &wapm_targz_to_pirita::TransformManifestFunctions::default(),
+    )?;
+    wapm_to_webc::vendor::VendorOptions {
+        infile: webc_path,
+        outfile: vendored_path,
+        .. Default::default(),
+    }.execute()?;
+
+    let webc = webc::WebCMmap::parse(&vendored_path, &webc::ParseOptions::default())?;
+
+    let vendored_dir = tempdir.join("vendored");
+    std::fs::create_dir_all(&vendored)?;
+
+    wapm_to_webc::vendor::UnpackOptions {
+        infile: vendored_path,
+        outfile: vendored_path,
+        .. Default::default(),
+    }.execute()?;
+
     Ok(())
 }
 
