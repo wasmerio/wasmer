@@ -63,7 +63,7 @@ async fn test_coreutils() {
 async fn run_test(mut store: Store, module: Module) {
     // Create the `WasiEnv`.
     let mut stdout = Pipe::default();
-    let mut wasi_state_builder = WasiState::new("echo");
+    let mut wasi_state_builder = WasiState::builder("echo");
     wasi_state_builder.args(&["apple"]);
 
     let mut wasi_env = wasi_state_builder

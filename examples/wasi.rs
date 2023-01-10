@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Creating `WasiEnv`...");
     // First, we create the `WasiEnv`
-    let mut wasi_env = WasiState::new("hello")
+    let mut wasi_env = WasiState::builder("hello")
         // .args(&["world"])
         // .env("KEY", "Value")
         .finalize(&mut store)?;

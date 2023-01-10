@@ -75,7 +75,7 @@ async fn test_stdout() {
     let mut pipe = WasiBidirectionalSharedPipePair::default();
     // FIXME: evaluate if needed (method not available on ArcFile)
     // pipe.set_blocking(false);
-    let mut wasi_env = WasiState::new("command-name")
+    let mut wasi_env = WasiState::builder("command-name")
         .args(&["Gordon"])
         .stdout(Box::new(pipe.clone()))
         .finalize(&mut store)
@@ -116,7 +116,7 @@ async fn test_env() {
     let mut pipe = WasiBidirectionalSharedPipePair::default();
     // FIXME: evaluate if needed (method not available)
     // .with_blocking(false);
-    let mut wasi_state_builder = WasiState::new("command-name");
+    let mut wasi_state_builder = WasiState::builder("command-name");
     wasi_state_builder
         .args(&["Gordon"])
         .env("DOG", "X")
@@ -164,7 +164,7 @@ async fn test_stdin() {
     let buf = "Hello, stdin!\n".as_bytes().to_owned();
     pipe.write(&buf[..]).await.unwrap();
 
-    let mut wasi_env = WasiState::new("command-name")
+    let mut wasi_env = WasiState::builder("command-name")
         .stdin(Box::new(pipe.clone()))
         .finalize(&mut store)
         .unwrap();

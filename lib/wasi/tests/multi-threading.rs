@@ -58,7 +58,7 @@ async fn test_multithreading() {
 async fn run_test(mut store: Store, module: Module) {
     // Create the `WasiEnv`.
     let mut stdout = Pipe::default();
-    let mut wasi_state_builder = WasiState::new("multi-threading");
+    let mut wasi_state_builder = WasiState::builder("multi-threading");
 
     let mut wasi_env = wasi_state_builder
         .stdout(Box::new(stdout.clone()))

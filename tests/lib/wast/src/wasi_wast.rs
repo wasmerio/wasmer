@@ -160,7 +160,7 @@ impl<'a> WasiTest<'a> {
         mpsc::Receiver<Vec<u8>>,
         mpsc::Receiver<Vec<u8>>,
     )> {
-        let mut builder = WasiState::new(self.wasm_path);
+        let mut builder = WasiState::builder(self.wasm_path);
 
         let stdin_pipe = WasiBidirectionalPipePair::new().with_blocking(false);
         builder.stdin(Box::new(stdin_pipe));
