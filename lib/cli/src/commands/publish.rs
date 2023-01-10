@@ -2,6 +2,7 @@ use anyhow::Context;
 use clap::Parser;
 use flate2::{write::GzEncoder, Compression};
 use rusqlite::{params, Connection, OpenFlags, TransactionBehavior};
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -10,8 +11,7 @@ use thiserror::Error;
 use time::{self, OffsetDateTime};
 use wasmer_registry::publish::SignArchiveResult;
 use wasmer_registry::{WasmerConfig, PACKAGE_TOML_FALLBACK_NAME};
-use std::collections::{BTreeMap, BTreeSet};
-use webc::{WebC, WebCMmap, Manifest, ParseOptions, UrlOrManifest, IndexMap, Volume, DirOrFile};
+use webc::{DirOrFile, IndexMap, Manifest, ParseOptions, UrlOrManifest, Volume, WebC, WebCMmap};
 
 const MIGRATIONS: &[(i32, &str)] = &[
     (0, include_str!("../../sql/migrations/0000.sql")),
@@ -128,6 +128,9 @@ impl Publish {
 
         gz_enc.write_all(&tar_archive_data).unwrap();
         let _compressed_archive = gz_enc.finish().unwrap();
+
+        vendor_dependencies(&archive_path).context("vendor dependencies")?;
+
         let mut compressed_archive_reader = fs::File::open(&archive_path)?;
 
         let maybe_signature_data = sign_compressed_archive(&mut compressed_archive_reader)?;
@@ -135,8 +138,6 @@ impl Publish {
 
         assert!(archive_path.exists());
         assert!(archive_path.is_file());
-
-        vendor_dependencies(&archive_path);
 
         if self.dry_run {
             // dry run: publish is done here
@@ -170,34 +171,71 @@ impl Publish {
     }
 }
 
-fn vendor_dependencies(
-    targz_path: &Path,
-) -> Result<(), anyhow::Error> {
+fn vendor_dependencies(targz_path: &Path) -> Result<(), anyhow::Error> {
     let tempdir = tempfile::tempdir()?;
+    let tempdir = tempdir.path().to_path_buf();
     let webc_path = tempdir.join("temp.webc");
     let vendored_path = tempdir.join("vendored.webc");
+
+    let wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
+
+    let config = WasmerConfig::from_file(&wasmer_dir)
+        .map_err(|e| anyhow::anyhow!("config from file: {e}"))?;
+
+    let registry = config.registry.get_current_registry();
+
     wapm_targz_to_pirita::convert_targz_to_pirita(
         &targz_path.to_path_buf(),
         &webc_path,
+        Some(registry),
         None,
         &wapm_targz_to_pirita::TransformManifestFunctions::default(),
-    )?;
-    wapm_to_webc::vendor::VendorOptions {
-        infile: webc_path,
-        outfile: vendored_path,
-        .. Default::default(),
-    }.execute()?;
+    )
+    .context("convert_targz_to_pirita")?;
 
-    let webc = webc::WebCMmap::parse(&vendored_path, &webc::ParseOptions::default())?;
+    wapm_to_webc::VendorOptions {
+        infile: webc_path.to_string_lossy().to_string(),
+        dependencies: Vec::new(),
+        registry: None,
+        offline: false,
+        key: None,
+        out: vendored_path.to_string_lossy().to_string(),
+    }
+    .run()
+    .context("VendorOptions::run")?;
 
     let vendored_dir = tempdir.join("vendored");
-    std::fs::create_dir_all(&vendored)?;
+    std::fs::create_dir_all(&vendored_dir)?;
 
-    wapm_to_webc::vendor::UnpackOptions {
-        infile: vendored_path,
-        outfile: vendored_path,
-        .. Default::default(),
-    }.execute()?;
+    wapm_to_webc::UnpackOptions {
+        infile: vendored_path.to_string_lossy().to_string(),
+        out: vendored_dir.clone(),
+    }
+    .run()
+    .context("UnpackOptions::run")?;
+
+    let mut builder = Builder::new(Vec::new());
+    builder
+        .append_dir_all(Path::new("."), &vendored_dir)
+        .context("builder.append_dir_all")?;
+    builder
+        .finish()
+        .map_err(|e| anyhow::anyhow!("failed to finish .tar.gz builder: {e}"))?;
+
+    let tar_archive_data = builder.into_inner().context("builder into inner")?;
+
+    let archive_name = "package.tar.gz".to_string();
+    let archive_dir = tempfile::TempDir::new()?;
+    let archive_dir_path: &std::path::Path = archive_dir.as_ref();
+    fs::create_dir(archive_dir_path.join("wapm_package"))?;
+
+    let archive_path = archive_dir_path.join("wapm_package").join(&archive_name);
+    let mut compressed_archive = fs::File::create(&archive_path).unwrap();
+    let mut gz_enc = GzEncoder::new(&mut compressed_archive, Compression::best());
+    gz_enc.write_all(&tar_archive_data).unwrap();
+    let _compressed_archive = gz_enc.finish().unwrap();
+
+    std::fs::copy(&archive_path, targz_path).context("fs::copy")?;
 
     Ok(())
 }

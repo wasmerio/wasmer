@@ -70,7 +70,6 @@ toml = "0.5.9"
 url = "2.3.1"
 libc = { version = "^0.2", default-features = false }
 nuke-dir = { version = "0.1.0", optional = true }
-webc = { version = "4.0.0", optional = true }
 isatty = "0.1.9"
 dialoguer = "0.10.2"
 tldextract = "0.6.0"
@@ -86,8 +85,10 @@ minisign = "0.7.2"
 semver = "1.0.14"
 rpassword = "7.2.0"
 pathdiff = "0.2.1"
-wapm-targz-to-pirita = "0.1.6"
 base64 = "0.21.0"
+wapm-targz-to-pirita = { version = "0.1.6", path = "../../../pirita/crates/wapm-targz-to-pirita" }
+wapm-to-webc = { version = "1.0.28", path = "../../../pirita/crates/wapm-to-webc" }
+webc = { version = "4.1.1", path = "../../../pirita/crates/webc" }
 
 [build-dependencies]
 chrono = { version = "^0.4", default-features = false, features = [ "std", "clock" ] }
@@ -114,7 +115,7 @@ wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
 emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
-webc_runner = ["wasi", "wasmer-wasi/webc_runner", "wasmer-wasi/webc_runner_rt_wasi", "wasmer-wasi/webc_runner_rt_emscripten", "nuke-dir", "webc"]
+webc_runner = ["wasi", "wasmer-wasi/webc_runner", "wasmer-wasi/webc_runner_rt_wasi", "wasmer-wasi/webc_runner_rt_emscripten", "nuke-dir"]
 compiler = [
     "wasmer-compiler/translator",
     "wasmer-compiler/compiler",
