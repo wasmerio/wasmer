@@ -22,7 +22,7 @@ use wasmer_vbus::{DefaultVirtualBus, VirtualBus};
 use wasmer_vnet::{DynVirtualNetworking, VirtualNetworking};
 use wasmer_wasi_types::wasi::Errno;
 
-use crate::{os::tty::WasiTtyState, WasiEnv};
+use crate::{os::tty::WasiTtyState, runtime::task_manager::tokio::TokioTaskManager, WasiEnv};
 
 #[cfg(feature = "termios")]
 pub mod term;
@@ -248,6 +248,7 @@ where
 
 #[derive(Debug)]
 pub struct PluggableRuntimeImplementation {
+    pub rt: TokioTaskManager,
     pub bus: Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static>,
     pub networking: DynVirtualNetworking,
     pub http_client: Option<DynHttpClient>,
@@ -278,6 +279,7 @@ impl PluggableRuntimeImplementation {
 
 impl Default for PluggableRuntimeImplementation {
     fn default() -> Self {
+        let rt = TokioTaskManager::default();
         // TODO: the cfg flags below should instead be handled by separate implementations.
         cfg_if::cfg_if! {
             if #[cfg(feature = "host-vnet")] {
@@ -297,6 +299,7 @@ impl Default for PluggableRuntimeImplementation {
         }
 
         Self {
+            rt,
             networking,
             bus: Arc::new(DefaultVirtualBus::default()),
             http_client,
@@ -322,5 +325,9 @@ impl WasiRuntimeImplementation for PluggableRuntimeImplementation {
     #[cfg(feature = "sys")]
     fn engine(&self) -> Option<wasmer::Engine> {
         self.engine.clone()
+    }
+
+    fn new_task_manager(&self) -> Arc<dyn VirtualTaskManager> {
+        Arc::new(self.rt.clone())
     }
 }
