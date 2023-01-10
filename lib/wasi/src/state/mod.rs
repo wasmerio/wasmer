@@ -264,7 +264,14 @@ impl WasiState {
     /// Create a [`WasiStateBuilder`] to construct a validated instance of
     /// [`WasiState`].
     #[allow(clippy::new_ret_no_self)]
+    #[deprecated = "Use WasiState::builder()"]
     pub fn new(program_name: impl AsRef<str>) -> WasiStateBuilder {
+        WasiState::builder(program_name)
+    }
+
+    /// Create a [`WasiStateBuilder`] to construct a validated instance of
+    /// [`WasiState`].
+    pub fn builder(program_name: impl AsRef<str>) -> WasiStateBuilder {
         create_wasi_state(program_name.as_ref())
     }
 
