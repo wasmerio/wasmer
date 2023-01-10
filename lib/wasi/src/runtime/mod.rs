@@ -2,6 +2,7 @@ mod stdio;
 pub mod task_manager;
 mod ws;
 
+use self::task_manager::StubTaskManager;
 pub use self::{
     stdio::*,
     task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager},
@@ -22,7 +23,7 @@ use wasmer_vbus::{DefaultVirtualBus, VirtualBus};
 use wasmer_vnet::{DynVirtualNetworking, VirtualNetworking};
 use wasmer_wasi_types::wasi::Errno;
 
-use crate::{os::tty::WasiTtyState, runtime::task_manager::tokio::TokioTaskManager, WasiEnv};
+use crate::{os::tty::WasiTtyState, WasiEnv};
 
 #[cfg(feature = "termios")]
 pub mod term;
@@ -248,7 +249,7 @@ where
 
 #[derive(Debug)]
 pub struct PluggableRuntimeImplementation {
-    pub rt: TokioTaskManager,
+    pub rt: Option<Arc<dyn VirtualTaskManager>>,
     pub bus: Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static>,
     pub networking: DynVirtualNetworking,
     pub http_client: Option<DynHttpClient>,
@@ -276,7 +277,7 @@ impl PluggableRuntimeImplementation {
         self.engine = engine;
     }
 
-    pub fn new_with_runtime(rt: TokioTaskManager) -> Self {
+    pub fn new(rt: Option<Arc<dyn VirtualTaskManager>>) -> Self {
         // TODO: the cfg flags below should instead be handled by separate implementations.
         cfg_if::cfg_if! {
             if #[cfg(feature = "host-vnet")] {
@@ -308,8 +309,13 @@ impl PluggableRuntimeImplementation {
 
 impl Default for PluggableRuntimeImplementation {
     fn default() -> Self {
-        let rt = TokioTaskManager::default();
-        Self::new_with_runtime(rt)
+        #[cfg(feature = "sys-thread")]
+        let rt = Some(Arc::new(task_manager::tokio::TokioTaskManager::default())
+            as Arc<dyn VirtualTaskManager>);
+        #[cfg(not(feature = "sys-thread"))]
+        let rt = None;
+
+        Self::new(rt)
     }
 }
 
@@ -332,6 +338,10 @@ impl WasiRuntimeImplementation for PluggableRuntimeImplementation {
     }
 
     fn new_task_manager(&self) -> Arc<dyn VirtualTaskManager> {
-        Arc::new(self.rt.clone())
+        if let Some(rt) = &self.rt {
+            rt.clone()
+        } else {
+            Arc::new(StubTaskManager)
+        }
     }
 }
