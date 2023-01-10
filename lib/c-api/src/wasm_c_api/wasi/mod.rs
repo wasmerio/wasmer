@@ -43,7 +43,7 @@ pub unsafe extern "C" fn wasi_config_new(
         inherit_stdout: true,
         inherit_stderr: true,
         inherit_stdin: true,
-        state_builder: WasiState::new(prog_name),
+        state_builder: WasiState::builder(prog_name),
     }))
 }
 

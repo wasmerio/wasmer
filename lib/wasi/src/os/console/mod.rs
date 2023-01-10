@@ -165,7 +165,7 @@ impl Console {
         let wasi_thread = wasi_process.new_thread();
 
         // Create the state
-        let mut state = WasiState::new(prog);
+        let mut state = WasiState::builder(prog);
         if let Some(stdin) = self.stdin.take() {
             state.stdin(Box::new(stdin));
         }

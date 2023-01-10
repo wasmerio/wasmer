@@ -81,7 +81,7 @@ fn prepare_webc_env(
         .collect::<Vec<_>>();
 
     let filesystem = Box::new(WebcFileSystem::init(webc, &package_name));
-    let mut wasi_env = WasiState::new(command);
+    let mut wasi_env = WasiState::builder(command);
     wasi_env.set_fs(filesystem);
     wasi_env.args(args);
     for f_name in top_level_dirs.iter() {

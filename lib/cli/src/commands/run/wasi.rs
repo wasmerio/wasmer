@@ -113,7 +113,7 @@ impl Wasi {
 
         let runtime = Arc::new(PluggableRuntimeImplementation::default());
 
-        let mut wasi_state_builder = WasiState::new(program_name);
+        let mut wasi_state_builder = WasiState::builder(program_name);
         wasi_state_builder
             .args(args)
             .envs(self.env_vars.clone())

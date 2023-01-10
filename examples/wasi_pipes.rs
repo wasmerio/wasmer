@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // First, we create the `WasiEnv` with the stdio pipes
     let mut input = Pipe::new();
     let mut output = Pipe::new();
-    let wasi_env = WasiState::new("hello")
+    let wasi_env = WasiState::builder("hello")
         .stdin(Box::new(input.clone()))
         .stdout(Box::new(output.clone()))
         .finalize(&mut store)?;

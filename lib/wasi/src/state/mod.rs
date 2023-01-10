@@ -226,7 +226,7 @@ impl WasiBusState {
 /// ```no_run
 /// # use wasmer_wasi::{WasiState, WasiStateCreationError};
 /// # fn main() -> Result<(), WasiStateCreationError> {
-/// WasiState::new("program_name")
+/// WasiState::builder("program_name")
 ///    .env(b"HOME", "/home/home".to_string())
 ///    .arg("--help")
 ///    .envs({
