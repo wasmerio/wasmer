@@ -179,7 +179,7 @@
         <span class="comment">//</span>
         <span class="comment">// This also ensures that all fields implement ValueType.</span>
         <span class="ident">out</span>.<span class="ident">extend</span>(<span class="macro">quote!</span> {
-            <span class="ident">::wasmer::ValueType::zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.#<span class="ident">name</span>, <span class="kw-2">&amp;mut</span> <span class="ident">_bytes</span>[#<span class="ident">start</span>..(#<span class="ident">start</span> <span class="op">+</span> #<span class="ident">len</span>)]);
+            <span class="ident">::wasmer_types::ValueType::zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.#<span class="ident">name</span>, <span class="kw-2">&amp;mut</span> <span class="ident">_bytes</span>[#<span class="ident">start</span>..(#<span class="ident">start</span> <span class="op">+</span> #<span class="ident">len</span>)]);
         });
 
         <span class="kw">let</span> <span class="ident">padding_end</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">i</span> <span class="op">==</span> <span class="ident">fields</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span> {
@@ -218,7 +218,7 @@
     <span class="kw">let</span> <span class="ident">zero_padding</span> <span class="op">=</span> <span class="ident">zero_padding</span>(<span class="ident">fields</span>);
 
     <span class="macro">quote!</span> {
-        <span class="kw">unsafe</span> <span class="kw">impl</span> #<span class="ident">impl_generics</span> <span class="ident">::wasmer::ValueType</span> <span class="kw">for</span> #<span class="ident">struct_name</span> #<span class="ident">ty_generics</span> #<span class="ident">where_clause</span> {
+        <span class="kw">unsafe</span> <span class="kw">impl</span> #<span class="ident">impl_generics</span> <span class="ident">::wasmer_types::ValueType</span> <span class="kw">for</span> #<span class="ident">struct_name</span> #<span class="ident">ty_generics</span> #<span class="ident">where_clause</span> {
             <span class="attribute">#[<span class="ident">inline</span>]</span>
             <span class="kw">fn</span> <span class="ident">zero_padding_bytes</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">_bytes</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">::core::mem::MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) {
                 #<span class="ident">zero_padding</span>
