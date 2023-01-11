@@ -469,6 +469,17 @@
 <span id="463">463</span>
 <span id="464">464</span>
 <span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Validate a wasm module given a interface.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This checks that all imports are specified in the interface and that their types</span>
@@ -493,7 +504,18 @@
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">global_types</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">GlobalType</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fn_sigs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">parser</span> <span class="op">=</span> <span class="ident">wasmparser::ValidatingParser::new</span>(<span class="ident">wasm</span>, <span class="prelude-val">None</span>);
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">parser</span> <span class="op">=</span> <span class="ident">wasmparser::ValidatingParser::new</span>(
+        <span class="ident">wasm</span>,
+        <span class="prelude-val">Some</span>(<span class="ident">wasmparser::ValidatingParserConfig</span> {
+            <span class="ident">operator_config</span>: <span class="ident">wasmparser::OperatorValidatorConfig</span> {
+                <span class="ident">enable_threads</span>: <span class="bool-val">true</span>,
+                <span class="ident">enable_reference_types</span>: <span class="bool-val">true</span>,
+                <span class="ident">enable_simd</span>: <span class="bool-val">true</span>,
+                <span class="ident">enable_bulk_memory</span>: <span class="bool-val">true</span>,
+                <span class="ident">enable_multi_value</span>: <span class="bool-val">true</span>,
+            },
+        }),
+    );
     <span class="kw">loop</span> {
         <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">read</span>();
         <span class="kw">match</span> <span class="ident">state</span> {

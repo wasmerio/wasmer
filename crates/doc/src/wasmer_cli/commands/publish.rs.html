@@ -665,6 +665,17 @@
 <span id="657">657</span>
 <span id="658">658</span>
 <span id="659">659</span>
+<span id="660">660</span>
+<span id="661">661</span>
+<span id="662">662</span>
+<span id="663">663</span>
+<span id="664">664</span>
+<span id="665">665</span>
+<span id="666">666</span>
+<span id="667">667</span>
+<span id="668">668</span>
+<span id="669">669</span>
+<span id="670">670</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow::Context</span>;
 <span class="kw">use</span> <span class="ident">clap::Parser</span>;
 <span class="kw">use</span> <span class="ident">flate2</span>::{<span class="ident">write::GzEncoder</span>, <span class="ident">Compression</span>};
@@ -1307,7 +1318,18 @@
         <span class="ident">file_name</span>: <span class="ident">String</span>,
     ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="kw">use</span> <span class="ident">wasmparser::WasmDecoder</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">parser</span> <span class="op">=</span> <span class="ident">wasmparser::ValidatingParser::new</span>(<span class="ident">wasm</span>, <span class="prelude-val">None</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">parser</span> <span class="op">=</span> <span class="ident">wasmparser::ValidatingParser::new</span>(
+            <span class="ident">wasm</span>,
+            <span class="prelude-val">Some</span>(<span class="ident">wasmparser::ValidatingParserConfig</span> {
+                <span class="ident">operator_config</span>: <span class="ident">wasmparser::OperatorValidatorConfig</span> {
+                    <span class="ident">enable_threads</span>: <span class="bool-val">true</span>,
+                    <span class="ident">enable_reference_types</span>: <span class="bool-val">true</span>,
+                    <span class="ident">enable_simd</span>: <span class="bool-val">true</span>,
+                    <span class="ident">enable_bulk_memory</span>: <span class="bool-val">true</span>,
+                    <span class="ident">enable_multi_value</span>: <span class="bool-val">true</span>,
+                },
+            }),
+        );
         <span class="kw">loop</span> {
             <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">parser</span>.<span class="ident">read</span>();
             <span class="kw">match</span> <span class="ident">state</span> {
