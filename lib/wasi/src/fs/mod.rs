@@ -1720,7 +1720,7 @@ impl WasiFs {
                     let mut guard = inodes.arena[p].write();
                     match guard.deref_mut() {
                         Kind::Dir { entries, .. } | Kind::Root { entries } => {
-                            fd_map.remove(&fd).unwrap();
+                            fd_map.remove(&fd);
                             if is_preopened {
                                 let mut idx = None;
                                 {
