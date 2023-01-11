@@ -2,6 +2,7 @@ mod stdio;
 pub mod task_manager;
 mod ws;
 
+use self::task_manager::StubTaskManager;
 pub use self::{
     stdio::*,
     task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager},
@@ -248,6 +249,7 @@ where
 
 #[derive(Debug)]
 pub struct PluggableRuntimeImplementation {
+    pub rt: Option<Arc<dyn VirtualTaskManager>>,
     pub bus: Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static>,
     pub networking: DynVirtualNetworking,
     pub http_client: Option<DynHttpClient>,
@@ -274,10 +276,8 @@ impl PluggableRuntimeImplementation {
     pub fn set_engine(&mut self, engine: Option<wasmer::Engine>) {
         self.engine = engine;
     }
-}
 
-impl Default for PluggableRuntimeImplementation {
-    fn default() -> Self {
+    pub fn new(rt: Option<Arc<dyn VirtualTaskManager>>) -> Self {
         // TODO: the cfg flags below should instead be handled by separate implementations.
         cfg_if::cfg_if! {
             if #[cfg(feature = "host-vnet")] {
@@ -297,12 +297,25 @@ impl Default for PluggableRuntimeImplementation {
         }
 
         Self {
+            rt,
             networking,
             bus: Arc::new(DefaultVirtualBus::default()),
             http_client,
             #[cfg(feature = "sys")]
             engine: None,
         }
+    }
+}
+
+impl Default for PluggableRuntimeImplementation {
+    fn default() -> Self {
+        #[cfg(feature = "sys-thread")]
+        let rt = Some(Arc::new(task_manager::tokio::TokioTaskManager::default())
+            as Arc<dyn VirtualTaskManager>);
+        #[cfg(not(feature = "sys-thread"))]
+        let rt = None;
+
+        Self::new(rt)
     }
 }
 
@@ -322,5 +335,13 @@ impl WasiRuntimeImplementation for PluggableRuntimeImplementation {
     #[cfg(feature = "sys")]
     fn engine(&self) -> Option<wasmer::Engine> {
         self.engine.clone()
+    }
+
+    fn new_task_manager(&self) -> Arc<dyn VirtualTaskManager> {
+        if let Some(rt) = &self.rt {
+            rt.clone()
+        } else {
+            Arc::new(StubTaskManager)
+        }
     }
 }
