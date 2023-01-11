@@ -8,7 +8,11 @@ use crate::syscalls::*;
 ///     The file descriptor to apply the new flags to
 /// - `Fdflags flags`
 ///     The flags to apply to `fd`
-pub fn fd_fdstat_set_flags(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd, flags: Fdflags) -> Result<Errno, WasiError> {
+pub fn fd_fdstat_set_flags(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    fd: WasiFd,
+    flags: Fdflags,
+) -> Result<Errno, WasiError> {
     debug!(
         "wasi[{}:{}]::fd_fdstat_set_flags (fd={}, flags={:?})",
         ctx.data().pid(),
@@ -16,7 +20,7 @@ pub fn fd_fdstat_set_flags(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd, fla
         fd,
         flags
     );
-    
+
     {
         let env = ctx.data();
         let (_, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
@@ -51,11 +55,9 @@ pub fn fd_fdstat_set_flags(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd, fla
                 drop(fd_map);
                 drop(inodes);
 
-                wasi_try_ok!(
-                    __asyncify(&mut ctx, None, async move {
-                        socket.set_nonblocking(nonblocking).await
-                    })?
-                )
+                wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+                    socket.set_nonblocking(nonblocking).await
+                })?)
             }
             _ => {}
         }

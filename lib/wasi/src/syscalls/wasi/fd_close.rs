@@ -37,7 +37,8 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
 
                 __asyncify(&mut ctx, None, async move {
                     socket.close().await.map(|()| Errno::Success)
-                })?.unwrap_or_else(|a| a)
+                })?
+                .unwrap_or_else(|a| a)
             }
             _ => Errno::Success,
         }

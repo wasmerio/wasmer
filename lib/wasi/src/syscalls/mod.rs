@@ -338,7 +338,7 @@ where
             }
         }
     };
-    
+
     // Block on the work and process it
     let (tx, rx) = std::sync::mpsc::channel();
     tasks.block_on(Box::pin(async move {

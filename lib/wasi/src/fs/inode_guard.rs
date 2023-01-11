@@ -25,7 +25,7 @@ use wasmer_wasi_types::{
 
 use super::Kind;
 use crate::{
-    net::socket::{InodeSocketKind, InodeSocketInner},
+    net::socket::{InodeSocketInner, InodeSocketKind},
     state::{iterate_poll_events, PollEvent, PollEventSet},
     syscalls::map_io_err,
     WasiInodes, WasiState,
@@ -42,7 +42,16 @@ pub(crate) enum InodeValFilePollGuardMode {
 }
 
 pub(crate) enum InodeValFilePollGuardSocketLocking {
-    Locking(Pin<Box<dyn Future<Output = tokio::sync::OwnedRwLockWriteGuard<InodeSocketInner>> + Send + Sync + 'static>>),
+    Locking(
+        Pin<
+            Box<
+                dyn Future<Output = tokio::sync::OwnedRwLockWriteGuard<InodeSocketInner>>
+                    + Send
+                    + Sync
+                    + 'static,
+            >,
+        >,
+    ),
     Locked(tokio::sync::OwnedRwLockWriteGuard<InodeSocketInner>),
 }
 
@@ -81,16 +90,16 @@ impl<'a> InodeValFilePollGuard {
             }
             Kind::Socket { socket } => {
                 if let Ok(guard) = socket.inner.clone().try_write_owned() {
-                    InodeValFilePollGuardMode::Socket(InodeValFilePollGuardSocketLocking::Locked(guard))
+                    InodeValFilePollGuardMode::Socket(InodeValFilePollGuardSocketLocking::Locked(
+                        guard,
+                    ))
                 } else {
                     let socket = socket.clone();
                     InodeValFilePollGuardMode::Socket(InodeValFilePollGuardSocketLocking::Locking(
-                        Box::pin(async move {
-                            socket.inner.write_owned().await
-                        })
+                        Box::pin(async move { socket.inner.write_owned().await }),
                     ))
                 }
-            },
+            }
             Kind::File { handle, .. } => {
                 if let Some(handle) = handle {
                     InodeValFilePollGuardMode::File(handle.clone())
@@ -117,21 +126,17 @@ impl std::fmt::Debug for InodeValFilePollGuard {
             InodeValFilePollGuardMode::EventNotifications { .. } => {
                 write!(f, "guard-notifications")
             }
-            InodeValFilePollGuardMode::Socket(socket) => {
-                match socket {
-                    InodeValFilePollGuardSocketLocking::Locked(guard) => {
-                        match guard.kind {
-                            InodeSocketKind::TcpListener(..) => write!(f, "guard-tcp-listener"),
-                            InodeSocketKind::TcpStream(..) => write!(f, "guard-tcp-stream"),
-                            InodeSocketKind::UdpSocket(..) => write!(f, "guard-udp-socket"),
-                            InodeSocketKind::Raw(..) => write!(f, "guard-raw-socket"),
-                            InodeSocketKind::WebSocket(..) => write!(f, "guard-web-socket"),
-                            _ => write!(f, "guard-socket"),
-                        }
-                    },
-                    _ => write!(f, "guard-socket (locked)")
-                }
-            }
+            InodeValFilePollGuardMode::Socket(socket) => match socket {
+                InodeValFilePollGuardSocketLocking::Locked(guard) => match guard.kind {
+                    InodeSocketKind::TcpListener(..) => write!(f, "guard-tcp-listener"),
+                    InodeSocketKind::TcpStream(..) => write!(f, "guard-tcp-stream"),
+                    InodeSocketKind::UdpSocket(..) => write!(f, "guard-udp-socket"),
+                    InodeSocketKind::Raw(..) => write!(f, "guard-raw-socket"),
+                    InodeSocketKind::WebSocket(..) => write!(f, "guard-web-socket"),
+                    _ => write!(f, "guard-socket"),
+                },
+                _ => write!(f, "guard-socket (locked)"),
+            },
         }
     }
 }
@@ -215,12 +220,12 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                                     *socket = InodeValFilePollGuardSocketLocking::Locked(guard);
                                     match socket {
                                         InodeValFilePollGuardSocketLocking::Locked(guard) => guard,
-                                        _ => unreachable!()
+                                        _ => unreachable!(),
                                     }
-                                },
+                                }
                                 Poll::Pending => return Poll::Pending,
                             }
-                        },
+                        }
                         InodeValFilePollGuardSocketLocking::Locked(guard) => guard,
                     };
                     //let inner = socket.inner.write().await;
@@ -300,12 +305,12 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                                     *socket = InodeValFilePollGuardSocketLocking::Locked(guard);
                                     match socket {
                                         InodeValFilePollGuardSocketLocking::Locked(guard) => guard,
-                                        _ => unreachable!()
+                                        _ => unreachable!(),
                                     }
-                                },
+                                }
                                 Poll::Pending => return Poll::Pending,
                             }
-                        },
+                        }
                         InodeValFilePollGuardSocketLocking::Locked(guard) => guard,
                     };
                     inner.poll_read_ready(cx).map_err(net_error_into_io_err)
@@ -403,12 +408,12 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                                     *socket = InodeValFilePollGuardSocketLocking::Locked(guard);
                                     match socket {
                                         InodeValFilePollGuardSocketLocking::Locked(guard) => guard,
-                                        _ => unreachable!()
+                                        _ => unreachable!(),
                                     }
-                                },
+                                }
                                 Poll::Pending => return Poll::Pending,
                             }
-                        },
+                        }
                         InodeValFilePollGuardSocketLocking::Locked(guard) => guard,
                     };
                     inner.poll_write_ready(cx).map_err(net_error_into_io_err)
