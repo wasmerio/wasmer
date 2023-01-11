@@ -19,7 +19,7 @@ pub fn sock_status<M: MemorySize>(
         &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move { socket.status() }
+        move |socket| async move { socket.status().await }
     ));
 
     use crate::net::socket::WasiSocketStatus;

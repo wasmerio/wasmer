@@ -34,10 +34,10 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
                 let socket = socket.clone();
                 drop(guard);
                 drop(inodes);
-                socket
-                    .close()
-                    .map(|()| Errno::Success)
-                    .unwrap_or_else(|a| a)
+
+                __asyncify(&mut ctx, None, async move {
+                    socket.close().await.map(|()| Errno::Success)
+                })?.unwrap_or_else(|a| a)
             }
             _ => Errno::Success,
         }

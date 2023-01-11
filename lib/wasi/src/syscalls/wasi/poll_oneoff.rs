@@ -284,7 +284,7 @@ pub(crate) fn poll_oneoff_internal(
 
             // Build all the async calls we need for all the files
             let mut polls = Vec::new();
-            for guard in fds {
+            for mut guard in fds {
                 // Combine all the events together
                 let mut peb = PollEventBuilder::new();
                 for (in_events, _) in guard.subscriptions.iter() {

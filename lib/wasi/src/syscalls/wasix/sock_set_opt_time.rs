@@ -46,7 +46,7 @@ pub fn sock_set_opt_time<M: MemorySize>(
         &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move { socket.set_opt_time(ty, time) }
+        move |socket| async move { socket.set_opt_time(ty, time).await }
     ));
     Errno::Success
 }

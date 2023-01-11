@@ -35,7 +35,7 @@ pub fn sock_get_opt_time<M: MemorySize>(
         &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move { socket.opt_time(ty) }
+        move |socket| async move { socket.opt_time(ty).await }
     ));
 
     let env = ctx.data();

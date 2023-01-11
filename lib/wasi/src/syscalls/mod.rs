@@ -317,33 +317,35 @@ where
         return Err(Errno::Access);
     }
 
-    let inodes_guard = inodes.read().unwrap();
-    let inode_idx = fd_entry.inode;
-    let inode = &inodes_guard.arena[inode_idx];
+    let work = {
+        let inodes_guard = inodes.read().unwrap();
+        let inode_idx = fd_entry.inode;
+        let inode = &inodes_guard.arena[inode_idx];
 
-    let tasks = env.tasks.clone();
-    let mut guard = inode.read();
-    match guard.deref() {
-        Kind::Socket { socket } => {
-            // Clone the socket and release the lock
-            let socket = socket.clone();
-            drop(guard);
+        let tasks = env.tasks.clone();
+        let mut guard = inode.read();
+        match guard.deref() {
+            Kind::Socket { socket } => {
+                // Clone the socket and release the lock
+                let socket = socket.clone();
+                drop(guard);
 
-            // Start the work using the socket
-            let work = actor(socket);
-
-            // Block on the work and process it
-            let (tx, rx) = std::sync::mpsc::channel();
-            tasks.block_on(Box::pin(async move {
-                let ret = work.await;
-                tx.send(ret);
-            }));
-            rx.recv().unwrap()
+                // Start the work using the socket
+                actor(socket)
+            }
+            _ => {
+                return Err(Errno::Notsock);
+            }
         }
-        _ => {
-            return Err(Errno::Notsock);
-        }
-    }
+    };
+    
+    // Block on the work and process it
+    let (tx, rx) = std::sync::mpsc::channel();
+    tasks.block_on(Box::pin(async move {
+        let ret = work.await;
+        tx.send(ret);
+    }));
+    rx.recv().unwrap()
 }
 
 /// Performs mutable work on a socket under an asynchronous runtime with

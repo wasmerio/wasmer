@@ -28,10 +28,10 @@ pub fn sock_get_opt_size<M: MemorySize>(
         Rights::empty(),
         move |socket| async move {
             match opt {
-                Sockoption::RecvBufSize => socket.recv_buf_size().map(|a| a as Filesize),
-                Sockoption::SendBufSize => socket.send_buf_size().map(|a| a as Filesize),
-                Sockoption::Ttl => socket.ttl().map(|a| a as Filesize),
-                Sockoption::MulticastTtlV4 => socket.multicast_ttl_v4().map(|a| a as Filesize),
+                Sockoption::RecvBufSize => socket.recv_buf_size().await.map(|a| a as Filesize),
+                Sockoption::SendBufSize => socket.send_buf_size().await.map(|a| a as Filesize),
+                Sockoption::Ttl => socket.ttl().await.map(|a| a as Filesize),
+                Sockoption::MulticastTtlV4 => socket.multicast_ttl_v4().await.map(|a| a as Filesize),
                 _ => Err(Errno::Inval),
             }
         }
