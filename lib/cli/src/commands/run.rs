@@ -119,6 +119,31 @@ impl RunWithPathBuf {
                 self_clone.command_name.as_deref(),
             )?;
 
+            let default_cmds = Vec::new();
+            let command = if manifest.command.as_ref().unwrap_or(&default_cmds).len() == 1 {
+                manifest
+                    .command
+                    .as_ref()
+                    .unwrap_or(&default_cmds)
+                    .iter()
+                    .next()
+            } else if let Some(command) = self.options.command_name.as_ref() {
+                manifest
+                    .command
+                    .as_ref()
+                    .unwrap_or(&default_cmds)
+                    .iter()
+                    .find(|c| c.get_name().as_str() == command.as_str())
+            } else {
+                None
+            };
+
+            if let Some(command) = command {
+                let mut new_args = command.get_main_args();
+                new_args.append(&mut self_clone.options.args);
+                self_clone.options.args = new_args;
+            }
+
             #[cfg(feature = "wasi")]
             {
                 let default = IndexMap::default();
