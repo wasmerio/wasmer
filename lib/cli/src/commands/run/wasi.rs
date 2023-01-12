@@ -76,11 +76,6 @@ impl Wasi {
         self.mapped_dirs.push((alias.to_string(), target_on_disk));
     }
 
-    pub fn dedup_mapped_dirs(&mut self) {
-        self.mapped_dirs.sort();
-        self.mapped_dirs.dedup();
-    }
-
     pub fn set_env(&mut self, key: &str, value: &str) {
         self.env_vars.push((key.to_string(), value.to_string()));
     }

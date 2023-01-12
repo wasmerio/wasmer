@@ -266,7 +266,7 @@ fn manifest_to_wapm_toml(webc: &webc::WebCMmap, base_dir: &Path) -> Result<Strin
                 .top_level
                 .iter()
                 .filter_map(|name| {
-                    let path = format!("atoms/{}", name.text /*.replace(':', "/")*/);
+                    let path = format!("atoms/{}", name.text);
                     let name = name.text.rsplitn(2, ':').next()?;
                     Some(wasmer_toml::Module {
                         name: name.to_string(),

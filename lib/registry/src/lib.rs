@@ -147,8 +147,6 @@ pub fn get_executable_file_from_path(
     let name = wasmer_toml.package.name.clone();
     let version = wasmer_toml.package.version.clone();
     let commands = wasmer_toml.command.clone().unwrap_or_default();
-    println!("commands available: {:#?}", commands);
-
     let entrypoint_module = match command {
         Some(s) => commands.iter().find(|c| c.get_name() == s).ok_or_else(|| {
             anyhow::anyhow!("Cannot run {name}@{version}: package has no command {s:?}")

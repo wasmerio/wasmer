@@ -7,6 +7,7 @@ use crate::suggestions::suggest_function_exports;
 use crate::warning;
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
+use std::collections::HashMap;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -120,7 +121,8 @@ impl RunWithPathBuf {
 
             #[cfg(feature = "wasi")]
             {
-                let fs = manifest.fs.clone().unwrap_or_default();
+                let default = HashMap::default();
+                let fs = manifest.fs.as_ref().unwrap_or(&default);
                 for (alias, real_dir) in fs.iter() {
                     let real_dir = self_clone.path.join(&real_dir);
                     if !real_dir.exists() {
@@ -134,20 +136,8 @@ impl RunWithPathBuf {
                         continue;
                     }
 
-                    if real_dir.is_file() {
-                        let alias_parent = std::path::Path::new(alias)
-                            .parent()
-                            .map(|f| f.display().to_string())
-                            .unwrap_or(".".to_string());
-                        self_clone
-                            .options
-                            .wasi
-                            .map_dir(&alias_parent, real_dir.parent().unwrap().to_path_buf());
-                    } else {
-                        self_clone.options.wasi.map_dir(alias, real_dir.clone());
-                    }
+                    self_clone.options.wasi.map_dir(alias, real_dir.clone());
                 }
-                self_clone.options.wasi.dedup_mapped_dirs();
             }
 
             self_clone.path = pathbuf;
@@ -202,11 +192,9 @@ impl RunWithPathBuf {
     }
 
     fn inner_execute(&self) -> Result<()> {
-        println!("inner execute");
         #[cfg(feature = "webc_runner")]
         {
             if let Ok(pf) = WapmContainer::new(self.path.clone()) {
-                println!("running pirita container");
                 return Self::run_container(
                     pf,
                     &self.command_name.clone().unwrap_or_default(),
@@ -215,7 +203,6 @@ impl RunWithPathBuf {
                 .map_err(|e| anyhow!("Could not run PiritaFile: {e}"));
             }
         }
-        println!("running normal file");
         let (mut store, module) = self.get_store_module()?;
         #[cfg(feature = "emscripten")]
         {
@@ -580,7 +567,6 @@ impl Run {
     pub fn execute(&self) -> Result<(), anyhow::Error> {
         // downloads and installs the package if necessary
         let path_to_run = self.path.download_and_get_filepath()?;
-        println!("running pathbuf: {:?}", path_to_run);
         RunWithPathBuf {
             path: path_to_run,
             options: self.options.clone(),
