@@ -109,8 +109,6 @@ pub fn try_chunked_uploading(
         )
     })?;
 
-    println!("signed url: {:?}", url);
-
     let signed_url = url.url;
     let url = url::Url::parse(&signed_url).unwrap();
     let client = reqwest::blocking::Client::builder()
@@ -171,8 +169,6 @@ pub fn try_chunked_uploading(
         .build()
         .unwrap();
 
-    println!("client built!");
-
     while let Some(chunk) = reader.fill_buf().ok().map(|s| s.to_vec()) {
         let n = chunk.len();
 
@@ -183,8 +179,6 @@ pub fn try_chunked_uploading(
         let start = file_pointer;
         let end = file_pointer + chunk.len().saturating_sub(1);
         let content_range = format!("bytes {start}-{end}/{total}");
-
-        println!("sending {content_range}");
 
         let res = client
             .put(&session_uri)
@@ -212,8 +206,6 @@ pub fn try_chunked_uploading(
         reader.consume(n);
         file_pointer += n;
     }
-
-    println!("done");
 
     pb.finish_and_clear();
 

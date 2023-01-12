@@ -217,7 +217,7 @@ fn get_volume_name_opt<P: AsRef<Path>>(path: P) -> Option<String> {
     if let Some(Normal(n)) = path.as_ref().components().next() {
         if let Some(s) = n.to_str() {
             if s.ends_with(':') {
-                return Some(s.replace(':', ""));
+                return Some(s.to_string() /*.replace(':', "")*/);
             }
         }
     }

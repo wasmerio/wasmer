@@ -2,16 +2,15 @@ use anyhow::Context;
 use clap::Parser;
 use flate2::{write::GzEncoder, Compression};
 use rusqlite::{params, Connection, OpenFlags, TransactionBehavior};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::fs;
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use tar::Builder;
 use thiserror::Error;
 use time::{self, OffsetDateTime};
 use wasmer_registry::publish::SignArchiveResult;
 use wasmer_registry::{WasmerConfig, PACKAGE_TOML_FALLBACK_NAME};
-use webc::{DirOrFile, IndexMap, Manifest, ParseOptions, UrlOrManifest, Volume, WebC, WebCMmap};
 
 const MIGRATIONS: &[(i32, &str)] = &[
     (0, include_str!("../../sql/migrations/0000.sql")),
@@ -108,8 +107,6 @@ impl Publish {
 
         builder.append_path_with_name(&manifest_path_buf, PACKAGE_TOML_FALLBACK_NAME)?;
 
-        let manifest_string = toml::to_string(&manifest)?;
-
         let (readme, license) = construct_tar_gz(&mut builder, &manifest, &cwd)?;
 
         builder
@@ -129,10 +126,8 @@ impl Publish {
         gz_enc.write_all(&tar_archive_data).unwrap();
         let _compressed_archive = gz_enc.finish().unwrap();
 
-        vendor_dependencies(&archive_path).context("vendor dependencies")?;
-
+        let merged_manifest = vendor_dependencies(&archive_path).context("vendor dependencies")?;
         let mut compressed_archive_reader = fs::File::open(&archive_path)?;
-
         let maybe_signature_data = sign_compressed_archive(&mut compressed_archive_reader)?;
         let archived_data_size = archive_path.metadata()?.len();
 
@@ -158,7 +153,7 @@ impl Publish {
             Some(registry),
             self.token.clone(),
             &manifest.package,
-            &manifest_string,
+            &merged_manifest,
             &license,
             &readme,
             &archive_name,
@@ -171,7 +166,8 @@ impl Publish {
     }
 }
 
-fn vendor_dependencies(targz_path: &Path) -> Result<(), anyhow::Error> {
+/// Returns the wapm.toml manifest string
+fn vendor_dependencies(targz_path: &Path) -> Result<String, anyhow::Error> {
     let tempdir = tempfile::tempdir()?;
     let tempdir = tempdir.path().to_path_buf();
     let webc_path = tempdir.join("temp.webc");
@@ -204,15 +200,22 @@ fn vendor_dependencies(targz_path: &Path) -> Result<(), anyhow::Error> {
     .run()
     .context("VendorOptions::run")?;
 
+    let vendored_webc =
+        webc::WebCMmap::parse(vendored_path.clone(), &webc::ParseOptions::default()).unwrap();
+
     let vendored_dir = tempdir.join("vendored");
     std::fs::create_dir_all(&vendored_dir)?;
 
-    wapm_to_webc::UnpackOptions {
+    let options = wapm_to_webc::UnpackOptions {
         infile: vendored_path.to_string_lossy().to_string(),
         out: vendored_dir.clone(),
-    }
-    .run()
-    .context("UnpackOptions::run")?;
+    };
+
+    options.run().context("UnpackOptions::run")?;
+
+    let manifest_toml =
+        manifest_to_wapm_toml(&vendored_webc, &vendored_dir).context("manifest_to_wapm_toml")?;
+    std::fs::write(vendored_dir.join("wapm.toml"), &manifest_toml)?;
 
     let mut builder = Builder::new(Vec::new());
     builder
@@ -237,7 +240,159 @@ fn vendor_dependencies(targz_path: &Path) -> Result<(), anyhow::Error> {
 
     std::fs::copy(&archive_path, targz_path).context("fs::copy")?;
 
-    Ok(())
+    Ok(manifest_toml)
+}
+
+fn manifest_to_wapm_toml(webc: &webc::WebCMmap, base_dir: &Path) -> Result<String, anyhow::Error> {
+    let packages = webc.list_packages();
+    let packages_with_atoms = packages
+        .iter()
+        .filter_map(|p| {
+            let name = match p {
+                webc::PackageInfo::Internal { name, .. } => name,
+                _ => return None,
+            };
+            Some((name.to_string(), webc.list_atoms_for_package(&name)))
+        })
+        .collect::<Vec<(String, Vec<String>)>>();
+
+    let manifest = wasmer_toml::Manifest {
+        package: webc::WebC::get_wasmer_toml_package_from_manifest(&webc.manifest)
+            .ok_or_else(|| anyhow::anyhow!("get_wasmer_toml_package_from_manifest failed"))?,
+
+        module: Some({
+            webc.atoms
+                .header
+                .top_level
+                .iter()
+                .filter_map(|name| {
+                    let path = format!("atoms/{}", name.text /*.replace(':', "/")*/);
+                    let name = name.text.rsplitn(2, ':').next()?;
+                    Some(wasmer_toml::Module {
+                        name: name.to_string(),
+                        source: Path::new(&path).to_path_buf(),
+                        abi: wasmer_toml::Abi::Wasi,
+                        kind: Some("https://webc.org/kind/wasi@unstable_".to_string()),
+                        interfaces: None,
+                        bindings: None,
+                    })
+                })
+                .collect()
+        }),
+
+        dependencies: None,
+
+        command: Some(
+            webc.manifest
+                .commands
+                .iter()
+                .filter_map(|(name, command)| {
+                    let k_v_map = command
+                        .annotations
+                        .get("wasi")
+                        .and_then(|w| match w {
+                            webc::Annotation::Map(m) => Some(m.into_iter().collect::<Vec<_>>()),
+                            _ => None,
+                        })
+                        .unwrap_or_default()
+                        .iter()
+                        .filter_map(|(k, v)| {
+                            let k_string = k.clone();
+                            let v_string = match v {
+                                webc::Annotation::Text(t) => t.clone(),
+                                _ => return None,
+                            };
+                            Some((k_string, v_string))
+                        })
+                        .collect::<BTreeMap<_, _>>();
+
+                    Some(wasmer_toml::Command::V2(wasmer_toml::CommandV2 {
+                        name: name.to_string(),
+                        module: command.get_module().unwrap(),
+                        runner: command.runner.clone(),
+                        annotations: if k_v_map.is_empty() {
+                            None
+                        } else {
+                            Some(wasmer_toml::CommandAnnotations::Raw({
+                                let mut k_v_map_2 = BTreeMap::new();
+                                k_v_map_2.insert("wasi", k_v_map);
+                                let toml_serialized = toml::to_string_pretty(&k_v_map_2).unwrap();
+                                toml::from_str(&toml_serialized).unwrap()
+                            }))
+                        },
+                    }))
+                })
+                .collect(),
+        ),
+
+        base_directory_path: Path::new("/").to_path_buf(),
+
+        fs: Some({
+            packages_with_atoms
+                .iter()
+                .flat_map(|(p, _atoms)| {
+                    if p.as_str() == webc.get_package_name().as_str() {
+                        vec![
+                            (format!("."), Path::new("self/atom").to_path_buf()),
+                            (format!("."), Path::new("self/metadata").to_path_buf()),
+                        ]
+                    } else {
+                        vec![
+                            (
+                                format!("."),
+                                Path::new(&format!("self::{p}/atom")).to_path_buf(),
+                            ),
+                            (
+                                format!("."),
+                                Path::new(&format!("self::{p}/metadata")).to_path_buf(),
+                            ),
+                        ]
+                    }
+                    .into_iter()
+                })
+                .flat_map(|(alias, path)| {
+                    let dir = match std::fs::read_dir(base_dir.join(&path)) {
+                        Ok(o) => o,
+                        Err(_) => return Vec::new(),
+                    };
+                    let path_dirs = dir
+                        .into_iter()
+                        .filter_map(|entry| Some(entry.ok()?.file_name().to_str()?.to_string()))
+                        .collect::<Vec<_>>();
+
+                    path_dirs
+                        .iter()
+                        .map(|dir| (format!("{alias}/{dir}").replace("./", ""), path.join(dir)))
+                        .collect::<Vec<_>>()
+                })
+                .map(|(alias, mut path)| {
+                    let mut alias_components = Path::new(&alias)
+                        .components()
+                        .filter_map(|c| match c {
+                            Component::Normal(n) => Some(n),
+                            _ => None,
+                        })
+                        .filter_map(|s| Some(s.to_str()?.to_string()))
+                        .collect::<Vec<_>>();
+
+                    if base_dir.join(&path).is_file() {
+                        path.pop();
+                        alias_components.pop();
+                        let new_alias = if alias_components.is_empty() {
+                            format!(".")
+                        } else {
+                            alias_components.join("/")
+                        };
+                        (new_alias, path)
+                    } else {
+                        (alias, path)
+                    }
+                })
+                .collect()
+        }),
+    };
+
+    manifest.to_string().map_err(Into::into)
 }
 
 fn construct_tar_gz(
@@ -289,8 +444,7 @@ fn construct_tar_gz(
     }
 
     // bundle the package filesystem
-    let default = std::collections::HashMap::default();
-    for (_alias, path) in manifest.fs.as_ref().unwrap_or(&default).iter() {
+    for (_alias, path) in manifest.fs.clone().unwrap_or_default().iter() {
         let normalized_path = normalize_path(cwd, path);
         let path_metadata = normalized_path.canonicalize().map_err(|_| {
             PublishError::MissingManifestFsPath(normalized_path.to_string_lossy().to_string())
