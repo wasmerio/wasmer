@@ -566,17 +566,14 @@ impl Module {
     /// custom sections. That's why an iterator (rather than one element)
     /// is returned.
     pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
-        // TODO: implement on JavaScript
-        DefaultCustomSectionsIterator {}
-    }
-}
-
-pub struct DefaultCustomSectionsIterator {}
-
-impl Iterator for DefaultCustomSectionsIterator {
-    type Item = Box<[u8]>;
-    fn next(&mut self) -> Option<Self::Item> {
-        None
+        WebAssembly::Module::custom_sections(&self.module, name)
+            .iter()
+            .map(move |(buf_val)| {
+                let typebuf: js_sys::Uint8Array = js_sys::Uint8Array::new(&buf_val);
+                typebuf.to_vec().into_boxed_slice()
+            })
+            .collect::<Vec<Box<[u8]>>>()
+            .into_iter()
     }
 }
 
