@@ -119,6 +119,10 @@
 <span id="113">113</span>
 <span id="114">114</span>
 <span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -220,11 +224,15 @@
                 <span class="ident">data</span>,
                 <span class="ident">data_offset</span>,
                 ..
-            } =&gt; <span class="ident">parse_name_section</span>(
-                <span class="ident">NameSectionReader::new</span>(<span class="ident">data</span>, <span class="ident">data_offset</span>)
-                    .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>,
-                <span class="ident">environ</span>,
-            )<span class="question-mark">?</span>,
+            } =&gt; {
+                <span class="comment">// We still add the custom section data, but also read it as name section reader</span>
+                <span class="ident">environ</span>.<span class="ident">custom_section</span>(<span class="string">&quot;name&quot;</span>, <span class="ident">data</span>)<span class="question-mark">?</span>;
+                <span class="ident">parse_name_section</span>(
+                    <span class="ident">NameSectionReader::new</span>(<span class="ident">data</span>, <span class="ident">data_offset</span>)
+                        .<span class="ident">map_err</span>(<span class="ident">from_binaryreadererror_wasmerror</span>)<span class="question-mark">?</span>,
+                    <span class="ident">environ</span>,
+                )<span class="question-mark">?</span>
+            }
 
             <span class="ident">Payload::CustomSection</span> { <span class="ident">name</span>, <span class="ident">data</span>, .. } =&gt; <span class="ident">environ</span>.<span class="ident">custom_section</span>(<span class="ident">name</span>, <span class="ident">data</span>)<span class="question-mark">?</span>,
 
