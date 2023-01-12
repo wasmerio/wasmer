@@ -44,6 +44,10 @@ pub struct Publish {
     /// Skip validation of the uploaded package
     #[clap(long)]
     pub no_validate: bool,
+    /// When vendoring dependencies, sets whether commands from dependencies
+    /// should be available in the final package (default: false)
+    #[clap(long)]
+    pub include_dependency_commands: bool,
     /// Directory containing the `wasmer.toml` (defaults to current root dir)
     #[clap(name = "PACKAGE_PATH")]
     pub package_path: Option<String>,
@@ -126,7 +130,8 @@ impl Publish {
         gz_enc.write_all(&tar_archive_data).unwrap();
         let _compressed_archive = gz_enc.finish().unwrap();
 
-        let merged_manifest = vendor_dependencies(&archive_path).context("vendor dependencies")?;
+        let merged_manifest = vendor_dependencies(&archive_path, self.include_dependency_commands)
+            .context("vendor dependencies")?;
         let mut compressed_archive_reader = fs::File::open(&archive_path)?;
         let maybe_signature_data = sign_compressed_archive(&mut compressed_archive_reader)?;
         let archived_data_size = archive_path.metadata()?.len();
@@ -167,7 +172,10 @@ impl Publish {
 }
 
 /// Returns the wapm.toml manifest string
-fn vendor_dependencies(targz_path: &Path) -> Result<String, anyhow::Error> {
+fn vendor_dependencies(
+    targz_path: &Path,
+    include_dependency_commands: bool,
+) -> Result<String, anyhow::Error> {
     let tempdir = tempfile::tempdir()?;
     let tempdir = tempdir.path().to_path_buf();
     let webc_path = tempdir.join("temp.webc");
@@ -195,6 +203,7 @@ fn vendor_dependencies(targz_path: &Path) -> Result<String, anyhow::Error> {
         registry: None,
         offline: false,
         key: None,
+        include_commands_from_dependencies: include_dependency_commands,
         out: vendored_path.to_string_lossy().to_string(),
     }
     .run()
@@ -379,7 +388,7 @@ fn manifest_to_wapm_toml(webc: &webc::WebCMmap, base_dir: &Path) -> Result<Strin
                         path.pop();
                         alias_components.pop();
                         let new_alias = if alias_components.is_empty() {
-                            format!(".")
+                            format!("/")
                         } else {
                             alias_components.join("/")
                         };
