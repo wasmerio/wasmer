@@ -89,6 +89,7 @@ base64 = "0.21.0"
 wapm-targz-to-pirita = { version = "0.1.6", path = "../../../pirita/crates/wapm-targz-to-pirita" }
 wapm-to-webc = { version = "1.0.28", path = "../../../pirita/crates/wapm-to-webc" }
 webc = { version = "4.1.1", path = "../../../pirita/crates/webc" }
+indexmap = "1.9.2"
 
 [build-dependencies]
 chrono = { version = "^0.4", default-features = false, features = [ "std", "clock" ] }

@@ -5847,6 +5847,7 @@ dependencies = [
  "flate2",
  "hex",
  "http_req",
+ "indexmap",
  "isatty",
  "libc",
  "log",
@@ -6170,6 +6171,7 @@ name = "wasmer-toml"
 version = "0.5.0"
 dependencies = [
  "anyhow",
+ "indexmap",
  "semver 1.0.16",
  "serde",
  "serde_cbor",
