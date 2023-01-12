@@ -48,7 +48,7 @@ pub fn sock_recv<M: MemorySize>(
     env = ctx.data();
 
     let memory = env.memory_view(&ctx);
-    
+
     let data_len = data.len();
     let bytes_read = if data_len > 0 {
         let mut reader = &data[..];
@@ -57,7 +57,7 @@ pub fn sock_recv<M: MemorySize>(
     } else {
         0
     };
-    
+
     debug!(
         "wasi[{}:{}]::sock_recv (fd={}, read={})",
         ctx.data().pid(),

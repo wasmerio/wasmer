@@ -207,7 +207,7 @@ fn fd_read_internal<M: MemorySize>(
                         } else {
                             None
                         },
-                        async move { socket.recv(max_size).await }
+                        async move { socket.recv(max_size).await },
                     )?
                     .map_err(|err| match err {
                         Errno::Timedout => Errno::Again,
@@ -223,8 +223,9 @@ fn fd_read_internal<M: MemorySize>(
                             let mut reader = &data[..];
                             let memory = env.memory_view(&ctx);
                             let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
-                            let bytes_read =
-                                wasi_try_ok!(read_bytes(reader, &memory, iovs_arr).map(|_| data_len));
+                            let bytes_read = wasi_try_ok!(
+                                read_bytes(reader, &memory, iovs_arr).map(|_| data_len)
+                            );
                             (bytes_read, false)
                         }
                     }
