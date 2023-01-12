@@ -975,9 +975,12 @@ impl InodeSocket {
                 return sock.peek().await.map_err(net_error_into_wasi_err);
             }
             InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
-            InodeSocketKind::Closed => return Err(Errno::Io),
+            InodeSocketKind::Closed => return Ok(0),
             _ => return Err(Errno::Notsup),
         };
+        if data.len() == 0 {
+            return Ok(0);
+        }
         inner.read_buffer.replace(data);
         inner.read_addr.take();
         if let Some(buf) = inner.read_buffer.as_ref() {
@@ -1026,11 +1029,11 @@ impl InodeSocket {
                     read.data
                 }
                 InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
-                InodeSocketKind::Closed => return Err(Errno::Io),
+                InodeSocketKind::Closed => return Ok(Bytes::new()),
                 _ => return Err(Errno::Notsup),
             };
             if data.len() == 0 {
-                return Err(Errno::Io);
+                return Ok(Bytes::new());
             }
             inner.read_buffer.replace(data);
             inner.read_addr.take();

@@ -200,7 +200,7 @@ fn fd_read_internal<M: MemorySize>(
                     drop(guard);
                     drop(inodes);
 
-                    let data = wasi_try_ok!(__asyncify(
+                    let res = __asyncify(
                         &mut ctx,
                         if is_non_blocking {
                             Some(Duration::ZERO)
@@ -212,16 +212,22 @@ fn fd_read_internal<M: MemorySize>(
                     .map_err(|err| match err {
                         Errno::Timedout => Errno::Again,
                         a => a,
-                    }));
-                    env = ctx.data();
+                    });
+                    match res {
+                        Err(Errno::Connaborted) | Err(Errno::Connreset) => (0, false),
+                        res => {
+                            let data = wasi_try_ok!(res);
+                            env = ctx.data();
 
-                    let data_len = data.len();
-                    let mut reader = &data[..];
-                    let memory = env.memory_view(&ctx);
-                    let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
-                    let bytes_read =
-                        wasi_try_ok!(read_bytes(reader, &memory, iovs_arr).map(|_| data_len));
-                    (bytes_read, false)
+                            let data_len = data.len();
+                            let mut reader = &data[..];
+                            let memory = env.memory_view(&ctx);
+                            let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
+                            let bytes_read =
+                                wasi_try_ok!(read_bytes(reader, &memory, iovs_arr).map(|_| data_len));
+                            (bytes_read, false)
+                        }
+                    }
                 }
                 Kind::Pipe { pipe } => {
                     let mut pipe = pipe.clone();
@@ -356,6 +362,7 @@ fn fd_read_internal<M: MemorySize>(
         bytes_read
     );
 
+    let env = ctx.data();
     let memory = env.memory_view(&ctx);
     let nread_ref = nread.deref(&memory);
     wasi_try_mem_ok!(nread_ref.write(bytes_read));

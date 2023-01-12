@@ -360,6 +360,10 @@ impl VirtualTcpSocket for LocalTcpStream {
         self.shutdown = Some(how);
         Ok(())
     }
+
+    fn is_closed(&self) -> bool {
+        false
+    }
 }
 
 #[async_trait::async_trait]

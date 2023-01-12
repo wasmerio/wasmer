@@ -446,6 +446,9 @@ pub trait VirtualTcpSocket: VirtualConnectedSocket + fmt::Debug + Send + Sync + 
     /// Shuts down either the READER or WRITER sides of the socket
     /// connection.
     async fn shutdown(&mut self, how: Shutdown) -> Result<()>;
+
+    /// Return true if the socket is closed
+    fn is_closed(&self) -> bool;
 }
 
 #[async_trait::async_trait]

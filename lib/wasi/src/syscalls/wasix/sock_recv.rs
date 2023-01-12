@@ -48,12 +48,16 @@ pub fn sock_recv<M: MemorySize>(
     env = ctx.data();
 
     let memory = env.memory_view(&ctx);
-    let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
-
+    
     let data_len = data.len();
-    let mut reader = &data[..];
-    let bytes_read = wasi_try_ok!(read_bytes(reader, &memory, iovs_arr).map(|_| data_len));
-
+    let bytes_read = if data_len > 0 {
+        let mut reader = &data[..];
+        let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
+        wasi_try_ok!(read_bytes(reader, &memory, iovs_arr).map(|_| data_len))
+    } else {
+        0
+    };
+    
     debug!(
         "wasi[{}:{}]::sock_recv (fd={}, read={})",
         ctx.data().pid(),
@@ -63,7 +67,6 @@ pub fn sock_recv<M: MemorySize>(
     );
 
     let bytes_read: M::Offset = wasi_try_ok!(bytes_read.try_into().map_err(|_| Errno::Overflow));
-
     wasi_try_mem_ok!(ro_flags.write(&memory, 0));
     wasi_try_mem_ok!(ro_data_len.write(&memory, bytes_read));
 

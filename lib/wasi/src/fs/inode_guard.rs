@@ -129,7 +129,13 @@ impl std::fmt::Debug for InodeValFilePollGuard {
             InodeValFilePollGuardMode::Socket(socket) => match socket {
                 InodeValFilePollGuardSocketLocking::Locked(guard) => match guard.kind {
                     InodeSocketKind::TcpListener(..) => write!(f, "guard-tcp-listener"),
-                    InodeSocketKind::TcpStream(..) => write!(f, "guard-tcp-stream"),
+                    InodeSocketKind::TcpStream(ref stream) => {
+                        if stream.is_closed() == false {
+                            write!(f, "guard-tcp-stream (closed)")
+                        } else {
+                            write!(f, "guard-tcp-stream")
+                        }
+                    },
                     InodeSocketKind::UdpSocket(..) => write!(f, "guard-udp-socket"),
                     InodeSocketKind::Raw(..) => write!(f, "guard-raw-socket"),
                     InodeSocketKind::WebSocket(..) => write!(f, "guard-web-socket"),
@@ -238,6 +244,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         } else {
                             // we do a read poll which will error out if its closed
                             match inner.poll_read_ready(cx) {
+                                Poll::Ready(Ok(0)) => true,
                                 Poll::Ready(Err(NetworkError::ConnectionAborted))
                                 | Poll::Ready(Err(NetworkError::ConnectionRefused))
                                 | Poll::Ready(Err(NetworkError::ConnectionReset))
@@ -366,7 +373,11 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
                             fd_readwrite: EventFdReadwrite {
                                 nbytes: bytes_available as u64,
-                                flags: Eventrwflags::empty(),
+                                flags: if bytes_available == 0 {
+                                    Eventrwflags::FD_READWRITE_HANGUP
+                                } else {
+                                    Eventrwflags::empty()
+                                },
                             },
                         },
                         Eventtype::Clock => EventUnion { clock: 0 },
@@ -469,7 +480,11 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
                             fd_readwrite: EventFdReadwrite {
                                 nbytes: bytes_available as u64,
-                                flags: Eventrwflags::empty(),
+                                flags: if bytes_available == 0 {
+                                    Eventrwflags::FD_READWRITE_HANGUP
+                                } else {
+                                    Eventrwflags::empty()
+                                },
                             },
                         },
                         Eventtype::Clock => EventUnion { clock: 0 },
