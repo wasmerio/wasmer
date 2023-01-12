@@ -569,7 +569,6 @@ impl Module {
         WebAssembly::Module::custom_sections(&self.module, name)
             .iter()
             .map(move |(buf_val)| {
-                // assert!(buf_val.is_instance_of::<ArrayBuffer>());
                 let typebuf: js_sys::Uint8Array = js_sys::Uint8Array::new(&buf_val);
                 typebuf.to_vec().into_boxed_slice()
             })
