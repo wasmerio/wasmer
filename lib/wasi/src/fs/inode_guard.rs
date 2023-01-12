@@ -38,7 +38,10 @@ pub(crate) enum InodeValFilePollGuardMode {
         waker: Mutex<mpsc::UnboundedReceiver<()>>,
         counter: Arc<AtomicU64>,
     },
-    Socket(InodeValFilePollGuardSocketLocking),
+    Socket {
+        inner: Arc<tokio::sync::RwLock<InodeSocketInner>>,
+        lock_state: InodeValFilePollGuardSocketLocking,
+    },
 }
 
 pub(crate) enum InodeValFilePollGuardSocketLocking {
@@ -90,14 +93,18 @@ impl<'a> InodeValFilePollGuard {
             }
             Kind::Socket { socket } => {
                 if let Ok(guard) = socket.inner.clone().try_write_owned() {
-                    InodeValFilePollGuardMode::Socket(InodeValFilePollGuardSocketLocking::Locked(
-                        guard,
-                    ))
+                    InodeValFilePollGuardMode::Socket {
+                        inner: socket.inner.clone(),
+                        lock_state: InodeValFilePollGuardSocketLocking::Locked(guard),
+                    }
                 } else {
                     let socket = socket.clone();
-                    InodeValFilePollGuardMode::Socket(InodeValFilePollGuardSocketLocking::Locking(
-                        Box::pin(async move { socket.inner.write_owned().await }),
-                    ))
+                    InodeValFilePollGuardMode::Socket {
+                        inner: socket.inner.clone(),
+                        lock_state: InodeValFilePollGuardSocketLocking::Locking(Box::pin(
+                            socket.inner.write_owned(),
+                        )),
+                    }
                 }
             }
             Kind::File { handle, .. } => {
@@ -126,7 +133,7 @@ impl std::fmt::Debug for InodeValFilePollGuard {
             InodeValFilePollGuardMode::EventNotifications { .. } => {
                 write!(f, "guard-notifications")
             }
-            InodeValFilePollGuardMode::Socket(socket) => match socket {
+            InodeValFilePollGuardMode::Socket { lock_state, .. } => match lock_state {
                 InodeValFilePollGuardSocketLocking::Locked(guard) => match guard.kind {
                     InodeSocketKind::TcpListener(..) => write!(f, "guard-tcp-listener"),
                     InodeSocketKind::TcpStream(ref stream) => {
@@ -156,7 +163,7 @@ impl InodeValFilePollGuard {
                 guard.is_open()
             }
             InodeValFilePollGuardMode::EventNotifications { .. }
-            | InodeValFilePollGuardMode::Socket(..) => true,
+            | InodeValFilePollGuardMode::Socket { .. } => true,
         }
     }
 
@@ -218,13 +225,17 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                     file.poll_shutdown(cx).is_ready()
                 }
                 InodeValFilePollGuardMode::EventNotifications { .. } => false,
-                InodeValFilePollGuardMode::Socket(ref mut socket) => {
-                    let inner = match socket {
+                InodeValFilePollGuardMode::Socket {
+                    ref inner,
+                    ref mut lock_state,
+                    ..
+                } => {
+                    let guard = match lock_state {
                         InodeValFilePollGuardSocketLocking::Locking(locking) => {
                             match locking.as_mut().poll(cx) {
                                 Poll::Ready(guard) => {
-                                    *socket = InodeValFilePollGuardSocketLocking::Locked(guard);
-                                    match socket {
+                                    *lock_state = InodeValFilePollGuardSocketLocking::Locked(guard);
+                                    match lock_state {
                                         InodeValFilePollGuardSocketLocking::Locked(guard) => guard,
                                         _ => unreachable!(),
                                     }
@@ -234,8 +245,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         }
                         InodeValFilePollGuardSocketLocking::Locked(guard) => guard,
                     };
-                    //let inner = socket.inner.write().await;
-                    if let InodeSocketKind::Closed = inner.kind {
+                    let is_closed = if let InodeSocketKind::Closed = guard.kind {
                         true
                     } else {
                         if has_read.is_some() || has_write.is_some() {
@@ -243,7 +253,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                             false
                         } else {
                             // we do a read poll which will error out if its closed
-                            match inner.poll_read_ready(cx) {
+                            match guard.poll_read_ready(cx) {
                                 Poll::Ready(Ok(0)) => true,
                                 Poll::Ready(Err(NetworkError::ConnectionAborted))
                                 | Poll::Ready(Err(NetworkError::ConnectionRefused))
@@ -254,7 +264,14 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                                 _ => false,
                             }
                         }
-                    }
+                    };
+                    // Release the lock so we don't cause any blocking issues
+                    drop(guard);
+                    *lock_state = InodeValFilePollGuardSocketLocking::Locking(Box::pin(
+                        inner.clone().write_owned(),
+                    ));
+
+                    is_closed
                 }
             };
             if is_closed {
@@ -304,13 +321,16 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         })
                     }
                 }
-                InodeValFilePollGuardMode::Socket(ref mut socket) => {
-                    let inner = match socket {
+                InodeValFilePollGuardMode::Socket {
+                    ref inner,
+                    ref mut lock_state,
+                } => {
+                    let guard = match lock_state {
                         InodeValFilePollGuardSocketLocking::Locking(locking) => {
                             match locking.as_mut().poll(cx) {
                                 Poll::Ready(guard) => {
-                                    *socket = InodeValFilePollGuardSocketLocking::Locked(guard);
-                                    match socket {
+                                    *lock_state = InodeValFilePollGuardSocketLocking::Locked(guard);
+                                    match lock_state {
                                         InodeValFilePollGuardSocketLocking::Locked(guard) => guard,
                                         _ => unreachable!(),
                                     }
@@ -320,7 +340,15 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         }
                         InodeValFilePollGuardSocketLocking::Locked(guard) => guard,
                     };
-                    inner.poll_read_ready(cx).map_err(net_error_into_io_err)
+                    let res = guard.poll_read_ready(cx).map_err(net_error_into_io_err);
+
+                    // drop the lock so we don't block things
+                    drop(guard);
+                    *lock_state = InodeValFilePollGuardSocketLocking::Locking(Box::pin(
+                        inner.clone().write_owned(),
+                    ));
+
+                    res
                 }
             };
             if let Some(s) = has_close.as_ref() {
@@ -411,13 +439,16 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         })
                     }
                 }
-                InodeValFilePollGuardMode::Socket(socket) => {
-                    let inner = match socket {
+                InodeValFilePollGuardMode::Socket {
+                    ref inner,
+                    ref mut lock_state,
+                } => {
+                    let guard = match lock_state {
                         InodeValFilePollGuardSocketLocking::Locking(locking) => {
                             match locking.as_mut().poll(cx) {
                                 Poll::Ready(guard) => {
-                                    *socket = InodeValFilePollGuardSocketLocking::Locked(guard);
-                                    match socket {
+                                    *lock_state = InodeValFilePollGuardSocketLocking::Locked(guard);
+                                    match lock_state {
                                         InodeValFilePollGuardSocketLocking::Locked(guard) => guard,
                                         _ => unreachable!(),
                                     }
@@ -427,7 +458,15 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         }
                         InodeValFilePollGuardSocketLocking::Locked(guard) => guard,
                     };
-                    inner.poll_write_ready(cx).map_err(net_error_into_io_err)
+                    let res = guard.poll_write_ready(cx).map_err(net_error_into_io_err);
+
+                    // drop the lock so we don't block things
+                    drop(guard);
+                    *lock_state = InodeValFilePollGuardSocketLocking::Locking(Box::pin(
+                        inner.clone().write_owned(),
+                    ));
+
+                    res
                 }
             };
             if let Some(s) = has_close.as_ref() {

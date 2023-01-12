@@ -4,12 +4,14 @@ use std::{
     ops::DerefMut,
     pin::Pin,
     sync::Arc,
+    task::Poll,
     time::Duration,
 };
 
 use bytes::{Buf, Bytes};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
+use tokio::sync::OwnedRwLockWriteGuard;
 use wasmer_types::MemorySize;
 use wasmer_vnet::{
     DynVirtualNetworking, TimeType, VirtualConnectedSocket, VirtualIcmpSocket, VirtualRawSocket,
@@ -276,17 +278,52 @@ impl InodeSocket {
         &self,
         _fd_flags: Fdflags,
     ) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr), Errno> {
-        let mut inner = self.inner.write().await;
-        let (sock, addr) = match &mut inner.kind {
-            InodeSocketKind::TcpListener(sock) => {
-                let (child, addr) = sock.accept().await.map_err(net_error_into_wasi_err)?;
-                Ok((child, addr))
+        let timeout = self.opt_time(TimeType::AcceptTimeout).await?;
+        struct SocketAccepter<'a> {
+            sock: &'a InodeSocket,
+            next_lock:
+                Option<Pin<Box<dyn Future<Output = OwnedRwLockWriteGuard<InodeSocketInner>>>>>,
+        }
+        impl<'a> Future for SocketAccepter<'a> {
+            type Output = Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr), Errno>;
+            fn poll(
+                mut self: Pin<&mut Self>,
+                cx: &mut std::task::Context<'_>,
+            ) -> std::task::Poll<Self::Output> {
+                if self.next_lock.is_none() {
+                    let inner = self.sock.inner.clone();
+                    self.next_lock.replace(Box::pin(inner.write_owned()));
+                }
+                tracing::error!("BLAH0");
+                let next_lock = self.next_lock.as_mut().unwrap().as_mut();
+                match next_lock.poll(cx) {
+                    Poll::Ready(mut inner) => {
+                        tracing::error!("BLAH1");
+                        self.next_lock.take();
+                        match &mut inner.kind {
+                            InodeSocketKind::TcpListener(sock) => {
+                                tracing::error!("BLAH2");
+                                sock.poll_accept(cx).map_err(net_error_into_wasi_err)
+                            }
+                            InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
+                            InodeSocketKind::Closed => Poll::Ready(Err(Errno::Io)),
+                            _ => Poll::Ready(Err(Errno::Notsup)),
+                        }
+                    }
+                    Poll::Pending => Poll::Pending,
+                }
             }
-            InodeSocketKind::PreSocket { .. } => Err(Errno::Notconn),
-            InodeSocketKind::Closed => Err(Errno::Io),
-            _ => Err(Errno::Notsup),
-        }?;
-        Ok((sock, addr))
+        }
+        if let Some(timeout) = timeout {
+            tokio::select! {
+                res = SocketAccepter { sock: self, next_lock: None } => res,
+                _ = tokio::time::sleep(timeout) => Err(Errno::Timedout)
+            }
+        } else {
+            tokio::select! {
+                res = SocketAccepter { sock: self, next_lock: None } => res,
+            }
+        }
     }
 
     pub async fn close(&self) -> Result<(), Errno> {

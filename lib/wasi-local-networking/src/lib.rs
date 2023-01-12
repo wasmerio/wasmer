@@ -112,72 +112,6 @@ pub struct LocalTcpListener {
 
 #[async_trait::async_trait]
 impl VirtualTcpListener for LocalTcpListener {
-    async fn accept(&mut self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)> {
-        {
-            let mut backlog = self.backlog.lock().unwrap();
-            if let Some((sock, addr)) = backlog.pop() {
-                return Ok((sock, addr));
-            }
-        }
-
-        let nonblocking = self.nonblocking;
-        if nonblocking {
-            let waker = unsafe { Waker::from_raw(RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE)) };
-            let mut cx = Context::from_waker(&waker);
-            return match self
-                .stream
-                .poll_accept(&mut cx)
-                .map_err(io_err_into_net_error)
-            {
-                Poll::Ready(Ok((sock, addr))) => Ok((
-                    Box::new(LocalTcpStream {
-                        stream: sock,
-                        addr,
-                        connect_timeout: None,
-                        read_timeout: None,
-                        write_timeout: None,
-                        linger_timeout: None,
-                        nonblocking,
-                        shutdown: None,
-                    }),
-                    addr,
-                )),
-                Poll::Ready(Err(err)) => Err(err),
-                Poll::Pending => Err(NetworkError::WouldBlock),
-            };
-        }
-
-        let timeout = self.timeout.clone();
-        let work = async move {
-            match timeout {
-                Some(timeout) => tokio::time::timeout(timeout, self.stream.accept())
-                    .await
-                    .map_err(|_| Into::<std::io::Error>::into(std::io::ErrorKind::WouldBlock))?,
-                None => self.stream.accept().await,
-            }
-        };
-
-        let (sock, addr) = work
-            .await
-            .map(|(sock, addr)| {
-                (
-                    Box::new(LocalTcpStream {
-                        stream: sock,
-                        addr,
-                        connect_timeout: None,
-                        read_timeout: None,
-                        write_timeout: None,
-                        linger_timeout: None,
-                        nonblocking,
-                        shutdown: None,
-                    }),
-                    addr,
-                )
-            })
-            .map_err(io_err_into_net_error)?;
-        Ok((sock, addr))
-    }
-
     async fn peek(&mut self) -> Result<usize> {
         {
             let backlog = self.backlog.lock().unwrap();
@@ -212,6 +146,67 @@ impl VirtualTcpListener for LocalTcpListener {
                 Ok(backlog.len())
             }
         }
+    }
+
+    fn poll_accept(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>> {
+        {
+            let mut backlog = self.backlog.lock().unwrap();
+            if let Some((sock, addr)) = backlog.pop() {
+                return Poll::Ready(Ok((sock, addr)));
+            }
+        }
+
+        let nonblocking = self.nonblocking;
+        if nonblocking {
+            let waker = unsafe { Waker::from_raw(RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE)) };
+            let mut cx = Context::from_waker(&waker);
+            return Poll::Ready(
+                match self
+                    .stream
+                    .poll_accept(&mut cx)
+                    .map_err(io_err_into_net_error)
+                {
+                    Poll::Ready(Ok((sock, addr))) => Ok((
+                        Box::new(LocalTcpStream {
+                            stream: sock,
+                            addr,
+                            connect_timeout: None,
+                            read_timeout: None,
+                            write_timeout: None,
+                            linger_timeout: None,
+                            nonblocking,
+                            shutdown: None,
+                        }),
+                        addr,
+                    )),
+                    Poll::Ready(Err(err)) => Err(err),
+                    Poll::Pending => Err(NetworkError::WouldBlock),
+                },
+            );
+        }
+
+        // We poll the socket
+        let (sock, addr) = match self.stream.poll_accept(cx).map_err(io_err_into_net_error) {
+            Poll::Ready(Ok((sock, addr))) => (
+                Box::new(LocalTcpStream {
+                    stream: sock,
+                    addr,
+                    connect_timeout: None,
+                    read_timeout: None,
+                    write_timeout: None,
+                    linger_timeout: None,
+                    nonblocking,
+                    shutdown: None,
+                }),
+                addr,
+            ),
+            Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
+            Poll::Pending => return Poll::Pending,
+        };
+        Poll::Ready(Ok((sock, addr)))
     }
 
     fn poll_accept_ready(

@@ -197,11 +197,14 @@ pub struct SocketReceiveFrom {
 
 #[async_trait::async_trait]
 pub trait VirtualTcpListener: fmt::Debug + Send + Sync + 'static {
-    /// Accepts an connection attempt that was made to this listener
-    async fn accept(&mut self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>;
-
     /// Checks how many sockets are waiting to be accepted
     async fn peek(&mut self) -> Result<usize>;
+
+    /// Polls the socket for new connections
+    fn poll_accept(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>>;
 
     /// Polls the socket for when there is data to be received
     fn poll_accept_ready(
