@@ -294,15 +294,12 @@ impl InodeSocket {
                     let inner = self.sock.inner.clone();
                     self.next_lock.replace(Box::pin(inner.write_owned()));
                 }
-                tracing::error!("BLAH0");
                 let next_lock = self.next_lock.as_mut().unwrap().as_mut();
                 match next_lock.poll(cx) {
                     Poll::Ready(mut inner) => {
-                        tracing::error!("BLAH1");
                         self.next_lock.take();
                         match &mut inner.kind {
                             InodeSocketKind::TcpListener(sock) => {
-                                tracing::error!("BLAH2");
                                 sock.poll_accept(cx).map_err(net_error_into_wasi_err)
                             }
                             InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
