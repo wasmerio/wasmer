@@ -312,9 +312,20 @@ impl InodeSocket {
             }
         }
         if let Some(timeout) = timeout {
+            #[cfg(not(feature = "js"))]
             tokio::select! {
                 res = SocketAccepter { sock: self, next_lock: None } => res,
                 _ = tokio::time::sleep(timeout) => Err(Errno::Timedout)
+            }
+
+            // FIXME: enable timeouts for JS! (sleep not available in js tokio)
+            #[cfg(feature = "js")]
+            {
+                let _ = timeout;
+
+                tokio::select! {
+                    res = SocketAccepter { sock: self, next_lock: None } => res,
+                }
             }
         } else {
             tokio::select! {

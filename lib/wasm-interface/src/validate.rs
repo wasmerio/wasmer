@@ -22,7 +22,18 @@ pub fn validate_wasm_and_report_errors(
     let mut global_types: Vec<GlobalType> = vec![];
     let mut fn_sigs: Vec<u32> = vec![];
 
-    let mut parser = wasmparser::ValidatingParser::new(wasm, None);
+    let mut parser = wasmparser::ValidatingParser::new(
+        wasm,
+        Some(wasmparser::ValidatingParserConfig {
+            operator_config: wasmparser::OperatorValidatorConfig {
+                enable_threads: true,
+                enable_reference_types: true,
+                enable_simd: true,
+                enable_bulk_memory: true,
+                enable_multi_value: true,
+            },
+        }),
+    );
     loop {
         let state = parser.read();
         match state {
