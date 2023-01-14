@@ -36,7 +36,7 @@ wasmer-wasi = { version = "=3.1.0", path = "../wasi", optional = true }
 wasmer-wasi-experimental-io-devices = { version = "=3.1.0", path = "../wasi-experimental-io-devices", optional = true, features = ["link_external_libs"] }
 wasmer-wast = { version = "=3.1.0", path = "../../tests/lib/wast", optional = true }
 wasmer-cache = { version = "=3.1.0", path = "../cache", optional = true }
-wasmer-types = { version = "=3.1.0", path = "../types" }
+wasmer-types = { version = "=3.1.0", path = "../types", features = ["enable-serde"] }
 wasmer-registry = { version = "=4.0.0", path = "../registry" }
 wasmer-object = { version = "=3.1.0", path = "../object", optional = true }
 wasmer-vfs  = { version = "=3.1.0", path = "../vfs", default-features = false, features = ["host-fs"] }
@@ -85,6 +85,9 @@ log = "0.4.17"
 minisign = "0.7.2"
 semver = "1.0.14"
 rpassword = "7.2.0"
+pathdiff = "0.2.1"
+sha2 = "0.10.6"
+object = "0.30.0"
 
 [build-dependencies]
 chrono = { version = "^0.4", default-features = false, features = [ "std", "clock" ] }
@@ -104,6 +107,7 @@ default = [
     "compiler",
     "wasmer-artifact-create",
     "static-artifact-create",
+    "webc_runner",
 ]
 cache = ["wasmer-cache"]
 cache-blake3-pure = ["wasmer-cache/blake3-pure"]
@@ -167,7 +171,6 @@ enable-serde = [
   "wasmer/enable-serde",
   "wasmer-vm/enable-serde",
   "wasmer-compiler/enable-serde",
-  "wasmer-types/enable-serde",
   "wasmer-wasi/enable-serde",
 ]
 

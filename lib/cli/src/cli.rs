@@ -11,7 +11,8 @@ use crate::commands::CreateObj;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
 use crate::commands::{
-    Add, Cache, Config, Init, Inspect, List, Login, Publish, Run, SelfUpdate, Validate, Whoami,
+    Add, Cache, Config, GenCHeader, Init, Inspect, List, Login, Publish, Run, SelfUpdate, Validate,
+    Whoami,
 };
 use crate::error::PrettyError;
 use clap::{CommandFactory, ErrorKind, Parser};
@@ -128,6 +129,9 @@ enum WasmerCLIOptions {
     #[structopt(name = "create-obj", verbatim_doc_comment)]
     CreateObj(CreateObj),
 
+    /// Generate the C static_defs.h header file for the input .wasm module
+    GenCHeader(GenCHeader),
+
     /// Get various configuration information needed
     /// to compile programs which use Wasmer
     Config(Config),
@@ -177,6 +181,7 @@ impl WasmerCLIOptions {
             Self::List(list) => list.execute(),
             Self::Login(login) => login.execute(),
             Self::Publish(publish) => publish.execute(),
+            Self::GenCHeader(gen_heder) => gen_heder.execute(),
             #[cfg(feature = "wast")]
             Self::Wast(wast) => wast.execute(),
             #[cfg(target_os = "linux")]
@@ -234,9 +239,9 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
         WasmerCLIOptions::Run(Run::from_binfmt_args())
     } else {
         match command.unwrap_or(&"".to_string()).as_ref() {
-            "add" | "cache" | "compile" | "config" | "create-exe" | "help" | "inspect" | "init"
-            | "run" | "self-update" | "validate" | "wast" | "binfmt" | "list" | "login"
-            | "publish" => WasmerCLIOptions::parse(),
+            "add" | "cache" | "compile" | "config" | "create-obj" | "create-exe" | "help"
+            | "gen-c-header" | "inspect" | "init" | "run" | "self-update" | "validate" | "wast"
+            | "binfmt" | "list" | "login" | "publish" => WasmerCLIOptions::parse(),
             _ => {
                 WasmerCLIOptions::try_parse_from(args.iter()).unwrap_or_else(|e| {
                     match e.kind() {

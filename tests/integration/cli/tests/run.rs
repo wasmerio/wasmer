@@ -2,7 +2,7 @@
 
 use anyhow::{bail, Context};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use wasmer_integration_tests_cli::{get_repo_root_path, get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
 
 fn wasi_test_python_path() -> PathBuf {
@@ -25,12 +25,21 @@ fn test_no_start_wat_path() -> PathBuf {
 fn test_cross_compile_python_windows() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;
 
+    #[cfg(not(windows))]
     let targets = &[
         "aarch64-darwin",
         "x86_64-darwin",
         "x86_64-linux-gnu",
         "aarch64-linux-gnu",
         "x86_64-windows-gnu",
+    ];
+
+    #[cfg(windows)]
+    let targets = &[
+        "aarch64-darwin",
+        "x86_64-darwin",
+        "x86_64-linux-gnu",
+        "aarch64-linux-gnu",
     ];
 
     // MUSL has no support for LLVM in C-API
@@ -202,14 +211,17 @@ fn package_directory(in_dir: &PathBuf, out: &PathBuf) {
 
 /// TODO: on linux-musl, the packaging of libwasmer.a doesn't work properly
 /// Tracked in https://github.com/wasmerio/wasmer/issues/3271
-#[cfg(not(target_env = "musl"))]
+#[cfg(not(any(target_env = "musl", target_os = "windows")))]
 #[cfg(feature = "webc_runner")]
 #[test]
 fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
+    // let temp_dir = Path::new("debug");
+    // std::fs::create_dir_all(&temp_dir);
     let temp_dir = tempfile::TempDir::new()?;
-    let python_wasmer_path = temp_dir.path().join("python.wasmer");
+    let temp_dir = temp_dir.path().to_path_buf();
+    let python_wasmer_path = temp_dir.join("python.wasmer");
     std::fs::copy(wasi_test_python_path(), &python_wasmer_path)?;
-    let python_exe_output_path = temp_dir.path().join("python");
+    let python_exe_output_path = temp_dir.join("python");
 
     let native_target = target_lexicon::HOST;
     let root_path = get_repo_root_path().unwrap();
@@ -217,8 +229,7 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     if !package_path.exists() {
         panic!("package path {} does not exist", package_path.display());
     }
-    let tmp_targz_path = tempfile::TempDir::new()?;
-    let tmp_targz_path = tmp_targz_path.path().join("link.tar.gz");
+    let tmp_targz_path = temp_dir.join("link.tar.gz");
     println!("compiling to target {native_target}");
     println!(
         "packaging /package to .tar.gz: {}",
@@ -241,10 +252,17 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     cmd.arg(format!("{native_target}"));
     cmd.arg("-o");
     cmd.arg(&python_exe_output_path);
-
+    // change temp_dir to a local path and run this test again
+    // to output the compilation files into a debug folder
+    //
+    // cmd.arg("--debug-dir");
+    // cmd.arg(&temp_dir);
     println!("running: {cmd:?}");
 
-    let output = cmd.output()?;
+    let output = cmd
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .output()?;
 
     if !output.status.success() {
         let stdout = std::str::from_utf8(&output.stdout)

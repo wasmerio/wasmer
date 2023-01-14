@@ -2,22 +2,17 @@
 //! Create a standalone native executable for a given Wasm file.
 
 use super::ObjectFormat;
-use crate::{commands::PrefixerFn, store::CompilerOptions};
+use crate::store::CompilerOptions;
 use anyhow::{Context, Result};
 use clap::Parser;
 use std::env;
-use std::fs;
-use std::fs::File;
-use std::io::prelude::*;
-use std::io::BufWriter;
+
 use std::path::PathBuf;
-use std::process::Command;
+
 use wasmer::*;
-use wasmer_object::{emit_serialized, get_object_for_target};
+
 #[cfg(feature = "webc_runner")]
 use webc::{ParseOptions, WebCMmap};
-
-const WASMER_SERIALIZED_HEADER: &[u8] = include_bytes!("wasmer_create_exe.h");
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer create-exe` subcommand
@@ -26,17 +21,24 @@ pub struct CreateObj {
     #[clap(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
-    /// Output file
+    /// Output file or directory if the input is a pirita file
     #[clap(name = "OUTPUT_PATH", short = 'o', parse(from_os_str))]
     output: PathBuf,
 
-    /// Header output file
-    #[clap(
-        name = "OUTPUT_HEADER_PATH",
-        long = "output-header-path",
-        parse(from_os_str)
-    )]
-    header_output: Option<PathBuf>,
+    /// Optional directorey used for debugging: if present, will
+    /// output the files to a debug instead of a temp directory
+    #[clap(long, name = "DEBUG PATH", parse(from_os_str))]
+    debug_dir: Option<PathBuf>,
+
+    /// Prefix for the function names in the input file in the compiled object file.
+    ///
+    /// Default value = sha256 of the input file
+    #[clap(long, name = "PREFIX")]
+    prefix: Option<String>,
+
+    /// Atom name to compile when compiling multi-atom pirita files
+    #[clap(long, name = "ATOM")]
+    atom: Option<String>,
 
     /// Compilation Target triple
     ///
@@ -49,6 +51,7 @@ pub struct CreateObj {
     /// - "aarch64-linux-gnu"
     /// - "x86_64-apple-darwin"
     /// - "arm64-apple-darwin"
+    /// - "x86_64-windows-gnu"
     #[clap(long = "target")]
     target_triple: Option<Triple>,
 
@@ -57,10 +60,10 @@ pub struct CreateObj {
     /// This flag accepts two options: `symbols` or `serialized`.
     /// - (default) `symbols` creates an object where all functions and metadata of the module are regular object symbols
     /// - `serialized` creates an object where the module is zero-copy serialized as raw data
-    #[clap(name = "OBJECT_FORMAT", long = "object-format", verbatim_doc_comment)]
+    #[clap(long = "object-format", name = "OBJECT_FORMAT", verbatim_doc_comment)]
     object_format: Option<ObjectFormat>,
 
-    #[clap(short = 'm', multiple = true, number_of_values = 1)]
+    #[clap(long, short = 'm', multiple = true, number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
 
     #[clap(flatten)]
@@ -70,191 +73,116 @@ pub struct CreateObj {
 impl CreateObj {
     /// Runs logic for the `create-obj` subcommand
     pub fn execute(&self) -> Result<()> {
-        let target = self
-            .target_triple
-            .as_ref()
-            .map(|target_triple| {
-                let mut features = self
-                    .cpu_features
-                    .clone()
-                    .into_iter()
-                    .fold(CpuFeature::set(), |a, b| a | b);
-                // Cranelift requires SSE2, so we have this "hack" for now to facilitate
-                // usage
-                if target_triple.architecture == Architecture::X86_64 {
-                    features |= CpuFeature::SSE2;
-                }
-                Target::new(target_triple.clone(), features)
-            })
-            .unwrap_or_default();
-
+        let path = crate::commands::create_exe::normalize_path(&format!("{}", self.path.display()));
+        let target_triple = self.target_triple.clone().unwrap_or_else(Triple::host);
         let starting_cd = env::current_dir()?;
-        let wasm_module_path = starting_cd.join(&self.path);
-        let output_path = starting_cd.join(&self.output);
-        let object_format = self.object_format.unwrap_or(ObjectFormat::Symbols);
+        let input_path = starting_cd.join(&path);
+        let temp_dir = tempfile::tempdir();
+        let output_directory_path = match self.debug_dir.as_ref() {
+            Some(s) => s.clone(),
+            None => temp_dir?.path().to_path_buf(),
+        };
+        std::fs::create_dir_all(&output_directory_path)?;
+        let object_format = self.object_format.unwrap_or_default();
+        let prefix = match self.prefix.as_ref() {
+            Some(s) => vec![s.clone()],
+            None => Vec::new(),
+        };
 
-        #[cfg(feature = "webc_runner")]
-        {
-            if let Ok(pirita) = WebCMmap::parse(wasm_module_path.clone(), &ParseOptions::default())
-            {
-                return self.execute_pirita(&pirita, target, output_path, object_format);
-            }
-        }
-
-        let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
-
+        let target = crate::commands::create_exe::utils::target_triple_to_target(
+            &target_triple,
+            &self.cpu_features,
+        );
+        let (_, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
         println!("Format: {:?}", object_format);
 
-        let header_output = self.header_output.clone().unwrap_or_else(|| {
-            let mut retval = self.output.clone();
-            retval.set_extension("h");
-            retval
-        });
+        let atoms =
+            if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
+                crate::commands::create_exe::compile_pirita_into_directory(
+                    &pirita,
+                    &output_directory_path,
+                    &self.compiler,
+                    &self.cpu_features,
+                    &target_triple,
+                    object_format,
+                    &prefix,
+                    crate::commands::AllowMultiWasm::Reject(self.atom.clone()),
+                    self.debug_dir.is_some(),
+                )
+            } else {
+                crate::commands::create_exe::prepare_directory_from_single_wasm_file(
+                    &input_path,
+                    &output_directory_path,
+                    &self.compiler,
+                    &target_triple,
+                    &self.cpu_features,
+                    object_format,
+                    &prefix,
+                    self.debug_dir.is_some(),
+                )
+            }?;
 
-        let header_output_path = starting_cd.join(&header_output);
+        // Copy output files into target path, depending on whether
+        // there are one or many files being compiled
+        let file_paths = std::fs::read_dir(output_directory_path.join("atoms"))
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "could not read {}: {e}",
+                    output_directory_path.join("atoms").display()
+                )
+            })?
+            .filter_map(|path| path.ok()?.path().canonicalize().ok())
+            .collect::<Vec<_>>();
 
-        match object_format {
-            ObjectFormat::Serialized => {
-                let module = Module::from_file(&store, &wasm_module_path)
-                    .context("failed to compile Wasm")?;
-                let bytes = module.serialize()?;
-                let mut obj = get_object_for_target(target.triple())?;
-                emit_serialized(&mut obj, &bytes, target.triple(), "WASMER_MODULE")?;
-                let mut writer = BufWriter::new(File::create(&output_path)?);
-                obj.write_stream(&mut writer)
-                    .map_err(|err| anyhow::anyhow!(err.to_string()))?;
-                writer.flush()?;
-                let mut writer = BufWriter::new(File::create(&header_output_path)?);
-                writer.write_all(WASMER_SERIALIZED_HEADER)?;
-                writer.flush()?;
-            }
-            ObjectFormat::Symbols => {
-                let engine = store.engine();
-                let engine_inner = engine.inner();
-                let compiler = engine_inner.compiler()?;
-                let features = engine_inner.features();
-                let tunables = store.tunables();
-                let data: Vec<u8> = fs::read(wasm_module_path)?;
-                let prefixer: Option<PrefixerFn> = None;
-                let (module_info, obj, metadata_length, symbol_registry) =
-                    Artifact::generate_object(
-                        compiler, &data, prefixer, &target, tunables, features,
-                    )?;
-
-                let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
-                    &module_info,
-                    &*symbol_registry,
-                    metadata_length,
-                );
-                let mut writer = BufWriter::new(File::create(&output_path)?);
-                obj.write_stream(&mut writer)
-                    .map_err(|err| anyhow::anyhow!(err.to_string()))?;
-                writer.flush()?;
-                let mut writer = BufWriter::new(File::create(&header_output_path)?);
-                writer.write_all(header_file_src.as_bytes())?;
-                writer.flush()?;
-            }
+        if file_paths.is_empty() {
+            return Err(anyhow::anyhow!(
+                "could not compile object file: no output objects in {}",
+                output_directory_path.join("atoms").display()
+            ));
         }
 
-        eprintln!(
-            "✔ Object compiled successfully to `{}` and the header file was generated at `{}`.",
-            self.output.display(),
-            header_output.display(),
-        );
-
-        Ok(())
-    }
-
-    #[cfg(feature = "webc_runner")]
-    fn execute_pirita(
-        &self,
-        file: &WebCMmap,
-        target: Target,
-        output_path: PathBuf,
-        object_format: ObjectFormat,
-    ) -> Result<()> {
-        if output_path.exists() {
-            if output_path.is_dir() {
-                nuke_dir::nuke_dir(&output_path)
-                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        if file_paths.len() == 1 {
+            if let Some(parent) = self.output.parent() {
+                std::fs::create_dir_all(parent)?;
             }
+            std::fs::copy(
+                std::env::current_dir().unwrap().join(&file_paths[0]),
+                std::env::current_dir().unwrap().join(&self.output),
+            )
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "{} -> {}: {e}",
+                    &file_paths[0].display(),
+                    self.output.display()
+                )
+            })?;
         } else {
-            let _ = std::fs::create_dir_all(&output_path)?;
+            let keys = atoms
+                .iter()
+                .map(|(name, _)| name.clone())
+                .collect::<Vec<_>>();
+            return Err(anyhow::anyhow!(
+                "where <ATOM> is one of: {}",
+                keys.join(", ")
+            ))
+            .context(anyhow::anyhow!(
+                "note: use --atom <ATOM> to specify which atom to compile"
+            ))
+            .context(anyhow::anyhow!(
+                "cannot compile more than one atom at a time"
+            ));
         }
-        println!(
-            "outputting create-obj to directory {}",
-            output_path.display()
-        );
-        let (store, _) = self.compiler.get_store_for_target(target.clone())?;
-        crate::commands::create_exe::CreateExe::create_objs_pirita(
-            &store,
-            file,
-            &target,
-            &output_path,
-            object_format,
-        )?;
+
+        let output_file = self.output.canonicalize().unwrap().display().to_string();
+        let output_file = output_file
+            .strip_prefix(r"\\?\")
+            .unwrap_or(&output_file)
+            .to_string();
+
+        eprintln!("✔ Object compiled successfully to `{output_file}`");
+
         Ok(())
     }
-}
-
-fn link(
-    output_path: PathBuf,
-    object_path: PathBuf,
-    header_code_path: PathBuf,
-) -> anyhow::Result<()> {
-    let libwasmer_path = get_libwasmer_path()?
-        .canonicalize()
-        .context("Failed to find libwasmer")?;
-    println!(
-        "link output {:?}",
-        Command::new("cc")
-            .arg(&header_code_path)
-            .arg(&format!("-L{}", libwasmer_path.display()))
-            //.arg(&format!("-I{}", header_code_path.display()))
-            .arg("-pie")
-            .arg("-o")
-            .arg("header_obj.o")
-            .output()?
-    );
-    //ld -relocatable a.o b.o -o c.o
-
-    println!(
-        "link output {:?}",
-        Command::new("ld")
-            .arg("-relocatable")
-            .arg(&object_path)
-            .arg("header_obj.o")
-            .arg("-o")
-            .arg(&output_path)
-            .output()?
-    );
-
-    Ok(())
-}
-
-/// path to the static libwasmer
-fn get_libwasmer_path() -> anyhow::Result<PathBuf> {
-    let mut path = get_wasmer_dir()?;
-    path.push("lib");
-
-    // TODO: prefer headless Wasmer if/when it's a separate library.
-    #[cfg(not(windows))]
-    path.push("libwasmer.a");
-    #[cfg(windows)]
-    path.push("wasmer.lib");
-
-    Ok(path)
-}
-fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
-    Ok(PathBuf::from(
-        env::var("WASMER_DIR")
-            .or_else(|e| {
-                option_env!("WASMER_INSTALL_PREFIX")
-                    .map(str::to_string)
-                    .ok_or(e)
-            })
-            .context("Trying to read env var `WASMER_DIR`")?,
-    ))
 }

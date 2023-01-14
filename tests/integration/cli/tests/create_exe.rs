@@ -5,7 +5,16 @@ use std::fs;
 use std::io::prelude::*;
 use std::path::PathBuf;
 use std::process::Command;
+use tempfile::TempDir;
 use wasmer_integration_tests_cli::*;
+
+fn create_exe_wabt_path() -> String {
+    format!("{}/{}", C_ASSET_PATH, "wabt-1.0.37.wasmer")
+}
+
+fn create_exe_python_wasmer() -> String {
+    format!("{}/{}", C_ASSET_PATH, "python-0.1.0.wasmer")
+}
 
 fn create_exe_test_wasm_path() -> String {
     format!("{}/{}", C_ASSET_PATH, "qjs.wasm")
@@ -27,7 +36,7 @@ struct WasmerCreateExe {
     /// Compiler with which to compile the Wasm.
     compiler: Compiler,
     /// Extra CLI flags
-    extra_cli_flags: Vec<&'static str>,
+    extra_cli_flags: Vec<String>,
 }
 
 impl Default for WasmerCreateExe {
@@ -49,19 +58,23 @@ impl Default for WasmerCreateExe {
 
 impl WasmerCreateExe {
     fn run(&self) -> anyhow::Result<Vec<u8>> {
-        let output = Command::new(&self.wasmer_path)
-            .current_dir(&self.current_dir)
-            .arg("create-exe")
-            .arg(&self.wasm_path.canonicalize()?)
-            .arg(&self.compiler.to_flag())
-            .args(self.extra_cli_flags.iter())
-            .arg("-o")
-            .arg(&self.native_executable_path)
-            .output()?;
+        let mut output = Command::new(&self.wasmer_path);
+        output.current_dir(&self.current_dir);
+        output.arg("create-exe");
+        output.arg(&self.wasm_path.canonicalize()?);
+        output.arg(&self.compiler.to_flag());
+        output.args(self.extra_cli_flags.iter());
+        output.arg("-o");
+        output.arg(&self.native_executable_path);
+        let cmd = format!("{:?}", output);
+
+        println!("(integration-test) running create-exe: {cmd}");
+
+        let output = output.output()?;
 
         if !output.status.success() {
             bail!(
-                "wasmer create-exe failed with: stdout: {}\n\nstderr: {}",
+                "{cmd}\r\n failed with: stdout: {}\n\nstderr: {}",
                 std::str::from_utf8(&output.stdout)
                     .expect("stdout is not utf8! need to handle arbitrary bytes"),
                 std::str::from_utf8(&output.stderr)
@@ -86,7 +99,7 @@ struct WasmerCreateObj {
     /// Compiler with which to compile the Wasm.
     compiler: Compiler,
     /// Extra CLI flags
-    extra_cli_flags: Vec<&'static str>,
+    extra_cli_flags: Vec<String>,
 }
 
 impl Default for WasmerCreateObj {
@@ -108,19 +121,24 @@ impl Default for WasmerCreateObj {
 
 impl WasmerCreateObj {
     fn run(&self) -> anyhow::Result<Vec<u8>> {
-        let output = Command::new(&self.wasmer_path)
-            .current_dir(&self.current_dir)
-            .arg("create-obj")
-            .arg(&self.wasm_path.canonicalize()?)
-            .arg(&self.compiler.to_flag())
-            .args(self.extra_cli_flags.iter())
-            .arg("-o")
-            .arg(&self.output_object_path)
-            .output()?;
+        let mut output = Command::new(&self.wasmer_path);
+        output.current_dir(&self.current_dir);
+        output.arg("create-obj");
+        output.arg(&self.wasm_path.canonicalize()?);
+        output.arg(&self.compiler.to_flag());
+        output.args(self.extra_cli_flags.iter());
+        output.arg("-o");
+        output.arg(&self.output_object_path);
+
+        let cmd = format!("{:?}", output);
+
+        println!("(integration-test) running create-obj: {cmd}");
+
+        let output = output.output()?;
 
         if !output.status.success() {
             bail!(
-                "wasmer create-obj failed with: stdout: {}\n\nstderr: {}",
+                "{cmd}\r\n failed with: stdout: {}\n\nstderr: {}",
                 std::str::from_utf8(&output.stdout)
                     .expect("stdout is not utf8! need to handle arbitrary bytes"),
                 std::str::from_utf8(&output.stderr)
@@ -131,6 +149,115 @@ impl WasmerCreateObj {
     }
 }
 
+#[test]
+fn test_create_exe_with_pirita_works_1() {
+    let tempdir = TempDir::new().unwrap();
+    let path = tempdir.path();
+    let wasm_out = path.join("out.obj");
+    let cmd = Command::new(get_wasmer_path())
+        .arg("create-obj")
+        .arg(create_exe_wabt_path())
+        .arg("-o")
+        .arg(&wasm_out)
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&cmd.stderr);
+
+    assert_eq!(stderr.lines().map(|s| s.trim().to_string()).collect::<Vec<_>>(), vec![
+        format!("error: cannot compile more than one atom at a time"),
+        format!("│   1: note: use --atom <ATOM> to specify which atom to compile"),
+        format!("╰─▶ 2: where <ATOM> is one of: wabt, wasm-interp, wasm-strip, wasm-validate, wasm2wat, wast2json, wat2wasm"),
+    ]);
+
+    assert!(!cmd.status.success());
+
+    let cmd = Command::new(get_wasmer_path())
+        .arg("create-obj")
+        .arg(create_exe_wabt_path())
+        .arg("--atom")
+        .arg("wasm2wat")
+        .arg("-o")
+        .arg(&wasm_out)
+        .output()
+        .unwrap();
+
+    let stderr = String::from_utf8_lossy(&cmd.stderr);
+
+    let real_out = wasm_out.canonicalize().unwrap().display().to_string();
+    let real_out = real_out
+        .strip_prefix(r"\\?\")
+        .unwrap_or(&real_out)
+        .to_string();
+    assert_eq!(
+        stderr
+            .lines()
+            .map(|s| s.trim().to_string())
+            .collect::<Vec<_>>(),
+        vec![format!("✔ Object compiled successfully to `{real_out}`"),]
+    );
+
+    assert!(cmd.status.success());
+}
+
+#[test]
+fn test_create_exe_with_precompiled_works_1() {
+    use object::{Object, ObjectSymbol};
+
+    let tempdir = TempDir::new().unwrap();
+    let path = tempdir.path();
+    let wasm_out = path.join("out.obj");
+    let _ = Command::new(get_wasmer_path())
+        .arg("create-obj")
+        .arg(create_exe_test_wasm_path())
+        .arg("--prefix")
+        .arg("sha123123")
+        .arg("-o")
+        .arg(&wasm_out)
+        .output()
+        .unwrap();
+
+    let file = std::fs::read(&wasm_out).unwrap();
+    let obj_file = object::File::parse(&*file).unwrap();
+    let names = obj_file
+        .symbols()
+        .filter_map(|s| Some(s.name().ok()?.to_string()))
+        .collect::<Vec<_>>();
+
+    assert!(
+        names.contains(&"_wasmer_function_sha123123_1".to_string())
+            || names.contains(&"wasmer_function_sha123123_1".to_string())
+    );
+
+    let _ = Command::new(get_wasmer_path())
+        .arg("create-obj")
+        .arg(create_exe_test_wasm_path())
+        .arg("-o")
+        .arg(&wasm_out)
+        .output()
+        .unwrap();
+
+    let file = std::fs::read(&wasm_out).unwrap();
+    let obj_file = object::File::parse(&*file).unwrap();
+    let names = obj_file
+        .symbols()
+        .filter_map(|s| Some(s.name().ok()?.to_string()))
+        .collect::<Vec<_>>();
+
+    assert!(
+        names.contains(
+            &"_wasmer_function_6f62a6bc5c8f8e3e12a54e2ecbc5674ccfe1c75f91d8e4dd6ebb3fec422a4d6c_1"
+                .to_string()
+        ) || names.contains(
+            &"wasmer_function_6f62a6bc5c8f8e3e12a54e2ecbc5674ccfe1c75f91d8e4dd6ebb3fec422a4d6c_1"
+                .to_string()
+        )
+    );
+}
+
+// Ignored because of -lunwind linker issue on Windows
+// see https://github.com/wasmerio/wasmer/issues/3459
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn create_exe_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
@@ -156,6 +283,7 @@ fn create_exe_works() -> anyhow::Result<()> {
         &operating_dir,
         &executable_path,
         &["--eval".to_string(), "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));".to_string()],
+        false,
     )
     .context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
@@ -164,6 +292,133 @@ fn create_exe_works() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Tests that "-c" and "-- -c" are treated differently
+// Ignored because of -lunwind linker issue on Windows
+// see https://github.com/wasmerio/wasmer/issues/3459
+#[cfg_attr(target_os = "windows", ignore)]
+#[test]
+fn create_exe_works_multi_command_args_handling() -> anyhow::Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let operating_dir: PathBuf = temp_dir.path().to_owned();
+
+    let wasm_path = operating_dir.join(create_exe_wabt_path());
+    #[cfg(not(windows))]
+    let executable_path = operating_dir.join("multicommand.out");
+    #[cfg(windows)]
+    let executable_path = operating_dir.join("multicommand.exe");
+
+    WasmerCreateExe {
+        current_dir: operating_dir.clone(),
+        wasm_path,
+        native_executable_path: executable_path.clone(),
+        compiler: Compiler::Cranelift,
+        ..Default::default()
+    }
+    .run()
+    .context("Failed to create-exe wasm with Wasmer")?;
+
+    let result = run_code(
+        &operating_dir,
+        &executable_path,
+        &[
+            "--command".to_string(),
+            "wasm-strip".to_string(),
+            "--".to_string(),
+            "-c".to_string(),
+        ],
+        true,
+    )
+    .context("Failed to run generated executable")?;
+    let result_lines = result.lines().collect::<Vec<&str>>();
+    assert_eq!(
+        result_lines,
+        vec![
+            "wasm-strip: unknown option '-c'",
+            "Try '--help' for more information.",
+            "WASI exited with code: 1"
+        ]
+    );
+
+    let result = run_code(
+        &operating_dir,
+        &executable_path,
+        &["-c".to_string(), "wasm-strip".to_string()],
+        true,
+    )
+    .context("Failed to run generated executable")?;
+    let result_lines = result.lines().collect::<Vec<&str>>();
+    assert_eq!(
+        result_lines,
+        vec![
+            "wasm-strip: expected filename argument.",
+            "Try '--help' for more information.",
+            "WASI exited with code: 1"
+        ]
+    );
+
+    Ok(())
+}
+
+// Ignored because of -lunwind linker issue on Windows
+// see https://github.com/wasmerio/wasmer/issues/3459
+#[cfg_attr(target_os = "windows", ignore)]
+#[test]
+fn create_exe_works_multi_command() -> anyhow::Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let operating_dir: PathBuf = temp_dir.path().to_owned();
+
+    let wasm_path = operating_dir.join(create_exe_wabt_path());
+    #[cfg(not(windows))]
+    let executable_path = operating_dir.join("multicommand.out");
+    #[cfg(windows)]
+    let executable_path = operating_dir.join("multicommand.exe");
+
+    WasmerCreateExe {
+        current_dir: operating_dir.clone(),
+        wasm_path,
+        native_executable_path: executable_path.clone(),
+        compiler: Compiler::Cranelift,
+        ..Default::default()
+    }
+    .run()
+    .context("Failed to create-exe wasm with Wasmer")?;
+
+    let result = run_code(
+        &operating_dir,
+        &executable_path,
+        &[
+            "--command".to_string(),
+            "wasm2wat".to_string(),
+            "--version".to_string(),
+        ],
+        false,
+    )
+    .context("Failed to run generated executable")?;
+
+    let result_lines = result.lines().collect::<Vec<&str>>();
+    assert_eq!(result_lines, vec!["1.0.37 (git~v1.0.37)"]);
+
+    let result = run_code(
+        &operating_dir,
+        &executable_path,
+        &[
+            "-c".to_string(),
+            "wasm-validate".to_string(),
+            "--version".to_string(),
+        ],
+        false,
+    )
+    .context("Failed to run generated executable")?;
+
+    let result_lines = result.lines().collect::<Vec<&str>>();
+    assert_eq!(result_lines, vec!["1.0.37 (git~v1.0.37)"]);
+
+    Ok(())
+}
+
+// Ignored because of -lunwind linker issue on Windows
+// see https://github.com/wasmerio/wasmer/issues/3459
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn create_exe_works_with_file() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
@@ -202,6 +457,7 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
             "--script".to_string(),
             "test.js".to_string(),
         ],
+        false,
     )
     .context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
@@ -216,6 +472,7 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
             "--script".to_string(),
             "abc/test.js".to_string(),
         ],
+        false,
     )
     .context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
@@ -224,6 +481,9 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
     Ok(())
 }
 
+// Ignored because of -lunwind linker issue on Windows
+// see https://github.com/wasmerio/wasmer/issues/3459
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn create_exe_serialized_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
@@ -236,11 +496,11 @@ fn create_exe_serialized_works() -> anyhow::Result<()> {
     let executable_path = operating_dir.join("wasm.exe");
 
     let output: Vec<u8> = WasmerCreateExe {
-        current_dir: operating_dir.clone(),
+        current_dir: std::env::current_dir().unwrap(),
         wasm_path,
         native_executable_path: executable_path.clone(),
         compiler: Compiler::Cranelift,
-        extra_cli_flags: vec!["--object-format", "serialized"],
+        extra_cli_flags: vec!["--object-format".to_string(), "serialized".to_string()],
         ..Default::default()
     }
     .run()
@@ -250,6 +510,7 @@ fn create_exe_serialized_works() -> anyhow::Result<()> {
         &operating_dir,
         &executable_path,
         &["--eval".to_string(), "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));".to_string()],
+        false,
     )
     .context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
@@ -265,17 +526,13 @@ fn create_exe_serialized_works() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn create_obj(args: Vec<&'static str>, keyword_needle: &str, keyword: &str) -> anyhow::Result<()> {
+fn create_obj(args: Vec<String>, keyword_needle: &str, keyword: &str) -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
-    let wasm_path = operating_dir.join(create_exe_test_wasm_path());
+    let wasm_path = operating_dir.as_path().join(create_exe_test_wasm_path());
 
-    #[cfg(not(windows))]
-    let object_path = operating_dir.join("wasm.o");
-    #[cfg(windows)]
-    let object_path = operating_dir.join("wasm.obj");
-
+    let object_path = operating_dir.as_path().join("wasm");
     let output: Vec<u8> = WasmerCreateObj {
         current_dir: operating_dir,
         wasm_path,
@@ -291,13 +548,6 @@ fn create_obj(args: Vec<&'static str>, keyword_needle: &str, keyword: &str) -> a
         object_path.exists(),
         "create-obj successfully completed but object output file `{}` missing",
         object_path.display()
-    );
-    let mut object_header_path = object_path;
-    object_header_path.set_extension("h");
-    assert!(
-        object_header_path.exists(),
-        "create-obj successfully completed but object output header file `{}` missing",
-        object_header_path.display()
     );
 
     let output_str = String::from_utf8_lossy(&output);
@@ -318,19 +568,23 @@ fn create_obj_default() -> anyhow::Result<()> {
 
 #[test]
 fn create_obj_symbols() -> anyhow::Result<()> {
-    create_obj(vec!["--object-format", "symbols"], "Symbols", "symbols")
+    create_obj(
+        vec!["--object-format".to_string(), "symbols".to_string()],
+        "Symbols",
+        "symbols",
+    )
 }
 
 #[test]
 fn create_obj_serialized() -> anyhow::Result<()> {
     create_obj(
-        vec!["--object-format", "serialized"],
+        vec!["--object-format".to_string(), "serialized".to_string()],
         "Serialized",
         "serialized",
     )
 }
 
-fn create_exe_with_object_input(args: Vec<&'static str>) -> anyhow::Result<()> {
+fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
@@ -341,12 +595,21 @@ fn create_exe_with_object_input(args: Vec<&'static str>) -> anyhow::Result<()> {
     #[cfg(windows)]
     let object_path = operating_dir.join("wasm.obj");
 
+    let mut create_obj_args = args.clone();
+    create_obj_args.push("--prefix".to_string());
+    create_obj_args.push("abc123".to_string());
+    create_obj_args.push("--debug-dir".to_string());
+    create_obj_args.push(format!(
+        "{}",
+        operating_dir.join("compile-create-obj").display()
+    ));
+
     WasmerCreateObj {
         current_dir: operating_dir.clone(),
-        wasm_path,
+        wasm_path: wasm_path.clone(),
         output_object_path: object_path.clone(),
         compiler: Compiler::Cranelift,
-        extra_cli_flags: args,
+        extra_cli_flags: create_obj_args,
         ..Default::default()
     }
     .run()
@@ -357,34 +620,43 @@ fn create_exe_with_object_input(args: Vec<&'static str>) -> anyhow::Result<()> {
         "create-obj successfully completed but object output file `{}` missing",
         object_path.display()
     );
-    let mut object_header_path = object_path.clone();
-    object_header_path.set_extension("h");
-    assert!(
-        object_header_path.exists(),
-        "create-obj successfully completed but object output header file `{}` missing",
-        object_header_path.display()
-    );
 
     #[cfg(not(windows))]
     let executable_path = operating_dir.join("wasm.out");
     #[cfg(windows)]
     let executable_path = operating_dir.join("wasm.exe");
 
-    WasmerCreateExe {
-        current_dir: operating_dir.clone(),
-        wasm_path: object_path,
+    let mut create_exe_args = args.clone();
+    create_exe_args.push("--precompiled-atom".to_string());
+    create_exe_args.push(format!("qjs:abc123:{}", object_path.display()));
+    create_exe_args.push("--debug-dir".to_string());
+    create_exe_args.push(format!(
+        "{}",
+        operating_dir.join("compile-create-exe").display()
+    ));
+
+    let create_exe_stdout = WasmerCreateExe {
+        current_dir: std::env::current_dir().unwrap(),
+        wasm_path,
         native_executable_path: executable_path.clone(),
         compiler: Compiler::Cranelift,
-        extra_cli_flags: vec!["--header", "wasm.h"],
+        extra_cli_flags: create_exe_args,
         ..Default::default()
     }
     .run()
     .context("Failed to create-exe wasm with Wasmer")?;
 
+    let create_exe_stdout = std::str::from_utf8(&create_exe_stdout).unwrap();
+    assert!(
+        create_exe_stdout.contains("Using cached object file for atom \"qjs\"."),
+        "missed cache hit"
+    );
+
     let result = run_code(
         &operating_dir,
         &executable_path,
         &["--eval".to_string(), "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));".to_string()],
+        false,
     )
     .context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
@@ -393,17 +665,29 @@ fn create_exe_with_object_input(args: Vec<&'static str>) -> anyhow::Result<()> {
     Ok(())
 }
 
+// Ignored because of -lunwind linker issue on Windows
+// see https://github.com/wasmerio/wasmer/issues/3459
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn create_exe_with_object_input_default() -> anyhow::Result<()> {
     create_exe_with_object_input(vec![])
 }
 
+// Ignored because of -lunwind linker issue on Windows
+// see https://github.com/wasmerio/wasmer/issues/3459
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn create_exe_with_object_input_symbols() -> anyhow::Result<()> {
-    create_exe_with_object_input(vec!["--object-format", "symbols"])
+    create_exe_with_object_input(vec!["--object-format".to_string(), "symbols".to_string()])
 }
 
+// Ignored because of -lunwind linker issue on Windows
+// see https://github.com/wasmerio/wasmer/issues/3459
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn create_exe_with_object_input_serialized() -> anyhow::Result<()> {
-    create_exe_with_object_input(vec!["--object-format", "serialized"])
+    create_exe_with_object_input(vec![
+        "--object-format".to_string(),
+        "serialized".to_string(),
+    ])
 }
