@@ -19,7 +19,7 @@ pub fn sock_recv<M: MemorySize>(
     sock: WasiFd,
     ri_data: WasmPtr<__wasi_iovec_t<M>, M>,
     ri_data_len: M::Offset,
-    _ri_flags: RiFlags,
+    ri_flags: RiFlags,
     ro_data_len: WasmPtr<M::Offset, M>,
     ro_flags: WasmPtr<RoFlags, M>,
 ) -> Result<Errno, WasiError> {
@@ -59,11 +59,12 @@ pub fn sock_recv<M: MemorySize>(
     };
 
     debug!(
-        "wasi[{}:{}]::sock_recv (fd={}, read={})",
+        "wasi[{}:{}]::sock_recv (fd={}, read={}, flags={:?})",
         ctx.data().pid(),
         ctx.data().tid(),
         sock,
         bytes_read,
+        ri_flags
     );
 
     let bytes_read: M::Offset = wasi_try_ok!(bytes_read.try_into().map_err(|_| Errno::Overflow));

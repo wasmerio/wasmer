@@ -19,6 +19,7 @@ pub mod windows;
 pub mod wasi;
 pub mod wasix;
 
+use futures::Future;
 pub use wasi::*;
 pub use wasix::*;
 
@@ -236,13 +237,21 @@ where
     let tasks = env.tasks.clone();
 
     // Create the timeout
+    let mut nonblocking = false;
+    if timeout == Some(Duration::ZERO) {
+        nonblocking = true;
+    }
     let timeout = {
         let tasks_inner = tasks.clone();
         async move {
             if let Some(timeout) = timeout {
-                tasks_inner
-                    .sleep_now(current_caller_id(), timeout.as_millis())
-                    .await
+                if nonblocking == false {
+                    tasks_inner
+                        .sleep_now(current_caller_id(), timeout.as_millis())
+                        .await
+                } else {
+                    InfiniteSleep::default().await
+                }
             } else {
                 InfiniteSleep::default().await
             }
@@ -264,9 +273,8 @@ where
         signaler
     };
 
-    // Block on the work and process process
-    let tasks_inner = tasks.clone();
-    tasks.block_on(async move {
+    // Define the work function
+    let work = async move {
         Ok(tokio::select! {
             // The main work we are doing
             ret = pinned_work => ret,
@@ -278,7 +286,26 @@ where
             // Optional timeout
             _ = timeout => Err(Errno::Timedout),
         })
-    })
+    };
+
+    // If we are in nonblocking mode then we register a fake waker
+    // and poll then return immediately with a timeout if nothing happened
+    if nonblocking
+    {
+        let waker = WasiDummyWaker.into_waker();
+        let mut cx = Context::from_waker(&waker);
+        let mut pinned_work = Box::pin(work);
+        if let Poll::Ready(res) = pinned_work.as_mut().poll(&mut cx) {
+            res
+        } else {
+            Ok(Err(Errno::Again))
+        }
+    }
+    else
+    {
+        // Block on the work and process process
+        tasks.block_on(work)
+    }
 }
 
 // This should be compiled away, it will simply wait forever however its never

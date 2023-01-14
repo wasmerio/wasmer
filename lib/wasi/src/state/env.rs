@@ -194,8 +194,6 @@ pub struct WasiEnv {
     pub thread: WasiThread,
     /// Represents a fork of the process that is currently in play
     pub vfork: Option<WasiVFork>,
-    /// Flag used to switch to silent polling when its being smashed
-    pub poll_backoff: u64,
     /// Base stack pointer for the memory stack
     pub stack_base: u64,
     /// Start of the stack memory that is allocated for this thread
@@ -247,7 +245,6 @@ impl WasiEnv {
                 process,
                 thread,
                 vfork: None,
-                poll_backoff: 0,
                 stack_base: self.stack_base,
                 stack_start: self.stack_start,
                 bin_factory,
@@ -296,7 +293,6 @@ impl WasiEnv {
             process,
             thread: thread.as_thread(),
             vfork: None,
-            poll_backoff: 0,
             stack_base: DEFAULT_STACK_SIZE,
             stack_start: 0,
             state,

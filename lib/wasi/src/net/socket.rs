@@ -276,11 +276,13 @@ impl InodeSocket {
 
     pub async fn accept(
         &self,
-        _fd_flags: Fdflags,
+        fd_flags: Fdflags,
     ) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr), Errno> {
+        let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
         let timeout = self.opt_time(TimeType::AcceptTimeout).await?;
         struct SocketAccepter<'a> {
             sock: &'a InodeSocket,
+            nonblocking: bool,
             next_lock:
                 Option<Pin<Box<dyn Future<Output = OwnedRwLockWriteGuard<InodeSocketInner>>>>>,
         }
@@ -300,7 +302,21 @@ impl InodeSocket {
                         self.next_lock.take();
                         match &mut inner.kind {
                             InodeSocketKind::TcpListener(sock) => {
-                                sock.poll_accept(cx).map_err(net_error_into_wasi_err)
+                                if self.nonblocking {
+                                    match sock.try_accept() {
+                                        Some(Ok((mut child, addr))) => {
+                                            if let Err(err) = child.set_nonblocking(true) {
+                                                child.close().ok();
+                                                return Poll::Ready(Err(net_error_into_wasi_err(err)))
+                                            }
+                                            Poll::Ready(Ok((child, addr)))
+                                        },
+                                        Some(Err(err)) => Poll::Ready(Err(net_error_into_wasi_err(err))),
+                                        None => Poll::Ready(Err(Errno::Again))
+                                    }
+                                } else {
+                                    sock.poll_accept(cx).map_err(net_error_into_wasi_err)
+                                }
                             }
                             InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
                             InodeSocketKind::Closed => Poll::Ready(Err(Errno::Io)),
@@ -313,12 +329,12 @@ impl InodeSocket {
         }
         if let Some(timeout) = timeout {
             tokio::select! {
-                res = SocketAccepter { sock: self, next_lock: None } => res,
+                res = SocketAccepter { sock: self, nonblocking, next_lock: None } => res,
                 _ = tokio::time::sleep(timeout) => Err(Errno::Timedout)
             }
         } else {
             tokio::select! {
-                res = SocketAccepter { sock: self, next_lock: None } => res,
+                res = SocketAccepter { sock: self, nonblocking, next_lock: None } => res,
             }
         }
     }
@@ -347,7 +363,7 @@ impl InodeSocket {
         match &mut inner.kind {
             InodeSocketKind::TcpListener(_) => {}
             InodeSocketKind::TcpStream(sock) => {
-                VirtualTcpSocket::flush(sock.deref_mut())
+                VirtualConnectedSocket::flush(sock.deref_mut())
                     .await
                     .map_err(net_error_into_wasi_err)?;
             }

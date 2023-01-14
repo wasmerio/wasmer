@@ -21,10 +21,11 @@ pub fn sock_accept<M: MemorySize>(
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<Errno, WasiError> {
     debug!(
-        "wasi[{}:{}]::sock_accept (fd={})",
+        "wasi[{}:{}]::sock_accept (fd={}, flags={:?})",
         ctx.data().pid(),
         ctx.data().tid(),
-        sock
+        sock,
+        fd_flags
     );
 
     wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);

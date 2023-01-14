@@ -137,7 +137,7 @@ impl std::fmt::Debug for InodeValFilePollGuard {
                 InodeValFilePollGuardSocketLocking::Locked(guard) => match guard.kind {
                     InodeSocketKind::TcpListener(..) => write!(f, "guard-tcp-listener"),
                     InodeSocketKind::TcpStream(ref stream) => {
-                        if stream.is_closed() == false {
+                        if stream.is_closed() == true {
                             write!(f, "guard-tcp-stream (closed)")
                         } else {
                             write!(f, "guard-tcp-stream")

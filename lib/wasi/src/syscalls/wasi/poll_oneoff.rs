@@ -86,22 +86,12 @@ pub(crate) fn poll_oneoff_internal(
     // Determine if we are in silent polling mode
     let mut env = ctx.data();
     let state = ctx.data().state.deref();
-    let poll_backoff = env.poll_backoff;
-    if poll_backoff == 0 {
-        trace!(
-            "wasi[{}:{}]::poll_oneoff (nsubscriptions={})",
-            pid,
-            tid,
-            subs.len(),
-        );
-    } else if env.poll_backoff == 1 {
-        trace!(
-            "wasi[{}:{}]::poll_oneoff (silenced) (nsubscriptions={})",
-            pid,
-            tid,
-            subs.len(),
-        );
-    }
+    trace!(
+        "wasi[{}:{}]::poll_oneoff (nsubscriptions={})",
+        pid,
+        tid,
+        subs.len(),
+    );
 
     // These are used when we capture what clocks (timeouts) are being
     // subscribed too
@@ -155,13 +145,24 @@ pub(crate) fn poll_oneoff_internal(
                 if clock_info.clock_id == Clockid::Realtime
                     || clock_info.clock_id == Clockid::Monotonic
                 {
+                    // Ignore duplicates
                     if clock_subs
                         .iter()
                         .any(|c| c.0.clock_id == clock_info.clock_id && c.1 == s.userdata)
                     {
                         continue;
                     }
-                    if poll_backoff == 0 {
+
+                    // If the timeout duration is zero then this is an immediate check rather than
+                    // a sleep itself
+                    if clock_info.timeout == 0 {
+                        tracing::trace!(
+                            "wasi[{}:{}]::poll_oneoff nonblocking",
+                            pid,
+                            tid,
+                        );
+                        time_to_sleep = Some(Duration::ZERO);
+                    } else {
                         tracing::trace!(
                             "wasi[{}:{}]::poll_oneoff clock_id={:?} (userdata={}, timeout={})",
                             pid,
@@ -170,12 +171,9 @@ pub(crate) fn poll_oneoff_internal(
                             s.userdata,
                             clock_info.timeout
                         );
+                        time_to_sleep = Some(Duration::from_nanos(clock_info.timeout));
+                        clock_subs.push((clock_info, s.userdata));
                     }
-
-                    // this is a hack
-                    // TODO: do this properly
-                    time_to_sleep = Some(Duration::from_nanos(clock_info.timeout));
-                    clock_subs.push((clock_info, s.userdata));
                     continue;
                 } else {
                     error!("Polling not implemented for these clocks yet");
@@ -188,23 +186,6 @@ pub(crate) fn poll_oneoff_internal(
             .entry(fd)
             .or_insert_with(|| HashMap::<state::PollEventSet, Subscription>::default());
         entry.extend(in_events.into_iter());
-    }
-
-    // In order to prevent polling from smashing the CPU we add a minimum
-    // sleep time which is roughly equal the size of a Linux time interval
-    // that exponentially builds up when file descriptors are not being triggered
-    if let Some(sleep_time) = time_to_sleep.clone() {
-        time_to_sleep = Some(match env.poll_backoff {
-            a if a < 50 => sleep_time,
-            a if a < 100 => Duration::from_millis(1).max(sleep_time),
-            a if a < 150 => Duration::from_millis(2).max(sleep_time),
-            a if a < 200 => Duration::from_millis(5).max(sleep_time),
-            a if a < 250 => Duration::from_millis(10).max(sleep_time),
-            a if a < 300 => Duration::from_millis(20).max(sleep_time),
-            a if a < 350 => Duration::from_millis(50).max(sleep_time),
-            a if a < 400 => Duration::from_millis(100).max(sleep_time),
-            _ => Duration::from_millis(200).max(sleep_time),
-        });
     }
     drop(env);
 
@@ -267,15 +248,13 @@ pub(crate) fn poll_oneoff_internal(
                             }
                         }
                     };
-                    if poll_backoff == 0 {
-                        tracing::trace!(
-                            "wasi[{}:{}]::poll_oneoff wait_for_fd={} type={:?}",
-                            pid,
-                            tid,
-                            fd,
-                            wasi_file_ref
-                        );
-                    }
+                    tracing::trace!(
+                        "wasi[{}:{}]::poll_oneoff wait_for_fd={} type={:?}",
+                        pid,
+                        tid,
+                        fd,
+                        wasi_file_ref
+                    );
                     fd_guards.push(wasi_file_ref);
                 }
 
@@ -301,16 +280,14 @@ pub(crate) fn poll_oneoff_internal(
                     // that we can give to the caller
                     let evts = guard.wait().await;
                     for evt in evts {
-                        if poll_backoff == 0 {
-                            tracing::trace!(
-                                "wasi[{}:{}]::poll_oneoff triggered_fd (fd={}, userdata={}, type={:?})",
-                                pid,
-                                tid,
-                                guard.fd,
-                                evt.userdata,
-                                evt.type_,
-                            );
-                        }
+                        tracing::trace!(
+                            "wasi[{}:{}]::poll_oneoff triggered_fd (fd={}, userdata={}, type={:?})",
+                            pid,
+                            tid,
+                            guard.fd,
+                            evt.userdata,
+                            evt.type_,
+                        );
                         triggered_events_tx.send(evt).unwrap();
                     }
                 });
@@ -331,17 +308,15 @@ pub(crate) fn poll_oneoff_internal(
         }
     };
 
-    if poll_backoff == 0 {
-        if let Some(time_to_sleep) = time_to_sleep.as_ref() {
-            tracing::trace!(
-                "wasi[{}:{}]::poll_oneoff wait_for_timeout={}",
-                pid,
-                tid,
-                time_to_sleep.as_millis()
-            );
-        } else {
-            tracing::trace!("wasi[{}:{}]::poll_oneoff wait_for_infinite", pid, tid,);
-        }
+    if let Some(time_to_sleep) = time_to_sleep.as_ref() {
+        tracing::trace!(
+            "wasi[{}:{}]::poll_oneoff wait_for_timeout={}",
+            pid,
+            tid,
+            time_to_sleep.as_millis()
+        );
+    } else {
+        tracing::trace!("wasi[{}:{}]::poll_oneoff wait_for_infinite", pid, tid,);
     }
 
     // Block on the work and process process
@@ -360,14 +335,12 @@ pub(crate) fn poll_oneoff_internal(
     if let Err(Errno::Timedout) = ret {
         if event_array.is_empty() == true {
             // The timeout has triggerred so lets add that event
-            if clock_subs.len() <= 0 {
-                if poll_backoff == 0 {
-                    tracing::warn!(
-                        "wasi[{}:{}]::poll_oneoff triggered_timeout (without any clock subscriptions)",
-                        pid,
-                        tid
-                    );
-                }
+            if clock_subs.len() <= 0 && time_to_sleep != Some(Duration::ZERO) {
+                tracing::warn!(
+                    "wasi[{}:{}]::poll_oneoff triggered_timeout (without any clock subscriptions)",
+                    pid,
+                    tid
+                );
             }
             for (clock_info, userdata) in clock_subs {
                 let evt = Event {
@@ -376,39 +349,36 @@ pub(crate) fn poll_oneoff_internal(
                     type_: Eventtype::Clock,
                     u: EventUnion { clock: 0 },
                 };
-                if poll_backoff == 0 {
-                    tracing::trace!(
-                        "wasi[{}:{}]::poll_oneoff triggered_clock id={:?} (userdata={})",
-                        pid,
-                        tid,
-                        clock_info.clock_id,
-                        evt.userdata,
-                    );
-                }
+                tracing::trace!(
+                    "wasi[{}:{}]::poll_oneoff triggered_clock id={:?} (userdata={})",
+                    pid,
+                    tid,
+                    clock_info.clock_id,
+                    evt.userdata,
+                );
                 triggered_events_tx.send(evt).unwrap();
             }
         }
         ret = Ok(Errno::Success);
     }
-    if poll_backoff == 0 {
-        tracing::trace!(
-            "wasi[{}:{}]::poll_oneoff seen={}",
-            ctx.data().pid(),
-            ctx.data().tid(),
-            event_array.len()
-        );
-    }
-
-    // If there any useful events then reset the poll backoff
-    if event_array.iter().any(|a| a.type_ == Eventtype::FdRead) {
-        ctx.data_mut().poll_backoff = 0;
-    } else {
-        //ctx.data_mut().poll_backoff += 1;
-    }
+    tracing::trace!(
+        "wasi[{}:{}]::poll_oneoff seen={}",
+        ctx.data().pid(),
+        ctx.data().tid(),
+        event_array.len()
+    );
 
     let ret = ret.unwrap_or_else(|a| a);
-    if ret != Errno::Success {
+    if ret != Errno::Success
+    {
+        // If nonblocking the Errno::Again needs to be turned into an empty list
+        if ret == Errno::Again && time_to_sleep == Some(Duration::ZERO) {
+            return Ok(Ok(Default::default()))
+        } 
+
+        // Otherwise return the error
         return Ok(Err(ret));
     }
+
     Ok(Ok(event_array))
 }

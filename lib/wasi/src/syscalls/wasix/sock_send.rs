@@ -19,7 +19,7 @@ pub fn sock_send<M: MemorySize>(
     sock: WasiFd,
     si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
     si_data_len: M::Offset,
-    _si_flags: SiFlags,
+    si_flags: SiFlags,
     ret_data_len: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
@@ -37,11 +37,12 @@ pub fn sock_send<M: MemorySize>(
             .sum()
     };
     debug!(
-        "wasi[{}:{}]::sock_send (fd={}, buf_len={})",
+        "wasi[{}:{}]::sock_send (fd={}, buf_len={}, flags={:?})",
         ctx.data().pid(),
         ctx.data().tid(),
         sock,
-        buf_len
+        buf_len,
+        si_flags
     );
     let buf_len: usize = wasi_try_ok!(buf_len.try_into().map_err(|_| Errno::Inval));
     let mut buf = Vec::with_capacity(buf_len);

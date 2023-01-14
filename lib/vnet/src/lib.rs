@@ -200,6 +200,11 @@ pub trait VirtualTcpListener: fmt::Debug + Send + Sync + 'static {
     /// Checks how many sockets are waiting to be accepted
     async fn peek(&mut self) -> Result<usize>;
 
+    /// Tries to accept a new connection
+    fn try_accept(
+        &mut self,
+    ) -> Option<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>>;
+
     /// Polls the socket for new connections
     fn poll_accept(
         &mut self,
@@ -441,10 +446,6 @@ pub trait VirtualTcpSocket: VirtualConnectedSocket + fmt::Debug + Send + Sync + 
     /// Returns the address (IP and Port) of the peer socket that this
     /// is conencted to
     fn addr_peer(&self) -> Result<SocketAddr>;
-
-    /// Causes all the data held in the send buffer to be immediately
-    /// flushed to the destination peer
-    async fn flush(&mut self) -> Result<()>;
 
     /// Shuts down either the READER or WRITER sides of the socket
     /// connection.
