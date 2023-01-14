@@ -307,12 +307,16 @@ impl InodeSocket {
                                         Some(Ok((mut child, addr))) => {
                                             if let Err(err) = child.set_nonblocking(true) {
                                                 child.close().ok();
-                                                return Poll::Ready(Err(net_error_into_wasi_err(err)))
+                                                return Poll::Ready(Err(net_error_into_wasi_err(
+                                                    err,
+                                                )));
                                             }
                                             Poll::Ready(Ok((child, addr)))
-                                        },
-                                        Some(Err(err)) => Poll::Ready(Err(net_error_into_wasi_err(err))),
-                                        None => Poll::Ready(Err(Errno::Again))
+                                        }
+                                        Some(Err(err)) => {
+                                            Poll::Ready(Err(net_error_into_wasi_err(err)))
+                                        }
+                                        None => Poll::Ready(Err(Errno::Again)),
                                     }
                                 } else {
                                     sock.poll_accept(cx).map_err(net_error_into_wasi_err)

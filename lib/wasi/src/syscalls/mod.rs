@@ -290,8 +290,7 @@ where
 
     // If we are in nonblocking mode then we register a fake waker
     // and poll then return immediately with a timeout if nothing happened
-    if nonblocking
-    {
+    if nonblocking {
         let waker = WasiDummyWaker.into_waker();
         let mut cx = Context::from_waker(&waker);
         let mut pinned_work = Box::pin(work);
@@ -300,9 +299,7 @@ where
         } else {
             Ok(Err(Errno::Again))
         }
-    }
-    else
-    {
+    } else {
         // Block on the work and process process
         tasks.block_on(work)
     }

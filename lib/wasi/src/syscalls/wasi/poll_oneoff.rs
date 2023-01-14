@@ -156,11 +156,7 @@ pub(crate) fn poll_oneoff_internal(
                     // If the timeout duration is zero then this is an immediate check rather than
                     // a sleep itself
                     if clock_info.timeout == 0 {
-                        tracing::trace!(
-                            "wasi[{}:{}]::poll_oneoff nonblocking",
-                            pid,
-                            tid,
-                        );
+                        tracing::trace!("wasi[{}:{}]::poll_oneoff nonblocking", pid, tid,);
                         time_to_sleep = Some(Duration::ZERO);
                     } else {
                         tracing::trace!(
@@ -369,12 +365,11 @@ pub(crate) fn poll_oneoff_internal(
     );
 
     let ret = ret.unwrap_or_else(|a| a);
-    if ret != Errno::Success
-    {
+    if ret != Errno::Success {
         // If nonblocking the Errno::Again needs to be turned into an empty list
         if ret == Errno::Again && time_to_sleep == Some(Duration::ZERO) {
-            return Ok(Ok(Default::default()))
-        } 
+            return Ok(Ok(Default::default()));
+        }
 
         // Otherwise return the error
         return Ok(Err(ret));

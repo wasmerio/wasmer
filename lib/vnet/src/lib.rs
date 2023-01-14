@@ -201,9 +201,7 @@ pub trait VirtualTcpListener: fmt::Debug + Send + Sync + 'static {
     async fn peek(&mut self) -> Result<usize>;
 
     /// Tries to accept a new connection
-    fn try_accept(
-        &mut self,
-    ) -> Option<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>>;
+    fn try_accept(&mut self) -> Option<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>>;
 
     /// Polls the socket for new connections
     fn poll_accept(

@@ -1,6 +1,5 @@
 #![allow(unused_variables)]
 use bytes::Bytes;
-use tokio::sync::mpsc;
 use std::future::Future;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr};
 use std::pin::Pin;
@@ -9,6 +8,7 @@ use std::sync::Mutex;
 use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
 use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncWriteExt};
+use tokio::sync::mpsc;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
 #[allow(unused_imports)]
@@ -131,9 +131,7 @@ impl VirtualTcpListener for LocalTcpListener {
         }
     }
 
-    fn try_accept(
-        &mut self,
-    ) -> Option<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>> {
+    fn try_accept(&mut self) -> Option<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>> {
         {
             let mut backlog = self.backlog.lock().unwrap();
             if let Some((sock, addr)) = backlog.pop() {
@@ -148,14 +146,10 @@ impl VirtualTcpListener for LocalTcpListener {
             .poll_accept(&mut cx)
             .map_err(io_err_into_net_error)
         {
-            Poll::Ready(Ok((stream, addr))) => {
-                Some(Ok(
-                    (
-                        Box::new(LocalTcpStream::new(stream, addr, self.nonblocking)),
-                        addr,
-                    )
-                ))
-            },
+            Poll::Ready(Ok((stream, addr))) => Some(Ok((
+                Box::new(LocalTcpStream::new(stream, addr, self.nonblocking)),
+                addr,
+            ))),
             Poll::Ready(Err(NetworkError::WouldBlock)) => None,
             Poll::Ready(Err(err)) => Some(Err(err)),
             Poll::Pending => None,
@@ -176,15 +170,10 @@ impl VirtualTcpListener for LocalTcpListener {
         let nonblocking = self.nonblocking;
         if nonblocking {
             return Poll::Ready(
-                match self
-                    .stream
-                    .poll_accept(cx)
-                    .map_err(io_err_into_net_error)
-                {
-                    Poll::Ready(Ok((sock, addr))) => Ok((
-                        Box::new(LocalTcpStream::new(sock, addr, nonblocking)),
-                        addr,
-                    )),
+                match self.stream.poll_accept(cx).map_err(io_err_into_net_error) {
+                    Poll::Ready(Ok((sock, addr))) => {
+                        Ok((Box::new(LocalTcpStream::new(sock, addr, nonblocking)), addr))
+                    }
                     Poll::Ready(Err(err)) => Err(err),
                     Poll::Pending => Err(NetworkError::WouldBlock),
                 },
@@ -193,10 +182,9 @@ impl VirtualTcpListener for LocalTcpListener {
 
         // We poll the socket
         let (sock, addr) = match self.stream.poll_accept(cx).map_err(io_err_into_net_error) {
-            Poll::Ready(Ok((sock, addr))) => (
-                Box::new(LocalTcpStream::new(sock, addr, nonblocking)),
-                addr,
-            ),
+            Poll::Ready(Ok((sock, addr))) => {
+                (Box::new(LocalTcpStream::new(sock, addr, nonblocking)), addr)
+            }
             Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
             Poll::Pending => return Poll::Pending,
         };
@@ -290,7 +278,7 @@ impl LocalTcpStream {
             tx_write_ready,
             rx_write_ready,
             tx_write_poll_ready,
-            rx_write_poll_ready
+            rx_write_poll_ready,
         }
     }
 }
@@ -642,7 +630,8 @@ impl VirtualSocket for LocalTcpStream {
             let mut rx = Pin::new(&mut self.rx_write_poll_ready);
             rx.poll_recv(cx).is_ready();
         }
-        match self.stream
+        match self
+            .stream
             .poll_write_ready(cx)
             .map_err(io_err_into_net_error)
         {
@@ -652,10 +641,8 @@ impl VirtualSocket for LocalTcpStream {
                 } else {
                     Poll::Pending
                 }
-            },
-            Poll::Ready(Err(err)) => {
-                Poll::Ready(Err(err))
-            },
+            }
+            Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
             Poll::Pending => Poll::Pending,
         }
     }
