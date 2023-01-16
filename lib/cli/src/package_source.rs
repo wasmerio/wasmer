@@ -56,9 +56,7 @@ impl PackageSource {
                 return if path.exists() {
                     Ok(path)
                 } else {
-                    Err(anyhow::anyhow!(
-                        "Could not find local file {f}"
-                    ))
+                    Err(anyhow::anyhow!("Could not find local file {f}"))
                 };
             }
             Self::Url(u) => {
