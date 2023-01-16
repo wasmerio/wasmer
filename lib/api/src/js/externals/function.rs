@@ -399,6 +399,7 @@ impl Function {
         store: &mut impl AsStoreMut,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
+        // Annotation is here to prevent spurious IDE warnings.
         #[allow(unused_unsafe)]
         let params: Vec<_> = unsafe {
             params

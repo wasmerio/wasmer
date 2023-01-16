@@ -118,6 +118,7 @@ impl Instance {
             .map(|export_type| {
                 let name = export_type.name();
                 let extern_type = export_type.ty().clone();
+                // Annotation is here to prevent spurious IDE warnings.
                 #[allow(unused_unsafe)]
                 let js_export = unsafe {
                     js_sys::Reflect::get(&instance_exports, &name.into())
