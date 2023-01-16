@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["TrapCode","A trap code describing the reason for a trap."],["TrapCodeResolver","The resolver for an archived [`TrapCode`]"]]};
+window.SIDEBAR_ITEMS = {"enum":[["OnCalledAction","After the stack is unwound via asyncify what should the call loop do next"],["TrapCode","A trap code describing the reason for a trap."],["TrapCodeResolver","The resolver for an archived [`TrapCode`]"]]};

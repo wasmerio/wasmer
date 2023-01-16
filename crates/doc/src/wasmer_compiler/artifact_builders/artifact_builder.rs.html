@@ -1,10 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/artifact_builders/artifact_builder.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>artifact_builder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div>
-        </a><h2 class="location"></h2>
-    </nav>
-    <nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div>
-        </a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><button type="button" id="help-button" title="help">?</button><div id="settings-menu" tabindex="-1">
-                                <a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div>
-                        </div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler/src/artifact_builders/artifact_builder.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>artifact_builder.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../storage.js"></script><script defer src="../../../source-script.js"></script><script defer src="../../../source-files.js"></script><script defer src="../../../main.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../wasmer_compiler/index.html"><div class="logo-container"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../wasmer_compiler/index.html"><img class="rust-logo" src="../../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -238,6 +232,16 @@
 <span id="232">232</span>
 <span id="233">233</span>
 <span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `ArtifactBuild` to allow compiling and instantiating to be</span>
 <span class="doccomment">//! done as separate steps.</span>
 
@@ -248,20 +252,18 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Features</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">ModuleEnvironment</span>, <span class="ident">ModuleMiddlewareChain</span>};
 <span class="kw">use</span> <span class="ident">enumset::EnumSet</span>;
-<span class="kw">use</span> <span class="ident">std::mem</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_types::CompileModuleInfo</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::MetadataHeader</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::SerializeError</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">CompileError</span>, <span class="ident">CpuFeature</span>, <span class="ident">CustomSection</span>, <span class="ident">Dwarf</span>, <span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>,
-    <span class="ident">MemoryStyle</span>, <span class="ident">ModuleInfo</span>, <span class="ident">OwnedDataInitializer</span>, <span class="ident">Relocation</span>, <span class="ident">SectionIndex</span>, <span class="ident">SignatureIndex</span>,
+    <span class="ident">MemoryStyle</span>, <span class="ident">ModuleInfo</span>, <span class="ident">OwnedDataInitializer</span>, <span class="ident">Pages</span>, <span class="ident">Relocation</span>, <span class="ident">SectionIndex</span>, <span class="ident">SignatureIndex</span>,
     <span class="ident">TableIndex</span>, <span class="ident">TableStyle</span>, <span class="ident">Target</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">FunctionBody</span>, <span class="ident">SerializableCompilation</span>, <span class="ident">SerializableModule</span>,
 };
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">MetadataHeader</span>, <span class="ident">SerializeError</span>};
 
 <span class="doccomment">/// A compiled wasm module, ready to be instantiated.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ArtifactBuild</span> {
@@ -361,8 +363,15 @@
             <span class="ident">compile_info</span>,
             <span class="ident">data_initializers</span>,
             <span class="ident">cpu_features</span>: <span class="ident">cpu_features</span>.<span class="ident">as_u64</span>(),
+            <span class="ident">module_start</span>: <span class="prelude-val">None</span>,
         };
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> { <span class="ident">serializable</span> })
+    }
+
+    <span class="doccomment">/// Specify the fixed virtual memory address for the compiled module</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_module_start</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">module_start</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Pages</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
+        <span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">module_start</span> <span class="op">=</span> <span class="ident">module_start</span>;
+        <span class="self">self</span>
     }
 
     <span class="doccomment">/// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.</span>
@@ -383,6 +392,11 @@
     <span class="doccomment">/// Create a new ArtifactBuild from a SerializableModule</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_serializable</span>(<span class="ident">serializable</span>: <span class="ident">SerializableModule</span>) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> { <span class="ident">serializable</span> }
+    }
+
+    <span class="doccomment">/// Returns the memory start address for this compiled module</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_memory_start</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Pages</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">module_start</span>
     }
 
     <span class="doccomment">/// Get Functions Bodies ref</span>
@@ -463,7 +477,7 @@
 
     <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerializeError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">serialized_data</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">serialize</span>()<span class="question-mark">?</span>;
-        <span class="macro">assert!</span>(<span class="ident">mem::align_of</span>::<span class="op">&lt;</span><span class="ident">SerializableModule</span><span class="op">&gt;</span>() <span class="op">&lt;</span><span class="op">=</span> <span class="ident">MetadataHeader::ALIGN</span>);
+        <span class="macro">assert!</span>(<span class="ident">std::mem::align_of</span>::<span class="op">&lt;</span><span class="ident">SerializableModule</span><span class="op">&gt;</span>() <span class="op">&lt;</span><span class="op">=</span> <span class="ident">MetadataHeader::ALIGN</span>);
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">metadata_binary</span> <span class="op">=</span> <span class="macro">vec!</span>[];
         <span class="ident">metadata_binary</span>.<span class="ident">extend</span>(<span class="ident"><span class="self">Self</span>::MAGIC_HEADER</span>);
@@ -473,5 +487,4 @@
     }
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.63.0 (4b91a6ea7 2022-08-08)" ></div>
-</body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

@@ -1,12 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/sys/externals/function.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>function.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div>
-        </a><h2 class="location"></h2>
-    </nav>
-    <nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer/index.html"><div class="logo-container">
-                    <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div>
-        </a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer/index.html">
-                        <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><button type="button" id="help-button" title="help">?</button><div id="settings-menu" tabindex="-1">
-                                <a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div>
-                        </div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/sys/externals/function.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>function.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer/index.html"><div class="logo-container">
+                    <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer/index.html">
+                        <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -1658,25 +1652,122 @@
 <span id="1650">1650</span>
 <span id="1651">1651</span>
 <span id="1652">1652</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals::Extern</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">AsStoreRef</span>, <span class="ident">StoreInner</span>, <span class="ident">StoreMut</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::FunctionType</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::RuntimeError</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::TypedFunction</span>;
-
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">FunctionEnv</span>, <span class="ident">FunctionEnvMut</span>, <span class="ident">Value</span>};
-<span class="kw">use</span> <span class="ident">inner::StaticFunction</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">inner</span>::{<span class="ident">FromToNativeWasmType</span>, <span class="ident">HostFunction</span>, <span class="ident">WasmTypeList</span>, <span class="ident">WithEnv</span>, <span class="ident">WithoutEnv</span>};
-<span class="kw">use</span> <span class="ident">std::cell::UnsafeCell</span>;
-<span class="kw">use</span> <span class="ident">std::cmp::max</span>;
-<span class="kw">use</span> <span class="ident">std::ffi::c_void</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::RawValue</span>;
+<span id="1653">1653</span>
+<span id="1654">1654</span>
+<span id="1655">1655</span>
+<span id="1656">1656</span>
+<span id="1657">1657</span>
+<span id="1658">1658</span>
+<span id="1659">1659</span>
+<span id="1660">1660</span>
+<span id="1661">1661</span>
+<span id="1662">1662</span>
+<span id="1663">1663</span>
+<span id="1664">1664</span>
+<span id="1665">1665</span>
+<span id="1666">1666</span>
+<span id="1667">1667</span>
+<span id="1668">1668</span>
+<span id="1669">1669</span>
+<span id="1670">1670</span>
+<span id="1671">1671</span>
+<span id="1672">1672</span>
+<span id="1673">1673</span>
+<span id="1674">1674</span>
+<span id="1675">1675</span>
+<span id="1676">1676</span>
+<span id="1677">1677</span>
+<span id="1678">1678</span>
+<span id="1679">1679</span>
+<span id="1680">1680</span>
+<span id="1681">1681</span>
+<span id="1682">1682</span>
+<span id="1683">1683</span>
+<span id="1684">1684</span>
+<span id="1685">1685</span>
+<span id="1686">1686</span>
+<span id="1687">1687</span>
+<span id="1688">1688</span>
+<span id="1689">1689</span>
+<span id="1690">1690</span>
+<span id="1691">1691</span>
+<span id="1692">1692</span>
+<span id="1693">1693</span>
+<span id="1694">1694</span>
+<span id="1695">1695</span>
+<span id="1696">1696</span>
+<span id="1697">1697</span>
+<span id="1698">1698</span>
+<span id="1699">1699</span>
+<span id="1700">1700</span>
+<span id="1701">1701</span>
+<span id="1702">1702</span>
+<span id="1703">1703</span>
+<span id="1704">1704</span>
+<span id="1705">1705</span>
+<span id="1706">1706</span>
+<span id="1707">1707</span>
+<span id="1708">1708</span>
+<span id="1709">1709</span>
+<span id="1710">1710</span>
+<span id="1711">1711</span>
+<span id="1712">1712</span>
+<span id="1713">1713</span>
+<span id="1714">1714</span>
+<span id="1715">1715</span>
+<span id="1716">1716</span>
+<span id="1717">1717</span>
+<span id="1718">1718</span>
+<span id="1719">1719</span>
+<span id="1720">1720</span>
+<span id="1721">1721</span>
+<span id="1722">1722</span>
+<span id="1723">1723</span>
+<span id="1724">1724</span>
+<span id="1725">1725</span>
+<span id="1726">1726</span>
+<span id="1727">1727</span>
+<span id="1728">1728</span>
+<span id="1729">1729</span>
+<span id="1730">1730</span>
+<span id="1731">1731</span>
+<span id="1732">1732</span>
+<span id="1733">1733</span>
+<span id="1734">1734</span>
+<span id="1735">1735</span>
+<span id="1736">1736</span>
+<span id="1737">1737</span>
+<span id="1738">1738</span>
+<span id="1739">1739</span>
+<span id="1740">1740</span>
+<span id="1741">1741</span>
+<span id="1742">1742</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">wasmer_types::RawValue</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
-    <span class="ident">on_host_stack</span>, <span class="ident">raise_user_trap</span>, <span class="ident">resume_panic</span>, <span class="ident">wasmer_call_trampoline</span>, <span class="ident">InternalStoreHandle</span>,
-    <span class="ident">MaybeInstanceOwned</span>, <span class="ident">StoreHandle</span>, <span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">VMContext</span>, <span class="ident">VMDynamicFunctionContext</span>,
-    <span class="ident">VMExtern</span>, <span class="ident">VMFuncRef</span>, <span class="ident">VMFunction</span>, <span class="ident">VMFunctionBody</span>, <span class="ident">VMFunctionContext</span>, <span class="ident">VMFunctionKind</span>,
+    <span class="ident">on_host_stack</span>, <span class="ident">raise_user_trap</span>, <span class="ident">resume_panic</span>, <span class="ident">InternalStoreHandle</span>, <span class="ident">StoreHandle</span>, <span class="ident">VMContext</span>,
+    <span class="ident">VMDynamicFunctionContext</span>, <span class="ident">VMExtern</span>, <span class="ident">VMFuncRef</span>, <span class="ident">VMFunction</span>, <span class="ident">VMFunctionBody</span>, <span class="ident">VMFunctionKind</span>,
     <span class="ident">VMTrampoline</span>,
+};
+
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::externals::Extern</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">AsStoreRef</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys</span>::{<span class="ident">FunctionType</span>, <span class="ident">RuntimeError</span>, <span class="ident">TypedFunction</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::FunctionEnv</span>;
+
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">inner</span>::{<span class="ident">FromToNativeWasmType</span>, <span class="ident">HostFunction</span>, <span class="ident">WasmTypeList</span>, <span class="ident">WithEnv</span>, <span class="ident">WithoutEnv</span>};
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
+<span class="kw">use</span> {
+    <span class="kw">crate</span>::{
+        <span class="ident">sys::store</span>::{<span class="ident">StoreInner</span>, <span class="ident">StoreMut</span>},
+        <span class="ident">FunctionEnvMut</span>, <span class="ident">Value</span>,
+    },
+    <span class="ident">inner::StaticFunction</span>,
+    <span class="ident">std</span>::{<span class="ident">cell::UnsafeCell</span>, <span class="ident">cmp::max</span>, <span class="ident">ffi::c_void</span>},
+    <span class="ident">wasmer_vm</span>::{
+        <span class="ident">wasmer_call_trampoline</span>, <span class="ident">MaybeInstanceOwned</span>, <span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">VMFunctionContext</span>,
+    },
 };
 
 <span class="doccomment">/// A WebAssembly `function` instance.</span>
@@ -1699,6 +1790,12 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Function</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">handle</span>: <span class="ident">StoreHandle</span><span class="op">&lt;</span><span class="ident">VMFunction</span><span class="op">&gt;</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">StoreHandle</span><span class="op">&lt;</span><span class="ident">VMFunction</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Function</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">handle</span>: <span class="ident">StoreHandle</span><span class="op">&lt;</span><span class="ident">VMFunction</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span> { <span class="ident">handle</span> }
+    }
 }
 
 <span class="kw">impl</span> <span class="ident">Function</span> {
@@ -1984,6 +2081,22 @@
         }
     }
 
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">missing_docs</span>)]</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_variables</span>)]</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new_typed_with_env</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>, <span class="ident">F</span>, <span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>(
+        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
+        <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionEnv</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
+        <span class="ident">func</span>: <span class="ident">F</span>,
+    ) -&gt; <span class="self">Self</span>
+    <span class="kw">where</span>
+        <span class="ident">F</span>: <span class="ident">HostFunction</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">Args</span>, <span class="ident">Rets</span>, <span class="ident">WithEnv</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span>,
+        <span class="ident">Args</span>: <span class="ident">WasmTypeList</span>,
+        <span class="ident">Rets</span>: <span class="ident">WasmTypeList</span>,
+    {
+        <span class="macro">unimplemented!</span>(<span class="string">&quot;this platform does not support functions without the &#39;compiler&#39; feature&quot;</span>)
+    }
+
     <span class="doccomment">/// Returns the [`FunctionType`] of the `Function`.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Example</span>
@@ -2061,24 +2174,62 @@
             <span class="kw-2">*</span><span class="ident">slot</span> <span class="op">=</span> <span class="ident">arg</span>.<span class="ident">as_raw</span>(<span class="ident">store</span>);
         }
 
+        <span class="comment">// Invoke the call</span>
+        <span class="self">self</span>.<span class="ident">call_wasm_raw</span>(<span class="ident">store</span>, <span class="ident">trampoline</span>, <span class="ident">values_vec</span>, <span class="ident">results</span>)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">call_wasm_raw</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
+        <span class="ident">trampoline</span>: <span class="ident">VMTrampoline</span>,
+        <span class="kw-2">mut</span> <span class="ident">params</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">RawValue</span><span class="op">&gt;</span>,
+        <span class="ident">results</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">Value</span>],
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
         <span class="comment">// Call the trampoline.</span>
-        <span class="kw">let</span> <span class="ident">vm_function</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>());
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">error</span>) <span class="op">=</span> <span class="kw">unsafe</span> {
-            <span class="ident">wasmer_call_trampoline</span>(
-                <span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">signal_handler</span>(),
-                <span class="ident">vm_function</span>.<span class="ident">anyfunc</span>.<span class="ident">as_ptr</span>().<span class="ident">as_ref</span>().<span class="ident">vmctx</span>,
-                <span class="ident">trampoline</span>,
-                <span class="ident">vm_function</span>.<span class="ident">anyfunc</span>.<span class="ident">as_ptr</span>().<span class="ident">as_ref</span>().<span class="ident">func_ptr</span>,
-                <span class="ident">values_vec</span>.<span class="ident">as_mut_ptr</span>() <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>,
-            )
-        } {
+        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">r</span>;
+            <span class="comment">// TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451</span>
+            <span class="kw">loop</span> {
+                <span class="kw">let</span> <span class="ident">vm_function</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>());
+                <span class="ident">r</span> <span class="op">=</span> <span class="kw">unsafe</span> {
+                    <span class="ident">wasmer_call_trampoline</span>(
+                        <span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">signal_handler</span>(),
+                        <span class="ident">vm_function</span>.<span class="ident">anyfunc</span>.<span class="ident">as_ptr</span>().<span class="ident">as_ref</span>().<span class="ident">vmctx</span>,
+                        <span class="ident">trampoline</span>,
+                        <span class="ident">vm_function</span>.<span class="ident">anyfunc</span>.<span class="ident">as_ptr</span>().<span class="ident">as_ref</span>().<span class="ident">func_ptr</span>,
+                        <span class="ident">params</span>.<span class="ident">as_mut_ptr</span>() <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>,
+                    )
+                };
+                <span class="kw">let</span> <span class="ident">store_mut</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">as_store_mut</span>();
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">callback</span>) <span class="op">=</span> <span class="ident">store_mut</span>.<span class="ident">inner</span>.<span class="ident">on_called</span>.<span class="ident">take</span>() {
+                    <span class="kw">match</span> <span class="ident">callback</span>(<span class="ident">store_mut</span>) {
+                        <span class="prelude-val">Ok</span>(<span class="ident">wasmer_types::OnCalledAction::InvokeAgain</span>) =&gt; {
+                            <span class="kw">continue</span>;
+                        }
+                        <span class="prelude-val">Ok</span>(<span class="ident">wasmer_types::OnCalledAction::Finish</span>) =&gt; {
+                            <span class="kw">break</span>;
+                        }
+                        <span class="prelude-val">Ok</span>(<span class="ident">wasmer_types::OnCalledAction::Trap</span>(<span class="ident">trap</span>)) =&gt; {
+                            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::user</span>(<span class="ident">trap</span>))
+                        }
+                        <span class="prelude-val">Err</span>(<span class="ident">trap</span>) =&gt; <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::user</span>(<span class="ident">trap</span>)),
+                    }
+                }
+                <span class="kw">break</span>;
+            }
+            <span class="ident">r</span>
+        };
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">error</span>) <span class="op">=</span> <span class="ident">result</span> {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">RuntimeError::from_trap</span>(<span class="ident">error</span>));
         }
 
         <span class="comment">// Load the return values out of `values_vec`.</span>
+        <span class="kw">let</span> <span class="ident">signature</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ty</span>(<span class="ident">store</span>);
         <span class="kw">for</span> (<span class="ident">index</span>, <span class="kw-2">&amp;</span><span class="ident">value_type</span>) <span class="kw">in</span> <span class="ident">signature</span>.<span class="ident">results</span>().<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
             <span class="kw">unsafe</span> {
-                <span class="ident">results</span>[<span class="ident">index</span>] <span class="op">=</span> <span class="ident">Value::from_raw</span>(<span class="ident">store</span>, <span class="ident">value_type</span>, <span class="ident">values_vec</span>[<span class="ident">index</span>]);
+                <span class="ident">results</span>[<span class="ident">index</span>] <span class="op">=</span> <span class="ident">Value::from_raw</span>(<span class="ident">store</span>, <span class="ident">value_type</span>, <span class="ident">params</span>[<span class="ident">index</span>]);
             }
         }
 
@@ -2174,6 +2325,27 @@
         };
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">results</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="ident">Value::null</span>(); <span class="self">self</span>.<span class="ident">result_arity</span>(<span class="ident">store</span>)];
         <span class="self">self</span>.<span class="ident">call_wasm</span>(<span class="ident">store</span>, <span class="ident">trampoline</span>, <span class="ident">params</span>, <span class="kw-2">&amp;mut</span> <span class="ident">results</span>)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="ident">results</span>.<span class="ident">into_boxed_slice</span>())
+    }
+
+    <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">missing_docs</span>)]</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">call_raw</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
+        <span class="ident">params</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">RawValue</span><span class="op">&gt;</span>,
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">Value</span>]<span class="op">&gt;</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">trampoline</span> <span class="op">=</span> <span class="kw">unsafe</span> {
+            <span class="self">self</span>.<span class="ident">handle</span>
+                .<span class="ident">get</span>(<span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>())
+                .<span class="ident">anyfunc</span>
+                .<span class="ident">as_ptr</span>()
+                .<span class="ident">as_ref</span>()
+                .<span class="ident">call_trampoline</span>
+        };
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">results</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="ident">Value::null</span>(); <span class="self">self</span>.<span class="ident">result_arity</span>(<span class="ident">store</span>)];
+        <span class="self">self</span>.<span class="ident">call_wasm_raw</span>(<span class="ident">store</span>, <span class="ident">trampoline</span>, <span class="ident">params</span>, <span class="kw-2">&amp;mut</span> <span class="ident">results</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">results</span>.<span class="ident">into_boxed_slice</span>())
     }
 
@@ -2433,7 +2605,9 @@
     <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">raise_user_trap</span>, <span class="ident">resume_panic</span>, <span class="ident">VMFunctionBody</span>};
 
     <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::NativeWasmTypeInto</span>;
-    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">AsStoreRef</span>, <span class="ident">ExternRef</span>, <span class="ident">Function</span>, <span class="ident">FunctionEnv</span>, <span class="ident">StoreMut</span>};
+    <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">AsStoreRef</span>, <span class="ident">ExternRef</span>, <span class="ident">FunctionEnv</span>, <span class="ident">StoreMut</span>};
+
+    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Function</span>;
 
     <span class="doccomment">/// A trait to convert a Rust value to a `WasmNativeType` value,</span>
     <span class="doccomment">/// or to convert `WasmNativeType` value to a Rust value.</span>
@@ -3311,5 +3485,4 @@
     */</span>
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.63.0 (4b91a6ea7 2022-08-08)" ></div>
-</body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

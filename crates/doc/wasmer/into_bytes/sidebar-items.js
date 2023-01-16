@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"trait":[["IntoBytes","Convert binary data into [`bytes::Bytes`]."]]};

@@ -1,10 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/memory.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>memory.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div>
-        </a><h2 class="location"></h2>
-    </nav>
-    <nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div>
-        </a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_vm/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><button type="button" id="help-button" title="help">?</button><div id="settings-menu" tabindex="-1">
-                                <a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div>
-                        </div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/vm/src/memory.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>memory.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../storage.js"></script><script defer src="../../source-script.js"></script><script defer src="../../source-files.js"></script><script defer src="../../main.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../../favicon.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_vm/index.html"><div class="logo-container"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../wasmer_vm/index.html"><img class="rust-logo" src="../../rust-logo.svg" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
 <span id="2">2</span>
 <span id="3">3</span>
 <span id="4">4</span>
@@ -562,6 +556,67 @@
 <span id="556">556</span>
 <span id="557">557</span>
 <span id="558">558</span>
+<span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
+<span id="563">563</span>
+<span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -680,6 +735,27 @@
 
         <span class="prelude-val">Ok</span>(<span class="ident">prev_pages</span>)
     }
+
+    <span class="doccomment">/// Copies the memory</span>
+    <span class="doccomment">/// (in this case it performs a copy-on-write to save memory)</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">duplicate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">mem_length</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">size</span>.<span class="ident">bytes</span>().<span class="number">0</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">alloc</span> <span class="op">=</span> <span class="self">self</span>
+            .<span class="ident">alloc</span>
+            .<span class="ident">duplicate</span>(<span class="prelude-val">Some</span>(<span class="ident">mem_length</span>))
+            .<span class="ident">map_err</span>(<span class="ident">MemoryError::Generic</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">base_ptr</span> <span class="op">=</span> <span class="ident">alloc</span>.<span class="ident">as_mut_ptr</span>();
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
+            <span class="ident">vm_memory_definition</span>: <span class="ident">MaybeInstanceOwned::Host</span>(<span class="ident">Box::new</span>(<span class="ident">UnsafeCell::new</span>(
+                <span class="ident">VMMemoryDefinition</span> {
+                    <span class="ident">base</span>: <span class="ident">base_ptr</span>,
+                    <span class="ident">current_length</span>: <span class="ident">mem_length</span>,
+                },
+            ))),
+            <span class="ident">alloc</span>,
+            <span class="ident">size</span>: <span class="self">self</span>.<span class="ident">size</span>,
+        })
+    }
 }
 
 <span class="doccomment">/// A linear memory instance.</span>
@@ -720,18 +796,6 @@
 
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">VMOwnedMemory</span> {}
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">VMOwnedMemory</span> {}
-
-<span class="doccomment">/// A shared linear memory instance.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMSharedMemory</span> {
-    <span class="comment">// The underlying allocation.</span>
-    <span class="ident">mmap</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">WasmMmap</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="comment">// Configuration of this memory</span>
-    <span class="ident">config</span>: <span class="ident">VMMemoryConfig</span>,
-}
-
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">VMSharedMemory</span> {}
-<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">VMSharedMemory</span> {}
 
 <span class="kw">impl</span> <span class="ident">VMOwnedMemory</span> {
     <span class="doccomment">/// Create a new linear memory instance with specified minimum and maximum number of wasm pages.</span>
@@ -834,15 +898,21 @@
             },
         })
     }
-}
 
-<span class="kw">impl</span> <span class="ident">VMOwnedMemory</span> {
     <span class="doccomment">/// Converts this owned memory into shared memory</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_shared</span>(<span class="self">self</span>) -&gt; <span class="ident">VMSharedMemory</span> {
         <span class="ident">VMSharedMemory</span> {
             <span class="ident">mmap</span>: <span class="ident">Arc::new</span>(<span class="ident">RwLock::new</span>(<span class="self">self</span>.<span class="ident">mmap</span>)),
             <span class="ident">config</span>: <span class="self">self</span>.<span class="ident">config</span>,
         }
+    }
+
+    <span class="doccomment">/// Copies this memory to a new memory</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">duplicate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
+            <span class="ident">mmap</span>: <span class="self">self</span>.<span class="ident">mmap</span>.<span class="ident">duplicate</span>()<span class="question-mark">?</span>,
+            <span class="ident">config</span>: <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">clone</span>(),
+        })
     }
 }
 
@@ -880,7 +950,25 @@
     <span class="kw">fn</span> <span class="ident">try_clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="prelude-val">None</span>
     }
+
+    <span class="doccomment">/// Copies this memory to a new memory</span>
+    <span class="kw">fn</span> <span class="ident">duplicate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">forked</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::duplicate</span>(<span class="self">self</span>)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="ident">Box::new</span>(<span class="ident">forked</span>))
+    }
 }
+
+<span class="doccomment">/// A shared linear memory instance.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMSharedMemory</span> {
+    <span class="comment">// The underlying allocation.</span>
+    <span class="ident">mmap</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">RwLock</span><span class="op">&lt;</span><span class="ident">WasmMmap</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="comment">// Configuration of this memory</span>
+    <span class="ident">config</span>: <span class="ident">VMMemoryConfig</span>,
+}
+
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">VMSharedMemory</span> {}
+<span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">VMSharedMemory</span> {}
 
 <span class="kw">impl</span> <span class="ident">VMSharedMemory</span> {
     <span class="doccomment">/// Create a new linear memory instance with specified minimum and maximum number of wasm pages.</span>
@@ -904,6 +992,15 @@
         <span class="ident">vm_memory_location</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="ident">VMOwnedMemory::from_definition</span>(<span class="ident">memory</span>, <span class="ident">style</span>, <span class="ident">vm_memory_location</span>)<span class="question-mark">?</span>.<span class="ident">to_shared</span>())
+    }
+
+    <span class="doccomment">/// Copies this memory to a new memory</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">duplicate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">mmap</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
+            <span class="ident">mmap</span>: <span class="ident">Arc::new</span>(<span class="ident">RwLock::new</span>(<span class="ident">guard</span>.<span class="ident">duplicate</span>()<span class="question-mark">?</span>)),
+            <span class="ident">config</span>: <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">clone</span>(),
+        })
     }
 }
 
@@ -943,9 +1040,15 @@
         <span class="ident">guard</span>.<span class="ident">vm_memory_definition</span>.<span class="ident">as_ptr</span>()
     }
 
-    <span class="doccomment">/// Owned memory can not be cloned (this will always return None)</span>
+    <span class="doccomment">/// Shared memory can always be cloned</span>
     <span class="kw">fn</span> <span class="ident">try_clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="prelude-val">None</span>
+        <span class="prelude-val">Some</span>(<span class="ident">Box::new</span>(<span class="self">self</span>.<span class="ident">clone</span>()))
+    }
+
+    <span class="doccomment">/// Copies this memory to a new memory</span>
+    <span class="kw">fn</span> <span class="ident">duplicate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">forked</span> <span class="op">=</span> <span class="ident"><span class="self">Self</span>::duplicate</span>(<span class="self">self</span>)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="ident">Box::new</span>(<span class="ident">forked</span>))
     }
 }
 
@@ -1009,6 +1112,11 @@
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">initialize_with_data</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">start</span>: <span class="ident">usize</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Trap</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="number">0</span>.<span class="ident">initialize_with_data</span>(<span class="ident">start</span>, <span class="ident">data</span>)
     }
+
+    <span class="doccomment">/// Copies this memory to a new memory</span>
+    <span class="kw">fn</span> <span class="ident">duplicate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="number">0</span>.<span class="ident">duplicate</span>()
+    }
 }
 
 <span class="kw">impl</span> <span class="ident">VMMemory</span> {
@@ -1067,6 +1175,11 @@
     {
         <span class="ident">memory</span>.<span class="ident">into</span>()
     }
+
+    <span class="doccomment">/// Copies this memory to a new memory</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">duplicate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span> {
+        <span class="ident">LinearMemory::duplicate</span>(<span class="self">self</span>)
+    }
 }
 
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
@@ -1119,7 +1232,9 @@
 
         <span class="ident">initialize_memory_with_data</span>(<span class="ident">memory</span>, <span class="ident">start</span>, <span class="ident">data</span>)
     }
+
+    <span class="doccomment">/// Copies this memory to a new memory</span>
+    <span class="kw">fn</span> <span class="ident">duplicate</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">LinearMemory</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>, <span class="ident">MemoryError</span><span class="op">&gt;</span>;
 }
 </code></pre></div>
-</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.63.0 (4b91a6ea7 2022-08-08)" ></div>
-</body></html>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
