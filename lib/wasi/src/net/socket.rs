@@ -344,7 +344,7 @@ impl InodeSocket {
                 let _ = timeout;
 
                 tokio::select! {
-                    res = SocketAccepter { sock: self, next_lock: None } => res,
+                    res = SocketAccepter { sock: self, next_lock: None, nonblocking } => res,
                 }
             }
         } else {
