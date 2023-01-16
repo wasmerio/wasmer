@@ -220,6 +220,12 @@ impl Future for BusSpawnedProcessJoin {
     }
 }
 
+impl std::fmt::Debug for BusSpawnedProcessJoin {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BusSpawnedProcessJoin").finish()
+    }
+}
+
 /// Signal handles...well...they process signals
 pub trait SignalHandlerAbi
 where
