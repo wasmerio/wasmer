@@ -34,9 +34,13 @@ impl ReqwestHttpClient {
 
         let status = response.status().as_u16();
         let status_text = response.status().as_str().to_string();
+        // TODO: prevent redundant header copy.
+        let headers = response
+            .headers()
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_str().unwrap().to_string()))
+            .collect();
         let data = response.bytes().await?.to_vec();
-
-        // TODO: forward the response headers.
 
         Ok(HttpResponse {
             pos: 0usize,
@@ -45,7 +49,7 @@ impl ReqwestHttpClient {
             status_text,
             redirected: false,
             body: Some(data),
-            headers: Vec::new(),
+            headers,
         })
     }
 }
