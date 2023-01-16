@@ -267,7 +267,7 @@
                     <span class="prelude-val">Ok</span>(<span class="ident">path</span>)
                 } <span class="kw">else</span> {
                     <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                        <span class="string">&quot;invalid package name, could not find file {f}&quot;</span>
+                        <span class="string">&quot;Could not find local file {f}&quot;</span>
                     ))
                 };
             }
@@ -299,7 +299,7 @@
         };
 
         <span class="kw">let</span> <span class="ident">extra</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="ident"><span class="self">Self</span>::Package</span>(<span class="ident">p</span>) <span class="op">=</span> <span class="self">self</span> {
-            <span class="macro">format!</span>(<span class="string">&quot;, file {} does not exist either&quot;</span>, <span class="ident">p</span>.<span class="ident">file</span>())
+            <span class="macro">format!</span>(<span class="string">&quot;, local file {} does not exist either&quot;</span>, <span class="ident">p</span>.<span class="ident">file</span>())
         } <span class="kw">else</span> {
             <span class="ident">String::new</span>()
         };
@@ -315,7 +315,7 @@
         }
 
         <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">opt_path</span>
-            .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not install package from URL {url}{extra}&quot;</span>))<span class="question-mark">?</span>;
+            .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not fetch package from URL {url}{extra}&quot;</span>))<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(<span class="ident">path</span>)
     }
