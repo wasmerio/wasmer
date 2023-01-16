@@ -171,12 +171,14 @@ impl Imports {
         for (ns, exports) in namespaces.into_iter() {
             let import_namespace = js_sys::Object::new();
             for (name, ext) in exports {
+                // Annotation is here to prevent spurious IDE warnings.
                 #[allow(unused_unsafe)]
                 unsafe {
                     js_sys::Reflect::set(&import_namespace, &name.into(), &ext.as_jsvalue(store))
                         .expect("Error while setting into the js namespace object");
                 }
             }
+            // Annotation is here to prevent spurious IDE warnings.
             #[allow(unused_unsafe)]
             unsafe {
                 js_sys::Reflect::set(&imports, &ns.into(), &import_namespace.into())
@@ -238,6 +240,7 @@ impl Imports {
 }
 
 impl AsJs for Imports {
+    // Annotation is here to prevent spurious IDE warnings.
     #[allow(unused_unsafe)]
     fn as_jsvalue(&self, store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
         let imports_object = js_sys::Object::new();
@@ -245,6 +248,8 @@ impl AsJs for Imports {
             let val = unsafe { js_sys::Reflect::get(&imports_object, &namespace.into()).unwrap() };
             if !val.is_undefined() {
                 // If the namespace is already set
+
+                // Annotation is here to prevent spurious IDE warnings.
                 #[allow(unused_unsafe)]
                 unsafe {
                     js_sys::Reflect::set(

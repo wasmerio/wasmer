@@ -399,6 +399,7 @@ impl Function {
         store: &mut impl AsStoreMut,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
+        // Annotation is here to prevent spurious IDE warnings.
         #[allow(unused_unsafe)]
         let params: Vec<_> = unsafe {
             params
@@ -418,6 +419,7 @@ impl Function {
 
         let result = {
             let mut r;
+            // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
             loop {
                 r = js_sys::Reflect::apply(
                     &self.handle.get(store.as_store_ref().objects()).function,

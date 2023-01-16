@@ -105,6 +105,7 @@ pub use value::{RawValue, ValueType};
 pub use crate::libcalls::LibCall;
 pub use crate::memory::MemoryStyle;
 pub use crate::table::TableStyle;
+// TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
 pub use crate::trapcode::{OnCalledAction, TrapCode};
 pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
 

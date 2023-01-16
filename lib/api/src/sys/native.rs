@@ -180,6 +180,7 @@ macro_rules! impl_native_traits {
                     };
                     let store_mut = store.as_store_mut();
                     if let Some(callback) = store_mut.inner.on_called.take() {
+                        // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
                         match callback(store_mut) {
                             Ok(wasmer_types::OnCalledAction::InvokeAgain) => { continue; }
                             Ok(wasmer_types::OnCalledAction::Finish) => { break; }

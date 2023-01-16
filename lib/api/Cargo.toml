@@ -118,7 +118,7 @@ jit = ["engine"]
 js = ["wasm-bindgen", "js-sys"]
 js-default = ["js", "std", "wasm-types-polyfill"]
 
-wasm-types-polyfill = ["js", "wasmparser", "js-serializable-module" ]
+wasm-types-polyfill = ["js", "wasmparser"]
 
 js-serializable-module = []
 

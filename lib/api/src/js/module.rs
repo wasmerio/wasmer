@@ -180,12 +180,7 @@ impl Module {
         let js_bytes = Uint8Array::view(binary);
         let module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
 
-        Self::from_js_module(
-            store,
-            module,
-            #[cfg(feature = "js-serializable-module")]
-            binary,
-        )
+        Self::from_js_module(store, module, binary)
     }
 
     /// Creates a new WebAssembly module skipping any kind of validation from a javascript module
@@ -193,9 +188,8 @@ impl Module {
     pub unsafe fn from_js_module(
         _store: &impl AsStoreRef,
         module: WebAssembly::Module,
-        #[cfg(feature = "js-serializable-module")] binary: impl IntoBytes,
+        binary: impl IntoBytes,
     ) -> Result<Self, CompileError> {
-        #[cfg(feature = "js-serializable-module")]
         let binary = binary.into_bytes();
         // The module is now validated, so we can safely parse it's types
         #[cfg(feature = "wasm-types-polyfill")]
@@ -238,6 +232,7 @@ impl Module {
     /// validation of the Module.
     pub fn validate(_store: &impl AsStoreRef, binary: &[u8]) -> Result<(), CompileError> {
         let js_bytes = unsafe { Uint8Array::view(binary) };
+        // Annotation is here to prevent spurious IDE warnings.
         #[allow(unused_unsafe)]
         unsafe {
             match WebAssembly::validate(&js_bytes.into()) {
@@ -261,10 +256,19 @@ impl Module {
                 InstantiationError::DifferentStores,
             )));
         }
+        // TODO: refactor this if possible, after the WASIX merge.
+        // The imported/exported memory does not have the correct properties
+        // (incorrect size and shared flag) hence when using shared memory its
+        // failing - the only way to fix it is to resolve the import and use the
+        // correct memory properties. this regression issue was only found
+        // in WASIX on the browser as the other areas don't mind that they don't match up
+        // sharrattj/dash should be able to reproduce this.
+
         let imports_object = js_sys::Object::new();
         let mut import_externs: Vec<Extern> = vec![];
         for import_type in self.imports() {
             let resolved_import = imports.get_export(import_type.module(), import_type.name());
+            // Annotation is here to prevent spurious IDE warnings.
             #[allow(unused_variables)]
             if let wasmer_types::ExternType::Memory(mem_ty) = import_type.ty() {
                 if resolved_import.is_some() {
@@ -280,6 +284,7 @@ impl Module {
                     );
                 }
             }
+            // Annotation is here to prevent spurious IDE warnings.
             #[allow(unused_unsafe)]
             unsafe {
                 if let Some(import) = resolved_import {
@@ -466,6 +471,7 @@ impl Module {
             .iter()
             .enumerate()
             .map(move |(i, val)| {
+                // Annotation is here to prevent spurious IDE warnings.
                 #[allow(unused_unsafe)]
                 unsafe {
                     let module = Reflect::get(val.as_ref(), &"module".into())
@@ -528,6 +534,7 @@ impl Module {
             return Err("The exports length must match the type hints lenght".to_owned());
         }
         for (i, val) in exports.iter().enumerate() {
+            // Annotation is here to prevent spurious IDE warnings.
             #[allow(unused_unsafe)]
             let kind = unsafe {
                 Reflect::get(val.as_ref(), &"kind".into())
@@ -580,6 +587,7 @@ impl Module {
             .iter()
             .enumerate()
             .map(move |(i, val)| {
+                // Annotation is here to prevent spurious IDE warnings.
                 #[allow(unused_unsafe)]
                 let field = unsafe {
                     Reflect::get(val.as_ref(), &"name".into())
@@ -587,6 +595,7 @@ impl Module {
                         .as_string()
                         .unwrap()
                 };
+                // Annotation is here to prevent spurious IDE warnings.
                 #[allow(unused_unsafe)]
                 let kind = unsafe {
                     Reflect::get(val.as_ref(), &"kind".into())

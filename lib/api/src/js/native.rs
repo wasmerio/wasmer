@@ -76,6 +76,7 @@ macro_rules! impl_native_traits {
                     .collect();
                 let results = {
                     let mut r;
+                    // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
                     loop {
                         r = self.handle.get(store.as_store_ref().objects()).function.apply(
                             &JsValue::UNDEFINED,
