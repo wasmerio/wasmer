@@ -4490,7 +4490,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
- "wasmer",
+ "wasmer-types",
 ]
 
 [[package]]

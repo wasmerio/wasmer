@@ -99,11 +99,15 @@ pub fn translate_module<'data>(
                 data,
                 data_offset,
                 ..
-            } => parse_name_section(
-                NameSectionReader::new(data, data_offset)
-                    .map_err(from_binaryreadererror_wasmerror)?,
-                environ,
-            )?,
+            } => {
+                // We still add the custom section data, but also read it as name section reader
+                environ.custom_section("name", data)?;
+                parse_name_section(
+                    NameSectionReader::new(data, data_offset)
+                        .map_err(from_binaryreadererror_wasmerror)?,
+                    environ,
+                )?
+            }
 
             Payload::CustomSection { name, data, .. } => environ.custom_section(name, data)?,
 
