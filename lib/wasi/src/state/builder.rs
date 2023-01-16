@@ -22,16 +22,6 @@ use crate::{
     PluggableRuntimeImplementation, WasiEnv, WasiFunctionEnv,
 };
 
-/// Creates an empty [`WasiStateBuilder`].
-///
-/// Internal method only, users should call [`WasiState::builder`].
-pub(crate) fn create_wasi_state(program_name: &str) -> WasiStateBuilder {
-    WasiStateBuilder {
-        args: vec![program_name.to_string()],
-        ..WasiStateBuilder::default()
-    }
-}
-
 /// Convenient builder API for configuring WASI via [`WasiState`].
 ///
 /// Usage:
@@ -122,6 +112,14 @@ pub type SetupFsFn = Box<dyn Fn(&mut WasiInodes, &mut WasiFs) -> Result<(), Stri
 // TODO add other WasiFS APIs here like swapping out stdout, for example (though we need to
 // return stdout somehow, it's unclear what that API should look like)
 impl WasiStateBuilder {
+    /// Creates an empty [`WasiStateBuilder`].
+    pub(crate) fn new(program_name: &str) -> Self {
+        WasiStateBuilder {
+            args: vec![program_name.to_string()],
+            ..WasiStateBuilder::default()
+        }
+    }
+
     /// Add an environment variable pair.
     ///
     /// Both the key and value of an environment variable must not
@@ -747,7 +745,7 @@ mod test {
     fn env_var_errors() {
         // `=` in the key is invalid.
         assert!(
-            create_wasi_state("test_prog")
+            WasiStateBuilder::new("test_prog")
                 .env("HOM=E", "/home/home")
                 .build()
                 .is_err(),
@@ -756,7 +754,7 @@ mod test {
 
         // `\0` in the key is invalid.
         assert!(
-            create_wasi_state("test_prog")
+            WasiStateBuilder::new("test_prog")
                 .env("HOME\0", "/home/home")
                 .build()
                 .is_err(),
@@ -765,7 +763,7 @@ mod test {
 
         // `=` in the value is valid.
         assert!(
-            create_wasi_state("test_prog")
+            WasiStateBuilder::new("test_prog")
                 .env("HOME", "/home/home=home")
                 .build()
                 .is_ok(),
@@ -774,7 +772,7 @@ mod test {
 
         // `\0` in the value is invalid.
         assert!(
-            create_wasi_state("test_prog")
+            WasiStateBuilder::new("test_prog")
                 .env("HOME", "/home/home\0")
                 .build()
                 .is_err(),
@@ -784,12 +782,12 @@ mod test {
 
     #[test]
     fn nul_character_in_args() {
-        let output = create_wasi_state("test_prog").arg("--h\0elp").build();
+        let output = WasiStateBuilder::new("test_prog").arg("--h\0elp").build();
         match output {
             Err(WasiStateCreationError::ArgumentContainsNulByte(_)) => assert!(true),
             _ => assert!(false),
         }
-        let output = create_wasi_state("test_prog")
+        let output = WasiStateBuilder::new("test_prog")
             .args(&["--help", "--wat\0"])
             .build();
         match output {
