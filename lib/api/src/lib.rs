@@ -437,3 +437,6 @@ mod js;
 
 #[cfg(feature = "js")]
 pub use js::*;
+
+mod into_bytes;
+pub use into_bytes::IntoBytes;

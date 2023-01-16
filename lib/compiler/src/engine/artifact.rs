@@ -28,11 +28,11 @@ use wasmer_types::MetadataHeader;
 use wasmer_types::SerializableCompilation;
 use wasmer_types::{
     CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
-    MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializableModule, SerializeError,
-    SignatureIndex, TableIndex,
+    MemoryIndex, ModuleInfo, OwnedDataInitializer, SignatureIndex, TableIndex,
 };
 #[cfg(feature = "static-artifact-create")]
 use wasmer_types::{CompileModuleInfo, Target};
+use wasmer_types::{SerializableModule, SerializeError};
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
 use wasmer_vm::{InstanceAllocator, InstanceHandle, StoreObjects, TrapHandlerFn, VMExtern};
 
@@ -77,7 +77,8 @@ impl Artifact {
             engine.target(),
             memory_styles,
             table_styles,
-        )?;
+        )?
+        .with_module_start(tunables.module_start());
 
         Self::from_parts(&mut inner_engine, artifact)
     }
@@ -711,6 +712,7 @@ impl Artifact {
             compile_info: metadata.compile_info,
             data_initializers: metadata.data_initializers,
             cpu_features: metadata.cpu_features,
+            module_start: None,
         });
 
         let finished_function_lengths = finished_functions

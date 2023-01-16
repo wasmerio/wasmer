@@ -77,9 +77,10 @@ pub mod vm {
 }
 
 pub use wasmer_types::is_wasm;
+// TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
 pub use wasmer_types::{
-    Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, Pages, ValueType, WASM_MAX_PAGES,
-    WASM_MIN_PAGES, WASM_PAGE_SIZE,
+    Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, OnCalledAction, Pages, ValueType,
+    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
 
 #[cfg(feature = "wat")]

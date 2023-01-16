@@ -42,6 +42,7 @@ pub struct Engine {
     engine_id: EngineId,
     #[cfg(not(target_arch = "wasm32"))]
     tunables: Arc<dyn Tunables + Send + Sync>,
+    name: String,
 }
 
 impl Engine {
@@ -54,9 +55,11 @@ impl Engine {
     ) -> Self {
         #[cfg(not(target_arch = "wasm32"))]
         let tunables = BaseTunables::for_target(&target);
+        let compiler = compiler_config.compiler();
+        let name = format!("engine-{}", compiler.name());
         Self {
             inner: Arc::new(Mutex::new(EngineInner {
-                compiler: Some(compiler_config.compiler()),
+                compiler: Some(compiler),
                 features,
                 #[cfg(not(target_arch = "wasm32"))]
                 code_memory: vec![],
@@ -67,7 +70,13 @@ impl Engine {
             engine_id: EngineId::default(),
             #[cfg(not(target_arch = "wasm32"))]
             tunables: Arc::new(tunables),
+            name,
         }
+    }
+
+    /// Returns the name of this engine
+    pub fn name(&self) -> &str {
+        self.name.as_str()
     }
 
     /// Create a headless `Engine`
@@ -102,6 +111,7 @@ impl Engine {
             engine_id: EngineId::default(),
             #[cfg(not(target_arch = "wasm32"))]
             tunables: Arc::new(tunables),
+            name: "engine-headless".to_string(),
         }
     }
 
@@ -220,6 +230,16 @@ impl Engine {
 impl AsEngineRef for Engine {
     fn as_engine_ref(&self) -> EngineRef {
         EngineRef { inner: self }
+    }
+}
+
+impl std::fmt::Debug for Engine {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Engine")
+            .field("target", &self.target)
+            .field("engine_id", &self.engine_id)
+            .field("name", &self.name)
+            .finish()
     }
 }
 

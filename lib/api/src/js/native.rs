@@ -15,9 +15,11 @@ use crate::js::{FromToNativeWasmType, RuntimeError, WasmTypeList};
 // use std::panic::{catch_unwind, AssertUnwindSafe};
 use crate::js::export::VMFunction;
 use crate::js::types::param_from_js;
+use crate::js::types::AsJs;
 use js_sys::Array;
 use std::iter::FromIterator;
 use wasm_bindgen::JsValue;
+use wasmer_types::RawValue;
 
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).
@@ -64,11 +66,35 @@ macro_rules! impl_native_traits {
             pub fn call(&self, mut store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
             $( $x: FromToNativeWasmType + crate::js::NativeWasmTypeInto, )*
             {
-                let params_list: Vec<JsValue> = vec![ $( JsValue::from_f64($x.into_raw(&mut store))),* ];
-                let results = self.handle.get(store.as_store_ref().objects()).function.apply(
-                    &JsValue::UNDEFINED,
-                    &Array::from_iter(params_list.iter())
-                )?;
+                #[allow(unused_unsafe)]
+                let params_list: Vec<RawValue> = unsafe {
+                    vec![ $( RawValue { f64: $x.into_raw(store) } ),* ]
+                };
+                let params_list: Vec<JsValue> = params_list
+                    .into_iter()
+                    .map(|a| a.as_jsvalue(&store.as_store_ref()))
+                    .collect();
+                let results = {
+                    let mut r;
+                    // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+                    loop {
+                        r = self.handle.get(store.as_store_ref().objects()).function.apply(
+                            &JsValue::UNDEFINED,
+                            &Array::from_iter(params_list.iter())
+                        );
+                        let store_mut = store.as_store_mut();
+                        if let Some(callback) = store_mut.inner.on_called.take() {
+                            match callback(store_mut) {
+                                Ok(wasmer_types::OnCalledAction::InvokeAgain) => { continue; }
+                                Ok(wasmer_types::OnCalledAction::Finish) => { break; }
+                                Ok(wasmer_types::OnCalledAction::Trap(trap)) => { return Err(RuntimeError::user(trap)) },
+                                Err(trap) => { return Err(RuntimeError::user(trap)) },
+                            }
+                        }
+                        break;
+                    }
+                    r?
+                };
                 let mut rets_list_array = Rets::empty_array();
                 let mut_rets = rets_list_array.as_mut() as *mut [f64] as *mut f64;
                 match Rets::size() {
@@ -92,7 +118,6 @@ macro_rules! impl_native_traits {
                 }
                 Ok(unsafe { Rets::from_array(store, rets_list_array) })
             }
-
         }
 
         #[allow(unused_parens)]

@@ -1,22 +1,29 @@
-use crate::sys::exports::{ExportError, Exportable};
-use crate::sys::externals::Extern;
-use crate::sys::store::{AsStoreMut, AsStoreRef, StoreInner, StoreMut};
-use crate::sys::FunctionType;
-use crate::sys::RuntimeError;
-use crate::sys::TypedFunction;
-
-use crate::{FunctionEnv, FunctionEnvMut, Value};
-use inner::StaticFunction;
-pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
-use std::cell::UnsafeCell;
-use std::cmp::max;
-use std::ffi::c_void;
 use wasmer_types::RawValue;
 use wasmer_vm::{
-    on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, InternalStoreHandle,
-    MaybeInstanceOwned, StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
-    VMExtern, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext, VMFunctionKind,
+    on_host_stack, raise_user_trap, resume_panic, InternalStoreHandle, StoreHandle, VMContext,
+    VMDynamicFunctionContext, VMExtern, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionKind,
     VMTrampoline,
+};
+
+use crate::sys::exports::{ExportError, Exportable};
+use crate::sys::externals::Extern;
+use crate::sys::store::{AsStoreMut, AsStoreRef};
+use crate::sys::{FunctionType, RuntimeError, TypedFunction};
+use crate::FunctionEnv;
+
+pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
+
+#[cfg(feature = "compiler")]
+use {
+    crate::{
+        sys::store::{StoreInner, StoreMut},
+        FunctionEnvMut, Value,
+    },
+    inner::StaticFunction,
+    std::{cell::UnsafeCell, cmp::max, ffi::c_void},
+    wasmer_vm::{
+        wasmer_call_trampoline, MaybeInstanceOwned, VMCallerCheckedAnyfunc, VMFunctionContext,
+    },
 };
 
 /// A WebAssembly `function` instance.
@@ -39,6 +46,12 @@ use wasmer_vm::{
 #[derive(Debug, Clone)]
 pub struct Function {
     pub(crate) handle: StoreHandle<VMFunction>,
+}
+
+impl From<StoreHandle<VMFunction>> for Function {
+    fn from(handle: StoreHandle<VMFunction>) -> Self {
+        Self { handle }
+    }
 }
 
 impl Function {
@@ -324,6 +337,22 @@ impl Function {
         }
     }
 
+    #[allow(missing_docs)]
+    #[allow(unused_variables)]
+    #[cfg(not(feature = "compiler"))]
+    pub fn new_typed_with_env<T: Send + 'static, F, Args, Rets>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        func: F,
+    ) -> Self
+    where
+        F: HostFunction<T, Args, Rets, WithEnv> + 'static + Send + Sync,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        unimplemented!("this platform does not support functions without the 'compiler' feature")
+    }
+
     /// Returns the [`FunctionType`] of the `Function`.
     ///
     /// # Example
@@ -401,24 +430,62 @@ impl Function {
             *slot = arg.as_raw(store);
         }
 
+        // Invoke the call
+        self.call_wasm_raw(store, trampoline, values_vec, results)?;
+        Ok(())
+    }
+
+    #[cfg(feature = "compiler")]
+    fn call_wasm_raw(
+        &self,
+        store: &mut impl AsStoreMut,
+        trampoline: VMTrampoline,
+        mut params: Vec<RawValue>,
+        results: &mut [Value],
+    ) -> Result<(), RuntimeError> {
         // Call the trampoline.
-        let vm_function = self.handle.get(store.as_store_ref().objects());
-        if let Err(error) = unsafe {
-            wasmer_call_trampoline(
-                store.as_store_ref().signal_handler(),
-                vm_function.anyfunc.as_ptr().as_ref().vmctx,
-                trampoline,
-                vm_function.anyfunc.as_ptr().as_ref().func_ptr,
-                values_vec.as_mut_ptr() as *mut u8,
-            )
-        } {
+        let result = {
+            let mut r;
+            // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+            loop {
+                let vm_function = self.handle.get(store.as_store_ref().objects());
+                r = unsafe {
+                    wasmer_call_trampoline(
+                        store.as_store_ref().signal_handler(),
+                        vm_function.anyfunc.as_ptr().as_ref().vmctx,
+                        trampoline,
+                        vm_function.anyfunc.as_ptr().as_ref().func_ptr,
+                        params.as_mut_ptr() as *mut u8,
+                    )
+                };
+                let store_mut = store.as_store_mut();
+                if let Some(callback) = store_mut.inner.on_called.take() {
+                    match callback(store_mut) {
+                        Ok(wasmer_types::OnCalledAction::InvokeAgain) => {
+                            continue;
+                        }
+                        Ok(wasmer_types::OnCalledAction::Finish) => {
+                            break;
+                        }
+                        Ok(wasmer_types::OnCalledAction::Trap(trap)) => {
+                            return Err(RuntimeError::user(trap))
+                        }
+                        Err(trap) => return Err(RuntimeError::user(trap)),
+                    }
+                }
+                break;
+            }
+            r
+        };
+        if let Err(error) = result {
             return Err(RuntimeError::from_trap(error));
         }
 
         // Load the return values out of `values_vec`.
+        let signature = self.ty(store);
         for (index, &value_type) in signature.results().iter().enumerate() {
             unsafe {
-                results[index] = Value::from_raw(store, value_type, values_vec[index]);
+                results[index] = Value::from_raw(store, value_type, params[index]);
             }
         }
 
@@ -514,6 +581,27 @@ impl Function {
         };
         let mut results = vec![Value::null(); self.result_arity(store)];
         self.call_wasm(store, trampoline, params, &mut results)?;
+        Ok(results.into_boxed_slice())
+    }
+
+    #[doc(hidden)]
+    #[allow(missing_docs)]
+    #[cfg(feature = "compiler")]
+    pub fn call_raw(
+        &self,
+        store: &mut impl AsStoreMut,
+        params: Vec<RawValue>,
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        let trampoline = unsafe {
+            self.handle
+                .get(store.as_store_ref().objects())
+                .anyfunc
+                .as_ptr()
+                .as_ref()
+                .call_trampoline
+        };
+        let mut results = vec![Value::null(); self.result_arity(store)];
+        self.call_wasm_raw(store, trampoline, params, &mut results)?;
         Ok(results.into_boxed_slice())
     }
 
@@ -773,7 +861,9 @@ mod inner {
     use wasmer_vm::{raise_user_trap, resume_panic, VMFunctionBody};
 
     use crate::sys::NativeWasmTypeInto;
-    use crate::{AsStoreMut, AsStoreRef, ExternRef, Function, FunctionEnv, StoreMut};
+    use crate::{AsStoreMut, AsStoreRef, ExternRef, FunctionEnv, StoreMut};
+
+    use crate::Function;
 
     /// A trait to convert a Rust value to a `WasmNativeType` value,
     /// or to convert `WasmNativeType` value to a Rust value.

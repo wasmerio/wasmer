@@ -42,7 +42,7 @@ pub trait ArtifactCreate: Send + Sync + Upcastable {
     /// Serializes an artifact into a file path
     fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
         let serialized = self.serialize()?;
-        fs::write(&path, serialized)?;
+        fs::write(path, serialized)?;
         Ok(())
     }
 }

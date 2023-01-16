@@ -54,3 +54,9 @@ impl AsJs for Value {
         }
     }
 }
+
+impl AsJs for wasmer_types::RawValue {
+    fn as_jsvalue(&self, _store: &impl AsStoreRef) -> JsValue {
+        unsafe { JsValue::from_f64(self.f64) }
+    }
+}

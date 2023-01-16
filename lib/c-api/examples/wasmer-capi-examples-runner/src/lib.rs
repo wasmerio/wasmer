@@ -9,9 +9,8 @@ pub struct RemoveTestsOnDrop {}
 
 impl Drop for RemoveTestsOnDrop {
     fn drop(&mut self) {
-        return;
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
-        for entry in std::fs::read_dir(&manifest_dir).unwrap() {
+        for entry in std::fs::read_dir(manifest_dir).unwrap() {
             let entry = entry.unwrap();
             let path = entry.path();
             let extension = path.extension().and_then(|s| s.to_str());
@@ -21,13 +20,13 @@ impl Drop for RemoveTestsOnDrop {
             }
         }
         if let Some(parent) = std::path::Path::new(&manifest_dir).parent() {
-            for entry in std::fs::read_dir(&parent).unwrap() {
+            for entry in std::fs::read_dir(parent).unwrap() {
                 let entry = entry.unwrap();
                 let path = entry.path();
                 let extension = path.extension().and_then(|s| s.to_str());
                 if extension == Some("obj") || extension == Some("exe") || extension == Some("o") {
                     println!("removing {}", path.display());
-                    let _ = std::fs::remove_file(&path);
+                    let _ = std::fs::remove_file(path);
                 }
             }
         }

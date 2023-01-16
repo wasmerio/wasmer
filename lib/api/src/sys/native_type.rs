@@ -2,7 +2,9 @@
 //! easily in Rust, thanks to its advanced typing system.
 
 use wasmer_types::{NativeWasmType, RawValue, Type};
-use wasmer_vm::{VMExternRef, VMFuncRef};
+use wasmer_vm::VMExternRef;
+#[cfg(feature = "compiler")]
+use wasmer_vm::VMFuncRef;
 
 use crate::{ExternRef, Function, TypedFunction, WasmTypeList};
 

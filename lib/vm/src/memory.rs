@@ -116,6 +116,27 @@ impl WasmMmap {
 
         Ok(prev_pages)
     }
+
+    /// Copies the memory
+    /// (in this case it performs a copy-on-write to save memory)
+    pub fn duplicate(&mut self) -> Result<Self, MemoryError> {
+        let mem_length = self.size.bytes().0;
+        let mut alloc = self
+            .alloc
+            .duplicate(Some(mem_length))
+            .map_err(MemoryError::Generic)?;
+        let base_ptr = alloc.as_mut_ptr();
+        Ok(Self {
+            vm_memory_definition: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(
+                VMMemoryDefinition {
+                    base: base_ptr,
+                    current_length: mem_length,
+                },
+            ))),
+            alloc,
+            size: self.size,
+        })
+    }
 }
 
 /// A linear memory instance.
@@ -156,18 +177,6 @@ pub struct VMOwnedMemory {
 
 unsafe impl Send for VMOwnedMemory {}
 unsafe impl Sync for VMOwnedMemory {}
-
-/// A shared linear memory instance.
-#[derive(Debug, Clone)]
-pub struct VMSharedMemory {
-    // The underlying allocation.
-    mmap: Arc<RwLock<WasmMmap>>,
-    // Configuration of this memory
-    config: VMMemoryConfig,
-}
-
-unsafe impl Send for VMSharedMemory {}
-unsafe impl Sync for VMSharedMemory {}
 
 impl VMOwnedMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
@@ -270,15 +279,21 @@ impl VMOwnedMemory {
             },
         })
     }
-}
 
-impl VMOwnedMemory {
     /// Converts this owned memory into shared memory
     pub fn to_shared(self) -> VMSharedMemory {
         VMSharedMemory {
             mmap: Arc::new(RwLock::new(self.mmap)),
             config: self.config,
         }
+    }
+
+    /// Copies this memory to a new memory
+    pub fn duplicate(&mut self) -> Result<Self, MemoryError> {
+        Ok(Self {
+            mmap: self.mmap.duplicate()?,
+            config: self.config.clone(),
+        })
     }
 }
 
@@ -316,7 +331,25 @@ impl LinearMemory for VMOwnedMemory {
     fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
         None
     }
+
+    /// Copies this memory to a new memory
+    fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        let forked = Self::duplicate(self)?;
+        Ok(Box::new(forked))
+    }
 }
+
+/// A shared linear memory instance.
+#[derive(Debug, Clone)]
+pub struct VMSharedMemory {
+    // The underlying allocation.
+    mmap: Arc<RwLock<WasmMmap>>,
+    // Configuration of this memory
+    config: VMMemoryConfig,
+}
+
+unsafe impl Send for VMSharedMemory {}
+unsafe impl Sync for VMSharedMemory {}
 
 impl VMSharedMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
@@ -340,6 +373,15 @@ impl VMSharedMemory {
         vm_memory_location: NonNull<VMMemoryDefinition>,
     ) -> Result<Self, MemoryError> {
         Ok(VMOwnedMemory::from_definition(memory, style, vm_memory_location)?.to_shared())
+    }
+
+    /// Copies this memory to a new memory
+    pub fn duplicate(&mut self) -> Result<Self, MemoryError> {
+        let mut guard = self.mmap.write().unwrap();
+        Ok(Self {
+            mmap: Arc::new(RwLock::new(guard.duplicate()?)),
+            config: self.config.clone(),
+        })
     }
 }
 
@@ -379,9 +421,15 @@ impl LinearMemory for VMSharedMemory {
         guard.vm_memory_definition.as_ptr()
     }
 
-    /// Owned memory can not be cloned (this will always return None)
+    /// Shared memory can always be cloned
     fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
-        None
+        Some(Box::new(self.clone()))
+    }
+
+    /// Copies this memory to a new memory
+    fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        let forked = Self::duplicate(self)?;
+        Ok(Box::new(forked))
     }
 }
 
@@ -445,6 +493,11 @@ impl LinearMemory for VMMemory {
     unsafe fn initialize_with_data(&self, start: usize, data: &[u8]) -> Result<(), Trap> {
         self.0.initialize_with_data(start, data)
     }
+
+    /// Copies this memory to a new memory
+    fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        self.0.duplicate()
+    }
 }
 
 impl VMMemory {
@@ -503,6 +556,11 @@ impl VMMemory {
     {
         memory.into()
     }
+
+    /// Copies this memory to a new memory
+    pub fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        LinearMemory::duplicate(self)
+    }
 }
 
 #[doc(hidden)]
@@ -555,4 +613,7 @@ where
 
         initialize_memory_with_data(memory, start, data)
     }
+
+    /// Copies this memory to a new memory
+    fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
 }

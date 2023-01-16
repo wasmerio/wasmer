@@ -8,20 +8,18 @@ use crate::EngineInner;
 use crate::Features;
 use crate::{ModuleEnvironment, ModuleMiddlewareChain};
 use enumset::EnumSet;
-use std::mem;
 use wasmer_types::entity::PrimaryMap;
 #[cfg(feature = "compiler")]
 use wasmer_types::CompileModuleInfo;
-use wasmer_types::MetadataHeader;
-use wasmer_types::SerializeError;
 use wasmer_types::{
     CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
-    MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex, SignatureIndex,
+    MemoryStyle, ModuleInfo, OwnedDataInitializer, Pages, Relocation, SectionIndex, SignatureIndex,
     TableIndex, TableStyle, Target,
 };
 use wasmer_types::{
     CompiledFunctionFrameInfo, FunctionBody, SerializableCompilation, SerializableModule,
 };
+use wasmer_types::{MetadataHeader, SerializeError};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct ArtifactBuild {
@@ -121,8 +119,15 @@ impl ArtifactBuild {
             compile_info,
             data_initializers,
             cpu_features: cpu_features.as_u64(),
+            module_start: None,
         };
         Ok(Self { serializable })
+    }
+
+    /// Specify the fixed virtual memory address for the compiled module
+    pub fn with_module_start(mut self, module_start: Option<Pages>) -> Self {
+        self.serializable.module_start = module_start;
+        self
     }
 
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
@@ -143,6 +148,11 @@ impl ArtifactBuild {
     /// Create a new ArtifactBuild from a SerializableModule
     pub fn from_serializable(serializable: SerializableModule) -> Self {
         Self { serializable }
+    }
+
+    /// Returns the memory start address for this compiled module
+    pub fn get_memory_start(&self) -> Option<Pages> {
+        self.serializable.module_start
     }
 
     /// Get Functions Bodies ref
@@ -223,7 +233,7 @@ impl ArtifactCreate for ArtifactBuild {
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         let serialized_data = self.serializable.serialize()?;
-        assert!(mem::align_of::<SerializableModule>() <= MetadataHeader::ALIGN);
+        assert!(std::mem::align_of::<SerializableModule>() <= MetadataHeader::ALIGN);
 
         let mut metadata_binary = vec![];
         metadata_binary.extend(Self::MAGIC_HEADER);

@@ -1,11 +1,14 @@
+use derivative::Derivative;
 use std::any::Any;
-
 use wasmer_types::RawValue;
 
 use crate::store::InternalStoreHandle;
 
 /// Underlying object referenced by a `VMExternRef`.
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct VMExternObj {
+    #[derivative(Debug = "ignore")]
     contents: Box<dyn Any + Send + Sync + 'static>,
 }
 

@@ -39,7 +39,7 @@ impl CodeMemory {
         &mut self.unwind_registry
     }
 
-    /// Allocate a single contiguous block of memory for the functions and custom sections, and copy the data in place.
+    /// Allocate a single contiguous block of memory at a fixed virtual address for the functions and custom sections, and copy the data in place.
     #[allow(clippy::type_complexity)]
     pub fn allocate(
         &mut self,

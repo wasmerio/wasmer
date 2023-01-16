@@ -102,7 +102,13 @@ impl Cache for FileSystemCache {
             key.to_string()
         };
         let path = self.path.join(filename);
-        Module::deserialize_from_file(engine, path)
+        let ret = Module::deserialize_from_file(engine, path.clone());
+        if ret.is_err() {
+            // If an error occurs while deserializing then we can not trust it anymore
+            // so delete the cache file
+            let _ = std::fs::remove_file(path);
+        }
+        ret
     }
 
     fn store(&mut self, key: Hash, module: &Module) -> Result<(), Self::SerializeError> {

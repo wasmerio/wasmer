@@ -1,13 +1,14 @@
 use crate::sys::exports::Exports;
-use crate::sys::externals::Extern;
-use crate::sys::imports::Imports;
 use crate::sys::module::Module;
 use crate::sys::{LinkError, RuntimeError};
 use std::fmt;
 use thiserror::Error;
 use wasmer_vm::{InstanceHandle, StoreHandle};
 
+#[cfg(feature = "compiler")]
 use super::store::AsStoreMut;
+#[cfg(feature = "compiler")]
+use crate::sys::{externals::Extern, imports::Imports};
 
 /// A WebAssembly Instance is a stateful, executable
 /// instance of a WebAssembly [`Module`].
@@ -115,11 +116,11 @@ impl Instance {
         module: &Module,
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
-        let imports = imports
+        let externs = imports
             .imports_for_module(module)
             .map_err(InstantiationError::Link)?;
-        let mut handle = module.instantiate(store, &imports)?;
-        let exports = module
+        let mut handle = module.instantiate(store, &externs)?;
+        let mut exports = module
             .exports()
             .map(|export| {
                 let name = export.name().to_string();
@@ -128,6 +129,14 @@ impl Instance {
                 (name, extern_)
             })
             .collect::<Exports>();
+
+        // If the memory is imported then also export it for backwards compatibility reasons
+        // (many will assume the memory is always exported) - later we can remove this
+        if exports.get_memory("memory").is_err() {
+            if let Some(memory) = externs.iter().find(|a| a.ty(store).memory().is_some()) {
+                exports.insert("memory", memory.clone());
+            }
+        }
 
         let instance = Self {
             _handle: StoreHandle::new(store.objects_mut(), handle),
@@ -154,9 +163,9 @@ impl Instance {
         module: &Module,
         externs: &[Extern],
     ) -> Result<Self, InstantiationError> {
-        let imports = externs.to_vec();
-        let mut handle = module.instantiate(store, &imports)?;
-        let exports = module
+        let externs = externs.to_vec();
+        let mut handle = module.instantiate(store, &externs)?;
+        let mut exports = module
             .exports()
             .map(|export| {
                 let name = export.name().to_string();
@@ -165,6 +174,14 @@ impl Instance {
                 (name, extern_)
             })
             .collect::<Exports>();
+
+        // If the memory is imported then also export it for backwards compatibility reasons
+        // (many will assume the memory is always exported) - later we can remove this
+        if exports.get_memory("memory").is_err() {
+            if let Some(memory) = externs.iter().find(|a| a.ty(store).memory().is_some()) {
+                exports.insert("memory", memory.clone());
+            }
+        }
 
         let instance = Self {
             _handle: StoreHandle::new(store.objects_mut(), handle),

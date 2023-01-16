@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 #[cfg(not(feature = "js"))]
 use wasmer::vm::VMSharedMemory;
-use wasmer::{AsStoreMut, Imports, Memory, Module};
+use wasmer::{AsStoreMut, Imports, Module};
 use wasmer_wasi_types::wasi::Errno;
 
 #[allow(dead_code)]
@@ -75,7 +75,7 @@ pub fn wasi_import_shared_memory(
             imports.define(
                 "env",
                 "memory",
-                Memory::new_from_existing(store, memory.into()),
+                wasmer::Memory::new_from_existing(store, memory.into()),
             );
         }
     };

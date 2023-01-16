@@ -10,6 +10,7 @@ use crate::vmcontext::VMTableDefinition;
 use crate::Trap;
 use crate::VMExternRef;
 use crate::VMFuncRef;
+use derivative::Derivative;
 use std::cell::UnsafeCell;
 use std::convert::TryFrom;
 use std::fmt;
@@ -69,13 +70,17 @@ impl Default for TableElement {
 }
 
 /// A table instance.
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct VMTable {
+    #[derivative(Debug = "ignore")]
     vec: Vec<RawTableElement>,
     maximum: Option<u32>,
     /// The WebAssembly table description.
     table: TableType,
     /// Our chosen implementation style.
     style: TableStyle,
+    #[derivative(Debug = "ignore")]
     vm_table_definition: MaybeInstanceOwned<VMTableDefinition>,
 }
 
@@ -304,6 +309,14 @@ impl VMTable {
         }
 
         Ok(())
+    }
+
+    /// Copies the table into a new table
+    pub fn copy_on_write(&self) -> Result<Self, String> {
+        let mut ret = Self::new(&self.table, &self.style)?;
+        ret.copy(self, 0, 0, self.size())
+            .map_err(|trap| format!("failed to copy the table - {:?}", trap))?;
+        Ok(ret)
     }
 
     /// Copy `len` elements from `table[src_index..]` to `table[dst_index..]`.

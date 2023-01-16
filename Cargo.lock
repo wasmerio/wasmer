@@ -4200,6 +4200,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "cfg-if 1.0.0",
+ "derivative",
  "hashbrown 0.11.2",
  "indexmap",
  "js-sys",
@@ -4667,6 +4668,7 @@ dependencies = [
  "cc",
  "cfg-if 1.0.0",
  "corosensei",
+ "derivative",
  "enum-iterator",
  "indexmap",
  "lazy_static",
@@ -4678,6 +4680,7 @@ dependencies = [
  "scopeguard",
  "serde",
  "thiserror",
+ "tracing",
  "wasmer-types",
  "winapi",
 ]
@@ -5044,9 +5047,9 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "3.0.1"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef87e7b955d5d1feaa8697ae129f1a9ce8859e151574ad3baceae9413b48d2f0"
+checksum = "1b44d4d5ad9ecc7392210891a8a9207c04f6984a594be82075f5e7abe9271fcc"
 dependencies = [
  "anyhow",
  "base64",

@@ -33,7 +33,7 @@ fn make_trampoline(
 ) {
     match target.triple().architecture {
         Architecture::Aarch64(_) => {
-            code.extend(&AARCH64_TRAMPOLINE);
+            code.extend(AARCH64_TRAMPOLINE);
             relocations.push(Relocation {
                 kind: RelocationKind::Abs8,
                 reloc_target: RelocationTarget::LibCall(libcall),
@@ -42,7 +42,7 @@ fn make_trampoline(
             });
         }
         Architecture::X86_64 => {
-            code.extend(&X86_64_TRAMPOLINE);
+            code.extend(X86_64_TRAMPOLINE);
             relocations.push(Relocation {
                 kind: RelocationKind::Abs8,
                 reloc_target: RelocationTarget::LibCall(libcall),
