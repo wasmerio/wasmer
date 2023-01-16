@@ -552,7 +552,7 @@ fn run_wasi_works_non_existent() -> anyhow::Result<()> {
 
     assert_eq!(
         stderr_lines,
-        vec!["error: invalid package name, could not find file does/not/exist".to_string()]
+        vec!["error: Could not find local file does/not/exist".to_string()]
     );
 
     Ok(())
