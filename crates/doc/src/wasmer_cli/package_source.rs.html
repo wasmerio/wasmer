@@ -206,8 +206,6 @@
 <span id="198">198</span>
 <span id="199">199</span>
 <span id="200">200</span>
-<span id="201">201</span>
-<span id="202">202</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Module for parsing and installing packages</span>
 
 <span class="kw">use</span> <span class="ident">anyhow::Context</span>;
@@ -266,9 +264,7 @@
                 <span class="kw">return</span> <span class="kw">if</span> <span class="ident">path</span>.<span class="ident">exists</span>() {
                     <span class="prelude-val">Ok</span>(<span class="ident">path</span>)
                 } <span class="kw">else</span> {
-                    <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                        <span class="string">&quot;Could not find local file {f}&quot;</span>
-                    ))
+                    <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not find local file {f}&quot;</span>))
                 };
             }
             <span class="ident"><span class="self">Self</span>::Url</span>(<span class="ident">u</span>) =&gt; {
