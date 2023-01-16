@@ -57,7 +57,7 @@ impl PackageSource {
                     Ok(path)
                 } else {
                     Err(anyhow::anyhow!(
-                        "invalid package name, could not find file {f}"
+                        "Could not find local file {f}"
                     ))
                 };
             }
@@ -89,7 +89,7 @@ impl PackageSource {
         };
 
         let extra = if let Self::Package(p) = self {
-            format!(", file {} does not exist either", p.file())
+            format!(", local file {} does not exist either", p.file())
         } else {
             String::new()
         };
@@ -105,7 +105,7 @@ impl PackageSource {
         }
 
         let path = opt_path
-            .with_context(|| anyhow::anyhow!("could not install package from URL {url}{extra}"))?;
+            .with_context(|| anyhow::anyhow!("Could not fetch package from URL {url}{extra}"))?;
 
         Ok(path)
     }
