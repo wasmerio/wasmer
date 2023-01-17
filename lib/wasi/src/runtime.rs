@@ -123,14 +123,15 @@ impl PluggableRuntimeImplementation {
     }
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for PluggableRuntimeImplementation {
     fn default() -> Self {
         Self {
             #[cfg(not(feature = "host-vnet"))]
-            networking: Box::new(wasmer_vnet::UnsupportedVirtualNetworking::default()),
+            networking: Box::<wasmer_vnet::UnsupportedVirtualNetworking>::default(),
             #[cfg(feature = "host-vnet")]
-            networking: Box::new(wasmer_wasi_local_networking::LocalNetworking::default()),
-            bus: Box::new(UnsupportedVirtualBus::default()),
+            networking: Box::<wasmer_wasi_local_networking::LocalNetworking>::default(),
+            bus: Box::<UnsupportedVirtualBus>::default(),
             thread_id_seed: Default::default(),
         }
     }

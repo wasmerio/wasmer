@@ -1048,6 +1048,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         Ok(())
     }
 
+    #[allow(clippy::unnecessary_cast)]
     fn resolve_memory_ptr(
         &mut self,
         memory_index: MemoryIndex,

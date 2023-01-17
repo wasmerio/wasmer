@@ -111,6 +111,7 @@ impl Instance {
     /// Those are, as defined by the spec:
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
+    #[allow(clippy::result_large_err)]
     pub fn new(
         store: &mut impl AsStoreMut,
         module: &Module,
@@ -158,6 +159,7 @@ impl Instance {
     /// Those are, as defined by the spec:
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
+    #[allow(clippy::result_large_err)]
     pub fn new_by_index(
         store: &mut impl AsStoreMut,
         module: &Module,

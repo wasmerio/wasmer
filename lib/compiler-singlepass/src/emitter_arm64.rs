@@ -805,6 +805,7 @@ impl EmitterARM64 for Assembler {
         }
         Ok(())
     }
+    #[allow(clippy::unnecessary_cast)]
     fn emit_ldria(
         &mut self,
         sz: Size,
@@ -849,6 +850,7 @@ impl EmitterARM64 for Assembler {
         }
         Ok(())
     }
+    #[allow(clippy::unnecessary_cast)]
     fn emit_ldpia(
         &mut self,
         sz: Size,
@@ -1248,9 +1250,9 @@ impl EmitterARM64 for Assembler {
             (Size::S64, Location::Imm64(val), Location::GPR(dst)) => {
                 let dst = dst.into_index() as u32;
                 if val < 0x1000 {
-                    dynasm!(self ; mov W(dst), val as u64);
+                    dynasm!(self ; mov W(dst), val);
                 } else if encode_logical_immediate_64bit(val as _).is_some() {
-                    dynasm!(self ; orr X(dst), xzr, val as u64);
+                    dynasm!(self ; orr X(dst), xzr, val);
                 } else {
                     codegen_error!("singleplasse can't emit MOV S64 {}, {:?}", val, dst);
                 }
@@ -1594,6 +1596,7 @@ impl EmitterARM64 for Assembler {
         }
         Ok(())
     }
+    #[allow(clippy::unnecessary_cast)]
     fn emit_add_lsl(
         &mut self,
         sz: Size,
@@ -1621,6 +1624,7 @@ impl EmitterARM64 for Assembler {
         Ok(())
     }
 
+    #[allow(clippy::unnecessary_cast)]
     fn emit_cmp(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
@@ -1642,7 +1646,7 @@ impl EmitterARM64 for Assembler {
                 if imm >= 0x1000 {
                     codegen_error!("singlepass CMP with imm too large {}", imm);
                 }
-                dynasm!(self ; cmp X(dst), imm as u32);
+                dynasm!(self ; cmp X(dst), imm);
             }
             (Size::S64, Location::Imm64(imm), Location::GPR(dst)) => {
                 let dst = dst.into_index() as u32;
@@ -1683,10 +1687,10 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S64, Location::Imm64(imm), Location::GPR(dst)) => {
                 let dst = dst.into_index() as u32;
-                if encode_logical_immediate_64bit(imm as u64).is_none() {
+                if encode_logical_immediate_64bit(imm).is_none() {
                     codegen_error!("singlepass TST with incompatible imm {}", imm);
                 }
-                dynasm!(self ; tst X(dst), imm as u64);
+                dynasm!(self ; tst X(dst), imm);
             }
             (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
                 let src = src.into_index() as u32;
@@ -1724,7 +1728,6 @@ impl EmitterARM64 for Assembler {
                 if imm > 63 {
                     codegen_error!("singlepass LSL with incompatible imm {}", imm);
                 }
-                let imm = imm as u32;
                 let dst = dst.into_index() as u32;
                 dynasm!(self ; lsl X(dst), X(src1), imm);
             }
@@ -1768,7 +1771,7 @@ impl EmitterARM64 for Assembler {
                 if imm > 31 {
                     codegen_error!("singlepass LSL with incompatible imm {}", imm);
                 }
-                dynasm!(self ; lsl W(dst), W(src1), imm as u32);
+                dynasm!(self ; lsl W(dst), W(src1), imm);
             }
             _ => codegen_error!(
                 "singlepass can't emit LSL {:?} {:?} {:?} {:?}",
@@ -1780,6 +1783,7 @@ impl EmitterARM64 for Assembler {
         }
         Ok(())
     }
+    #[allow(clippy::unnecessary_cast)]
     fn emit_asr(
         &mut self,
         sz: Size,
@@ -1843,7 +1847,7 @@ impl EmitterARM64 for Assembler {
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass ASR with incompatible imm {}", imm);
                 }
-                dynasm!(self ; asr W(dst), W(src1), imm as u32);
+                dynasm!(self ; asr W(dst), W(src1), imm);
             }
             _ => codegen_error!(
                 "singlepass can't emit ASR {:?} {:?} {:?} {:?}",
@@ -1855,6 +1859,7 @@ impl EmitterARM64 for Assembler {
         }
         Ok(())
     }
+    #[allow(clippy::unnecessary_cast)]
     fn emit_lsr(
         &mut self,
         sz: Size,
@@ -1930,6 +1935,7 @@ impl EmitterARM64 for Assembler {
         }
         Ok(())
     }
+    #[allow(clippy::unnecessary_cast)]
     fn emit_ror(
         &mut self,
         sz: Size,
@@ -1998,6 +2004,7 @@ impl EmitterARM64 for Assembler {
         Ok(())
     }
 
+    #[allow(clippy::unnecessary_cast)]
     fn emit_or(
         &mut self,
         sz: Size,
@@ -2046,6 +2053,7 @@ impl EmitterARM64 for Assembler {
         }
         Ok(())
     }
+    #[allow(clippy::unnecessary_cast)]
     fn emit_and(
         &mut self,
         sz: Size,
@@ -2094,6 +2102,7 @@ impl EmitterARM64 for Assembler {
         }
         Ok(())
     }
+    #[allow(clippy::unnecessary_cast)]
     fn emit_eor(
         &mut self,
         sz: Size,
@@ -3209,6 +3218,7 @@ impl EmitterARM64 for Assembler {
     }
 }
 
+#[allow(clippy::unnecessary_cast)]
 pub fn gen_std_trampoline_arm64(
     sig: &FunctionType,
     calling_convention: CallingConvention,

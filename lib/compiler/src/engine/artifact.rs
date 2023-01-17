@@ -300,6 +300,7 @@ impl Artifact {
     }
 
     /// Do preinstantiation logic that is executed before instantiating
+    #[allow(clippy::result_large_err)]
     pub fn preinstantiate(&self) -> Result<(), InstantiationError> {
         Ok(())
     }
@@ -309,6 +310,7 @@ impl Artifact {
     /// # Safety
     ///
     /// See [`InstanceHandle::new`].
+    #[allow(clippy::result_large_err)]
     pub unsafe fn instantiate(
         &self,
         tunables: &dyn Tunables,
@@ -389,6 +391,7 @@ impl Artifact {
     /// # Safety
     ///
     /// See [`InstanceHandle::finish_instantiation`].
+    #[allow(clippy::result_large_err)]
     pub unsafe fn finish_instantiation(
         &self,
         trap_handler: Option<*const TrapHandlerFn<'static>>,

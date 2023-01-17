@@ -311,6 +311,7 @@ impl Module {
         }
     }
 
+    #[allow(clippy::result_large_err)]
     #[cfg(feature = "compiler")]
     pub(crate) fn instantiate(
         &self,

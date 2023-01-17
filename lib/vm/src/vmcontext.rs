@@ -404,7 +404,7 @@ pub(crate) unsafe fn memory32_atomic_check32(
     let dst = mem.base.offset(dst) as *mut u32;
     let atomic_dst = AtomicPtr::new(dst);
     let read_val = *atomic_dst.load(Ordering::Acquire);
-    let ret = if read_val == val { 0 } else { 1 };
+    let ret = u32::from(read_val != val);
     Ok(ret)
 }
 
@@ -435,7 +435,7 @@ pub(crate) unsafe fn memory32_atomic_check64(
     let dst = mem.base.offset(dst) as *mut u64;
     let atomic_dst = AtomicPtr::new(dst);
     let read_val = *atomic_dst.load(Ordering::Acquire);
-    let ret = if read_val == val { 0 } else { 1 };
+    let ret = u32::from(read_val != val);
     Ok(ret)
 }
 

@@ -8,6 +8,7 @@ use std::slice::Iter;
 use wasmer_types::{CallingConvention, Type};
 
 /// General-purpose registers.
+#[allow(clippy::upper_case_acronyms)]
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum GPR {
@@ -48,7 +49,7 @@ pub enum GPR {
 /// NEON registers.
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[allow(dead_code)]
+#[allow(dead_code, clippy::upper_case_acronyms)]
 pub enum NEON {
     V0 = 0,
     V1 = 1,
