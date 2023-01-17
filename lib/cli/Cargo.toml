@@ -162,7 +162,7 @@ llvm = [
 debug = ["fern", "wasmer-wasi/logging"]
 disable-all-logging = ["wasmer-wasi/disable-all-logging"]
 headless = []
-headless-minimal = ["headless", "disable-all-logging", "wasi", "webc_runner", "static-artifact-create"]
+headless-minimal = ["headless", "disable-all-logging", "wasi", "webc", "static-artifact-create"]
 
 # Optional
 enable-serde = [

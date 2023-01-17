@@ -11,9 +11,6 @@ use std::path::PathBuf;
 
 use wasmer::*;
 
-#[cfg(feature = "webc_runner")]
-use webc::{ParseOptions, WebCMmap};
-
 #[derive(Debug, Parser)]
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateObj {
@@ -99,7 +96,7 @@ impl CreateObj {
         println!("Format: {:?}", object_format);
 
         let atoms =
-            if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
+            if let Ok(pirita) = webc::WebCMmap::parse(input_path.clone(), &webc::ParseOptions::default()) {
                 crate::commands::create_exe::compile_pirita_into_directory(
                     &pirita,
                     &output_directory_path,
