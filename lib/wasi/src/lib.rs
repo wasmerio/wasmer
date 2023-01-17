@@ -102,7 +102,7 @@ impl From<u32> for WasiThreadId {
 }
 impl From<WasiThreadId> for u32 {
     fn from(t: WasiThreadId) -> u32 {
-        t.0 as u32
+        t.0
     }
 }
 
@@ -117,7 +117,7 @@ impl From<u32> for WasiBusProcessId {
 }
 impl From<WasiBusProcessId> for u32 {
     fn from(id: WasiBusProcessId) -> u32 {
-        id.0 as u32
+        id.0
     }
 }
 

@@ -998,6 +998,7 @@ pub fn fd_prestat_dir_name<M: MemorySize>(
 /// Output:
 /// - `u32 *nwritten`
 ///     Number of bytes written
+#[allow(clippy::unnecessary_cast)]
 pub fn fd_pwrite<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -2781,7 +2782,7 @@ pub fn path_rename<M: MemorySize>(
                 // implements the logic of "I'm not actually a file, I'll try to be as needed".
                 let result = if let Some(h) = handle {
                     drop(guard);
-                    state.fs_rename(&source_path, &host_adjusted_target_path)
+                    state.fs_rename(source_path, &host_adjusted_target_path)
                 } else {
                     let path_clone = path.clone();
                     drop(guard);
@@ -3594,6 +3595,7 @@ pub fn thread_spawn<M: MemorySize>(
 /// ## Parameters
 ///
 /// * `duration` - Amount of time that the thread should sleep
+#[allow(clippy::unnecessary_cast)]
 pub fn thread_sleep(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     duration: Timestamp,
@@ -5462,7 +5464,7 @@ pub unsafe fn sock_send_file<M: MemorySize>(
     {
         let mut fd_map = state.fs.fd_map.write().unwrap();
         let fd_entry = wasi_try_ok!(fd_map.get_mut(&in_fd).ok_or(Errno::Badf));
-        fd_entry.offset = offset as u64;
+        fd_entry.offset = offset;
     }
 
     // Enter a loop that will process all the data
