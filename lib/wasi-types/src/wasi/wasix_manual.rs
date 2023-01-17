@@ -3,7 +3,7 @@ use std::mem::MaybeUninit;
 use wasmer::ValueType;
 
 use super::{
-    Errno, EventFdReadwrite, Eventtype, Signal, Snapshot0SubscriptionClock, SubscriptionClock,
+    Errno, EventFdReadwrite, Eventtype, Snapshot0SubscriptionClock, SubscriptionClock,
     SubscriptionFsReadwrite, Userdata,
 };
 
