@@ -866,7 +866,7 @@ fn write_volume_obj(
         object_name,
     )?;
 
-    let mut writer = BufWriter::new(File::create(&output_path)?);
+    let mut writer = BufWriter::new(File::create(output_path)?);
     volumes_object
         .write_stream(&mut writer)
         .map_err(|err| anyhow::anyhow!(err.to_string()))?;
@@ -1049,7 +1049,7 @@ pub(crate) fn create_header_files_in_dir(
             &ModuleMetadataSymbolRegistry {
                 prefix: prefix.clone(),
             },
-            metadata_length as usize,
+            metadata_length,
         );
 
         std::fs::write(&header_file_path, &header_file_src).map_err(|e| {
@@ -1194,7 +1194,7 @@ fn link_exe_from_dir(
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("could not find zig in $PATH {}", directory.display()))?;
 
-    let mut cmd = Command::new(&zig_binary_path);
+    let mut cmd = Command::new(zig_binary_path);
     cmd.arg("build-exe");
     cmd.arg("--verbose-cc");
     cmd.arg("--verbose-link");
@@ -1875,7 +1875,7 @@ pub(super) mod utils {
         let path_var = std::env::var("PATH").unwrap_or_default();
         #[cfg(unix)]
         let system_path_var = std::process::Command::new("getconf")
-            .args(&["PATH"])
+            .args(["PATH"])
             .output()
             .map(|output| output.stdout)
             .unwrap_or_default();
@@ -2268,7 +2268,7 @@ mod http_fetch {
 
     pub(crate) fn list_dir(target: &Path) -> Vec<PathBuf> {
         use walkdir::WalkDir;
-        WalkDir::new(&target)
+        WalkDir::new(target)
             .into_iter()
             .filter_map(|e| e.ok())
             .map(|entry| entry.path().to_path_buf())

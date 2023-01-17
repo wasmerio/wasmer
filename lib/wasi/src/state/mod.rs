@@ -356,11 +356,11 @@ pub struct WasiFs {
 pub(crate) fn default_fs_backing() -> Box<dyn wasmer_vfs::FileSystem> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "host-fs")] {
-            Box::new(wasmer_vfs::host_fs::FileSystem::default())
+            Box::<wasmer_vfs::host_fs::FileSystem>::default()
         } else if #[cfg(feature = "mem-fs")] {
-            Box::new(wasmer_vfs::mem_fs::FileSystem::default())
+            Box::<wasmer_vfs::mem_fs::FileSystem>::default()
         } else {
-            Box::new(FallbackFileSystem::default())
+            Box::<FallbackFileSystem>::default()
         }
     }
 }
@@ -1550,7 +1550,7 @@ impl WasiFs {
     fn create_stdout(&self, inodes: &mut WasiInodes) {
         self.create_std_dev_inner(
             inodes,
-            Box::new(Stdout::default()),
+            Box::<Stdout>::default(),
             "stdout",
             __WASI_STDOUT_FILENO,
             STDOUT_DEFAULT_RIGHTS,
@@ -1560,7 +1560,7 @@ impl WasiFs {
     fn create_stdin(&self, inodes: &mut WasiInodes) {
         self.create_std_dev_inner(
             inodes,
-            Box::new(Stdin::default()),
+            Box::<Stdin>::default(),
             "stdin",
             __WASI_STDIN_FILENO,
             STDIN_DEFAULT_RIGHTS,
@@ -1570,7 +1570,7 @@ impl WasiFs {
     fn create_stderr(&self, inodes: &mut WasiInodes) {
         self.create_std_dev_inner(
             inodes,
-            Box::new(Stderr::default()),
+            Box::<Stderr>::default(),
             "stderr",
             __WASI_STDERR_FILENO,
             STDERR_DEFAULT_RIGHTS,

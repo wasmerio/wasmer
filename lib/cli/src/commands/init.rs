@@ -160,7 +160,7 @@ impl Init {
             .collect::<Vec<_>>()
             .join(NEWLINE);
 
-        std::fs::write(&path, &toml_string)
+        std::fs::write(path, &toml_string)
             .with_context(|| format!("Unable to write to \"{}\"", path.display()))?;
 
         Ok(())
@@ -493,7 +493,7 @@ fn construct_manifest(
 }
 fn parse_cargo_toml(manifest_path: &PathBuf) -> Result<MiniCargoTomlPackage, anyhow::Error> {
     let mut metadata = MetadataCommand::new();
-    metadata.manifest_path(&manifest_path);
+    metadata.manifest_path(manifest_path);
     metadata.no_deps();
     metadata.features(CargoOpt::AllFeatures);
 

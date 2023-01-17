@@ -117,7 +117,7 @@ pub struct wasm_config_t {
 /// cbindgen:ignore
 #[no_mangle]
 pub extern "C" fn wasm_config_new() -> Box<wasm_config_t> {
-    Box::new(wasm_config_t::default())
+    Box::<wasm_config_t>::default()
 }
 
 /// Delete a Wasmer config object.
@@ -256,11 +256,11 @@ use wasmer_api::CompilerConfig;
 fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
     cfg_if! {
         if #[cfg(feature = "cranelift")] {
-            Box::new(wasmer_compiler_cranelift::Cranelift::default())
+            Box::<wasmer_compiler_cranelift::Cranelift>::default()
         } else if #[cfg(feature = "llvm")] {
-            Box::new(wasmer_compiler_llvm::LLVM::default())
+            Box::<wasmer_compiler_llvm::LLVM>::default()
         } else if #[cfg(feature = "singlepass")] {
-            Box::new(wasmer_compiler_singlepass::Singlepass::default())
+            Box::<wasmer_compiler_singlepass::Singlepass>::default()
         } else {
             compile_error!("Please enable one of the compiler backends")
         }
@@ -368,7 +368,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                 wasmer_compiler_t::CRANELIFT => {
                     cfg_if! {
                         if #[cfg(feature = "cranelift")] {
-                            Box::new(wasmer_compiler_cranelift::Cranelift::default())
+                            Box::<wasmer_compiler_cranelift::Cranelift>::default()
                         } else {
                             return return_with_error("Wasmer has not been compiled with the `cranelift` feature.");
                         }
