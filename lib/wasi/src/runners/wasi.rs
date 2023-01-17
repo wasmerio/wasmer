@@ -7,7 +7,7 @@ use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;
 use std::sync::Arc;
-use wasmer::{Cranelift, Instance, Module, Store};
+use wasmer::{Instance, Module, Store};
 use wasmer_vfs::webc_fs::WebcFileSystem;
 use webc::{Command, WebCMmap};
 
@@ -42,8 +42,20 @@ impl crate::runners::Runner for WasiRunner {
         let atom_name = container.get_atom_name_for_command("wasi", command_name)?;
         let atom_bytes = container.get_atom(&container.get_package_name(), &atom_name)?;
 
-        let compiler = Cranelift::default();
-        let mut store = Store::new(compiler);
+        #[cfg(feature = "wasi_cranelift")]
+        let mut store = Store::new(wasmer::Cranelift::default());
+        #[cfg(feature = "wasi_llvm")]
+        let mut store = Store::new(wasmer::Llvm::default());
+        #[cfg(feature = "wasi_singlepass")]
+        let mut store = Store::new(wasmer::Singlepass::default());
+        #[cfg(not(any(
+            feature = "wasi_cranelift",
+            feature = "wasi_llvm",
+            feature = "wasi_singlepass"
+        )))]
+        let mut store = {
+            return Err(anyhow::anyhow!("wasmer-wasi needs one of wasi_cranelift or wasi_llvm or wasi_singlepass features enabled").into());
+        };
         let mut module = Module::new(&store, atom_bytes)?;
         module.set_name(&atom_name);
 

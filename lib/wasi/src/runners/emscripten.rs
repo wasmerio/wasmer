@@ -6,7 +6,7 @@ use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;
 use std::sync::Arc;
-use wasmer::{Cranelift, FunctionEnv, Instance, Module, Store};
+use wasmer::{FunctionEnv, Instance, Module, Store};
 use wasmer_emscripten::{
     generate_emscripten_env, is_emscripten_module, run_emscripten_instance, EmEnv,
     EmscriptenGlobals,
@@ -33,6 +33,7 @@ impl crate::runners::Runner for EmscriptenRunner {
             .starts_with("https://webc.org/runner/emscripten"))
     }
 
+    #[allow(unreachable_code)]
     fn run_command(
         &mut self,
         command_name: &str,
@@ -43,8 +44,21 @@ impl crate::runners::Runner for EmscriptenRunner {
         let main_args = container.get_main_args_for_command(command_name);
         let atom_bytes = container.get_atom(&container.get_package_name(), &atom_name)?;
 
-        let compiler = Cranelift::default();
-        let mut store = Store::new(compiler);
+        #[cfg(feature = "emscripten_cranelift")]
+        let mut store = Store::new(wasmer::Cranelift::default());
+        #[cfg(feature = "emscripten_llvm")]
+        let mut store = Store::new(wasmer::Llvm::default());
+        #[cfg(feature = "emscripten_singlepass")]
+        let mut store = Store::new(wasmer::Singlepass::default());
+        #[cfg(not(any(
+            feature = "emscripten_cranelift",
+            feature = "emscripten_llvm",
+            feature = "emscripten_singlepass"
+        )))]
+        let mut store = {
+            return Err(anyhow::anyhow!("wasmer-wasi needs one of emscripten_cranelift or emscripten_llvm or emscripten_singlepass features enabled").into());
+        };
+
         let mut module = Module::new(&store, atom_bytes)?;
         module.set_name(&atom_name);
 
