@@ -1,6 +1,7 @@
 //! Create a standalone native executable for a given Wasm file.
 
 use super::ObjectFormat;
+use crate::common::normalize_path;
 use crate::store::CompilerOptions;
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -1317,10 +1318,6 @@ fn link_exe_from_dir(
     })?;
 
     Ok(())
-}
-
-pub(crate) fn normalize_path(s: &str) -> String {
-    s.strip_prefix(r"\\?\").unwrap_or(s).to_string()
 }
 
 /// Link compiled objects using the system linker

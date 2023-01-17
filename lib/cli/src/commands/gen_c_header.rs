@@ -7,8 +7,6 @@ use wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
 use wasmer_types::{CpuFeature, MetadataHeader, Triple};
 use webc::WebC;
 
-use super::normalize_path;
-
 #[derive(Debug, Parser)]
 /// The options for the `wasmer gen-c-header` subcommand
 pub struct GenCHeader {
@@ -50,7 +48,7 @@ pub struct GenCHeader {
 impl GenCHeader {
     /// Runs logic for the `gen-c-header` subcommand
     pub fn execute(&self) -> Result<(), anyhow::Error> {
-        let path = crate::commands::normalize_path(&format!("{}", self.path.display()));
+        let path = crate::common::normalize_path(&format!("{}", self.path.display()));
         let mut file = std::fs::read(&path)
             .map_err(|e| anyhow::anyhow!("{e}"))
             .with_context(|| anyhow::anyhow!("{path}"))?;
@@ -126,7 +124,7 @@ impl GenCHeader {
             metadata_length,
         );
 
-        let output = normalize_path(&self.output.display().to_string());
+        let output = crate::common::normalize_path(&self.output.display().to_string());
 
         std::fs::write(&output, &header_file_src)
             .map_err(|e| anyhow::anyhow!("{e}"))
