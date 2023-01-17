@@ -13,7 +13,7 @@ edition = "2018"
 [dependencies]
 anyhow = "1.0"
 wasmer = { path = "../../../lib/api", version = "=3.1.0", default-features = false }
-wasmer-wasi = { path = "../../../lib/wasi", version = "=3.1.0" }
+wasmer-wasi = { path = "../../../lib/wasi", version = "=3.1.0", features = ["emscripten_cranelift", "wasi_cranelift"] }
 wasmer-vfs = { path = "../../../lib/vfs", version = "=3.1.0" }
 wast = "38.0"
 serde = "1"

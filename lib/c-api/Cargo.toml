@@ -78,14 +78,20 @@ compiler-headless = [
 ]
 singlepass = [
     "wasmer-compiler-singlepass",
+    "wasmer-wasi/emscripten_singlepass", 
+    "wasmer-wasi/wasi_singlepass",
     "compiler",
 ]
 cranelift = [
     "wasmer-compiler-cranelift",
+    "wasmer-wasi/emscripten_cranelift", 
+    "wasmer-wasi/wasi_cranelift",
     "compiler",
 ]
 llvm = [
     "wasmer-compiler-llvm",
+    "wasmer-wasi/emscripten_llvm", 
+    "wasmer-wasi/wasi_llvm",
     "compiler",
 ]
 wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
