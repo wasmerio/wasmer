@@ -63,7 +63,7 @@ dirs = { version = "4.0" }
 serde_json = { version = "1.0" }
 target-lexicon = { version = "0.12", features = ["std"] }
 prettytable-rs = "0.9.0"
-wasmer-toml = { version = "0.5.0", path = "../../../wasmer-toml" }
+wasmer-toml = "0.6.0"
 walkdir = "2.3.2"
 regex = "1.6.0"
 toml = "0.5.9"
