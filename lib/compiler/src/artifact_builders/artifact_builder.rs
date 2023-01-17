@@ -13,7 +13,7 @@ use wasmer_types::entity::PrimaryMap;
 use wasmer_types::CompileModuleInfo;
 use wasmer_types::{
     CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
-    MemoryStyle, ModuleInfo, OwnedDataInitializer, Pages, Relocation, SectionIndex, SignatureIndex,
+    MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex, SignatureIndex,
     TableIndex, TableStyle, Target,
 };
 use wasmer_types::{
@@ -119,15 +119,8 @@ impl ArtifactBuild {
             compile_info,
             data_initializers,
             cpu_features: cpu_features.as_u64(),
-            module_start: None,
         };
         Ok(Self { serializable })
-    }
-
-    /// Specify the fixed virtual memory address for the compiled module
-    pub fn with_module_start(mut self, module_start: Option<Pages>) -> Self {
-        self.serializable.module_start = module_start;
-        self
     }
 
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
@@ -148,11 +141,6 @@ impl ArtifactBuild {
     /// Create a new ArtifactBuild from a SerializableModule
     pub fn from_serializable(serializable: SerializableModule) -> Self {
         Self { serializable }
-    }
-
-    /// Returns the memory start address for this compiled module
-    pub fn get_memory_start(&self) -> Option<Pages> {
-        self.serializable.module_start
     }
 
     /// Get Functions Bodies ref
