@@ -484,7 +484,7 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
 //#[cfg_attr(target_os = "windows", ignore)]
-// TODO: fix the cretae_exe with serialized object issue #3481
+// TODO: fix the cretae_exe with serialized object issue
 #[ignore]
 #[test]
 fn create_exe_serialized_works() -> anyhow::Result<()> {
@@ -686,7 +686,7 @@ fn create_exe_with_object_input_symbols() -> anyhow::Result<()> {
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
 //#[cfg_attr(target_os = "windows", ignore)]
-// TODO: fix the cretae_exe with serialized object issue #3481
+// TODO: fix the cretae_exe with serialized object issue
 #[ignore]
 #[test]
 fn create_exe_with_object_input_serialized() -> anyhow::Result<()> {
