@@ -154,13 +154,6 @@ impl core::fmt::Debug for Snapshot0Event {
     }
 }
 
-// FIXME: modify bindings generator to derive Hash
-impl std::hash::Hash for Signal {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        core::mem::discriminant(self).hash(state);
-    }
-}
-
 unsafe impl ValueType for Snapshot0Subscription {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
