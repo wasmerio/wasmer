@@ -27,7 +27,7 @@ semver = "1.0.14"
 lzma-rs = "0.2.0"
 webc = { version ="4.0.0", features = ["mmap"] }
 hex = "0.4.3"
-tokio = "1.21.2"
+tokio = "1.24.0"
 tempdir = "0.3.7"
 log = "0.4.17"
 regex = "1.7.0"
