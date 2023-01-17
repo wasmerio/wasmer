@@ -75,7 +75,7 @@ fn test_stdout() {
     // Create the `WasiEnv`.
     let mut stdout = Pipe::default();
     let wasi_env = WasiState::new("command-name")
-        .args(&["Gordon"])
+        .args(["Gordon"])
         .stdout(Box::new(stdout.clone()))
         .finalize(&mut store)
         .unwrap();
@@ -113,7 +113,7 @@ fn test_env() {
     let mut stdout = Pipe::new();
     let mut wasi_state_builder = WasiState::new("command-name");
     wasi_state_builder
-        .args(&["Gordon"])
+        .args(["Gordon"])
         .env("DOG", "X")
         .env("TEST", "VALUE")
         .env("TEST2", "VALUE2");

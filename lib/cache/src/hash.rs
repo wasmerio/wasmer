@@ -31,7 +31,7 @@ impl ToString for Hash {
     /// Create the hexadecimal representation of the
     /// stored hash.
     fn to_string(&self) -> String {
-        hex::encode(&self.to_array())
+        hex::encode(self.to_array())
     }
 }
 

@@ -877,7 +877,7 @@ pub fn fd_pread<M: MemorySize>(
                 Kind::File { handle, .. } => {
                     if let Some(h) = handle {
                         wasi_try_ok!(
-                            h.seek(std::io::SeekFrom::Start(offset as u64))
+                            h.seek(std::io::SeekFrom::Start(offset))
                                 .map_err(map_io_err),
                             env
                         );
@@ -1058,7 +1058,7 @@ pub fn fd_pwrite<M: MemorySize>(
                     if let Some(handle) = handle {
                         wasi_try_ok!(
                             handle
-                                .seek(std::io::SeekFrom::Start(offset as u64))
+                                .seek(std::io::SeekFrom::Start(offset))
                                 .map_err(map_io_err),
                             env
                         );
@@ -2782,7 +2782,7 @@ pub fn path_rename<M: MemorySize>(
                 // implements the logic of "I'm not actually a file, I'll try to be as needed".
                 let result = if let Some(h) = handle {
                     drop(guard);
-                    state.fs_rename(&source_path, &host_adjusted_target_path)
+                    state.fs_rename(source_path, &host_adjusted_target_path)
                 } else {
                     let path_clone = path.clone();
                     drop(guard);
@@ -3602,7 +3602,7 @@ pub fn thread_sleep(
     debug!("wasi::thread_sleep");
 
     let env = ctx.data();
-    let duration = Duration::from_nanos(duration as u64);
+    let duration = Duration::from_nanos(duration);
     env.sleep(duration)?;
     Ok(Errno::Success)
 }
@@ -5463,7 +5463,7 @@ pub unsafe fn sock_send_file<M: MemorySize>(
     {
         let mut fd_map = state.fs.fd_map.write().unwrap();
         let fd_entry = wasi_try_ok!(fd_map.get_mut(&in_fd).ok_or(Errno::Badf));
-        fd_entry.offset = offset as u64;
+        fd_entry.offset = offset;
     }
 
     // Enter a loop that will process all the data

@@ -664,7 +664,7 @@ mod test {
             _ => assert!(false),
         }
         let output = create_wasi_state("test_prog")
-            .args(&["--help", "--wat\0"])
+            .args(["--help", "--wat\0"])
             .build();
         match output {
             Err(WasiStateCreationError::ArgumentContainsNulByte(_)) => assert!(true),
