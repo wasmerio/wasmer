@@ -33,7 +33,7 @@ impl crate::runners::Runner for EmscriptenRunner {
             .starts_with("https://webc.org/runner/emscripten"))
     }
 
-    #[allow(unreachable_code)]
+    #[allow(unreachable_code, unused_variables)]
     fn run_command(
         &mut self,
         command_name: &str,

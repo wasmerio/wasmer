@@ -33,6 +33,7 @@ impl crate::runners::Runner for WasiRunner {
         Ok(command.runner.starts_with("https://webc.org/runner/wasi"))
     }
 
+    #[allow(unreachable_code, unused_variables)]
     fn run_command(
         &mut self,
         command_name: &str,
