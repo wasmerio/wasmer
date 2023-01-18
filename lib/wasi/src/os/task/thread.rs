@@ -9,6 +9,8 @@ use wasmer_wasi_types::{types::Signal, wasi::ExitCode};
 
 use crate::os::task::process::{WasiProcessId, WasiProcessInner};
 
+use super::{control_plane::TaskCountGuard, task_join_handle::TaskJoinHandle};
+
 /// Represents the ID of a WASI thread
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WasiThreadId(u32);
@@ -73,69 +75,87 @@ pub struct ThreadStack {
 
 /// Represents a running thread which allows a joiner to
 /// wait for the thread to exit
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub struct WasiThread {
-    pub(crate) is_main: bool,
-    pub(crate) pid: WasiProcessId,
-    pub(crate) id: WasiThreadId,
-    pub(super) finished: Arc<Mutex<(Option<ExitCode>, tokio::sync::broadcast::Sender<()>)>>,
-    pub(crate) signals: Arc<Mutex<(Vec<Signal>, tokio::sync::broadcast::Sender<()>)>>,
-    pub(super) stack: Arc<Mutex<ThreadStack>>,
+    state: Arc<WasiThreadState>,
+}
+
+#[derive(Debug)]
+struct WasiThreadState {
+    is_main: bool,
+    pid: WasiProcessId,
+    id: WasiThreadId,
+    signals: Mutex<(Vec<Signal>, tokio::sync::broadcast::Sender<()>)>,
+    stack: Mutex<ThreadStack>,
+    finished: Arc<TaskJoinHandle>,
+
+    // Registers the task termination with the ControlPlane on drop.
+    // Never accessed, since it's a drop guard.
+    _task_count_guard: TaskCountGuard,
 }
 
 static NO_MORE_BYTES: [u8; 0] = [0u8; 0];
 
 impl WasiThread {
+    pub fn new(
+        pid: WasiProcessId,
+        id: WasiThreadId,
+        is_main: bool,
+        finished: Arc<TaskJoinHandle>,
+        guard: TaskCountGuard,
+    ) -> Self {
+        Self {
+            state: Arc::new(WasiThreadState {
+                is_main,
+                pid,
+                id,
+                finished,
+                signals: Mutex::new((Vec::new(), tokio::sync::broadcast::channel(1).0)),
+                stack: Mutex::new(ThreadStack::default()),
+                _task_count_guard: guard,
+            }),
+        }
+    }
+
     /// Returns the process ID
     pub fn pid(&self) -> WasiProcessId {
-        self.pid
+        self.state.pid
     }
 
     /// Returns the thread ID
     pub fn tid(&self) -> WasiThreadId {
-        self.id
+        self.state.id
     }
 
     /// Returns true if this thread is the main thread
     pub fn is_main(&self) -> bool {
-        self.is_main
+        self.state.is_main
+    }
+
+    // TODO: this should be private, access should go through utility methods.
+    pub fn signals(&self) -> &Mutex<(Vec<Signal>, tokio::sync::broadcast::Sender<()>)> {
+        &self.state.signals
     }
 
     /// Marks the thread as finished (which will cause anyone that
     /// joined on it to wake up)
     pub fn terminate(&self, exit_code: u32) {
-        let mut guard = self.finished.lock().unwrap();
-        if guard.0.is_none() {
-            guard.0 = Some(exit_code);
-        }
-        let _ = guard.1.send(());
+        self.state.finished.terminate(exit_code);
     }
 
     /// Waits until the thread is finished or the timeout is reached
     pub async fn join(&self) -> Option<ExitCode> {
-        loop {
-            let mut rx = {
-                let finished = self.finished.lock().unwrap();
-                if finished.0.is_some() {
-                    return finished.0.clone();
-                }
-                finished.1.subscribe()
-            };
-            if rx.recv().await.is_err() {
-                return None;
-            }
-        }
+        self.state.finished.await_termination().await
     }
 
     /// Attempts to join on the thread
     pub fn try_join(&self) -> Option<ExitCode> {
-        let guard = self.finished.lock().unwrap();
-        guard.0.clone()
+        self.state.finished.get_exit_code()
     }
 
     /// Adds a signal for this thread to process
     pub fn signal(&self, signal: Signal) {
-        let mut guard = self.signals.lock().unwrap();
+        let mut guard = self.state.signals.lock().unwrap();
         if guard.0.contains(&signal) == false {
             guard.0.push(signal);
         }
@@ -144,7 +164,7 @@ impl WasiThread {
 
     /// Returns all the signals that are waiting to be processed
     pub fn has_signal(&self, signals: &[Signal]) -> bool {
-        let guard = self.signals.lock().unwrap();
+        let guard = self.state.signals.lock().unwrap();
         for s in guard.0.iter() {
             if signals.contains(s) {
                 return true;
@@ -157,7 +177,7 @@ impl WasiThread {
     pub fn pop_signals_or_subscribe(
         &self,
     ) -> Result<Vec<Signal>, tokio::sync::broadcast::Receiver<()>> {
-        let mut guard = self.signals.lock().unwrap();
+        let mut guard = self.state.signals.lock().unwrap();
         let mut ret = Vec::new();
         std::mem::swap(&mut ret, &mut guard.0);
         match ret.is_empty() {
@@ -176,7 +196,7 @@ impl WasiThread {
         store_data: &[u8],
     ) {
         // Lock the stack
-        let mut stack = self.stack.lock().unwrap();
+        let mut stack = self.state.stack.lock().unwrap();
         let mut pstack = stack.deref_mut();
         loop {
             // First we validate if the stack is no longer valid
@@ -208,14 +228,19 @@ impl WasiThread {
                 let mut disown = Some(Box::new(new_stack));
                 if let Some(disown) = disown.as_ref() {
                     if disown.snapshots.is_empty() == false {
-                        tracing::trace!("wasi[{}]::stacks forgotten (memory_stack_before={}, memory_stack_after={})", self.pid, memory_stack_before, memory_stack_after);
+                        tracing::trace!(
+                            "wasi[{}]::stacks forgotten (memory_stack_before={}, memory_stack_after={})",
+                            self.pid(),
+                            memory_stack_before,
+                            memory_stack_after
+                        );
                     }
                 }
                 while let Some(disowned) = disown {
                     for hash in disowned.snapshots.keys() {
                         tracing::trace!(
                             "wasi[{}]::stack has been forgotten (hash={})",
-                            self.pid,
+                            self.pid(),
                             hash
                         );
                     }
@@ -256,7 +281,7 @@ impl WasiThread {
     pub fn get_snapshot(&self, hash: u128) -> Option<(BytesMut, Bytes, Bytes)> {
         let mut memory_stack = BytesMut::new();
 
-        let stack = self.stack.lock().unwrap();
+        let stack = self.state.stack.lock().unwrap();
         let mut pstack = stack.deref();
         loop {
             memory_stack.extend(pstack.memory_stack_corrected.iter());
@@ -278,11 +303,11 @@ impl WasiThread {
     // Copy the stacks from another thread
     pub fn copy_stack_from(&self, other: &WasiThread) {
         let mut stack = {
-            let stack_guard = other.stack.lock().unwrap();
+            let stack_guard = other.state.stack.lock().unwrap();
             stack_guard.clone()
         };
 
-        let mut stack_guard = self.stack.lock().unwrap();
+        let mut stack_guard = self.state.stack.lock().unwrap();
         std::mem::swap(stack_guard.deref_mut(), &mut stack);
     }
 }

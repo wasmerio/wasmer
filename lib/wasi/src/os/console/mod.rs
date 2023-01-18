@@ -18,9 +18,9 @@ use tokio::sync::{mpsc, RwLock};
 use tracing::{debug, error, info, trace, warn};
 #[cfg(feature = "sys")]
 use wasmer::Engine;
-use wasmer_vbus::{BusSpawnedProcess, SpawnOptionsConfig};
+use wasmer_vbus::{BusSpawnedProcess, SpawnOptionsConfig, VirtualBusError};
 use wasmer_vfs::{FileSystem, RootFileSystemBuilder, SpecialFile, WasiPipe};
-use wasmer_wasi_types::types::__WASI_STDIN_FILENO;
+use wasmer_wasi_types::{types::__WASI_STDIN_FILENO, wasi::BusErrno};
 
 use super::{cconst::ConsoleConst, common::*};
 use crate::{
@@ -161,8 +161,12 @@ impl Console {
 
         // Create the control plane, process and thread
         let control_plane = WasiControlPlane::default();
-        let wasi_process = control_plane.new_process();
-        let wasi_thread = wasi_process.new_thread();
+        let wasi_process = control_plane
+            .new_process()
+            .expect("creating processes on new control planes should always work");
+        let wasi_thread = wasi_process
+            .new_thread()
+            .expect("creating the main thread should always work");
 
         // Create the state
         let mut state = WasiState::builder(prog);

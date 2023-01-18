@@ -109,7 +109,13 @@ pub fn proc_spawn_internal(
     let new_store = ctx.data().runtime.new_store();
 
     // Fork the current environment and set the new arguments
-    let (mut child_env, handle) = ctx.data().fork();
+    let (mut child_env, handle) = match ctx.data().fork() {
+        Ok(x) => x,
+        Err(err) => {
+            // TODO: evaluate the appropriate error code, document it in the spec.
+            return Ok(Err(BusErrno::Denied));
+        }
+    };
     if let Some(args) = args {
         let mut child_state = env.state.fork(true);
         child_state.args = args;
