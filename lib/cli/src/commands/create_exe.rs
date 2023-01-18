@@ -224,7 +224,7 @@ impl CreateExe {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
         }
 
-        let (_, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+        let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
         println!("Format: {:?}", object_format);
@@ -271,7 +271,7 @@ impl CreateExe {
                 )
             }?;
 
-        get_module_infos(&tempdir, &atoms, object_format)?;
+        get_module_infos(&tempdir, &atoms, object_format, &store)?;
         let mut entrypoint = get_entrypoint(&tempdir)?;
         create_header_files_in_dir(&tempdir, &mut entrypoint, &atoms, &self.precompiled_atom)?;
         link_exe_from_dir(
@@ -962,14 +962,14 @@ fn get_module_infos(
     directory: &Path,
     atoms: &[(String, Vec<u8>)],
     object_format: ObjectFormat,
+    store: &Store,
 ) -> Result<BTreeMap<String, ModuleInfo>, anyhow::Error> {
     let mut entrypoint =
         get_entrypoint(directory).with_context(|| anyhow::anyhow!("get module infos"))?;
 
     let mut module_infos = BTreeMap::new();
     for (atom_name, atom_bytes) in atoms {
-        let store = Store::default();
-        let module = Module::from_binary(&store, atom_bytes.as_slice())
+        let module = Module::from_binary(store, atom_bytes.as_slice())
             .map_err(|e| anyhow::anyhow!("could not deserialize module {atom_name}: {e}"))?;
         if let Some(s) = entrypoint
             .atoms
