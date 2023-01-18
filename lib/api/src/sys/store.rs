@@ -66,13 +66,6 @@ impl Store {
         }
     }
 
-    /// Creates a new headless `Store` without any compilers enabled that can
-    /// be used to execute `Module`s, but not compile them.
-    #[cfg(feature = "compiler")]
-    pub fn headless() -> Self {
-        Self::new(EngineBuilder::headless().engine())
-    }
-
     #[cfg(feature = "compiler")]
     #[deprecated(
         since = "3.0.0",
@@ -180,11 +173,18 @@ impl Default for Store {
         #[allow(unreachable_code, unused_mut)]
         fn get_engine() -> Engine {
             cfg_if::cfg_if! {
-                if #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
-                {
-                let config = get_config();
-                EngineBuilder::new(Box::new(config) as Box<dyn wasmer_compiler::CompilerConfig>)
-                    .engine()
+                if #[cfg(feature = "compiler")] {
+                    cfg_if::cfg_if! {
+                        if #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
+                        {
+                            let config = get_config();
+                            EngineBuilder::new(Box::new(config) as Box<dyn wasmer_compiler::CompilerConfig>)
+                                .engine()
+                        } else {
+                            EngineBuilder::headless()
+                                .engine()
+                        }
+                    }
                 } else {
                     compile_error!("No compiler [cranelift, llvm, singlepass] enabled, use Store::headless() instead of Store::default() for a headless engine")
                 }
