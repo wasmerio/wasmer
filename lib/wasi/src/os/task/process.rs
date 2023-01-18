@@ -4,7 +4,7 @@ use std::{
     convert::TryInto,
     sync::{
         atomic::{AtomicU32, Ordering},
-        Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard,
+        Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
     },
     time::Duration,
 };
@@ -17,10 +17,12 @@ use wasmer_wasi_types::{
 };
 
 use crate::{
-    os::task::{control_plane::WasiControlPlane, signal::WasiSignalInterval, thread::ThreadStack},
+    os::task::{control_plane::WasiControlPlane, signal::WasiSignalInterval},
     syscalls::platform_clock_time_get,
     WasiThread, WasiThreadHandle, WasiThreadId,
 };
+
+use super::{control_plane::ControlPlaneError, task_join_handle::TaskJoinHandle};
 
 /// Represents the ID of a sub-process
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -62,6 +64,29 @@ impl std::fmt::Display for WasiProcessId {
     }
 }
 
+/// Represents a process running within the compute state
+// TODO: fields should be private and only accessed via methods.
+#[derive(Debug, Clone)]
+pub struct WasiProcess {
+    /// Unique ID of this process
+    pub(crate) pid: WasiProcessId,
+    /// ID of the parent process
+    pub(crate) ppid: WasiProcessId,
+    /// The inner protected region of the process
+    pub(crate) inner: Arc<RwLock<WasiProcessInner>>,
+    /// Reference back to the compute engine
+    // TODO: remove this reference, access should happen via separate state instead
+    // (we don't want cyclical references)
+    pub(crate) compute: WasiControlPlane,
+    /// Reference to the exit code for the main thread
+    pub(crate) finished: Arc<TaskJoinHandle>,
+    /// List of all the children spawned from this thread
+    pub(crate) children: Arc<RwLock<Vec<WasiProcessId>>>,
+    /// Number of threads waiting for children to exit
+    pub(crate) waiting: Arc<AtomicU32>,
+}
+
+// TODO: fields should be private and only accessed via methods.
 #[derive(Debug)]
 pub struct WasiProcessInner {
     /// The threads that make up this process
@@ -84,25 +109,6 @@ pub struct WasiProcessInner {
     pub bus_process_reuse: HashMap<Cow<'static, str>, WasiProcessId>,
 }
 
-/// Represents a process running within the compute state
-#[derive(Debug, Clone)]
-pub struct WasiProcess {
-    /// Unique ID of this process
-    pub(crate) pid: WasiProcessId,
-    /// ID of the parent process
-    pub(crate) ppid: WasiProcessId,
-    /// The inner protected region of the process
-    pub(crate) inner: Arc<RwLock<WasiProcessInner>>,
-    /// Reference back to the compute engine
-    pub(crate) compute: WasiControlPlane,
-    /// Reference to the exit code for the main thread
-    pub(crate) finished: Arc<Mutex<(Option<ExitCode>, tokio::sync::broadcast::Sender<()>)>>,
-    /// List of all the children spawned from this thread
-    pub(crate) children: Arc<RwLock<Vec<WasiProcessId>>>,
-    /// Number of threads waiting for children to exit
-    pub(crate) waiting: Arc<AtomicU32>,
-}
-
 pub(crate) struct WasiProcessWait {
     waiting: Arc<AtomicU32>,
 }
@@ -123,6 +129,32 @@ impl Drop for WasiProcessWait {
 }
 
 impl WasiProcess {
+    pub fn new(pid: WasiProcessId, compute: WasiControlPlane) -> Self {
+        WasiProcess {
+            pid,
+            ppid: 0u32.into(),
+            compute,
+            inner: Arc::new(RwLock::new(WasiProcessInner {
+                threads: Default::default(),
+                thread_count: Default::default(),
+                thread_seed: Default::default(),
+                thread_local: Default::default(),
+                thread_local_user_data: Default::default(),
+                thread_local_seed: Default::default(),
+                signal_intervals: Default::default(),
+                bus_processes: Default::default(),
+                bus_process_reuse: Default::default(),
+            })),
+            children: Arc::new(RwLock::new(Default::default())),
+            finished: Arc::new(TaskJoinHandle::new()),
+            waiting: Arc::new(AtomicU32::new(0)),
+        }
+    }
+
+    pub(super) fn set_pid(&mut self, pid: WasiProcessId) {
+        self.pid = pid;
+    }
+
     /// Gets the process ID of this process
     pub fn pid(&self) -> WasiProcessId {
         self.pid
@@ -134,17 +166,21 @@ impl WasiProcess {
     }
 
     /// Gains write access to the process internals
+    // TODO: Make this private, all inner access should be exposed with methods.
     pub fn write(&self) -> RwLockWriteGuard<WasiProcessInner> {
         self.inner.write().unwrap()
     }
 
     /// Gains read access to the process internals
+    // TODO: Make this private, all inner access should be exposed with methods.
     pub fn read(&self) -> RwLockReadGuard<WasiProcessInner> {
         self.inner.read().unwrap()
     }
 
     /// Creates a a thread and returns it
-    pub fn new_thread(&self) -> WasiThreadHandle {
+    pub fn new_thread(&self) -> Result<WasiThreadHandle, ControlPlaneError> {
+        let task_count_guard = self.compute.register_task()?;
+
         let mut inner = self.inner.write().unwrap();
         let id = inner.thread_seed.inc();
 
@@ -153,28 +189,18 @@ impl WasiProcess {
             is_main = true;
             self.finished.clone()
         } else {
-            Arc::new(Mutex::new((None, tokio::sync::broadcast::channel(1).0)))
+            Arc::new(TaskJoinHandle::new())
         };
 
-        let ctrl = WasiThread {
-            pid: self.pid(),
-            id,
-            is_main,
-            finished,
-            signals: Arc::new(Mutex::new((
-                Vec::new(),
-                tokio::sync::broadcast::channel(1).0,
-            ))),
-            stack: Arc::new(Mutex::new(ThreadStack::default())),
-        };
+        let ctrl = WasiThread::new(self.pid(), id, is_main, finished, task_count_guard);
         inner.threads.insert(id, ctrl.clone());
         inner.thread_count += 1;
 
-        WasiThreadHandle {
+        Ok(WasiThreadHandle {
             id: Arc::new(id),
             thread: ctrl,
             inner: self.inner.clone(),
-        }
+        })
     }
 
     /// Gets a reference to a particular thread
@@ -254,24 +280,12 @@ impl WasiProcess {
     /// Waits until the process is finished or the timeout is reached
     pub async fn join(&self) -> Option<ExitCode> {
         let _guard = WasiProcessWait::new(self);
-        loop {
-            let mut rx = {
-                let finished = self.finished.lock().unwrap();
-                if finished.0.is_some() {
-                    return finished.0.clone();
-                }
-                finished.1.subscribe()
-            };
-            if rx.recv().await.is_err() {
-                return None;
-            }
-        }
+        self.finished.await_termination().await
     }
 
     /// Attempts to join on the process
     pub fn try_join(&self) -> Option<ExitCode> {
-        let guard = self.finished.lock().unwrap();
-        guard.0.clone()
+        self.finished.get_exit_code()
     }
 
     /// Waits for all the children to be finished
@@ -299,8 +313,7 @@ impl WasiProcess {
         futures::future::join_all(waits.into_iter())
             .await
             .into_iter()
-            .filter_map(|a| a)
-            .next()
+            .find_map(|a| a)
     }
 
     /// Waits for any of the children to finished

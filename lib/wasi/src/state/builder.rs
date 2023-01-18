@@ -16,7 +16,7 @@ use wasmer_vfs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
 use crate::{
     bin_factory::ModuleCache,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
-    os::task::control_plane::WasiControlPlane,
+    os::task::control_plane::{ControlPlaneError, WasiControlPlane},
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     PluggableRuntimeImplementation, WasiEnv, WasiFunctionEnv,
@@ -95,6 +95,8 @@ pub enum WasiStateCreationError {
     FileSystemError(FsError),
     #[error("wasi inherit error: `{0}`")]
     WasiInheritError(String),
+    #[error("control plain error")]
+    ControlPlane(#[from] ControlPlaneError),
 }
 
 fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> {
@@ -612,8 +614,8 @@ impl WasiStateBuilder {
         let state = Arc::new(self.build()?);
         let runtime = state.runtime.clone();
 
-        let process = control_plane.new_process();
-        let thread = process.new_thread();
+        let process = control_plane.new_process()?;
+        let thread = process.new_thread()?;
 
         let env = WasiEnv::new_ext(
             state,

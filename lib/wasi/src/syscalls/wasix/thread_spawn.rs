@@ -44,7 +44,23 @@ pub fn thread_spawn<M: MemorySize>(
     let tasks = env.tasks.clone();
 
     // Create the handle that represents this thread
-    let mut thread_handle = env.process.new_thread();
+    let mut thread_handle = match env.process.new_thread() {
+        Ok(h) => h,
+        Err(err) => {
+            error!(
+                "wasi[{}:{}]::thread_spawn (reactor={:?}, thread_id={}, stack_base={}, caller_id={}) - failed to create thread handle: {}",
+                ctx.data().pid(),
+                ctx.data().tid(),
+                reactor,
+                ctx.data().thread.tid().raw(),
+                stack_base,
+                current_caller_id().raw(),
+                err
+            );
+            // TODO: evaluate the appropriate error code, document it in the spec.
+            return Errno::Access;
+        }
+    };
     let thread_id: Tid = thread_handle.id().into();
 
     // We need a copy of the process memory and a packaged store in order to

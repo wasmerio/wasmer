@@ -51,7 +51,18 @@ pub fn proc_fork<M: MemorySize>(
     // and associate a new context but otherwise shares things like the
     // file system interface. The handle to the forked process is stored
     // in the parent process context
-    let (mut child_env, mut child_handle) = ctx.data().fork();
+    let (mut child_env, mut child_handle) = match ctx.data().fork() {
+        Ok(p) => p,
+        Err(err) => {
+            debug!(
+                pid=%ctx.data().pid(),
+                tid=%ctx.data().tid(),
+                "could not fork process: {err}"
+            );
+            // TODO: evaluate the appropriate error code, document it in the spec.
+            return Ok(Errno::Perm);
+        }
+    };
     let child_pid = child_env.process.pid();
 
     // We write a zero to the PID before we capture the stack

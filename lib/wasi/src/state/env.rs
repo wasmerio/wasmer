@@ -22,6 +22,7 @@ use crate::{
     os::{
         command::builtins::cmd_wasmer::CmdWasmer,
         task::{
+            control_plane::ControlPlaneError,
             process::{WasiProcess, WasiProcessId},
             thread::{WasiThread, WasiThreadHandle, WasiThreadId},
         },
@@ -225,9 +226,9 @@ unsafe impl Sync for WasiEnv {}
 
 impl WasiEnv {
     /// Forking the WasiState is used when either fork or vfork is called
-    pub fn fork(&self) -> (Self, WasiThreadHandle) {
-        let process = self.process.compute.new_process();
-        let handle = process.new_thread();
+    pub fn fork(&self) -> Result<(Self, WasiThreadHandle), ControlPlaneError> {
+        let process = self.process.compute.new_process()?;
+        let handle = process.new_thread()?;
 
         let thread = handle.as_thread();
         thread.copy_stack_from(&self.thread);
@@ -240,23 +241,21 @@ impl WasiEnv {
             bin_factory
         };
 
-        (
-            Self {
-                process,
-                thread,
-                vfork: None,
-                stack_base: self.stack_base,
-                stack_start: self.stack_start,
-                bin_factory,
-                state,
-                inner: None,
-                owned_handles: Vec::new(),
-                runtime: self.runtime.clone(),
-                tasks: self.tasks.clone(),
-                capabilities: self.capabilities.clone(),
-            },
-            handle,
-        )
+        let new_env = Self {
+            process,
+            thread,
+            vfork: None,
+            stack_base: self.stack_base,
+            stack_start: self.stack_start,
+            bin_factory,
+            state,
+            inner: None,
+            owned_handles: Vec::new(),
+            runtime: self.runtime.clone(),
+            tasks: self.tasks.clone(),
+            capabilities: self.capabilities.clone(),
+        };
+        Ok((new_env, handle))
     }
 
     pub fn pid(&self) -> WasiProcessId {

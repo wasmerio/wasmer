@@ -259,7 +259,7 @@ where
     };
 
     let mut signaler = {
-        let signals = env.thread.signals.lock().unwrap();
+        let signals = env.thread.signals().lock().unwrap();
         let signaler = signals.1.subscribe();
         if signals.0.is_empty() == false {
             drop(signals);
