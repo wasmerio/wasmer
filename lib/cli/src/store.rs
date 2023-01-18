@@ -152,7 +152,7 @@ impl CompilerOptions {
                 use std::fs::File;
                 use std::io::Write;
                 use wasmer_compiler_llvm::{
-                    CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVM,
+                    CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks,
                 };
                 use wasmer_types::entity::EntityRef;
                 let mut config = LLVM::new();
