@@ -54,20 +54,6 @@ jobs:
           tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-12
           echo '/opt/llvm-12/bin' >> $GITHUB_PATH
           echo 'LLVM_SYS_120_PREFIX=/opt/llvm-12' >> $GITHUB_ENV
-      - name: Cache
-        uses: whywaita/actions-cache-s3@v2
-        with:
-          path: |
-            ~/.cargo/*
-            ./target/*
-          key: r22-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-lint-linux-x64
-          aws-s3-bucket: wasmer-github-ci-cache
-          aws-access-key-id: ${{ secrets.GOOGLE_CACHE_ID }}
-          aws-secret-access-key: ${{ secrets.GOOGLE_CACHE_SECRET }}
-          aws-region: auto
-          aws-endpoint: https://storage.googleapis.com
-          aws-s3-bucket-endpoint: false
-          aws-s3-force-path-style: true
       - run: make lint
         env:
           ENABLE_CRANELIFT: "1"
