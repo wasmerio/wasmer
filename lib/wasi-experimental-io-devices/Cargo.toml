@@ -14,7 +14,7 @@ edition = "2018"
 maintenance = { status = "experimental" }
 
 [dependencies]
-wasmer-wasi = { version = "=3.1.0", path = "../wasi", default-features=false, features = ["emscripten_cranelift", "wasi_cranelift"] }
+wasmer-wasi = { version = "=3.1.0", path = "../wasi", default-features=false }
 tracing = "0.1"
 minifb = { version = "0.23", optional = true }
 nix = "0.25.0"

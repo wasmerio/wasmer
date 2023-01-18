@@ -1,3 +1,4 @@
+#[cfg(feature = "cache")]
 use crate::common::get_cache_dir;
 #[cfg(feature = "debug")]
 use crate::logging;
@@ -10,7 +11,9 @@ use clap::Parser;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::path::PathBuf;
+#[cfg(feature = "cache")]
 use std::str::FromStr;
+#[cfg(feature = "emscripten")]
 use wasmer::FunctionEnv;
 use wasmer::*;
 #[cfg(feature = "cache")]

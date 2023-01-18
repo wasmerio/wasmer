@@ -1,4 +1,4 @@
-#![cfg(feature = "webc_runner_rt_wasi")]
+#![cfg(feature = "webc_runner_rt_emscripten")]
 //! WebC container support for running Emscripten modules
 
 use crate::runners::WapmContainer;
@@ -44,21 +44,7 @@ impl crate::runners::Runner for EmscriptenRunner {
         let main_args = container.get_main_args_for_command(command_name);
         let atom_bytes = container.get_atom(&container.get_package_name(), &atom_name)?;
 
-        #[cfg(feature = "emscripten_cranelift")]
-        let mut store = Store::new(wasmer::Cranelift::default());
-        #[cfg(feature = "emscripten_llvm")]
-        let mut store = Store::new(wasmer::Llvm::default());
-        #[cfg(feature = "emscripten_singlepass")]
-        let mut store = Store::new(wasmer::Singlepass::default());
-        #[cfg(not(any(
-            feature = "emscripten_cranelift",
-            feature = "emscripten_llvm",
-            feature = "emscripten_singlepass"
-        )))]
-        let mut store = {
-            return Err(anyhow::anyhow!("wasmer-wasi needs one of emscripten_cranelift or emscripten_llvm or emscripten_singlepass features enabled").into());
-        };
-
+        let mut store = Store::default();
         let mut module = Module::new(&store, atom_bytes)?;
         module.set_name(&atom_name);
 
