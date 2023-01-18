@@ -232,6 +232,7 @@ impl CreateExe {
             "Using path `{}` as libwasmer path.",
             cross_compilation.library.display()
         );
+        println!("store: {:#?}", store);
         if !cross_compilation.library.exists() {
             return Err(anyhow::anyhow!("library path does not exist"));
         }
