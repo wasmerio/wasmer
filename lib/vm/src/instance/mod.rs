@@ -1040,6 +1040,19 @@ pub struct InstanceHandle {
     instance: NonNull<Instance>,
 }
 
+/// InstanceHandle are created with an InstanceAllocator
+/// and it will "consume" the memory
+/// So the Drop here actualy free it (else it would be leaked)
+impl Drop for InstanceHandle {
+    fn drop(&mut self) {
+        let instance_ptr = self.instance.as_ptr();
+
+        unsafe {
+            std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
+        }
+    }
+}
+
 impl InstanceHandle {
     /// Create a new `InstanceHandle` pointing at a new [`InstanceRef`].
     ///
