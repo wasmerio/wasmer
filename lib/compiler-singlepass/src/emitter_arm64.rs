@@ -1596,7 +1596,6 @@ impl EmitterARM64 for Assembler {
         }
         Ok(())
     }
-    #[allow(clippy::unnecessary_cast)]
     fn emit_add_lsl(
         &mut self,
         sz: Size,
@@ -1624,7 +1623,6 @@ impl EmitterARM64 for Assembler {
         Ok(())
     }
 
-    #[allow(clippy::unnecessary_cast)]
     fn emit_cmp(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
@@ -1664,7 +1662,7 @@ impl EmitterARM64 for Assembler {
                 if imm >= 0x1000 {
                     codegen_error!("singlepass CMP with imm too large {}", imm);
                 }
-                dynasm!(self ; cmp W(dst), imm as u32);
+                dynasm!(self ; cmp W(dst), imm);
             }
             _ => codegen_error!("singlepass can't emit CMP {:?} {:?} {:?}", sz, src, dst),
         }
@@ -1783,7 +1781,6 @@ impl EmitterARM64 for Assembler {
         }
         Ok(())
     }
-    #[allow(clippy::unnecessary_cast)]
     fn emit_asr(
         &mut self,
         sz: Size,
@@ -1800,7 +1797,6 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
-                let imm = imm as u32;
                 let dst = dst.into_index() as u32;
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass ASR with incompatible imm {}", imm);
@@ -1859,7 +1855,6 @@ impl EmitterARM64 for Assembler {
         }
         Ok(())
     }
-    #[allow(clippy::unnecessary_cast)]
     fn emit_lsr(
         &mut self,
         sz: Size,
@@ -1876,7 +1871,6 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
-                let imm = imm as u32;
                 let dst = dst.into_index() as u32;
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass LSR with incompatible imm {}", imm);
@@ -1923,7 +1917,7 @@ impl EmitterARM64 for Assembler {
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass LSR with incompatible imm {}", imm);
                 }
-                dynasm!(self ; lsr W(dst), W(src1), imm as u32);
+                dynasm!(self ; lsr W(dst), W(src1), imm);
             }
             _ => codegen_error!(
                 "singlepass can't emit LSR {:?} {:?} {:?} {:?}",
@@ -1935,7 +1929,6 @@ impl EmitterARM64 for Assembler {
         }
         Ok(())
     }
-    #[allow(clippy::unnecessary_cast)]
     fn emit_ror(
         &mut self,
         sz: Size,
@@ -1953,7 +1946,6 @@ impl EmitterARM64 for Assembler {
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
-                let imm = imm as u32;
                 let dst = dst.into_index() as u32;
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass ROR with incompatible imm {}", imm);
@@ -1967,7 +1959,7 @@ impl EmitterARM64 for Assembler {
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass ROR with incompatible imm {}", imm);
                 }
-                dynasm!(self ; ror W(dst), W(src1), imm as u32);
+                dynasm!(self ; ror W(dst), W(src1), imm);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
@@ -2004,7 +1996,6 @@ impl EmitterARM64 for Assembler {
         Ok(())
     }
 
-    #[allow(clippy::unnecessary_cast)]
     fn emit_or(
         &mut self,
         sz: Size,
@@ -2021,16 +2012,16 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
-                let src2 = src2 as u64;
+                let src2 = src2;
                 let dst = dst.into_index() as u32;
-                if encode_logical_immediate_64bit(src2 as u64).is_none() {
+                if encode_logical_immediate_64bit(src2).is_none() {
                     codegen_error!("singlepass OR with incompatible imm {}", src2);
                 }
                 dynasm!(self ; orr X(dst), X(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
-                let src2 = src2 as u32;
+                let src2 = src2;
                 let dst = dst.into_index() as u32;
                 if encode_logical_immediate_32bit(src2).is_none() {
                     codegen_error!("singlepass OR with incompatible imm {}", src2);
@@ -2053,7 +2044,6 @@ impl EmitterARM64 for Assembler {
         }
         Ok(())
     }
-    #[allow(clippy::unnecessary_cast)]
     fn emit_and(
         &mut self,
         sz: Size,
@@ -2070,16 +2060,16 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
-                let src2 = src2 as u64;
+                let src2 = src2;
                 let dst = dst.into_index() as u32;
-                if encode_logical_immediate_64bit(src2 as u64).is_none() {
+                if encode_logical_immediate_64bit(src2).is_none() {
                     codegen_error!("singlepass AND with incompatible imm {}", src2);
                 }
                 dynasm!(self ; and X(dst), X(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
-                let src2 = src2 as u32;
+                let src2 = src2;
                 let dst = dst.into_index() as u32;
                 if encode_logical_immediate_32bit(src2).is_none() {
                     codegen_error!("singlepass AND with incompatible imm {}", src2);
@@ -2102,7 +2092,6 @@ impl EmitterARM64 for Assembler {
         }
         Ok(())
     }
-    #[allow(clippy::unnecessary_cast)]
     fn emit_eor(
         &mut self,
         sz: Size,
@@ -2119,16 +2108,16 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
-                let src2 = src2 as u64;
+                let src2 = src2;
                 let dst = dst.into_index() as u32;
-                if encode_logical_immediate_64bit(src2 as u64).is_none() {
+                if encode_logical_immediate_64bit(src2).is_none() {
                     codegen_error!("singlepass EOR with incompatible imm {}", src2);
                 }
                 dynasm!(self ; eor X(dst), X(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
-                let src2 = src2 as u32;
+                let src2 = src2;
                 let dst = dst.into_index() as u32;
                 if encode_logical_immediate_32bit(src2).is_none() {
                     codegen_error!("singlepass EOR with incompatible imm {}", src2);
@@ -3218,7 +3207,6 @@ impl EmitterARM64 for Assembler {
     }
 }
 
-#[allow(clippy::unnecessary_cast)]
 pub fn gen_std_trampoline_arm64(
     sig: &FunctionType,
     calling_convention: CallingConvention,
@@ -3327,7 +3315,7 @@ pub fn gen_std_trampoline_arm64(
     dynasm!(a
         ; ldp X(fptr as u32), X(args as u32), [x29, 16]
         ; ldp x29, x30, [x29]
-        ; add sp, sp, 32 + stack_offset as u32
+        ; add sp, sp, 32 + stack_offset
         ; ret
     );
 
