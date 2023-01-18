@@ -22,3 +22,5 @@ wapm.toml
 build-capi.tar.gz
 build-wasmer.tar.gz
 lcov.info
+.llvm
+llvm.tar.gz
