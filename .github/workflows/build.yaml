@@ -34,32 +34,85 @@ jobs:
           echo $DOING_RELEASE
 
   lint:
-    name: Code lint
-    runs-on: ubuntu-22.04
+    name: Code lint on ${{ matrix.metadata.build }}
+    runs-on: ${{ matrix.metadata.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        metadata: [
+          { 
+            build: linux-x64, 
+            os: ubuntu-22.04, 
+            target: x86_64-unknown-linux-gnu,  
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
+          },
+          {
+            build: linux-musl,
+            target: x86_64-unknown-linux-musl,
+            os: ubuntu-22.04,
+            container: 'alpine:latest'
+          },
+          {
+            build: macos-x64,
+            os: macos-11,
+            target: x86_64-apple-darwin,
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+          },
+          {
+            build: macos-arm,
+            os: macos-11,
+            target: aarch64-apple-darwin,
+          },
+          {
+            build: windows-x64,
+            os: windows-2019,
+            target: x86_64-pc-windows-msvc,
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-windows-amd64.tar.xz'
+          },
+          {
+            build: windows-gnu,
+            target: x86_64-pc-windows-gnu,
+            os: ubuntu-22.04,
+          }
+        ]
     steps:
       - uses: actions/checkout@v3
+      - name: Set up base deps on musl
+        if: matrix.metadata.build == 'linux-musl'
+        run: |
+            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.64
+          target: ${{ matrix.metadata.target }}
           components: rustfmt, clippy
       - name: Install libtinfo
+        if: ${{ matrix.metadata.build }} == 'linux-x64' || ${{ matrix.metadata.build }} == 'linux-musl'
         shell: bash
         run: |
           sudo apt install -y libtinfo5
-      - name: Install LLVM (Linux)
+      - name: Install LLVM
+        if: matrix.metadata.llvm_url
+        shell: bash
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz -L -o /opt/llvm.tar.xz
-          mkdir -p /opt/llvm-12
-          tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-12
-          echo '/opt/llvm-12/bin' >> $GITHUB_PATH
-          echo 'LLVM_SYS_120_PREFIX=/opt/llvm-12' >> $GITHUB_ENV
+          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.metadata.llvm_url }} -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
       - run: make lint
+        shell: bash
         env:
           ENABLE_CRANELIFT: "1"
           ENABLE_LLVM: "1"
           ENABLE_SINGLEPASS: "1"
       - name: Assert no files have changed
+        shell: bash
         run: |
           git status
           ! [[ $(git status -s) ]]
