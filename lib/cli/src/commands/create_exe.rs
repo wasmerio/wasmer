@@ -224,7 +224,29 @@ impl CreateExe {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
         }
 
-        let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+        let (_, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+
+        fn get_config() -> impl wasmer_compiler::CompilerConfig + 'static {
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "cranelift")] {
+                    wasmer_compiler_cranelift::Cranelift::default()
+                } else if #[cfg(feature = "llvm")] {
+                    wasmer_compiler_llvm::LLVM::default()
+                } else if #[cfg(feature = "singlepass")] {
+                    wasmer_compiler_singlepass::Singlepass::default()
+                } else {
+                    compile_error!("No default compiler chosen")
+                }
+            }
+        }
+
+        let engine =
+            EngineBuilder::new(Box::new(get_config()) as Box<dyn wasmer_compiler::CompilerConfig>)
+                .engine();
+
+        let tunables = BaseTunables::for_target(engine.target());
+        let store = Store::new_with_tunables(&engine, tunables);
+
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {:?}", target);
         println!("Format: {:?}", object_format);
