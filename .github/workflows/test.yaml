@@ -593,3 +593,96 @@ jobs:
           CARGO_TARGET: ${{ matrix.target }}
           WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release:
+    needs: [cargo_deny, lint, test_nodejs, test_wasm_build, build_linux_aarch64, build, test, test_integration_cli]
+    runs-on: ubuntu-latest
+    if: needs.setup.outputs.DOING_RELEASE == '1' || github.event.inputs.release != ''
+    steps:
+      - name: Download the Artifacts
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.setup.outputs.VERSION }}
+          release_name: Release ${{ needs.setup.outputs.VERSION }}
+          draft: true
+          prerelease: false
+      - name: Upload Release Asset Windows Installer
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-windows-amd64/WasmerInstaller.exe
+          asset_name: wasmer-windows.exe
+          asset_content_type: application/vnd.microsoft.portable-executable
+      - name: Upload Release Asset Windows
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-windows-amd64/wasmer.tar.gz
+          asset_name: wasmer-windows-amd64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset Linux amd64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-linux-amd64/wasmer.tar.gz
+          asset_name: wasmer-linux-amd64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset Linux aarch64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-linux-aarch64/wasmer.tar.gz
+          asset_name: wasmer-linux-aarch64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset Windows gnu64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-windows-gnu64/wasmer.tar.gz
+          asset_name: wasmer-windows-gnu64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset Linux amd64 (musl)
+        id: upload-release-asset-linux-musl-amd64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-linux-musl-amd64/wasmer.tar.gz
+          asset_name: wasmer-linux-musl-amd64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset Mac amd64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-darwin-amd64/wasmer.tar.gz
+          asset_name: wasmer-darwin-amd64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset Mac arm64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-darwin-arm64/wasmer.tar.gz
+          asset_name: wasmer-darwin-arm64.tar.gz
+          asset_content_type: application/gzip
