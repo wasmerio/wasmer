@@ -267,7 +267,7 @@ impl EngineInner {
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
         match self.compiler.as_ref() {
             None => Err(CompileError::Codegen(
-                "The Engine is not compiled in.".to_string(),
+                "No compiler compiled into executable".to_string(),
             )),
             Some(compiler) => Ok(&**compiler),
         }
