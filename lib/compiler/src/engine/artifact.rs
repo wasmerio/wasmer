@@ -77,8 +77,7 @@ impl Artifact {
             engine.target(),
             memory_styles,
             table_styles,
-        )?
-        .with_module_start(tunables.module_start());
+        )?;
 
         Self::from_parts(&mut inner_engine, artifact)
     }
@@ -715,7 +714,6 @@ impl Artifact {
             compile_info: metadata.compile_info,
             data_initializers: metadata.data_initializers,
             cpu_features: metadata.cpu_features,
-            module_start: None,
         });
 
         let finished_function_lengths = finished_functions
