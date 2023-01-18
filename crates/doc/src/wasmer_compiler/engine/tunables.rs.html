@@ -351,11 +351,6 @@
 <span id="351">351</span>
 <span id="352">352</span>
 <span id="353">353</span>
-<span id="354">354</span>
-<span id="355">355</span>
-<span id="356">356</span>
-<span id="357">357</span>
-<span id="358">358</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::engine::error::LinkError</span>;
 <span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
@@ -371,11 +366,6 @@
 <span class="doccomment">/// An engine delegates the creation of memories, tables, and globals</span>
 <span class="doccomment">/// to a foreign implementor of this trait.</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Tunables</span> {
-    <span class="doccomment">/// Fixed virtual memory address for the compiled module</span>
-    <span class="kw">fn</span> <span class="ident">module_start</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Pages</span><span class="op">&gt;</span> {
-        <span class="prelude-val">None</span>
-    }
-
     <span class="doccomment">/// Construct a `MemoryStyle` for the provided `MemoryType`</span>
     <span class="kw">fn</span> <span class="ident">memory_style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>) -&gt; <span class="ident">MemoryStyle</span>;
 

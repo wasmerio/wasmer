@@ -232,11 +232,7 @@
 <span id="232">232</span>
 <span id="233">233</span>
 <span id="234">234</span>
-<span id="235">235</span>
-<span id="236">236</span>
-<span id="237">237</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::entity::PrimaryMap</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Pages</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">compilation::target::CpuFeature</span>, <span class="ident">CompileModuleInfo</span>, <span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">CustomSection</span>,
     <span class="ident">DeserializeError</span>, <span class="ident">Dwarf</span>, <span class="ident">Features</span>, <span class="ident">FunctionBody</span>, <span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>,
@@ -299,8 +295,6 @@
     <span class="kw">pub</span> <span class="ident">data_initializers</span>: <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">OwnedDataInitializer</span>]<span class="op">&gt;</span>,
     <span class="doccomment">/// CPU Feature flags for this compilation</span>
     <span class="kw">pub</span> <span class="ident">cpu_features</span>: <span class="ident">u64</span>,
-    <span class="doccomment">/// The start memory address of this serializable module</span>
-    <span class="kw">pub</span> <span class="ident">module_start</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Pages</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">fn</span> <span class="ident">to_serialize_error</span>(<span class="ident">err</span>: <span class="kw">impl</span> <span class="ident">std::error::Error</span>) -&gt; <span class="ident">SerializeError</span> {

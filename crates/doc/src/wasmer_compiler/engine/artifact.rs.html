@@ -732,8 +732,6 @@
 <span id="732">732</span>
 <span id="733">733</span>
 <span id="734">734</span>
-<span id="735">735</span>
-<span id="736">736</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`</span>
 <span class="doccomment">//! to allow compiling and instantiating to be done as separate steps.</span>
 
@@ -813,8 +811,7 @@
             <span class="ident">engine</span>.<span class="ident">target</span>(),
             <span class="ident">memory_styles</span>,
             <span class="ident">table_styles</span>,
-        )<span class="question-mark">?</span>
-        .<span class="ident">with_module_start</span>(<span class="ident">tunables</span>.<span class="ident">module_start</span>());
+        )<span class="question-mark">?</span>;
 
         <span class="ident"><span class="self">Self</span>::from_parts</span>(<span class="kw-2">&amp;mut</span> <span class="ident">inner_engine</span>, <span class="ident">artifact</span>)
     }
@@ -1448,7 +1445,6 @@
             <span class="ident">compile_info</span>: <span class="ident">metadata</span>.<span class="ident">compile_info</span>,
             <span class="ident">data_initializers</span>: <span class="ident">metadata</span>.<span class="ident">data_initializers</span>,
             <span class="ident">cpu_features</span>: <span class="ident">metadata</span>.<span class="ident">cpu_features</span>,
-            <span class="ident">module_start</span>: <span class="prelude-val">None</span>,
         });
 
         <span class="kw">let</span> <span class="ident">finished_function_lengths</span> <span class="op">=</span> <span class="ident">finished_functions</span>
