@@ -21,6 +21,7 @@ pub struct X86_64SystemV {}
 
 impl Abi for X86_64SystemV {
     // Given a function definition, retrieve the parameter that is the vmctx pointer.
+    #[allow(clippy::bool_to_int_with_if)]
     fn get_vmctx_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
         func_value
             .get_nth_param(u32::from(
