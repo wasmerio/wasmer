@@ -89,7 +89,7 @@ jobs:
           target: ${{ matrix.metadata.target }}
           components: rustfmt, clippy
       - name: Install libtinfo
-        if: ${{ matrix.metadata.build }} == 'linux-x64' || ${{ matrix.metadata.build }} == 'linux-musl'
+        if: matrix.metadata.build == 'linux-x64' || matrix.metadata.build == 'linux-musl'
         shell: bash
         run: |
           sudo apt install -y libtinfo5
