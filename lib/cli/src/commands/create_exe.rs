@@ -969,6 +969,7 @@ fn get_module_infos(
     let mut module_infos = BTreeMap::new();
     for (atom_name, atom_bytes) in atoms {
         let store = Store::default();
+        println!("correct store was {:#?}", store);
         let module = Module::from_binary(&store, atom_bytes.as_slice())
             .map_err(|e| anyhow::anyhow!("could not deserialize module {atom_name}: {e}"))?;
         if let Some(s) = entrypoint
