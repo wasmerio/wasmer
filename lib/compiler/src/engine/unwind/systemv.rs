@@ -36,7 +36,7 @@ impl UnwindRegistry {
     ) -> Result<(), String> {
         match info {
             CompiledFunctionUnwindInfo::Dwarf => {}
-            _ => return Err("unsupported unwind information".to_string()),
+            _ => return Err(format!("unsupported unwind information {info:?}")),
         };
         Ok(())
     }

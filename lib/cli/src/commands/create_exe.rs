@@ -224,9 +224,11 @@ impl CreateExe {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
         }
 
-        let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+        let (store, compiler_type) = self
+            .compiler
+            .get_store_for_target(Target::new(target_triple, Default::default()))?;
         println!("Compiler: {}", compiler_type.to_string());
-        println!("Target: {}", target.triple());
+        println!("Target: {:?}", target);
         println!("Format: {:?}", object_format);
         println!(
             "Using path `{}` as libwasmer path.",
