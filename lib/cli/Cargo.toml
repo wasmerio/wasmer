@@ -149,17 +149,14 @@ experimental-io-devices = [
 ]
 singlepass = [
     "wasmer-compiler-singlepass",
-    "wasmer/singlepass",
     "compiler",
 ]
 cranelift = [
     "wasmer-compiler-cranelift",
-    "wasmer/cranelift",
     "compiler",
 ]
 llvm = [
     "wasmer-compiler-llvm",
-    "wasmer/llvm",
     "compiler",
 ]
 debug = ["fern", "wasmer-wasi/logging"]

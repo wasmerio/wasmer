@@ -352,7 +352,7 @@ impl RunWithPathBuf {
                 return r;
             }
 
-            let mut runner = wasmer_wasi::runners::wasi::WasiRunner::default();
+            let mut runner = wasmer_wasi::runners::wasi::WasiRunner::new(Store::default());
             runner.set_args(args.to_vec());
             result = Some(if id.is_empty() {
                 runner.run(&container).map_err(|e| format!("{e}"))
@@ -367,7 +367,8 @@ impl RunWithPathBuf {
                 return r;
             }
 
-            let mut runner = wasmer_wasi::runners::emscripten::EmscriptenRunner::default();
+            let mut runner =
+                wasmer_wasi::runners::emscripten::EmscriptenRunner::new(Store::default());
             runner.set_args(args.to_vec());
             result = Some(if id.is_empty() {
                 runner.run(&container).map_err(|e| format!("{e}"))

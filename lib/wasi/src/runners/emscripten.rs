@@ -13,12 +13,34 @@ use wasmer_emscripten::{
 };
 use webc::{Command, WebCMmap};
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Hash, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct EmscriptenRunner {
     args: Vec<String>,
+    #[serde(skip, default)]
+    store: Store,
 }
 
 impl EmscriptenRunner {
+    /// Constructs a new `EmscriptenRunner` given an `Engine`
+    pub fn new(store: Store) -> Self {
+        Self {
+            args: Vec::new(),
+            store,
+        }
+    }
+
+    /// Returns the current arguments for this `EmscriptenRunner`
+    pub fn get_args(&self) -> Vec<String> {
+        self.args.clone()
+    }
+
+    /// Builder method to provide CLI args to the runner
+    pub fn with_args(mut self, args: Vec<String>) -> Self {
+        self.set_args(args);
+        self
+    }
+
+    /// Set the CLI args
     pub fn set_args(&mut self, args: Vec<String>) {
         self.args = args;
     }
@@ -44,15 +66,14 @@ impl crate::runners::Runner for EmscriptenRunner {
         let main_args = container.get_main_args_for_command(command_name);
         let atom_bytes = container.get_atom(&container.get_package_name(), &atom_name)?;
 
-        let mut store = Store::default();
-        let mut module = Module::new(&store, atom_bytes)?;
+        let mut module = Module::new(&self.store, atom_bytes)?;
         module.set_name(&atom_name);
 
         let (mut globals, env) =
-            prepare_emscripten_env(&mut store, &module, container.webc.clone(), &atom_name)?;
+            prepare_emscripten_env(&mut self.store, &module, container.webc.clone(), &atom_name)?;
 
         exec_module(
-            &mut store,
+            &mut self.store,
             &module,
             &mut globals,
             env,

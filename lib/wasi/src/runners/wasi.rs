@@ -11,12 +11,34 @@ use wasmer::{Instance, Module, Store};
 use wasmer_vfs::webc_fs::WebcFileSystem;
 use webc::{Command, WebCMmap};
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Hash, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct WasiRunner {
     args: Vec<String>,
+    #[serde(skip, default)]
+    store: Store,
 }
 
 impl WasiRunner {
+    /// Constructs a new `WasiRunner` given an `Engine`
+    pub fn new(store: Store) -> Self {
+        Self {
+            args: Vec::new(),
+            store,
+        }
+    }
+
+    /// Returns the current arguments for this `WasiRunner`
+    pub fn get_args(&self) -> Vec<String> {
+        self.args.clone()
+    }
+
+    /// Builder method to provide CLI args to the runner
+    pub fn with_args(mut self, args: Vec<String>) -> Self {
+        self.set_args(args);
+        self
+    }
+
+    /// Set the CLI args
     pub fn set_args(&mut self, args: Vec<String>) {
         self.args = args;
     }
@@ -43,13 +65,17 @@ impl crate::runners::Runner for WasiRunner {
         let atom_name = container.get_atom_name_for_command("wasi", command_name)?;
         let atom_bytes = container.get_atom(&container.get_package_name(), &atom_name)?;
 
-        let mut store = Store::default();
-        let mut module = Module::new(&store, atom_bytes)?;
+        let mut module = Module::new(&self.store, atom_bytes)?;
         module.set_name(&atom_name);
 
-        let env = prepare_webc_env(&mut store, container.webc.clone(), &atom_name, &self.args)?;
+        let env = prepare_webc_env(
+            &mut self.store,
+            container.webc.clone(),
+            &atom_name,
+            &self.args,
+        )?;
 
-        exec_module(&mut store, &module, env)?;
+        exec_module(&mut self.store, &module, env)?;
 
         Ok(())
     }
