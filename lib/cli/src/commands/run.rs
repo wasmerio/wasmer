@@ -7,7 +7,6 @@ use crate::suggestions::suggest_function_exports;
 use crate::warning;
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-use std::collections::HashMap;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -121,7 +120,7 @@ impl RunWithPathBuf {
 
             #[cfg(feature = "wasi")]
             {
-                let default = HashMap::default();
+                let default = indexmap::IndexMap::default();
                 let fs = manifest.fs.as_ref().unwrap_or(&default);
                 for (alias, real_dir) in fs.iter() {
                     let real_dir = self_clone.path.join(&real_dir);

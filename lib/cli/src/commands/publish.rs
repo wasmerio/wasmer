@@ -215,7 +215,7 @@ fn construct_tar_gz(
     }
 
     // bundle the package filesystem
-    let default = std::collections::HashMap::default();
+    let default = indexmap::IndexMap::default();
     for (_alias, path) in manifest.fs.as_ref().unwrap_or(&default).iter() {
         let normalized_path = normalize_path(cwd, path);
         let path_metadata = normalized_path.metadata().map_err(|_| {
