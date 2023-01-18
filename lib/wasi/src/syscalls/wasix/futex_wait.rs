@@ -31,23 +31,6 @@ pub fn futex_wait<M: MemorySize>(
 
     let pointer: u64 = wasi_try_ok!(futex_ptr.offset().try_into().map_err(|_| Errno::Overflow));
 
-    // Register the waiting futex (if its not already registered)
-    let futex = {
-        use std::collections::hash_map::Entry;
-        let mut guard = state.futexs.lock().unwrap();
-        match guard.entry(pointer) {
-            Entry::Occupied(entry) => entry.get().clone(),
-            Entry::Vacant(entry) => {
-                let futex = WasiFutex {
-                    refcnt: Arc::new(AtomicU32::new(1)),
-                    inner: Arc::new(Mutex::new(tokio::sync::broadcast::channel(1).0)),
-                };
-                entry.insert(futex.clone());
-                futex
-            }
-        }
-    };
-
     // Determine the timeout
     let timeout = {
         let memory = env.memory_view(&ctx);
@@ -62,11 +45,23 @@ pub fn futex_wait<M: MemorySize>(
     let mut woken = Bool::False;
     let start = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1).unwrap() as u128;
     loop {
+        // Register the waiting futex (if its not already registered)
         let mut rx = {
-            let futex_lock = futex.inner.lock().unwrap();
+            use std::collections::hash_map::Entry;
+            let mut guard = state.futexs.write().unwrap();
+            if guard.contains_key(&pointer) == false {
+                let futex = WasiFutex {
+                    refcnt: AtomicU32::new(1),
+                    waker: tokio::sync::broadcast::channel(1).0,
+                };
+                guard.insert(pointer, futex);
+            }
+            let futex = guard.get_mut(&pointer).unwrap();
+
             // If the value of the memory is no longer the expected value
             // then terminate from the loop (we do this under a futex lock
             // so that its protected)
+            let rx = futex.waker.subscribe();
             {
                 let view = env.memory_view(&ctx);
                 let val = wasi_try_mem_ok!(futex_ptr.read(&view));
@@ -75,7 +70,7 @@ pub fn futex_wait<M: MemorySize>(
                     break;
                 }
             }
-            futex_lock.subscribe()
+            rx
         };
 
         // Check if we have timed out
@@ -91,16 +86,16 @@ pub fn futex_wait<M: MemorySize>(
         }
 
         // Now wait for it to be triggered
-        wasi_try_ok!(__asyncify(&mut ctx, sub_timeout, async move {
-            let _ = rx.recv().await;
+        __asyncify(&mut ctx, sub_timeout, async move {
+            rx.recv().await.ok();
             Ok(())
-        })?);
+        })?;
         env = ctx.data();
     }
 
     // Drop the reference count to the futex (and remove it if the refcnt hits zero)
     {
-        let mut guard = state.futexs.lock().unwrap();
+        let mut guard = state.futexs.write().unwrap();
         if guard
             .get(&pointer)
             .map(|futex| futex.refcnt.fetch_sub(1, Ordering::AcqRel) == 1)

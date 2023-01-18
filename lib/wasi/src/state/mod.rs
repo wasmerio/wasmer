@@ -154,10 +154,10 @@ pub(crate) struct WasiStateThreading {
 
 /// Represents a futex which will make threads wait for completion in a more
 /// CPU efficient manner
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct WasiFutex {
-    pub(crate) refcnt: Arc<AtomicU32>,
-    pub(crate) inner: Arc<Mutex<tokio::sync::broadcast::Sender<()>>>,
+    pub(crate) refcnt: AtomicU32,
+    pub(crate) waker: tokio::sync::broadcast::Sender<()>,
 }
 
 #[derive(Debug)]
@@ -251,7 +251,7 @@ pub struct WasiState {
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) threading: RwLock<WasiStateThreading>,
-    pub(crate) futexs: Mutex<HashMap<u64, WasiFutex>>,
+    pub(crate) futexs: RwLock<HashMap<u64, WasiFutex>>,
     pub(crate) clock_offset: Mutex<HashMap<Snapshot0Clockid, i64>>,
     pub(crate) bus: WasiBusState,
     pub args: Vec<String>,

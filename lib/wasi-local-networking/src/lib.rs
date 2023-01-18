@@ -255,7 +255,10 @@ pub struct LocalTcpStream {
     connect_timeout: Option<Duration>,
     linger_timeout: Option<Duration>,
     nonblocking: bool,
+    sent_eof: bool,
     shutdown: Option<Shutdown>,
+    tx_recv: mpsc::UnboundedSender<Result<SocketReceive>>,
+    rx_recv: mpsc::UnboundedReceiver<Result<SocketReceive>>,
     tx_write_ready: mpsc::Sender<()>,
     rx_write_ready: mpsc::Receiver<()>,
     tx_write_poll_ready: mpsc::Sender<()>,
@@ -264,6 +267,7 @@ pub struct LocalTcpStream {
 
 impl LocalTcpStream {
     pub fn new(stream: tokio::net::TcpStream, addr: SocketAddr, nonblocking: bool) -> Self {
+        let (tx_recv, rx_recv) = mpsc::unbounded_channel();
         let (tx_write_ready, rx_write_ready) = mpsc::channel(1);
         let (tx_write_poll_ready, rx_write_poll_ready) = mpsc::channel(1);
         Self {
@@ -275,10 +279,13 @@ impl LocalTcpStream {
             linger_timeout: None,
             nonblocking,
             shutdown: None,
+            sent_eof: false,
             tx_write_ready,
             rx_write_ready,
             tx_write_poll_ready,
             rx_write_poll_ready,
+            tx_recv,
+            rx_recv,
         }
     }
 }
@@ -352,6 +359,80 @@ impl VirtualTcpSocket for LocalTcpStream {
 
     fn is_closed(&self) -> bool {
         false
+    }
+}
+
+impl LocalTcpStream {
+    async fn recv_now_ext(
+        nonblocking: bool,
+        stream: &mut tokio::net::TcpStream,
+        timeout: Option<Duration>,
+    ) -> Result<SocketReceive> {
+        if nonblocking {
+            let max_buf_size = 8192;
+            let mut buf = Vec::with_capacity(max_buf_size);
+            unsafe {
+                buf.set_len(max_buf_size);
+            }
+
+            let waker = unsafe { Waker::from_raw(RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE)) };
+            let mut cx = Context::from_waker(&waker);
+            let stream = Pin::new(stream);
+            let mut read_buf = tokio::io::ReadBuf::new(&mut buf);
+            return match stream.poll_read(&mut cx, &mut read_buf) {
+                Poll::Ready(Ok(read)) => {
+                    let read = read_buf.remaining();
+                    unsafe {
+                        buf.set_len(read);
+                    }
+                    if read == 0 {
+                        return Err(NetworkError::WouldBlock);
+                    }
+                    let buf = Bytes::from(buf);
+                    Ok(SocketReceive {
+                        data: buf,
+                        truncated: read == max_buf_size,
+                    })
+                }
+                Poll::Ready(Err(err)) => Err(io_err_into_net_error(err)),
+                Poll::Pending => Err(NetworkError::WouldBlock),
+            };
+        } else {
+            Self::recv_now(stream, timeout).await
+        }
+    }
+
+    async fn recv_now(
+        stream: &mut tokio::net::TcpStream,
+        timeout: Option<Duration>,
+    ) -> Result<SocketReceive> {
+        use tokio::io::AsyncReadExt;
+        let max_buf_size = 8192;
+        let mut buf = Vec::with_capacity(max_buf_size);
+        unsafe {
+            buf.set_len(max_buf_size);
+        }
+
+        let work = async move {
+            match timeout {
+                Some(timeout) => tokio::time::timeout(timeout, stream.read(&mut buf[..]))
+                    .await
+                    .map_err(|_| Into::<std::io::Error>::into(std::io::ErrorKind::TimedOut))?,
+                None => stream.read(&mut buf[..]).await,
+            }
+            .map(|read| {
+                unsafe {
+                    buf.set_len(read);
+                }
+                Bytes::from(buf)
+            })
+        };
+
+        let buf = work.await.map_err(io_err_into_net_error)?;
+        Ok(SocketReceive {
+            truncated: buf.len() == max_buf_size,
+            data: buf,
+        })
     }
 }
 
@@ -432,155 +513,40 @@ impl VirtualConnectedSocket for LocalTcpStream {
     }
 
     async fn recv(&mut self) -> Result<SocketReceive> {
-        use tokio::io::AsyncReadExt;
-        let max_buf_size = 8192;
-        let mut buf = Vec::with_capacity(max_buf_size);
-        unsafe {
-            buf.set_len(max_buf_size);
+        if let Ok(ret) = self.rx_recv.try_recv() {
+            return ret;
         }
 
-        let nonblocking = self.nonblocking;
-        if nonblocking {
-            let waker = unsafe { Waker::from_raw(RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE)) };
-            let mut cx = Context::from_waker(&waker);
-            let stream = Pin::new(&mut self.stream);
-            let mut read_buf = tokio::io::ReadBuf::new(&mut buf);
-            return match stream.poll_read(&mut cx, &mut read_buf) {
-                Poll::Ready(Ok(read)) => {
-                    let read = read_buf.remaining();
-                    unsafe {
-                        buf.set_len(read);
-                    }
-                    if read == 0 {
-                        return Err(NetworkError::WouldBlock);
-                    }
-                    let buf = Bytes::from(buf);
-                    Ok(SocketReceive {
-                        data: buf,
-                        truncated: read == max_buf_size,
-                    })
-                }
-                Poll::Ready(Err(err)) => Err(io_err_into_net_error(err)),
-                Poll::Pending => Err(NetworkError::WouldBlock),
-            };
+        tokio::select! {
+            ret = Self::recv_now_ext(
+                self.nonblocking,
+                &mut self.stream,
+                self.read_timeout.clone(),
+            ) => ret,
+            ret = self.rx_recv.recv() => ret.unwrap_or(Err(NetworkError::ConnectionAborted))
         }
-
-        let timeout = self.write_timeout.clone();
-        let work = async move {
-            match timeout {
-                Some(timeout) => tokio::time::timeout(timeout, self.stream.read(&mut buf[..]))
-                    .await
-                    .map_err(|_| Into::<std::io::Error>::into(std::io::ErrorKind::WouldBlock))?,
-                None => self.stream.read(&mut buf[..]).await,
-            }
-            .map(|read| {
-                unsafe {
-                    buf.set_len(read);
-                }
-                Bytes::from(buf)
-            })
-        };
-
-        let buf = work.await.map_err(io_err_into_net_error)?;
-        if buf.is_empty() {
-            if nonblocking {
-                return Err(NetworkError::WouldBlock);
-            } else {
-                return Err(NetworkError::BrokenPipe);
-            }
-        }
-        Ok(SocketReceive {
-            truncated: buf.len() == max_buf_size,
-            data: buf,
-        })
     }
 
     fn try_recv(&mut self) -> Result<Option<SocketReceive>> {
-        let max_buf_size = 8192;
-        let mut buf = Vec::with_capacity(max_buf_size);
-        unsafe {
-            buf.set_len(max_buf_size);
-        }
-
+        let mut work = self.recv();
         let waker = unsafe { Waker::from_raw(RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE)) };
         let mut cx = Context::from_waker(&waker);
-        let stream = Pin::new(&mut self.stream);
-        let mut read_buf = tokio::io::ReadBuf::new(&mut buf);
-        match stream.poll_read(&mut cx, &mut read_buf) {
-            Poll::Ready(Ok(read)) => {
-                let read = read_buf.remaining();
-                unsafe {
-                    buf.set_len(read);
-                }
-                if read == 0 {
-                    return Err(NetworkError::WouldBlock);
-                }
-                let buf = Bytes::from(buf);
-                Ok(Some(SocketReceive {
-                    data: buf,
-                    truncated: read == max_buf_size,
-                }))
-            }
-            Poll::Ready(Err(err)) => Err(io_err_into_net_error(err)),
+        match work.as_mut().poll(&mut cx) {
+            Poll::Ready(Ok(ret)) => Ok(Some(ret)),
+            Poll::Ready(Err(err)) => Err(err),
             Poll::Pending => Ok(None),
         }
     }
 
     async fn peek(&mut self) -> Result<SocketReceive> {
-        let max_buf_size = 8192;
-        let mut buf = Vec::with_capacity(max_buf_size);
-        unsafe {
-            buf.set_len(max_buf_size);
-        }
-
-        if self.nonblocking {
-            let waker = unsafe { Waker::from_raw(RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE)) };
-            let mut cx = Context::from_waker(&waker);
-            let stream = Pin::new(&mut self.stream);
-            let mut read_buf = tokio::io::ReadBuf::new(&mut buf);
-            return match stream.poll_peek(&mut cx, &mut read_buf) {
-                Poll::Ready(Ok(read)) => {
-                    unsafe {
-                        buf.set_len(read);
-                    }
-                    if read == 0 {
-                        return Err(NetworkError::WouldBlock);
-                    }
-                    let buf = Bytes::from(buf);
-                    Ok(SocketReceive {
-                        data: buf,
-                        truncated: read == max_buf_size,
-                    })
-                }
-                Poll::Ready(Err(err)) => Err(io_err_into_net_error(err)),
-                Poll::Pending => Err(NetworkError::WouldBlock),
-            };
-        }
-
-        let timeout = self.write_timeout.clone();
-        let work = async move {
-            match timeout {
-                Some(timeout) => tokio::time::timeout(timeout, self.stream.peek(&mut buf[..]))
-                    .await
-                    .map_err(|_| Into::<std::io::Error>::into(std::io::ErrorKind::WouldBlock))?,
-                None => self.stream.peek(&mut buf[..]).await,
-            }
-            .map(|read| {
-                unsafe {
-                    buf.set_len(read);
-                }
-                Bytes::from(buf)
-            })
-        };
-
-        let buf = work.await.map_err(io_err_into_net_error)?;
-        if buf.len() == 0 {
-            return Err(NetworkError::BrokenPipe);
-        }
-        Ok(SocketReceive {
-            truncated: buf.len() == max_buf_size,
-            data: buf,
-        })
+        let ret = Self::recv_now_ext(
+            self.nonblocking,
+            &mut self.stream,
+            self.read_timeout.clone(),
+        )
+        .await;
+        self.tx_recv.send(ret.clone()).ok();
+        ret
     }
 }
 
@@ -615,10 +581,23 @@ impl VirtualSocket for LocalTcpStream {
         &mut self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>> {
-        self.stream
-            .poll_read_ready(cx)
-            .map_ok(|a| 1usize)
-            .map_err(io_err_into_net_error)
+        let ret = {
+            let mut work = Box::pin(Self::recv_now(&mut self.stream, self.read_timeout.clone()));
+            match work.as_mut().poll(cx) {
+                Poll::Ready(ret) => ret,
+                Poll::Pending => return Poll::Pending,
+            }
+        };
+        if let Ok(ret) = ret.as_ref() {
+            if ret.data.len() == 0 {
+                if self.sent_eof == true {
+                    return Poll::Pending;
+                }
+                self.sent_eof = true;
+            }
+        }
+        self.tx_recv.send(ret).ok();
+        Poll::Ready(Ok(1))
     }
 
     fn poll_write_ready(

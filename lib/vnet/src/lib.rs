@@ -177,7 +177,7 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
 
 pub type DynVirtualNetworking = Arc<dyn VirtualNetworking>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SocketReceive {
     /// Data that was received
     pub data: Bytes,
@@ -185,7 +185,7 @@ pub struct SocketReceive {
     pub truncated: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SocketReceiveFrom {
     /// Data that was received
     pub data: Bytes,
