@@ -1,4 +1,4 @@
-name: test-sys
+name: Build and Test
 
 on:
   push:
