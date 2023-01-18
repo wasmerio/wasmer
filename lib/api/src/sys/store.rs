@@ -186,7 +186,7 @@ impl Default for Store {
                         }
                     }
                 } else {
-                    compile_error!("No compiler [cranelift, llvm, singlepass] enabled, use Store::headless() instead of Store::default() for a headless engine")
+                    compile_error!("No default engine chosen")
                 }
             }
         }
