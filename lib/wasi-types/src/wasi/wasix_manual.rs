@@ -3,7 +3,7 @@ use std::mem::MaybeUninit;
 use wasmer::ValueType;
 
 use super::{
-    Errno, EventFdReadwrite, Eventtype, Signal, Snapshot0SubscriptionClock, SubscriptionClock,
+    Errno, EventFdReadwrite, Eventtype, Snapshot0SubscriptionClock, SubscriptionClock,
     SubscriptionFsReadwrite, Userdata,
 };
 
@@ -151,13 +151,6 @@ impl core::fmt::Debug for Snapshot0Event {
             .field("type", &self.type_)
             .field("fd-readwrite", &self.fd_readwrite)
             .finish()
-    }
-}
-
-// FIXME: modify bindings generator to derive Hash
-impl std::hash::Hash for Signal {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        core::mem::discriminant(self).hash(state);
     }
 }
 

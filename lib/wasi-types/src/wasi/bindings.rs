@@ -29,7 +29,7 @@ pub type Tid = u32;
 pub type Pid = u32;
 #[doc = " Identifiers for clocks, snapshot0 version."]
 #[repr(u32)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
 pub enum Snapshot0Clockid {
     #[doc = " The clock measuring real time. Time value zero corresponds with"]
     #[doc = " 1970-01-01T00:00:00Z."]
@@ -2222,7 +2222,7 @@ impl core::fmt::Debug for OptionTimestamp {
     }
 }
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
 pub enum Signal {
     Sighup,
     Sigint,

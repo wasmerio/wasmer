@@ -301,40 +301,36 @@ fn visit_item(item: &mut syn::Item) {
     match item {
         syn::Item::Enum(enum_) => {
             let name = enum_.ident.to_string();
-            // Fix integer representation size for enums.
-            let repr_attr = find_attr_by_name_mut(enum_.attrs.iter_mut(), "repr");
 
-            // Change enum repr type.
-            match name.as_str() {
-                "Clockid" | "Snapshot0Clockid" | "BusErrno" => {
-                    repr_attr.unwrap().tokens = quote!((u32));
+            {
+                // Fix integer representation size for enums.
+                let repr_attr = find_attr_by_name_mut(enum_.attrs.iter_mut(), "repr");
+
+                // Change enum repr type.
+                match name.as_str() {
+                    "Clockid" | "Snapshot0Clockid" | "BusErrno" => {
+                        repr_attr.unwrap().tokens = quote!((u32));
+                    }
+                    "Errno" | "Socktype" | "Addressfamily" | "Sockproto" => {
+                        repr_attr.unwrap().tokens = quote!((u16));
+                    }
+                    _ => {}
                 }
-                "Errno" | "Socktype" | "Addressfamily" | "Sockproto" => {
-                    repr_attr.unwrap().tokens = quote!((u16));
-                }
-                _ => {}
             }
 
             // Add additional derives.
 
             match name.as_str() {
-                "Clockid" => {
+                "Clockid" | "Signal" | "Snapshot0Clockid" => {
                     let attr = find_attr_by_name_mut(enum_.attrs.iter_mut(), "derive").unwrap();
                     let mut types = attr.parse_args::<Types>().unwrap().0;
 
                     let prim = syn::parse_str::<syn::Path>("num_enum::TryFromPrimitive").unwrap();
                     types.push(prim);
 
-                    let prim = syn::parse_str::<syn::Path>("Hash").unwrap();
-                    types.push(prim);
+                    let hash = syn::parse_str::<syn::Path>("Hash").unwrap();
+                    types.push(hash);
 
-                    attr.tokens = quote!( ( #( #types ),* ) );
-                }
-                "Signal" => {
-                    let attr = find_attr_by_name_mut(enum_.attrs.iter_mut(), "derive").unwrap();
-                    let mut types = attr.parse_args::<Types>().unwrap().0;
-                    let prim = syn::parse_str::<syn::Path>("num_enum::TryFromPrimitive").unwrap();
-                    types.push(prim);
                     attr.tokens = quote!( ( #( #types ),* ) );
                 }
                 _ => {}
