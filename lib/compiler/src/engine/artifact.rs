@@ -56,19 +56,8 @@ impl Artifact {
         data: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Self, CompileError> {
-        let artifact = Self::get_artifact_build(engine, data, tunables)?;
         let mut inner_engine = engine.inner_mut();
-        Self::from_parts(&mut inner_engine, artifact)
-    }
-
-    #[cfg(feature = "compiler")]
-    fn get_artifact_build(
-        engine: &Engine,
-        data: &[u8],
-        tunables: &dyn Tunables,
-    ) -> Result<ArtifactBuild, CompileError> {
         let environ = ModuleEnvironment::new();
-        let mut inner_engine = engine.inner_mut();
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
         let module = translation.module;
         let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = module
@@ -90,18 +79,7 @@ impl Artifact {
             table_styles,
         )?;
 
-        Ok(artifact)
-    }
-
-    /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
-    #[cfg(feature = "compiler")]
-    pub fn get_module_info(
-        engine: &Engine,
-        data: &[u8],
-        tunables: &dyn Tunables,
-    ) -> Result<ModuleInfo, CompileError> {
-        let artifact = Self::get_artifact_build(engine, data, tunables)?;
-        Ok(artifact.create_module_info())
+        Self::from_parts(&mut inner_engine, artifact)
     }
 
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.

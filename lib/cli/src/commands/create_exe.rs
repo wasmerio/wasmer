@@ -224,7 +224,7 @@ impl CreateExe {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
         }
 
-        let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+        let (_, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
 
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
@@ -273,7 +273,7 @@ impl CreateExe {
                 )
             }?;
 
-        get_module_infos(&tempdir, &atoms, object_format, &store)?;
+        get_module_infos(&tempdir, &atoms, object_format)?;
         let mut entrypoint = get_entrypoint(&tempdir)?;
         create_header_files_in_dir(&tempdir, &mut entrypoint, &atoms, &self.precompiled_atom)?;
         link_exe_from_dir(
@@ -964,17 +964,14 @@ fn get_module_infos(
     directory: &Path,
     atoms: &[(String, Vec<u8>)],
     object_format: ObjectFormat,
-    store: &Store,
 ) -> Result<BTreeMap<String, ModuleInfo>, anyhow::Error> {
     let mut entrypoint =
         get_entrypoint(directory).with_context(|| anyhow::anyhow!("get module infos"))?;
 
     let mut module_infos = BTreeMap::new();
     for (atom_name, atom_bytes) in atoms {
-        let tunables = BaseTunables::for_target(store.engine().target());
-        let module_info =
-            Artifact::get_module_info(store.engine(), atom_bytes.as_slice(), &tunables)
-                .map_err(|e| anyhow::anyhow!("could not compile module {atom_name}: {e}"))?;
+        let module_info = Engine::get_module_info(atom_bytes.as_slice())
+            .map_err(|e| anyhow::anyhow!("could not get module info for atom {atom_name}: {e}"))?;
 
         if let Some(s) = entrypoint
             .atoms
