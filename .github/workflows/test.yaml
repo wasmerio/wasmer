@@ -292,12 +292,14 @@ jobs:
           cargo install cargo-tree && cargo tree
       - run: make lint
         if: ${{ matrix.build-what.key == 'capi' }}
+        shell: bash
         env:
           ENABLE_CRANELIFT: "1"
           ENABLE_LLVM: ${{ env.ENABLE_LLVM }}
           ENABLE_SINGLEPASS: "1"
       - name: Assert no files have changed
         if: ${{ matrix.build-what.key == 'capi' }}
+        shell: bash
         run: |
           git status
           ! [[ $(git status -s) ]]
