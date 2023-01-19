@@ -971,15 +971,18 @@ fn get_module_infos(
 
     let mut module_infos = BTreeMap::new();
     for (atom_name, atom_bytes) in atoms {
-        let module = Module::from_binary(store, atom_bytes.as_slice())
-            .map_err(|e| anyhow::anyhow!("could not deserialize module {atom_name}: {e}"))?;
+        let tunables = BaseTunables::for_target(store.engine().target());
+        let module_info =
+            Artifact::get_module_info(store.engine(), atom_bytes.as_slice(), &tunables)
+                .map_err(|e| anyhow::anyhow!("could not compile module {atom_name}: {e}"))?;
+
         if let Some(s) = entrypoint
             .atoms
             .iter_mut()
             .find(|a| a.atom.as_str() == atom_name.as_str())
         {
-            s.module_info = Some(module.info().clone());
-            module_infos.insert(atom_name.clone(), module.info().clone());
+            s.module_info = Some(module_info.clone());
+            module_infos.insert(atom_name.clone(), module_info.clone());
         }
     }
 
