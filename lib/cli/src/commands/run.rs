@@ -120,6 +120,11 @@ impl RunWithPathBuf {
 
             #[cfg(feature = "wasi")]
             {
+                // See https://github.com/wasmerio/wasmer/issues/3492 - 
+                // we need IndexMap to have a stable ordering for the [fs] mapping,
+                // otherwise overlapping filesystem mappings might not work
+                // since we want to control the order of mounting directories from the
+                // wasmer.toml file
                 let default = indexmap::IndexMap::default();
                 let fs = manifest.fs.as_ref().unwrap_or(&default);
                 for (alias, real_dir) in fs.iter() {
