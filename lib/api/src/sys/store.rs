@@ -174,18 +174,17 @@ impl Default for Store {
         fn get_engine() -> Engine {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "compiler")] {
-
-            cfg_if::cfg_if! {
-                    if #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
-                    {
-                    let config = get_config();
-                    EngineBuilder::new(Box::new(config) as Box<dyn wasmer_compiler::CompilerConfig>)
-                        .engine()
-                    } else {
-                    EngineBuilder::headless()
-                        .engine()
+                    cfg_if::cfg_if! {
+                        if #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
+                        {
+                            let config = get_config();
+                            EngineBuilder::new(Box::new(config) as Box<dyn wasmer_compiler::CompilerConfig>)
+                                .engine()
+                        } else {
+                            EngineBuilder::headless()
+                                .engine()
+                        }
                     }
-            }
                 } else {
                     compile_error!("No default engine chosen")
                 }

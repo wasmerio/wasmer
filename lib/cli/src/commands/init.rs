@@ -429,8 +429,8 @@ fn construct_manifest(
                 .join(&format!("{package_name}.wasm"));
             let canonicalized_outpath = outpath.canonicalize().unwrap_or(outpath);
             let outpath_str =
-                crate::commands::normalize_path(&canonicalized_outpath.display().to_string());
-            let manifest_canonicalized = crate::commands::normalize_path(
+                crate::common::normalize_path(&canonicalized_outpath.display().to_string());
+            let manifest_canonicalized = crate::common::normalize_path(
                 &manifest_path
                     .parent()
                     .and_then(|p| p.canonicalize().ok())

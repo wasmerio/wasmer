@@ -50,7 +50,7 @@ tracing-wasm = "0.2"
 default = ["sys-default"]
 wasix = []
 
-webc_runner = ["webc", "serde_cbor", "anyhow", "serde", "wasmer/compiler", "wasmer/cranelift"]
+webc_runner = ["webc", "serde_cbor", "anyhow", "serde", "wasmer-vfs/webc-fs"]
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
 webc_runner_rt_wasi = []
 

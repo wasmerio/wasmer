@@ -1,3 +1,4 @@
+#[cfg(feature = "cache")]
 use crate::common::get_cache_dir;
 #[cfg(feature = "debug")]
 use crate::logging;
@@ -9,7 +10,9 @@ use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use std::ops::Deref;
 use std::path::PathBuf;
+#[cfg(feature = "cache")]
 use std::str::FromStr;
+#[cfg(feature = "emscripten")]
 use wasmer::FunctionEnv;
 use wasmer::*;
 #[cfg(feature = "cache")]
@@ -199,12 +202,13 @@ impl RunWithPathBuf {
         #[cfg(feature = "webc_runner")]
         {
             if let Ok(pf) = WapmContainer::new(self.path.clone()) {
-                return Self::run_container(
-                    pf,
-                    &self.command_name.clone().unwrap_or_default(),
-                    &self.args,
-                )
-                .map_err(|e| anyhow!("Could not run PiritaFile: {e}"));
+                return self
+                    .run_container(
+                        pf,
+                        &self.command_name.clone().unwrap_or_default(),
+                        &self.args,
+                    )
+                    .map_err(|e| anyhow!("Could not run PiritaFile: {e}"));
             }
         }
         let (mut store, module) = self.get_store_module()?;
@@ -344,7 +348,12 @@ impl RunWithPathBuf {
     }
 
     #[cfg(feature = "webc_runner")]
-    fn run_container(container: WapmContainer, id: &str, args: &[String]) -> Result<(), String> {
+    fn run_container(
+        &self,
+        container: WapmContainer,
+        id: &str,
+        args: &[String],
+    ) -> Result<(), anyhow::Error> {
         let mut result = None;
 
         #[cfg(feature = "wasi")]
@@ -353,12 +362,15 @@ impl RunWithPathBuf {
                 return r;
             }
 
-            let mut runner = wasmer_wasi::runners::wasi::WasiRunner::default();
+            let (store, _compiler_type) = self.store.get_store()?;
+            let mut runner = wasmer_wasi::runners::wasi::WasiRunner::new(store);
             runner.set_args(args.to_vec());
             result = Some(if id.is_empty() {
-                runner.run(&container).map_err(|e| format!("{e}"))
+                runner.run(&container).map_err(|e| anyhow::anyhow!("{e}"))
             } else {
-                runner.run_cmd(&container, id).map_err(|e| format!("{e}"))
+                runner
+                    .run_cmd(&container, id)
+                    .map_err(|e| anyhow::anyhow!("{e}"))
             });
         }
 
@@ -368,16 +380,19 @@ impl RunWithPathBuf {
                 return r;
             }
 
-            let mut runner = wasmer_wasi::runners::emscripten::EmscriptenRunner::default();
+            let (store, _compiler_type) = self.store.get_store()?;
+            let mut runner = wasmer_wasi::runners::emscripten::EmscriptenRunner::new(store);
             runner.set_args(args.to_vec());
             result = Some(if id.is_empty() {
-                runner.run(&container).map_err(|e| format!("{e}"))
+                runner.run(&container).map_err(|e| anyhow::anyhow!("{e}"))
             } else {
-                runner.run_cmd(&container, id).map_err(|e| format!("{e}"))
+                runner
+                    .run_cmd(&container, id)
+                    .map_err(|e| anyhow::anyhow!("{e}"))
             });
         }
 
-        result.unwrap_or_else(|| Err("neither emscripten or wasi file".to_string()))
+        result.unwrap_or_else(|| Err(anyhow::anyhow!("neither emscripten or wasi file")))
     }
 
     fn get_store_module(&self) -> Result<(Store, Module)> {

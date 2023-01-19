@@ -1,6 +1,7 @@
 //! Create a standalone native executable for a given Wasm file.
 
 use super::ObjectFormat;
+use crate::common::normalize_path;
 use crate::store::CompilerOptions;
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -224,6 +225,7 @@ impl CreateExe {
         }
 
         let (_, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
         println!("Format: {:?}", object_format);
@@ -231,6 +233,7 @@ impl CreateExe {
             "Using path `{}` as libwasmer path.",
             cross_compilation.library.display()
         );
+
         if !cross_compilation.library.exists() {
             return Err(anyhow::anyhow!("library path does not exist"));
         }
@@ -967,16 +970,16 @@ fn get_module_infos(
 
     let mut module_infos = BTreeMap::new();
     for (atom_name, atom_bytes) in atoms {
-        let store = Store::default();
-        let module = Module::from_binary(&store, atom_bytes.as_slice())
-            .map_err(|e| anyhow::anyhow!("could not deserialize module {atom_name}: {e}"))?;
+        let module_info = Engine::get_module_info(atom_bytes.as_slice())
+            .map_err(|e| anyhow::anyhow!("could not get module info for atom {atom_name}: {e}"))?;
+
         if let Some(s) = entrypoint
             .atoms
             .iter_mut()
             .find(|a| a.atom.as_str() == atom_name.as_str())
         {
-            s.module_info = Some(module.info().clone());
-            module_infos.insert(atom_name.clone(), module.info().clone());
+            s.module_info = Some(module_info.clone());
+            module_infos.insert(atom_name.clone(), module_info.clone());
         }
     }
 
@@ -1279,19 +1282,15 @@ fn link_exe_from_dir(
         cmd.args(files_winsdk);
     }
 
-    println!("running cmd: {cmd:?}");
+    if debug {
+        println!("running cmd: {cmd:?}");
+        cmd.stdout(Stdio::inherit());
+        cmd.stderr(Stdio::inherit());
+    }
 
     let compilation = cmd
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
         .output()
         .context(anyhow!("Could not execute `zig`: {cmd:?}"))?;
-
-    println!(
-        "file {} exists: {:?}",
-        out_path.display(),
-        out_path.exists()
-    );
 
     if !compilation.status.success() {
         return Err(anyhow::anyhow!(String::from_utf8_lossy(
@@ -1302,7 +1301,6 @@ fn link_exe_from_dir(
 
     // remove file if it exists - if not done, can lead to errors on copy
     let output_path_normalized = normalize_path(&format!("{}", output_path.display()));
-    println!("removing {output_path_normalized}");
     let _ = std::fs::remove_file(&output_path_normalized);
     std::fs::copy(
         &normalize_path(&format!("{}", out_path.display())),
@@ -1317,10 +1315,6 @@ fn link_exe_from_dir(
     })?;
 
     Ok(())
-}
-
-pub(crate) fn normalize_path(s: &str) -> String {
-    s.strip_prefix(r"\\?\").unwrap_or(s).to_string()
 }
 
 /// Link compiled objects using the system linker

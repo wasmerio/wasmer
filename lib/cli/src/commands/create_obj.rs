@@ -11,9 +11,6 @@ use std::path::PathBuf;
 
 use wasmer::*;
 
-#[cfg(feature = "webc_runner")]
-use webc::{ParseOptions, WebCMmap};
-
 #[derive(Debug, Parser)]
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateObj {
@@ -73,7 +70,7 @@ pub struct CreateObj {
 impl CreateObj {
     /// Runs logic for the `create-obj` subcommand
     pub fn execute(&self) -> Result<()> {
-        let path = crate::commands::create_exe::normalize_path(&format!("{}", self.path.display()));
+        let path = crate::common::normalize_path(&format!("{}", self.path.display()));
         let target_triple = self.target_triple.clone().unwrap_or_else(Triple::host);
         let starting_cd = env::current_dir()?;
         let input_path = starting_cd.join(&path);
@@ -98,31 +95,32 @@ impl CreateObj {
         println!("Target: {}", target.triple());
         println!("Format: {:?}", object_format);
 
-        let atoms =
-            if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
-                crate::commands::create_exe::compile_pirita_into_directory(
-                    &pirita,
-                    &output_directory_path,
-                    &self.compiler,
-                    &self.cpu_features,
-                    &target_triple,
-                    object_format,
-                    &prefix,
-                    crate::commands::AllowMultiWasm::Reject(self.atom.clone()),
-                    self.debug_dir.is_some(),
-                )
-            } else {
-                crate::commands::create_exe::prepare_directory_from_single_wasm_file(
-                    &input_path,
-                    &output_directory_path,
-                    &self.compiler,
-                    &target_triple,
-                    &self.cpu_features,
-                    object_format,
-                    &prefix,
-                    self.debug_dir.is_some(),
-                )
-            }?;
+        let atoms = if let Ok(pirita) =
+            webc::WebCMmap::parse(input_path.clone(), &webc::ParseOptions::default())
+        {
+            crate::commands::create_exe::compile_pirita_into_directory(
+                &pirita,
+                &output_directory_path,
+                &self.compiler,
+                &self.cpu_features,
+                &target_triple,
+                object_format,
+                &prefix,
+                crate::commands::AllowMultiWasm::Reject(self.atom.clone()),
+                self.debug_dir.is_some(),
+            )
+        } else {
+            crate::commands::create_exe::prepare_directory_from_single_wasm_file(
+                &input_path,
+                &output_directory_path,
+                &self.compiler,
+                &target_triple,
+                &self.cpu_features,
+                object_format,
+                &prefix,
+                self.debug_dir.is_some(),
+            )
+        }?;
 
         // Copy output files into target path, depending on whether
         // there are one or many files being compiled
