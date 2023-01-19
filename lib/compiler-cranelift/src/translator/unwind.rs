@@ -47,13 +47,11 @@ pub(crate) fn compiled_function_unwind_info(
         .map_err(|error| CompileError::Codegen(pretty_error(&context.func, error)))?;
 
     match unwind_info {
-        Some(UnwindInfo::WindowsX64(_unwind)) => {
-            // https://github.com/wasmerio/wasmer/issues/3508
-            Ok(CraneliftUnwindInfo::None)
-            // let size = unwind.emit_size();
-            // let mut data: Vec<u8> = vec![0; size];
-            // unwind.emit(&mut data[..]);
-            // Ok(CraneliftUnwindInfo::WindowsX64(data))
+        Some(UnwindInfo::WindowsX64(unwind)) => {
+            let size = unwind.emit_size();
+            let mut data: Vec<u8> = vec![0; size];
+            unwind.emit(&mut data[..]);
+            Ok(CraneliftUnwindInfo::WindowsX64(data))
         }
         Some(UnwindInfo::SystemV(unwind)) => Ok(CraneliftUnwindInfo::Fde(unwind)),
         Some(_) | None => Ok(CraneliftUnwindInfo::None),

@@ -119,7 +119,8 @@ impl CompilerOptions {
         let features = self.get_features(compiler_config.default_features_for_target(&target))?;
         let engine: Engine = wasmer_compiler::EngineBuilder::new(compiler_config)
             .set_features(Some(features))
-            .set_target(Some(target))
+            // https://github.com/wasmerio/wasmer/issues/3508
+            // .set_target(Some(target))
             .engine();
 
         Ok(engine)
