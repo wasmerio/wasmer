@@ -22,9 +22,9 @@ use std::sync::{Arc, Mutex};
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
     entity::PrimaryMap, DeserializeError, FunctionBody, FunctionIndex, FunctionType,
-    LocalFunctionIndex, ModuleInfo, SignatureIndex,
+    LocalFunctionIndex, SignatureIndex,
 };
-use wasmer_types::{CompileError, Features, Target};
+use wasmer_types::{CompileError, Features, ModuleInfo, Target};
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{CustomSection, CustomSectionProtection, SectionIndex};
 #[cfg(not(target_arch = "wasm32"))]
