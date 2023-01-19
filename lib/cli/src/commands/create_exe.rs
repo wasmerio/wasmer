@@ -1285,19 +1285,15 @@ fn link_exe_from_dir(
         cmd.args(files_winsdk);
     }
 
-    println!("running cmd: {cmd:?}");
+    if debug {
+        println!("running cmd: {cmd:?}");
+        cmd.stdout(Stdio::inherit());
+        cmd.stderr(Stdio::inherit());
+    }
 
     let compilation = cmd
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
         .output()
         .context(anyhow!("Could not execute `zig`: {cmd:?}"))?;
-
-    println!(
-        "file {} exists: {:?}",
-        out_path.display(),
-        out_path.exists()
-    );
 
     if !compilation.status.success() {
         return Err(anyhow::anyhow!(String::from_utf8_lossy(
@@ -1308,7 +1304,6 @@ fn link_exe_from_dir(
 
     // remove file if it exists - if not done, can lead to errors on copy
     let output_path_normalized = normalize_path(&format!("{}", output_path.display()));
-    println!("removing {output_path_normalized}");
     let _ = std::fs::remove_file(&output_path_normalized);
     std::fs::copy(
         &normalize_path(&format!("{}", out_path.display())),
