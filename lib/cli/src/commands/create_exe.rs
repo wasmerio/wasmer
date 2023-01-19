@@ -2,7 +2,7 @@
 
 use super::ObjectFormat;
 use crate::common::normalize_path;
-use crate::store::CompilerOptions;
+use crate::store::{CompilerOptions, CompilerType};
 use anyhow::{Context, Result};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
@@ -224,37 +224,31 @@ impl CreateExe {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
         }
 
-        let (_, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+        let (_, ct) = self.compiler.get_store_for_target(target.clone())?;
 
-        fn get_config() -> impl wasmer_compiler::CompilerConfig + 'static {
-            cfg_if::cfg_if! {
-                if #[cfg(feature = "cranelift")] {
-                    wasmer_compiler_cranelift::Cranelift::default()
-                } else if #[cfg(feature = "llvm")] {
-                    wasmer_compiler_llvm::LLVM::default()
-                } else if #[cfg(feature = "singlepass")] {
-                    wasmer_compiler_singlepass::Singlepass::default()
-                } else {
-                    compile_error!("No default compiler chosen")
-                }
-            }
-        }
+        let compiler_type = if self.compiler.singlepass {
+            CompilerType::Singlepass
+        } else if self.compiler.cranelift {
+            CompilerType::Cranelift
+        } else if self.compiler.llvm {
+            CompilerType::LLVM
+        } else {
+            ct // default compiler type
+        };
 
-        let engine =
-            EngineBuilder::new(Box::new(get_config()) as Box<dyn wasmer_compiler::CompilerConfig>)
-                .engine();
+        let engine = EngineBuilder::new(get_config(&compiler_type)?).engine();
 
         let tunables = BaseTunables::for_target(engine.target());
         let store = Store::new_with_tunables(&engine, tunables);
 
         println!("Compiler: {}", compiler_type.to_string());
-        println!("Target: {:?}", target);
+        println!("Target: {}", target.triple());
         println!("Format: {:?}", object_format);
         println!(
             "Using path `{}` as libwasmer path.",
             cross_compilation.library.display()
         );
-        println!("store: {:#?}", store);
+
         if !cross_compilation.library.exists() {
             return Err(anyhow::anyhow!("library path does not exist"));
         }
@@ -321,6 +315,52 @@ impl CreateExe {
         }
 
         Ok(())
+    }
+}
+
+fn get_config(
+    compiler: &CompilerType,
+) -> Result<Box<dyn wasmer_compiler::CompilerConfig>, anyhow::Error> {
+    match compiler {
+        CompilerType::Cranelift => {
+            #[cfg(feature = "cranelift")]
+            {
+                Ok(Box::new(wasmer_compiler_cranelift::Cranelift::default()))
+            }
+            #[cfg(not(feature = "cranelift"))]
+            {
+                Err(anyhow::anyhow!(
+                    "compiler \"cranelift\" not embedded in wasmer-cli"
+                ))
+            }
+        }
+        CompilerType::Singlepass => {
+            #[cfg(feature = "singlepass")]
+            {
+                Ok(Box::new(wasmer_compiler_singlepass::Singlepass::default()))
+            }
+            #[cfg(not(feature = "singlepass"))]
+            {
+                Err(anyhow::anyhow!(
+                    "compiler \"singlepass\" not embedded in wasmer-cli"
+                ))
+            }
+        }
+        CompilerType::LLVM => {
+            #[cfg(feature = "llvm")]
+            {
+                Ok(Box::new(wasmer_compiler_llvm::LLVM::default()))
+            }
+            #[cfg(not(feature = "llvm"))]
+            {
+                Err(anyhow::anyhow!(
+                    "compiler \"llvm\" not embedded in wasmer-cli"
+                ))
+            }
+        }
+        CompilerType::Headless => Err(anyhow::anyhow!(
+            "cannot compile .wasm files to object files with compiler \"headless\""
+        )),
     }
 }
 

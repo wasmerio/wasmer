@@ -30,15 +30,15 @@ pub struct StoreOptions {
 pub struct CompilerOptions {
     /// Use Singlepass compiler.
     #[clap(long, conflicts_with_all = &["cranelift", "llvm"])]
-    singlepass: bool,
+    pub singlepass: bool,
 
     /// Use Cranelift compiler.
     #[clap(long, conflicts_with_all = &["singlepass", "llvm"])]
-    cranelift: bool,
+    pub cranelift: bool,
 
     /// Use LLVM compiler.
     #[clap(long, conflicts_with_all = &["singlepass", "cranelift"])]
-    llvm: bool,
+    pub llvm: bool,
 
     /// Enable compiler internal verification.
     #[clap(long)]
