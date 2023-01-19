@@ -612,6 +612,10 @@
 <span id="610">610</span>
 <span id="611">611</span>
 <span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::get_cache_dir</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::logging</span>;
@@ -621,7 +625,6 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::warning</span>;
 <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">anyhow</span>, <span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
 <span class="kw">use</span> <span class="ident">clap::Parser</span>;
-<span class="kw">use</span> <span class="ident">std::collections::HashMap</span>;
 <span class="kw">use</span> <span class="ident">std::ops::Deref</span>;
 <span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
 <span class="kw">use</span> <span class="ident">std::str::FromStr</span>;
@@ -735,7 +738,12 @@
 
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
             {
-                <span class="kw">let</span> <span class="ident">default</span> <span class="op">=</span> <span class="ident">HashMap::default</span>();
+                <span class="comment">// See https://github.com/wasmerio/wasmer/issues/3492 -</span>
+                <span class="comment">// we need IndexMap to have a stable ordering for the [fs] mapping,</span>
+                <span class="comment">// otherwise overlapping filesystem mappings might not work</span>
+                <span class="comment">// since we want to control the order of mounting directories from the</span>
+                <span class="comment">// wasmer.toml file</span>
+                <span class="kw">let</span> <span class="ident">default</span> <span class="op">=</span> <span class="ident">indexmap::IndexMap::default</span>();
                 <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">manifest</span>.<span class="ident">fs</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span><span class="ident">default</span>);
                 <span class="kw">for</span> (<span class="ident">alias</span>, <span class="ident">real_dir</span>) <span class="kw">in</span> <span class="ident">fs</span>.<span class="ident">iter</span>() {
                     <span class="kw">let</span> <span class="ident">real_dir</span> <span class="op">=</span> <span class="ident">self_clone</span>.<span class="ident">path</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">real_dir</span>);
