@@ -235,6 +235,11 @@ jobs:
         if: matrix.metadata.os == 'macos-11.0' && !matrix.metadata.llvm_url
         run: |
           brew install llvm
+      - name: Disable LLVM if not enabled
+        if: ${{ !matrix.metadata.llvm_url }}
+        shell: bash
+        run: |
+          echo "ENABLE_LLVM=0" >> $GITHUB_ENV
       - name: Install LLVM
         if: matrix.metadata.llvm_url
         shell: bash
