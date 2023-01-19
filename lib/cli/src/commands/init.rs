@@ -1,6 +1,7 @@
 use anyhow::Context;
 use cargo_metadata::{CargoOpt, MetadataCommand};
 use clap::Parser;
+use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
@@ -204,7 +205,7 @@ impl Init {
         }
     }
 
-    fn get_filesystem_mapping(include: &[String]) -> Option<HashMap<String, PathBuf>> {
+    fn get_filesystem_mapping(include: &[String]) -> Option<IndexMap<String, PathBuf>> {
         if include.is_empty() {
             return None;
         }
