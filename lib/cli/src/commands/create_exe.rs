@@ -2,7 +2,7 @@
 
 use super::ObjectFormat;
 use crate::common::normalize_path;
-use crate::store::{CompilerOptions, CompilerType};
+use crate::store::CompilerOptions;
 use anyhow::{Context, Result};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
@@ -224,22 +224,7 @@ impl CreateExe {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
         }
 
-        let (_, ct) = self.compiler.get_store_for_target(target.clone())?;
-
-        let compiler_type = if self.compiler.singlepass {
-            CompilerType::Singlepass
-        } else if self.compiler.cranelift {
-            CompilerType::Cranelift
-        } else if self.compiler.llvm {
-            CompilerType::LLVM
-        } else {
-            ct // default compiler type
-        };
-
-        let engine = EngineBuilder::new(get_config(&compiler_type)?).engine();
-
-        let tunables = BaseTunables::for_target(engine.target());
-        let store = Store::new_with_tunables(&engine, tunables);
+        let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
 
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
@@ -315,52 +300,6 @@ impl CreateExe {
         }
 
         Ok(())
-    }
-}
-
-fn get_config(
-    compiler: &CompilerType,
-) -> Result<Box<dyn wasmer_compiler::CompilerConfig>, anyhow::Error> {
-    match compiler {
-        CompilerType::Cranelift => {
-            #[cfg(feature = "cranelift")]
-            {
-                Ok(Box::new(wasmer_compiler_cranelift::Cranelift::default()))
-            }
-            #[cfg(not(feature = "cranelift"))]
-            {
-                Err(anyhow::anyhow!(
-                    "compiler \"cranelift\" not embedded in wasmer-cli"
-                ))
-            }
-        }
-        CompilerType::Singlepass => {
-            #[cfg(feature = "singlepass")]
-            {
-                Ok(Box::new(wasmer_compiler_singlepass::Singlepass::default()))
-            }
-            #[cfg(not(feature = "singlepass"))]
-            {
-                Err(anyhow::anyhow!(
-                    "compiler \"singlepass\" not embedded in wasmer-cli"
-                ))
-            }
-        }
-        CompilerType::LLVM => {
-            #[cfg(feature = "llvm")]
-            {
-                Ok(Box::new(wasmer_compiler_llvm::LLVM::default()))
-            }
-            #[cfg(not(feature = "llvm"))]
-            {
-                Err(anyhow::anyhow!(
-                    "compiler \"llvm\" not embedded in wasmer-cli"
-                ))
-            }
-        }
-        CompilerType::Headless => Err(anyhow::anyhow!(
-            "cannot compile .wasm files to object files with compiler \"headless\""
-        )),
     }
 }
 
