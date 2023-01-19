@@ -405,7 +405,6 @@ pub fn ___syscall192(mut ctx: FunctionEnvMut<EmEnv>, _which: c_int, mut varargs:
 }
 
 /// lseek
-#[allow(clippy::unnecessary_cast)]
 pub fn ___syscall140(ctx: FunctionEnvMut<EmEnv>, _which: i32, mut varargs: VarArgs) -> i32 {
     // -> c_int
     debug!("emscripten::___syscall140 (lseek) {}", _which);

@@ -877,7 +877,8 @@ pub fn fd_pread<M: MemorySize>(
                 Kind::File { handle, .. } => {
                     if let Some(h) = handle {
                         wasi_try_ok!(
-                            h.seek(std::io::SeekFrom::Start(offset)).map_err(map_io_err),
+                            h.seek(std::io::SeekFrom::Start(offset as u64))
+                                .map_err(map_io_err),
                             env
                         );
                         wasi_try_ok!(read_bytes(h, &memory, iovs), env)

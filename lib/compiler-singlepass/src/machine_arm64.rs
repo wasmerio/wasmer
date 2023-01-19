@@ -168,7 +168,6 @@ impl MachineARM64 {
         }
     }
 
-    #[allow(clippy::unnecessary_cast)]
     fn location_to_reg(
         &mut self,
         sz: Size,
@@ -321,7 +320,6 @@ impl MachineARM64 {
             _ => codegen_error!("singlepass can't emit location_to_reg {:?} {:?}", sz, src),
         }
     }
-    #[allow(clippy::unnecessary_cast)]
     fn location_to_neon(
         &mut self,
         sz: Size,

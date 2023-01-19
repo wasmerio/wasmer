@@ -285,7 +285,7 @@ pub struct UnsupportedVirtualBus {}
 
 impl VirtualBus for UnsupportedVirtualBus {
     fn new_spawn(&self) -> SpawnOptions {
-        SpawnOptions::new(Box::<UnsupportedVirtualBusSpawner>::default())
+        SpawnOptions::new(Box::new(UnsupportedVirtualBusSpawner::default()))
     }
 
     fn listen(&self) -> Result<Box<dyn VirtualBusListener + Sync>> {
