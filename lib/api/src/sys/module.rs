@@ -267,11 +267,11 @@ impl Module {
     /// # }
     /// ```
     pub unsafe fn deserialize(
-        store: &impl AsStoreRef,
+        engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
         let bytes = bytes.into_bytes();
-        let artifact = store.as_store_ref().engine().deserialize(&bytes)?;
+        let artifact = engine.as_engine_ref().engine().deserialize(&bytes)?;
         Ok(Self::from_artifact(artifact))
     }
 
