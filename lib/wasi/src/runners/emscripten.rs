@@ -21,7 +21,7 @@ pub struct EmscriptenRunner {
 }
 
 impl EmscriptenRunner {
-    /// Constructs a new `EmscriptenRunner` given an `Engine`
+    /// Constructs a new `EmscriptenRunner` given an `Store`
     pub fn new(store: Store) -> Self {
         Self {
             args: Vec::new(),

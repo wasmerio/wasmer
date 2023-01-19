@@ -19,7 +19,7 @@ pub struct WasiRunner {
 }
 
 impl WasiRunner {
-    /// Constructs a new `WasiRunner` given an `Engine`
+    /// Constructs a new `WasiRunner` given an `Store`
     pub fn new(store: Store) -> Self {
         Self {
             args: Vec::new(),
