@@ -96,6 +96,7 @@ jobs:
       - name: Install LLVM
         if: matrix.metadata.llvm_url
         shell: bash
+        run: |
           curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.metadata.llvm_url }} -L -o llvm.tar.xz
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
           mkdir ${LLVM_DIR}
