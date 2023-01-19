@@ -33,103 +33,6 @@ jobs:
           echo $VERSION
           echo $DOING_RELEASE
 
-  lint:
-    name: Code lint on ${{ matrix.metadata.build }}
-    runs-on: ${{ matrix.metadata.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        metadata: [
-          { 
-            build: linux-x64, 
-            os: ubuntu-22.04, 
-            target: x86_64-unknown-linux-gnu,  
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
-          },
-          {
-            build: linux-musl,
-            target: x86_64-unknown-linux-musl,
-            os: ubuntu-22.04,
-            container: 'alpine:latest'
-          },
-          {
-            build: macos-x64,
-            os: macos-11,
-            target: x86_64-apple-darwin,
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
-          },
-          {
-            build: macos-arm,
-            os: macos-11,
-            target: aarch64-apple-darwin,
-          },
-          {
-            build: windows-x64,
-            os: windows-2019,
-            target: x86_64-pc-windows-msvc,
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-windows-amd64.tar.xz'
-          },
-          {
-            build: windows-gnu,
-            target: x86_64-pc-windows-gnu,
-            os: ubuntu-22.04,
-          }
-        ]
-    container: ${{ matrix.metadata.container }}
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up base deps on musl
-        if: matrix.metadata.build == 'linux-musl'
-        run: |
-            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: 1.64
-          target: ${{ matrix.metadata.target }}
-          components: rustfmt, clippy
-      - name: Install libtinfo
-        shell: bash
-        if: matrix.metadata.build == 'linux-x64'
-        run: |
-          sudo apt install -y libtinfo5
-      - name: Install LLVM
-        if: matrix.metadata.llvm_url
-        shell: bash
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.metadata.llvm_url }} -L -o llvm.tar.xz
-          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
-          mkdir ${LLVM_DIR}
-          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
-          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
-          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
-        env:
-          LLVM_DIR: .llvm
-      - name: Cache
-        uses: whywaita/actions-cache-s3@v2
-        with:
-          path: |
-            ~/.cargo/*
-            ./target/*
-          key: r22-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-lint-linux-x64
-          aws-s3-bucket: wasmer-github-ci-cache
-          aws-access-key-id: ${{ secrets.GOOGLE_CACHE_ID }}
-          aws-secret-access-key: ${{ secrets.GOOGLE_CACHE_SECRET }}
-          aws-region: auto
-          aws-endpoint: https://storage.googleapis.com
-          aws-s3-bucket-endpoint: false
-          aws-s3-force-path-style: true
-      - run: make lint
-        env:
-          ENABLE_CRANELIFT: "1"
-          ENABLE_LLVM: "1"
-          ENABLE_SINGLEPASS: "1"
-      - name: Assert no files have changed
-        run: |
-          git status
-          ! [[ $(git status -s) ]]
-
   cargo_deny:
     name: cargo-deny
     runs-on: ubuntu-22.04
@@ -377,6 +280,17 @@ jobs:
           aws-endpoint: https://storage.googleapis.com
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
+      - run: make lint
+        if: ${{ matrix.build-what.key == 'capi' }}
+        env:
+          ENABLE_CRANELIFT: "1"
+          ENABLE_LLVM: "1"
+          ENABLE_SINGLEPASS: "1"
+      - name: Assert no files have changed
+        if: ${{ matrix.build-what.key == 'capi' }}
+        run: |
+          git status
+          ! [[ $(git status -s) ]]
       - name: Build C-API
         shell: bash
         run: ${{ matrix.build-what.build-cmd }}
