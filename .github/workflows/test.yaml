@@ -286,6 +286,10 @@ jobs:
           aws-endpoint: https://storage.googleapis.com
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
+      - run: cargo tree
+        shell: bash
+        run: |
+          cargo install cargo-tree && cargo tree
       - run: make lint
         if: ${{ matrix.build-what.key == 'capi' }}
         env:
