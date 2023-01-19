@@ -197,9 +197,6 @@ pub struct SocketReceiveFrom {
 
 #[async_trait::async_trait]
 pub trait VirtualTcpListener: fmt::Debug + Send + Sync + 'static {
-    /// Checks how many sockets are waiting to be accepted
-    async fn peek(&mut self) -> Result<usize>;
-
     /// Tries to accept a new connection
     fn try_accept(&mut self) -> Option<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>>;
 
@@ -341,9 +338,6 @@ pub trait VirtualConnectedSocket: VirtualSocket + fmt::Debug + Send + Sync + 'st
 
     /// Recv a packet from the socket
     fn try_recv(&mut self) -> Result<Option<SocketReceive>>;
-
-    /// Peeks for a packet from the socket
-    async fn peek(&mut self) -> Result<SocketReceive>;
 }
 
 /// Connectionless sockets are able to send and receive datagrams and stream

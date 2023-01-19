@@ -992,69 +992,6 @@ impl InodeSocket {
         Ok(ret)
     }
 
-    pub async fn peek(&self) -> Result<usize, Errno> {
-        let mut inner = self.inner.write().await;
-        if let Some(buf) = inner.read_buffer.as_ref() {
-            if buf.len() > 0 {
-                return Ok(buf.len());
-            }
-        }
-        let data = match &mut inner.kind {
-            InodeSocketKind::WebSocket(sock) => {
-                let read = match sock.try_recv().map_err(net_error_into_wasi_err)? {
-                    Some(a) => a,
-                    None => {
-                        return Ok(0);
-                    }
-                };
-                read.data
-            }
-            InodeSocketKind::Raw(sock) => {
-                let read = match sock.try_recv().map_err(net_error_into_wasi_err)? {
-                    Some(a) => a,
-                    None => {
-                        return Ok(0);
-                    }
-                };
-                read.data
-            }
-            InodeSocketKind::TcpStream(sock) => {
-                let read = match sock.try_recv().map_err(net_error_into_wasi_err)? {
-                    Some(a) => a,
-                    None => {
-                        return Ok(0);
-                    }
-                };
-                read.data
-            }
-            InodeSocketKind::UdpSocket(sock) => {
-                let read = match sock.try_recv().map_err(net_error_into_wasi_err)? {
-                    Some(a) => a,
-                    None => {
-                        return Ok(0);
-                    }
-                };
-                read.data
-            }
-            InodeSocketKind::TcpListener(sock) => {
-                return sock.peek().await.map_err(net_error_into_wasi_err);
-            }
-            InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
-            InodeSocketKind::Closed => return Ok(0),
-            _ => return Err(Errno::Notsup),
-        };
-        if data.len() == 0 {
-            return Ok(0);
-        }
-        inner.read_buffer.replace(data);
-        inner.read_addr.take();
-        if let Some(buf) = inner.read_buffer.as_ref() {
-            Ok(buf.len())
-        } else {
-            Ok(0)
-        }
-    }
-
     pub async fn recv(&self, max_size: usize) -> Result<Bytes, Errno> {
         let mut inner = self.inner.write().await;
         loop {
@@ -1198,9 +1135,6 @@ impl InodeSocket {
     pub async fn can_write(&self) -> bool {
         if let Ok(mut guard) = self.inner.try_write() {
             match &mut guard.kind {
-                InodeSocketKind::TcpListener(socket) => {
-                    socket.peek().await.ok().map(|a| a > 0).unwrap_or_default()
-                }
                 InodeSocketKind::TcpStream(..)
                 | InodeSocketKind::UdpSocket(..)
                 | InodeSocketKind::Raw(..)

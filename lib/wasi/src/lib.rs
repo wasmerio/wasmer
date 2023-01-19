@@ -123,7 +123,7 @@ pub use crate::{
 
 /// This is returned in `RuntimeError`.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum WasiError {
     #[error("WASI exited with code: {0}")]
     Exit(ExitCode),

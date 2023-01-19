@@ -84,6 +84,7 @@ pub fn futex_wait<M: MemorySize>(
             let remaining = *timeout - delta;
             sub_timeout = Some(Duration::from_nanos(remaining as u64));
         }
+        //sub_timeout.replace(sub_timeout.map(|a| a.min(Duration::from_millis(10))).unwrap_or(Duration::from_millis(10)));
 
         // Now wait for it to be triggered
         __asyncify(&mut ctx, sub_timeout, async move {

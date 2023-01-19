@@ -112,7 +112,11 @@ pub fn thread_spawn<M: MemorySize>(
             Bool::False => ctx.data(&store).inner().thread_spawn.clone().unwrap(),
             Bool::True => ctx.data(&store).inner().react.clone().unwrap(),
             _ => {
-                debug!("thread failed - failed as the reactor type is not value");
+                debug!(
+                    "wasi[{}:{}]::thread_spawn - failed as the reactor type is not value",
+                    ctx.data(&store).pid(),
+                    ctx.data(&store).tid()
+                );
                 return Errno::Noexec as u32;
             }
         };
@@ -122,10 +126,21 @@ pub fn thread_spawn<M: MemorySize>(
 
         let mut ret = Errno::Success;
         if let Err(err) = spawn.call(store, user_data_low as i32, user_data_high as i32) {
-            debug!("thread failed - start: {}", err);
+            debug!(
+                "wasi[{}:{}]::thread_spawn - thread failed - start: {}",
+                ctx.data(&store).pid(),
+                ctx.data(&store).tid(),
+                err
+            );
             ret = Errno::Noexec;
         }
-        //trace!("threading: thread callback finished (reactor={}, ret={})", reactor, ret);
+        trace!(
+            "wasi[{}:{}]::thread_spawn - thread callback finished (reactor={:?}, ret={})",
+            ctx.data(&store).pid(),
+            ctx.data(&store).tid(),
+            reactor,
+            ret
+        );
 
         // If we are NOT a reactor then we will only run once and need to clean up
         if reactor == Bool::False {

@@ -23,12 +23,8 @@ pub fn fd_read<M: MemorySize>(
     iovs_len: M::Offset,
     nread: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
-    trace!(
-        "wasi[{}:{}]::fd_read: fd={}",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        fd
-    );
+    let pid = ctx.data().pid();
+    let tid = ctx.data().tid();
 
     let offset = {
         let mut env = ctx.data();
@@ -39,7 +35,15 @@ pub fn fd_read<M: MemorySize>(
         fd_entry.offset.load(Ordering::Acquire) as usize
     };
 
-    fd_read_internal::<M>(ctx, fd, iovs, iovs_len, offset, nread, true)
+    let ret = fd_read_internal::<M>(ctx, fd, iovs, iovs_len, offset, nread, true);
+    trace!(
+        %fd,
+        "wasi[{}:{}]::fd_read - {:?}",
+        pid,
+        tid,
+        ret
+    );
+    ret
 }
 
 /// ### `fd_pread()`
@@ -65,15 +69,19 @@ pub fn fd_pread<M: MemorySize>(
     offset: Filesize,
     nread: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
-    trace!(
-        "wasi[{}:{}]::fd_pread: fd={}, offset={}",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        fd,
-        offset
-    );
+    let pid = ctx.data().pid();
+    let tid = ctx.data().tid();
 
-    fd_read_internal::<M>(ctx, fd, iovs, iovs_len, offset as usize, nread, false)
+    let ret = fd_read_internal::<M>(ctx, fd, iovs, iovs_len, offset as usize, nread, false);
+    trace!(
+        %fd,
+        %offset,
+        "wasi[{}:{}]::fd_pread - {:?}",
+        pid,
+        tid,
+        ret
+    );
+    ret
 }
 
 /// ### `fd_pread()`

@@ -161,8 +161,9 @@ impl WasiFunctionEnv {
 
     pub fn cleanup(&self, store: &mut Store, exit_code: Option<ExitCode>) {
         trace!(
-            "wasi[{}]:: cleaning up local thread variables",
-            self.data(store).pid()
+            "wasi[{}:{}]::cleanup - destroying local thread variables",
+            self.data(store).pid(),
+            self.data(store).tid()
         );
 
         // Destroy all the local thread variables that were allocated for this thread

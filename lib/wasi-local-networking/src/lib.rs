@@ -104,33 +104,6 @@ pub struct LocalTcpListener {
 
 #[async_trait::async_trait]
 impl VirtualTcpListener for LocalTcpListener {
-    async fn peek(&mut self) -> Result<usize> {
-        {
-            let backlog = self.backlog.lock().unwrap();
-            if backlog.is_empty() == false {
-                return Ok(backlog.len());
-            }
-        }
-
-        let waker = unsafe { Waker::from_raw(RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE)) };
-        let mut cx = Context::from_waker(&waker);
-        match self.stream.poll_accept(&mut cx) {
-            Poll::Ready(Ok((sock, addr))) => {
-                let mut backlog = self.backlog.lock().unwrap();
-                backlog.push((
-                    Box::new(LocalTcpStream::new(sock, addr, self.nonblocking)),
-                    addr,
-                ));
-                Ok(backlog.len())
-            }
-            Poll::Ready(Err(err)) => Err(io_err_into_net_error(err)),
-            Poll::Pending => {
-                let backlog = self.backlog.lock().unwrap();
-                Ok(backlog.len())
-            }
-        }
-    }
-
     fn try_accept(&mut self) -> Option<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>> {
         {
             let mut backlog = self.backlog.lock().unwrap();
@@ -255,10 +228,7 @@ pub struct LocalTcpStream {
     connect_timeout: Option<Duration>,
     linger_timeout: Option<Duration>,
     nonblocking: bool,
-    sent_eof: bool,
     shutdown: Option<Shutdown>,
-    tx_recv: mpsc::UnboundedSender<Result<SocketReceive>>,
-    rx_recv: mpsc::UnboundedReceiver<Result<SocketReceive>>,
     tx_write_ready: mpsc::Sender<()>,
     rx_write_ready: mpsc::Receiver<()>,
     tx_write_poll_ready: mpsc::Sender<()>,
@@ -267,7 +237,6 @@ pub struct LocalTcpStream {
 
 impl LocalTcpStream {
     pub fn new(stream: tokio::net::TcpStream, addr: SocketAddr, nonblocking: bool) -> Self {
-        let (tx_recv, rx_recv) = mpsc::unbounded_channel();
         let (tx_write_ready, rx_write_ready) = mpsc::channel(1);
         let (tx_write_poll_ready, rx_write_poll_ready) = mpsc::channel(1);
         Self {
@@ -279,13 +248,10 @@ impl LocalTcpStream {
             linger_timeout: None,
             nonblocking,
             shutdown: None,
-            sent_eof: false,
             tx_write_ready,
             rx_write_ready,
             tx_write_poll_ready,
             rx_write_poll_ready,
-            tx_recv,
-            rx_recv,
         }
     }
 }
@@ -485,7 +451,7 @@ impl VirtualConnectedSocket for LocalTcpStream {
     }
 
     async fn flush(&mut self) -> Result<()> {
-        self.rx_write_ready.try_recv().ok();
+        while self.rx_write_ready.try_recv().is_ok() {}
         self.tx_write_poll_ready.try_send(()).ok();
         if self.nonblocking {
             let waker = unsafe { Waker::from_raw(RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE)) };
@@ -513,18 +479,12 @@ impl VirtualConnectedSocket for LocalTcpStream {
     }
 
     async fn recv(&mut self) -> Result<SocketReceive> {
-        if let Ok(ret) = self.rx_recv.try_recv() {
-            return ret;
-        }
-
-        tokio::select! {
-            ret = Self::recv_now_ext(
-                self.nonblocking,
-                &mut self.stream,
-                self.read_timeout.clone(),
-            ) => ret,
-            ret = self.rx_recv.recv() => ret.unwrap_or(Err(NetworkError::ConnectionAborted))
-        }
+        Self::recv_now_ext(
+            self.nonblocking,
+            &mut self.stream,
+            self.read_timeout.clone(),
+        )
+        .await
     }
 
     fn try_recv(&mut self) -> Result<Option<SocketReceive>> {
@@ -536,17 +496,6 @@ impl VirtualConnectedSocket for LocalTcpStream {
             Poll::Ready(Err(err)) => Err(err),
             Poll::Pending => Ok(None),
         }
-    }
-
-    async fn peek(&mut self) -> Result<SocketReceive> {
-        let ret = Self::recv_now_ext(
-            self.nonblocking,
-            &mut self.stream,
-            self.read_timeout.clone(),
-        )
-        .await;
-        self.tx_recv.send(ret.clone()).ok();
-        ret
     }
 }
 
@@ -581,33 +530,23 @@ impl VirtualSocket for LocalTcpStream {
         &mut self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>> {
-        let ret = {
-            let mut work = Box::pin(Self::recv_now(&mut self.stream, self.read_timeout.clone()));
-            match work.as_mut().poll(cx) {
-                Poll::Ready(ret) => ret,
-                Poll::Pending => return Poll::Pending,
-            }
-        };
-        if let Ok(ret) = ret.as_ref() {
-            if ret.data.len() == 0 {
-                if self.sent_eof == true {
-                    return Poll::Pending;
-                }
-                self.sent_eof = true;
-            }
-        }
-        self.tx_recv.send(ret).ok();
-        Poll::Ready(Ok(1))
+        self.stream
+            .poll_read_ready(cx)
+            .map_ok(|_| 1)
+            .map_err(io_err_into_net_error)
     }
 
     fn poll_write_ready(
         &mut self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>> {
-        {
-            // this wakes the polling loop when something is sent
+        loop {
+            // this wakes this polling ready call whenever the `rx_write_poll_ready` is triggerd
+            // (which is triggered whenever a send operation is transmitted)
             let mut rx = Pin::new(&mut self.rx_write_poll_ready);
-            rx.poll_recv(cx).is_ready();
+            if rx.poll_recv(cx).is_pending() {
+                break;
+            }
         }
         match self
             .stream
@@ -615,7 +554,7 @@ impl VirtualSocket for LocalTcpStream {
             .map_err(io_err_into_net_error)
         {
             Poll::Ready(Ok(())) => {
-                if self.tx_write_ready.try_send(()).ok().is_some() {
+                if self.tx_write_ready.try_send(()).is_ok() {
                     Poll::Ready(Ok(1))
                 } else {
                     Poll::Pending
@@ -968,37 +907,6 @@ impl VirtualConnectedSocket for LocalUdpSocket {
             data: buf,
             truncated: read == buf_size,
         }))
-    }
-
-    async fn peek(&mut self) -> Result<SocketReceive> {
-        let buf_size = 8192;
-        let mut buf = Vec::with_capacity(buf_size);
-        unsafe {
-            buf.set_len(buf_size);
-        }
-
-        let read = self
-            .socket
-            .as_blocking_mut()
-            .map_err(io_err_into_net_error)?
-            .peek(&mut buf[..])
-            .map_err(io_err_into_net_error)?;
-        unsafe {
-            buf.set_len(read);
-        }
-        if read == 0 {
-            if self.nonblocking {
-                return Err(NetworkError::WouldBlock);
-            } else {
-                return Err(NetworkError::BrokenPipe);
-            }
-        }
-
-        let buf = Bytes::from(buf);
-        Ok(SocketReceive {
-            data: buf,
-            truncated: read == buf_size,
-        })
     }
 }
 
