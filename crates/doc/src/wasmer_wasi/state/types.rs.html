@@ -794,7 +794,7 @@
             .<span class="ident">bytes_available_write</span>()<span class="question-mark">?</span>
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span> <span class="op">&gt;</span> <span class="number">0</span>)
             .<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>);
-        <span class="kw">let</span> <span class="ident">is_closed</span> <span class="op">=</span> <span class="ident">file</span>.<span class="ident">is_open</span>() <span class="op">==</span> <span class="bool-val">false</span>;
+        <span class="kw">let</span> <span class="ident">is_closed</span> <span class="op">=</span> <span class="op">!</span><span class="ident">file</span>.<span class="ident">is_open</span>();
 
         <span class="macro">tracing::debug!</span>(
             <span class="string">&quot;poll_evt can_read={} can_write={} is_closed={}&quot;</span>,

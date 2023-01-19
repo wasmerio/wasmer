@@ -50,10 +50,12 @@
 <span id="50">50</span>
 <span id="51">51</span>
 <span id="52">52</span>
+<span id="53">53</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">wasmer</span>::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Return an instance implementing the &quot;spectest&quot; interface used in the</span>
 <span class="doccomment">/// spec testsuite.</span>
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::print_stdout</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">spectest_importobject</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Store</span>) -&gt; <span class="ident">Imports</span> {
     <span class="kw">let</span> <span class="ident">print</span> <span class="op">=</span> <span class="ident">Function::new_typed</span>(<span class="ident">store</span>, <span class="op">|</span><span class="op">|</span> {});
     <span class="kw">let</span> <span class="ident">print_i32</span> <span class="op">=</span> <span class="ident">Function::new_typed</span>(<span class="ident">store</span>, <span class="op">|</span><span class="ident">val</span>: <span class="ident">i32</span><span class="op">|</span> <span class="macro">println!</span>(<span class="string">&quot;{}: i32&quot;</span>, <span class="ident">val</span>));

@@ -53,6 +53,10 @@
 <span id="51">51</span>
 <span id="52">52</span>
 <span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different</span>
 <span class="doccomment">//! commands.</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VERSION</span>;
@@ -105,6 +109,10 @@
             <span class="ident">temp_dir</span>
         }
     }
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">normalize_path</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">String</span> {
+    <span class="ident">s</span>.<span class="ident">strip_prefix</span>(<span class="string">r&quot;\\?\&quot;</span>).<span class="ident">unwrap_or</span>(<span class="ident">s</span>).<span class="ident">to_string</span>()
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

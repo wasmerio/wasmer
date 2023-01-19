@@ -301,6 +301,7 @@
 <span id="299">299</span>
 <span id="300">300</span>
 <span id="301">301</span>
+<span id="302">302</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The logic for the Wasmer CLI tool.</span>
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>)]</span>
@@ -309,14 +310,13 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands::Compile</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasmer-artifact-create&quot;</span>))]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands::CreateExe</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands::CreateObj</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands::Wast</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands</span>::{
-    <span class="ident">Add</span>, <span class="ident">Cache</span>, <span class="ident">Config</span>, <span class="ident">GenCHeader</span>, <span class="ident">Init</span>, <span class="ident">Inspect</span>, <span class="ident">List</span>, <span class="ident">Login</span>, <span class="ident">Publish</span>, <span class="ident">Run</span>, <span class="ident">SelfUpdate</span>, <span class="ident">Validate</span>,
-    <span class="ident">Whoami</span>,
+    <span class="ident">Add</span>, <span class="ident">Cache</span>, <span class="ident">Config</span>, <span class="ident">Init</span>, <span class="ident">Inspect</span>, <span class="ident">List</span>, <span class="ident">Login</span>, <span class="ident">Publish</span>, <span class="ident">Run</span>, <span class="ident">SelfUpdate</span>, <span class="ident">Validate</span>, <span class="ident">Whoami</span>,
 };
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::commands</span>::{<span class="ident">CreateObj</span>, <span class="ident">GenCHeader</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error::PrettyError</span>;
 <span class="kw">use</span> <span class="ident">clap</span>::{<span class="ident">CommandFactory</span>, <span class="ident">ErrorKind</span>, <span class="ident">Parser</span>};
 
@@ -433,6 +433,7 @@
     <span class="ident">CreateObj</span>(<span class="ident">CreateObj</span>),
 
     <span class="doccomment">/// Generate the C static_defs.h header file for the input .wasm module</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
     <span class="ident">GenCHeader</span>(<span class="ident">GenCHeader</span>),
 
     <span class="doccomment">/// Get various configuration information needed</span>
@@ -484,6 +485,7 @@
             <span class="ident"><span class="self">Self</span>::List</span>(<span class="ident">list</span>) =&gt; <span class="ident">list</span>.<span class="ident">execute</span>(),
             <span class="ident"><span class="self">Self</span>::Login</span>(<span class="ident">login</span>) =&gt; <span class="ident">login</span>.<span class="ident">execute</span>(),
             <span class="ident"><span class="self">Self</span>::Publish</span>(<span class="ident">publish</span>) =&gt; <span class="ident">publish</span>.<span class="ident">execute</span>(),
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
             <span class="ident"><span class="self">Self</span>::GenCHeader</span>(<span class="ident">gen_heder</span>) =&gt; <span class="ident">gen_heder</span>.<span class="ident">execute</span>(),
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
             <span class="ident"><span class="self">Self</span>::Wast</span>(<span class="ident">wast</span>) =&gt; <span class="ident">wast</span>.<span class="ident">execute</span>(),

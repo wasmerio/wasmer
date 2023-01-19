@@ -790,8 +790,8 @@
         <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
         <span class="ident">tunables</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Tunables</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">environ</span> <span class="op">=</span> <span class="ident">ModuleEnvironment::new</span>();
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner_engine</span> <span class="op">=</span> <span class="ident">engine</span>.<span class="ident">inner_mut</span>();
+        <span class="kw">let</span> <span class="ident">environ</span> <span class="op">=</span> <span class="ident">ModuleEnvironment::new</span>();
         <span class="kw">let</span> <span class="ident">translation</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">translate</span>(<span class="ident">data</span>).<span class="ident">map_err</span>(<span class="ident">CompileError::Wasm</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">translation</span>.<span class="ident">module</span>;
         <span class="kw">let</span> <span class="ident">memory_styles</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">module</span>

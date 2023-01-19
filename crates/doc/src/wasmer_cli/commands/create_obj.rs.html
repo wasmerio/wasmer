@@ -186,8 +186,6 @@
 <span id="184">184</span>
 <span id="185">185</span>
 <span id="186">186</span>
-<span id="187">187</span>
-<span id="188">188</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 <span class="doccomment">//! Create a standalone native executable for a given Wasm file.</span>
 
@@ -200,9 +198,6 @@
 <span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
 
 <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="kw-2">*</span>;
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webc_runner&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">webc</span>::{<span class="ident">ParseOptions</span>, <span class="ident">WebCMmap</span>};
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
 <span class="doccomment">/// The options for the `wasmer create-exe` subcommand</span>
@@ -263,7 +258,7 @@
 <span class="kw">impl</span> <span class="ident">CreateObj</span> {
     <span class="doccomment">/// Runs logic for the `create-obj` subcommand</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::commands::create_exe::normalize_path</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.<span class="ident">path</span>.<span class="ident">display</span>()));
+        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::common::normalize_path</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.<span class="ident">path</span>.<span class="ident">display</span>()));
         <span class="kw">let</span> <span class="ident">target_triple</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">target_triple</span>.<span class="ident">clone</span>().<span class="ident">unwrap_or_else</span>(<span class="ident">Triple::host</span>);
         <span class="kw">let</span> <span class="ident">starting_cd</span> <span class="op">=</span> <span class="ident">env::current_dir</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">input_path</span> <span class="op">=</span> <span class="ident">starting_cd</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>);
@@ -288,31 +283,32 @@
         <span class="macro">println!</span>(<span class="string">&quot;Target: {}&quot;</span>, <span class="ident">target</span>.<span class="ident">triple</span>());
         <span class="macro">println!</span>(<span class="string">&quot;Format: {:?}&quot;</span>, <span class="ident">object_format</span>);
 
-        <span class="kw">let</span> <span class="ident">atoms</span> <span class="op">=</span>
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">pirita</span>) <span class="op">=</span> <span class="ident">WebCMmap::parse</span>(<span class="ident">input_path</span>.<span class="ident">clone</span>(), <span class="kw-2">&amp;</span><span class="ident">ParseOptions::default</span>()) {
-                <span class="ident"><span class="kw">crate</span>::commands::create_exe::compile_pirita_into_directory</span>(
-                    <span class="kw-2">&amp;</span><span class="ident">pirita</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">output_directory_path</span>,
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">compiler</span>,
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">cpu_features</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">target_triple</span>,
-                    <span class="ident">object_format</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">prefix</span>,
-                    <span class="ident"><span class="kw">crate</span>::commands::AllowMultiWasm::Reject</span>(<span class="self">self</span>.<span class="ident">atom</span>.<span class="ident">clone</span>()),
-                    <span class="self">self</span>.<span class="ident">debug_dir</span>.<span class="ident">is_some</span>(),
-                )
-            } <span class="kw">else</span> {
-                <span class="ident"><span class="kw">crate</span>::commands::create_exe::prepare_directory_from_single_wasm_file</span>(
-                    <span class="kw-2">&amp;</span><span class="ident">input_path</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">output_directory_path</span>,
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">compiler</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">target_triple</span>,
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">cpu_features</span>,
-                    <span class="ident">object_format</span>,
-                    <span class="kw-2">&amp;</span><span class="ident">prefix</span>,
-                    <span class="self">self</span>.<span class="ident">debug_dir</span>.<span class="ident">is_some</span>(),
-                )
-            }<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">atoms</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">pirita</span>) <span class="op">=</span>
+            <span class="ident">webc::WebCMmap::parse</span>(<span class="ident">input_path</span>.<span class="ident">clone</span>(), <span class="kw-2">&amp;</span><span class="ident">webc::ParseOptions::default</span>())
+        {
+            <span class="ident"><span class="kw">crate</span>::commands::create_exe::compile_pirita_into_directory</span>(
+                <span class="kw-2">&amp;</span><span class="ident">pirita</span>,
+                <span class="kw-2">&amp;</span><span class="ident">output_directory_path</span>,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">compiler</span>,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">cpu_features</span>,
+                <span class="kw-2">&amp;</span><span class="ident">target_triple</span>,
+                <span class="ident">object_format</span>,
+                <span class="kw-2">&amp;</span><span class="ident">prefix</span>,
+                <span class="ident"><span class="kw">crate</span>::commands::AllowMultiWasm::Reject</span>(<span class="self">self</span>.<span class="ident">atom</span>.<span class="ident">clone</span>()),
+                <span class="self">self</span>.<span class="ident">debug_dir</span>.<span class="ident">is_some</span>(),
+            )
+        } <span class="kw">else</span> {
+            <span class="ident"><span class="kw">crate</span>::commands::create_exe::prepare_directory_from_single_wasm_file</span>(
+                <span class="kw-2">&amp;</span><span class="ident">input_path</span>,
+                <span class="kw-2">&amp;</span><span class="ident">output_directory_path</span>,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">compiler</span>,
+                <span class="kw-2">&amp;</span><span class="ident">target_triple</span>,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">cpu_features</span>,
+                <span class="ident">object_format</span>,
+                <span class="kw-2">&amp;</span><span class="ident">prefix</span>,
+                <span class="self">self</span>.<span class="ident">debug_dir</span>.<span class="ident">is_some</span>(),
+            )
+        }<span class="question-mark">?</span>;
 
         <span class="comment">// Copy output files into target path, depending on whether</span>
         <span class="comment">// there are one or many files being compiled</span>

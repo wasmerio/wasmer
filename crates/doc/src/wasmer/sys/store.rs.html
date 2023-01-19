@@ -394,7 +394,6 @@
 <span id="392">392</span>
 <span id="393">393</span>
 <span id="394">394</span>
-<span id="395">395</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::tunables::BaseTunables</span>;
 <span class="kw">use</span> <span class="ident">derivative::Derivative</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
@@ -571,18 +570,17 @@
         <span class="kw">fn</span> <span class="ident">get_engine</span>() -&gt; <span class="ident">Engine</span> {
             <span class="macro">cfg_if::cfg_if!</span> {
                 <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span> {
-
-            <span class="macro">cfg_if::cfg_if!</span> {
-                    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>))]</span>
-                    {
-                    <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">get_config</span>();
-                    <span class="ident">EngineBuilder::new</span>(<span class="ident">Box::new</span>(<span class="ident">config</span>) <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">wasmer_compiler::CompilerConfig</span><span class="op">&gt;</span>)
-                        .<span class="ident">engine</span>()
-                    } <span class="kw">else</span> {
-                    <span class="ident">EngineBuilder::headless</span>()
-                        .<span class="ident">engine</span>()
+                    <span class="macro">cfg_if::cfg_if!</span> {
+                        <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>))]</span>
+                        {
+                            <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">get_config</span>();
+                            <span class="ident">EngineBuilder::new</span>(<span class="ident">Box::new</span>(<span class="ident">config</span>) <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">wasmer_compiler::CompilerConfig</span><span class="op">&gt;</span>)
+                                .<span class="ident">engine</span>()
+                        } <span class="kw">else</span> {
+                            <span class="ident">EngineBuilder::headless</span>()
+                                .<span class="ident">engine</span>()
+                        }
                     }
-            }
                 } <span class="kw">else</span> {
                     <span class="macro">compile_error!</span>(<span class="string">&quot;No default engine chosen&quot;</span>)
                 }

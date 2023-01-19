@@ -454,6 +454,15 @@
 <span id="454">454</span>
 <span id="455">455</span>
 <span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Universal compilation.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::engine::builder::EngineBuilder</span>;
@@ -478,9 +487,9 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>))]</span>
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">entity::PrimaryMap</span>, <span class="ident">DeserializeError</span>, <span class="ident">FunctionBody</span>, <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>,
-    <span class="ident">LocalFunctionIndex</span>, <span class="ident">ModuleInfo</span>, <span class="ident">SignatureIndex</span>,
+    <span class="ident">LocalFunctionIndex</span>, <span class="ident">SignatureIndex</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CompileError</span>, <span class="ident">Features</span>, <span class="ident">Target</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CompileError</span>, <span class="ident">Features</span>, <span class="ident">ModuleInfo</span>, <span class="ident">Target</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>))]</span>
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CustomSection</span>, <span class="ident">CustomSectionProtection</span>, <span class="ident">SectionIndex</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>))]</span>
@@ -528,6 +537,15 @@
             <span class="ident">tunables</span>: <span class="ident">Arc::new</span>(<span class="ident">tunables</span>),
             <span class="ident">name</span>,
         }
+    }
+
+    <span class="doccomment">/// Returns only the `ModuleInfo` given a `wasm` byte slice</span>
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_module_info</span>(<span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
+        <span class="comment">// this is from `artifact_builder.rs`</span>
+        <span class="kw">let</span> <span class="ident">environ</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::ModuleEnvironment::new</span>();
+        <span class="kw">let</span> <span class="ident">translation</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">translate</span>(<span class="ident">data</span>).<span class="ident">map_err</span>(<span class="ident">CompileError::Wasm</span>)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="ident">translation</span>.<span class="ident">module</span>)
     }
 
     <span class="doccomment">/// Returns the name of this engine</span>
@@ -723,7 +741,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">compiler</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Compiler</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span>.<span class="ident">compiler</span>.<span class="ident">as_ref</span>() {
             <span class="prelude-val">None</span> =&gt; <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
-                <span class="string">&quot;The Engine is not compiled in.&quot;</span>.<span class="ident">to_string</span>(),
+                <span class="string">&quot;No compiler compiled into executable&quot;</span>.<span class="ident">to_string</span>(),
             )),
             <span class="prelude-val">Some</span>(<span class="ident">compiler</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">compiler</span>),
         }

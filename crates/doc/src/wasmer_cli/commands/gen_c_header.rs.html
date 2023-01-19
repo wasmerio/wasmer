@@ -135,8 +135,6 @@
 <span id="133">133</span>
 <span id="134">134</span>
 <span id="135">135</span>
-<span id="136">136</span>
-<span id="137">137</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store::CompilerOptions</span>;
 <span class="kw">use</span> <span class="ident">anyhow::Context</span>;
 <span class="kw">use</span> <span class="ident">clap::Parser</span>;
@@ -145,8 +143,6 @@
 <span class="kw">use</span> <span class="ident">wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CpuFeature</span>, <span class="ident">MetadataHeader</span>, <span class="ident">Triple</span>};
 <span class="kw">use</span> <span class="ident">webc::WebC</span>;
-
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::normalize_path</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
 <span class="doccomment">/// The options for the `wasmer gen-c-header` subcommand</span>
@@ -189,7 +185,7 @@
 <span class="kw">impl</span> <span class="ident">GenCHeader</span> {
     <span class="doccomment">/// Runs logic for the `gen-c-header` subcommand</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::commands::normalize_path</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.<span class="ident">path</span>.<span class="ident">display</span>()));
+        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::common::normalize_path</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.<span class="ident">path</span>.<span class="ident">display</span>()));
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>)
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
             .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{path}&quot;</span>))<span class="question-mark">?</span>;
@@ -265,7 +261,7 @@
             <span class="ident">metadata_length</span>,
         );
 
-        <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">normalize_path</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">output</span>.<span class="ident">display</span>().<span class="ident">to_string</span>());
+        <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::common::normalize_path</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">output</span>.<span class="ident">display</span>().<span class="ident">to_string</span>());
 
         <span class="ident">std::fs::write</span>(<span class="kw-2">&amp;</span><span class="ident">output</span>, <span class="kw-2">&amp;</span><span class="ident">header_file_src</span>)
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))

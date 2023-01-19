@@ -81,6 +81,7 @@
 <span class="kw">mod</span> <span class="ident">create_exe</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
 <span class="kw">mod</span> <span class="ident">create_obj</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
 <span class="kw">mod</span> <span class="ident">gen_c_header</span>;
 <span class="kw">mod</span> <span class="ident">init</span>;
 <span class="kw">mod</span> <span class="ident">inspect</span>;
@@ -100,19 +101,18 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">compile</span>::<span class="kw-2">*</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasmer-artifact-create&quot;</span>))]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">create_exe</span>::<span class="kw-2">*</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">create_obj</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wast&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wast</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> {
-    <span class="ident">add</span>::<span class="kw-2">*</span>, <span class="ident">cache</span>::<span class="kw-2">*</span>, <span class="ident">config</span>::<span class="kw-2">*</span>, <span class="ident">gen_c_header</span>::<span class="kw-2">*</span>, <span class="ident">init</span>::<span class="kw-2">*</span>, <span class="ident">inspect</span>::<span class="kw-2">*</span>, <span class="ident">list</span>::<span class="kw-2">*</span>, <span class="ident">login</span>::<span class="kw-2">*</span>,
-    <span class="ident">publish</span>::<span class="kw-2">*</span>, <span class="ident">run</span>::<span class="kw-2">*</span>, <span class="ident">self_update</span>::<span class="kw-2">*</span>, <span class="ident">validate</span>::<span class="kw-2">*</span>, <span class="ident">whoami</span>::<span class="kw-2">*</span>,
+    <span class="ident">add</span>::<span class="kw-2">*</span>, <span class="ident">cache</span>::<span class="kw-2">*</span>, <span class="ident">config</span>::<span class="kw-2">*</span>, <span class="ident">init</span>::<span class="kw-2">*</span>, <span class="ident">inspect</span>::<span class="kw-2">*</span>, <span class="ident">list</span>::<span class="kw-2">*</span>, <span class="ident">login</span>::<span class="kw-2">*</span>, <span class="ident">publish</span>::<span class="kw-2">*</span>, <span class="ident">run</span>::<span class="kw-2">*</span>,
+    <span class="ident">self_update</span>::<span class="kw-2">*</span>, <span class="ident">validate</span>::<span class="kw-2">*</span>, <span class="ident">whoami</span>::<span class="kw-2">*</span>,
 };
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> {<span class="ident">create_obj</span>::<span class="kw-2">*</span>, <span class="ident">gen_c_header</span>::<span class="kw-2">*</span>};
 
 <span class="doccomment">/// The kind of object format to emit.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">clap::Parser</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasmer-artifact-create&quot;</span>))]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ObjectFormat</span> {
     <span class="doccomment">/// Serialize the entire module into an object file.</span>
     <span class="ident">Serialized</span>,
