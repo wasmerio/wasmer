@@ -850,7 +850,7 @@ lint-packages:
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path lib/cli/Cargo.toml $(compiler_features) -- -D clippy::all
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path fuzz/Cargo.toml $(compiler_features) -- -D clippy::all
 ifneq (, $(findstring llvm,$(compiler_features)))
-	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path lib/compiler-llvm/Cargo.toml $(compiler_features) -- -D clippy::all
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path lib/compiler-llvm/Cargo.toml -- -D clippy::all
 endif
 
 lint-formatting:
