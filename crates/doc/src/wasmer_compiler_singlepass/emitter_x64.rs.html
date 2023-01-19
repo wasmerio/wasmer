@@ -2412,6 +2412,9 @@
 <span id="2412">2412</span>
 <span id="2413">2413</span>
 <span id="2414">2414</span>
+<span id="2415">2415</span>
+<span id="2416">2416</span>
+<span id="2417">2417</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::codegen_error</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl::Size</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::location::Location</span> <span class="kw">as</span> <span class="ident">AbstractLocation</span>;
@@ -3323,11 +3326,14 @@
         <span class="op">|</span><span class="ident">emitter</span>: <span class="kw-2">&amp;mut</span> <span class="ident">AssemblerX64</span>, <span class="ident">precision</span>: <span class="ident">Precision</span>, <span class="ident">src1</span>: <span class="ident">XMM</span>, <span class="ident">src2</span>: <span class="ident">XMMOrMemory</span>, <span class="ident">dst</span>: <span class="ident">XMM</span><span class="op">|</span> {
             <span class="kw">match</span> <span class="ident">src2</span> {
                 <span class="ident">XMMOrMemory::XMM</span>(<span class="ident">x</span>) =&gt; {
-                    <span class="macro">assert_eq!</span>(<span class="ident">src1</span>, <span class="ident">x</span>);
-                    <span class="ident">move_src_to_dst</span>(<span class="ident">emitter</span>, <span class="ident">precision</span>, <span class="ident">src1</span>, <span class="ident">dst</span>);
-                    <span class="macro">dynasm!</span>(<span class="ident">emitter</span> ; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ins</span> <span class="ident">Rx</span>((<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>)), <span class="ident">Rx</span>((<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>)), <span class="macro-nonterminal">$</span><span class="macro-nonterminal">mode</span>)
+                    <span class="kw">if</span> <span class="ident">x</span> <span class="op">!</span><span class="op">=</span> <span class="ident">dst</span> {
+                        <span class="ident">move_src_to_dst</span>(<span class="ident">emitter</span>, <span class="ident">precision</span>, <span class="ident">src1</span>, <span class="ident">dst</span>);
+                    }
+                    <span class="macro">dynasm!</span>(<span class="ident">emitter</span> ; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ins</span> <span class="ident">Rx</span>((<span class="ident">x</span> <span class="kw">as</span> <span class="ident">u8</span>)), <span class="ident">Rx</span>((<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>)), <span class="macro-nonterminal">$</span><span class="macro-nonterminal">mode</span>)
                 }
-                <span class="ident">XMMOrMemory::Memory</span>(..) =&gt; <span class="macro">unreachable!</span>(),
+                <span class="ident">XMMOrMemory::Memory</span>(<span class="ident">base</span>, <span class="ident">disp</span>) =&gt; {
+                    <span class="macro">dynasm!</span>(<span class="ident">emitter</span> ; <span class="macro-nonterminal">$</span><span class="macro-nonterminal">ins</span> <span class="ident">Rx</span>((<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>)), [<span class="ident">Rq</span>((<span class="ident">base</span> <span class="kw">as</span> <span class="ident">u8</span>)) <span class="op">+</span> <span class="ident">disp</span>], <span class="macro-nonterminal">$</span><span class="macro-nonterminal">mode</span>)
+                },
             }
         }
     }
