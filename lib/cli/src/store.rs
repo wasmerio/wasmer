@@ -105,8 +105,7 @@ impl CompilerOptions {
     pub fn get_store_for_target(&self, target: Target) -> Result<(Store, CompilerType)> {
         let (compiler_config, compiler_type) = self.get_compiler_config()?;
         let engine = self.get_engine(target, compiler_config)?;
-        let tunables = BaseTunables::for_target(engine.target());
-        let store = Store::new_with_tunables(&engine, tunables);
+        let store = Store::new(engine);
         Ok((store, compiler_type))
     }
 
@@ -314,8 +313,7 @@ impl StoreOptions {
     pub fn get_store_for_target(&self, target: Target) -> Result<(Store, CompilerType)> {
         let (compiler_config, compiler_type) = self.compiler.get_compiler_config()?;
         let engine = self.get_engine_with_compiler(target, compiler_config)?;
-        let tunables = BaseTunables::for_target(engine.target());
-        let store = Store::new_with_tunables(&engine, tunables);
+        let store = Store::new(engine);
         Ok((store, compiler_type))
     }
 
