@@ -5548,7 +5548,7 @@ pub unsafe fn sock_send_file<M: MemorySize>(
         // Write it down to the socket
         let bytes_written =
             wasi_try_ok!(__sock_actor_mut(&ctx, sock, Rights::SOCK_SEND, |socket| {
-                let buf = (&buf[..]).to_vec();
+                let buf = (buf[..]).to_vec();
                 socket.send_bytes::<M>(Bytes::from(buf))
             }));
         total_written += bytes_written as u64;

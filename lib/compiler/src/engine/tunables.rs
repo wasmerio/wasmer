@@ -267,3 +267,87 @@ impl Tunables for BaseTunables {
         VMTable::from_definition(ty, style, vm_definition_location)
     }
 }
+
+impl Tunables for Box<dyn Tunables + Send + Sync> {
+    fn memory_style(&self, memory: &MemoryType) -> MemoryStyle {
+        self.as_ref().memory_style(memory)
+    }
+
+    fn table_style(&self, table: &TableType) -> TableStyle {
+        self.as_ref().table_style(table)
+    }
+
+    fn create_host_memory(
+        &self,
+        ty: &MemoryType,
+        style: &MemoryStyle,
+    ) -> Result<VMMemory, MemoryError> {
+        self.as_ref().create_host_memory(ty, style)
+    }
+
+    unsafe fn create_vm_memory(
+        &self,
+        ty: &MemoryType,
+        style: &MemoryStyle,
+        vm_definition_location: NonNull<VMMemoryDefinition>,
+    ) -> Result<VMMemory, MemoryError> {
+        self.as_ref()
+            .create_vm_memory(ty, style, vm_definition_location)
+    }
+
+    fn create_host_table(&self, ty: &TableType, style: &TableStyle) -> Result<VMTable, String> {
+        self.as_ref().create_host_table(ty, style)
+    }
+
+    unsafe fn create_vm_table(
+        &self,
+        ty: &TableType,
+        style: &TableStyle,
+        vm_definition_location: NonNull<VMTableDefinition>,
+    ) -> Result<VMTable, String> {
+        self.as_ref()
+            .create_vm_table(ty, style, vm_definition_location)
+    }
+}
+
+impl Tunables for std::sync::Arc<dyn Tunables + Send + Sync> {
+    fn memory_style(&self, memory: &MemoryType) -> MemoryStyle {
+        self.as_ref().memory_style(memory)
+    }
+
+    fn table_style(&self, table: &TableType) -> TableStyle {
+        self.as_ref().table_style(table)
+    }
+
+    fn create_host_memory(
+        &self,
+        ty: &MemoryType,
+        style: &MemoryStyle,
+    ) -> Result<VMMemory, MemoryError> {
+        self.as_ref().create_host_memory(ty, style)
+    }
+
+    unsafe fn create_vm_memory(
+        &self,
+        ty: &MemoryType,
+        style: &MemoryStyle,
+        vm_definition_location: NonNull<VMMemoryDefinition>,
+    ) -> Result<VMMemory, MemoryError> {
+        self.as_ref()
+            .create_vm_memory(ty, style, vm_definition_location)
+    }
+
+    fn create_host_table(&self, ty: &TableType, style: &TableStyle) -> Result<VMTable, String> {
+        self.as_ref().create_host_table(ty, style)
+    }
+
+    unsafe fn create_vm_table(
+        &self,
+        ty: &TableType,
+        style: &TableStyle,
+        vm_definition_location: NonNull<VMTableDefinition>,
+    ) -> Result<VMTable, String> {
+        self.as_ref()
+            .create_vm_table(ty, style, vm_definition_location)
+    }
+}

@@ -8,12 +8,9 @@ use crate::EngineInner;
 use crate::Features;
 use crate::{ModuleEnvironment, ModuleMiddlewareChain};
 use enumset::EnumSet;
-use std::mem;
 use wasmer_types::entity::PrimaryMap;
 #[cfg(feature = "compiler")]
 use wasmer_types::CompileModuleInfo;
-use wasmer_types::MetadataHeader;
-use wasmer_types::SerializeError;
 use wasmer_types::{
     CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
     MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex, SignatureIndex,
@@ -22,6 +19,7 @@ use wasmer_types::{
 use wasmer_types::{
     CompiledFunctionFrameInfo, FunctionBody, SerializableCompilation, SerializableModule,
 };
+use wasmer_types::{MetadataHeader, SerializeError};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct ArtifactBuild {
@@ -223,7 +221,7 @@ impl ArtifactCreate for ArtifactBuild {
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         let serialized_data = self.serializable.serialize()?;
-        assert!(mem::align_of::<SerializableModule>() <= MetadataHeader::ALIGN);
+        assert!(std::mem::align_of::<SerializableModule>() <= MetadataHeader::ALIGN);
 
         let mut metadata_binary = vec![];
         metadata_binary.extend(Self::MAGIC_HEADER);

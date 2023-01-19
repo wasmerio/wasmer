@@ -120,6 +120,19 @@ impl FromStr for TrapCode {
     }
 }
 
+// TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+/// After the stack is unwound via asyncify what
+/// should the call loop do next
+#[derive(Debug)]
+pub enum OnCalledAction {
+    /// Will call the function again
+    InvokeAgain,
+    /// Will return the result of the invocation
+    Finish,
+    /// Traps with an error
+    Trap(Box<dyn std::error::Error + Send + Sync>),
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

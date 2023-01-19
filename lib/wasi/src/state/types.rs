@@ -331,7 +331,7 @@ pub(crate) fn poll(
             .bytes_available_write()?
             .map(|s| s > 0)
             .unwrap_or(false);
-        let is_closed = file.is_open() == false;
+        let is_closed = !file.is_open();
 
         tracing::debug!(
             "poll_evt can_read={} can_write={} is_closed={}",

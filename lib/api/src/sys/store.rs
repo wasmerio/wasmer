@@ -1,20 +1,33 @@
 use crate::sys::tunables::BaseTunables;
+use derivative::Derivative;
 use std::fmt;
-use std::sync::{Arc, RwLock};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{AsEngineRef, Engine, EngineBuilder, EngineRef, Tunables};
-use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
+use wasmer_types::OnCalledAction;
+use wasmer_vm::{init_traps, StoreId, TrapHandler, TrapHandlerFn};
 
 use wasmer_vm::StoreObjects;
+
+/// Call handler for a store.
+// TODO: better documentation!
+pub type OnCalledHandler = Box<
+    dyn FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
+>;
 
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
+    #[derivative(Debug = "ignore")]
     #[cfg(feature = "compiler")]
     pub(crate) engine: Engine,
+    #[derivative(Debug = "ignore")]
     pub(crate) trap_handler: Option<Box<TrapHandlerFn<'static>>>,
+    #[derivative(Debug = "ignore")]
+    pub(crate) on_called: Option<OnCalledHandler>,
 }
 
 /// The store represents all global state that can be manipulated by
@@ -30,7 +43,6 @@ pub struct Store {
     pub(crate) inner: Box<StoreInner>,
     #[cfg(feature = "compiler")]
     engine: Engine,
-    trap_handler: Arc<RwLock<Option<Box<TrapHandlerFn<'static>>>>>,
 }
 
 impl Store {
@@ -48,9 +60,9 @@ impl Store {
                 objects: Default::default(),
                 engine: engine.cloned(),
                 trap_handler: None,
+                on_called: None,
             }),
             engine: engine.cloned(),
-            trap_handler: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -100,6 +112,11 @@ impl Store {
     pub fn same(a: &Self, b: &Self) -> bool {
         a.engine.id() == b.engine.id()
     }
+
+    /// Returns the ID of this store
+    pub fn id(&self) -> StoreId {
+        self.inner.objects.id()
+    }
 }
 
 #[cfg(feature = "compiler")]
@@ -111,8 +128,8 @@ impl PartialEq for Store {
 
 unsafe impl TrapHandler for Store {
     fn custom_trap_handler(&self, call: &dyn Fn(&TrapHandlerFn) -> bool) -> bool {
-        if let Some(handler) = self.trap_handler.read().unwrap().as_ref() {
-            call(handler)
+        if let Some(handler) = self.inner.trap_handler.as_ref() {
+            call(handler.as_ref())
         } else {
             false
         }
@@ -157,18 +174,17 @@ impl Default for Store {
         fn get_engine() -> Engine {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "compiler")] {
-
-            cfg_if::cfg_if! {
-                    if #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
-                    {
-                    let config = get_config();
-                    EngineBuilder::new(Box::new(config) as Box<dyn wasmer_compiler::CompilerConfig>)
-                        .engine()
-                    } else {
-                    EngineBuilder::headless()
-                        .engine()
+                    cfg_if::cfg_if! {
+                        if #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
+                        {
+                            let config = get_config();
+                            EngineBuilder::new(Box::new(config) as Box<dyn wasmer_compiler::CompilerConfig>)
+                                .engine()
+                        } else {
+                            EngineBuilder::headless()
+                                .engine()
+                        }
                     }
-            }
                 } else {
                     compile_error!("No default engine chosen")
                 }
@@ -267,7 +283,7 @@ impl<'a> StoreRef<'a> {
         self.inner
             .trap_handler
             .as_ref()
-            .map(|handler| handler as *const _)
+            .map(|handler| handler.as_ref() as *const _)
     }
 }
 
@@ -308,6 +324,18 @@ impl<'a> StoreMut<'a> {
 
     pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
         Self { inner: &mut *raw }
+    }
+
+    // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+    /// Sets the unwind callback which will be invoked when the call finishes
+    pub fn on_called<F>(&mut self, callback: F)
+    where
+        F: FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.inner.on_called.replace(Box::new(callback));
     }
 }
 

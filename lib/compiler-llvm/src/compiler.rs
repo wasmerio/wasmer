@@ -195,6 +195,10 @@ impl LLVMCompiler {
 }
 
 impl Compiler for LLVMCompiler {
+    fn name(&self) -> &str {
+        "llvm"
+    }
+
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
         &self.config.middlewares

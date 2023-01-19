@@ -28,11 +28,11 @@ use wasmer_types::MetadataHeader;
 use wasmer_types::SerializableCompilation;
 use wasmer_types::{
     CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
-    MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializableModule, SerializeError,
-    SignatureIndex, TableIndex,
+    MemoryIndex, ModuleInfo, OwnedDataInitializer, SignatureIndex, TableIndex,
 };
 #[cfg(feature = "static-artifact-create")]
 use wasmer_types::{CompileModuleInfo, Target};
+use wasmer_types::{SerializableModule, SerializeError};
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
 use wasmer_vm::{InstanceAllocator, InstanceHandle, StoreObjects, TrapHandlerFn, VMExtern};
 
@@ -56,8 +56,8 @@ impl Artifact {
         data: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Self, CompileError> {
-        let environ = ModuleEnvironment::new();
         let mut inner_engine = engine.inner_mut();
+        let environ = ModuleEnvironment::new();
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
         let module = translation.module;
         let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = module

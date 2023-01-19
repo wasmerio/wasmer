@@ -1,10 +1,20 @@
 use std::fmt;
+use wasmer_types::OnCalledAction;
+
+/// Call handler for a store.
+// TODO: better documentation!
+// TODO: this type is duplicated in sys/store.rs.
+// Maybe want to move it to wasmer_types...
+pub type OnCalledHandler = Box<
+    dyn FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
+>;
 
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
+    pub(crate) on_called: Option<OnCalledHandler>,
 }
 
 /// The store represents all global state that can be manipulated by
@@ -27,6 +37,7 @@ impl Store {
         Self {
             inner: Box::new(StoreInner {
                 objects: Default::default(),
+                on_called: None,
             }),
         }
     }
@@ -36,6 +47,11 @@ impl Store {
     /// tunables are excluded from the logic.
     pub fn same(_a: &Self, _b: &Self) -> bool {
         true
+    }
+
+    /// Returns the ID of this store
+    pub fn id(&self) -> StoreId {
+        self.inner.objects.id()
     }
 }
 
@@ -124,6 +140,17 @@ impl<'a> StoreMut<'a> {
     pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
         Self { inner: &mut *raw }
     }
+
+    /// Sets the unwind callback which will be invoked when the call finishes
+    pub fn on_called<F>(&mut self, callback: F)
+    where
+        F: FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.inner.on_called.replace(Box::new(callback));
+    }
 }
 
 /// Helper trait for a value that is convertible to a [`StoreRef`].
@@ -183,6 +210,8 @@ impl<T: AsStoreMut> AsStoreMut for &'_ mut T {
 pub use objects::*;
 
 mod objects {
+    use wasm_bindgen::JsValue;
+
     use crate::js::{
         export::{VMFunction, VMGlobal, VMMemory, VMTable},
         function_env::VMFunctionEnvironment,
@@ -286,6 +315,21 @@ mod objects {
                 (&mut high[0], &mut low[a.index()])
             }
         }
+
+        /// Return an immutable iterator over all globals
+        pub fn iter_globals(&self) -> core::slice::Iter<VMGlobal> {
+            self.globals.iter()
+        }
+
+        /// Set a global, at index idx. Will panic if idx is out of range
+        /// Safety: the caller should check taht the raw value is compatible
+        /// with destination VMGlobal type
+        pub fn set_global_unchecked(&self, idx: usize, val: u128) {
+            assert!(idx < self.globals.len());
+
+            let value = JsValue::from(val);
+            self.globals[idx].global.set_value(&value);
+        }
     }
 
     /// Handle to an object managed by a context.
@@ -357,6 +401,11 @@ mod objects {
         /// Returns the ID of the context associated with the handle.
         pub fn store_id(&self) -> StoreId {
             self.id
+        }
+
+        /// Overrides the store id with a new ID
+        pub fn set_store_id(&mut self, id: StoreId) {
+            self.id = id;
         }
 
         /// Constructs a `StoreHandle` from a `StoreId` and an `InternalStoreHandle`.
@@ -446,6 +495,7 @@ mod objects {
         Instance(NonNull<T>),
     }
 
+    #[allow(dead_code)]
     impl<T> MaybeInstanceOwned<T> {
         /// Returns underlying pointer to the VM data.
         #[allow(dead_code)]

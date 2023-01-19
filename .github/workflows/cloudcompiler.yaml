@@ -21,7 +21,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.63
+          toolchain: 1.64
           target: ${{ matrix.target }}
       - name: Install wasm32-wasi target
         shell: bash

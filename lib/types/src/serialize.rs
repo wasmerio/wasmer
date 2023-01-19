@@ -160,7 +160,7 @@ impl SerializableModule {
     /// Serializes an artifact into a file path
     pub fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
         let serialized = self.serialize()?;
-        fs::write(&path, serialized)?;
+        fs::write(path, serialized)?;
         Ok(())
     }
 }
