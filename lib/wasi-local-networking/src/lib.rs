@@ -1003,37 +1003,6 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
             addr: peer,
         })
     }
-
-    async fn peek_from(&mut self) -> Result<SocketReceiveFrom> {
-        let buf_size = 8192;
-        let mut buf = Vec::with_capacity(buf_size);
-        unsafe {
-            buf.set_len(buf_size);
-        }
-
-        let (read, peer) = self
-            .socket
-            .as_blocking_mut()
-            .map_err(io_err_into_net_error)?
-            .peek_from(&mut buf[..])
-            .map_err(io_err_into_net_error)?;
-        unsafe {
-            buf.set_len(read);
-        }
-        if read == 0 {
-            if self.nonblocking {
-                return Err(NetworkError::WouldBlock);
-            } else {
-                return Err(NetworkError::BrokenPipe);
-            }
-        }
-        let buf = Bytes::from(buf);
-        Ok(SocketReceiveFrom {
-            data: buf,
-            truncated: read == buf_size,
-            addr: peer,
-        })
-    }
 }
 
 #[async_trait::async_trait]

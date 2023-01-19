@@ -353,9 +353,6 @@ pub trait VirtualConnectionlessSocket: VirtualSocket + fmt::Debug + Send + Sync 
 
     /// Recv a packet from the socket
     fn try_recv_from(&mut self) -> Result<Option<SocketReceiveFrom>>;
-
-    /// Peeks for a packet from the socket
-    async fn peek_from(&mut self) -> Result<SocketReceiveFrom>;
 }
 
 /// ICMP sockets are low level devices bound to a specific address

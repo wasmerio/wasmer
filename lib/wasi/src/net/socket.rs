@@ -1042,43 +1042,6 @@ impl InodeSocket {
         }
     }
 
-    pub async fn peek_from(&self) -> Result<usize, Errno> {
-        let mut inner = self.inner.write().await;
-        if let Some(buf) = inner.read_buffer.as_ref() {
-            if buf.len() > 0 {
-                return Ok(buf.len());
-            }
-        }
-        let rcv = match &mut inner.kind {
-            InodeSocketKind::Icmp(sock) => {
-                match sock.try_recv_from().map_err(net_error_into_wasi_err)? {
-                    Some(a) => a,
-                    None => {
-                        return Ok(0);
-                    }
-                }
-            }
-            InodeSocketKind::UdpSocket(sock) => {
-                match sock.try_recv_from().map_err(net_error_into_wasi_err)? {
-                    Some(a) => a,
-                    None => {
-                        return Ok(0);
-                    }
-                }
-            }
-            InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
-            InodeSocketKind::Closed => return Err(Errno::Io),
-            _ => return Err(Errno::Notsup),
-        };
-        inner.read_buffer.replace(rcv.data);
-        inner.read_addr.replace(rcv.addr);
-        if let Some(buf) = inner.read_buffer.as_ref() {
-            Ok(buf.len())
-        } else {
-            Ok(0)
-        }
-    }
-
     pub async fn recv_from(&self, max_size: usize) -> Result<(Bytes, SocketAddr), Errno> {
         let mut inner = self.inner.write().await;
         loop {
