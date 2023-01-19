@@ -216,8 +216,8 @@ where
     let mut env = ctx.data();
 
     // Check if we need to exit the asynchronous loop
-    if env.should_exit().is_some() {
-        return Ok(Err(Errno::Intr));
+    if let Some(exit_code) = env.should_exit() {
+        return Err(WasiError::Exit(exit_code));
     }
 
     // Fast path (inline synchronous)
