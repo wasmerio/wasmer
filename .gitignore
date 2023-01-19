@@ -24,3 +24,4 @@ build-wasmer.tar.gz
 lcov.info
 .llvm
 llvm.tar.xz
+.cargo/
