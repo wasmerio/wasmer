@@ -6661,10 +6661,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
             }
             CallingConvention::WindowsFastcall => {
-                let unwind = self.machine.gen_windows_unwind_info(body_len);
-                if let Some(unwind) = unwind {
-                    unwind_info = Some(CompiledFunctionUnwindInfo::WindowsX64(unwind));
-                }
+                // https://github.com/wasmerio/wasmer/issues/3508
+                //
+                // let unwind = self.machine.gen_windows_unwind_info(body_len);
+                // if let Some(unwind) = unwind {
+                //    unwind_info = Some(CompiledFunctionUnwindInfo::WindowsX64(unwind));
+                // }
             }
             _ => (),
         };
