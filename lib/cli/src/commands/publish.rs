@@ -386,7 +386,7 @@ fn apply_migration(conn: &mut Connection, migration_number: i32) -> Result<(), M
     tx.execute_batch(migration_to_apply)
         .map_err(|e| MigrationError::TransactionFailed(migration_number, format!("{}", e)))?;
 
-    tx.pragma_update(None, "user_version", migration_number + 1)
+    tx.pragma_update(None, "user_version", (migration_number + 1))
         .map_err(|e| MigrationError::TransactionFailed(migration_number, format!("{}", e)))?;
     tx.commit()
         .map_err(|_| MigrationError::CommitFailed(migration_number))

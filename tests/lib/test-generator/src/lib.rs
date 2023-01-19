@@ -85,7 +85,8 @@ pub fn extract_name(path: impl AsRef<Path>) -> String {
         .expect("filename should have a stem")
         .to_str()
         .expect("filename should be representable as a string")
-        .replace(['-', '/'], "_")
+        .replace('-', "_")
+        .replace('/', "_")
 }
 
 pub fn with_test_module<T>(

@@ -50,7 +50,7 @@ impl WasiPipe {
                 let buf_len = buf.len();
                 if buf_len > 0 {
                     let reader = buf.as_ref();
-                    let read = read_bytes(reader, memory, iov).map(|_| buf_len)?;
+                    let read = read_bytes(reader, memory, iov).map(|_| buf_len as usize)?;
                     buf.advance(read);
                     return Ok(read);
                 }
@@ -101,7 +101,7 @@ impl Read for WasiPipe {
                 let buf_len = inner_buf.len();
                 if buf_len > 0 {
                     let mut reader = inner_buf.as_ref();
-                    let read = reader.read(buf).map(|_| buf_len)?;
+                    let read = reader.read(buf).map(|_| buf_len as usize)?;
                     inner_buf.advance(read);
                     return Ok(read);
                 }
