@@ -849,9 +849,9 @@ lint-packages:
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --all --exclude wasmer-cli --exclude wasmer-compiler-llvm $(compiler_features) -- -D clippy::all
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path lib/cli/Cargo.toml $(compiler_features) -- -D clippy::all
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path fuzz/Cargo.toml $(compiler_features) -- -D clippy::all
-	ifneq (, $(findstring llvm,$(compiler_features)))
-		RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path lib/compiler-llvm/Cargo.toml $(compiler_features) -- -D clippy::all
-	endif
+ifneq (, $(findstring llvm,$(compiler_features)))
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path lib/compiler-llvm/Cargo.toml $(compiler_features) -- -D clippy::all
+endif
 
 lint-formatting:
 	cargo fmt --all -- --check
