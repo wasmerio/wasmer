@@ -85,12 +85,15 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.64
+          toolchain: stable
           target: ${{ matrix.metadata.target }}
           components: rustfmt, clippy
       - name: Print clippy version
         shell: bash
         run: cargo clippy --version
+      - name: Print Rust version
+        shell: bash
+        run: rustc -vV
       - name: Install libtinfo
         if: matrix.metadata.build == 'linux-x64'
         shell: bash
