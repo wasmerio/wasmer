@@ -285,7 +285,7 @@ jobs:
         if: ${{ matrix.build-what.key == 'capi' }}
         env:
           ENABLE_CRANELIFT: "1"
-          ENABLE_LLVM: "1"
+          ENABLE_LLVM: ${{ env.ENABLE_LLVM }}
           ENABLE_SINGLEPASS: "1"
       - name: Assert no files have changed
         if: ${{ matrix.build-what.key == 'capi' }}
