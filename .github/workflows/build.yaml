@@ -88,6 +88,9 @@ jobs:
           toolchain: 1.64
           target: ${{ matrix.metadata.target }}
           components: rustfmt, clippy
+      - name: Print clippy version
+        shell: bash
+        run: cargo clippy --version
       - name: Install libtinfo
         if: matrix.metadata.build == 'linux-x64'
         shell: bash
