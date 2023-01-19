@@ -56,8 +56,8 @@ impl Artifact {
         data: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Self, CompileError> {
-        let environ = ModuleEnvironment::new();
         let mut inner_engine = engine.inner_mut();
+        let environ = ModuleEnvironment::new();
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
         let module = translation.module;
         let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = module
