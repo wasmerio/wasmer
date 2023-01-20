@@ -271,6 +271,19 @@ jobs:
         shell: bash
         if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
         run: ls -R $CARGO_ROOT_DIR
+      - run: make lint
+        if: ${{ matrix.build-what.key == 'capi' }}
+        env:
+          ENABLE_CRANELIFT: "1"
+          ENABLE_SINGLEPASS: "1"
+      - name: Assert no files have changed
+        if: ${{ matrix.build-what.key == 'capi' }}
+        shell: bash
+        run: |
+          pwd
+          ls -R $(pwd)
+          git status
+          ! [[ $(git status -s) ]]
       - name: Cache
         uses: whywaita/actions-cache-s3@v2
         with:
@@ -286,19 +299,6 @@ jobs:
           aws-endpoint: https://storage.googleapis.com
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
-      - run: make lint
-        if: ${{ matrix.build-what.key == 'capi' }}
-        env:
-          ENABLE_CRANELIFT: "1"
-          ENABLE_SINGLEPASS: "1"
-      - name: Assert no files have changed
-        if: ${{ matrix.build-what.key == 'capi' }}
-        shell: bash
-        run: |
-          pwd
-          ls -R $(pwd)
-          git status
-          ! [[ $(git status -s) ]]
       - name: Build C-API
         shell: bash
         run: ${{ matrix.build-what.build-cmd }}
