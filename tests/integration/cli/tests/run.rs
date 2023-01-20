@@ -44,6 +44,8 @@ fn test_run_customlambda() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
         .arg("run")
         .arg("ciuser/customlambda")
+        // TODO: this argument should not be necessary later
+        // see https://github.com/wasmerio/wasmer/issues/3514
         .arg("customlambda.py")
         .arg("55")
         .output()?;
@@ -55,7 +57,8 @@ fn test_run_customlambda() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
         .arg("run")
         .arg("ciuser/customlambda")
-        // NOTE: see hackathon branch, this argument should not be necessary later
+        // TODO: this argument should not be necessary later
+        // see https://github.com/wasmerio/wasmer/issues/3514
         .arg("customlambda.py")
         .arg("55")
         .output()?;
