@@ -52,7 +52,7 @@ fn test_run_customlambda() -> anyhow::Result<()> {
 
     let stdout_output = std::str::from_utf8(&output.stdout).unwrap();
     let stderr_output = std::str::from_utf8(&output.stderr).unwrap();
-    
+
     println!("first run:");
     println!("stdout: {stdout_output}");
     println!("stderr: {stderr_output}");
@@ -70,7 +70,7 @@ fn test_run_customlambda() -> anyhow::Result<()> {
 
     let stdout_output = std::str::from_utf8(&output.stdout).unwrap();
     let stderr_output = std::str::from_utf8(&output.stderr).unwrap();
-    
+
     println!("second run:");
     println!("stdout: {stdout_output}");
     println!("stderr: {stderr_output}");
