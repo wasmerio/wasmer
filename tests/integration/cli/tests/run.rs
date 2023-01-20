@@ -22,6 +22,56 @@ fn test_no_start_wat_path() -> PathBuf {
 }
 
 #[test]
+fn test_run_customlambda() -> anyhow::Result<()> {
+    let bindir = String::from_utf8(
+        Command::new(get_wasmer_path())
+            .arg("config")
+            .arg("--bindir")
+            .output()
+            .expect("failed to run wasmer config --bindir")
+            .stdout,
+    )
+    .expect("wasmer config --bindir stdout failed");
+
+    // /Users/fs/.wasmer/bin
+    let checkouts_path = Path::new(&bindir)
+        .parent()
+        .expect("--bindir: no parent")
+        .join("checkouts");
+    println!("checkouts path: {}", checkouts_path.display());
+    let _ = std::fs::remove_dir_all(&checkouts_path);
+
+    let output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg("ciuser/customlambda")
+        .arg("55")
+        .output()?;
+
+    println!("first run");
+    println!("{:#?}", std::str::from_utf8(&output.stdout).unwrap());
+    println!("{:#?}", std::str::from_utf8(&output.stderr).unwrap());
+
+    let stdout_output = std::str::from_utf8(&output.stdout).unwrap();
+    assert_eq!(stdout_output, "27\n");
+
+    // Run again to verify the caching
+    let output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg("ciuser/customlambda")
+        .arg("55")
+        .output()?;
+
+    println!("second run");
+    println!("{:#?}", std::str::from_utf8(&output.stdout).unwrap());
+    println!("{:#?}", std::str::from_utf8(&output.stderr).unwrap());
+
+    let stdout_output = std::str::from_utf8(&output.stdout).unwrap();
+    assert_eq!(stdout_output, "27\n");
+
+    Ok(())
+}
+
+#[test]
 fn test_cross_compile_python_windows() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;
 
