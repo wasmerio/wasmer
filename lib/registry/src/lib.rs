@@ -449,11 +449,17 @@ pub fn try_unpack_targz<P: AsRef<Path>>(
         let mut ar = tar::Archive::new(cursor);
         if strip_toplevel {
             unpack_sans_parent(ar, target_path).map_err(|e| {
-                anyhow::anyhow!("failed to unpack (sans parent) {}: {e}", target_targz_path.display())
+                anyhow::anyhow!(
+                    "failed to unpack (sans parent) {}: {e}",
+                    target_targz_path.display()
+                )
             })
         } else {
             ar.unpack(target_path).map_err(|e| {
-                anyhow::anyhow!("failed to unpack (with parent) {}: {e}", target_targz_path.display())
+                anyhow::anyhow!(
+                    "failed to unpack (with parent) {}: {e}",
+                    target_targz_path.display()
+                )
             })
         }
     };
