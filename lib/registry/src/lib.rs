@@ -538,7 +538,7 @@ pub fn install_package(wasmer_dir: &Path, url: &Url) -> Result<PathBuf, anyhow::
         unpacked_targz_path.as_path(),
         false,
     )
-    .with_context(|| anyhow::anyhow!("Could not unpack file downloaded from {url}"))?;
+    .map_err(|e| anyhow::anyhow!("Could not unpack file downloaded from {url}: {e}"))?;
 
     // read {unpacked}/wasmer.toml to get the name + version number
     let toml_parsed = LocalPackage::read_toml(&unpacked_targz_path)
