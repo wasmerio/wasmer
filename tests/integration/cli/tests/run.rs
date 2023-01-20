@@ -51,6 +51,11 @@ fn test_run_customlambda() -> anyhow::Result<()> {
         .output()?;
 
     let stdout_output = std::str::from_utf8(&output.stdout).unwrap();
+    let stderr_output = std::str::from_utf8(&output.stderr).unwrap();
+    
+    println!("first run:");
+    println!("stdout: {stdout_output}");
+    println!("stderr: {stderr_output}");
     assert_eq!(stdout_output, "139583862445\n");
 
     // Run again to verify the caching
@@ -64,6 +69,11 @@ fn test_run_customlambda() -> anyhow::Result<()> {
         .output()?;
 
     let stdout_output = std::str::from_utf8(&output.stdout).unwrap();
+    let stderr_output = std::str::from_utf8(&output.stderr).unwrap();
+    
+    println!("first run:");
+    println!("stdout: {stdout_output}");
+    println!("stderr: {stderr_output}");
     assert_eq!(stdout_output, "139583862445\n");
 
     Ok(())
