@@ -281,7 +281,6 @@ jobs:
         shell: bash
         run: |
           pwd
-          ls -R $(pwd)
           git status
           ! [[ $(git status -s) ]]
       - name: Cache
