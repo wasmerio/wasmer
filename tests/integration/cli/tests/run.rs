@@ -71,7 +71,11 @@ fn test_run_customlambda() -> anyhow::Result<()> {
     let stdout_output = std::str::from_utf8(&output.stdout).unwrap();
     let stderr_output = std::str::from_utf8(&output.stderr).unwrap();
     
+<<<<<<< HEAD
     println!("first run:");
+=======
+    println!("second run:");
+>>>>>>> 6fb1300fa0 (Debug test_run_customlambda not working)
     println!("stdout: {stdout_output}");
     println!("stderr: {stderr_output}");
     assert_eq!(stdout_output, "139583862445\n");
