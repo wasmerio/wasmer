@@ -44,29 +44,24 @@ fn test_run_customlambda() -> anyhow::Result<()> {
     let output = Command::new(get_wasmer_path())
         .arg("run")
         .arg("ciuser/customlambda")
+        .arg("customlambda.py")
         .arg("55")
         .output()?;
 
-    println!("first run");
-    println!("{:#?}", std::str::from_utf8(&output.stdout).unwrap());
-    println!("{:#?}", std::str::from_utf8(&output.stderr).unwrap());
-
     let stdout_output = std::str::from_utf8(&output.stdout).unwrap();
-    assert_eq!(stdout_output, "27\n");
+    assert_eq!(stdout_output, "139583862445\n");
 
     // Run again to verify the caching
     let output = Command::new(get_wasmer_path())
         .arg("run")
         .arg("ciuser/customlambda")
+        // NOTE: see hackathon branch, this argument should not be necessary later
+        .arg("customlambda.py")
         .arg("55")
         .output()?;
 
-    println!("second run");
-    println!("{:#?}", std::str::from_utf8(&output.stdout).unwrap());
-    println!("{:#?}", std::str::from_utf8(&output.stderr).unwrap());
-
     let stdout_output = std::str::from_utf8(&output.stdout).unwrap();
-    assert_eq!(stdout_output, "27\n");
+    assert_eq!(stdout_output, "139583862445\n");
 
     Ok(())
 }
