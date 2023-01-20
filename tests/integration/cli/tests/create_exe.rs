@@ -262,6 +262,8 @@ fn test_create_exe_with_precompiled_works_1() {
 // Test temporarily ignored during the release of 3.2.0-alpha
 // because create-exe links to the old libwasmer.a which expects
 // MetadataHeader::VERSION == 1, but we want to upgrade to version 2.
+//
+// https://github.com/wasmerio/wasmer/issues/3513
 #[ignore]
 fn create_exe_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
@@ -304,6 +306,8 @@ fn create_exe_works() -> anyhow::Result<()> {
 // Test temporarily ignored during the release of 3.2.0-alpha
 // because create-exe links to the old libwasmer.a which expects
 // MetadataHeader::VERSION == 1, but we want to upgrade to version 2.
+//
+// https://github.com/wasmerio/wasmer/issues/3513
 #[ignore]
 fn create_exe_works_multi_command_args_handling() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
@@ -374,6 +378,8 @@ fn create_exe_works_multi_command_args_handling() -> anyhow::Result<()> {
 // Test temporarily ignored during the release of 3.2.0-alpha
 // because create-exe links to the old libwasmer.a which expects
 // MetadataHeader::VERSION == 1, but we want to upgrade to version 2.
+//
+// https://github.com/wasmerio/wasmer/issues/3513
 #[ignore]
 fn create_exe_works_multi_command() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
@@ -435,6 +441,8 @@ fn create_exe_works_multi_command() -> anyhow::Result<()> {
 // Test temporarily ignored during the release of 3.2.0-alpha
 // because create-exe links to the old libwasmer.a which expects
 // MetadataHeader::VERSION == 1, but we want to upgrade to version 2.
+//
+// https://github.com/wasmerio/wasmer/issues/3513
 #[ignore]
 fn create_exe_works_with_file() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
@@ -504,6 +512,8 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
 // Test temporarily ignored during the release of 3.2.0-alpha
 // because create-exe links to the old libwasmer.a which expects
 // MetadataHeader::VERSION == 1, but we want to upgrade to version 2.
+//
+// https://github.com/wasmerio/wasmer/issues/3513
 #[ignore]
 fn create_exe_serialized_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
@@ -692,6 +702,8 @@ fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
 // Test temporarily ignored during the release of 3.2.0-alpha
 // because create-exe links to the old libwasmer.a which expects
 // MetadataHeader::VERSION == 1, but we want to upgrade to version 2.
+//
+// https://github.com/wasmerio/wasmer/issues/3513
 #[ignore]
 fn create_exe_with_object_input_default() -> anyhow::Result<()> {
     create_exe_with_object_input(vec![])
@@ -704,6 +716,8 @@ fn create_exe_with_object_input_default() -> anyhow::Result<()> {
 // Test temporarily ignored during the release of 3.2.0-alpha
 // because create-exe links to the old libwasmer.a which expects
 // MetadataHeader::VERSION == 1, but we want to upgrade to version 2.
+//
+// https://github.com/wasmerio/wasmer/issues/3513
 #[ignore]
 fn create_exe_with_object_input_symbols() -> anyhow::Result<()> {
     create_exe_with_object_input(vec!["--object-format".to_string(), "symbols".to_string()])
@@ -716,6 +730,8 @@ fn create_exe_with_object_input_symbols() -> anyhow::Result<()> {
 // Test temporarily ignored during the release of 3.2.0-alpha
 // because create-exe links to the old libwasmer.a which expects
 // MetadataHeader::VERSION == 1, but we want to upgrade to version 2.
+//
+// https://github.com/wasmerio/wasmer/issues/3513
 #[ignore]
 fn create_exe_with_object_input_serialized() -> anyhow::Result<()> {
     create_exe_with_object_input(vec![
