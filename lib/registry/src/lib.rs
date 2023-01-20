@@ -448,14 +448,12 @@ pub fn try_unpack_targz<P: AsRef<Path>>(
         let cursor = std::io::Cursor::new(decomp);
         let mut ar = tar::Archive::new(cursor);
         if strip_toplevel {
-            println!("unpack sans parent into {}", target_path.display());
             unpack_sans_parent(ar, target_path).map_err(|e| {
-                anyhow::anyhow!("failed to unpack {}: {e}", target_targz_path.display())
+                anyhow::anyhow!("failed to unpack (sans parent) {}: {e}", target_targz_path.display())
             })
         } else {
-            println!("unpack with parent into {}", target_path.display());
             ar.unpack(target_path).map_err(|e| {
-                anyhow::anyhow!("failed to unpack {}: {e}", target_targz_path.display())
+                anyhow::anyhow!("failed to unpack (with parent) {}: {e}", target_targz_path.display())
             })
         }
     };
