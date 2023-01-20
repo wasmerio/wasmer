@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, ops::DerefMut, path::PathBuf, sync::RwLock};
 
 use bytes::Bytes;
-use wasmer::{AsStoreRef, Module};
+use wasmer::{AsEngineRef, Module};
 use wasmer_wasi_types::wasi::Snapshot0Clockid;
 
 use super::BinaryPackage;
@@ -163,7 +163,7 @@ impl ModuleCache {
 
     pub fn get_compiled_module(
         &self,
-        store: &impl AsStoreRef,
+        engine: &impl AsEngineRef,
         data_hash: &str,
         compiler: &str,
     ) -> Option<Module> {
@@ -201,7 +201,7 @@ impl ModuleCache {
                 let module_bytes = Bytes::from(data);
 
                 // Load the module
-                let module = unsafe { Module::deserialize(store, &module_bytes[..]).unwrap() };
+                let module = unsafe { Module::deserialize(engine, &module_bytes[..]).unwrap() };
 
                 if let Some(cache) = &self.cached_modules {
                     let mut cache = cache.write().unwrap();
