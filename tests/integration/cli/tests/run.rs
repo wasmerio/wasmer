@@ -43,7 +43,7 @@ fn test_run_customlambda() -> anyhow::Result<()> {
 
     let output = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("ciuser/customlambda")
+        .arg("https://wapm.io/ciuser/customlambda")
         // TODO: this argument should not be necessary later
         // see https://github.com/wasmerio/wasmer/issues/3514
         .arg("customlambda.py")
@@ -61,7 +61,7 @@ fn test_run_customlambda() -> anyhow::Result<()> {
     // Run again to verify the caching
     let output = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("ciuser/customlambda")
+        .arg("https://wapm.io/ciuser/customlambda")
         // TODO: this argument should not be necessary later
         // see https://github.com/wasmerio/wasmer/issues/3514
         .arg("customlambda.py")
