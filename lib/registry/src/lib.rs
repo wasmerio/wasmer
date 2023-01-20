@@ -458,7 +458,10 @@ pub fn try_unpack_targz<P: AsRef<Path>>(
         }
     };
 
-    try_decode_gz().or_else(|_| try_decode_xz())?;
+    try_decode_gz().or_else(|e1| {
+        try_decode_xz()
+            .map_err(|e2| anyhow::anyhow!("could not decode gz: {e1}, could not decode xz: {e2}"))
+    })?;
 
     Ok(target_targz_path.to_path_buf())
 }
