@@ -8,3 +8,12 @@ authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 license = "MIT OR Apache-2.0 WITH LLVM-exception"
 edition = "2018"
+
+[dependencies]
+wasmer = { path = "../api", version = "=3.2.0-alpha.1", default-features = false, features = ["sys", "compiler"] }
+wasmer-vm = { path = "../vm", version = "=3.2.0-alpha.1" }
+wasmer-types = { path = "../types", version = "=3.2.0-alpha.1" }
+region = { version = "3.0" }
+
+[target.'cfg(unix)'.dependencies]
+libc = { version = "^0.2", default-features = false }

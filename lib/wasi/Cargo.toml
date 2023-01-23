@@ -61,7 +61,6 @@ wasmer-compiler-singlepass = { version = "=3.2.0-alpha.1", path = "../compiler-s
 wasmer-compiler = { version = "=3.2.0-alpha.1", path = "../compiler", features = [ "translator" ], optional = true }
 http = "0.2.8"
 wai-bindgen-wasmer = { path = "../wai-bindgen-wasmer", version = "0.2.3", features = ["tracing"] }
-region = { version = "3.0", optional = true }
 
 [dependencies.reqwest]
 version = "0.11"
@@ -96,7 +95,7 @@ webc_runner = ["serde_cbor", "wasmer/compiler", "wasmer/cranelift"]
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
 webc_runner_rt_wasi = []
 
-sys = ["wasmer/sys", "wasmer-wasi-types/sys", "webc/mmap", "region", "wasmer-vm" ]
+sys = ["wasmer/sys", "wasmer-wasi-types/sys", "webc/mmap", "wasmer-vm" ]
 sys-default = ["wasmer/wat", "wasmer/compiler", "sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest" ]
 sys-poll = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]

@@ -4948,6 +4948,13 @@ dependencies = [
 [[package]]
 name = "wasmer-sys-utils"
 version = "3.2.0-alpha.1"
+dependencies = [
+ "libc",
+ "region",
+ "wasmer",
+ "wasmer-types",
+ "wasmer-vm",
+]
 
 [[package]]
 name = "wasmer-toml"
@@ -5075,7 +5082,6 @@ dependencies = [
  "libc",
  "linked_hash_set",
  "rand 0.8.5",
- "region",
  "reqwest",
  "serde",
  "serde_cbor",

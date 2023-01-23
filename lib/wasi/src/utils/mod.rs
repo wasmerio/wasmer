@@ -1,9 +1,6 @@
 pub mod store;
 mod thread_parker;
 
-#[cfg(target_os = "linux")]
-pub mod fd_memory;
-
 use std::collections::BTreeSet;
 
 use wasmer::Module;
