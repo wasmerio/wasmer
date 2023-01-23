@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-compiler-cli"
-version = "3.1.0"
+version = "3.2.0-alpha.1"
 description = "Wasmer Compiler CLI"
 categories = ["wasm", "command-line-interface"]
 keywords = ["wasm", "webassembly", "cli"]
@@ -18,8 +18,8 @@ path = "src/bin/wasmer_compiler.rs"
 doc = false
 
 [dependencies]
-wasmer-compiler = { version = "=3.1.0", path = "../compiler", features = ["compiler"] }
-wasmer-types = { version = "=3.1.0", path = "../types" }
+wasmer-compiler = { version = "=3.2.0-alpha.1", path = "../compiler", features = ["compiler"] }
+wasmer-types = { version = "=3.2.0-alpha.1", path = "../types" }
 atty = "0.2"
 colored = "2.0"
 anyhow = "1.0"
@@ -36,12 +36,12 @@ target-lexicon = { version = "0.12", features = ["std"] }
 tempfile = "3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-wasmer-compiler-singlepass = { version = "=3.1.0", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-cranelift = { version = "=3.1.0", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=3.2.0-alpha.1", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-cranelift = { version = "=3.2.0-alpha.1", path = "../compiler-cranelift", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasmer-compiler-singlepass = { version = "=3.1.0", path = "../compiler-singlepass", optional = true, default-features = false, features = ["wasm"] }
-wasmer-compiler-cranelift = { version = "=3.1.0", path = "../compiler-cranelift", optional = true, default-features = false, features = ["wasm"] }
+wasmer-compiler-singlepass = { version = "=3.2.0-alpha.1", path = "../compiler-singlepass", optional = true, default-features = false, features = ["wasm"] }
+wasmer-compiler-cranelift = { version = "=3.2.0-alpha.1", path = "../compiler-cranelift", optional = true, default-features = false, features = ["wasm"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 unix_mode = "0.1.3"

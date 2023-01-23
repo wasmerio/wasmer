@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-integration-tests-ios"
-version = "3.1.0"
+version = "3.2.0-alpha.1"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "iOS integration tests"
 repository = "https://github.com/wasmerio/wasmer"

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-cache"
-version = "3.1.0"
+version = "3.2.0-alpha.1"
 description = "Cache system for Wasmer WebAssembly runtime"
 categories = ["wasm", "caching"]
 keywords = ["wasm", "webassembly", "cache"]
@@ -11,7 +11,7 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer = { path = "../api", version = "=3.1.0", default-features = false, features = ["sys"] }
+wasmer = { path = "../api", version = "=3.2.0-alpha.1", default-features = false, features = ["sys"] }
 hex = "0.4"
 thiserror = "1"
 blake3 = "1.0"
@@ -20,7 +20,7 @@ blake3 = "1.0"
 criterion = "0.3"
 tempfile = "3"
 rand = "0.8.3"
-wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=3.1.0" }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=3.2.0-alpha.1" }
 
 [features]
 default = ["wasmer/js-serializable-module", "wasmer/compiler", "filesystem"]

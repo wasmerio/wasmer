@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-middlewares"
-version = "3.1.0"
+version = "3.2.0-alpha.1"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "A collection of various useful middlewares"
 license = "MIT OR Apache-2.0 WITH LLVM-exception"
@@ -11,12 +11,12 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer = { path = "../api", version = "=3.1.0", default-features = false, features = ["compiler"] }
-wasmer-types = { path = "../types", version = "=3.1.0" }
-wasmer-vm = { path = "../vm", version = "=3.1.0" }
+wasmer = { path = "../api", version = "=3.2.0-alpha.1", default-features = false, features = ["compiler"] }
+wasmer-types = { path = "../types", version = "=3.2.0-alpha.1" }
+wasmer-vm = { path = "../vm", version = "=3.2.0-alpha.1" }
 
 [dev-dependencies]
-wasmer = { path = "../api", version = "=3.1.0", features = ["compiler"] }
+wasmer = { path = "../api", version = "=3.2.0-alpha.1", features = ["compiler"] }
 
 [badges]
 maintenance = { status = "actively-developed" }
