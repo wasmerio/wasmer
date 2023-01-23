@@ -2277,6 +2277,10 @@
 <span id="2275">2275</span>
 <span id="2276">2276</span>
 <span id="2277">2277</span>
+<span id="2278">2278</span>
+<span id="2279">2279</span>
+<span id="2280">2280</span>
+<span id="2281">2281</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::ObjectFormat</span>;
@@ -3504,6 +3508,10 @@
     <span class="ident">include_path</span>.<span class="ident">pop</span>();
     <span class="ident">include_path</span>.<span class="ident">pop</span>();
     <span class="ident">include_path</span>.<span class="ident">push</span>(<span class="string">&quot;include&quot;</span>);
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">include_path</span>.<span class="ident">exists</span>() {
+        <span class="comment">// Can happen when we got the wrong library_path</span>
+        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Wasmer include path {} does not exist, maybe library path {} is wrong (expected /lib/libwasmer.a)?&quot;</span>, <span class="ident">include_path</span>.<span class="ident">display</span>(), <span class="ident">library_path</span>.<span class="ident">display</span>()));
+    }
     <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-I&quot;</span>);
     <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="ident">normalize_path</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">include_path</span>.<span class="ident">display</span>())));
 
