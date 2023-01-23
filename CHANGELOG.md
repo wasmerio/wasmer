@@ -9,6 +9,48 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 3.2.0-alpha.1 - 23/01/2023
+
+## Added
+
+  - [#3477](https://github.com/wasmerio/wasmer/pull/3477) Added support for Wasm Module custom sections in js
+  - [#3462](https://github.com/wasmerio/wasmer/pull/3462) [SINGLEPASS] Added a special case on SSE4.2 backend when dst == src1
+
+## Changed
+
+  - [#3511](https://github.com/wasmerio/wasmer/pull/3511) Incremented CURRENT_VERSION, so all cache will be invalidate and be rebuilt with the 3.2 version
+  - [#3498](https://github.com/wasmerio/wasmer/pull/3498) Wasix Control Plane - Thread Limit + Cleanup
+  - [#3465](https://github.com/wasmerio/wasmer/pull/3465) Remove assert in sse_round_fn and handle case where src2 is in memory
+  - [#3494](https://github.com/wasmerio/wasmer/pull/3494) Update wasmer-toml version
+  - [#3426](https://github.com/wasmerio/wasmer/pull/3426) WASIX Preparation
+  - [#3480](https://github.com/wasmerio/wasmer/pull/3480) Ignore Create-exe with serialize test, something is wrong with the generated exe
+  - [#3471](https://github.com/wasmerio/wasmer/pull/3471) Rename `WasiState::new()` to `WasiState::builder()`
+  - [#3430](https://github.com/wasmerio/wasmer/pull/3430) Implement support for multiple commands in one native executable
+  - [#3455](https://github.com/wasmerio/wasmer/pull/3455) Remove hardcoded rust-toolchain and use panic=abort on windows-gnu
+  - [#3353](https://github.com/wasmerio/wasmer/pull/3353) Speed up CI
+  - [#3433](https://github.com/wasmerio/wasmer/pull/3433) Module.deserialize - accept AsEngineRef
+  - [#3428](https://github.com/wasmerio/wasmer/pull/3428) Implement wasmer config
+  - [#3432](https://github.com/wasmerio/wasmer/pull/3432) Amend changes to wasmer init
+  - [#3439](https://github.com/wasmerio/wasmer/pull/3439) Use GNU/Linux frame registration code for FreeBSD too
+  - [#3324](https://github.com/wasmerio/wasmer/pull/3324) Implement wasmer init and wasmer publish
+  - [#3431](https://github.com/wasmerio/wasmer/pull/3431) Revert "Implement wasmer init and wasmer publish"
+
+## Fixed
+
+  - [#3483](https://github.com/wasmerio/wasmer/pull/3483) Fix feature flags for make-build-wasmer-headless
+  - [#3496](https://github.com/wasmerio/wasmer/pull/3496) Fixed create-exe tests for object-format serialized
+  - [#3479](https://github.com/wasmerio/wasmer/pull/3479) This should fix CI build of CAPI Headless
+  - [#3473](https://github.com/wasmerio/wasmer/pull/3473) Fix wasm publish validation
+  - [#3467](https://github.com/wasmerio/wasmer/pull/3467) Fix wasmer-wasi-js compilation
+  - [#3443](https://github.com/wasmerio/wasmer/pull/3443) Fix fuzz errors
+  - [#3456](https://github.com/wasmerio/wasmer/pull/3456) Fix wasmer-rust readme example
+  - [#3440](https://github.com/wasmerio/wasmer/pull/3440) Fix CI for external collaborator PRs
+  - [#3427](https://github.com/wasmerio/wasmer/pull/3427) Fix cargo-deny failing on webc crate
+  - [#3423](https://github.com/wasmerio/wasmer/pull/3423) Fix minor typo
+  - [#3419](https://github.com/wasmerio/wasmer/pull/3419) Fix CHANGELOG generation to list by PR merged date, not created date
+
+
+
 ## Fixed
 
   - [#3439](https://github.com/wasmerio/wasmer/pull/3439) Use GNU/Linux frame registration code for FreeBSD too
