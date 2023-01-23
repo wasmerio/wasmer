@@ -307,6 +307,9 @@ jobs:
       - name: Dist
         run: |
           make distribution-gnu
+        env: 
+          CARGO_TARGET: x86_64-pc-windows-gnu
+          TARGET_DIR: target/x86_64-pc-windows-gnu/release
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
