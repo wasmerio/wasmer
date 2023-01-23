@@ -26,6 +26,7 @@ pub mod publish;
 pub mod queries;
 pub mod utils;
 
+use crate::utils::normalize_path;
 pub use crate::{
     config::{format_graphql, WasmerConfig},
     package::Package,
@@ -431,7 +432,7 @@ pub fn try_unpack_targz<P: AsRef<Path>>(
     let try_decode_gz = || {
         let file = open_file()?;
         let gz_decoded = flate2::read::GzDecoder::new(&file);
-        let mut ar = tar::Archive::new(gz_decoded);
+        let ar = tar::Archive::new(gz_decoded);
         if strip_toplevel {
             unpack_sans_parent(ar, target_path).map_err(|e| {
                 anyhow::anyhow!(
@@ -440,7 +441,7 @@ pub fn try_unpack_targz<P: AsRef<Path>>(
                 )
             })
         } else {
-            ar.unpack(target_path).map_err(|e| {
+            unpack_with_parent(ar, target_path).map_err(|e| {
                 anyhow::anyhow!(
                     "failed to unpack (gz_ar_unpack) {}: {e}",
                     target_targz_path.display()
@@ -516,6 +517,26 @@ pub fn download_and_unpack_targz(
         .with_context(|| anyhow::anyhow!("Could not download {url}"))?;
 
     Ok(target_path.to_path_buf())
+}
+
+pub fn unpack_with_parent<R>(mut archive: tar::Archive<R>, dst: &Path) -> std::io::Result<()>
+where
+    R: std::io::Read,
+{
+    use std::path::Component::Normal;
+
+    for entry in archive.entries()? {
+        let mut entry = entry?;
+        let path: PathBuf = entry
+            .path()?
+            .components()
+            .filter(|c| matches!(c, Normal(_))) // prevent traversal attacks
+            .collect();
+        let path = dst.join(path);
+        let path = normalize_path(path.to_string_lossy().as_ref());
+        entry.unpack(&path)?;
+    }
+    Ok(())
 }
 
 pub fn unpack_sans_parent<R>(mut archive: tar::Archive<R>, dst: &Path) -> std::io::Result<()>
