@@ -42,6 +42,7 @@ members = [
     "lib/vfs",
     "lib/vnet",
     "lib/vbus",
+    "lib/sys-utils",
     "lib/vm",
     "lib/wai-bindgen-wasmer",
     "lib/wasi",

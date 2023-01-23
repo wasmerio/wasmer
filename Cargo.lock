@@ -4946,6 +4946,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-sys-utils"
+version = "3.2.0-alpha.1"
+
+[[package]]
 name = "wasmer-toml"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

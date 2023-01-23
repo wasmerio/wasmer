@@ -1,0 +1,10 @@
+[package]
+name = "wasmer-sys-utils"
+version = "3.2.0-alpha.1"
+description = "Wasmer utilities for a sys environment."
+categories = ["wasm"]
+keywords = ["wasm", "webassembly"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+license = "MIT OR Apache-2.0 WITH LLVM-exception"
+edition = "2018"
