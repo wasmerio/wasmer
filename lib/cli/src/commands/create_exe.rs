@@ -1225,6 +1225,10 @@ fn link_exe_from_dir(
     include_path.pop();
     include_path.pop();
     include_path.push("include");
+    if !include_path.exists() {
+        // Can happen when we got the wrong library_path
+        return Err(anyhow::anyhow!("Wasmer include path {} does not exist, maybe library path {} is wrong (expected /lib/libwasmer.a)?", include_path.display(), library_path.display()));
+    }
     cmd.arg("-I");
     cmd.arg(normalize_path(&format!("{}", include_path.display())));
 
