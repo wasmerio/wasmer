@@ -22,9 +22,9 @@ use std::sync::{Arc, Mutex};
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
     entity::PrimaryMap, DeserializeError, FunctionBody, FunctionIndex, FunctionType,
-    LocalFunctionIndex, ModuleInfo, SignatureIndex,
+    LocalFunctionIndex, SignatureIndex,
 };
-use wasmer_types::{CompileError, Features, Target};
+use wasmer_types::{CompileError, Features, ModuleInfo, Target};
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{CustomSection, CustomSectionProtection, SectionIndex};
 #[cfg(not(target_arch = "wasm32"))]
@@ -72,6 +72,15 @@ impl Engine {
             tunables: Arc::new(tunables),
             name,
         }
+    }
+
+    /// Returns only the `ModuleInfo` given a `wasm` byte slice
+    #[cfg(feature = "compiler")]
+    pub fn get_module_info(data: &[u8]) -> Result<ModuleInfo, CompileError> {
+        // this is from `artifact_builder.rs`
+        let environ = crate::ModuleEnvironment::new();
+        let translation = environ.translate(data).map_err(CompileError::Wasm)?;
+        Ok(translation.module)
     }
 
     /// Returns the name of this engine
@@ -267,7 +276,7 @@ impl EngineInner {
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
         match self.compiler.as_ref() {
             None => Err(CompileError::Codegen(
-                "The Engine is not compiled in.".to_string(),
+                "No compiler compiled into executable".to_string(),
             )),
             Some(compiler) => Ok(&**compiler),
         }

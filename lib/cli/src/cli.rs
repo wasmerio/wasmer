@@ -6,14 +6,13 @@ use crate::commands::Binfmt;
 use crate::commands::Compile;
 #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
 use crate::commands::CreateExe;
-#[cfg(feature = "static-artifact-create")]
-use crate::commands::CreateObj;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
 use crate::commands::{
-    Add, Cache, Config, GenCHeader, Init, Inspect, List, Login, Publish, Run, SelfUpdate, Validate,
-    Whoami,
+    Add, Cache, Config, Init, Inspect, List, Login, Publish, Run, SelfUpdate, Validate, Whoami,
 };
+#[cfg(feature = "static-artifact-create")]
+use crate::commands::{CreateObj, GenCHeader};
 use crate::error::PrettyError;
 use clap::{CommandFactory, ErrorKind, Parser};
 
@@ -130,6 +129,7 @@ enum WasmerCLIOptions {
     CreateObj(CreateObj),
 
     /// Generate the C static_defs.h header file for the input .wasm module
+    #[cfg(feature = "static-artifact-create")]
     GenCHeader(GenCHeader),
 
     /// Get various configuration information needed
@@ -181,6 +181,7 @@ impl WasmerCLIOptions {
             Self::List(list) => list.execute(),
             Self::Login(login) => login.execute(),
             Self::Publish(publish) => publish.execute(),
+            #[cfg(feature = "static-artifact-create")]
             Self::GenCHeader(gen_heder) => gen_heder.execute(),
             #[cfg(feature = "wast")]
             Self::Wast(wast) => wast.execute(),

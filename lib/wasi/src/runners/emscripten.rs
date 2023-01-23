@@ -1,4 +1,4 @@
-#![cfg(feature = "webc_runner_rt_wasi")]
+#![cfg(feature = "webc_runner_rt_emscripten")]
 //! WebC container support for running Emscripten modules
 
 use crate::runners::WapmContainer;
@@ -6,19 +6,41 @@ use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;
 use std::sync::Arc;
-use wasmer::{Cranelift, FunctionEnv, Instance, Module, Store};
+use wasmer::{FunctionEnv, Instance, Module, Store};
 use wasmer_emscripten::{
     generate_emscripten_env, is_emscripten_module, run_emscripten_instance, EmEnv,
     EmscriptenGlobals,
 };
 use webc::{Command, WebCMmap};
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Hash, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct EmscriptenRunner {
     args: Vec<String>,
+    #[serde(skip, default)]
+    store: Store,
 }
 
 impl EmscriptenRunner {
+    /// Constructs a new `EmscriptenRunner` given an `Store`
+    pub fn new(store: Store) -> Self {
+        Self {
+            args: Vec::new(),
+            store,
+        }
+    }
+
+    /// Returns the current arguments for this `EmscriptenRunner`
+    pub fn get_args(&self) -> Vec<String> {
+        self.args.clone()
+    }
+
+    /// Builder method to provide CLI args to the runner
+    pub fn with_args(mut self, args: Vec<String>) -> Self {
+        self.set_args(args);
+        self
+    }
+
+    /// Set the CLI args
     pub fn set_args(&mut self, args: Vec<String>) {
         self.args = args;
     }
@@ -33,6 +55,7 @@ impl crate::runners::Runner for EmscriptenRunner {
             .starts_with("https://webc.org/runner/emscripten"))
     }
 
+    #[allow(unreachable_code, unused_variables)]
     fn run_command(
         &mut self,
         command_name: &str,
@@ -43,16 +66,14 @@ impl crate::runners::Runner for EmscriptenRunner {
         let main_args = container.get_main_args_for_command(command_name);
         let atom_bytes = container.get_atom(&container.get_package_name(), &atom_name)?;
 
-        let compiler = Cranelift::default();
-        let mut store = Store::new(compiler);
-        let mut module = Module::new(&store, atom_bytes)?;
+        let mut module = Module::new(&self.store, atom_bytes)?;
         module.set_name(&atom_name);
 
         let (mut globals, env) =
-            prepare_emscripten_env(&mut store, &module, container.webc.clone(), &atom_name)?;
+            prepare_emscripten_env(&mut self.store, &module, container.webc.clone(), &atom_name)?;
 
         exec_module(
-            &mut store,
+            &mut self.store,
             &module,
             &mut globals,
             env,
