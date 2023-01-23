@@ -80,6 +80,7 @@ wasm-bindgen = "0.2.74"
 
 [dev-dependencies]
 wasmer-compiler-cranelift = { version = "3.0.0-beta", path = "../compiler-cranelift" }
+wasmer = { path = "../api", version = "=3.1.0", default-features = false, features = ["wat", "js-serializable-module", "cranelift", "compiler"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test = "0.3.0"
