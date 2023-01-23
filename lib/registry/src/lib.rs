@@ -415,8 +415,14 @@ pub fn try_unpack_targz<P: AsRef<Path>>(
     target_path: P,
     strip_toplevel: bool,
 ) -> Result<PathBuf, anyhow::Error> {
-    let target_targz_path = target_targz_path.as_ref();
-    let target_path = target_path.as_ref();
+    let target_targz_path = target_targz_path.as_ref().to_string_lossy().to_string();
+    let target_targz_path = crate::utils::normalize_path(&target_targz_path);
+    let target_targz_path = Path::new(&target_targz_path);
+
+    let target_path = target_path.as_ref().to_string_lossy().to_string();
+    let target_path = crate::utils::normalize_path(&target_path);
+    let target_path = Path::new(&target_path);
+
     let open_file = || {
         std::fs::File::open(&target_targz_path)
             .map_err(|e| anyhow::anyhow!("failed to open {}: {e}", target_targz_path.display()))
@@ -455,7 +461,7 @@ pub fn try_unpack_targz<P: AsRef<Path>>(
                 )
             })
         } else {
-            ar.unpack(target_path).map_err(|e| {
+            ar.unpack(&target_path).map_err(|e| {
                 anyhow::anyhow!(
                     "failed to unpack (with parent) {}: {e}",
                     target_targz_path.display()
@@ -469,7 +475,7 @@ pub fn try_unpack_targz<P: AsRef<Path>>(
             .map_err(|e2| anyhow::anyhow!("could not decode gz: {e1}, could not decode xz: {e2}"))
     })?;
 
-    Ok(target_targz_path.to_path_buf())
+    Ok(Path::new(&target_targz_path).to_path_buf())
 }
 
 /// Whether the top-level directory should be stripped
