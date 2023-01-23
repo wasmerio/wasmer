@@ -373,7 +373,6 @@ fn create_exe_works_multi_command_args_handling() -> anyhow::Result<()> {
 
 #[test]
 fn create_exe_mapdir_works() -> anyhow::Result<()> {
-
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
@@ -398,20 +397,12 @@ fn create_exe_mapdir_works() -> anyhow::Result<()> {
     let result = run_code(
         &operating_dir,
         &executable_path,
-        &[
-            "--mapdir=.:.".to_string(),
-            "test.py".to_string(),
-        ],
+        &["--mapdir=.:.".to_string(), "test.py".to_string()],
         true,
     )
     .context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
-    assert_eq!(
-        result_lines,
-        vec![
-            "hello",
-        ]
-    );
+    assert_eq!(result_lines, vec!["hello",]);
 
     Ok(())
 }
