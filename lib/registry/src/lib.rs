@@ -434,11 +434,17 @@ pub fn try_unpack_targz<P: AsRef<Path>>(
         let mut ar = tar::Archive::new(gz_decoded);
         if strip_toplevel {
             unpack_sans_parent(ar, target_path).map_err(|e| {
-                anyhow::anyhow!("failed to unpack {}: {e}", target_targz_path.display())
+                anyhow::anyhow!(
+                    "failed to unpack (gz_ar_unpack_sans_parent) {}: {e}",
+                    target_targz_path.display()
+                )
             })
         } else {
             ar.unpack(target_path).map_err(|e| {
-                anyhow::anyhow!("failed to unpack {}: {e}", target_targz_path.display())
+                anyhow::anyhow!(
+                    "failed to unpack (gz_ar_unpack) {}: {e}",
+                    target_targz_path.display()
+                )
             })
         }
     };
@@ -448,7 +454,10 @@ pub fn try_unpack_targz<P: AsRef<Path>>(
         let mut decomp: Vec<u8> = Vec::new();
         let mut bufread = std::io::BufReader::new(&file);
         lzma_rs::xz_decompress(&mut bufread, &mut decomp).map_err(|e| {
-            anyhow::anyhow!("failed to unpack {}: {e}", target_targz_path.display())
+            anyhow::anyhow!(
+                "failed to unpack (try_decode_xz) {}: {e}",
+                target_targz_path.display()
+            )
         })?;
 
         let cursor = std::io::Cursor::new(decomp);
