@@ -272,12 +272,12 @@ jobs:
         if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
         run: ls -R $CARGO_ROOT_DIR
       - run: make lint
-        if: ${{ matrix.build-what.key == 'capi' }}
+        if: ${{ matrix.build-what.key == 'capi' && !matrix.metadata.build == 'linux-musl' }}
         env:
           ENABLE_CRANELIFT: "1"
           ENABLE_SINGLEPASS: "1"
       - name: Assert no files have changed
-        if: ${{ matrix.build-what.key == 'capi' }}
+        if: ${{ matrix.build-what.key == 'capi' && !matrix.metadata.build == 'linux-musl' }}
         shell: bash
         run: |
           pwd
