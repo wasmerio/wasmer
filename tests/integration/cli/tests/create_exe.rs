@@ -371,6 +371,51 @@ fn create_exe_works_multi_command_args_handling() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn create_exe_mapdir_works() -> anyhow::Result<()> {
+
+    let temp_dir = tempfile::tempdir()?;
+    let operating_dir: PathBuf = temp_dir.path().to_owned();
+
+    std::fs::write(operating_dir.join("test.py"), b"print('hello')")?;
+
+    let wasm_path = operating_dir.join(create_exe_python_wasmer());
+    #[cfg(not(windows))]
+    let executable_path = operating_dir.join("python.out");
+    #[cfg(windows)]
+    let executable_path = operating_dir.join("python.exe");
+
+    WasmerCreateExe {
+        current_dir: operating_dir.clone(),
+        wasm_path,
+        native_executable_path: executable_path.clone(),
+        compiler: Compiler::Cranelift,
+        ..Default::default()
+    }
+    .run()
+    .context("Failed to create-exe wasm with Wasmer")?;
+
+    let result = run_code(
+        &operating_dir,
+        &executable_path,
+        &[
+            "--mapdir=.:.".to_string(),
+            "test.py".to_string(),
+        ],
+        true,
+    )
+    .context("Failed to run generated executable")?;
+    let result_lines = result.lines().collect::<Vec<&str>>();
+    assert_eq!(
+        result_lines,
+        vec![
+            "hello",
+        ]
+    );
+
+    Ok(())
+}
+
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
 // #[cfg_attr(target_os = "windows", ignore)]
