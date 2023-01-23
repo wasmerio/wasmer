@@ -634,7 +634,10 @@ fn run_test_caching_works_for_packages() -> anyhow::Result<()> {
         .output()?;
 
     if output.stdout != b"hello\n".to_vec() {
-        panic!("failed to run https://wapm.io/python/python for the first time");
+        panic!("failed to run https://wapm.io/python/python for the first time: stdout = {}, stderr = {}", 
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
     }
 
     let time = std::time::Instant::now();

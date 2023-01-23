@@ -15,6 +15,7 @@ use std::fmt;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use tar::EntryType;
 use url::Url;
 
 pub mod config;
@@ -519,22 +520,27 @@ pub fn download_and_unpack_targz(
     Ok(target_path.to_path_buf())
 }
 
-pub fn unpack_with_parent<R>(mut archive: tar::Archive<R>, dst: &Path) -> std::io::Result<()>
+pub fn unpack_with_parent<R>(mut archive: tar::Archive<R>, dst: &Path) -> Result<(), anyhow::Error>
 where
     R: std::io::Read,
 {
     use std::path::Component::Normal;
+
+    let dst_normalized = normalize_path(dst.to_string_lossy().as_ref());
 
     for entry in archive.entries()? {
         let mut entry = entry?;
         let path: PathBuf = entry
             .path()?
             .components()
+            .skip(1) // strip top-level directory
             .filter(|c| matches!(c, Normal(_))) // prevent traversal attacks
             .collect();
-        let path = dst.join(path);
-        let path = normalize_path(path.to_string_lossy().as_ref());
-        entry.unpack(&path)?;
+        if entry.header().entry_type().is_file() {
+            entry.unpack_in(&dst_normalized)?;
+        } else if entry.header().entry_type() == EntryType::Directory {
+            std::fs::create_dir_all(&Path::new(&dst_normalized).join(&path))?;
+        }
     }
     Ok(())
 }
@@ -545,6 +551,8 @@ where
 {
     use std::path::Component::Normal;
 
+    let dst_normalized = normalize_path(dst.to_string_lossy().as_ref());
+
     for entry in archive.entries()? {
         let mut entry = entry?;
         let path: PathBuf = entry
@@ -553,7 +561,7 @@ where
             .skip(1) // strip top-level directory
             .filter(|c| matches!(c, Normal(_))) // prevent traversal attacks
             .collect();
-        entry.unpack(dst.join(path))?;
+        entry.unpack(Path::new(&dst_normalized).join(path))?;
     }
     Ok(())
 }
