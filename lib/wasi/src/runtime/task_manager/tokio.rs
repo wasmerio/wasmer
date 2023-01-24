@@ -5,7 +5,7 @@ use futures::Future;
 use tokio::runtime::{Builder, Runtime};
 use wasmer::{vm::VMMemory, Module, Store};
 
-use crate::{WasiCallingId, WasiThreadError};
+use crate::{os::task::thread::WasiThreadError, WasiCallingId};
 
 use super::{SpawnType, VirtualTaskManager};
 

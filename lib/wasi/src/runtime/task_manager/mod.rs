@@ -9,7 +9,7 @@ use wasmer::{vm::VMMemory, MemoryType, Module, Store};
 #[cfg(feature = "sys")]
 use wasmer_types::MemoryStyle;
 
-use crate::{WasiCallingId, WasiThreadError};
+use crate::{os::task::thread::WasiThreadError, WasiCallingId};
 
 #[derive(Debug)]
 pub struct SpawnedMemory {

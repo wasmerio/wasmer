@@ -94,14 +94,13 @@ pub use crate::{
         task::{
             control_plane::WasiControlPlane,
             process::{WasiProcess, WasiProcessId},
-            thread::{WasiThread, WasiThreadHandle, WasiThreadId},
+            thread::{WasiThread, WasiThreadError, WasiThreadHandle, WasiThreadId},
         },
         WasiTtyState,
     },
     runtime::{
         task_manager::{VirtualTaskManager, VirtualTaskManagerExt},
-        PluggableRuntimeImplementation, SpawnedMemory, WasiRuntimeImplementation, WasiThreadError,
-        WebSocketAbi,
+        PluggableRuntimeImplementation, SpawnedMemory, WasiRuntimeImplementation, WebSocketAbi,
     },
     wapm::parse_static_webc,
 };

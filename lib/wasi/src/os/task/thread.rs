@@ -5,7 +5,10 @@ use std::{
 };
 
 use bytes::{Bytes, BytesMut};
-use wasmer_wasi_types::{types::Signal, wasi::ExitCode};
+use wasmer_wasi_types::{
+    types::Signal,
+    wasi::{Errno, ExitCode},
+};
 
 use crate::os::task::process::{WasiProcessId, WasiProcessInner};
 
@@ -353,5 +356,29 @@ impl std::ops::Deref for WasiThreadHandle {
 impl std::ops::DerefMut for WasiThreadHandle {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.thread
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum WasiThreadError {
+    #[error("Multithreading is not supported")]
+    Unsupported,
+    #[error("The method named is not an exported function")]
+    MethodNotFound,
+    #[error("Failed to create the requested memory")]
+    MemoryCreateFailed,
+    /// This will happen if WASM is running in a thread has not been created by the spawn_wasm call
+    #[error("WASM context is invalid")]
+    InvalidWasmContext,
+}
+
+impl From<WasiThreadError> for Errno {
+    fn from(a: WasiThreadError) -> Errno {
+        match a {
+            WasiThreadError::Unsupported => Errno::Notsup,
+            WasiThreadError::MethodNotFound => Errno::Inval,
+            WasiThreadError::MemoryCreateFailed => Errno::Fault,
+            WasiThreadError::InvalidWasmContext => Errno::Noexec,
+        }
     }
 }

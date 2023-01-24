@@ -17,11 +17,8 @@ use std::{
     sync::Arc,
 };
 
-use thiserror::Error;
-use tracing::*;
 use wasmer_vbus::{DefaultVirtualBus, VirtualBus};
 use wasmer_vnet::{DynVirtualNetworking, VirtualNetworking};
-use wasmer_wasi_types::wasi::Errno;
 
 use crate::{os::tty::WasiTtyState, WasiEnv};
 
@@ -33,30 +30,6 @@ pub use term::*;
 
 #[cfg(feature = "sys")]
 pub type ArcTunables = std::sync::Arc<dyn wasmer::Tunables + Send + Sync>;
-
-#[derive(Error, Debug)]
-pub enum WasiThreadError {
-    #[error("Multithreading is not supported")]
-    Unsupported,
-    #[error("The method named is not an exported function")]
-    MethodNotFound,
-    #[error("Failed to create the requested memory")]
-    MemoryCreateFailed,
-    /// This will happen if WASM is running in a thread has not been created by the spawn_wasm call
-    #[error("WASM context is invalid")]
-    InvalidWasmContext,
-}
-
-impl From<WasiThreadError> for Errno {
-    fn from(a: WasiThreadError) -> Errno {
-        match a {
-            WasiThreadError::Unsupported => Errno::Notsup,
-            WasiThreadError::MethodNotFound => Errno::Inval,
-            WasiThreadError::MemoryCreateFailed => Errno::Fault,
-            WasiThreadError::InvalidWasmContext => Errno::Noexec,
-        }
-    }
-}
 
 /// Represents an implementation of the WASI runtime - by default everything is
 /// unimplemented.
