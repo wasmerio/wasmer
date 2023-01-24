@@ -87,6 +87,7 @@ pub(crate) use self::types::{
     },
     *,
 };
+use self::utils::WasiDummyWaker;
 pub(crate) use crate::os::task::{
     process::{WasiProcessId, WasiProcessWait},
     thread::{WasiThread, WasiThreadId},
@@ -102,8 +103,7 @@ pub(crate) use crate::{
     runtime::{task_manager::VirtualTaskManagerExt, SpawnType},
     state::{
         self, bus_errno_into_vbus_error, iterate_poll_events, vbus_error_into_bus_errno, Inode,
-        PollEvent, PollEventBuilder, WasiBusCall, WasiDummyWaker, WasiFutex, WasiState,
-        WasiThreadContext,
+        PollEvent, PollEventBuilder, WasiBusCall, WasiFutex, WasiState, WasiThreadContext,
     },
     utils::{self, map_io_err},
     VirtualTaskManager, WasiEnv, WasiEnvInner, WasiError, WasiFunctionEnv,

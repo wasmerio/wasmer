@@ -1,6 +1,9 @@
 pub mod store;
 mod thread_parker;
 
+mod dummy_waker;
+pub use self::dummy_waker::WasiDummyWaker;
+
 use std::collections::BTreeSet;
 
 use wasmer::Module;

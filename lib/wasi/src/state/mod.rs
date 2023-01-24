@@ -30,7 +30,6 @@ use std::{
     time::Duration,
 };
 
-use cooked_waker::{ViaRawPointer, Wake, WakeRef};
 use derivative::Derivative;
 pub use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
@@ -361,27 +360,5 @@ impl WasiState {
             preopen: self.preopen.clone(),
             runtime: self.runtime.clone(),
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct WasiDummyWaker;
-
-impl WakeRef for WasiDummyWaker {
-    fn wake_by_ref(&self) {}
-}
-
-impl Wake for WasiDummyWaker {
-    fn wake(self) {}
-}
-
-unsafe impl ViaRawPointer for WasiDummyWaker {
-    type Target = ();
-    fn into_raw(self) -> *mut () {
-        std::mem::forget(self);
-        std::ptr::null_mut()
-    }
-    unsafe fn from_raw(_ptr: *mut ()) -> Self {
-        WasiDummyWaker
     }
 }
