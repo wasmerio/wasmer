@@ -95,7 +95,7 @@ pub enum WasiStateCreationError {
     FileSystemError(FsError),
     #[error("wasi inherit error: `{0}`")]
     WasiInheritError(String),
-    #[error("control plain error")]
+    #[error("control plane error")]
     ControlPlane(#[from] ControlPlaneError),
 }
 
