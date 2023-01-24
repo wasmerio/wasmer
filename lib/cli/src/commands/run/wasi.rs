@@ -82,8 +82,10 @@ impl Wasi {
 
     /// Gets the WASI version (if any) for the provided module
     pub fn get_versions(module: &Module) -> Option<BTreeSet<WasiVersion>> {
-        // Get the wasi version in strict mode, so no other imports are
-        // allowed.
+        // Get the wasi version in non-strict mode, so multiple wasi versions
+        // are potentially allowed.
+        //
+        // Checking for multiple wasi versions is handled outside this function.
         get_wasi_versions(module, false)
     }
 
