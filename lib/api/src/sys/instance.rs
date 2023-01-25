@@ -3,7 +3,7 @@ use crate::sys::module::Module;
 use crate::sys::{LinkError, RuntimeError};
 use std::fmt;
 use thiserror::Error;
-use wasmer_vm::{InstanceHandle, StoreHandle};
+use wasmer_vm::{StoreHandle, VMInstance};
 
 #[cfg(feature = "compiler")]
 use super::store::AsStoreMut;
@@ -20,7 +20,7 @@ use crate::sys::{externals::Extern, imports::Imports};
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
 #[derive(Clone)]
 pub struct Instance {
-    _handle: StoreHandle<InstanceHandle>,
+    _handle: StoreHandle<VMInstance>,
     module: Module,
     /// The exports for an instance.
     pub exports: Exports,
