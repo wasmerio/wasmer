@@ -3,7 +3,7 @@
 
 //! An `Instance` contains all the runtime state used by execution of
 //! a WebAssembly module (except its callstack and register state). An
-//! `InstanceHandle` is a wrapper around `Instance` that manages
+//! `VMInstance` is a wrapper around `Instance` that manages
 //! how it is allocated and deallocated.
 
 mod allocator;
@@ -1024,7 +1024,7 @@ impl Instance {
 /// This is more or less a public facade of the private `Instance`,
 /// providing useful higher-level API.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct InstanceHandle {
+pub struct VMInstance {
     /// The layout of `Instance` (which can vary).
     instance_layout: Layout,
 
@@ -1040,10 +1040,10 @@ pub struct InstanceHandle {
     instance: NonNull<Instance>,
 }
 
-/// InstanceHandle are created with an InstanceAllocator
+/// VMInstance are created with an InstanceAllocator
 /// and it will "consume" the memory
 /// So the Drop here actualy free it (else it would be leaked)
-impl Drop for InstanceHandle {
+impl Drop for VMInstance {
     fn drop(&mut self) {
         let instance_ptr = self.instance.as_ptr();
 
@@ -1053,8 +1053,8 @@ impl Drop for InstanceHandle {
     }
 }
 
-impl InstanceHandle {
-    /// Create a new `InstanceHandle` pointing at a new [`InstanceRef`].
+impl VMInstance {
+    /// Create a new `VMInstance` pointing at a new [`InstanceRef`].
     ///
     /// # Safety
     ///
@@ -1064,7 +1064,7 @@ impl InstanceHandle {
     /// method is a low-overhead way of saying “this is an extremely unsafe type
     /// to work with”.
     ///
-    /// Extreme care must be taken when working with `InstanceHandle` and it's
+    /// Extreme care must be taken when working with `VMInstance` and it's
     /// recommended to have relatively intimate knowledge of how it works
     /// internally if you'd like to do so. If possible it's recommended to use
     /// the `wasmer` crate API rather than this type since that is vetted for
@@ -1127,7 +1127,7 @@ impl InstanceHandle {
                 })),
             };
 
-            let mut instance_handle = allocator.write_instance(instance);
+            let mut instance_handle = allocator.into_vminstance(instance);
 
             // Set the funcrefs after we've built the instance
             {
