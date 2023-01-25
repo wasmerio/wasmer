@@ -590,23 +590,23 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: capi-linux-aarch64
-          download-path: package/cache/wasmer-linux-aarch64.tar.gz
+          path: package/cache/wasmer-linux-aarch64.tar.gz
       - uses: actions/download-artifact@v3
         with:
-          name: capi-windows-gnu64
-          download-path: package/cache/wasmer-windows-gnu64.tar.gz
+          name: capi-windows-gnu
+          path: package/cache/wasmer-windows-gnu64.tar.gz
       - uses: actions/download-artifact@v3
         with:
-          name: capi-darwin-arm64
-          download-path: package/cache/wasmer-darwin-arm64.tar.gz
+          name: capi-macos-arm
+          path: package/cache/wasmer-darwin-arm64.tar.gz
       - uses: actions/download-artifact@v3
         with:
-          name: capi-darwin-amd64
-          download-path: package/cache/wasmer-darwin-amd64.tar.gz
+          name: capi-macos-x64
+          path: package/cache/wasmer-darwin-amd64.tar.gz
       - uses: actions/download-artifact@v3
         with:
-          name: capi-linux-amd64
-          download-path: package/cache/wasmer-linux-amd64.tar.gz
+          name: capi-linux-x64
+          path: package/cache/wasmer-linux-amd64.tar.gz
       - name: Unzip Artifacts
         shell: bash
         run: |
