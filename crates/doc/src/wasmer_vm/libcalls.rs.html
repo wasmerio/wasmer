@@ -877,7 +877,7 @@
 <span class="doccomment">//!   function frame, we need to raise it. This involves some nasty and quite</span>
 <span class="doccomment">//!   unsafe code under the covers! Notable, after raising the trap, drops</span>
 <span class="doccomment">//!   **will not** be run for local variables! This can lead to things like</span>
-<span class="doccomment">//!   leaking `InstanceHandle`s which leads to never deallocating JIT code,</span>
+<span class="doccomment">//!   leaking `VMInstance`s which leads to never deallocating JIT code,</span>
 <span class="doccomment">//!   instances, and modules! Therefore, always use nested blocks to ensure</span>
 <span class="doccomment">//!   drops run before raising a trap:</span>
 <span class="doccomment">//!</span>

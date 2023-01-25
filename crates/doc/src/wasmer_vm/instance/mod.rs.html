@@ -1586,12 +1586,35 @@
 <span id="1586">1586</span>
 <span id="1587">1587</span>
 <span id="1588">1588</span>
+<span id="1589">1589</span>
+<span id="1590">1590</span>
+<span id="1591">1591</span>
+<span id="1592">1592</span>
+<span id="1593">1593</span>
+<span id="1594">1594</span>
+<span id="1595">1595</span>
+<span id="1596">1596</span>
+<span id="1597">1597</span>
+<span id="1598">1598</span>
+<span id="1599">1599</span>
+<span id="1600">1600</span>
+<span id="1601">1601</span>
+<span id="1602">1602</span>
+<span id="1603">1603</span>
+<span id="1604">1604</span>
+<span id="1605">1605</span>
+<span id="1606">1606</span>
+<span id="1607">1607</span>
+<span id="1608">1608</span>
+<span id="1609">1609</span>
+<span id="1610">1610</span>
+<span id="1611">1611</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
 <span class="doccomment">//! An `Instance` contains all the runtime state used by execution of</span>
 <span class="doccomment">//! a WebAssembly module (except its callstack and register state). An</span>
-<span class="doccomment">//! `InstanceHandle` is a wrapper around `Instance` that manages</span>
+<span class="doccomment">//! `VMInstance` is a wrapper around `Instance` that manages</span>
 <span class="doccomment">//! how it is allocated and deallocated.</span>
 
 <span class="kw">mod</span> <span class="ident">allocator</span>;
@@ -2612,7 +2635,7 @@
 <span class="doccomment">/// This is more or less a public facade of the private `Instance`,</span>
 <span class="doccomment">/// providing useful higher-level API.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Eq</span>, <span class="ident">PartialEq</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">InstanceHandle</span> {
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMInstance</span> {
     <span class="doccomment">/// The layout of `Instance` (which can vary).</span>
     <span class="ident">instance_layout</span>: <span class="ident">Layout</span>,
 
@@ -2628,8 +2651,24 @@
     <span class="ident">instance</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">Instance</span><span class="op">&gt;</span>,
 }
 
-<span class="kw">impl</span> <span class="ident">InstanceHandle</span> {
-    <span class="doccomment">/// Create a new `InstanceHandle` pointing at a new [`InstanceRef`].</span>
+<span class="doccomment">/// VMInstance are created with an InstanceAllocator</span>
+<span class="doccomment">/// and it will &quot;consume&quot; the memory</span>
+<span class="doccomment">/// So the Drop here actualy free it (else it would be leaked)</span>
+<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">VMInstance</span> {
+    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
+        <span class="kw">let</span> <span class="ident">instance_ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">instance</span>.<span class="ident">as_ptr</span>();
+
+        <span class="kw">unsafe</span> {
+            <span class="comment">// Need to drop all the actual Instance members</span>
+            <span class="ident">instance_ptr</span>.<span class="ident">drop_in_place</span>();
+            <span class="comment">// And then free the memory allocated for the Instance itself</span>
+            <span class="ident">std::alloc::dealloc</span>(<span class="ident">instance_ptr</span> <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">u8</span>, <span class="self">self</span>.<span class="ident">instance_layout</span>);
+        }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">VMInstance</span> {
+    <span class="doccomment">/// Create a new `VMInstance` pointing at a new [`InstanceRef`].</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Safety</span>
     <span class="doccomment">///</span>
@@ -2639,7 +2678,7 @@
     <span class="doccomment">/// method is a low-overhead way of saying “this is an extremely unsafe type</span>
     <span class="doccomment">/// to work with”.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// Extreme care must be taken when working with `InstanceHandle` and it&#39;s</span>
+    <span class="doccomment">/// Extreme care must be taken when working with `VMInstance` and it&#39;s</span>
     <span class="doccomment">/// recommended to have relatively intimate knowledge of how it works</span>
     <span class="doccomment">/// internally if you&#39;d like to do so. If possible it&#39;s recommended to use</span>
     <span class="doccomment">/// the `wasmer` crate API rather than this type since that is vetted for</span>
@@ -2702,7 +2741,7 @@
                 })),
             };
 
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">instance_handle</span> <span class="op">=</span> <span class="ident">allocator</span>.<span class="ident">write_instance</span>(<span class="ident">instance</span>);
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">instance_handle</span> <span class="op">=</span> <span class="ident">allocator</span>.<span class="ident">into_vminstance</span>(<span class="ident">instance</span>);
 
             <span class="comment">// Set the funcrefs after we&#39;ve built the instance</span>
             {
@@ -3174,5 +3213,12 @@
         <span class="ident">imported_func_refs</span>.<span class="ident">into_boxed_slice</span>(),
     )
 }
+
+<span class="doccomment">/// This type is deprecated, it has been replaced by VMinstance.</span>
+<span class="attribute">#[<span class="ident">deprecated</span>(
+    <span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;3.2.0&quot;</span>,
+    <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;InstanceHandle has been replaced by VMInstance&quot;</span>
+)]</span>
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">InstanceHandle</span> <span class="op">=</span> <span class="ident">VMInstance</span>;
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

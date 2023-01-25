@@ -768,7 +768,7 @@
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CompileModuleInfo</span>, <span class="ident">Target</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">SerializableModule</span>, <span class="ident">SerializeError</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">FunctionBodyPtr</span>, <span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>, <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTrampoline</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">InstanceAllocator</span>, <span class="ident">InstanceHandle</span>, <span class="ident">StoreObjects</span>, <span class="ident">TrapHandlerFn</span>, <span class="ident">VMExtern</span>};
+<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">InstanceAllocator</span>, <span class="ident">StoreObjects</span>, <span class="ident">TrapHandlerFn</span>, <span class="ident">VMExtern</span>, <span class="ident">VMInstance</span>};
 
 <span class="doccomment">/// A compiled wasm module, ready to be instantiated.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Artifact</span> {
@@ -1041,13 +1041,13 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Safety</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// See [`InstanceHandle::new`].</span>
+    <span class="doccomment">/// See [`VMInstance::new`].</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">instantiate</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">tunables</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Tunables</span>,
         <span class="ident">imports</span>: <span class="kw-2">&amp;</span>[<span class="ident">VMExtern</span>],
         <span class="ident">context</span>: <span class="kw-2">&amp;mut</span> <span class="ident">StoreObjects</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">InstanceHandle</span>, <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMInstance</span>, <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
         <span class="comment">// Validate the CPU features this module was compiled with against the</span>
         <span class="comment">// host CPU features.</span>
         <span class="kw">let</span> <span class="ident">host_cpu_features</span> <span class="op">=</span> <span class="ident">CpuFeature::for_host</span>();
@@ -1101,7 +1101,7 @@
 
         <span class="self">self</span>.<span class="ident">register_frame_info</span>();
 
-        <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">InstanceHandle::new</span>(
+        <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">VMInstance::new</span>(
             <span class="ident">allocator</span>,
             <span class="ident">module</span>,
             <span class="ident">context</span>,
@@ -1117,15 +1117,15 @@
         <span class="prelude-val">Ok</span>(<span class="ident">handle</span>)
     }
 
-    <span class="doccomment">/// Finishes the instantiation of a just created `InstanceHandle`.</span>
+    <span class="doccomment">/// Finishes the instantiation of a just created `VMInstance`.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Safety</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// See [`InstanceHandle::finish_instantiation`].</span>
+    <span class="doccomment">/// See [`VMInstance::finish_instantiation`].</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">finish_instantiation</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">trap_handler</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">*const</span> <span class="ident">TrapHandlerFn</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">handle</span>: <span class="kw-2">&amp;mut</span> <span class="ident">InstanceHandle</span>,
+        <span class="ident">handle</span>: <span class="kw-2">&amp;mut</span> <span class="ident">VMInstance</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">data_initializers</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">data_initializers</span>()

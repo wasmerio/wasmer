@@ -151,6 +151,7 @@
 <span id="151">151</span>
 <span id="152">152</span>
 <span id="153">153</span>
+<span id="154">154</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Runtime library support for Wasmer.</span>
 
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">missing_docs</span>, <span class="ident">trivial_numeric_casts</span>, <span class="ident">unused_extern_crates</span>)]</span>
@@ -197,7 +198,8 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::function_env::VMFunctionEnvironment</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::global</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::imports::Imports</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::instance</span>::{<span class="ident">InstanceAllocator</span>, <span class="ident">InstanceHandle</span>};
+<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">deprecated</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::instance</span>::{<span class="ident">InstanceAllocator</span>, <span class="ident">InstanceHandle</span>, <span class="ident">VMInstance</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::memory</span>::{
     <span class="ident">initialize_memory_with_data</span>, <span class="ident">LinearMemory</span>, <span class="ident">VMMemory</span>, <span class="ident">VMOwnedMemory</span>, <span class="ident">VMSharedMemory</span>,
 };

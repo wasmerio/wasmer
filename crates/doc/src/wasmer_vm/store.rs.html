@@ -323,7 +323,7 @@
 };
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">InstanceHandle</span>, <span class="ident">VMExternObj</span>, <span class="ident">VMFunction</span>, <span class="ident">VMFunctionEnvironment</span>, <span class="ident">VMGlobal</span>, <span class="ident">VMMemory</span>, <span class="ident">VMTable</span>,
+    <span class="ident">VMExternObj</span>, <span class="ident">VMFunction</span>, <span class="ident">VMFunctionEnvironment</span>, <span class="ident">VMGlobal</span>, <span class="ident">VMInstance</span>, <span class="ident">VMMemory</span>, <span class="ident">VMTable</span>,
 };
 
 <span class="doccomment">/// Unique ID to identify a context.</span>
@@ -368,7 +368,7 @@
     <span class="ident">functions</span> =&gt; <span class="ident">VMFunction</span>,
     <span class="ident">tables</span> =&gt; <span class="ident">VMTable</span>,
     <span class="ident">globals</span> =&gt; <span class="ident">VMGlobal</span>,
-    <span class="ident">instances</span> =&gt; <span class="ident">InstanceHandle</span>,
+    <span class="ident">instances</span> =&gt; <span class="ident">VMInstance</span>,
     <span class="ident">memories</span> =&gt; <span class="ident">VMMemory</span>,
     <span class="ident">extern_objs</span> =&gt; <span class="ident">VMExternObj</span>,
     <span class="ident">function_environments</span> =&gt; <span class="ident">VMFunctionEnvironment</span>,
@@ -382,7 +382,7 @@
     <span class="ident">tables</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">VMTable</span><span class="op">&gt;</span>,
     <span class="ident">globals</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">VMGlobal</span><span class="op">&gt;</span>,
     <span class="ident">functions</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">VMFunction</span><span class="op">&gt;</span>,
-    <span class="ident">instances</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">InstanceHandle</span><span class="op">&gt;</span>,
+    <span class="ident">instances</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">VMInstance</span><span class="op">&gt;</span>,
     <span class="ident">extern_objs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">VMExternObj</span><span class="op">&gt;</span>,
     <span class="ident">function_environments</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">VMFunctionEnvironment</span><span class="op">&gt;</span>,
 }

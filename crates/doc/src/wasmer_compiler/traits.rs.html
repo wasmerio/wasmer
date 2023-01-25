@@ -121,7 +121,7 @@
     <span class="doccomment">/// Returns the table plans associated with this `Artifact`.</span>
     <span class="kw">fn</span> <span class="ident">table_styles</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span>;
 
-    <span class="doccomment">/// Returns data initializers to pass to `InstanceHandle::initialize`</span>
+    <span class="doccomment">/// Returns data initializers to pass to `VMInstance::initialize`</span>
     <span class="kw">fn</span> <span class="ident">data_initializers</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[<span class="ident">OwnedDataInitializer</span>];
 
     <span class="doccomment">/// Serializes an artifact into bytes</span>
