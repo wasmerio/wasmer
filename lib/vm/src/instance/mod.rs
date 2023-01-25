@@ -1048,6 +1048,9 @@ impl Drop for VMInstance {
         let instance_ptr = self.instance.as_ptr();
 
         unsafe {
+            // Need to drop all the actual Instance members
+            instance_ptr.drop_in_place();
+            // And then free the memory allocated for the Instance itself
             std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
         }
     }
