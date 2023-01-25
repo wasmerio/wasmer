@@ -590,23 +590,31 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: capi-linux-aarch64
-          path: package/cache/wasmer-linux-aarch64.tar.gz
+          path: package/cache/wasmercache1
       - uses: actions/download-artifact@v3
         with:
           name: capi-windows-gnu
-          path: package/cache/wasmer-windows-gnu64.tar.gz
+          path: package/cache/wasmercache2
       - uses: actions/download-artifact@v3
         with:
           name: capi-macos-arm
-          path: package/cache/wasmer-darwin-arm64.tar.gz
+          path: package/cache/wasmercache3
       - uses: actions/download-artifact@v3
         with:
           name: capi-macos-x64
-          path: package/cache/wasmer-darwin-amd64.tar.gz
+          path: package/cache/wasmercache4
       - uses: actions/download-artifact@v3
         with:
           name: capi-linux-x64
-          path: package/cache/wasmer-linux-amd64.tar.gz
+          path: package/cache/wasmercache5
+      - name: Copy .tar.gz files to proper location
+        shell: bash
+        run: |
+          cp package/cache/wasmercache1/build-wasmer.tar.gz package/cache/wasmer-linux-aarch64.tar.gz
+          cp package/cache/wasmercache2/build-wasmer.tar.gz package/cache/wasmer-windows-gnu64.tar.gz
+          cp package/cache/wasmercache3/build-wasmer.tar.gz package/cache/wasmer-darwin-arm64.tar.gz
+          cp package/cache/wasmercache4/build-wasmer.tar.gz package/cache/wasmer-darwin-amd64.tar.gz
+          cp package/cache/wasmercache5/build-wasmer.tar.gz package/cache/wasmer-linux-amd64.tar.gz
       - uses: actions/download-artifact@v3
         if: ${{ matrix.build == 'windows-gnu' }}
         with:
