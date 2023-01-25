@@ -1599,3 +1599,10 @@ fn build_funcrefs(
         imported_func_refs.into_boxed_slice(),
     )
 }
+
+/// This type is deprecated, it has been replaced by VMinstance.
+#[deprecated(
+    since = "3.2.0",
+    note = "InstanceHandle has been replaced by VMInstance"
+)]
+pub type InstanceHandle = VMInstance;
