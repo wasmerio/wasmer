@@ -17,3 +17,9 @@ region = { version = "3.0" }
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "^0.2", default-features = false }
+
+[dev-dependencies]
+wasmer-wasi = { path = "../wasi", version = "=3.2.0-alpha.1" }
+wasmer = { path = "../api", version = "=3.2.0-alpha.1", default-features = false, features = ["sys", "compiler", "cranelift"] }
+tracing-subscriber = { version = "0.3.16", features = ["fmt"] }
+tracing = "0.1.37"
