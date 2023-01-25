@@ -3,7 +3,9 @@
 use anyhow::{bail, Context};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use wasmer_integration_tests_cli::{get_repo_root_path, get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
+use wasmer_integration_tests_cli::{
+    get_wasmer_path, package_wasmer_to_tarball, ASSET_PATH, C_ASSET_PATH,
+};
 
 fn wasi_test_python_path() -> PathBuf {
     Path::new(C_ASSET_PATH).join("python-0.1.0.wasmer")
@@ -195,20 +197,6 @@ fn run_wasi_works() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "webc_runner")]
-fn package_directory(in_dir: &PathBuf, out: &PathBuf) {
-    use flate2::write::GzEncoder;
-    use flate2::Compression;
-    use std::fs::File;
-    let tar = File::create(out).unwrap();
-    let enc = GzEncoder::new(tar, Compression::none());
-    let mut a = tar::Builder::new(enc);
-    a.append_dir_all("bin", in_dir.join("bin")).unwrap();
-    a.append_dir_all("lib", in_dir.join("lib")).unwrap();
-    a.append_dir_all("include", in_dir.join("include")).unwrap();
-    a.finish().unwrap();
-}
-
 /// TODO: on linux-musl, the packaging of libwasmer.a doesn't work properly
 /// Tracked in https://github.com/wasmerio/wasmer/issues/3271
 #[cfg(not(any(target_env = "musl", target_os = "windows")))]
@@ -224,24 +212,9 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     let python_exe_output_path = temp_dir.join("python");
 
     let native_target = target_lexicon::HOST;
-    let root_path = get_repo_root_path().unwrap();
-    let package_path = root_path.join("package");
-    if !package_path.exists() {
-        panic!("package path {} does not exist", package_path.display());
-    }
     let tmp_targz_path = temp_dir.join("link.tar.gz");
+    package_wasmer_to_tarball(&tmp_targz_path);
     println!("compiling to target {native_target}");
-    println!(
-        "packaging /package to .tar.gz: {}",
-        tmp_targz_path.display()
-    );
-    package_directory(&package_path, &tmp_targz_path);
-    println!("packaging done");
-    println!(
-        "tmp tar gz path: {} - exists: {:?}",
-        tmp_targz_path.display(),
-        tmp_targz_path.exists()
-    );
 
     let mut cmd = Command::new(get_wasmer_path());
     cmd.arg("create-exe");
