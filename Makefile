@@ -561,10 +561,12 @@ test-wasi-unit:
 test-wasi:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) -- wasi::wasitests
 
-test-integration-cli:
+test-integration-cli: build-wasmer build-capi package dist
+	cp ./dist/wasmer.tar.gz ./link.tar.gz
 	rustup target add wasm32-wasi
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
 
+# Before running this in the CI, we need to set up link.tar.gz and /cache/wasmer-[target].tar.gz
 test-integration-cli-ci:
 	rustup target add wasm32-wasi
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-cli -- --nocapture --test-threads=1 || $(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1

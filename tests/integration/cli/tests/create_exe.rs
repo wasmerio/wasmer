@@ -68,7 +68,7 @@ impl WasmerCreateExe {
         output.arg(&self.native_executable_path);
         if !self.extra_cli_flags.contains(&"--target".to_string()) {
             let tarball_path = get_repo_root_path().unwrap().join("link.tar.gz");
-            package_wasmer_to_tarball(&tarball_path);
+            assert!(tarball_path.exists(), "link.tar.gz does not exist");
             output.arg("--tarball");
             output.arg(&tarball_path);
         }

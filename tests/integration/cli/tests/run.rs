@@ -3,9 +3,7 @@
 use anyhow::{bail, Context};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use wasmer_integration_tests_cli::{
-    get_libwasmer_path, get_wasmer_path, package_wasmer_to_tarball, ASSET_PATH, C_ASSET_PATH,
-};
+use wasmer_integration_tests_cli::{get_libwasmer_path, get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
 
 fn wasi_test_python_path() -> PathBuf {
     Path::new(C_ASSET_PATH).join("python-0.1.0.wasmer")
@@ -90,7 +88,7 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
             let python_wasmer_path = temp_dir.path().join(format!("{t}-python"));
 
             let tarball = match std::env::var("GITHUB_TOKEN") {
-                Ok(_) => Some(assert_tarball_is_present_local(target)?),
+                Ok(_) => Some(assert_tarball_is_present_local(t)?),
                 Err(_) => None,
             };
             let mut output = Command::new(get_wasmer_path());
@@ -235,6 +233,8 @@ fn run_wasi_works() -> anyhow::Result<()> {
 fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     // let temp_dir = Path::new("debug");
     // std::fs::create_dir_all(&temp_dir);
+
+    use wasmer_integration_tests_cli::get_repo_root_path;
     let temp_dir = tempfile::TempDir::new()?;
     let temp_dir = temp_dir.path().to_path_buf();
     let python_wasmer_path = temp_dir.join("python.wasmer");
@@ -242,8 +242,8 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     let python_exe_output_path = temp_dir.join("python");
 
     let native_target = target_lexicon::HOST;
-    let tmp_targz_path = temp_dir.join("link.tar.gz");
-    package_wasmer_to_tarball(&tmp_targz_path);
+    let tmp_targz_path = get_repo_root_path().unwrap().join("link.tar.gz");
+
     println!("compiling to target {native_target}");
 
     let mut cmd = Command::new(get_wasmer_path());

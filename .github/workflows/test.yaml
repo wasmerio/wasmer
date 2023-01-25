@@ -575,6 +575,31 @@ jobs:
           aws-endpoint: https://storage.googleapis.com
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
+      - name: Prepare package directory
+        shell: bash
+        run: |
+          mkdir -p package
+          mkdir -p package/cache
+      - uses: actions/download-artifact@v3
+        with:
+          name: capi-linux-aarch64
+          download-path: package/cache/wasmer-linux-aarch64.tar.gz
+      - uses: actions/download-artifact@v3
+        with:
+          name: capi-windows-gnu64
+          download-path: package/cache/wasmer-windows-gnu64.tar.gz
+      - uses: actions/download-artifact@v3
+        with:
+          name: capi-darwin-arm64
+          download-path: package/cache/wasmer-darwin-arm64.tar.gz
+      - uses: actions/download-artifact@v3
+        with:
+          name: capi-darwin-amd64
+          download-path: package/cache/wasmer-darwin-amd64.tar.gz
+      - uses: actions/download-artifact@v3
+        with:
+          name: capi-linux-amd64
+          download-path: package/cache/wasmer-linux-amd64.tar.gz
       - name: Unzip Artifacts
         shell: bash
         run: |
