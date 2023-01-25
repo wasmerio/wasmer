@@ -610,6 +610,11 @@ jobs:
       - name: Copy .tar.gz files to proper location
         shell: bash
         run: |
+          ls package/cache/wasmercache1
+          ls package/cache/wasmercache2
+          ls package/cache/wasmercache3
+          ls package/cache/wasmercache4
+          ls package/cache/wasmercache5
           cp package/cache/wasmercache1/build-wasmer.tar.gz package/cache/wasmer-linux-aarch64.tar.gz
           cp package/cache/wasmercache2/build-wasmer.tar.gz package/cache/wasmer-windows-gnu64.tar.gz
           cp package/cache/wasmercache3/build-wasmer.tar.gz package/cache/wasmer-darwin-arm64.tar.gz
