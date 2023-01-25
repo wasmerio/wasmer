@@ -129,7 +129,7 @@ jobs:
         build-what: [
           {
             key: capi,
-            build-cmd: 'make build-capi && make package-capi && make dist',
+            build-cmd: 'make build-capi && make package-capi && make distribution',
             name: 'Build C-API'
           },
           {
