@@ -39,7 +39,11 @@ static void pass_mapdir_arg(wasi_config_t *wasi_config, char *mapdir) {
   memcpy(dir, &mapdir[colon_location + 1], dir_len);
   dir[dir_len] = '\0';
 
-  wasi_config_mapdir(wasi_config, alias, dir);
+  fprintf(stderr, "wasi_config_mapdir %s -> %s \n", alias, dir);
+  if (!wasi_config_mapdir(wasi_config, alias, dir)) {
+      fprintf(stderr, "Error mapping WASI directory\n");
+      print_wasmer_error();
+  }
   free(alias);
   free(dir);
 }
