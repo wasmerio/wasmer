@@ -1,5 +1,4 @@
 use crate::entity::PrimaryMap;
-use crate::Pages;
 use crate::{
     compilation::target::CpuFeature, CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection,
     DeserializeError, Dwarf, Features, FunctionBody, FunctionIndex, LocalFunctionIndex,
@@ -62,8 +61,6 @@ pub struct SerializableModule {
     pub data_initializers: Box<[OwnedDataInitializer]>,
     /// CPU Feature flags for this compilation
     pub cpu_features: u64,
-    /// The start memory address of this serializable module
-    pub module_start: Option<Pages>,
 }
 
 fn to_serialize_error(err: impl std::error::Error) -> SerializeError {
@@ -181,7 +178,7 @@ pub struct MetadataHeader {
 impl MetadataHeader {
     /// Current ABI version. Increment this any time breaking changes are made
     /// to the format of the serialized data.
-    const CURRENT_VERSION: u32 = 1;
+    const CURRENT_VERSION: u32 = 2;
 
     /// Magic number to identify wasmer metadata.
     const MAGIC: [u8; 8] = *b"WASMER\0\0";

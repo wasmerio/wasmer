@@ -56,8 +56,8 @@ impl Artifact {
         data: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Self, CompileError> {
-        let environ = ModuleEnvironment::new();
         let mut inner_engine = engine.inner_mut();
+        let environ = ModuleEnvironment::new();
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
         let module = translation.module;
         let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = module
@@ -77,8 +77,7 @@ impl Artifact {
             engine.target(),
             memory_styles,
             table_styles,
-        )?
-        .with_module_start(tunables.module_start());
+        )?;
 
         Self::from_parts(&mut inner_engine, artifact)
     }
@@ -712,7 +711,6 @@ impl Artifact {
             compile_info: metadata.compile_info,
             data_initializers: metadata.data_initializers,
             cpu_features: metadata.cpu_features,
-            module_start: None,
         });
 
         let finished_function_lengths = finished_functions
