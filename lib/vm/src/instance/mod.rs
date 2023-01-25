@@ -1023,7 +1023,7 @@ impl Instance {
 ///
 /// This is more or less a public facade of the private `Instance`,
 /// providing useful higher-level API.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct VMInstance {
     /// The layout of `Instance` (which can vary).
     instance_layout: Layout,
