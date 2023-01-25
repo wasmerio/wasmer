@@ -3,7 +3,7 @@ use crate::js::exports::Exports;
 use crate::js::externals::Extern;
 use crate::js::imports::Imports;
 use crate::js::module::Module;
-use crate::js::store::{AsStoreMut, AsStoreRef, StoreHandle};
+use crate::js::store::{AsStoreMut, AsStoreRef};
 use js_sys::WebAssembly;
 use std::fmt;
 
@@ -17,7 +17,7 @@ use std::fmt;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
 #[derive(Clone)]
 pub struct Instance {
-    _handle: StoreHandle<WebAssembly::Instance>,
+    handle: WebAssembly::Instance,
     module: Module,
     /// The exports for an instance.
     pub exports: Exports,
@@ -66,7 +66,6 @@ impl Instance {
             .instantiate(&mut store, imports)
             .map_err(|e| InstantiationError::Start(e))?;
 
-        let instance = instance.get(store.objects_mut()).clone();
         let mut self_instance = Self::from_module_and_instance(store, module, instance)?;
         self_instance.ensure_memory_export(store, externs);
         //self_instance.init_envs(&imports.iter().map(Extern::to_export).collect::<Vec<_>>())?;
@@ -131,9 +130,8 @@ impl Instance {
             })
             .collect::<Result<Exports, InstantiationError>>()?;
 
-        let handle = StoreHandle::new(store.as_store_mut().objects_mut(), instance);
         Ok(Self {
-            _handle: handle,
+            handle: instance,
             module: module.clone(),
             exports,
         })
@@ -162,10 +160,10 @@ impl Instance {
     /// Returns the inner WebAssembly Instance
     #[doc(hidden)]
     pub fn raw<'context>(
-        &self,
+        &'context self,
         store: &'context impl AsStoreRef,
     ) -> &'context WebAssembly::Instance {
-        &self._handle.get(store.as_store_ref().objects())
+        &self.handle
     }
 }
 

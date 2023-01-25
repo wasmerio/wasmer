@@ -1,7 +1,7 @@
 use crate::js::export::VMMemory;
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::{Extern, VMExtern};
-use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle, StoreObjects};
+use crate::js::store::{AsStoreMut, AsStoreRef, StoreObjects};
 use crate::js::{MemoryAccessError, MemoryType};
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
@@ -65,7 +65,7 @@ extern "C" {
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
 #[derive(Debug, Clone)]
 pub struct Memory {
-    pub(crate) handle: StoreHandle<VMMemory>,
+    pub(crate) handle: VMMemory,
 }
 
 unsafe impl Send for Memory {}
@@ -115,19 +115,17 @@ impl Memory {
         ty: MemoryType,
     ) -> Result<Self, MemoryError> {
         let vm_memory = VMMemory::new(js_memory, ty);
-        let handle = StoreHandle::new(store.objects_mut(), vm_memory);
-        Ok(Self::from_vm_extern(store, handle.internal_handle()))
+        Ok(Self::from_vm_extern(store, vm_memory))
     }
 
     /// Create a memory object from an existing memory and attaches it to the store
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
-        let handle = StoreHandle::new(new_store.objects_mut(), memory);
-        Self::from_vm_extern(new_store, handle.internal_handle())
+        Self::from_vm_extern(new_store, memory)
     }
 
     /// To `VMExtern`.
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
-        VMExtern::Memory(self.handle.internal_handle())
+        VMExtern::Memory(self.handle.clone())
     }
 
     /// Returns the [`MemoryType`] of the `Memory`.
@@ -144,7 +142,7 @@ impl Memory {
     /// assert_eq!(m.ty(), mt);
     /// ```
     pub fn ty(&self, store: &impl AsStoreRef) -> MemoryType {
-        self.handle.get(store.as_store_ref().objects()).ty
+        self.handle.ty
     }
 
     /// Creates a view into the memory that then allows for
@@ -192,7 +190,7 @@ impl Memory {
         IntoPages: Into<Pages>,
     {
         let pages = delta.into();
-        let js_memory = &self.handle.get_mut(store.objects_mut()).memory;
+        let js_memory = &self.handle.memory;
         let our_js_memory: &JSMemory = JsCast::unchecked_from_js_ref(js_memory);
         let new_pages = our_js_memory.grow(pages.0).map_err(|err| {
             if err.is_instance_of::<js_sys::RangeError>() {
@@ -237,37 +235,26 @@ impl Memory {
     }
 
     pub(crate) fn from_vm_export(store: &mut impl AsStoreMut, vm_memory: VMMemory) -> Self {
-        Self {
-            handle: StoreHandle::new(store.objects_mut(), vm_memory),
-        }
+        Self { handle: vm_memory }
     }
 
-    pub(crate) fn from_vm_extern(
-        store: &mut impl AsStoreMut,
-        internal: InternalStoreHandle<VMMemory>,
-    ) -> Self {
-        Self {
-            handle: unsafe {
-                StoreHandle::from_internal(store.as_store_ref().objects().id(), internal)
-            },
-        }
+    pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, internal: VMMemory) -> Self {
+        Self { handle: internal }
     }
 
     /// Attempts to clone this memory (if its clonable)
     pub fn try_clone(&self, store: &impl AsStoreRef) -> Option<VMMemory> {
-        let mem = self.handle.get(store.as_store_ref().objects());
-        mem.try_clone()
+        self.handle.try_clone()
     }
 
     /// Checks whether this `Global` can be used with the given context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        self.handle.store_id() == store.as_store_ref().objects().id()
+        true
     }
 
     /// Copies this memory to a new memory
     pub fn duplicate(&mut self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
-        let mem = self.handle.get(store.as_store_ref().objects());
-        mem.duplicate()
+        self.handle.duplicate()
     }
 }
 

@@ -78,14 +78,6 @@ impl fmt::Debug for Store {
     }
 }
 
-/// A trait represinting any object that lives in the `Store`.
-pub trait StoreObject {
-    /// Return true if the object `Store` is the same as the provided `Store`.
-    fn comes_from_same_store(&self, _store: &Store) -> bool {
-        true
-    }
-}
-
 impl AsStoreRef for Store {
     fn as_store_ref(&self) -> StoreRef<'_> {
         StoreRef { inner: &self.inner }
@@ -207,7 +199,8 @@ impl<T: AsStoreMut> AsStoreMut for &'_ mut T {
     }
 }
 
-pub use objects::*;
+pub(crate) use objects::{InternalStoreHandle, StoreObject};
+pub use objects::{StoreHandle, StoreId, StoreObjects};
 
 mod objects {
     use wasm_bindgen::JsValue;
@@ -266,11 +259,15 @@ mod objects {
 }
 
     impl_store_object! {
-        functions => VMFunction,
-        tables => VMTable,
+        // Note: we store the globals in order to be able to access them later via
+        // `StoreObjects::iter_globals`.
         globals => VMGlobal,
-        memories => VMMemory,
-        instances => js_sys::WebAssembly::Instance,
+        // functions => VMFunction,
+        // tables => VMTable,
+        // memories => VMMemory,
+        // The function environments are the only things attached to a store,
+        // since the other JS objects (table, globals, memory and functions)
+        // live in the JS VM Store by default
         function_environments => VMFunctionEnvironment,
     }
 
@@ -278,11 +275,7 @@ mod objects {
     #[derive(Default)]
     pub struct StoreObjects {
         id: StoreId,
-        memories: Vec<VMMemory>,
-        tables: Vec<VMTable>,
         globals: Vec<VMGlobal>,
-        functions: Vec<VMFunction>,
-        instances: Vec<js_sys::WebAssembly::Instance>,
         function_environments: Vec<VMFunctionEnvironment>,
     }
 
@@ -480,30 +473,6 @@ mod objects {
                 idx,
                 marker: PhantomData,
             })
-        }
-    }
-
-    /// Data used by the generated code is generally located inline within the
-    /// `VMContext` for items defined in an instance. Host-defined objects are
-    /// allocated separately and owned directly by the context.
-    #[allow(dead_code)]
-    pub enum MaybeInstanceOwned<T> {
-        /// The data is owned here.
-        Host(Box<UnsafeCell<T>>),
-
-        /// The data is stored inline in the `VMContext` of an instance.
-        Instance(NonNull<T>),
-    }
-
-    #[allow(dead_code)]
-    impl<T> MaybeInstanceOwned<T> {
-        /// Returns underlying pointer to the VM data.
-        #[allow(dead_code)]
-        pub fn as_ptr(&self) -> NonNull<T> {
-            match self {
-                MaybeInstanceOwned::Host(p) => unsafe { NonNull::new_unchecked(p.get()) },
-                MaybeInstanceOwned::Instance(p) => *p,
-            }
         }
     }
 }

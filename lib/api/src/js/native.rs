@@ -10,7 +10,7 @@
 use std::marker::PhantomData;
 
 use crate::js::externals::Function;
-use crate::js::store::{AsStoreMut, AsStoreRef, StoreHandle};
+use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::{FromToNativeWasmType, RuntimeError, WasmTypeList};
 // use std::panic::{catch_unwind, AssertUnwindSafe};
 use crate::js::export::VMFunction;
@@ -25,7 +25,7 @@ use wasmer_types::RawValue;
 /// (using the Native ABI).
 #[derive(Clone)]
 pub struct TypedFunction<Args = (), Rets = ()> {
-    pub(crate) handle: StoreHandle<VMFunction>,
+    pub(crate) handle: VMFunction,
     _phantom: PhantomData<(Args, Rets)>,
 }
 
@@ -40,7 +40,7 @@ where
     #[allow(dead_code)]
     pub(crate) fn new<T>(store: &mut impl AsStoreMut, vm_function: VMFunction) -> Self {
         Self {
-            handle: StoreHandle::new(store.as_store_mut().objects_mut(), vm_function),
+            handle: vm_function,
             _phantom: PhantomData,
         }
     }
@@ -78,7 +78,7 @@ macro_rules! impl_native_traits {
                     let mut r;
                     // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
                     loop {
-                        r = self.handle.get(store.as_store_ref().objects()).function.apply(
+                        r = self.handle.function.apply(
                             &JsValue::UNDEFINED,
                             &Array::from_iter(params_list.iter())
                         );

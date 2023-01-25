@@ -246,7 +246,7 @@ impl Module {
         &self,
         store: &mut impl AsStoreMut,
         imports: &Imports,
-    ) -> Result<(crate::StoreHandle<WebAssembly::Instance>, Vec<Extern>), RuntimeError> {
+    ) -> Result<(WebAssembly::Instance, Vec<Extern>), RuntimeError> {
         // Ensure all imports come from the same store.
         if imports
             .into_iter()
@@ -324,11 +324,8 @@ impl Module {
             // the error for us, so we don't need to handle it
         }
         Ok((
-            crate::StoreHandle::new(
-                store.as_store_mut().objects_mut(),
-                WebAssembly::Instance::new(&self.module, &imports_object)
-                    .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
-            ),
+            WebAssembly::Instance::new(&self.module, &imports_object)
+                .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
             import_externs,
         ))
     }

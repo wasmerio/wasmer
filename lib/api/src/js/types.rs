@@ -44,12 +44,7 @@ impl AsJs for Value {
             Self::F32(f) => JsValue::from_f64(*f as f64),
             Self::F64(f) => JsValue::from_f64(*f),
             Self::V128(f) => JsValue::from_f64(*f as f64),
-            Self::FuncRef(Some(func)) => func
-                .handle
-                .get(store.as_store_ref().objects())
-                .function
-                .clone()
-                .into(),
+            Self::FuncRef(Some(func)) => func.handle.function.clone().into(),
             Self::FuncRef(None) => JsValue::null(),
         }
     }

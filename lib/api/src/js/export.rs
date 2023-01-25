@@ -1,5 +1,5 @@
 use crate::js::error::WasmError;
-use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle};
+use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::wasm_bindgen_polyfill::Global;
 use crate::MemoryView;
 use js_sys::Function;
@@ -165,38 +165,26 @@ impl fmt::Debug for VMFunction {
 #[derive(Debug, Clone)]
 pub enum Export {
     /// A function export value.
-    Function(InternalStoreHandle<VMFunction>),
+    Function(VMFunction),
 
     /// A table export value.
-    Table(InternalStoreHandle<VMTable>),
+    Table(VMTable),
 
     /// A memory export value.
-    Memory(InternalStoreHandle<VMMemory>),
+    Memory(VMMemory),
 
     /// A global export value.
-    Global(InternalStoreHandle<VMGlobal>),
+    Global(VMGlobal),
 }
 
 impl Export {
     /// Return the export as a `JSValue`.
-    pub fn as_jsvalue<'context>(&self, store: &'context impl AsStoreRef) -> &'context JsValue {
+    pub fn as_jsvalue(&self, _store: &impl AsStoreRef) -> JsValue {
         match self {
-            Self::Memory(js_wasm_memory) => js_wasm_memory
-                .get(store.as_store_ref().objects())
-                .memory
-                .as_ref(),
-            Self::Function(js_func) => js_func
-                .get(store.as_store_ref().objects())
-                .function
-                .as_ref(),
-            Self::Table(js_wasm_table) => js_wasm_table
-                .get(store.as_store_ref().objects())
-                .table
-                .as_ref(),
-            Self::Global(js_wasm_global) => js_wasm_global
-                .get(store.as_store_ref().objects())
-                .global
-                .as_ref(),
+            Self::Memory(js_wasm_memory) => js_wasm_memory.memory.clone().into(),
+            Self::Function(js_func) => js_func.function.clone().into(),
+            Self::Table(js_wasm_table) => js_wasm_table.table.clone().into(),
+            Self::Global(js_wasm_global) => js_wasm_global.global.clone().into(),
         }
     }
 
@@ -209,9 +197,9 @@ impl Export {
         match extern_type {
             ExternType::Memory(memory_type) => {
                 if val.is_instance_of::<Memory>() {
-                    Ok(Self::Memory(InternalStoreHandle::new(
-                        &mut store.objects_mut(),
-                        VMMemory::new(val.unchecked_into::<Memory>(), memory_type),
+                    Ok(Self::Memory(VMMemory::new(
+                        val.unchecked_into::<Memory>(),
+                        memory_type,
                     )))
                 } else {
                     Err(WasmError::TypeMismatch(
@@ -225,9 +213,9 @@ impl Export {
             }
             ExternType::Global(global_type) => {
                 if val.is_instance_of::<Global>() {
-                    Ok(Self::Global(InternalStoreHandle::new(
-                        &mut store.objects_mut(),
-                        VMGlobal::new(val.unchecked_into::<Global>(), global_type),
+                    Ok(Self::Global(VMGlobal::new(
+                        val.unchecked_into::<Global>(),
+                        global_type,
                     )))
                 } else {
                     panic!("Extern type doesn't match js value type");
@@ -235,9 +223,9 @@ impl Export {
             }
             ExternType::Function(function_type) => {
                 if val.is_instance_of::<Function>() {
-                    Ok(Self::Function(InternalStoreHandle::new(
-                        &mut store.objects_mut(),
-                        VMFunction::new(val.unchecked_into::<Function>(), function_type),
+                    Ok(Self::Function(VMFunction::new(
+                        val.unchecked_into::<Function>(),
+                        function_type,
                     )))
                 } else {
                     panic!("Extern type doesn't match js value type");
@@ -245,9 +233,9 @@ impl Export {
             }
             ExternType::Table(table_type) => {
                 if val.is_instance_of::<Table>() {
-                    Ok(Self::Table(InternalStoreHandle::new(
-                        &mut store.objects_mut(),
-                        VMTable::new(val.unchecked_into::<Table>(), table_type),
+                    Ok(Self::Table(VMTable::new(
+                        val.unchecked_into::<Table>(),
+                        table_type,
                     )))
                 } else {
                     panic!("Extern type doesn't match js value type");

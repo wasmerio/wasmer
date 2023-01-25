@@ -94,12 +94,7 @@ impl Value {
             Self::F32(v) => v as f64,
             Self::F64(v) => v,
             Self::V128(v) => v as f64,
-            Self::FuncRef(Some(ref f)) => f
-                .handle
-                .get(store.as_store_ref().objects())
-                .function
-                .as_f64()
-                .unwrap_or(0_f64), //TODO is this correct?
+            Self::FuncRef(Some(ref f)) => f.handle.function.as_f64().unwrap_or(0_f64), //TODO is this correct?
 
             Self::FuncRef(None) => 0_f64,
             //Self::ExternRef(Some(ref e)) => unsafe { *e.address().0 } as .into_raw(),

@@ -27,8 +27,7 @@ pub struct MemoryView<'a> {
 
 impl<'a> MemoryView<'a> {
     pub(crate) fn new(memory: &Memory, store: &impl AsStoreRef) -> Self {
-        let memory = memory.handle.get(store.as_store_ref().objects());
-        Self::new_raw(&memory.memory)
+        Self::new_raw(&memory.handle.memory)
     }
 
     pub(crate) fn new_raw(memory: &js_sys::WebAssembly::Memory) -> Self {
