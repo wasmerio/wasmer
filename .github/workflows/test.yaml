@@ -632,10 +632,10 @@ jobs:
         with:
           name: capi-linux-x64
           path: download_link
-      - name: List download_link
+      - name: Copy build-capi.tar.gz to link.tar.gz
         shell: bash
         run: |
-          ls download_link
+          cp download_link/build-capi.tar.gz link.tar.gz
       - name: Unzip Artifacts
         shell: bash
         run: |
