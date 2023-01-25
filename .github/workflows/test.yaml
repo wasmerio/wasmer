@@ -607,6 +607,26 @@ jobs:
         with:
           name: capi-linux-x64
           path: package/cache/wasmer-linux-amd64.tar.gz
+      - uses: actions/download-artifact@v3
+        if: ${{ matrix.build == 'windows-gnu' }}
+        with:
+          name: capi-windows-gnu
+          path: link.tar.gz
+      - uses: actions/download-artifact@v3
+        if: ${{ matrix.build == 'macos-arm' }}
+        with:
+          name: capi-macos-arm
+          path: link.tar.gz
+      - uses: actions/download-artifact@v3
+        if: ${{ matrix.build == 'macos-x64' }}
+        with:
+          name: capi-macos-x64
+          path: link.tar.gz
+      - uses: actions/download-artifact@v3
+        if: ${{ matrix.build == 'linux-x64' }}
+        with:
+          name: capi-linux-x64
+          path: link.tar.gz
       - name: Unzip Artifacts
         shell: bash
         run: |
