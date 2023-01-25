@@ -129,7 +129,7 @@ jobs:
         build-what: [
           {
             key: capi,
-            build-cmd: 'make build-capi',
+            build-cmd: 'make build-capi && make package-capi && make dist',
             name: 'Build C-API'
           },
           {
@@ -159,6 +159,13 @@ jobs:
           PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
           PKG_CONFIG_ALLOW_CROSS: true
           ENABLE_LLVM: 0
+      - name: Archive production artifacts
+        if: ${{ matrix.build-what.key == 'capi' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: capi-linux-aarch64
+          path: dist/wasmer.tar.gz
+          retention-days: 2
 
   build: 
     name: ${{ matrix.build-what.name }} on ${{ matrix.metadata.build }}
