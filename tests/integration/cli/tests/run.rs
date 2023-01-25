@@ -4,7 +4,7 @@ use anyhow::{bail, Context};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use wasmer_integration_tests_cli::{
-    get_wasmer_path, package_wasmer_to_tarball, ASSET_PATH, C_ASSET_PATH,
+    get_libwasmer_path, get_wasmer_path, package_wasmer_to_tarball, ASSET_PATH, C_ASSET_PATH,
 };
 
 fn wasi_test_python_path() -> PathBuf {
@@ -21,6 +21,27 @@ fn test_no_imports_wat_path() -> PathBuf {
 
 fn test_no_start_wat_path() -> PathBuf {
     Path::new(ASSET_PATH).join("no_start.wat")
+}
+
+fn assert_tarball_is_present_local(target: &str) -> Result<PathBuf, anyhow::Error> {
+    let wasmer_dir = std::env::var("WASMER_DIR").expect("no WASMER_DIR set");
+    let directory = match target {
+        "aarch64-darwin" => "wasmer-darwin-arm64.tar.gz",
+        "x86_64-darwin" => "wasmer-darwin-amd64.tar.gz",
+        "x86_64-linux-gnu" => "wasmer-linux-amd64.tar.gz",
+        "aarch64-linux-gnu" => "wasmer-linux-aarch64.tar.gz",
+        "x86_64-windows-gnu" => "wasmer-windows-gnu64.tar.gz",
+        _ => return Err(anyhow::anyhow!("unknown target {target}")),
+    };
+    let libwasmer_cache_path = Path::new(&wasmer_dir).join("cache").join(directory);
+    if !libwasmer_cache_path.exists() {
+        return Err(anyhow::anyhow!(
+            "targz {} does not exist",
+            libwasmer_cache_path.display()
+        ));
+    }
+    println!("using targz {}", libwasmer_cache_path.display());
+    Ok(libwasmer_cache_path)
 }
 
 #[test]
@@ -68,6 +89,10 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
             println!("{t} target {c}");
             let python_wasmer_path = temp_dir.path().join(format!("{t}-python"));
 
+            let tarball = match std::env::var("GITHUB_TOKEN") {
+                Ok(_) => Some(assert_tarball_is_present_local(target)?),
+                Err(_) => None,
+            };
             let mut output = Command::new(get_wasmer_path());
 
             output.arg("create-exe");
@@ -81,6 +106,11 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
             if t.contains("x86_64") && *c == "singlepass" {
                 output.arg("-m");
                 output.arg("avx");
+            }
+
+            if let Some(t) = tarball {
+                output.arg("--tarball");
+                output.arg(t);
             }
 
             let output = output.output()?;
