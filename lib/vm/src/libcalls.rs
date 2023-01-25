@@ -18,7 +18,7 @@
 //!   function frame, we need to raise it. This involves some nasty and quite
 //!   unsafe code under the covers! Notable, after raising the trap, drops
 //!   **will not** be run for local variables! This can lead to things like
-//!   leaking `InstanceHandle`s which leads to never deallocating JIT code,
+//!   leaking `VMInstance`s which leads to never deallocating JIT code,
 //!   instances, and modules! Therefore, always use nested blocks to ensure
 //!   drops run before raising a trap:
 //!
