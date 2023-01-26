@@ -1,9 +1,10 @@
 pub use self::inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 use crate::js::exports::{ExportError, Exportable};
-use crate::js::externals::{Extern, VMExtern};
+use crate::js::externals::Extern;
 use crate::js::function_env::FunctionEnvMut;
-use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle, StoreMut};
+use crate::js::store::{AsStoreMut, AsStoreRef, StoreMut};
 use crate::js::types::{param_from_js, AsJs}; /* ValFuncRef */
+use crate::js::vm::VMExtern;
 use crate::js::RuntimeError;
 use crate::js::TypedFunction;
 use crate::js::Value;
@@ -13,7 +14,7 @@ use std::iter::FromIterator;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
-use crate::js::export::VMFunction;
+use crate::js::vm::VMFunction;
 use std::fmt;
 
 #[repr(C)]
@@ -58,11 +59,11 @@ fn results_to_js_array(values: &[Value]) -> Array {
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
 #[derive(Clone, PartialEq)]
 pub struct Function {
-    pub(crate) handle: StoreHandle<VMFunction>,
+    pub(crate) handle: VMFunction,
 }
 
-impl From<StoreHandle<VMFunction>> for Function {
-    fn from(handle: StoreHandle<VMFunction>) -> Self {
+impl From<VMFunction> for Function {
+    fn from(handle: VMFunction) -> Self {
         Self { handle }
     }
 }
@@ -86,7 +87,7 @@ impl Function {
 
     /// To `VMExtern`.
     pub fn to_vm_extern(&self) -> VMExtern {
-        VMExtern::Function(self.handle.internal_handle())
+        VMExtern::Function(self.handle.clone())
     }
 
     /// Creates a new host `Function` (dynamic) with the provided signature.
@@ -190,7 +191,7 @@ impl Function {
             JSFunction::new_with_args("f", "return f(Array.prototype.slice.call(arguments, 1))");
         let binded_func = dyn_func.bind1(&JsValue::UNDEFINED, &wrapped_func);
         let vm_function = VMFunction::new(binded_func, func_ty);
-        Self::from_vm_export(&mut store, vm_function)
+        Self::from_vm_extern(&mut store, vm_function)
     }
 
     #[deprecated(
@@ -214,7 +215,7 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let mut store = store.as_store_mut();
+        let store = store.as_store_mut();
         if std::mem::size_of::<F>() != 0 {
             Self::closures_unsupported_panic();
         }
@@ -232,7 +233,7 @@ impl Function {
         let ty = function.ty();
         let vm_function = VMFunction::new(binded_func, ty);
         Self {
-            handle: StoreHandle::new(store.objects_mut(), vm_function),
+            handle: vm_function,
         }
     }
 
@@ -281,7 +282,7 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let mut store = store.as_store_mut();
+        let store = store.as_store_mut();
         if std::mem::size_of::<F>() != 0 {
             Self::closures_unsupported_panic();
         }
@@ -300,7 +301,7 @@ impl Function {
         let ty = function.ty();
         let vm_function = VMFunction::new(binded_func, ty);
         Self {
-            handle: StoreHandle::new(store.objects_mut(), vm_function),
+            handle: vm_function,
         }
     }
 
@@ -321,8 +322,8 @@ impl Function {
     /// assert_eq!(f.ty().params(), vec![Type::I32, Type::I32]);
     /// assert_eq!(f.ty().results(), vec![Type::I32]);
     /// ```
-    pub fn ty(&self, store: &impl AsStoreRef) -> FunctionType {
-        self.handle.get(store.as_store_ref().objects()).ty.clone()
+    pub fn ty(&self, _store: &impl AsStoreRef) -> FunctionType {
+        self.handle.ty.clone()
     }
 
     /// Returns the number of parameters that this function takes.
@@ -422,7 +423,7 @@ impl Function {
             // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
             loop {
                 r = js_sys::Reflect::apply(
-                    &self.handle.get(store.as_store_ref().objects()).function,
+                    &self.handle.function,
                     &wasm_bindgen::JsValue::NULL,
                     &arr,
                 );
@@ -446,7 +447,7 @@ impl Function {
             r?
         };
 
-        let result_types = self.handle.get(store.as_store_ref().objects()).ty.results();
+        let result_types = self.handle.ty.results();
         match result_types.len() {
             0 => Ok(Box::new([])),
             1 => {
@@ -465,21 +466,8 @@ impl Function {
         }
     }
 
-    pub(crate) fn from_vm_export(store: &mut impl AsStoreMut, vm_function: VMFunction) -> Self {
-        Self {
-            handle: StoreHandle::new(store.objects_mut(), vm_function),
-        }
-    }
-
-    pub(crate) fn from_vm_extern(
-        store: &mut impl AsStoreMut,
-        internal: InternalStoreHandle<VMFunction>,
-    ) -> Self {
-        Self {
-            handle: unsafe {
-                StoreHandle::from_internal(store.as_store_ref().objects().id(), internal)
-            },
-        }
+    pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMFunction) -> Self {
+        Self { handle: internal }
     }
 
     #[deprecated(since = "3.0.0", note = "native() has been renamed to typed().")]
@@ -616,8 +604,8 @@ impl Function {
     }
 
     /// Checks whether this `Function` can be used with the given context.
-    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        self.handle.store_id() == store.as_store_ref().objects().id()
+    pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
+        true
     }
 }
 
