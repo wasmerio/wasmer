@@ -15,7 +15,7 @@ wasmer create-exe myfile.wasm -o myfile.exe
 ./myfile.exe
 ```
 
-When running `create-exe` on a PiritaFile that contains more than one .wasm file, 
+When running `create-exe` on a wapm package that contains more than one .wasm file, 
 the resulting executable requires a `--command` or `-c` flag to select which module to start:
 
 ```sh 
