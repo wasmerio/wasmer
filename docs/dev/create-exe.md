@@ -52,7 +52,7 @@ wasmer create-exe myfile.wasm --precompiled-atom=myfile:myfile.o -o myfile.exe
 ```
 
 The WebAssembly module (atom) name specified in the `--precompiled-atom` flag is the `.wasm` filename
-without the extension or the atom name in a multi-atom PiritaFile.
+without the extension or the module name in a multi-webassembly wapm package.
 
 ## Multi-command executables
 
