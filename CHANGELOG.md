@@ -9,6 +9,12 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
  
 ## **Unreleased**
 
+## 3.1.1 - 26/01/2023
+
+## Fixed
+
+  - [#3493](https://github.com/wasmerio/wasmer/pull/3493) Fix memory leak with InstanceHandle
+  
 ## 3.1.0 - 12/12/2022
 
 ## Added
