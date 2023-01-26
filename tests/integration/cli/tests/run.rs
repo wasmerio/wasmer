@@ -21,6 +21,12 @@ fn test_no_start_wat_path() -> PathBuf {
     Path::new(ASSET_PATH).join("no_start.wat")
 }
 
+/// Ignored on Windows because running vendored packages does not work
+/// since Windows does not allow `::` characters in filenames (every other OS does)
+///
+/// The syntax for vendored package atoms has to be reworked for this to be fixed, see
+/// https://github.com/wasmerio/wasmer/issues/3535
+#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_run_customlambda() -> anyhow::Result<()> {
     let bindir = String::from_utf8(
