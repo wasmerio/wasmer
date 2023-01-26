@@ -620,6 +620,7 @@ endif
 package-capi:
 	mkdir -p "package/include"
 	mkdir -p "package/lib"
+	mkdir -p "package/winsdk"
 	cp lib/c-api/wasmer.h* package/include
 	cp lib/c-api/wasmer_wasm.h* package/include
 	cp lib/c-api/tests/wasm-c-api/include/wasm.h* package/include
@@ -730,7 +731,7 @@ package: package-wasmer package-minimal-headless-wasmer package-capi
 
 tar-capi:
 	ls -R package
-	tar -C package -zcvf build-capi.tar.gz lib include
+	tar -C package -zcvf build-capi.tar.gz lib include winsdk
 
 untar-capi:
 	mkdir -p package
