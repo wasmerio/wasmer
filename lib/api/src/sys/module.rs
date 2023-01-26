@@ -17,7 +17,7 @@ use wasmer_types::{ExportType, ImportType};
 #[cfg(feature = "compiler")]
 use crate::{sys::InstantiationError, AsStoreMut, AsStoreRef, IntoBytes};
 #[cfg(feature = "compiler")]
-use wasmer_vm::InstanceHandle;
+use wasmer_vm::VMInstance;
 
 /// IO Error on a Module Compilation
 #[derive(Error, Debug)]
@@ -316,7 +316,7 @@ impl Module {
         &self,
         store: &mut impl AsStoreMut,
         imports: &[crate::Extern],
-    ) -> Result<InstanceHandle, InstantiationError> {
+    ) -> Result<VMInstance, InstantiationError> {
         // Ensure all imports come from the same context.
         for import in imports {
             if !import.is_from_store(store) {

@@ -3,7 +3,7 @@
 
 //! An `Instance` contains all the runtime state used by execution of
 //! a WebAssembly module (except its callstack and register state). An
-//! `InstanceHandle` is a wrapper around `Instance` that manages
+//! `VMInstance` is a wrapper around `Instance` that manages
 //! how it is allocated and deallocated.
 
 mod allocator;
@@ -1023,8 +1023,8 @@ impl Instance {
 ///
 /// This is more or less a public facade of the private `Instance`,
 /// providing useful higher-level API.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct InstanceHandle {
+#[derive(Debug, Eq, PartialEq)]
+pub struct VMInstance {
     /// The layout of `Instance` (which can vary).
     instance_layout: Layout,
 
@@ -1040,8 +1040,24 @@ pub struct InstanceHandle {
     instance: NonNull<Instance>,
 }
 
-impl InstanceHandle {
-    /// Create a new `InstanceHandle` pointing at a new [`InstanceRef`].
+/// VMInstance are created with an InstanceAllocator
+/// and it will "consume" the memory
+/// So the Drop here actualy free it (else it would be leaked)
+impl Drop for VMInstance {
+    fn drop(&mut self) {
+        let instance_ptr = self.instance.as_ptr();
+
+        unsafe {
+            // Need to drop all the actual Instance members
+            instance_ptr.drop_in_place();
+            // And then free the memory allocated for the Instance itself
+            std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
+        }
+    }
+}
+
+impl VMInstance {
+    /// Create a new `VMInstance` pointing at a new [`InstanceRef`].
     ///
     /// # Safety
     ///
@@ -1051,7 +1067,7 @@ impl InstanceHandle {
     /// method is a low-overhead way of saying “this is an extremely unsafe type
     /// to work with”.
     ///
-    /// Extreme care must be taken when working with `InstanceHandle` and it's
+    /// Extreme care must be taken when working with `VMInstance` and it's
     /// recommended to have relatively intimate knowledge of how it works
     /// internally if you'd like to do so. If possible it's recommended to use
     /// the `wasmer` crate API rather than this type since that is vetted for
@@ -1114,7 +1130,7 @@ impl InstanceHandle {
                 })),
             };
 
-            let mut instance_handle = allocator.write_instance(instance);
+            let mut instance_handle = allocator.into_vminstance(instance);
 
             // Set the funcrefs after we've built the instance
             {
@@ -1586,3 +1602,10 @@ fn build_funcrefs(
         imported_func_refs.into_boxed_slice(),
     )
 }
+
+/// This type is deprecated, it has been replaced by VMinstance.
+#[deprecated(
+    since = "3.2.0",
+    note = "InstanceHandle has been replaced by VMInstance"
+)]
+pub type InstanceHandle = VMInstance;

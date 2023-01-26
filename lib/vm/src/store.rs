@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::{
-    InstanceHandle, VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal, VMMemory, VMTable,
+    VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal, VMInstance, VMMemory, VMTable,
 };
 
 /// Unique ID to identify a context.
@@ -54,7 +54,7 @@ impl_context_object! {
     functions => VMFunction,
     tables => VMTable,
     globals => VMGlobal,
-    instances => InstanceHandle,
+    instances => VMInstance,
     memories => VMMemory,
     extern_objs => VMExternObj,
     function_environments => VMFunctionEnvironment,
@@ -68,7 +68,7 @@ pub struct StoreObjects {
     tables: Vec<VMTable>,
     globals: Vec<VMGlobal>,
     functions: Vec<VMFunction>,
-    instances: Vec<InstanceHandle>,
+    instances: Vec<VMInstance>,
     extern_objs: Vec<VMExternObj>,
     function_environments: Vec<VMFunctionEnvironment>,
 }
