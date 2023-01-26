@@ -266,41 +266,6 @@ def make_release(version):
             print("Waiting for checks to pass... PR " + pr_number + "    https://github.com/wasmerio/wasmer/pull/" + pr_number)
             time.sleep(30)
 
-    if not(already_released):
-        # PR created, checks have passed, run python script and publish to crates.io
-        proc = subprocess.Popen(['gh','pr', "comment", pr_number, "--body", "[bot] Checks have passed. Publishing to crates.io..."], stdout = subprocess.PIPE, cwd = temp_dir.name)
-        proc.wait()
-
-        proc = subprocess.Popen(['python3',temp_dir.name + "/scripts/publish.py", "publish"], stdout = subprocess.PIPE, cwd = temp_dir.name)
-        while True:
-            line = proc.stdout.readline()
-            line = line.decode("utf-8").rstrip()
-            print(line.rstrip())
-            if not line: break
-            
-        proc.wait()
-    
-        if proc.returncode != 0:
-            log = ["[bot] Failed to publish to crates.io"]
-            log.append("")
-            log.append("```")
-            for line in proc.stdout:
-                line = line.decode("utf-8").rstrip()
-                log.append("stdout: " + line)
-            log.append("```")
-            log.append("```")
-            if proc.stderr is not None:
-                for line in proc.stderr:
-                    line = line.decode("utf-8").rstrip()
-                    log.append("stderr: " + line)
-            log.append("```")
-            proc = subprocess.Popen(['gh','pr', "comment", pr_number, "--body", "\r\n".join(log)], stdout = subprocess.PIPE, cwd = temp_dir.name)
-            proc.wait()
-            raise Exception("Failed to publish to crates.io: " + "\r\n".join(log))
-        else:
-            proc = subprocess.Popen(['gh','pr', "comment", pr_number, "--body", "[bot] Successfully published wasmer version " + RELEASE_VERSION + " to crates.io"], stdout = subprocess.PIPE, cwd = temp_dir.name)
-            proc.wait()
-
     last_commit = ""
     proc = subprocess.Popen(['git','log'], stdout = subprocess.PIPE, cwd = temp_dir.name)
     proc.wait()
