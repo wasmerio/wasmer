@@ -100,6 +100,8 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
             output.arg("-o");
             output.arg(python_wasmer_path.clone());
             output.arg(format!("--{c}"));
+            output.arg("--debug-dir");
+            output.arg(format!("{t}-{c}"));
 
             if t.contains("x86_64") && *c == "singlepass" {
                 output.arg("-m");
@@ -110,6 +112,8 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
                 output.arg("--tarball");
                 output.arg(t);
             }
+
+            println!("command {:?}", output);
 
             let output = output.output()?;
 
