@@ -142,7 +142,7 @@ impl SerializableModule {
         EnumSet::from_u64(self.cpu_features)
     }
 
-    /// Returns data initializers to pass to `InstanceHandle::initialize`
+    /// Returns data initializers to pass to `VMInstance::initialize`
     pub fn data_initializers(&self) -> &[OwnedDataInitializer] {
         &self.data_initializers
     }

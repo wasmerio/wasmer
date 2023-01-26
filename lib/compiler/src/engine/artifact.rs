@@ -34,7 +34,7 @@ use wasmer_types::{
 use wasmer_types::{CompileModuleInfo, Target};
 use wasmer_types::{SerializableModule, SerializeError};
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
-use wasmer_vm::{InstanceAllocator, InstanceHandle, StoreObjects, TrapHandlerFn, VMExtern};
+use wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMExtern, VMInstance};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct Artifact {
@@ -307,13 +307,13 @@ impl Artifact {
     ///
     /// # Safety
     ///
-    /// See [`InstanceHandle::new`].
+    /// See [`VMInstance::new`].
     pub unsafe fn instantiate(
         &self,
         tunables: &dyn Tunables,
         imports: &[VMExtern],
         context: &mut StoreObjects,
-    ) -> Result<InstanceHandle, InstantiationError> {
+    ) -> Result<VMInstance, InstantiationError> {
         // Validate the CPU features this module was compiled with against the
         // host CPU features.
         let host_cpu_features = CpuFeature::for_host();
@@ -367,7 +367,7 @@ impl Artifact {
 
         self.register_frame_info();
 
-        let handle = InstanceHandle::new(
+        let handle = VMInstance::new(
             allocator,
             module,
             context,
@@ -383,15 +383,15 @@ impl Artifact {
         Ok(handle)
     }
 
-    /// Finishes the instantiation of a just created `InstanceHandle`.
+    /// Finishes the instantiation of a just created `VMInstance`.
     ///
     /// # Safety
     ///
-    /// See [`InstanceHandle::finish_instantiation`].
+    /// See [`VMInstance::finish_instantiation`].
     pub unsafe fn finish_instantiation(
         &self,
         trap_handler: Option<*const TrapHandlerFn<'static>>,
-        handle: &mut InstanceHandle,
+        handle: &mut VMInstance,
     ) -> Result<(), InstantiationError> {
         let data_initializers = self
             .data_initializers()
