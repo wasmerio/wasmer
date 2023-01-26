@@ -20,3 +20,7 @@ pub fn get_username_registry_token(registry: &str, token: &str) -> anyhow::Resul
     let response: who_am_i_query::ResponseData = execute_query(registry, token, &q)?;
     Ok(response.viewer.map(|viewer| viewer.username))
 }
+
+pub fn normalize_path(s: &str) -> String {
+    s.strip_prefix(r"\\?\").unwrap_or(s).to_string()
+}

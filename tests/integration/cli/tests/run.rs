@@ -21,6 +21,70 @@ fn test_no_start_wat_path() -> PathBuf {
     Path::new(ASSET_PATH).join("no_start.wat")
 }
 
+/// Ignored on Windows because running vendored packages does not work
+/// since Windows does not allow `::` characters in filenames (every other OS does)
+///
+/// The syntax for vendored package atoms has to be reworked for this to be fixed, see
+/// https://github.com/wasmerio/wasmer/issues/3535
+#[cfg_attr(target_os = "windows", ignore)]
+#[test]
+fn test_run_customlambda() -> anyhow::Result<()> {
+    let bindir = String::from_utf8(
+        Command::new(get_wasmer_path())
+            .arg("config")
+            .arg("--bindir")
+            .output()
+            .expect("failed to run wasmer config --bindir")
+            .stdout,
+    )
+    .expect("wasmer config --bindir stdout failed");
+
+    // /Users/fs/.wasmer/bin
+    let checkouts_path = Path::new(&bindir)
+        .parent()
+        .expect("--bindir: no parent")
+        .join("checkouts");
+    println!("checkouts path: {}", checkouts_path.display());
+    let _ = std::fs::remove_dir_all(&checkouts_path);
+
+    let output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg("https://wapm.io/ciuser/customlambda")
+        // TODO: this argument should not be necessary later
+        // see https://github.com/wasmerio/wasmer/issues/3514
+        .arg("customlambda.py")
+        .arg("55")
+        .output()?;
+
+    let stdout_output = std::str::from_utf8(&output.stdout).unwrap();
+    let stderr_output = std::str::from_utf8(&output.stderr).unwrap();
+
+    println!("first run:");
+    println!("stdout: {stdout_output}");
+    println!("stderr: {stderr_output}");
+    assert_eq!(stdout_output, "139583862445\n");
+
+    // Run again to verify the caching
+    let output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg("https://wapm.io/ciuser/customlambda")
+        // TODO: this argument should not be necessary later
+        // see https://github.com/wasmerio/wasmer/issues/3514
+        .arg("customlambda.py")
+        .arg("55")
+        .output()?;
+
+    let stdout_output = std::str::from_utf8(&output.stdout).unwrap();
+    let stderr_output = std::str::from_utf8(&output.stderr).unwrap();
+
+    println!("second run:");
+    println!("stdout: {stdout_output}");
+    println!("stderr: {stderr_output}");
+    assert_eq!(stdout_output, "139583862445\n");
+
+    Ok(())
+}
+
 fn assert_tarball_is_present_local(target: &str) -> Result<PathBuf, anyhow::Error> {
     let wasmer_dir = std::env::var("WASMER_DIR").expect("no WASMER_DIR set");
     let directory = match target {
@@ -583,7 +647,10 @@ fn run_test_caching_works_for_packages() -> anyhow::Result<()> {
         .output()?;
 
     if output.stdout != b"hello\n".to_vec() {
-        panic!("failed to run https://wapm.io/python/python for the first time");
+        panic!("failed to run https://wapm.io/python/python for the first time: stdout = {}, stderr = {}", 
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
     }
 
     let time = std::time::Instant::now();
