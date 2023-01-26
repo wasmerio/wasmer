@@ -51,7 +51,7 @@ wasmer create-obj myfile.wasm-llvm -o myfile.o
 wasmer create-exe myfile.wasm --precompiled-atom=myfile:myfile.o -o myfile.exe
 ```
 
-The atom name specified in the `--precompiled-atom` flag is the `.wasm` filename
+The WebAssembly module (atom) name specified in the `--precompiled-atom` flag is the `.wasm` filename
 without the extension or the atom name in a multi-atom PiritaFile.
 
 ## Multi-command executables
