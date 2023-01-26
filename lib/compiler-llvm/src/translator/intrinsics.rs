@@ -1970,13 +1970,6 @@ pub fn tbaa_label<'ctx>(
 
     let context = module.get_context();
 
-    //// TODO: StoreRef can't return us the lifetime from module through Deref.
-    //// This could be fixed once generic_associated_types is stable.
-    //let context = {
-    //    let context2 = &*context;
-    //    unsafe { std::mem::transmute::<&Context, &'ctx Context>(context2) }
-    //};
-
     // `!wasmer_tbaa_root = {}`, the TBAA root node for wasmer.
     let tbaa_root = module
         .get_global_metadata("wasmer_tbaa_root")
