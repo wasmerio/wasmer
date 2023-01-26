@@ -13,23 +13,56 @@ CHANGELOG, waits until all checks have passed and the release PR is merged, then
 GitHub action to trigger the actual release on GitHub.
 
 In theory, all you need to do to create a new release is to look that master is green, then
-run 
+run `python3 scripts/make-release.py 3.2.0` - in practice the script can sometimes lock up or
+break due to unexpected delays for example it takes a couple of seconds between a pull request
+being merged and master being updated. Therefore it's best to run each step individually and
+make sure that every step finishes properly.
 
 ```sh
+# required before starting
+gh login
+
+# Script will create a release PR (release-3.2.0) and loop until the 
+# release PR is merged into master (after checks are green)
 python3 scripts/make-release.py 3.2.0
+
+# After the release PR is merged, the build.yml workflow should be
+# triggered automatically - if it isn't, trigger it manually
+git checkout master
+git tag v3.2.0 && git push origin v3.2.0
+gh workflow run build.yml --ref v3.2.0 --field release=v3.2.0
+
+# After the release is done on GitHub, run the script again 
+# to update the release notes
+python3 scripts/make-release.py 3.2.0
+
+# Once the release on GitHub is properly done and verified that all
+# artifacts exist, checkout the tag and run the publishing to crates.io
+git checkout v3.2.0
 python3 scripts/publish.py publish
 ``` 
 
-After the GitHub release (first command), the crates need to be published to crates.io - the order
-is important because if anything goes wrong in the first command or a release needs to be amended
-because of last-minute fixes, we can still revert the GitHub release, but publishing on crates.io
-is final because we can't yank crates (this has caused a lot of version-renumbering issues in the past).
+After the GitHub release (first command), the crates need to be 
+published to crates.io - the order is important because if anything 
+goes wrong in the first command or a release needs to be amended
+because of last-minute fixes, we can still revert the GitHub release, 
+but publishing on crates.io is final because we can't yank crates 
+(this has caused a lot of version-renumbering issues in the past).
 
 ## Issues to watch out for
 
 There are a couple of problems with the scripts that you should watch out for:
 
-- On the release pull request, the CHANGELOG might be generated incorrectly
-- The script might fail (in this case there will be an audible message being read using the macos `say` command)
-- The script might not trigger the `build.yaml` action, in some cases it has to be run manually
-- Publishing to crates.io might fail because of new crates that have to be published manually
+- On the release pull request, the CHANGELOG might be generated incorrectly or with wrong line endings
+- If the script fails, there should be an audible message (implemented using the `say` command), so that you
+  can leave the script running in the background and get notified if anything goes wrong.
+- The script might not trigger the `build.yml` action, in some cases it has to be run manually
+- Publishing to crates.io might fail because of new crates that have to be published manually.
+    - It is important to adjust the `SETTINGS` in the `publish.py` script if some crates need default-features
+      to be enabled when publishing
+    - crates that were never published before need to usually be published for the first time 
+      by `cd lib/crate && cargo publish`
+- After publishing new crates, check that the crate ownership is set to `github:wasmerio:wasmer-core`.
+- The CHANGELOG is generated from the pull request titles since the last release. Sometimes these titles need
+  to be fixed up to make any sense for a reader
+- The release notes should just highlight the most important changes for a release, not dump everything.
