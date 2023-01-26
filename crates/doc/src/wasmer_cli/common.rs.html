@@ -112,7 +112,7 @@
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">normalize_path</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">String</span> {
-    <span class="ident">s</span>.<span class="ident">strip_prefix</span>(<span class="string">r&quot;\\?\&quot;</span>).<span class="ident">unwrap_or</span>(<span class="ident">s</span>).<span class="ident">to_string</span>()
+    <span class="ident">wasmer_registry::utils::normalize_path</span>(<span class="ident">s</span>)
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
