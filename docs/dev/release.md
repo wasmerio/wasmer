@@ -66,3 +66,10 @@ There are a couple of problems with the scripts that you should watch out for:
 - The CHANGELOG is generated from the pull request titles since the last release. Sometimes these titles need
   to be fixed up to make any sense for a reader
 - The release notes should just highlight the most important changes for a release, not dump everything.
+
+## Videos
+
+- [Creating the release pull request](https://www.youtube.com/watch?v=RMPTT-rnykA)
+- [Triggering the build.yml action manually]()
+- [Publishing to crates.io]()
+
