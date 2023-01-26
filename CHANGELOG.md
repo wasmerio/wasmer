@@ -9,6 +9,24 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 3.2.0 - 26/01/2023
+
+## Added
+
+  - [#3490](https://github.com/wasmerio/wasmer/pull/3490) Fix JS sample code by adding "&mut store"
+
+## Changed
+
+  - [#3534](https://github.com/wasmerio/wasmer/pull/3534) Use JS VM store instead of artificially replicate it
+  - [#3532](https://github.com/wasmerio/wasmer/pull/3532) VMInstance cannot be Clone
+
+## Fixed
+
+  - [#3493](https://github.com/wasmerio/wasmer/pull/3493) Fixed some memory leak issue with InstanceHandle
+  - [#3523](https://github.com/wasmerio/wasmer/pull/3523) Fix Windows-GNU distribution
+
+
+
 ## 3.2.0-alpha.1 - 23/01/2023
 
 ## Added
