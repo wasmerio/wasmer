@@ -9,8 +9,6 @@ publish = false
 
 [dev-dependencies]
 rand = "0.8.5"
-tar = "0.4.38"
-flate2 = "1.0.24"
 target-lexicon = "0.12.4"
 pretty_assertions = "1.3.0"
 object = "0.30.0"
@@ -19,6 +17,8 @@ object = "0.30.0"
 anyhow = "1"
 tempfile = "3"
 target-lexicon = "0.12.5"
+tar = "0.4.38"
+flate2 = "1.0.24"
 
 [features]
 default = ["webc_runner"]
