@@ -294,7 +294,7 @@ def make_release(version):
         raise Exception("could not commit checkout master " + RELEASE_VERSION_WITH_V)
 
     if not(already_released):
-        proc = subprocess.Popen(['gh','pr', "comment", pr_number, "--body", "bors r+"], stdout = subprocess.PIPE, cwd = temp_dir.name)
+        proc = subprocess.Popen(['gh','pr', "merge", "--auto", pr_number, "--merge", "--delete-branch"], stdout = subprocess.PIPE, cwd = temp_dir.name)
         proc.wait()
 
     # wait for bors to merge PR
