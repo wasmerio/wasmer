@@ -3,7 +3,8 @@ use crate::js::exports::Exports;
 use crate::js::externals::Extern;
 use crate::js::imports::Imports;
 use crate::js::module::Module;
-use crate::js::store::{AsStoreMut, AsStoreRef, StoreHandle};
+use crate::js::store::{AsStoreMut, AsStoreRef};
+use crate::js::vm::VMExtern;
 use js_sys::WebAssembly;
 use std::fmt;
 
@@ -17,7 +18,7 @@ use std::fmt;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
 #[derive(Clone)]
 pub struct Instance {
-    _handle: StoreHandle<WebAssembly::Instance>,
+    handle: WebAssembly::Instance,
     module: Module,
     /// The exports for an instance.
     pub exports: Exports,
@@ -66,10 +67,8 @@ impl Instance {
             .instantiate(&mut store, imports)
             .map_err(|e| InstantiationError::Start(e))?;
 
-        let instance = instance.get(store.objects_mut()).clone();
         let mut self_instance = Self::from_module_and_instance(store, module, instance)?;
         self_instance.ensure_memory_export(store, externs);
-        //self_instance.init_envs(&imports.iter().map(Extern::to_export).collect::<Vec<_>>())?;
         Ok(self_instance)
     }
 
@@ -109,8 +108,6 @@ impl Instance {
         module: &Module,
         instance: WebAssembly::Instance,
     ) -> Result<Self, InstantiationError> {
-        use crate::js::externals::VMExtern;
-
         let instance_exports = instance.exports();
 
         let exports = module
@@ -131,9 +128,8 @@ impl Instance {
             })
             .collect::<Result<Exports, InstantiationError>>()?;
 
-        let handle = StoreHandle::new(store.as_store_mut().objects_mut(), instance);
         Ok(Self {
-            _handle: handle,
+            handle: instance,
             module: module.clone(),
             exports,
         })
@@ -142,6 +138,7 @@ impl Instance {
     /// This will check the memory is correctly setup
     /// If the memory is imported then also export it for backwards compatibility reasons
     /// (many will assume the memory is always exported) - later we can remove this
+    /// TODO: This is trialing from WASIX, we should remove this or move it to the wasmer-wasi crate
     pub fn ensure_memory_export(&mut self, store: &mut impl AsStoreMut, externs: Vec<Extern>) {
         if self.exports.get_memory("memory").is_err() {
             if let Some(memory) = externs
@@ -162,10 +159,10 @@ impl Instance {
     /// Returns the inner WebAssembly Instance
     #[doc(hidden)]
     pub fn raw<'context>(
-        &self,
-        store: &'context impl AsStoreRef,
+        &'context self,
+        _store: &'context impl AsStoreRef,
     ) -> &'context WebAssembly::Instance {
-        &self._handle.get(store.as_store_ref().objects())
+        &self.handle
     }
 }
 
