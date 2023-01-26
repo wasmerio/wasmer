@@ -442,6 +442,9 @@
 <span id="440">440</span>
 <span id="441">441</span>
 <span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">doc</span>(
     <span class="ident">html_logo_url</span> <span class="op">=</span> <span class="string">&quot;https://github.com/wasmerio.png?size=200&quot;</span>,
     <span class="ident">html_favicon_url</span> <span class="op">=</span> <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>
@@ -812,6 +815,9 @@
 <span class="doccomment">//! to compile it with [`wasm-pack`] and [`wasm-bindgen`]:</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```ignore</span>
+<span class="doccomment">//! use wasm_bindgen::prelude::*;</span>
+<span class="doccomment">//! use wasmer::{imports, Instance, Module, Store, Value};</span>
+<span class="doccomment">//!</span>
 <span class="doccomment">//! #[wasm_bindgen]</span>
 <span class="doccomment">//! pub extern fn do_add_one_in_wasmer() -&gt; i32 {</span>
 <span class="doccomment">//!     let module_wat = r#&quot;</span>
@@ -826,10 +832,10 @@
 <span class="doccomment">//!     let module = Module::new(&amp;store, &amp;module_wat).unwrap();</span>
 <span class="doccomment">//!     // The module doesn&#39;t import anything, so we create an empty import object.</span>
 <span class="doccomment">//!     let import_object = imports! {};</span>
-<span class="doccomment">//!     let instance = Instance::new(&amp;module, &amp;import_object).unwrap();</span>
+<span class="doccomment">//!     let instance = Instance::new(&amp;mut store, &amp;module, &amp;import_object).unwrap();</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//!     let add_one = instance.exports.get_function(&quot;add_one&quot;).unwrap();</span>
-<span class="doccomment">//!     let result = add_one.call(&amp;[Value::I32(42)]).unwrap();</span>
+<span class="doccomment">//!     let result = add_one.call(&amp;mut store, &amp;[Value::I32(42)]).unwrap();</span>
 <span class="doccomment">//!     assert_eq!(result[0], Value::I32(43));</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//!     result[0].unwrap_i32()</span>
