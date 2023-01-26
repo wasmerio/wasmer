@@ -25,3 +25,5 @@ lcov.info
 .llvm
 llvm.tar.xz
 .cargo/
+link/
+link.tar.gz

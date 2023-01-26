@@ -3,7 +3,7 @@
 use anyhow::{bail, Context};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use wasmer_integration_tests_cli::{get_repo_root_path, get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
+use wasmer_integration_tests_cli::{get_libwasmer_path, get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
 
 fn wasi_test_python_path() -> PathBuf {
     Path::new(C_ASSET_PATH).join("python-0.1.0.wasmer")
@@ -19,6 +19,27 @@ fn test_no_imports_wat_path() -> PathBuf {
 
 fn test_no_start_wat_path() -> PathBuf {
     Path::new(ASSET_PATH).join("no_start.wat")
+}
+
+fn assert_tarball_is_present_local(target: &str) -> Result<PathBuf, anyhow::Error> {
+    let wasmer_dir = std::env::var("WASMER_DIR").expect("no WASMER_DIR set");
+    let directory = match target {
+        "aarch64-darwin" => "wasmer-darwin-arm64.tar.gz",
+        "x86_64-darwin" => "wasmer-darwin-amd64.tar.gz",
+        "x86_64-linux-gnu" => "wasmer-linux-amd64.tar.gz",
+        "aarch64-linux-gnu" => "wasmer-linux-aarch64.tar.gz",
+        "x86_64-windows-gnu" => "wasmer-windows-gnu64.tar.gz",
+        _ => return Err(anyhow::anyhow!("unknown target {target}")),
+    };
+    let libwasmer_cache_path = Path::new(&wasmer_dir).join("cache").join(directory);
+    if !libwasmer_cache_path.exists() {
+        return Err(anyhow::anyhow!(
+            "targz {} does not exist",
+            libwasmer_cache_path.display()
+        ));
+    }
+    println!("using targz {}", libwasmer_cache_path.display());
+    Ok(libwasmer_cache_path)
 }
 
 #[test]
@@ -66,6 +87,10 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
             println!("{t} target {c}");
             let python_wasmer_path = temp_dir.path().join(format!("{t}-python"));
 
+            let tarball = match std::env::var("GITHUB_TOKEN") {
+                Ok(_) => Some(assert_tarball_is_present_local(t)?),
+                Err(_) => None,
+            };
             let mut output = Command::new(get_wasmer_path());
 
             output.arg("create-exe");
@@ -75,11 +100,20 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
             output.arg("-o");
             output.arg(python_wasmer_path.clone());
             output.arg(format!("--{c}"));
+            output.arg("--debug-dir");
+            output.arg(format!("{t}-{c}"));
 
             if t.contains("x86_64") && *c == "singlepass" {
                 output.arg("-m");
                 output.arg("avx");
             }
+
+            if let Some(t) = tarball {
+                output.arg("--tarball");
+                output.arg(t);
+            }
+
+            println!("command {:?}", output);
 
             let output = output.output()?;
 
@@ -195,20 +229,6 @@ fn run_wasi_works() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "webc_runner")]
-fn package_directory(in_dir: &PathBuf, out: &PathBuf) {
-    use flate2::write::GzEncoder;
-    use flate2::Compression;
-    use std::fs::File;
-    let tar = File::create(out).unwrap();
-    let enc = GzEncoder::new(tar, Compression::none());
-    let mut a = tar::Builder::new(enc);
-    a.append_dir_all("bin", in_dir.join("bin")).unwrap();
-    a.append_dir_all("lib", in_dir.join("lib")).unwrap();
-    a.append_dir_all("include", in_dir.join("include")).unwrap();
-    a.finish().unwrap();
-}
-
 /// TODO: on linux-musl, the packaging of libwasmer.a doesn't work properly
 /// Tracked in https://github.com/wasmerio/wasmer/issues/3271
 #[cfg(not(any(target_env = "musl", target_os = "windows")))]
@@ -217,6 +237,8 @@ fn package_directory(in_dir: &PathBuf, out: &PathBuf) {
 fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     // let temp_dir = Path::new("debug");
     // std::fs::create_dir_all(&temp_dir);
+
+    use wasmer_integration_tests_cli::get_repo_root_path;
     let temp_dir = tempfile::TempDir::new()?;
     let temp_dir = temp_dir.path().to_path_buf();
     let python_wasmer_path = temp_dir.join("python.wasmer");
@@ -224,24 +246,9 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     let python_exe_output_path = temp_dir.join("python");
 
     let native_target = target_lexicon::HOST;
-    let root_path = get_repo_root_path().unwrap();
-    let package_path = root_path.join("package");
-    if !package_path.exists() {
-        panic!("package path {} does not exist", package_path.display());
-    }
-    let tmp_targz_path = temp_dir.join("link.tar.gz");
+    let tmp_targz_path = get_repo_root_path().unwrap().join("link.tar.gz");
+
     println!("compiling to target {native_target}");
-    println!(
-        "packaging /package to .tar.gz: {}",
-        tmp_targz_path.display()
-    );
-    package_directory(&package_path, &tmp_targz_path);
-    println!("packaging done");
-    println!(
-        "tmp tar gz path: {} - exists: {:?}",
-        tmp_targz_path.display(),
-        tmp_targz_path.exists()
-    );
 
     let mut cmd = Command::new(get_wasmer_path());
     cmd.arg("create-exe");
