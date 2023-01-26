@@ -70,6 +70,6 @@ There are a couple of problems with the scripts that you should watch out for:
 ## Videos
 
 - [Creating the release pull request](https://www.youtube.com/watch?v=RMPTT-rnykA)
-- [Triggering the build.yml action manually]()
+- [Triggering the build.yml action manually](https://www.youtube.com/watch?v=7mF0nlfpQfA)
 - [Publishing to crates.io]()
 
