@@ -1023,7 +1023,7 @@ impl Instance {
 ///
 /// This is more or less a public facade of the private `Instance`,
 /// providing useful higher-level API.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct InstanceHandle {
     /// The layout of `Instance` (which can vary).
     instance_layout: Layout,
@@ -1038,6 +1038,22 @@ pub struct InstanceHandle {
     /// No one in the code has a copy of the `Instance`'s
     /// pointer. `Self` is the only one.
     instance: NonNull<Instance>,
+}
+
+/// InstanceHandle are created with an InstanceAllocator
+/// and it will "consume" the memory
+/// So the Drop here actualy free it (else it would be leaked)
+impl Drop for InstanceHandle {
+    fn drop(&mut self) {
+        let instance_ptr = self.instance.as_ptr();
+
+        unsafe {
+            // Need to drop all the actual Instance members
+            instance_ptr.drop_in_place();
+            // And then free the memory allocated for the Instance itself
+            std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
+        }
+    }
 }
 
 impl InstanceHandle {
