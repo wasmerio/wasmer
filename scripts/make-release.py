@@ -12,12 +12,17 @@ import re
 RELEASE_VERSION=""
 DATE = datetime.date.today().strftime("%d/%m/%Y")
 SIGNOFF_REVIEWER = "syrusakbary"
+TAG = "master"
 
 if len(sys.argv) > 1:
     RELEASE_VERSION = sys.argv[1]
 else:
     print("no release version as first argument")
     sys.exit(1)
+
+
+if len(sys.argv) > 2:
+    TAG = sys.argv[2]
 
 RELEASE_VERSION_WITH_V = RELEASE_VERSION
 
@@ -59,7 +64,7 @@ def make_release(version):
 
     temp_dir = tempfile.TemporaryDirectory()
     print(temp_dir.name)
-    if os.system("git clone https://github.com/wasmerio/wasmer --branch master --depth 1 " + temp_dir.name) != 0:
+    if os.system("git clone https://github.com/wasmerio/wasmer --branch " + TAG + " --depth 1 " + temp_dir.name) != 0:
         raise Exception("could not clone github repo")
 
     # generate changelog
