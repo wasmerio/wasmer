@@ -37,7 +37,7 @@ pub fn param_from_js(ty: &ValType, js_val: &JsValue) -> Value {
 }
 
 impl AsJs for Value {
-    fn as_jsvalue(&self, store: &impl AsStoreRef) -> JsValue {
+    fn as_jsvalue(&self, _store: &impl AsStoreRef) -> JsValue {
         match self {
             Self::I32(i) => JsValue::from_f64(*i as f64),
             Self::I64(i) => JsValue::from_f64(*i as f64),

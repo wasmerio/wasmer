@@ -205,16 +205,11 @@ pub use objects::{StoreHandle, StoreId, StoreObjects};
 mod objects {
     use wasm_bindgen::JsValue;
 
-    use crate::js::{
-        export::{VMFunction, VMGlobal, VMMemory, VMTable},
-        function_env::VMFunctionEnvironment,
-    };
+    use crate::js::{function_env::VMFunctionEnvironment, vm::VMGlobal};
     use std::{
-        cell::UnsafeCell,
         fmt,
         marker::PhantomData,
         num::{NonZeroU64, NonZeroUsize},
-        ptr::NonNull,
         sync::atomic::{AtomicU64, Ordering},
     };
 

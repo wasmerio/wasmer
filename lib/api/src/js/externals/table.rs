@@ -1,8 +1,8 @@
-use crate::js::export::{VMFunction, VMTable};
 use crate::js::exports::{ExportError, Exportable};
-use crate::js::externals::{Extern, VMExtern};
+use crate::js::externals::Extern;
 use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::value::Value;
+use crate::js::vm::{VMExtern, VMFunction, VMTable};
 use crate::js::RuntimeError;
 use crate::js::{FunctionType, TableType};
 use js_sys::Function;
@@ -74,7 +74,7 @@ impl Table {
     }
 
     /// Returns the [`TableType`] of the `Table`.
-    pub fn ty(&self, store: &impl AsStoreRef) -> TableType {
+    pub fn ty(&self, _store: &impl AsStoreRef) -> TableType {
         self.handle.ty
     }
 
@@ -83,7 +83,7 @@ impl Table {
         if let Some(func) = self.handle.table.get(index).ok() {
             let ty = FunctionType::new(vec![], vec![]);
             let vm_function = VMFunction::new(func, ty);
-            let function = crate::js::externals::Function::from_vm_export(store, vm_function);
+            let function = crate::js::externals::Function::from_vm_extern(store, vm_function);
             Some(Value::FuncRef(Some(function)))
         } else {
             None
@@ -102,7 +102,7 @@ impl Table {
     }
 
     /// Retrieves the size of the `Table` (in elements)
-    pub fn size(&self, store: &impl AsStoreRef) -> u32 {
+    pub fn size(&self, _store: &impl AsStoreRef) -> u32 {
         self.handle.table.length()
     }
 
@@ -142,12 +142,12 @@ impl Table {
         unimplemented!("Table.copy is not natively supported in Javascript");
     }
 
-    pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, internal: VMTable) -> Self {
+    pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMTable) -> Self {
         Self { handle: internal }
     }
 
     /// Checks whether this `Table` can be used with the given context.
-    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+    pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
     }
 
@@ -161,7 +161,7 @@ impl Table {
     #[doc(hidden)]
     pub unsafe fn get_vm_table<'context>(
         &'context self,
-        store: &'context impl AsStoreRef,
+        _store: &'context impl AsStoreRef,
     ) -> &'context VMTable {
         &self.handle
     }

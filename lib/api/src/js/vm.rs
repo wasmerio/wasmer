@@ -1,9 +1,18 @@
+/// This module is mainly used to create the `VM` types that will hold both
+/// the JS values of the `Memory`, `Table`, `Global` and `Function` and also
+/// it's types.
+/// This module should not be needed any longer (with the exception of the memory)
+/// once the type reflection is added to the WebAssembly JS API.
+/// https://github.com/WebAssembly/js-types/
 use crate::js::error::WasmError;
 use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::wasm_bindgen_polyfill::Global;
+use crate::js::wasm_bindgen_polyfill::Global as JsGlobal;
 use crate::MemoryView;
 use js_sys::Function;
+use js_sys::Function as JsFunction;
 use js_sys::WebAssembly::{Memory, Table};
+use js_sys::WebAssembly::{Memory as JsMemory, Table as JsTable};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 #[cfg(feature = "tracing")]
@@ -162,8 +171,7 @@ impl fmt::Debug for VMFunction {
 }
 
 /// The value of an export passed from one instance to another.
-#[derive(Debug, Clone)]
-pub enum Export {
+pub enum VMExtern {
     /// A function export value.
     Function(VMFunction),
 
@@ -177,9 +185,9 @@ pub enum Export {
     Global(VMGlobal),
 }
 
-impl Export {
+impl VMExtern {
     /// Return the export as a `JSValue`.
-    pub fn as_jsvalue(&self, _store: &impl AsStoreRef) -> JsValue {
+    pub fn as_jsvalue<'context>(&self, _store: &'context impl AsStoreRef) -> JsValue {
         match self {
             Self::Memory(js_wasm_memory) => js_wasm_memory.memory.clone().into(),
             Self::Function(js_func) => js_func.function.clone().into(),
@@ -191,14 +199,14 @@ impl Export {
     /// Convert a `JsValue` into an `Export` within a given `Context`.
     pub fn from_js_value(
         val: JsValue,
-        store: &mut impl AsStoreMut,
+        _store: &mut impl AsStoreMut,
         extern_type: ExternType,
     ) -> Result<Self, WasmError> {
         match extern_type {
             ExternType::Memory(memory_type) => {
-                if val.is_instance_of::<Memory>() {
+                if val.is_instance_of::<JsMemory>() {
                     Ok(Self::Memory(VMMemory::new(
-                        val.unchecked_into::<Memory>(),
+                        val.unchecked_into::<JsMemory>(),
                         memory_type,
                     )))
                 } else {
@@ -212,9 +220,9 @@ impl Export {
                 }
             }
             ExternType::Global(global_type) => {
-                if val.is_instance_of::<Global>() {
+                if val.is_instance_of::<JsGlobal>() {
                     Ok(Self::Global(VMGlobal::new(
-                        val.unchecked_into::<Global>(),
+                        val.unchecked_into::<JsGlobal>(),
                         global_type,
                     )))
                 } else {
@@ -222,9 +230,9 @@ impl Export {
                 }
             }
             ExternType::Function(function_type) => {
-                if val.is_instance_of::<Function>() {
+                if val.is_instance_of::<JsFunction>() {
                     Ok(Self::Function(VMFunction::new(
-                        val.unchecked_into::<Function>(),
+                        val.unchecked_into::<JsFunction>(),
                         function_type,
                     )))
                 } else {
@@ -232,9 +240,9 @@ impl Export {
                 }
             }
             ExternType::Table(table_type) => {
-                if val.is_instance_of::<Table>() {
+                if val.is_instance_of::<JsTable>() {
                     Ok(Self::Table(VMTable::new(
-                        val.unchecked_into::<Table>(),
+                        val.unchecked_into::<JsTable>(),
                         table_type,
                     )))
                 } else {

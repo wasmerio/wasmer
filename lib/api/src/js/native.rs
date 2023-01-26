@@ -13,9 +13,9 @@ use crate::js::externals::Function;
 use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::{FromToNativeWasmType, RuntimeError, WasmTypeList};
 // use std::panic::{catch_unwind, AssertUnwindSafe};
-use crate::js::export::VMFunction;
 use crate::js::types::param_from_js;
 use crate::js::types::AsJs;
+use crate::js::vm::VMFunction;
 use js_sys::Array;
 use std::iter::FromIterator;
 use wasm_bindgen::JsValue;
@@ -38,7 +38,7 @@ where
     Rets: WasmTypeList,
 {
     #[allow(dead_code)]
-    pub(crate) fn new<T>(store: &mut impl AsStoreMut, vm_function: VMFunction) -> Self {
+    pub(crate) fn new<T>(_store: &mut impl AsStoreMut, vm_function: VMFunction) -> Self {
         Self {
             handle: vm_function,
             _phantom: PhantomData,

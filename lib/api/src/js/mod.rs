@@ -24,7 +24,6 @@ mod lib {
 }
 
 pub(crate) mod error;
-mod export;
 mod exports;
 mod externals;
 mod function_env;
@@ -41,10 +40,10 @@ mod store;
 mod trap;
 mod types;
 mod value;
+mod vm;
 mod wasm_bindgen_polyfill;
 
 pub use crate::js::error::{DeserializeError, InstantiationError, SerializeError};
-pub use crate::js::export::Export;
 pub use crate::js::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::js::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryError, MemoryView,
@@ -70,11 +69,6 @@ pub use crate::js::types::{
 };
 pub use crate::js::value::Value;
 pub use crate::js::value::Value as Val;
-
-pub mod vm {
-    //! The `vm` module re-exports wasmer-vm types.
-    pub use crate::js::export::VMMemory;
-}
 
 pub use wasmer_types::is_wasm;
 // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451

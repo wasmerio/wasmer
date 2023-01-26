@@ -1,8 +1,8 @@
-use crate::js::export::VMGlobal;
 use crate::js::exports::{ExportError, Exportable};
-use crate::js::externals::{Extern, VMExtern};
+use crate::js::externals::Extern;
 use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::value::Value;
+use crate::js::vm::{VMExtern, VMGlobal};
 use crate::js::wasm_bindgen_polyfill::Global as JSGlobal;
 use crate::js::GlobalType;
 use crate::js::Mutability;
@@ -95,7 +95,7 @@ impl Global {
         let js_global = JSGlobal::new(&descriptor, &value).unwrap();
         let vm_global = VMGlobal::new(js_global, global_ty);
 
-        Ok(Self::from_vm_export(store, vm_global))
+        Ok(Self::from_vm_extern(store, vm_global))
     }
 
     /// Returns the [`GlobalType`] of the `Global`.
@@ -112,7 +112,7 @@ impl Global {
     /// assert_eq!(c.ty(), &GlobalType::new(Type::I32, Mutability::Const));
     /// assert_eq!(v.ty(), &GlobalType::new(Type::I64, Mutability::Var));
     /// ```
-    pub fn ty(&self, store: &impl AsStoreRef) -> GlobalType {
+    pub fn ty(&self, _store: &impl AsStoreRef) -> GlobalType {
         self.handle.ty
     }
 
@@ -205,18 +205,14 @@ impl Global {
         Ok(())
     }
 
-    pub(crate) fn from_vm_export(store: &mut impl AsStoreMut, vm_global: VMGlobal) -> Self {
+    pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_global: VMGlobal) -> Self {
         use crate::js::store::StoreObject;
         VMGlobal::list_mut(store.objects_mut()).push(vm_global.clone());
         Self { handle: vm_global }
     }
 
-    pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, internal: VMGlobal) -> Self {
-        Self { handle: internal }
-    }
-
     /// Checks whether this `Global` can be used with the given store.
-    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+    pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
     }
 }

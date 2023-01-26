@@ -645,7 +645,7 @@ impl Module {
     pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
         WebAssembly::Module::custom_sections(&self.module, name)
             .iter()
-            .map(move |(buf_val)| {
+            .map(move |buf_val| {
                 let typebuf: js_sys::Uint8Array = js_sys::Uint8Array::new(&buf_val);
                 typebuf.to_vec().into_boxed_slice()
             })

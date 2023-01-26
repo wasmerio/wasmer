@@ -1,7 +1,7 @@
-use crate::js::export::VMMemory;
 use crate::js::exports::{ExportError, Exportable};
-use crate::js::externals::{Extern, VMExtern};
+use crate::js::externals::Extern;
 use crate::js::store::{AsStoreMut, AsStoreRef, StoreObjects};
+use crate::js::vm::{VMExtern, VMMemory};
 use crate::js::{MemoryAccessError, MemoryType};
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
@@ -87,7 +87,7 @@ impl Memory {
     /// ```
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
         let vm_memory = VMMemory::new(Self::new_internal(ty.clone())?, ty);
-        Ok(Self::from_vm_export(store, vm_memory))
+        Ok(Self::from_vm_extern(store, vm_memory))
     }
 
     pub(crate) fn new_internal(ty: MemoryType) -> Result<js_sys::WebAssembly::Memory, MemoryError> {
@@ -141,7 +141,7 @@ impl Memory {
     ///
     /// assert_eq!(m.ty(), mt);
     /// ```
-    pub fn ty(&self, store: &impl AsStoreRef) -> MemoryType {
+    pub fn ty(&self, _store: &impl AsStoreRef) -> MemoryType {
         self.handle.ty
     }
 
@@ -234,26 +234,22 @@ impl Memory {
         Ok(new_memory)
     }
 
-    pub(crate) fn from_vm_export(store: &mut impl AsStoreMut, vm_memory: VMMemory) -> Self {
-        Self { handle: vm_memory }
-    }
-
-    pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, internal: VMMemory) -> Self {
+    pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMMemory) -> Self {
         Self { handle: internal }
     }
 
     /// Attempts to clone this memory (if its clonable)
-    pub fn try_clone(&self, store: &impl AsStoreRef) -> Option<VMMemory> {
+    pub fn try_clone(&self, _store: &impl AsStoreRef) -> Option<VMMemory> {
         self.handle.try_clone()
     }
 
     /// Checks whether this `Global` can be used with the given context.
-    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+    pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
     }
 
     /// Copies this memory to a new memory
-    pub fn duplicate(&mut self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
+    pub fn duplicate(&mut self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         self.handle.duplicate()
     }
 }

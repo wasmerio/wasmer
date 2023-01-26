@@ -1,9 +1,10 @@
 pub use self::inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 use crate::js::exports::{ExportError, Exportable};
-use crate::js::externals::{Extern, VMExtern};
+use crate::js::externals::Extern;
 use crate::js::function_env::FunctionEnvMut;
 use crate::js::store::{AsStoreMut, AsStoreRef, StoreMut};
 use crate::js::types::{param_from_js, AsJs}; /* ValFuncRef */
+use crate::js::vm::VMExtern;
 use crate::js::RuntimeError;
 use crate::js::TypedFunction;
 use crate::js::Value;
@@ -13,7 +14,7 @@ use std::iter::FromIterator;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
-use crate::js::export::VMFunction;
+use crate::js::vm::VMFunction;
 use std::fmt;
 
 #[repr(C)]
@@ -190,7 +191,7 @@ impl Function {
             JSFunction::new_with_args("f", "return f(Array.prototype.slice.call(arguments, 1))");
         let binded_func = dyn_func.bind1(&JsValue::UNDEFINED, &wrapped_func);
         let vm_function = VMFunction::new(binded_func, func_ty);
-        Self::from_vm_export(&mut store, vm_function)
+        Self::from_vm_extern(&mut store, vm_function)
     }
 
     #[deprecated(
@@ -214,7 +215,7 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let mut store = store.as_store_mut();
+        let store = store.as_store_mut();
         if std::mem::size_of::<F>() != 0 {
             Self::closures_unsupported_panic();
         }
@@ -281,7 +282,7 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let mut store = store.as_store_mut();
+        let store = store.as_store_mut();
         if std::mem::size_of::<F>() != 0 {
             Self::closures_unsupported_panic();
         }
@@ -321,7 +322,7 @@ impl Function {
     /// assert_eq!(f.ty().params(), vec![Type::I32, Type::I32]);
     /// assert_eq!(f.ty().results(), vec![Type::I32]);
     /// ```
-    pub fn ty(&self, store: &impl AsStoreRef) -> FunctionType {
+    pub fn ty(&self, _store: &impl AsStoreRef) -> FunctionType {
         self.handle.ty.clone()
     }
 
@@ -465,13 +466,7 @@ impl Function {
         }
     }
 
-    pub(crate) fn from_vm_export(store: &mut impl AsStoreMut, vm_function: VMFunction) -> Self {
-        Self {
-            handle: vm_function,
-        }
-    }
-
-    pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, internal: VMFunction) -> Self {
+    pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMFunction) -> Self {
         Self { handle: internal }
     }
 
@@ -609,7 +604,7 @@ impl Function {
     }
 
     /// Checks whether this `Function` can be used with the given context.
-    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+    pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
     }
 }

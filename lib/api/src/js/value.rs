@@ -87,7 +87,7 @@ impl Value {
     }
 
     /// Converts the `Value` into a `f64`.
-    pub fn as_raw(&self, store: &impl AsStoreRef) -> f64 {
+    pub fn as_raw(&self, _store: &impl AsStoreRef) -> f64 {
         match *self {
             Self::I32(v) => v as f64,
             Self::I64(v) => v as f64,
