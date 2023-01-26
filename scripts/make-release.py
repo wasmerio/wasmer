@@ -40,7 +40,7 @@ if os.system("gh --version") != 0:
     sys.exit(1)
 
 def get_file_string(file):
-    file_handle = open(file, 'r')
+    file_handle = open(file, 'r', newline='')
     file_string = file_handle.read()
     file_handle.close()
     return file_string
@@ -175,7 +175,7 @@ def make_release(version):
                 print(line.rstrip())
             raise Exception("could not run git checkout -b release-" + RELEASE_VERSION)
 
-        replace(temp_dir.name + "/CHANGELOG.md", "## **Unreleased**", "\n".join(changelog))
+        replace(temp_dir.name + "/CHANGELOG.md", "## **Unreleased**", "\r\n".join(changelog))
 
         proc = subprocess.Popen(['git','commit', "-am", "Update CHANGELOG"], stdout = subprocess.PIPE, cwd = temp_dir.name)
         proc.wait()
@@ -236,40 +236,25 @@ def make_release(version):
         proc = subprocess.Popen(['gh','pr', "checks", pr_number], stdout = subprocess.PIPE, cwd = temp_dir.name)
         proc.wait()
 
-        bors_failed = False
         all_checks_have_passed = True
 
-        if proc.stderr is not None:
-            for line in proc.stderr:
-                if "no checks reported" in line:
-                    all_checks_have_passed = False
-
-        if all_checks_have_passed: 
-            for line in proc.stdout:
-                line = line.decode("utf-8").rstrip()
-                print("---- " + line)
-                if "no checks reported" in line:
-                    all_checks_have_passed = False
-                if line.startswith("*"):
-                    all_checks_have_passed = False
-                if "pending" in line and not("bors" in line):
-                    all_checks_have_passed = False
-                if line.startswith("X"):
-                    raise Exception("check failed")
-                if "fail" in line and "bors" in line:
-                    bors_failed = True
-                if "pending" in line and "bors" in line:
-                    bors_failed = True
-                if "fail" in line and not("bors" in line):
-                    raise Exception("check failed")
+        print("Waiting for checks to pass... PR " + pr_number + "    https://github.com/wasmerio/wasmer/pull/" + pr_number)
+        print("")
+        
+        for line in proc.stdout:
+            line = line.decode("utf-8").rstrip()
+            print("    " + line)
+            if "no checks reported" in line:
+                all_checks_have_passed = False
+            if line.startswith("*") or "pending" in line:
+                all_checks_have_passed = False
+            if line.startswith("X") or "fail" in line:
+                raise Exception("check failed")
 
         if all_checks_have_passed:
-            if proc.returncode != 0 and not(bors_failed):
-                raise Exception("failed to list checks with: gh pr checks " + pr_number)
             break
         else:
-            print("Waiting for checks to pass... PR " + pr_number + "    https://github.com/wasmerio/wasmer/pull/" + pr_number)
-            time.sleep(30)
+            time.sleep(5)
 
     last_commit = ""
     proc = subprocess.Popen(['git','log'], stdout = subprocess.PIPE, cwd = temp_dir.name)
