@@ -54,7 +54,7 @@ use crate::{
     WasiCallingId, WasiError, WasiRuntimeImplementation,
 };
 
-pub use env::{OnCalledAction, OnCalledHandler};
+pub use env::{call_asyncified, OnCalledAction, OnCalledHandler};
 
 /// all the rights enabled
 pub const ALL_RIGHTS: Rights = Rights::all();

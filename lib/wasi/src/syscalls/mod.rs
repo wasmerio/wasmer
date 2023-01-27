@@ -46,7 +46,7 @@ pub(crate) use std::{
     time::Duration,
 };
 
-pub use state::{OnCalledAction, OnCalledHandler};
+pub use state::{call_asyncified, OnCalledAction, OnCalledHandler};
 
 pub(crate) use bytes::{Bytes, BytesMut};
 pub(crate) use cooked_waker::IntoWaker;

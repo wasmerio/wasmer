@@ -16,6 +16,7 @@ use wasmer_vbus::{
 use wasmer_wasi_types::wasi::{Errno, ExitCode};
 
 use super::{BinFactory, BinaryPackage, ModuleCache};
+use crate::state::call_asyncified;
 use crate::{
     import_object_for_all_wasi_versions, runtime::SpawnType, SpawnedMemory, WasiEnv, WasiError,
     WasiFunctionEnv, WasiRuntimeImplementation,
@@ -152,15 +153,11 @@ pub fn spawn_exec_module(
 
                     // If this module exports an _initialize function, run that first.
                     if let Ok(initialize) = instance.exports.get_function("_initialize") {
-                        if let Err(e) = initialize.call(&mut store, &[]) {
-                            let code = match e.downcast::<WasiError>() {
-                                Ok(WasiError::Exit(code)) => code as ExitCode,
-                                Ok(WasiError::UnknownWasiVersion) => {
+                        if let Err(e) = call_asyncified(&wasi_env, initialize, &mut store, &[]) {
+                            let code = match e {
+                                WasiError::Exit(code) => code as ExitCode,
+                                WasiError::UnknownWasiVersion => {
                                     debug!("wasi[{}]::exec-failed: unknown wasi version", pid);
-                                    Errno::Noexec as ExitCode
-                                }
-                                Err(err) => {
-                                    debug!("wasi[{}]::exec-failed: runtime error - {}", pid, err);
                                     Errno::Noexec as ExitCode
                                 }
                             };
@@ -178,17 +175,13 @@ pub fn spawn_exec_module(
                     // If there is a start function
                     debug!("wasi[{}]::called main()", pid);
                     let ret = if let Some(start) = start {
-                        match start.call(&mut store, &[]) {
+                        match call_asyncified(&wasi_env, start, &mut store, &[]) {
                             Ok(_) => 0,
-                            Err(e) => match e.downcast::<WasiError>() {
-                                Ok(WasiError::Exit(code)) => code,
-                                Ok(WasiError::UnknownWasiVersion) => {
+                            Err(e) => match e {
+                                WasiError::Exit(code) => code,
+                                WasiError::UnknownWasiVersion => {
                                     debug!("wasi[{}]::exec-failed: unknown wasi version", pid);
                                     Errno::Noexec as u32
-                                }
-                                Err(err) => {
-                                    debug!("wasi[{}]::exec-failed: runtime error - {}", pid, err);
-                                    9999u32
                                 }
                             },
                         }

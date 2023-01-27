@@ -6,8 +6,8 @@ use std::{
 use derivative::Derivative;
 use tracing::{trace, warn};
 use wasmer::{
-    AsStoreMut, AsStoreRef, Exports, Global, Instance, Memory, MemoryView, Module, StoreMut,
-    TypedFunction,
+    AsStoreMut, AsStoreRef, Exports, Function, Global, Instance, Memory, MemoryView, Module,
+    StoreMut, TypedFunction, Value,
 };
 use wasmer_vbus::{SpawnEnvironmentIntrinsics, VirtualBus};
 use wasmer_vnet::DynVirtualNetworking;
@@ -29,8 +29,8 @@ use crate::{
         },
     },
     syscalls::platform_clock_time_get,
-    PluggableRuntimeImplementation, VirtualTaskManager, WasiError, WasiRuntimeImplementation,
-    WasiState, WasiStateCreationError, WasiVFork, DEFAULT_STACK_SIZE,
+    PluggableRuntimeImplementation, VirtualTaskManager, WasiError, WasiFunctionEnv,
+    WasiRuntimeImplementation, WasiState, WasiStateCreationError, WasiVFork, DEFAULT_STACK_SIZE,
 };
 
 use super::Capabilities;
@@ -203,6 +203,46 @@ pub enum OnCalledAction {
 /// Call handler for a WasiEnv.
 // TODO: better documentation!
 pub type OnCalledHandler = Box<dyn FnOnce(StoreMut<'_>) -> Result<OnCalledAction, WasiError>>;
+
+pub fn call_asyncified(
+    wasienv: &WasiFunctionEnv,
+    function: &Function,
+    store: &mut impl AsStoreMut,
+    params: &[Value],
+) -> Result<Box<[Value]>, WasiError> {
+    let mut r;
+    // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+    loop {
+        r = function.call(store, params);
+        let on_call = wasienv
+            .data(&store.as_store_ref())
+            .state
+            .on_called
+            .lock()
+            .unwrap()
+            .take();
+        if let Some(callback) = on_call {
+            match callback(store.as_store_mut()) {
+                Ok(OnCalledAction::InvokeAgain) => {
+                    continue;
+                }
+                Ok(OnCalledAction::Finish) => {
+                    break;
+                }
+                Ok(OnCalledAction::Trap(trap)) => return Err(trap),
+                Err(trap) => return Err(trap),
+            }
+        }
+        break;
+    }
+    r.map_err(|e| match e.downcast::<WasiError>() {
+        Ok(e) => e,
+        Err(_err) => {
+            //debug!("wasi[{}]::exec-failed: runtime error - {}", pid, err);
+            WasiError::Exit(Errno::Noexec as u32)
+        }
+    })
+}
 
 /// The environment provided to the WASI imports.
 #[derive(Debug, Clone)]
