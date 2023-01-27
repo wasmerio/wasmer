@@ -7,8 +7,6 @@ use crate::Artifact;
 use crate::BaseTunables;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::CodeMemory;
-#[cfg(not(target_arch = "wasm32"))]
-use crate::{AsEngineRef, EngineRef};
 #[cfg(feature = "compiler")]
 use crate::{Compiler, CompilerConfig};
 #[cfg(not(target_arch = "wasm32"))]
@@ -232,13 +230,6 @@ impl Engine {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn tunables(&self) -> &dyn Tunables {
         self.tunables.as_ref()
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl AsEngineRef for Engine {
-    fn as_engine_ref(&self) -> EngineRef {
-        EngineRef { inner: self }
     }
 }
 

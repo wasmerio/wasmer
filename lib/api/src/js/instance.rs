@@ -2,9 +2,9 @@ use crate::js::error::InstantiationError;
 use crate::js::exports::Exports;
 use crate::js::externals::Extern;
 use crate::js::imports::Imports;
-use crate::js::module::Module;
 use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::vm::{VMExtern, VMInstance};
+use crate::module::Module;
 use js_sys::WebAssembly;
 use std::fmt;
 
@@ -64,6 +64,7 @@ impl Instance {
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
         let instance = module
+            .0
             .instantiate(&mut store, imports)
             .map_err(|e| InstantiationError::Start(e))?;
 

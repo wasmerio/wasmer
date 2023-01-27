@@ -12,8 +12,7 @@ use rkyv::{
     Serialize as RkyvSerialize,
 };
 use std::convert::TryInto;
-use std::path::Path;
-use std::{fs, mem};
+use std::mem;
 
 /// The compilation related data for a serialized modules
 #[derive(Archive, Default, RkyvDeserialize, RkyvSerialize)]
@@ -155,13 +154,6 @@ impl SerializableModule {
     /// Returns the table plans associated with this `Artifact`.
     pub fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
         &self.compile_info.table_styles
-    }
-
-    /// Serializes an artifact into a file path
-    pub fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
-        let serialized = self.serialize()?;
-        fs::write(path, serialized)?;
-        Ok(())
     }
 }
 

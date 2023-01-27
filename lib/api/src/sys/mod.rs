@@ -5,7 +5,7 @@ mod function_env;
 mod imports;
 mod instance;
 mod mem_access;
-mod module;
+pub(crate) mod module;
 mod native;
 mod native_type;
 mod ptr;
@@ -23,7 +23,7 @@ pub use crate::sys::function_env::{FunctionEnv, FunctionEnvMut};
 pub use crate::sys::imports::Imports;
 pub use crate::sys::instance::{Instance, InstantiationError};
 pub use crate::sys::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
-pub use crate::sys::module::{IoCompileError, Module};
+pub use crate::sys::module::Module;
 pub use crate::sys::native::TypedFunction;
 pub use crate::sys::native_type::NativeWasmTypeInto;
 pub use crate::sys::store::{AsStoreMut, AsStoreRef, StoreMut, StoreRef};
@@ -75,9 +75,9 @@ pub use wasmer_compiler_cranelift::{Cranelift, CraneliftOptLevel};
 #[cfg(feature = "llvm")]
 pub use wasmer_compiler_llvm::{LLVMOptLevel, LLVM};
 
+pub use wasmer_compiler::Engine;
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::{Artifact, EngineBuilder};
-pub use wasmer_compiler::{AsEngineRef, Engine, EngineRef};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

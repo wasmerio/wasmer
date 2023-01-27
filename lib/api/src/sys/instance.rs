@@ -1,5 +1,5 @@
+use crate::module::Module;
 use crate::sys::exports::Exports;
-use crate::sys::module::Module;
 use crate::sys::{LinkError, RuntimeError};
 use std::fmt;
 use thiserror::Error;
@@ -119,7 +119,7 @@ impl Instance {
         let externs = imports
             .imports_for_module(module)
             .map_err(InstantiationError::Link)?;
-        let mut handle = module.instantiate(store, &externs)?;
+        let mut handle = module.0.instantiate(store, &externs)?;
         let mut exports = module
             .exports()
             .map(|export| {
@@ -164,7 +164,7 @@ impl Instance {
         externs: &[Extern],
     ) -> Result<Self, InstantiationError> {
         let externs = externs.to_vec();
-        let mut handle = module.instantiate(store, &externs)?;
+        let mut handle = module.0.instantiate(store, &externs)?;
         let mut exports = module
             .exports()
             .map(|export| {

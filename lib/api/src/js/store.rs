@@ -1,3 +1,5 @@
+use crate::engine::{AsEngineRef, EngineRef};
+use crate::js::engine::Engine;
 use std::fmt;
 use wasmer_types::OnCalledAction;
 
@@ -14,6 +16,7 @@ pub type OnCalledHandler = Box<
 /// wrap the actual context in a box.
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
+    pub(crate) engine: Engine,
     pub(crate) on_called: Option<OnCalledHandler>,
 }
 
@@ -37,6 +40,7 @@ impl Store {
         Self {
             inner: Box::new(StoreInner {
                 objects: Default::default(),
+                engine: Default::default(),
                 on_called: None,
             }),
         }
@@ -196,6 +200,30 @@ impl<T: AsStoreMut> AsStoreMut for &'_ mut T {
     }
     fn objects_mut(&mut self) -> &mut StoreObjects {
         T::objects_mut(*self)
+    }
+}
+
+impl AsEngineRef for Store {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        EngineRef::new(&self.inner.engine)
+    }
+}
+
+impl AsEngineRef for &Store {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        EngineRef::new(&self.inner.engine)
+    }
+}
+
+impl AsEngineRef for StoreRef<'_> {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        EngineRef::new(&self.inner.engine)
+    }
+}
+
+impl AsEngineRef for StoreMut<'_> {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        EngineRef::new(&self.inner.engine)
     }
 }
 

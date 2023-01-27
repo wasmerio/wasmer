@@ -1,11 +1,23 @@
-use super::Engine;
-use crate::Tunables;
+#[cfg(feature = "sys")]
+use crate::sys as engine_imp;
+
+#[cfg(feature = "js")]
+use crate::js as engine_imp;
+
+/// The engine type
+pub type Engine = engine_imp::Engine;
+
+impl AsEngineRef for Engine {
+    fn as_engine_ref(&self) -> EngineRef {
+        EngineRef { inner: self }
+    }
+}
 
 /// A temporary handle to an [`Engine`]
 /// EngineRef can be used to build a [`Module`][wasmer::Module]
 /// It can be created directly with an [`Engine`]
 /// Or from anything implementing [`AsEngineRef`]
-/// like from [`Store`][wasmer::Store] typicaly
+/// like from [`Store`][wasmer::Store] typicaly.
 pub struct EngineRef<'a> {
     /// The inner engine
     pub(crate) inner: &'a Engine,
@@ -16,11 +28,7 @@ impl<'a> EngineRef<'a> {
     pub fn engine(&self) -> &Engine {
         self.inner
     }
-    /// Get the [`Tunables`]
-    pub fn tunables(&self) -> &dyn Tunables {
-        self.inner.tunables()
-    }
-    /// Create an EngineRef from an Engine and Tunables
+    /// Create an EngineRef from an Engine
     pub fn new(engine: &'a Engine) -> Self {
         EngineRef { inner: engine }
     }

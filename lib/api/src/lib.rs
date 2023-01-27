@@ -429,6 +429,9 @@ compile_error!(
     "The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
 );
 
+mod engine;
+mod module;
+
 #[cfg(feature = "sys")]
 mod sys;
 
@@ -440,6 +443,9 @@ mod js;
 
 #[cfg(feature = "js")]
 pub use js::*;
+
+pub use engine::{AsEngineRef, Engine};
+pub use module::{IoCompileError, Module};
 
 mod into_bytes;
 pub use into_bytes::IntoBytes;

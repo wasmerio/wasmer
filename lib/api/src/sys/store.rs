@@ -1,8 +1,9 @@
+use crate::engine::{AsEngineRef, EngineRef};
 use crate::sys::tunables::BaseTunables;
 use derivative::Derivative;
 use std::fmt;
 #[cfg(feature = "compiler")]
-use wasmer_compiler::{AsEngineRef, Engine, EngineBuilder, EngineRef, Tunables};
+use wasmer_compiler::{Engine, EngineBuilder, Tunables};
 use wasmer_types::OnCalledAction;
 use wasmer_vm::{init_traps, StoreId, TrapHandler, TrapHandlerFn};
 

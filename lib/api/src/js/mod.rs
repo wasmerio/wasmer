@@ -23,6 +23,7 @@ mod lib {
     }
 }
 
+mod engine;
 pub(crate) mod error;
 mod exports;
 mod externals;
@@ -30,7 +31,7 @@ mod function_env;
 mod imports;
 mod instance;
 mod mem_access;
-mod module;
+pub(crate) mod module;
 #[cfg(feature = "wasm-types-polyfill")]
 mod module_info_polyfill;
 mod native;
@@ -43,6 +44,7 @@ mod value;
 mod vm;
 mod wasm_bindgen_polyfill;
 
+pub use crate::js::engine::Engine;
 pub use crate::js::error::{DeserializeError, InstantiationError, SerializeError};
 pub use crate::js::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::js::externals::{
@@ -53,7 +55,7 @@ pub use crate::js::function_env::{FunctionEnv, FunctionEnvMut};
 pub use crate::js::imports::Imports;
 pub use crate::js::instance::Instance;
 pub use crate::js::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
-pub use crate::js::module::{IoCompileError, Module, ModuleTypeHints};
+pub use crate::js::module::{Module, ModuleTypeHints};
 pub use crate::js::native::TypedFunction;
 pub use crate::js::native_type::NativeWasmTypeInto;
 pub use crate::js::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
