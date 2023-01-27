@@ -5,7 +5,6 @@ use std::fmt;
 /// wrap the actual context in a box.
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
-    pub(crate) on_called: Option<OnCalledHandler>,
 }
 
 /// The store represents all global state that can be manipulated by
@@ -28,7 +27,6 @@ impl Store {
         Self {
             inner: Box::new(StoreInner {
                 objects: Default::default(),
-                on_called: None,
             }),
         }
     }
