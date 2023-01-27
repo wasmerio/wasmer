@@ -10,6 +10,33 @@ pub fn proc_fork<M: MemorySize>(
     mut copy_memory: Bool,
     pid_ptr: WasmPtr<Pid, M>,
 ) -> Result<Errno, WasiError> {
+    let mut r;
+    // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+    loop {
+        r = proc_fork_inner(ctx.as_mut(), copy_memory, pid_ptr);
+        let mut on_call = ctx.data().state.on_called.lock().unwrap().take();
+        if let Some(callback) = on_call {
+            match callback(ctx.as_store_mut()) {
+                Ok(OnCalledAction::InvokeAgain) => {
+                    continue;
+                }
+                Ok(OnCalledAction::Finish) => {
+                    break;
+                }
+                Ok(OnCalledAction::Trap(trap)) => return Err(trap),
+                Err(trap) => return Err(trap),
+            }
+        }
+        break;
+    }
+    r
+}
+
+fn proc_fork_inner<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut copy_memory: Bool,
+    pid_ptr: WasmPtr<Pid, M>,
+) -> Result<Errno, WasiError> {
     wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
 
     // If we were just restored then we need to return the value instead
@@ -121,7 +148,7 @@ pub fn proc_fork<M: MemorySize>(
                         "{} failed - could not rewind the stack - errno={}",
                         fork_op, err
                     );
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)))
+                    OnCalledAction::Trap(WasiError::Exit(Errno::Fault as u32))
                 }
             }
         });
@@ -164,7 +191,7 @@ pub fn proc_fork<M: MemorySize>(
                     fork_op,
                     err
                 );
-                return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)));
+                return OnCalledAction::Trap(WasiError::Exit(Errno::Fault as u32));
             }
         };
         let fork_module = env.inner().module.clone();
@@ -294,7 +321,7 @@ pub fn proc_fork<M: MemorySize>(
             let offset = env.stack_base - pid_offset;
             if offset as usize > memory_stack.len() {
                 warn!("{} failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})", fork_op, offset, memory_stack.len());
-                return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)));
+                return OnCalledAction::Trap(WasiError::Exit(Errno::Fault as u32));
             }
 
             // Update the memory stack with the new PID
@@ -305,7 +332,7 @@ pub fn proc_fork<M: MemorySize>(
             pbytes.clone_from_slice(&val_bytes);
         } else {
             warn!("{} failed - the return value (pid) is not being returned on the stack - which is not supported", fork_op);
-            return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)));
+            return OnCalledAction::Trap(WasiError::Exit(Errno::Fault as u32));
         }
 
         // Rewind the stack and carry on
@@ -321,7 +348,7 @@ pub fn proc_fork<M: MemorySize>(
                     "{} failed - could not rewind the stack - errno={}",
                     fork_op, err
                 );
-                OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)))
+                OnCalledAction::Trap(WasiError::Exit(Errno::Fault as u32))
             }
         }
     })

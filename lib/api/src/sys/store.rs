@@ -3,16 +3,9 @@ use derivative::Derivative;
 use std::fmt;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{AsEngineRef, Engine, EngineBuilder, EngineRef, Tunables};
-use wasmer_types::OnCalledAction;
 use wasmer_vm::{init_traps, StoreId, TrapHandler, TrapHandlerFn};
 
 use wasmer_vm::StoreObjects;
-
-/// Call handler for a store.
-// TODO: better documentation!
-pub type OnCalledHandler = Box<
-    dyn FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
->;
 
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
@@ -26,8 +19,6 @@ pub(crate) struct StoreInner {
     pub(crate) engine: Engine,
     #[derivative(Debug = "ignore")]
     pub(crate) trap_handler: Option<Box<TrapHandlerFn<'static>>>,
-    #[derivative(Debug = "ignore")]
-    pub(crate) on_called: Option<OnCalledHandler>,
 }
 
 /// The store represents all global state that can be manipulated by
@@ -60,7 +51,6 @@ impl Store {
                 objects: Default::default(),
                 engine: engine.cloned(),
                 trap_handler: None,
-                on_called: None,
             }),
             engine: engine.cloned(),
         }
@@ -324,18 +314,6 @@ impl<'a> StoreMut<'a> {
 
     pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
         Self { inner: &mut *raw }
-    }
-
-    // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
-    /// Sets the unwind callback which will be invoked when the call finishes
-    pub fn on_called<F>(&mut self, callback: F)
-    where
-        F: FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>
-            + Send
-            + Sync
-            + 'static,
-    {
-        self.inner.on_called.replace(Box::new(callback));
     }
 }
 

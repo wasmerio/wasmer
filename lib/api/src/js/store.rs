@@ -1,13 +1,4 @@
 use std::fmt;
-use wasmer_types::OnCalledAction;
-
-/// Call handler for a store.
-// TODO: better documentation!
-// TODO: this type is duplicated in sys/store.rs.
-// Maybe want to move it to wasmer_types...
-pub type OnCalledHandler = Box<
-    dyn FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
->;
 
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
@@ -139,17 +130,6 @@ impl<'a> StoreMut<'a> {
 
     pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
         Self { inner: &mut *raw }
-    }
-
-    /// Sets the unwind callback which will be invoked when the call finishes
-    pub fn on_called<F>(&mut self, callback: F)
-    where
-        F: FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>
-            + Send
-            + Sync
-            + 'static,
-    {
-        self.inner.on_called.replace(Box::new(callback));
     }
 }
 

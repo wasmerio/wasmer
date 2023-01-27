@@ -34,7 +34,7 @@ use derivative::Derivative;
 pub use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasmer::Store;
+use wasmer::{Store, StoreMut};
 use wasmer_vbus::{VirtualBusCalled, VirtualBusInvocation};
 use wasmer_vfs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
 use wasmer_wasi_types::wasi::{Cid, Errno, Fd as WasiFd, Rights, Snapshot0Clockid};
@@ -51,8 +51,10 @@ use crate::{
     os::task::process::WasiProcessId,
     syscalls::types::*,
     utils::WasiParkingLot,
-    WasiCallingId, WasiRuntimeImplementation,
+    WasiCallingId, WasiError, WasiRuntimeImplementation,
 };
+
+pub use env::{OnCalledAction, OnCalledHandler};
 
 /// all the rights enabled
 pub const ALL_RIGHTS: Rights = Rights::all();
@@ -241,7 +243,8 @@ impl WasiBusState {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct WasiState {
     pub fs: WasiFs,
@@ -257,6 +260,8 @@ pub struct WasiState {
     pub envs: Vec<Vec<u8>>,
     pub preopen: Vec<String>,
     pub(crate) runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync>,
+    #[derivative(Debug = "ignore")]
+    pub(crate) on_called: Mutex<Option<OnCalledHandler>>,
 }
 
 impl WasiState {
@@ -359,6 +364,19 @@ impl WasiState {
             envs: self.envs.clone(),
             preopen: self.preopen.clone(),
             runtime: self.runtime.clone(),
+            on_called: Mutex::new(None), // TODO: fix this
         }
     }
+
+    // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+    /// Sets the unwind callback which will be invoked when the call finishes
+    pub fn on_called<F>(&self, callback: F)
+    where
+        F: FnOnce(StoreMut<'_>) -> Result<OnCalledAction, WasiError> + Send + Sync + 'static,
+    {
+        self.on_called.lock().unwrap().replace(Box::new(callback));
+    }
 }
+
+unsafe impl Send for WasiState {}
+unsafe impl Sync for WasiState {}

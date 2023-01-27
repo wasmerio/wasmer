@@ -66,35 +66,11 @@ macro_rules! impl_native_traits {
             pub fn call(&self, mut store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
             $( $x: FromToNativeWasmType + crate::js::NativeWasmTypeInto, )*
             {
-                #[allow(unused_unsafe)]
-                let params_list: Vec<RawValue> = unsafe {
-                    vec![ $( RawValue { f64: $x.into_raw(store) } ),* ]
-                };
-                let params_list: Vec<JsValue> = params_list
-                    .into_iter()
-                    .map(|a| a.as_jsvalue(&store.as_store_ref()))
-                    .collect();
-                let results = {
-                    let mut r;
-                    // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
-                    loop {
-                        r = self.handle.get(store.as_store_ref().objects()).function.apply(
-                            &JsValue::UNDEFINED,
-                            &Array::from_iter(params_list.iter())
-                        );
-                        let store_mut = store.as_store_mut();
-                        if let Some(callback) = store_mut.inner.on_called.take() {
-                            match callback(store_mut) {
-                                Ok(wasmer_types::OnCalledAction::InvokeAgain) => { continue; }
-                                Ok(wasmer_types::OnCalledAction::Finish) => { break; }
-                                Ok(wasmer_types::OnCalledAction::Trap(trap)) => { return Err(RuntimeError::user(trap)) },
-                                Err(trap) => { return Err(RuntimeError::user(trap)) },
-                            }
-                        }
-                        break;
-                    }
-                    r?
-                };
+                let params_list: Vec<JsValue> = vec![ $( JsValue::from_f64($x.into_raw(&mut store))),* ];
+                let results = self.handle.get(store.as_store_ref().objects()).function.apply(
+                    &JsValue::UNDEFINED,
+                    &Array::from_iter(params_list.iter())
+                )?;
                 let mut rets_list_array = Rets::empty_array();
                 let mut_rets = rets_list_array.as_mut() as *mut [f64] as *mut f64;
                 match Rets::size() {

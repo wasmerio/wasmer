@@ -417,34 +417,11 @@ impl Function {
             arr.set(i as u32, js_value);
         }
 
-        let result = {
-            let mut r;
-            // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
-            loop {
-                r = js_sys::Reflect::apply(
-                    &self.handle.get(store.as_store_ref().objects()).function,
-                    &wasm_bindgen::JsValue::NULL,
-                    &arr,
-                );
-                let store_mut = store.as_store_mut();
-                if let Some(callback) = store_mut.inner.on_called.take() {
-                    match callback(store_mut) {
-                        Ok(wasmer_types::OnCalledAction::InvokeAgain) => {
-                            continue;
-                        }
-                        Ok(wasmer_types::OnCalledAction::Finish) => {
-                            break;
-                        }
-                        Ok(wasmer_types::OnCalledAction::Trap(trap)) => {
-                            return Err(RuntimeError::user(trap))
-                        }
-                        Err(trap) => return Err(RuntimeError::user(trap)),
-                    }
-                }
-                break;
-            }
-            r?
-        };
+        let result = js_sys::Reflect::apply(
+            &self.handle.get(store.as_store_ref().objects()).function,
+            &wasm_bindgen::JsValue::NULL,
+            &arr,
+        )?;
 
         let result_types = self.handle.get(store.as_store_ref().objects()).ty.results();
         match result_types.len() {

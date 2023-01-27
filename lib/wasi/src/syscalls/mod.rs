@@ -46,6 +46,8 @@ pub(crate) use std::{
     time::Duration,
 };
 
+pub use state::{OnCalledAction, OnCalledHandler};
+
 pub(crate) use bytes::{Bytes, BytesMut};
 pub(crate) use cooked_waker::IntoWaker;
 pub(crate) use sha2::Sha256;
@@ -62,7 +64,7 @@ pub use wasm::*;
 pub(crate) use wasmer::{
     vm::VMMemory, AsStoreMut, AsStoreRef, Extern, Function, FunctionEnv, FunctionEnvMut, Global,
     Instance, Memory, Memory32, Memory64, MemoryAccessError, MemoryError, MemorySize, MemoryView,
-    Module, OnCalledAction, Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
+    Module, Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
 };
 pub(crate) use wasmer_vbus::{
     BusInvocationEvent, BusSpawnedProcess, SignalHandlerAbi, SpawnOptionsConfig, StdioMode,
@@ -750,7 +752,7 @@ where
         memory_stack.len(),
         unwind_space
     );
-    ctx.as_store_mut().on_called(move |mut store| {
+    ctx.data_mut().on_called(move |mut store| {
         let mut ctx = func.into_mut(&mut store);
         let env = ctx.data();
         let memory = env.memory_view(&ctx);
@@ -774,19 +776,25 @@ where
 
         // Read the memory stack into a vector
         let unwind_stack_ptr = WasmPtr::<u8, M>::new(
+            // The error might be ambiguous with a legitimate error on base function call. Need some specific Errno?
+            // it was `format!("failed to save stack: stack pointer overflow")` before
             unwind_stack_begin
                 .try_into()
-                .map_err(|_| format!("failed to save stack: stack pointer overflow"))?,
+                .map_err(|_| WasiError::Exit(Errno::Overflow as u32))?,
         );
         let unwind_stack = unwind_stack_ptr
             .slice(
                 &memory,
+                // The error might be ambiguous with a legitimate error on base function call. Need some specific Errno?
+                // it was `format!("failed to save stack: stack pointer overflow")` before
                 unwind_size
                     .try_into()
-                    .map_err(|_| format!("failed to save stack: stack pointer overflow"))?,
+                    .map_err(|_| WasiError::Exit(Errno::Overflow as u32))?,
             )
             .and_then(|memory_stack| memory_stack.read_to_bytes())
-            .map_err(|err| format!("failed to read stack: {}", err))?;
+            // The error might be ambiguous with a legitimate error on base function call. Need some specific Errno?
+            // it was `format!("failed to read stack: {}", err)` before
+            .map_err(|err| WasiError::Exit(Errno::Inval as u32))?;
 
         // Notify asyncify that we are no longer unwinding
         if let Some(asyncify_stop_unwind) = env.inner().asyncify_stop_unwind.clone() {

@@ -152,7 +152,7 @@ pub fn stack_checkpoint<M: MemorySize>(
                 env.tid(),
                 err
             );
-            return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)));
+            return OnCalledAction::Trap(WasiError::Exit(Errno::Fault as u32));
         }
 
         // Rewind the stack and carry on
@@ -170,7 +170,7 @@ pub fn stack_checkpoint<M: MemorySize>(
                     "wasi[{}:{}]::failed checkpoint - could not rewind the stack - errno={}",
                     pid, tid, err
                 );
-                OnCalledAction::Trap(Box::new(WasiError::Exit(err as u32)))
+                OnCalledAction::Trap(WasiError::Exit(err as u32))
             }
         }
     })

@@ -444,40 +444,16 @@ impl Function {
         results: &mut [Value],
     ) -> Result<(), RuntimeError> {
         // Call the trampoline.
-        let result = {
-            let mut r;
-            // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
-            loop {
-                let vm_function = self.handle.get(store.as_store_ref().objects());
-                r = unsafe {
-                    wasmer_call_trampoline(
-                        store.as_store_ref().signal_handler(),
-                        vm_function.anyfunc.as_ptr().as_ref().vmctx,
-                        trampoline,
-                        vm_function.anyfunc.as_ptr().as_ref().func_ptr,
-                        params.as_mut_ptr() as *mut u8,
-                    )
-                };
-                let store_mut = store.as_store_mut();
-                if let Some(callback) = store_mut.inner.on_called.take() {
-                    match callback(store_mut) {
-                        Ok(wasmer_types::OnCalledAction::InvokeAgain) => {
-                            continue;
-                        }
-                        Ok(wasmer_types::OnCalledAction::Finish) => {
-                            break;
-                        }
-                        Ok(wasmer_types::OnCalledAction::Trap(trap)) => {
-                            return Err(RuntimeError::user(trap))
-                        }
-                        Err(trap) => return Err(RuntimeError::user(trap)),
-                    }
-                }
-                break;
-            }
-            r
-        };
-        if let Err(error) = result {
+        let vm_function = self.handle.get(store.as_store_ref().objects());
+        if let Err(error) = unsafe {
+            wasmer_call_trampoline(
+                store.as_store_ref().signal_handler(),
+                vm_function.anyfunc.as_ptr().as_ref().vmctx,
+                trampoline,
+                vm_function.anyfunc.as_ptr().as_ref().func_ptr,
+                params.as_mut_ptr() as *mut u8,
+            )
+        } {
             return Err(RuntimeError::from_trap(error));
         }
 

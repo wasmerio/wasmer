@@ -4,7 +4,7 @@ use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex, RwLock},
 };
 
 use generational_arena::Arena;
@@ -574,6 +574,7 @@ impl WasiStateBuilder {
                     env
                 })
                 .collect(),
+            on_called: Mutex::new(None),
         })
     }
 

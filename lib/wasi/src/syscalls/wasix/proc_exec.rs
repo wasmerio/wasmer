@@ -19,6 +19,35 @@ pub fn proc_exec<M: MemorySize>(
     args: WasmPtr<u8, M>,
     args_len: M::Offset,
 ) -> Result<(), WasiError> {
+    let mut r;
+    // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+    loop {
+        r = proc_exec_inner(ctx.as_mut(), name, name_len, args, args_len);
+        let mut on_call = ctx.data().state.on_called.lock().unwrap().take();
+        if let Some(callback) = on_call {
+            match callback(ctx.as_store_mut()) {
+                Ok(OnCalledAction::InvokeAgain) => {
+                    continue;
+                }
+                Ok(OnCalledAction::Finish) => {
+                    break;
+                }
+                Ok(OnCalledAction::Trap(trap)) => return Err(trap),
+                Err(trap) => return Err(trap),
+            }
+        }
+        break;
+    }
+    r
+}
+
+fn proc_exec_inner<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    name: WasmPtr<u8, M>,
+    name_len: M::Offset,
+    args: WasmPtr<u8, M>,
+    args_len: M::Offset,
+) -> Result<(), WasiError> {
     let memory = ctx.data().memory_view(&ctx);
     let mut name = name.read_utf8_string(&memory, name_len).map_err(|err| {
         warn!("failed to execve as the name could not be read - {}", err);
@@ -215,7 +244,7 @@ pub fn proc_exec<M: MemorySize>(
                 Errno::Success => OnCalledAction::InvokeAgain,
                 err => {
                     warn!("fork failed - could not rewind the stack - errno={}", err);
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)))
+                    OnCalledAction::Trap(WasiError::Exit(Errno::Fault as u32))
                 }
             }
         })?;
@@ -290,21 +319,21 @@ pub fn proc_exec<M: MemorySize>(
                         }
                     }));
                     let exit_code = rx.recv().unwrap();
-                    return OnCalledAction::Trap(Box::new(WasiError::Exit(exit_code as ExitCode)));
+                    return OnCalledAction::Trap(WasiError::Exit(exit_code as ExitCode));
                 }
                 Ok(Err(err)) => {
                     warn!(
                         "failed to execve as the process could not be spawned (fork)[0] - {}",
                         err
                     );
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Noexec as ExitCode)))
+                    OnCalledAction::Trap(WasiError::Exit(Errno::Noexec as ExitCode))
                 }
                 Err(err) => {
                     warn!(
                         "failed to execve as the process could not be spawned (fork)[1] - {}",
                         err
                     );
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Noexec as ExitCode)))
+                    OnCalledAction::Trap(WasiError::Exit(Errno::Noexec as ExitCode))
                 }
             }
         })?;

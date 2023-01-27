@@ -6,7 +6,8 @@ use std::{
 use derivative::Derivative;
 use tracing::{trace, warn};
 use wasmer::{
-    AsStoreMut, AsStoreRef, Exports, Global, Instance, Memory, MemoryView, Module, TypedFunction,
+    AsStoreMut, AsStoreRef, Exports, Global, Instance, Memory, MemoryView, Module, StoreMut,
+    TypedFunction,
 };
 use wasmer_vbus::{SpawnEnvironmentIntrinsics, VirtualBus};
 use wasmer_vnet::DynVirtualNetworking;
@@ -185,6 +186,23 @@ impl WasiEnvInner {
 unsafe impl Send for WasiEnvInner {}
 
 unsafe impl Sync for WasiEnvInner {}
+
+// TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+/// After the stack is unwound via asyncify what
+/// should the call loop do next
+#[derive(Debug)]
+pub enum OnCalledAction {
+    /// Will call the function again
+    InvokeAgain,
+    /// Will return the result of the invocation
+    Finish,
+    /// Traps with an error
+    Trap(WasiError),
+}
+
+/// Call handler for a WasiEnv.
+// TODO: better documentation!
+pub type OnCalledHandler = Box<dyn FnOnce(StoreMut<'_>) -> Result<OnCalledAction, WasiError>>;
 
 /// The environment provided to the WASI imports.
 #[derive(Debug, Clone)]
@@ -689,6 +707,14 @@ impl WasiEnv {
             let exit_code = exit_code.unwrap_or(Errno::Canceled as ExitCode);
             self.process.terminate(exit_code);
         }
+    }
+    // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+    /// Sets the unwind callback which will be invoked when the call finishes
+    pub fn on_called<F>(&self, callback: F)
+    where
+        F: FnOnce(StoreMut<'_>) -> Result<OnCalledAction, WasiError> + Send + Sync + 'static,
+    {
+        self.state.on_called(callback)
     }
 }
 
