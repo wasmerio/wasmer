@@ -190,7 +190,7 @@ jobs:
         build-what: [
           {
             key: capi,
-            build-cmd: 'make build-capi && make package-capi && make tar-capi',
+            build-cmd: 'make build-capi && make build-capi-headless && make package-capi && make tar-capi',
             name: 'Build and test C-API'
           },
           {
