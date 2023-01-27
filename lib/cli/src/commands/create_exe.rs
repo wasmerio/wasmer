@@ -1757,11 +1757,17 @@ pub(super) mod utils {
         target: &Triple,
         files: &[PathBuf],
     ) -> Result<PathBuf, anyhow::Error> {
-        let a = OsStr::new("libwasmer.a");
-        let b = OsStr::new("wasmer.lib");
+        let target_files = &[
+            OsStr::new("libwasmer-headless2.a"),
+            OsStr::new("wasmer-headless2.lib"),
+            OsStr::new("libwasmer.a"),
+            OsStr::new("wasmer.lib"),
+        ];
         files
         .iter()
-        .find(|f| f.file_name() == Some(a) || f.file_name() == Some(b))
+        .find_map(|f| {
+            if target_files.iter().any(|q| Some(*q) == f.file_name()) { Some(f) } else { None }
+        })
         .cloned()
         .ok_or_else(|| {
             anyhow!("Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})", target)
