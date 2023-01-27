@@ -1765,8 +1765,8 @@ pub(super) mod utils {
         ];
         files
         .iter()
-        .find_map(|f| {
-            if target_files.iter().any(|q| Some(*q) == f.file_name()) { Some(f) } else { None }
+        .find(|f| {
+            target_files.iter().any(|q| Some(*q) == f.file_name())
         })
         .cloned()
         .ok_or_else(|| {
