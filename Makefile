@@ -630,7 +630,7 @@ package-capi:
 	fi
 	
 	if [ -f target/headless/$(CARGO_TARGET)/release/wasmer.dll ]; then \
-		cp target/headless/$(CARGO_TARGET)/release/wasmer.dll package/lib/wasmer-headless.dll ;\
+		cp target/headless/$(CARGO_TARGET)/release/wasmer.dll package/lib/wasmer-headless2.dll ;\
 	fi
 
 	if [ -f $(TARGET_DIR)/wasmer.dll.lib ]; then \
@@ -638,7 +638,7 @@ package-capi:
 	fi
 
 	if [ -f target/headless/$(CARGO_TARGET)/release/wasmer.dll.lib ]; then \
-		cp target/headless/$(CARGO_TARGET)/release/wasmer.dll.lib package/lib/wasmer-headless.dll.lib ;\
+		cp target/headless/$(CARGO_TARGET)/release/wasmer.dll.lib package/lib/wasmer-headless2.dll.lib ;\
 	fi
 
 	if [ -f $(TARGET_DIR)/wasmer.lib ]; then \
@@ -646,7 +646,7 @@ package-capi:
 	fi
 
 	if [ -f target/headless/$(CARGO_TARGET)/release/wasmer.lib ]; then \
-		cp target/headless/$(CARGO_TARGET)/release/wasmer.lib package/lib/wasmer-headless.lib ;\
+		cp target/headless/$(CARGO_TARGET)/release/wasmer.lib package/lib/wasmer-headless2.lib ;\
 	fi
 
 	if [ -f $(TARGET_DIR)/libwasmer.dylib ]; then \
@@ -654,7 +654,7 @@ package-capi:
 	fi
 
 	if [ -f target/headless/$(CARGO_TARGET)/release/libwasmer.dylib ]; then \
-		cp target/headless/$(CARGO_TARGET)/release/libwasmer.dylib package/lib/libwasmer-headless.dylib ;\
+		cp target/headless/$(CARGO_TARGET)/release/libwasmer.dylib package/lib/libwasmer-headless2.dylib ;\
 	fi
 
 	if [ -f $(TARGET_DIR)/libwasmer.so ]; then \
@@ -662,7 +662,7 @@ package-capi:
 	fi
 
 	if [ -f target/headless/$(CARGO_TARGET)/release/libwasmer.so ]; then \
-		cp target/headless/$(CARGO_TARGET)/release/libwasmer.so package/lib/libwasmer-headless.so ;\
+		cp target/headless/$(CARGO_TARGET)/release/libwasmer.so package/lib/libwasmer-headless2.so ;\
 	fi
 
 	if [ -f $(TARGET_DIR)/libwasmer.a ]; then \
@@ -670,7 +670,7 @@ package-capi:
 	fi
 
 	if [ -f target/headless/$(CARGO_TARGET)/release/libwasmer.a ]; then \
-		cp target/headless/$(CARGO_TARGET)/release/libwasmer.a package/lib/libwasmer-headless.a ;\
+		cp target/headless/$(CARGO_TARGET)/release/libwasmer.a package/lib/libwasmer-headless2.a ;\
 	fi
 
 	if [ -f target/$(HOST_TARGET)/release/wasmer.dll ]; then \
