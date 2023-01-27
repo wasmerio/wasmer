@@ -11,6 +11,7 @@ use crate::js::wasm_bindgen_polyfill::Global as JsGlobal;
 use crate::MemoryView;
 use js_sys::Function;
 use js_sys::Function as JsFunction;
+use js_sys::WebAssembly;
 use js_sys::WebAssembly::{Memory, Table};
 use js_sys::WebAssembly::{Memory as JsMemory, Table as JsTable};
 use serde::{Deserialize, Serialize};
@@ -252,3 +253,5 @@ impl VMExtern {
         }
     }
 }
+
+pub type VMInstance = WebAssembly::Instance;
