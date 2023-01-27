@@ -71,5 +71,6 @@ There are a couple of problems with the scripts that you should watch out for:
 
 - [Creating the release pull request](https://www.youtube.com/watch?v=RMPTT-rnykA)
 - [Triggering the build.yml action manually](https://www.youtube.com/watch?v=7mF0nlfpQfA)
-- [Publishing to crates.io]()
-
+   - Note that the version should always be tagged with a "v" tag
+   - The commit to tag for the version should be the merge commit of the release PR
+- [Publishing to crates.io](https://www.youtube.com/watch?v=uLdxIr6YwuY)
