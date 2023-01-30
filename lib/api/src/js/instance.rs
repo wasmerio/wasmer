@@ -4,7 +4,7 @@ use crate::js::externals::Extern;
 use crate::js::imports::Imports;
 use crate::js::module::Module;
 use crate::js::store::{AsStoreMut, AsStoreRef};
-use crate::js::vm::VMExtern;
+use crate::js::vm::{VMExtern, VMInstance};
 use js_sys::WebAssembly;
 use std::fmt;
 
@@ -18,7 +18,7 @@ use std::fmt;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
 #[derive(Clone)]
 pub struct Instance {
-    handle: WebAssembly::Instance,
+    handle: VMInstance,
     module: Module,
     /// The exports for an instance.
     pub exports: Exports,
@@ -63,12 +63,11 @@ impl Instance {
         module: &Module,
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
-        let (instance, externs) = module
+        let instance = module
             .instantiate(&mut store, imports)
             .map_err(|e| InstantiationError::Start(e))?;
 
-        let mut self_instance = Self::from_module_and_instance(store, module, instance)?;
-        self_instance.ensure_memory_export(store, externs);
+        let self_instance = Self::from_module_and_instance(store, module, instance)?;
         Ok(self_instance)
     }
 
@@ -133,22 +132,6 @@ impl Instance {
             module: module.clone(),
             exports,
         })
-    }
-
-    /// This will check the memory is correctly setup
-    /// If the memory is imported then also export it for backwards compatibility reasons
-    /// (many will assume the memory is always exported) - later we can remove this
-    /// TODO: This is trialing from WASIX, we should remove this or move it to the wasmer-wasi crate
-    pub fn ensure_memory_export(&mut self, store: &mut impl AsStoreMut, externs: Vec<Extern>) {
-        if self.exports.get_memory("memory").is_err() {
-            if let Some(memory) = externs
-                .iter()
-                .filter(|a| a.ty(store).memory().is_some())
-                .next()
-            {
-                self.exports.insert("memory", memory.clone());
-            }
-        }
     }
 
     /// Gets the [`Module`] associated with this instance.

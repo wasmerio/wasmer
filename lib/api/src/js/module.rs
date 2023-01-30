@@ -7,6 +7,7 @@ use crate::js::externals::Extern;
 use crate::js::imports::Imports;
 use crate::js::store::AsStoreMut;
 use crate::js::types::{AsJs, ExportType, ImportType};
+use crate::js::vm::VMInstance;
 use crate::js::RuntimeError;
 use crate::AsStoreRef;
 use crate::IntoBytes;
@@ -246,7 +247,7 @@ impl Module {
         &self,
         store: &mut impl AsStoreMut,
         imports: &Imports,
-    ) -> Result<(WebAssembly::Instance, Vec<Extern>), RuntimeError> {
+    ) -> Result<VMInstance, RuntimeError> {
         // Ensure all imports come from the same store.
         if imports
             .into_iter()
@@ -323,11 +324,8 @@ impl Module {
             // in case the import is not found, the JS Wasm VM will handle
             // the error for us, so we don't need to handle it
         }
-        Ok((
-            WebAssembly::Instance::new(&self.module, &imports_object)
-                .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
-            import_externs,
-        ))
+        Ok(WebAssembly::Instance::new(&self.module, &imports_object)
+            .map_err(|e: JsValue| -> RuntimeError { e.into() })?)
     }
 
     /// Returns the name of the current module.
