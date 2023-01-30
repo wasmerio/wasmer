@@ -53,5 +53,5 @@ pub fn get_cache_dir() -> PathBuf {
 }
 
 pub(crate) fn normalize_path(s: &str) -> String {
-    s.strip_prefix(r"\\?\").unwrap_or(s).to_string()
+    wasmer_registry::utils::normalize_path(s)
 }

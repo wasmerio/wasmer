@@ -7,6 +7,7 @@ use crate::js::externals::Extern;
 use crate::js::imports::Imports;
 use crate::js::store::AsStoreMut;
 use crate::js::types::{AsJs, ExportType, ImportType};
+use crate::js::vm::VMInstance;
 use crate::js::RuntimeError;
 use crate::AsStoreRef;
 use crate::IntoBytes;
@@ -246,7 +247,7 @@ impl Module {
         &self,
         store: &mut impl AsStoreMut,
         imports: &Imports,
-    ) -> Result<(crate::StoreHandle<WebAssembly::Instance>, Vec<Extern>), RuntimeError> {
+    ) -> Result<VMInstance, RuntimeError> {
         // Ensure all imports come from the same store.
         if imports
             .into_iter()
@@ -323,14 +324,8 @@ impl Module {
             // in case the import is not found, the JS Wasm VM will handle
             // the error for us, so we don't need to handle it
         }
-        Ok((
-            crate::StoreHandle::new(
-                store.as_store_mut().objects_mut(),
-                WebAssembly::Instance::new(&self.module, &imports_object)
-                    .map_err(|e: JsValue| -> RuntimeError { e.into() })?,
-            ),
-            import_externs,
-        ))
+        Ok(WebAssembly::Instance::new(&self.module, &imports_object)
+            .map_err(|e: JsValue| -> RuntimeError { e.into() })?)
     }
 
     /// Returns the name of the current module.
@@ -648,7 +643,7 @@ impl Module {
     pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
         WebAssembly::Module::custom_sections(&self.module, name)
             .iter()
-            .map(move |(buf_val)| {
+            .map(move |buf_val| {
                 let typebuf: js_sys::Uint8Array = js_sys::Uint8Array::new(&buf_val);
                 typebuf.to_vec().into_boxed_slice()
             })

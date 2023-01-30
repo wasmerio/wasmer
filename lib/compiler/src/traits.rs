@@ -33,7 +33,7 @@ pub trait ArtifactCreate: Send + Sync + Upcastable {
     /// Returns the table plans associated with this `Artifact`.
     fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle>;
 
-    /// Returns data initializers to pass to `InstanceHandle::initialize`
+    /// Returns data initializers to pass to `VMInstance::initialize`
     fn data_initializers(&self) -> &[OwnedDataInitializer];
 
     /// Serializes an artifact into bytes
