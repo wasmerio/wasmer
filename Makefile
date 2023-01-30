@@ -617,6 +617,8 @@ ifeq ($(IS_DARWIN), 1)
 endif
 endif
 
+package-capi-headless: build-capi-headless package-capi
+
 package-capi:
 	mkdir -p "package/include"
 	mkdir -p "package/lib"
