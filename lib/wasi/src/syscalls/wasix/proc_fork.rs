@@ -10,33 +10,6 @@ pub fn proc_fork<M: MemorySize>(
     mut copy_memory: Bool,
     pid_ptr: WasmPtr<Pid, M>,
 ) -> Result<Errno, WasiError> {
-    let mut r;
-    // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
-    loop {
-        r = proc_fork_inner(ctx.as_mut(), copy_memory, pid_ptr);
-        let mut on_call = ctx.data().state.on_called.lock().unwrap().take();
-        if let Some(callback) = on_call {
-            match callback(ctx.as_store_mut()) {
-                Ok(OnCalledAction::InvokeAgain) => {
-                    continue;
-                }
-                Ok(OnCalledAction::Finish) => {
-                    break;
-                }
-                Ok(OnCalledAction::Trap(trap)) => return Err(trap),
-                Err(trap) => return Err(trap),
-            }
-        }
-        break;
-    }
-    r
-}
-
-fn proc_fork_inner<M: MemorySize>(
-    mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    mut copy_memory: Bool,
-    pid_ptr: WasmPtr<Pid, M>,
-) -> Result<Errno, WasiError> {
     wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
 
     // If we were just restored then we need to return the value instead

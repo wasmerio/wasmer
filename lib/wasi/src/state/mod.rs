@@ -364,7 +364,7 @@ impl WasiState {
             envs: self.envs.clone(),
             preopen: self.preopen.clone(),
             runtime: self.runtime.clone(),
-            on_called: Mutex::new(None), // TODO: fix this
+            on_called: Mutex::new(None), // TODO: is this correct or should the on_called be cloned too?
         }
     }
 

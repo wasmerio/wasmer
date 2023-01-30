@@ -9,9 +9,10 @@ use wasmer_vfs::FileSystem;
 use wasmer_vfs::{PassthruFileSystem, RootFileSystemBuilder, SpecialFile};
 use wasmer_wasi::types::__WASI_STDIN_FILENO;
 use wasmer_wasi::TtyFile;
+pub use wasmer_wasi::{call_asyncified, WasiEnv, WasiFunctionEnv};
 use wasmer_wasi::{
-    default_fs_backing, get_wasi_versions, PluggableRuntimeImplementation, WasiEnv, WasiError,
-    WasiState, WasiVersion,
+    default_fs_backing, get_wasi_versions, PluggableRuntimeImplementation, WasiError, WasiState,
+    WasiVersion,
 };
 
 use clap::Parser;

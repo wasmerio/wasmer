@@ -27,6 +27,12 @@ mod wasi;
 #[cfg(feature = "wasi")]
 use wasi::Wasi;
 
+#[cfg(feature = "wasi")]
+type WasiFunctionEnv = wasi::WasiFunctionEnv;
+
+#[cfg(not(feature = "wasi"))]
+struct WasiFunctionEnv {}
+
 /// The options for the `wasmer run` subcommand, runs either a package, URL or a file
 #[derive(Debug, Parser, Clone, Default)]
 pub struct Run {
@@ -167,12 +173,25 @@ impl RunWithPathBuf {
         })
     }
 
-    fn inner_module_run(&self, mut store: Store, instance: Instance) -> Result<()> {
+    fn inner_module_run(
+        &self,
+        mut store: Store,
+        instance: Instance,
+        wasienv: Option<WasiFunctionEnv>,
+    ) -> Result<()> {
         // If this module exports an _initialize function, run that first.
         if let Ok(initialize) = instance.exports.get_function("_initialize") {
-            initialize
-                .call(&mut store, &[])
-                .with_context(|| "failed to run _initialize function")?;
+            match wasienv {
+                Some(ref wasi_env) => {
+                    wasmer_wasi::call_asyncified(&wasi_env, initialize, &mut store, &[])
+                        .with_context(|| "failed to run _initialize function")?;
+                }
+                None => {
+                    initialize
+                        .call(&mut store, &[])
+                        .with_context(|| "failed to run _initialize function")?;
+                }
+            }
         }
 
         // Do we want to invoke a function?
@@ -188,7 +207,13 @@ impl RunWithPathBuf {
             );
         } else {
             let start: Function = self.try_find_function(&instance, "_start", &[])?;
-            let result = start.call(&mut store, &[]);
+            let result = match wasienv {
+                Some(ref wasi_env) => {
+                    wasmer_wasi::call_asyncified(&wasi_env, &start, &mut store, &[])
+                        .map_err(|e| RuntimeError::user(Box::new(e)))
+                }
+                None => start.call(&mut store, &[]),
+            };
             #[cfg(feature = "wasi")]
             self.wasi.handle_result(result)?;
             #[cfg(not(feature = "wasi"))]
@@ -299,16 +324,17 @@ impl RunWithPathBuf {
                                 .map(|f| f.to_string_lossy().to_string())
                         })
                         .unwrap_or_default();
-                    let (_ctx, instance) = self
+                    let (ctx, instance) = self
                         .wasi
                         .instantiate(&mut store, &module, program_name, self.args.clone())
                         .with_context(|| "failed to instantiate WASI module")?;
-                    self.inner_module_run(store, instance)
+                    let wasi_env = WasiFunctionEnv { env: ctx };
+                    self.inner_module_run(store, instance, Some(wasi_env))
                 }
                 // not WASI
                 _ => {
                     let instance = Instance::new(&mut store, &module, &imports! {})?;
-                    self.inner_module_run(store, instance)
+                    self.inner_module_run(store, instance, None)
                 }
             }
         };

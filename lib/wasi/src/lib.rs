@@ -102,6 +102,7 @@ pub use crate::{
         task_manager::{VirtualTaskManager, VirtualTaskManagerExt},
         PluggableRuntimeImplementation, SpawnedMemory, WasiRuntimeImplementation, WebSocketAbi,
     },
+    state::call_asyncified,
     wapm::parse_static_webc,
 };
 
