@@ -561,7 +561,7 @@ test-wasi-unit:
 test-wasi:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) -- wasi::wasitests
 
-test-integration-cli: build-wasmer build-capi package dist
+test-integration-cli: build-wasmer build-capi package distribution
 	cp ./dist/wasmer.tar.gz ./link.tar.gz
 	rustup target add wasm32-wasi
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
@@ -727,7 +727,7 @@ package-docs: build-docs build-docs-capi
 	echo '<meta http-equiv="refresh" content="0; url=crates/wasmer/index.html">' > package/docs/index.html
 	echo '<meta http-equiv="refresh" content="0; url=wasmer/index.html">' > package/docs/crates/index.html
 
-package: package-wasmer package-minimal-headless-wasmer package-capi
+package: package-wasmer package-minimal-headless-wasmer package-capi package-capi-headless
 
 tar-capi:
 	ls -R package
