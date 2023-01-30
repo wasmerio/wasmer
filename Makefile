@@ -159,6 +159,9 @@ exclude_tests += --exclude wasmer-wasi-experimental-io-devices
 # We run integration tests separately (it requires building the c-api)
 exclude_tests += --exclude wasmer-integration-tests-cli
 exclude_tests += --exclude wasmer-integration-tests-ios
+# wasix_http_client is only for the WASM target, must be tested separately
+# FIXME: add separate test step!
+exclude_tests += --exclude wasix_http_client
 
 ifneq (, $(findstring llvm,$(compilers)))
 	ENABLE_LLVM := 1
