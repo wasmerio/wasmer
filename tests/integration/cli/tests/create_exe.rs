@@ -78,11 +78,17 @@ impl WasmerCreateExe {
 
         let output = output.output()?;
 
+        let stdout = std::str::from_utf8(&output.stdout)
+            .expect("stdout is not utf8! need to handle arbitrary bytes");
+
+        assert!(
+            stdout.contains("headless."),
+            "create-exe stdout should link with libwasmer-headless"
+        );
+
         if !output.status.success() {
             bail!(
-                "{cmd}\r\n failed with: stdout: {}\n\nstderr: {}",
-                std::str::from_utf8(&output.stdout)
-                    .expect("stdout is not utf8! need to handle arbitrary bytes"),
+                "{cmd}\r\n failed with: stdout: {stdout}\n\nstderr: {}",
                 std::str::from_utf8(&output.stderr)
                     .expect("stderr is not utf8! need to handle arbitrary bytes")
             );
