@@ -51,7 +51,7 @@ impl Memory {
     /// ```
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
         let mut store = store.as_store_mut();
-        let tunables = store.tunables();
+        let tunables = store.engine().tunables();
         let style = tunables.memory_style(&ty);
         let memory = tunables.create_host_memory(&ty, &style)?;
 

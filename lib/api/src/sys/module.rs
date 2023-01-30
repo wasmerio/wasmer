@@ -119,10 +119,10 @@ impl Module {
             }
         }
         let mut store_mut = store.as_store_mut();
-        let (tunables, objects) = store_mut.tunables_and_objects_mut();
+        let (engine, objects) = store_mut.engine_and_objects_mut();
         unsafe {
             let mut instance_handle = self.artifact.instantiate(
-                tunables,
+                engine.tunables(),
                 &imports
                     .iter()
                     .map(crate::Extern::to_vm_extern)

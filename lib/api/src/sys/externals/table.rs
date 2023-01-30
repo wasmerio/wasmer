@@ -73,7 +73,7 @@ impl Table {
     ) -> Result<Self, RuntimeError> {
         let item = value_to_table_element(&mut store, init)?;
         let mut store = store.as_store_mut();
-        let tunables = store.tunables();
+        let tunables = store.engine().tunables();
         let style = tunables.table_style(&ty);
         let mut table = tunables
             .create_host_table(&ty, &style)

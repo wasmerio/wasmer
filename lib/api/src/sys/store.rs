@@ -95,6 +95,10 @@ impl Store {
     }
 
     #[cfg(feature = "compiler")]
+    #[deprecated(
+        since = "3.2.0",
+        note = "store.tunables() has been deprecated in favor of store.engine().tunables()"
+    )]
     /// Returns the [`Tunables`].
     pub fn tunables(&self) -> &dyn Tunables {
         self.engine.tunables()
@@ -259,6 +263,10 @@ impl<'a> StoreRef<'a> {
     }
 
     #[cfg(feature = "compiler")]
+    #[deprecated(
+        since = "3.2.0",
+        note = "store.tunables() has been deprecated in favor of store.engine().tunables()"
+    )]
     /// Returns the [`Tunables`].
     pub fn tunables(&self) -> &dyn Tunables {
         self.inner.engine.tunables()
@@ -296,6 +304,10 @@ pub struct StoreMut<'a> {
 impl<'a> StoreMut<'a> {
     /// Returns the [`Tunables`].
     #[cfg(feature = "compiler")]
+    #[deprecated(
+        since = "3.2.0",
+        note = "store.tunables() has been deprecated in favor of store.engine().tunables()"
+    )]
     pub fn tunables(&self) -> &dyn Tunables {
         self.inner.engine.tunables()
     }
@@ -315,8 +327,8 @@ impl<'a> StoreMut<'a> {
     }
 
     #[cfg(feature = "compiler")]
-    pub(crate) fn tunables_and_objects_mut(&mut self) -> (&dyn Tunables, &mut StoreObjects) {
-        (self.inner.engine.tunables(), &mut self.inner.objects)
+    pub(crate) fn engine_and_objects_mut(&mut self) -> (&Engine, &mut StoreObjects) {
+        (&self.inner.engine, &mut self.inner.objects)
     }
 
     pub(crate) fn as_raw(&self) -> *mut StoreInner {

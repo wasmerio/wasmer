@@ -754,7 +754,7 @@ fn compile_atoms(
                 let engine_inner = engine.inner();
                 let compiler = engine_inner.compiler()?;
                 let features = engine_inner.features();
-                let tunables = store.tunables();
+                let tunables = store.engine().tunables();
                 let (module_info, obj, _, _) = Artifact::generate_object(
                     compiler,
                     data,

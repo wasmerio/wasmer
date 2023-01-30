@@ -65,7 +65,7 @@ pub fn wasi_import_shared_memory(
         .next()
         .map(|a| *a.ty())
         .map(|ty| {
-            let style = store.as_store_ref().tunables().memory_style(&ty);
+            let style = store.as_store_ref().engine().tunables().memory_style(&ty);
             VMSharedMemory::new(&ty, &style).unwrap()
         });
 
