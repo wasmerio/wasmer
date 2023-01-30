@@ -617,6 +617,8 @@ ifeq ($(IS_DARWIN), 1)
 endif
 endif
 
+package-capi-headless: build-capi-headless package-capi
+
 package-capi:
 	mkdir -p "package/include"
 	mkdir -p "package/lib"
@@ -695,39 +697,13 @@ package-capi:
 		cp target/$(HOST_TARGET)/release/libwasmer.a package/lib/libwasmer.a ;\
 	fi
 
-package-capi-headless: build-capi-headless
-	mkdir -p "package/include"
-	mkdir -p "package/lib"
-	cp lib/c-api/wasmer.h* package/include
-	cp lib/c-api/wasmer_wasm.h* package/include
-	cp lib/c-api/wasm.h* package/include
-	cp lib/c-api/README.md package/include/README.md
-
-	if [ -f $(TARGET_DIR)/wasmer.dll ]; then \
-		cp $(TARGET_DIR)/wasmer.dll package/lib/wasmer-headless.dll ;\
-	fi
-	if [ -f $(TARGET_DIR)/wasmer.lib ]; then \
-		cp $(TARGET_DIR)/wasmer.lib package/lib/wasmer-headless.lib ;\
-	fi
-
-	if [ -f $(TARGET_DIR)/libwasmer.dylib ]; then \
-		cp $(TARGET_DIR)/libwasmer.dylib package/lib/libwasmer-headless.dylib ;\
-	fi
-
-	if [ -f $(TARGET_DIR)/libwasmer.so ]; then \
-		cp $(TARGET_DIR)/libwasmer.so package/lib/libwasmer-headless.so ;\
-	fi
-	if [ -f $(TARGET_DIR)/libwasmer.a ]; then \
-		cp $(TARGET_DIR)/libwasmer.a package/lib/libwasmer-headless.a ;\
-	fi
-
 package-docs: build-docs build-docs-capi
 	mkdir -p "package/docs/crates"
 	cp -R target/doc/ package/docs/crates
 	echo '<meta http-equiv="refresh" content="0; url=crates/wasmer/index.html">' > package/docs/index.html
 	echo '<meta http-equiv="refresh" content="0; url=wasmer/index.html">' > package/docs/crates/index.html
 
-package: package-wasmer package-minimal-headless-wasmer package-capi package-capi-headless
+package: package-wasmer package-minimal-headless-wasmer package-capi
 
 tar-capi:
 	ls -R package
