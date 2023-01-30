@@ -457,13 +457,6 @@ else
 	RUSTFLAGS="${RUSTFLAGS} -C opt-level=z -C overflow-checks=off -C panic=abort -C rpath=no -C incremental=false -C codegen-units=1 -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) +nightly build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features compiler-headless,wasi,webc_runner --target-dir target/headless -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort
 endif
-ifeq ($(IS_DARWIN), 1)
-	strip target/headless/$(HOST_TARGET)/release/libwasmer.dylib
-else ifeq ($(IS_WINDOWS), 1)
-	strip --strip-unneeded target/headless/$(HOST_TARGET)/release/wasmer.dll
-else
-	strip --strip-unneeded target/headless/$(HOST_TARGET)/release/libwasmer.so
-endif
 
 build-capi-headless-ios:
 	RUSTFLAGS="${RUSTFLAGS} -C panic=abort" cargo lipo --manifest-path lib/c-api/Cargo.toml --release \
