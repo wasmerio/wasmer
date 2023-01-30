@@ -452,10 +452,10 @@ build-capi-llvm-universal:
 build-capi-headless:
 ifeq ($(CARGO_TARGET_FLAG),)
 	RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) build --target $(HOST_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features compiler-headless,wasi,webc_runner  --target-dir target/$(CARGO_TARGET)/headless
+		--no-default-features --features compiler-headless,wasi,webc_runner  --target-dir target/headless
 else
 	RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features compiler-headless,wasi,webc_runner --target-dir target/$(CARGO_TARGET)/headless
+		--no-default-features --features compiler-headless,wasi,webc_runner --target-dir target/headless
 endif
 
 build-capi-headless-ios:
@@ -562,7 +562,7 @@ test-wasi-unit:
 test-wasi:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) -- wasi::wasitests
 
-test-integration-cli: build-wasmer build-capi package dist
+test-integration-cli: build-wasmer build-capi package distribution
 	cp ./dist/wasmer.tar.gz ./link.tar.gz
 	rustup target add wasm32-wasi
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
@@ -728,7 +728,7 @@ package-docs: build-docs build-docs-capi
 	echo '<meta http-equiv="refresh" content="0; url=crates/wasmer/index.html">' > package/docs/index.html
 	echo '<meta http-equiv="refresh" content="0; url=wasmer/index.html">' > package/docs/crates/index.html
 
-package: package-wasmer package-minimal-headless-wasmer package-capi
+package: package-wasmer package-minimal-headless-wasmer package-capi package-capi-headless
 
 tar-capi:
 	ls -R package
