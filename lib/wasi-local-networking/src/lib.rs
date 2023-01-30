@@ -337,9 +337,6 @@ impl LocalTcpStream {
         if nonblocking {
             let max_buf_size = 8192;
             let mut buf = vec![0u8; max_buf_size];
-            unsafe {
-                buf.set_len(max_buf_size);
-            }
 
             let waker = unsafe { Waker::from_raw(RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE)) };
             let mut cx = Context::from_waker(&waker);
@@ -374,10 +371,7 @@ impl LocalTcpStream {
     ) -> Result<SocketReceive> {
         use tokio::io::AsyncReadExt;
         let max_buf_size = 8192;
-        let mut buf = Vec::with_capacity(max_buf_size);
-        unsafe {
-            buf.set_len(max_buf_size);
-        }
+        let mut buf = vec![0u8; max_buf_size];
 
         let work = async move {
             match timeout {
@@ -834,10 +828,7 @@ impl VirtualConnectedSocket for LocalUdpSocket {
 
     async fn recv(&mut self) -> Result<SocketReceive> {
         let buf_size = 8192;
-        let mut buf = Vec::with_capacity(buf_size);
-        unsafe {
-            buf.set_len(buf_size);
-        }
+        let mut buf = vec![0u8; buf_size];
 
         let read = self
             .socket
@@ -865,10 +856,7 @@ impl VirtualConnectedSocket for LocalUdpSocket {
 
     fn try_recv(&mut self) -> Result<Option<SocketReceive>> {
         let buf_size = 8192;
-        let mut buf = Vec::with_capacity(buf_size);
-        unsafe {
-            buf.set_len(buf_size);
-        }
+        let mut buf = vec![0u8; buf_size];
 
         let socket = self
             .socket
@@ -927,10 +915,7 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
 
     fn try_recv_from(&mut self) -> Result<Option<SocketReceiveFrom>> {
         let buf_size = 8192;
-        let mut buf = Vec::with_capacity(buf_size);
-        unsafe {
-            buf.set_len(buf_size);
-        }
+        let mut buf = vec![0u8; buf_size];
 
         let socket = self
             .socket
@@ -969,10 +954,7 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
 
     async fn recv_from(&mut self) -> Result<SocketReceiveFrom> {
         let buf_size = 8192;
-        let mut buf = Vec::with_capacity(buf_size);
-        unsafe {
-            buf.set_len(buf_size);
-        }
+        let mut buf = vec![0u8; buf_size];
 
         let (read, peer) = self
             .socket

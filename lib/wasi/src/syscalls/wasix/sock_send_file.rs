@@ -62,14 +62,10 @@ pub fn sock_send_file<M: MemorySize>(
                             .stdin_mut(&state.fs.fd_map)
                             .map_err(fs_error_into_wasi_err));
                         let data = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-                            let mut buf = Vec::with_capacity(sub_count as usize);
-                            unsafe {
-                                buf.set_len(sub_count as usize);
-                            }
+                            // TODO: optimize with MaybeUninit
+                            let mut buf = vec![0u8; sub_count as usize];
                             let amt = stdin.read(&mut buf[..]).await.map_err(map_io_err)?;
-                            unsafe {
-                                buf.set_len(amt);
-                            }
+                            buf.truncate(amt);
                             Ok(buf)
                         })?);
                         env = ctx.data();
@@ -94,11 +90,7 @@ pub fn sock_send_file<M: MemorySize>(
                                     if let Some(handle) = handle {
                                         let data =
                                             wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-                                                let mut buf =
-                                                    Vec::with_capacity(sub_count as usize);
-                                                unsafe {
-                                                    buf.set_len(sub_count as usize);
-                                                }
+                                                let mut buf = vec![0u8; sub_count as usize];
 
                                                 let mut handle = handle.write().unwrap();
                                                 handle
@@ -109,9 +101,7 @@ pub fn sock_send_file<M: MemorySize>(
                                                     .read(&mut buf[..])
                                                     .await
                                                     .map_err(map_io_err)?;
-                                                unsafe {
-                                                    buf.set_len(amt);
-                                                }
+                                                buf.truncate(amt);
                                                 Ok(buf)
                                             })?);
                                         env = ctx.data();
@@ -139,18 +129,13 @@ pub fn sock_send_file<M: MemorySize>(
                                 Kind::Pipe { ref mut pipe } => {
                                     let data =
                                         wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-                                            let mut buf = Vec::with_capacity(sub_count as usize);
-                                            unsafe {
-                                                buf.set_len(sub_count as usize);
-                                            }
-
+                                            // TODO: optimize with MaybeUninit
+                                            let mut buf = vec![0u8; sub_count as usize];
                                             let amt =
                                                 wasmer_vfs::AsyncReadExt::read(pipe, &mut buf[..])
                                                     .await
                                                     .map_err(map_io_err)?;
-                                            unsafe {
-                                                buf.set_len(amt);
-                                            }
+                                            buf.truncate(amt);
                                             Ok(buf)
                                         })?);
                                     env = ctx.data();
@@ -164,10 +149,8 @@ pub fn sock_send_file<M: MemorySize>(
                                 }
                                 Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_read"),
                                 Kind::Buffer { buffer } => {
-                                    let mut buf = Vec::with_capacity(sub_count as usize);
-                                    unsafe {
-                                        buf.set_len(sub_count as usize);
-                                    }
+                                    // TODO: optimize with MaybeUninit
+                                    let mut buf = vec![0u8; sub_count as usize];
 
                                     let mut buf_read = &buffer[offset..];
                                     let amt = wasi_try_ok!(std::io::Read::read(
@@ -175,9 +158,7 @@ pub fn sock_send_file<M: MemorySize>(
                                         &mut buf[..]
                                     )
                                     .map_err(map_io_err));
-                                    unsafe {
-                                        buf.set_len(amt);
-                                    }
+                                    buf.truncate(amt);
                                     buf
                                 }
                             }

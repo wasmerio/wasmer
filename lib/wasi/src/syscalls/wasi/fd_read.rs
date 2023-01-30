@@ -169,7 +169,8 @@ fn fd_read_internal<M: MemorySize>(
                                         .map_err(map_io_err)?;
                                 }
 
-                                let mut data = Vec::with_capacity(max_size);
+                                // TODO: optimize with MaybeUninit
+                                let mut data = vec![0u8; max_size];
                                 unsafe { data.set_len(max_size) };
                                 let amt = handle.read(&mut data[..]).await.map_err(|err| {
                                     let err = From::<std::io::Error>::from(err);
@@ -184,7 +185,7 @@ fn fd_read_internal<M: MemorySize>(
                                         a => a,
                                     }
                                 })?;
-                                unsafe { data.set_len(amt) };
+                                data.truncate(amt);
                                 Ok(data)
                             }
                         )?
@@ -252,12 +253,12 @@ fn fd_read_internal<M: MemorySize>(
                             None
                         },
                         async move {
-                            let mut data = Vec::with_capacity(max_size);
-                            unsafe { data.set_len(max_size) };
+                            // TODO: optimize with MaybeUninit
+                            let mut data = vec![0u8; max_size];
                             let amt = wasmer_vfs::AsyncReadExt::read(&mut pipe, &mut data[..])
                                 .await
                                 .map_err(map_io_err)?;
-                            unsafe { data.set_len(amt) };
+                            data.truncate(amt);
                             Ok(data)
                         }
                     )?
