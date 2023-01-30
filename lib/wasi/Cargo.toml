@@ -39,7 +39,7 @@ sha2 = { version = "0.10" }
 waker-fn = { version = "1.1" }
 cooked-waker = "^5"
 rand = "0.8"
-tokio = { version = "1", features = [ "sync", "macros" ], default_features = false }
+tokio = { version = "1", features = ["sync", "macros"], default_features = false }
 futures = { version = "0.3" }
 # used by feature='os'
 async-trait = { version = "^0.1" }
@@ -91,11 +91,13 @@ tracing-subscriber = { version = "^0.2" }
 [features]
 default = ["sys-default"]
 
+time = ["tokio/time"]
+
 webc_runner = ["serde_cbor", "wasmer/compiler", "wasmer/cranelift"]
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
 webc_runner_rt_wasi = []
 
-sys = ["wasmer/sys", "wasmer-wasi-types/sys", "webc/mmap", "wasmer-vm" ]
+sys = ["wasmer/sys", "wasmer-wasi-types/sys", "webc/mmap", "wasmer-vm", "time"]
 sys-default = ["wasmer/wat", "wasmer/compiler", "sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest" ]
 sys-poll = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
