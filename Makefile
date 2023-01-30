@@ -562,10 +562,12 @@ test-wasi-unit:
 test-wasi:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) -- wasi::wasitests
 
-test-integration-cli:
+test-integration-cli: build-wasmer build-capi package dist
+	cp ./dist/wasmer.tar.gz ./link.tar.gz
 	rustup target add wasm32-wasi
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
 
+# Before running this in the CI, we need to set up link.tar.gz and /cache/wasmer-[target].tar.gz
 test-integration-cli-ci:
 	rustup target add wasm32-wasi
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-cli -- --nocapture --test-threads=1 || $(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
@@ -619,6 +621,7 @@ endif
 package-capi:
 	mkdir -p "package/include"
 	mkdir -p "package/lib"
+	mkdir -p "package/winsdk"
 	cp lib/c-api/wasmer.h* package/include
 	cp lib/c-api/wasmer_wasm.h* package/include
 	cp lib/c-api/tests/wasm-c-api/include/wasm.h* package/include
@@ -729,7 +732,7 @@ package: package-wasmer package-minimal-headless-wasmer package-capi
 
 tar-capi:
 	ls -R package
-	tar -C package -zcvf build-capi.tar.gz lib include
+	tar -C package -zcvf build-capi.tar.gz lib include winsdk
 
 untar-capi:
 	mkdir -p package

@@ -9,8 +9,6 @@ publish = false
 
 [dev-dependencies]
 rand = "0.8.5"
-tar = "0.4.38"
-flate2 = "1.0.24"
 target-lexicon = "0.12.4"
 serde = { version = "1.0.147", features = ["derive"] }
 insta = { version = "1.21.1", features = ["json"] }
@@ -23,6 +21,8 @@ object = "0.30.0"
 anyhow = "1"
 tempfile = "3"
 target-lexicon = "0.12.5"
+tar = "0.4.38"
+flate2 = "1.0.24"
 
 [features]
 default = ["webc_runner"]

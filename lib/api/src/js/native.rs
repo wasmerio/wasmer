@@ -10,12 +10,12 @@
 use std::marker::PhantomData;
 
 use crate::js::externals::Function;
-use crate::js::store::{AsStoreMut, AsStoreRef, StoreHandle};
+use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::{FromToNativeWasmType, RuntimeError, WasmTypeList};
 // use std::panic::{catch_unwind, AssertUnwindSafe};
-use crate::js::export::VMFunction;
 use crate::js::types::param_from_js;
 use crate::js::types::AsJs;
+use crate::js::vm::VMFunction;
 use js_sys::Array;
 use std::iter::FromIterator;
 use wasm_bindgen::JsValue;
@@ -25,7 +25,7 @@ use wasmer_types::RawValue;
 /// (using the Native ABI).
 #[derive(Clone)]
 pub struct TypedFunction<Args = (), Rets = ()> {
-    pub(crate) handle: StoreHandle<VMFunction>,
+    pub(crate) handle: VMFunction,
     _phantom: PhantomData<(Args, Rets)>,
 }
 
@@ -38,9 +38,9 @@ where
     Rets: WasmTypeList,
 {
     #[allow(dead_code)]
-    pub(crate) fn new<T>(store: &mut impl AsStoreMut, vm_function: VMFunction) -> Self {
+    pub(crate) fn new<T>(_store: &mut impl AsStoreMut, vm_function: VMFunction) -> Self {
         Self {
-            handle: StoreHandle::new(store.as_store_mut().objects_mut(), vm_function),
+            handle: vm_function,
             _phantom: PhantomData,
         }
     }
@@ -66,8 +66,15 @@ macro_rules! impl_native_traits {
             pub fn call(&self, mut store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
             $( $x: FromToNativeWasmType + crate::js::NativeWasmTypeInto, )*
             {
-                let params_list: Vec<JsValue> = vec![ $( JsValue::from_f64($x.into_raw(&mut store))),* ];
-                let results = self.handle.get(store.as_store_ref().objects()).function.apply(
+                #[allow(unused_unsafe)]
+                let params_list: Vec<RawValue> = unsafe {
+                    vec![ $( RawValue { f64: $x.into_raw(store) } ),* ]
+                };
+                let params_list: Vec<JsValue> = params_list
+                    .into_iter()
+                    .map(|a| a.as_jsvalue(&store.as_store_ref()))
+                    .collect();
+                let results = self.handle.function.apply(
                     &JsValue::UNDEFINED,
                     &Array::from_iter(params_list.iter())
                 )?;
