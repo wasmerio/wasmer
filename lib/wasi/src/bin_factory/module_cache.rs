@@ -243,7 +243,9 @@ impl ModuleCache {
         }
     }
 }
+
 #[cfg(test)]
+#[cfg(feature = "sys")]
 mod tests {
     use tracing_subscriber::{
         filter, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,

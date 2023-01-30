@@ -59,10 +59,11 @@ pub(crate) use tracing::{debug, error, trace, warn};
 pub use unix::*;
 #[cfg(any(target_family = "wasm"))]
 pub use wasm::*;
+
 pub(crate) use wasmer::{
-    vm::VMMemory, AsStoreMut, AsStoreRef, Extern, Function, FunctionEnv, FunctionEnvMut, Global,
-    Instance, Memory, Memory32, Memory64, MemoryAccessError, MemoryError, MemorySize, MemoryView,
-    Module, OnCalledAction, Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
+    AsStoreMut, AsStoreRef, Extern, Function, FunctionEnv, FunctionEnvMut, Global, Instance,
+    Memory, Memory32, Memory64, MemoryAccessError, MemoryError, MemorySize, MemoryView, Module,
+    OnCalledAction, Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
 };
 pub(crate) use wasmer_vbus::{
     BusInvocationEvent, BusSpawnedProcess, SignalHandlerAbi, SpawnOptionsConfig, StdioMode,

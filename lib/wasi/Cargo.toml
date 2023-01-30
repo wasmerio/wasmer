@@ -78,8 +78,8 @@ winapi = "0.3"
 wasm-bindgen = "0.2.74"
 
 [dev-dependencies]
-wasmer-compiler-cranelift = { version = "=3.2.0-alpha.1", path = "../compiler-cranelift" }
-wasmer = { path = "../api", version = "=3.2.0-alpha.1", default-features = false, features = ["wat", "js-serializable-module", "cranelift", "compiler"] }
+wasmer = { path = "../api", version = "=3.2.0-alpha.1", default-features = false, features = ["wat", "js-serializable-module"] }
+tokio = { version = "1", features = [ "sync", "macros", "rt" ], default_features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test = "0.3.0"

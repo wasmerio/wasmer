@@ -1,3 +1,5 @@
+use wasmer_vm::VMMemory;
+
 use super::*;
 use crate::syscalls::*;
 
