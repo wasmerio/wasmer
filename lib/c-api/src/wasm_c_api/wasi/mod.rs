@@ -103,7 +103,6 @@ pub unsafe extern "C" fn wasi_config_mapdir(
     _alias: *const c_char,
     _dir: *const c_char,
 ) -> bool {
-
     println!("wasi_config_mapdir");
 
     let alias_cstr = CStr::from_ptr(_alias);
