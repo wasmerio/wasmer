@@ -107,6 +107,8 @@ jobs:
         with:
           toolchain: nightly
           target: ${{ matrix.metadata.target }}
+      - name: Install Rust Source (nightly)
+        run: rustup component add rust-src --toolchain nightly-${{ matrix.metadata.target }}
       - uses: Swatinem/rust-cache@v1
         if: matrix.use_sccache != true
       - name: Install LLVM (macOS Apple Silicon)
