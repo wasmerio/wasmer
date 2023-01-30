@@ -730,7 +730,6 @@ package-docs: build-docs build-docs-capi
 package: package-wasmer package-minimal-headless-wasmer package-capi
 
 tar-capi:
-	ls -R target/headless
 	ls -R package
 	tar -C package -zcvf build-capi.tar.gz lib include winsdk
 
