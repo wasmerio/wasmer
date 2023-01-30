@@ -4,7 +4,7 @@
 
 pub use super::unstable::wasi::wasi_get_unordered_imports;
 use super::{
-    externals::{wasm_extern_t, wasm_extern_vec_t, wasm_func_t, wasm_memory_t},
+    externals::{wasm_extern_t, wasm_extern_vec_t, wasm_func_t},
     instance::wasm_instance_t,
     module::wasm_module_t,
     store::{wasm_store_t, StoreRef},
@@ -18,7 +18,8 @@ use std::slice;
 #[cfg(feature = "webc_runner")]
 use wasmer_api::{AsStoreMut, Imports, Module};
 use wasmer_wasi::{
-    get_wasi_version, Pipe, WasiFile, WasiFunctionEnv, WasiState, WasiStateBuilder, WasiVersion,
+    get_wasi_version, wasmer_vfs::AsyncReadExt, WasiBidirectionalPipePair, WasiEnv, WasiFile,
+    WasiFunctionEnv, WasiState, WasiStateBuilder, WasiVersion,
 };
 
 #[derive(Debug)]
@@ -270,11 +271,11 @@ fn prepare_webc_env(
     let mut wasi_env = config.state_builder;
 
     if !config.inherit_stdout {
-        wasi_env.stdout(Box::new(Pipe::new()));
+        wasi_env.stdout(Box::new(WasiBidirectionalPipePair::new()));
     }
 
     if !config.inherit_stderr {
-        wasi_env.stderr(Box::new(Pipe::new()));
+        wasi_env.stderr(Box::new(WasiBidirectionalPipePair::new()));
     }
 
     wasi_env.set_fs(filesystem);
@@ -307,11 +308,15 @@ pub unsafe extern "C" fn wasi_env_new(
     let store = &mut store?.inner;
     let mut store_mut = store.store_mut();
     if !config.inherit_stdout {
-        config.state_builder.stdout(Box::new(Pipe::new()));
+        config
+            .state_builder
+            .stdout(Box::new(WasiBidirectionalPipePair::new()));
     }
 
     if !config.inherit_stderr {
-        config.state_builder.stderr(Box::new(Pipe::new()));
+        config
+            .state_builder
+            .stderr(Box::new(WasiBidirectionalPipePair::new()));
     }
 
     // TODO: impl capturer for stdin
@@ -340,7 +345,8 @@ pub unsafe extern "C" fn wasi_env_read_stdout(
 
     if let Ok(mut stdout) = state.stdout() {
         if let Some(stdout) = stdout.as_mut() {
-            read_inner(stdout, inner_buffer)
+            let env = env.inner.data(&env.store.store()).clone();
+            read_inner(&env, stdout, inner_buffer)
         } else {
             update_last_error("could not find a file handle for `stdout`");
             -1
@@ -362,7 +368,8 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
     let state = env.inner.data_mut(&mut store_mut).state();
     if let Ok(mut stderr) = state.stderr() {
         if let Some(stderr) = stderr.as_mut() {
-            read_inner(stderr, inner_buffer)
+            let env = env.inner.data(&env.store.store()).clone();
+            read_inner(&env, stderr, inner_buffer)
         } else {
             update_last_error("could not find a file handle for `stderr`");
             -1
@@ -374,16 +381,19 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
 }
 
 fn read_inner(
+    env: &WasiEnv,
     wasi_file: &mut Box<dyn WasiFile + Send + Sync + 'static>,
     inner_buffer: &mut [u8],
 ) -> isize {
-    match wasi_file.read(inner_buffer) {
-        Ok(a) => a as isize,
-        Err(err) => {
-            update_last_error(format!("failed to read wasi_file: {}", err));
-            -1
+    env.tasks().block_on(async {
+        match wasi_file.read(inner_buffer).await {
+            Ok(a) => a as isize,
+            Err(err) => {
+                update_last_error(format!("failed to read wasi_file: {}", err));
+                -1
+            }
         }
-    }
+    })
 }
 
 /// The version of WASI. This is determined by the imports namespace
