@@ -1758,8 +1758,8 @@ pub(super) mod utils {
         files: &[PathBuf],
     ) -> Result<PathBuf, anyhow::Error> {
         let target_files = &[
-            OsStr::new("libwasmer-headless2.a"),
-            OsStr::new("wasmer-headless2.lib"),
+            OsStr::new("libwasmer-headless.a"),
+            OsStr::new("wasmer-headless.lib"),
             OsStr::new("libwasmer.a"),
             OsStr::new("wasmer.lib"),
         ];
