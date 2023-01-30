@@ -1242,9 +1242,8 @@ fn link_exe_from_dir(
         cmd.arg("-lunwind");
     }
 
-    cmd.arg("-OReleaseSafe");
+    cmd.arg("-OReleaseSmall");
     cmd.arg("-fno-compiler-rt");
-    cmd.arg("-fno-lto");
     #[cfg(target_os = "windows")]
     let out_path = directory.join("wasmer_main.exe");
     #[cfg(not(target_os = "windows"))]
