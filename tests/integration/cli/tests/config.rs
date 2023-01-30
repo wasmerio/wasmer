@@ -1,11 +1,34 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
-use wasmer_integration_tests_cli::get_wasmer_path;
+use wasmer_integration_tests_cli::{get_repo_root_path, get_wasmer_path};
+
+fn get_wasmer_dir() -> Result<PathBuf, anyhow::Error> {
+    if let Ok(s) = std::env::var("WASMER_DIR") {
+        Ok(Path::new(&s).to_path_buf())
+    } else if let Some(root_dir) = get_repo_root_path().and_then(|root| {
+        if root.join("package").exists() {
+            Some(root.join("package"))
+        } else {
+            None
+        }
+    }) {
+        Ok(root_dir)
+    } else {
+        let home_dir = dirs::home_dir()
+            .ok_or(anyhow::anyhow!("no home dir"))?
+            .join(".wasmer");
+        if home_dir.exists() {
+            Ok(home_dir)
+        } else {
+            Err(anyhow::anyhow!("no .wasmer home dir"))
+        }
+    }
+}
 
 #[test]
 fn wasmer_config_multiget() -> anyhow::Result<()> {
-    let bin_path = Path::new(env!("WASMER_DIR")).join("bin");
-    let include_path = Path::new(env!("WASMER_DIR")).join("include");
+    let bin_path = get_wasmer_dir()?.join("bin");
+    let include_path = get_wasmer_dir()?.join("include");
 
     let bin = format!("{}", bin_path.display());
     let include = format!("-I{}", include_path.display());
@@ -66,7 +89,7 @@ fn config_works() -> anyhow::Result<()> {
         .arg("--bindir")
         .output()?;
 
-    let bin_path = Path::new(env!("WASMER_DIR")).join("bin");
+    let bin_path = get_wasmer_dir()?.join("bin");
     assert_eq!(
         String::from_utf8(bindir.stdout).unwrap(),
         format!("{}\n", bin_path.display())
@@ -77,7 +100,7 @@ fn config_works() -> anyhow::Result<()> {
         .arg("--cflags")
         .output()?;
 
-    let include_path = Path::new(env!("WASMER_DIR")).join("include");
+    let include_path = get_wasmer_dir()?.join("include");
     assert_eq!(
         String::from_utf8(bindir.stdout).unwrap(),
         format!("-I{}\n", include_path.display())
@@ -88,7 +111,7 @@ fn config_works() -> anyhow::Result<()> {
         .arg("--includedir")
         .output()?;
 
-    let include_path = Path::new(env!("WASMER_DIR")).join("include");
+    let include_path = get_wasmer_dir()?.join("include");
     assert_eq!(
         String::from_utf8(bindir.stdout).unwrap(),
         format!("{}\n", include_path.display())
@@ -99,7 +122,7 @@ fn config_works() -> anyhow::Result<()> {
         .arg("--libdir")
         .output()?;
 
-    let lib_path = Path::new(env!("WASMER_DIR")).join("lib");
+    let lib_path = get_wasmer_dir()?.join("lib");
     assert_eq!(
         String::from_utf8(bindir.stdout).unwrap(),
         format!("{}\n", lib_path.display())
@@ -110,7 +133,7 @@ fn config_works() -> anyhow::Result<()> {
         .arg("--libs")
         .output()?;
 
-    let lib_path = Path::new(env!("WASMER_DIR")).join("lib");
+    let lib_path = get_wasmer_dir()?.join("lib");
     assert_eq!(
         String::from_utf8(bindir.stdout).unwrap(),
         format!("-L{} -lwasmer\n", lib_path.display())
@@ -121,7 +144,7 @@ fn config_works() -> anyhow::Result<()> {
         .arg("--prefix")
         .output()?;
 
-    let wasmer_dir = Path::new(env!("WASMER_DIR"));
+    let wasmer_dir = get_wasmer_dir()?;
     assert_eq!(
         String::from_utf8(bindir.stdout).unwrap(),
         format!("{}\n", wasmer_dir.display())
@@ -163,7 +186,7 @@ fn config_works() -> anyhow::Result<()> {
         .arg("--config-path")
         .output()?;
 
-    let config_path = Path::new(env!("WASMER_DIR")).join("wasmer.toml");
+    let config_path = get_wasmer_dir()?.join("wasmer.toml");
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         format!("{}\n", config_path.display())
