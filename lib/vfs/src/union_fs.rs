@@ -154,7 +154,7 @@ impl UnionFileSystem {
             path3.push('/')
         }
         if path2.ends_with('/') {
-            path2 = (&path2[..(path2.len() - 1)]).to_string();
+            path2 = (path2[..(path2.len() - 1)]).to_string();
         }
 
         self.mounts
@@ -275,7 +275,7 @@ impl FileSystem for UnionFileSystem {
         let to = to.to_string_lossy();
         for (path, mount) in filter_mounts(&self.mounts, from.as_ref()) {
             let mut to = if to.starts_with(mount.path.as_str()) {
-                (&to[mount.path.len()..]).to_string()
+                (to[mount.path.len()..]).to_string()
             } else {
                 ret_error = FsError::UnknownError;
                 continue;

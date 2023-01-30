@@ -163,17 +163,22 @@ primitives! {
     f32 f64
 }
 
+#[allow(clippy::unused_unit)]
 macro_rules! tuples {
     ($(($($t:ident)*))*) => ($(
         #[allow(non_snake_case)]
         impl <$($t:Endian,)*> Endian for ($($t,)*) {
+            #[allow(clippy::unused_unit)]
             fn into_le(self) -> Self {
                 let ($($t,)*) = self;
+                // Needed for single element "tuples".
                 ($($t.into_le(),)*)
             }
 
+            #[allow(clippy::unused_unit)]
             fn from_le(self) -> Self {
                 let ($($t,)*) = self;
+                // Needed for single element "tuples".
                 ($($t.from_le(),)*)
             }
         }

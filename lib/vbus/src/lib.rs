@@ -40,7 +40,7 @@ where
     }
 
     /// Creates a listener thats used to receive BUS commands
-    fn listen<'a>(&'a self) -> Result<&'a dyn VirtualBusListener> {
+    fn listen(&self) -> Result<&'_ dyn VirtualBusListener> {
         Err(VirtualBusError::Unsupported)
     }
 }
@@ -576,7 +576,7 @@ pub struct ExitedProcess {
 
 impl VirtualBusProcess for ExitedProcess {
     fn exit_code(&self) -> Option<ExitCode> {
-        Some(self.exit_code.clone())
+        Some(self.exit_code)
     }
 
     fn poll_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<()> {

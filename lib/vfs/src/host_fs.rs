@@ -105,8 +105,7 @@ impl crate::FileSystem for FileSystem {
                 let _ = fs_extra::remove_items(&[from]);
                 Ok(())
             } else {
-                let e: Result<()> = fs::copy(from, to).map(|_| ()).map_err(Into::into);
-                let _ = e?;
+                fs::copy(from, to).map(|_| ()).map_err(FsError::from)?;
                 fs::remove_file(from).map(|_| ()).map_err(Into::into)
             }
         } else {
@@ -393,7 +392,7 @@ impl VirtualFile for File {
     }
 
     fn set_len(&mut self, new_size: u64) -> Result<()> {
-        fs::File::set_len(&mut self.inner_std, new_size).map_err(Into::into)
+        fs::File::set_len(&self.inner_std, new_size).map_err(Into::into)
     }
 
     fn unlink(&mut self) -> Result<()> {

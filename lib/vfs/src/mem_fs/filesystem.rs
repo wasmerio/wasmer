@@ -46,29 +46,42 @@ impl FileSystem {
                 continue;
             }
             let _ = crate::FileSystem::create_dir(self, next.as_path());
-            if let Ok(dir) = other.read_dir(next.as_path()) {
-                for sub_dir in dir.into_iter() {
-                    if let Ok(sub_dir) = sub_dir {
-                        match sub_dir.file_type() {
-                            Ok(t) if t.is_dir() => {
-                                remaining.push_back(sub_dir.path());
-                            }
-                            Ok(t) if t.is_file() => {
-                                if sub_dir.file_name().to_string_lossy().starts_with(".wh.") {
-                                    let rm = next.to_string_lossy();
-                                    let rm = &rm[".wh.".len()..];
-                                    let rm = PathBuf::from(rm);
-                                    let _ = crate::FileSystem::remove_dir(self, rm.as_path());
-                                    let _ = crate::FileSystem::remove_file(self, rm.as_path());
-                                    continue;
-                                }
-                                let _ = self
-                                    .new_open_options_ext()
-                                    .insert_arc_file(sub_dir.path(), other.clone());
-                            }
-                            _ => {}
-                        }
+
+            let dir = match other.read_dir(next.as_path()) {
+                Ok(dir) => dir,
+                Err(_) => {
+                    // TODO: propagate errors (except NotFound)
+                    continue;
+                }
+            };
+
+            for sub_dir_res in dir {
+                let sub_dir = match sub_dir_res {
+                    Ok(sub_dir) => sub_dir,
+                    Err(_) => {
+                        // TODO: propagate errors (except NotFound)
+                        continue;
                     }
+                };
+
+                match sub_dir.file_type() {
+                    Ok(t) if t.is_dir() => {
+                        remaining.push_back(sub_dir.path());
+                    }
+                    Ok(t) if t.is_file() => {
+                        if sub_dir.file_name().to_string_lossy().starts_with(".wh.") {
+                            let rm = next.to_string_lossy();
+                            let rm = &rm[".wh.".len()..];
+                            let rm = PathBuf::from(rm);
+                            let _ = crate::FileSystem::remove_dir(self, rm.as_path());
+                            let _ = crate::FileSystem::remove_file(self, rm.as_path());
+                            continue;
+                        }
+                        let _ = self
+                            .new_open_options_ext()
+                            .insert_arc_file(sub_dir.path(), other.clone());
+                    }
+                    _ => {}
                 }
             }
         }
