@@ -15,7 +15,6 @@ pub fn fd_sync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errno
     debug!("=> fd={}", fd);
     let env = ctx.data();
     let (_, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
-    drop(env);
     let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
     if !fd_entry.rights.contains(Rights::FD_SYNC) {
         return Ok(Errno::Access);
@@ -30,7 +29,6 @@ pub fn fd_sync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errno
                 if let Some(handle) = handle {
                     let handle = handle.clone();
                     drop(fd_entry);
-                    drop(inode);
                     drop(guard);
                     drop(inodes);
 

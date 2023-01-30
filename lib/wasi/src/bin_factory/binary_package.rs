@@ -32,6 +32,12 @@ impl BinaryPackageCommand {
         }
     }
 
+    /// Hold on to some arbitrary data for the lifetime of this binary pacakge.
+    ///
+    /// # Safety
+    ///
+    /// Must ensure that the atom data will be safe to use as long as the provided
+    /// ownership handle stays alive.
     pub unsafe fn new_with_ownership<'a, T>(
         name: String,
         atom: Cow<'a, [u8]>,
@@ -81,7 +87,7 @@ pub struct BinaryPackage {
 impl BinaryPackage {
     pub fn new(package_name: &str, entry: Option<Cow<'static, [u8]>>) -> Self {
         let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
-        let (package_name, version) = match package_name.split_once("@") {
+        let (package_name, version) = match package_name.split_once('@') {
             Some((a, b)) => (a.to_string(), b.to_string()),
             None => (package_name.to_string(), "1.0.0".to_string()),
         };
@@ -102,11 +108,17 @@ impl BinaryPackage {
             commands: Arc::new(RwLock::new(Vec::new())),
             uses: Vec::new(),
             version: version.into(),
-            module_memory_footprint: module_memory_footprint,
+            module_memory_footprint,
             file_system_memory_footprint: 0,
         }
     }
 
+    /// Hold on to some arbitrary data for the lifetime of this binary pacakge.
+    ///
+    /// # Safety
+    ///
+    /// Must ensure that the entry data will be safe to use as long as the provided
+    /// ownership handle stays alive.
     pub unsafe fn new_with_ownership<'a, T>(
         package_name: &str,
         entry: Option<Cow<'a, [u8]>>,

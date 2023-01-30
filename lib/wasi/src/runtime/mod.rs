@@ -293,11 +293,11 @@ impl Default for PluggableRuntimeImplementation {
 }
 
 impl WasiRuntimeImplementation for PluggableRuntimeImplementation {
-    fn bus<'a>(&'a self) -> Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static> {
+    fn bus(&self) -> Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static> {
         self.bus.clone()
     }
 
-    fn networking<'a>(&'a self) -> DynVirtualNetworking {
+    fn networking(&self) -> DynVirtualNetworking {
         self.networking.clone()
     }
 

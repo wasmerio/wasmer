@@ -245,10 +245,8 @@ impl BinFactory {
                     .commands
                     .exec(parent_ctx, name.as_str(), store, builder);
             }
-        } else {
-            if self.commands.exists(name.as_str()) {
-                tracing::warn!("builtin command without a parent ctx - {}", name);
-            }
+        } else if self.commands.exists(name.as_str()) {
+            tracing::warn!("builtin command without a parent ctx - {}", name);
         }
         Err(VirtualBusError::NotFound)
     }
@@ -301,7 +299,7 @@ impl VirtualBusProcess for SpawnedProcess {
     fn exit_code(&self) -> Option<ExitCode> {
         let mut exit_code = self.exit_code.lock().unwrap();
         if let Some(exit_code) = exit_code.as_ref() {
-            return Some(exit_code.clone());
+            return Some(*exit_code);
         }
         let mut rx = self.exit_code_rx.lock().unwrap();
         match rx.try_recv() {

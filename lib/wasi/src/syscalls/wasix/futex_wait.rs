@@ -49,13 +49,10 @@ pub fn futex_wait<M: MemorySize>(
         let mut rx = {
             use std::collections::hash_map::Entry;
             let mut guard = state.futexs.write().unwrap();
-            if guard.contains_key(&pointer) == false {
-                let futex = WasiFutex {
-                    refcnt: AtomicU32::new(1),
-                    waker: tokio::sync::broadcast::channel(1).0,
-                };
-                guard.insert(pointer, futex);
-            }
+            guard.entry(pointer).or_insert_with(|| WasiFutex {
+                refcnt: AtomicU32::new(1),
+                waker: tokio::sync::broadcast::channel(1).0,
+            });
             let futex = guard.get_mut(&pointer).unwrap();
 
             // If the value of the memory is no longer the expected value
@@ -77,7 +74,7 @@ pub fn futex_wait<M: MemorySize>(
         let mut sub_timeout = None;
         if let Some(timeout) = timeout.as_ref() {
             let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1).unwrap() as u128;
-            let delta = now.checked_sub(start).unwrap_or(0);
+            let delta = now.saturating_sub(start);
             if delta >= *timeout {
                 break;
             }

@@ -10,7 +10,7 @@ use crate::{
     VirtualTaskManager, VirtualTaskManagerExt, WasiEnv, WasiRuntimeImplementation,
 };
 
-const HELP: &'static str = r#"USAGE:
+const HELP: &str = r#"USAGE:
     wasmer <SUBCOMMAND>
 
 OPTIONS:
@@ -20,7 +20,7 @@ SUBCOMMANDS:
     run            Run a WebAssembly file. Formats accepted: wasm, wat
 "#;
 
-const HELP_RUN: &'static str = r#"USAGE:
+const HELP_RUN: &str = r#"USAGE:
     wasmer run <FILE> [ARGS]...
 
 ARGS:

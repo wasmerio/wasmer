@@ -108,10 +108,8 @@ fn fd_write_internal<M: MemorySize>(
     let is_stdio = fd_entry.is_stdio;
 
     let bytes_written = {
-        if is_stdio == false {
-            if !fd_entry.rights.contains(Rights::FD_WRITE) {
-                return Ok(Errno::Access);
-            }
+        if !is_stdio && !fd_entry.rights.contains(Rights::FD_WRITE) {
+            return Ok(Errno::Access);
         }
 
         let is_non_blocking = fd_entry.flags.contains(Fdflags::NONBLOCK);
@@ -125,7 +123,6 @@ fn fd_write_internal<M: MemorySize>(
                 Kind::File { handle, .. } => {
                     if let Some(handle) = handle {
                         let handle = handle.clone();
-                        drop(inode);
                         drop(guard);
                         drop(inodes);
 
@@ -148,7 +145,7 @@ fn fd_write_internal<M: MemorySize>(
                             },
                             async move {
                                 let mut handle = handle.write().unwrap();
-                                if is_stdio == false {
+                                if !is_stdio {
                                     handle
                                         .seek(std::io::SeekFrom::Start(offset as u64))
                                         .await
@@ -241,7 +238,7 @@ fn fd_write_internal<M: MemorySize>(
         memory = env.memory_view(&ctx);
 
         // reborrow and update the size
-        if is_stdio == false {
+        if !is_stdio {
             if can_update_cursor && should_update_cursor {
                 let mut fd_map = state.fs.fd_map.write().unwrap();
                 let fd_entry = wasi_try_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));

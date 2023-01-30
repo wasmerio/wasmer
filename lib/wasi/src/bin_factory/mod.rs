@@ -73,7 +73,7 @@ impl BinFactory {
         }
 
         // Check the filesystem for the file
-        if name.starts_with("/") {
+        if name.starts_with('/') {
             if let Ok(mut file) = self
                 .state
                 .fs_new_open_options()
@@ -82,8 +82,9 @@ impl BinFactory {
             {
                 // Read the file
                 let mut data = Vec::with_capacity(file.size() as usize);
-                if let Ok(_) = file.read_to_end(&mut data).await {
-                    let package_name = name.split("/").last().unwrap_or_else(|| name.as_str());
+                // TODO: log error?
+                if file.read_to_end(&mut data).await.is_ok() {
+                    let package_name = name.split('/').last().unwrap_or(name.as_str());
                     let data = BinaryPackage::new(package_name, Some(data.into()));
                     cache.insert(name, Some(data.clone()));
                     return Some(data);
@@ -93,7 +94,7 @@ impl BinFactory {
 
         // NAK
         cache.insert(name, None);
-        return None;
+        None
     }
 }
 

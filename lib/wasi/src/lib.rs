@@ -138,7 +138,7 @@ impl WasiCallingId {
 
     pub fn inc(&mut self) -> WasiCallingId {
         self.0 += 1;
-        self.clone()
+        *self
     }
 }
 

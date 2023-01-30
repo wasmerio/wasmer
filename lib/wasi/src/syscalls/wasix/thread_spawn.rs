@@ -80,7 +80,7 @@ pub fn thread_spawn<M: MemorySize>(
         let thread = thread_handle.as_thread();
         move |mut store: Store, module: Module, memory: VMMemory| {
             // We need to reconstruct some things
-            let module = module.clone();
+            let module = module;
             let memory = Memory::new_from_existing(&mut store, memory);
 
             // Build the context object and import the memory
@@ -187,7 +187,7 @@ pub fn thread_spawn<M: MemorySize>(
             loop {
                 let thread = {
                     let guard = state.threading.read().unwrap();
-                    guard.thread_ctx.get(&caller_id).map(|a| a.clone())
+                    guard.thread_ctx.get(&caller_id).cloned()
                 };
                 if let Some(thread) = thread {
                     let mut store = thread.store.borrow_mut();

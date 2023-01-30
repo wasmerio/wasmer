@@ -124,7 +124,7 @@ impl WasiControlPlane {
 impl MutableState {
     fn next_process_id(&mut self) -> Result<WasiProcessId, ControlPlaneError> {
         // TODO: reuse terminated ids, handle wrap-around, ...
-        let id = self.process_seed.checked_add(1).ok_or_else(|| {
+        let id = self.process_seed.checked_add(1).ok_or({
             ControlPlaneError::TaskLimitReached {
                 max: u32::MAX as usize,
             }

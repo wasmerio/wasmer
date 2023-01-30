@@ -30,7 +30,6 @@ pub fn port_route_list<M: MemorySize>(
         wasi_try_mem_ok!(routes_ptr.slice(&memory, wasi_try_ok!(to_offset::<M>(max_routes))));
 
     let net = env.net();
-    std::mem::drop(env);
     let routes = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
         net.route_list().await.map_err(net_error_into_wasi_err)
     })?);

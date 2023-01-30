@@ -35,7 +35,6 @@ pub fn clock_time_get<M: MemorySize>(
     };
     wasi_try_mem!(time.write(&memory, t_out as Timestamp));
 
-    let result = Errno::Success;
     /*
     trace!(
         "time: {} => {}",
@@ -43,5 +42,5 @@ pub fn clock_time_get<M: MemorySize>(
         result
     );
     */
-    result
+    Errno::Success
 }

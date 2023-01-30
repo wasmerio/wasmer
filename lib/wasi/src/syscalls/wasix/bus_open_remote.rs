@@ -59,7 +59,7 @@ pub(crate) fn bus_open_internal<M: MemorySize>(
         let guard = env.process.read();
         if let Some(bid) = guard.bus_process_reuse.get(&name) {
             if guard.bus_processes.contains_key(bid) {
-                wasi_try_mem_bus_ok!(ret_bid.write(&memory, bid.clone().into()));
+                wasi_try_mem_bus_ok!(ret_bid.write(&memory, (*bid).into()));
                 return Ok(BusErrno::Success);
             }
         }

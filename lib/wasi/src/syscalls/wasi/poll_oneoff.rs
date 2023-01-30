@@ -180,10 +180,9 @@ pub(crate) fn poll_oneoff_internal(
 
         let entry = subscriptions
             .entry(fd)
-            .or_insert_with(|| HashMap::<state::PollEventSet, Subscription>::default());
+            .or_insert_with(HashMap::<state::PollEventSet, Subscription>::default);
         entry.extend(in_events.into_iter());
     }
-    drop(env);
 
     let mut events_seen: u32 = 0;
 
@@ -295,7 +294,7 @@ pub(crate) fn poll_oneoff_internal(
             drop(inodes);
 
             // This is the part that actually does the waiting
-            if polls.is_empty() == false {
+            if !polls.is_empty() {
                 futures::future::select_all(polls.into_iter()).await;
             } else {
                 InfiniteSleep::default().await;
@@ -329,9 +328,9 @@ pub(crate) fn poll_oneoff_internal(
 
     // If its a timeout then return an event for it
     if let Err(Errno::Timedout) = ret {
-        if event_array.is_empty() == true {
+        if event_array.is_empty() {
             // The timeout has triggerred so lets add that event
-            if clock_subs.len() <= 0 && time_to_sleep != Some(Duration::ZERO) {
+            if clock_subs.is_empty() && time_to_sleep != Some(Duration::ZERO) {
                 tracing::warn!(
                     "wasi[{}:{}]::poll_oneoff triggered_timeout (without any clock subscriptions)",
                     pid,

@@ -62,13 +62,13 @@ pub fn proc_spawn<M: MemorySize>(
     let args: Vec<_> = args
         .split(&['\n', '\r'])
         .map(|a| a.to_string())
-        .filter(|a| a.len() > 0)
+        .filter(|a| !a.is_empty())
         .collect();
 
     let preopen: Vec<_> = preopen
         .split(&['\n', '\r'])
         .map(|a| a.to_string())
-        .filter(|a| a.len() > 0)
+        .filter(|a| !a.is_empty())
         .collect();
 
     let (handles, ctx) = match proc_spawn_internal(
@@ -128,7 +128,7 @@ pub fn proc_spawn_internal(
 
     // Preopen
     if let Some(preopen) = preopen {
-        if preopen.is_empty() == false {
+        if !preopen.is_empty() {
             for preopen in preopen {
                 warn!(
                     "wasi[{}:{}]::preopens are not yet supported for spawned processes [{}]",
@@ -197,7 +197,7 @@ pub fn proc_spawn_internal(
                     tag: OptionTag::None,
                     fd: u32::MAX,
                 }),
-                WasiStdioMode::Log | WasiStdioMode::Null | _ => {
+                _ => {
                     child_state.fs.close_fd(child_inodes.deref(), fd);
                     Ok(OptionFd {
                         tag: OptionTag::None,
@@ -271,9 +271,7 @@ pub fn proc_spawn_internal(
 
     {
         let mut guard = env.process.write();
-        guard
-            .bus_processes
-            .insert(child_pid.into(), Box::new(process));
+        guard.bus_processes.insert(child_pid, Box::new(process));
     };
 
     let handles = BusHandles {

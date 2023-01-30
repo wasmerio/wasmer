@@ -64,7 +64,7 @@ pub(crate) struct InodeValFilePollGuard {
     pub(crate) subscriptions: HashMap<PollEventSet, Subscription>,
 }
 
-impl<'a> InodeValFilePollGuard {
+impl InodeValFilePollGuard {
     pub(crate) fn new(
         fd: u32,
         guard: &Kind,
@@ -107,13 +107,10 @@ impl<'a> InodeValFilePollGuard {
                     }
                 }
             }
-            Kind::File { handle, .. } => {
-                if let Some(handle) = handle {
-                    InodeValFilePollGuardMode::File(handle.clone())
-                } else {
-                    return None;
-                }
-            }
+            Kind::File {
+                handle: Some(handle),
+                ..
+            } => InodeValFilePollGuardMode::File(handle.clone()),
             _ => {
                 return None;
             }
@@ -137,7 +134,7 @@ impl std::fmt::Debug for InodeValFilePollGuard {
                 InodeValFilePollGuardSocketLocking::Locked(guard) => match guard.kind {
                     InodeSocketKind::TcpListener(..) => write!(f, "guard-tcp-listener"),
                     InodeSocketKind::TcpStream(ref stream) => {
-                        if stream.is_closed() == true {
+                        if stream.is_closed() {
                             write!(f, "guard-tcp-stream (closed)")
                         } else {
                             write!(f, "guard-tcp-stream")
@@ -200,18 +197,18 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
             for in_event in iterate_poll_events(*set) {
                 match in_event {
                     PollEvent::PollIn => {
-                        has_read = Some(s.clone());
+                        has_read = Some(*s);
                     }
                     PollEvent::PollOut => {
-                        has_write = Some(s.clone());
+                        has_write = Some(*s);
                     }
                     PollEvent::PollHangUp => {
                         has_hangup = true;
-                        has_close = Some(s.clone());
+                        has_close = Some(*s);
                     }
                     PollEvent::PollError | PollEvent::PollInvalid => {
-                        if has_hangup == false {
-                            has_close = Some(s.clone());
+                        if !has_hangup {
+                            has_close = Some(*s);
                         }
                     }
                 }
@@ -247,22 +244,21 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                     };
                     let is_closed = if let InodeSocketKind::Closed = guard.kind {
                         true
+                    } else if has_read.is_some() || has_write.is_some() {
+                        // this will be handled in the read/write poll instead
+                        false
                     } else {
-                        if has_read.is_some() || has_write.is_some() {
-                            // this will be handled in the read/write poll instead
-                            false
-                        } else {
-                            // we do a read poll which will error out if its closed
-                            match guard.poll_read_ready(cx) {
-                                Poll::Ready(Ok(0)) => true,
-                                Poll::Ready(Err(NetworkError::ConnectionAborted))
-                                | Poll::Ready(Err(NetworkError::ConnectionRefused))
-                                | Poll::Ready(Err(NetworkError::ConnectionReset))
-                                | Poll::Ready(Err(NetworkError::BrokenPipe))
-                                | Poll::Ready(Err(NetworkError::NotConnected))
-                                | Poll::Ready(Err(NetworkError::UnexpectedEof)) => true,
-                                _ => false,
-                            }
+                        // we do a read poll which will error out if its closed
+                        #[allow(clippy::match_like_matches_macro)]
+                        match guard.poll_read_ready(cx) {
+                            Poll::Ready(Ok(0)) => true,
+                            Poll::Ready(Err(NetworkError::ConnectionAborted))
+                            | Poll::Ready(Err(NetworkError::ConnectionRefused))
+                            | Poll::Ready(Err(NetworkError::ConnectionReset))
+                            | Poll::Ready(Err(NetworkError::BrokenPipe))
+                            | Poll::Ready(Err(NetworkError::NotConnected))
+                            | Poll::Ready(Err(NetworkError::UnexpectedEof)) => true,
+                            _ => false,
                         }
                     };
                     // Release the lock so we don't cause any blocking issues
@@ -531,7 +527,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                 });
             }
         }
-        if ret.len() > 0 {
+        if !ret.is_empty() {
             Poll::Ready(ret)
         } else {
             Poll::Pending
@@ -601,7 +597,7 @@ impl InodeValFileWriteGuard {
     }
 }
 
-impl<'a> Deref for InodeValFileWriteGuard {
+impl Deref for InodeValFileWriteGuard {
     type Target = dyn VirtualFile + Send + Sync + 'static;
     fn deref(&self) -> &Self::Target {
         self.guard.deref().deref()
@@ -642,11 +638,7 @@ impl WasiStateFileGuard {
     pub fn lock_read(&self, inodes: &RwLockReadGuard<WasiInodes>) -> Option<InodeValFileReadGuard> {
         let guard = inodes.arena[self.inode].read();
         if let Kind::File { handle, .. } = guard.deref() {
-            if let Some(handle) = handle.as_ref() {
-                Some(InodeValFileReadGuard::new(handle))
-            } else {
-                None
-            }
+            handle.as_ref().map(InodeValFileReadGuard::new)
         } else {
             // Our public API should ensure that this is not possible
             unreachable!("Non-file found in standard device location")
@@ -659,11 +651,7 @@ impl WasiStateFileGuard {
     ) -> Option<InodeValFileWriteGuard> {
         let guard = inodes.arena[self.inode].read();
         if let Kind::File { handle, .. } = guard.deref() {
-            if let Some(handle) = handle.as_ref() {
-                Some(InodeValFileWriteGuard::new(handle))
-            } else {
-                None
-            }
+            handle.as_ref().map(InodeValFileWriteGuard::new)
         } else {
             // Our public API should ensure that this is not possible
             unreachable!("Non-file found in standard device location")

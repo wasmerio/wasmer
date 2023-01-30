@@ -7,8 +7,8 @@ use wasmer_wasi_types::wasi::Snapshot0Clockid;
 use super::BinaryPackage;
 use crate::{syscalls::platform_clock_time_get, VirtualTaskManager, WasiRuntimeImplementation};
 
-pub const DEFAULT_COMPILED_PATH: &'static str = "~/.wasmer/compiled";
-pub const DEFAULT_WEBC_PATH: &'static str = "~/.wasmer/webc";
+pub const DEFAULT_COMPILED_PATH: &str = "~/.wasmer/compiled";
+pub const DEFAULT_WEBC_PATH: &str = "~/.wasmer/webc";
 pub const DEFAULT_CACHE_TIME: std::time::Duration = std::time::Duration::from_secs(30);
 
 #[derive(Debug)]
@@ -52,20 +52,14 @@ impl ModuleCache {
     ) -> ModuleCache {
         let cache_compile_dir = shellexpand::tilde(
             cache_compile_dir
-                .as_ref()
-                .map(|a| a.as_str())
-                .unwrap_or_else(|| DEFAULT_COMPILED_PATH),
+                .as_deref()
+                .unwrap_or(DEFAULT_COMPILED_PATH),
         )
         .to_string();
         let _ = std::fs::create_dir_all(PathBuf::from(cache_compile_dir.clone()));
 
-        let cache_webc_dir = shellexpand::tilde(
-            cache_webc_dir
-                .as_ref()
-                .map(|a| a.as_str())
-                .unwrap_or_else(|| DEFAULT_WEBC_PATH),
-        )
-        .to_string();
+        let cache_webc_dir =
+            shellexpand::tilde(cache_webc_dir.as_deref().unwrap_or(DEFAULT_WEBC_PATH)).to_string();
         let _ = std::fs::create_dir_all(PathBuf::from(cache_webc_dir.clone()));
 
         let cached_modules = if use_shared_cache {
@@ -132,7 +126,7 @@ impl ModuleCache {
         // Now try for the WebC
         {
             let wapm_name = name
-                .split_once(":")
+                .split_once(':')
                 .map(|a| a.0)
                 .unwrap_or_else(|| name.as_str());
             let cache_webc_dir = self.cache_webc_dir.as_str();
@@ -173,7 +167,7 @@ impl ModuleCache {
         {
             let module = THREAD_LOCAL_CACHED_MODULES.with(|cache| {
                 let cache = cache.borrow();
-                cache.get(&key).map(|m| m.clone())
+                cache.get(&key).cloned()
             });
             if let Some(module) = module {
                 return Some(module);
@@ -241,7 +235,8 @@ impl ModuleCache {
 
         let path = std::path::Path::new(self.cache_compile_dir.as_str())
             .join(format!("{}.bin", key).as_str());
-        let _ = std::fs::create_dir_all(path.parent().unwrap().clone());
+        // TODO: forward error!
+        let _ = std::fs::create_dir_all(path.parent().unwrap());
         let mut encoder = weezl::encode::Encoder::new(weezl::BitOrder::Msb, 8);
         if let Ok(compiled_bytes) = encoder.encode(&compiled_bytes[..]) {
             let _ = std::fs::write(path, &compiled_bytes[..]);

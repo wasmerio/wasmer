@@ -40,9 +40,9 @@ impl From<i32> for WasiProcessId {
     }
 }
 
-impl Into<i32> for WasiProcessId {
-    fn into(self) -> i32 {
-        self.0 as i32
+impl From<WasiProcessId> for i32 {
+    fn from(val: WasiProcessId) -> Self {
+        val.0 as i32
     }
 }
 
@@ -52,9 +52,9 @@ impl From<u32> for WasiProcessId {
     }
 }
 
-impl Into<u32> for WasiProcessId {
-    fn into(self) -> u32 {
-        self.0 as u32
+impl From<WasiProcessId> for u32 {
+    fn from(val: WasiProcessId) -> Self {
+        val.0 as u32
     }
 }
 
@@ -185,7 +185,7 @@ impl WasiProcess {
         let id = inner.thread_seed.inc();
 
         let mut is_main = false;
-        let finished = if inner.thread_count <= 0 {
+        let finished = if inner.thread_count < 1 {
             is_main = true;
             self.finished.clone()
         } else {
@@ -206,7 +206,7 @@ impl WasiProcess {
     /// Gets a reference to a particular thread
     pub fn get_thread(&self, tid: &WasiThreadId) -> Option<WasiThread> {
         let inner = self.inner.read().unwrap();
-        inner.threads.get(tid).map(|a| a.clone())
+        inner.threads.get(tid).cloned()
     }
 
     /// Signals a particular thread in the process

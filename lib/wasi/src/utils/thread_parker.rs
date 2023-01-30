@@ -52,7 +52,7 @@ impl WasiParkingLot {
     #[allow(dead_code)]
     pub fn wait(&self, timeout: Duration) -> bool {
         let mut run = self.run.0.lock().unwrap();
-        if *run == true {
+        if *run {
             *run = false;
             return true;
         }
@@ -62,7 +62,7 @@ impl WasiParkingLot {
                 return false;
             }
             run = woken.0;
-            if *run == true {
+            if *run {
                 *run = false;
                 return true;
             }

@@ -104,7 +104,7 @@ pub fn bus_poll<M: MemorySize>(
                 let mut drop_calls = Vec::new();
                 let mut call_seed = guard.call_seed;
                 for (key, call) in guard.calls.iter_mut() {
-                    let cid: Cid = (*key).into();
+                    let cid: Cid = (*key);
 
                     if nevents >= maxevents {
                         break;
@@ -244,7 +244,7 @@ pub fn bus_poll<M: MemorySize>(
                 guard.call_seed = call_seed;
 
                 // Drop any calls that are no longer in scope
-                if drop_calls.is_empty() == false {
+                if !drop_calls.is_empty() {
                     for key in drop_calls {
                         guard.calls.remove(&key);
                     }
@@ -255,7 +255,7 @@ pub fn bus_poll<M: MemorySize>(
                 let mut call_seed = guard.call_seed;
                 let mut to_add = Vec::new();
                 for (key, call) in guard.called.iter_mut() {
-                    let cid: Cid = (*key).into();
+                    let cid: Cid = (*key);
                     while nevents < maxevents {
                         let call = Pin::new(call.deref_mut());
                         match call.poll(&mut cx) {
@@ -372,7 +372,7 @@ pub fn bus_poll<M: MemorySize>(
             // Check for timeout (zero will mean the loop will not wait)
             let now =
                 platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
-            let delta = now.checked_sub(start).unwrap_or(0) as Timestamp;
+            let delta = now.saturating_sub(start) as Timestamp;
             if delta >= timeout {
                 trace!(
                     "wasi[{}:{}]::bus_poll (timeout)",
@@ -387,11 +387,11 @@ pub fn bus_poll<M: MemorySize>(
             let _ = ctx.data().clone().process_signals_and_exit(&mut ctx)?;
             env = ctx.data();
 
-            let remaining = timeout.checked_sub(delta).unwrap_or(0);
+            let remaining = timeout.saturating_sub(delta);
             let interval = Duration::from_nanos(remaining)
                 .min(Duration::from_millis(5)) // we don't want the CPU burning
                 .max(Duration::from_millis(100)); // 100 milliseconds to kill worker threads seems acceptable
-            if state.bus.poll_wait(interval) == true {
+            if state.bus.poll_wait(interval) {
                 break;
             }
         }

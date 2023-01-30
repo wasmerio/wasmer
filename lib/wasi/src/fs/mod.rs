@@ -148,19 +148,19 @@ impl WasiInodes {
 
     /// Internal helper function to get a standard device handle.
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
-    fn std_dev_get<'a>(
-        &'a self,
+    fn std_dev_get(
+        &self,
         fd_map: &RwLock<HashMap<u32, Fd>>,
         fd: WasiFd,
     ) -> Result<InodeValFileReadGuard, FsError> {
         if let Some(fd) = fd_map.read().unwrap().get(&fd) {
             let guard = self.arena[fd.inode].read();
-            if let Kind::File { handle, .. } = guard.deref() {
-                if let Some(handle) = handle {
-                    Ok(InodeValFileReadGuard::new(handle))
-                } else {
-                    Err(FsError::NotAFile)
-                }
+            if let Kind::File {
+                handle: Some(handle),
+                ..
+            } = guard.deref()
+            {
+                Ok(InodeValFileReadGuard::new(handle))
             } else {
                 // Our public API should ensure that this is not possible
                 Err(FsError::NotAFile)
@@ -172,19 +172,19 @@ impl WasiInodes {
     }
     /// Internal helper function to mutably get a standard device handle.
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
-    fn std_dev_get_mut<'a>(
-        &'a self,
+    fn std_dev_get_mut(
+        &self,
         fd_map: &RwLock<HashMap<u32, Fd>>,
         fd: WasiFd,
     ) -> Result<InodeValFileWriteGuard, FsError> {
         if let Some(fd) = fd_map.read().unwrap().get(&fd) {
             let guard = self.arena[fd.inode].read();
-            if let Kind::File { handle, .. } = guard.deref() {
-                if let Some(handle) = handle {
-                    Ok(InodeValFileWriteGuard::new(handle))
-                } else {
-                    Err(FsError::NotAFile)
-                }
+            if let Kind::File {
+                handle: Some(handle),
+                ..
+            } = guard.deref()
+            {
+                Ok(InodeValFileWriteGuard::new(handle))
             } else {
                 // Our public API should ensure that this is not possible
                 Err(FsError::NotAFile)
@@ -320,7 +320,7 @@ impl WasiFs {
         };
         let package_name = binary.package_name.to_string();
         let mut guard = self.has_unioned.lock().unwrap();
-        if guard.contains(&package_name) == false {
+        if !guard.contains(&package_name) {
             guard.insert(package_name);
 
             if let Some(fs) = binary.webc_fs.clone() {
@@ -514,7 +514,7 @@ impl WasiFs {
         if path.starts_with("./") {
             let current_dir = self.current_dir.lock().unwrap();
             path = format!("{}{}", current_dir.as_str(), &path[1..]);
-            path = path.replace("//", "/").to_string();
+            path = path.replace("//", "/");
         }
         path
     }
@@ -659,7 +659,7 @@ impl WasiFs {
     /// Opens a user-supplied file in the directory specified with the
     /// name and flags given
     // dead code because this is an API for external use
-    #[allow(dead_code)]
+    #[allow(dead_code, clippy::too_many_arguments)]
     pub fn open_file_at(
         &mut self,
         inodes: &mut WasiInodes,
@@ -760,13 +760,13 @@ impl WasiFs {
                         if let Some(handle) = handle {
                             let mut handle = handle.write().unwrap();
                             std::mem::swap(handle.deref_mut(), &mut file);
-                            return Ok(Some(file));
+                            Ok(Some(file))
                         } else {
                             handle.replace(Arc::new(RwLock::new(file)));
                             Ok(None)
                         }
                     }
-                    _ => return Err(FsError::NotAFile),
+                    _ => Err(FsError::NotAFile),
                 }
             }
         }
@@ -780,7 +780,7 @@ impl WasiFs {
             Kind::File { handle, .. } => {
                 if let Some(h) = handle {
                     let h = h.read().unwrap();
-                    let new_size = h.size().clone();
+                    let new_size = h.size();
                     drop(h);
                     drop(guard);
 
@@ -1416,11 +1416,12 @@ impl WasiFs {
     ) -> Inode {
         stat.st_ino = self.get_next_inode_index();
         match &kind {
-            Kind::File { handle, .. } => {
-                if let Some(handle) = handle {
-                    let guard = handle.read().unwrap();
-                    stat.st_size = guard.size();
-                }
+            Kind::File {
+                handle: Some(handle),
+                ..
+            } => {
+                let guard = handle.read().unwrap();
+                stat.st_size = guard.size();
             }
             Kind::Buffer { buffer } => {
                 stat.st_size = buffer.len() as u64;
@@ -1457,12 +1458,10 @@ impl WasiFs {
         inode: Inode,
         idx: WasiFd,
     ) -> Result<(), Errno> {
-        let is_stdio = match idx {
-            __WASI_STDIN_FILENO => true,
-            __WASI_STDOUT_FILENO => true,
-            __WASI_STDERR_FILENO => true,
-            _ => false,
-        };
+        let is_stdio = matches!(
+            idx,
+            __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO
+        );
         self.fd_map.write().unwrap().insert(
             idx,
             Fd {
@@ -1679,7 +1678,7 @@ impl WasiFs {
         fd_map: &mut RwLockWriteGuard<HashMap<WasiFd, Fd>>,
         fd: WasiFd,
     ) -> Result<(), Errno> {
-        let pfd = fd_map.remove(&fd).map(|a| a.clone()).ok_or(Errno::Badf)?;
+        let pfd = fd_map.remove(&fd).ok_or(Errno::Badf)?;
         let ref_cnt = pfd.ref_cnt.fetch_sub(1, Ordering::AcqRel);
         if ref_cnt > 1 {
             trace!(
