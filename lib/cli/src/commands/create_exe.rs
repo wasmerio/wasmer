@@ -2280,10 +2280,8 @@ mod http_fetch {
     }
 
     pub(super) fn untar(tarball: &Path, target: &Path) -> Result<Vec<PathBuf>> {
-        if !target.exists() {
-            let _ = std::fs::remove_dir(target);
-            wasmer_registry::try_unpack_targz(tarball, target, false)?;
-        }
+        let _ = std::fs::remove_dir(target);
+        wasmer_registry::try_unpack_targz(tarball, target, false)?;
         Ok(list_dir(target))
     }
 }
