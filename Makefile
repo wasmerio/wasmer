@@ -703,7 +703,7 @@ package-docs: build-docs build-docs-capi
 	echo '<meta http-equiv="refresh" content="0; url=crates/wasmer/index.html">' > package/docs/index.html
 	echo '<meta http-equiv="refresh" content="0; url=wasmer/index.html">' > package/docs/crates/index.html
 
-package: package-wasmer package-minimal-headless-wasmer package-capi
+package: package-wasmer package-minimal-headless-wasmer package-capi package-capi-headless
 
 tar-capi:
 	ls -R package
