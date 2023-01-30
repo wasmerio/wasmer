@@ -1763,10 +1763,10 @@ pub(super) mod utils {
             OsStr::new("libwasmer.a"),
             OsStr::new("wasmer.lib"),
         ];
-        files
+        target_files
         .iter()
-        .find(|f| {
-            target_files.iter().any(|q| Some(*q) == f.file_name())
+        .find_map(|q| {
+            files.iter().find(|f| f.file_name() == Some(*q))
         })
         .cloned()
         .ok_or_else(|| {
