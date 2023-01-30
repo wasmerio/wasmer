@@ -190,7 +190,7 @@ jobs:
         build-what: [
           {
             key: capi,
-            build-cmd: 'make build-capi && make package-capi && make tar-capi',
+            build-cmd: 'make build-capi && make build-capi-headless && make package-capi && make tar-capi',
             name: 'Build and test C-API'
           },
           {
@@ -530,7 +530,7 @@ jobs:
   test_integration_cli: 
     name: CLI integration tests on ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
-    needs: [build]
+    needs: [build, build_linux_aarch64]
     strategy:
       fail-fast: false
       matrix:
