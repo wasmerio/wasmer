@@ -182,6 +182,7 @@ impl crate::FileOpener for FileOpener {
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
+        println!("vfs::host_fs::FileOpener {:?} {:#?}", path.display(), conf);
         // TODO: handle create implying write, etc.
         let read = conf.read();
         let write = conf.write();

@@ -1737,9 +1737,6 @@ pub(super) mod utils {
             .and_then(|parent| Some(parent.join(target_file_path.file_stem()?)))
             .unwrap_or_else(|| target_file_path.clone());
 
-        std::fs::create_dir_all(&target_file_path)
-            .map_err(|e| anyhow::anyhow!("{e}"))
-            .with_context(|| anyhow::anyhow!("{}", target_file_path.display()))?;
         let files =
             super::http_fetch::untar(local_tarball, &target_file_path).with_context(|| {
                 anyhow::anyhow!(
@@ -2280,8 +2277,15 @@ mod http_fetch {
     }
 
     pub(super) fn untar(tarball: &Path, target: &Path) -> Result<Vec<PathBuf>> {
-        let _ = std::fs::remove_dir(target);
-        wasmer_registry::try_unpack_targz(tarball, target, false)?;
+        if !target.exists() {
+            std::fs::create_dir_all(&target)
+            .map_err(|e| anyhow::anyhow!("{e}"))
+            .with_context(|| anyhow::anyhow!("{}", target.display()))?;
+
+            println!("unpacking tarball {}", tarball.display());
+            let _ = std::fs::remove_dir(target);
+            wasmer_registry::try_unpack_targz(tarball, target, false)?;
+        }
         Ok(list_dir(target))
     }
 }

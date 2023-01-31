@@ -99,11 +99,11 @@ pub unsafe extern "C" fn wasi_config_preopen_dir(
 
 #[no_mangle]
 pub unsafe extern "C" fn wasi_config_mapdir(
-    config: &mut wasi_config_t,
-    alias: *const c_char,
-    dir: *const c_char,
+    _config: &mut wasi_config_t,
+    _alias: *const c_char,
+    _dir: *const c_char,
 ) -> bool {
-    let alias_cstr = CStr::from_ptr(alias);
+    let alias_cstr = CStr::from_ptr(_alias);
     let alias_bytes = alias_cstr.to_bytes();
     let alias_str = match std::str::from_utf8(alias_bytes) {
         Ok(alias_str) => alias_str,
@@ -113,7 +113,7 @@ pub unsafe extern "C" fn wasi_config_mapdir(
         }
     };
 
-    let dir_cstr = CStr::from_ptr(dir);
+    let dir_cstr = CStr::from_ptr(_dir);
     let dir_bytes = dir_cstr.to_bytes();
     let dir_str = match std::str::from_utf8(dir_bytes) {
         Ok(dir_str) => dir_str,
@@ -123,7 +123,10 @@ pub unsafe extern "C" fn wasi_config_mapdir(
         }
     };
 
-    if let Err(e) = config.state_builder.map_dir(alias_str, dir_str) {
+    println!("wasi config mapdir: {alias_str} -> {dir_str}");
+
+    if let Err(e) = _config.state_builder.map_dir(alias_str, dir_str) {
+        println!("ERROR: {e}");
         update_last_error(e);
         return false;
     }

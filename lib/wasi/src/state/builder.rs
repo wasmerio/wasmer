@@ -255,6 +255,7 @@ impl WasiStateBuilder {
     where
         FilePath: AsRef<Path>,
     {
+        println!("map dir!");
         let mut pdb = PreopenDirBuilder::new();
         let path = po_dir.as_ref();
         pdb.directory(path)
