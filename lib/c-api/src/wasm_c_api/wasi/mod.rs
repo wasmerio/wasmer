@@ -223,6 +223,7 @@ unsafe fn wasi_env_with_filesystem_inner(
     let module = &module.as_ref()?.inner;
     let imports = imports?;
 
+    println!("wasi_env_with_filesystem_inner!!");
     let (wasi_env, import_object) = prepare_webc_env(
         config,
         &mut store.store_mut(),

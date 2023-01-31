@@ -191,7 +191,6 @@ impl OpenOptions {
         &mut self,
         path: P,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
-        println!("mem_fs::OpenOptions::open({:#?}) {:#?}", self.get_config(), path.as_ref().display());
         self.opener.open(path.as_ref(), &self.conf)
     }
 }

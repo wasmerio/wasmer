@@ -211,6 +211,8 @@ pub unsafe extern "C" fn wasm_func_call(
         .collect::<Result<Vec<Value>, _>>()
         .expect("Arguments conversion failed");
 
+    println!("wasm func call start!");
+    
     match func.extern_.function().call(&mut store_mut, &params) {
         Ok(wasm_results) => {
             for (slot, val) in results
