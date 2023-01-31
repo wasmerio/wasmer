@@ -451,10 +451,10 @@ build-capi-llvm-universal:
 
 build-capi-headless:
 ifeq ($(CARGO_TARGET_FLAG),)
-	RUSTFLAGS="${RUSTFLAGS} -C opt-level=z -C overflow-checks=off -C panic=abort -C rpath=no -C incremental=false -C codegen-units=1 -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) +nightly build --target $(HOST_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS} -C opt-level=z -C overflow-checks=off -C panic=abort -C incremental=false -C codegen-units=1 -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) +nightly build --target $(HOST_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features compiler-headless,wasi,webc_runner --target-dir target/headless -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort
 else
-	RUSTFLAGS="${RUSTFLAGS} -C opt-level=z -C overflow-checks=off -C panic=abort -C rpath=no -C incremental=false -C codegen-units=1 -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) +nightly build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
+	RUSTFLAGS="${RUSTFLAGS} -C opt-level=z -C overflow-checks=off -C panic=abort -C incremental=false -C codegen-units=1 -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) +nightly build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features compiler-headless,wasi,webc_runner --target-dir target/headless -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort
 endif
 
