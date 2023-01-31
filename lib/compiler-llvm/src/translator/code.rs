@@ -106,7 +106,7 @@ impl FuncTranslator {
 
         func.add_attribute(AttributeLoc::Function, intrinsics.stack_probe);
         func.set_personality_function(intrinsics.personality);
-        func.as_global_value().set_section(FUNCTION_SECTION);
+        func.as_global_value().set_section(Some(FUNCTION_SECTION));
         func.set_linkage(Linkage::DLLExport);
         func.as_global_value()
             .set_dll_storage_class(DLLStorageClass::Export);
@@ -2334,7 +2334,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 // element type.
                 let casted_table_base = self.builder.build_pointer_cast(
                     table_base,
-                    self.intrinsics.funcref_ty.ptr_type(AddressSpace::Generic),
+                    self.intrinsics.funcref_ty.ptr_type(AddressSpace::default()),
                     "casted_table_base",
                 );
 
@@ -2503,7 +2503,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let typed_func_ptr = self.builder.build_pointer_cast(
                     func_ptr,
-                    llvm_func_type.ptr_type(AddressSpace::Generic),
+                    llvm_func_type.ptr_type(AddressSpace::default()),
                     "typed_func_ptr",
                 );
 
