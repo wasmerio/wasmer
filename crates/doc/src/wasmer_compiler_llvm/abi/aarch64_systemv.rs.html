@@ -838,7 +838,7 @@
                             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
 
                         <span class="kw">let</span> <span class="ident">sret</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">struct_type</span>(<span class="kw-2">&amp;</span><span class="ident">basic_types</span>, <span class="bool-val">false</span>);
-                        <span class="kw">let</span> <span class="ident">sret_ptr</span> <span class="op">=</span> <span class="ident">sret</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::Generic</span>);
+                        <span class="kw">let</span> <span class="ident">sret_ptr</span> <span class="op">=</span> <span class="ident">sret</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::default</span>());
 
                         <span class="kw">let</span> <span class="ident">param_types</span> <span class="op">=</span>
                             <span class="ident">std::iter::once</span>(<span class="prelude-val">Ok</span>(<span class="ident">sret_ptr</span>.<span class="ident">as_basic_type_enum</span>())).<span class="ident">chain</span>(<span class="ident">param_types</span>);
