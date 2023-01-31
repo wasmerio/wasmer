@@ -219,6 +219,11 @@ jobs:
           toolchain: 1.64
           target: ${{ matrix.metadata.target }}
           components: rustfmt, clippy
+      - name: Install Rust nightly (to build capi-headless)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly
+          target: ${{ matrix.metadata.target }}
       - name: Install Windows-GNU linker
         if: ${{ matrix.metadata.build == 'windows-gnu' }}
         shell: bash
