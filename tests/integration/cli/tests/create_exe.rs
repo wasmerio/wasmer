@@ -385,8 +385,8 @@ fn create_exe_works_underscore_module_name() -> anyhow::Result<()> {
         "wasm-strip",
         "wasm-validate",
         "wasm2wat",
-        "wasm-validate",
         "wast2json",
+        "wat2wasm",
     ];
 
     let mut create_exe_flags = Vec::new();
