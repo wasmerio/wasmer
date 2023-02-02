@@ -372,6 +372,8 @@ fn create_exe_works_multi_command_args_handling() -> anyhow::Result<()> {
 }
 
 /// Tests that create-exe works with underscores and dashes in command names
+// Ignored because of -lunwind linker issue on Windows
+// see https://github.com/wasmerio/wasmer/issues/3459
 #[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn create_exe_works_underscore_module_name() -> anyhow::Result<()> {

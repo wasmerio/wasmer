@@ -533,7 +533,7 @@ impl PrefixMapCompilation {
             return Ok(Self {
                 input_hashes: atoms
                     .iter()
-                    .map(|(name, bytes)| (normalize_atom_name(&name), Self::hash_for_bytes(bytes)))
+                    .map(|(name, bytes)| (normalize_atom_name(name), Self::hash_for_bytes(bytes)))
                     .collect(),
                 manual_prefixes: BTreeMap::new(),
                 compilation_objects: BTreeMap::new(),
@@ -562,11 +562,11 @@ impl PrefixMapCompilation {
                 [atom, prefix, path] => {
                     if only_validate_prefixes {
                         // only insert the prefix in order to not error out of the fs::read(path)
-                        manual_prefixes.insert(normalize_atom_name(&atom), prefix.to_string());
+                        manual_prefixes.insert(normalize_atom_name(atom), prefix.to_string());
                     } else {
                         let atom_hash = atoms
                         .iter()
-                        .find_map(|(name, _)| if normalize_atom_name(&name) == normalize_atom_name(&atom) { Some(prefix.to_string()) } else { None })
+                        .find_map(|(name, _)| if normalize_atom_name(name) == normalize_atom_name(atom) { Some(prefix.to_string()) } else { None })
                         .ok_or_else(|| anyhow::anyhow!("no atom {atom:?} found, for prefix {p:?}, available atoms are {available_atoms:?}"))?;
 
                         let current_dir = std::env::current_dir().unwrap().canonicalize().unwrap();
@@ -575,17 +575,17 @@ impl PrefixMapCompilation {
                             anyhow::anyhow!("could not read file for atom {atom:?} (prefix {p}, path {} in dir {}): {e}", path.display(), current_dir.display())
                         })?;
 
-                        compilation_objects.insert(normalize_atom_name(&atom), bytes);
-                        manual_prefixes.insert(normalize_atom_name(&atom), atom_hash.to_string());
+                        compilation_objects.insert(normalize_atom_name(atom), bytes);
+                        manual_prefixes.insert(normalize_atom_name(atom), atom_hash.to_string());
                     }
                 }
                 // atom + path, but default SHA256 prefix
                 [atom, path] => {
                     let atom_hash = atoms
                     .iter()
-                    .find_map(|(name, bytes)| if normalize_atom_name(&name) == normalize_atom_name(&atom) { Some(Self::hash_for_bytes(bytes)) } else { None })
+                    .find_map(|(name, bytes)| if normalize_atom_name(name) == normalize_atom_name(atom) { Some(Self::hash_for_bytes(bytes)) } else { None })
                     .ok_or_else(|| anyhow::anyhow!("no atom {atom:?} found, for prefix {p:?}, available atoms are {available_atoms:?}"))?;
-                    manual_prefixes.insert(normalize_atom_name(&atom), atom_hash.to_string());
+                    manual_prefixes.insert(normalize_atom_name(atom), atom_hash.to_string());
 
                     if !only_validate_prefixes {
                         let current_dir = std::env::current_dir().unwrap().canonicalize().unwrap();
@@ -593,7 +593,7 @@ impl PrefixMapCompilation {
                         let bytes = std::fs::read(&path).map_err(|e| {
                             anyhow::anyhow!("could not read file for atom {atom:?} (prefix {p}, path {} in dir {}): {e}", path.display(), current_dir.display())
                         })?;
-                        compilation_objects.insert(normalize_atom_name(&atom), bytes);
+                        compilation_objects.insert(normalize_atom_name(atom), bytes);
                     }
                 }
                 // only prefix if atoms.len() == 1
@@ -737,7 +737,7 @@ fn compile_atoms(
     let mut module_infos = BTreeMap::new();
     for (a, data) in atoms {
         let prefix = prefixes
-            .get_prefix_for_atom(&normalize_atom_name(&a))
+            .get_prefix_for_atom(&normalize_atom_name(a))
             .ok_or_else(|| anyhow::anyhow!("no prefix given for atom {a}"))?;
         let atom_name = utils::normalize_atom_name(a);
         let output_object_path = output_dir.join(format!("{atom_name}.o"));
