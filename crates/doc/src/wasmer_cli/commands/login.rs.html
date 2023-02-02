@@ -121,7 +121,7 @@
                     <span class="ident">registry_tld</span>.<span class="ident">suffix</span>.<span class="ident">as_deref</span>(),
                 ) {
                     (<span class="prelude-val">Some</span>(<span class="ident">d</span>), <span class="prelude-val">Some</span>(<span class="ident">s</span>)) =&gt; {
-                        <span class="macro">format!</span>(<span class="string">&quot;Please paste the login token from://{d}.{s}/settings/access-tokens&quot;</span>)
+                        <span class="macro">format!</span>(<span class="string">&quot;Please paste the login token from https://{d}.{s}/settings/access-tokens&quot;</span>)
                     }
                     <span class="kw">_</span> =&gt; <span class="string">&quot;Please paste the login token&quot;</span>.<span class="ident">to_string</span>(),
                 };
