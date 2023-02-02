@@ -43,6 +43,8 @@ pub(crate) fn compiled_function_unwind_info(
     context: &Context,
 ) -> Result<CraneliftUnwindInfo, CompileError> {
     let unwind_info = context
+        .compiled_code()
+        .unwrap()
         .create_unwind_info(isa)
         .map_err(|error| CompileError::Codegen(pretty_error(&context.func, error)))?;
 
