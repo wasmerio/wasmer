@@ -15,7 +15,7 @@ pub fn get_function_address_map(
 
     // New-style backend: we have a `MachCompileResult` that will give us `MachSrcLoc` mapping
     // tuples.
-    let mcr = context.mach_compile_result.as_ref().unwrap();
+    let mcr = context.compiled_code().unwrap();
     for &MachSrcLoc { start, end, loc } in mcr.buffer.get_srclocs_sorted() {
         instructions.push(InstructionAddressMap {
             srcloc: SourceLoc::new(loc.bits()),
