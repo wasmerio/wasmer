@@ -496,6 +496,15 @@ impl Default for Stdout {
     }
 }
 
+/// Default size for write buffers.
+///
+/// Chosen to be both sufficiently large, and a multiple of the default page
+/// size on most systems.
+///
+/// This value has limited meaning, since it is only used for buffer size hints,
+/// and those hints are often ignored.
+const DEFAULT_BUF_SIZE_HINT: usize = 8 * 1024;
+
 //#[cfg_attr(feature = "enable-serde", typetag::serde)]
 #[async_trait::async_trait]
 impl VirtualFile for Stdout {
@@ -533,7 +542,7 @@ impl VirtualFile for Stdout {
     }
 
     fn poll_write_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
-        Poll::Ready(Ok(8192))
+        Poll::Ready(Ok(DEFAULT_BUF_SIZE_HINT))
     }
 }
 
