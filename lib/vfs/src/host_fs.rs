@@ -44,10 +44,7 @@ impl crate::FileSystem for FileSystem {
             })
             .collect::<std::result::Result<Vec<DirEntry>, io::Error>>()
             .map_err::<FsError, _>(Into::into)?;
-        data.sort_by(|a, b| match (a.metadata.as_ref(), b.metadata.as_ref()) {
-            (Ok(a), Ok(b)) => a.modified.cmp(&b.modified),
-            _ => std::cmp::Ordering::Equal,
-        });
+        data.sort_by(|a, b| a.path.file_name().cmp(&b.path.file_name()));
         Ok(ReadDir::new(data))
     }
 
@@ -1355,24 +1352,24 @@ mod tests {
         let mut readdir = readdir.unwrap();
 
         let next = readdir.next().unwrap().unwrap();
-        assert!(next.path.ends_with("foo"), "checking entry #1");
-        assert!(next.path.is_dir(), "checking entry #1");
-
-        let next = readdir.next().unwrap().unwrap();
-        assert!(next.path.ends_with("bar"), "checking entry #2");
-        assert!(next.path.is_dir(), "checking entry #2");
-
-        let next = readdir.next().unwrap().unwrap();
-        assert!(next.path.ends_with("baz"), "checking entry #3");
-        assert!(next.path.is_dir(), "checking entry #3");
-
-        let next = readdir.next().unwrap().unwrap();
-        assert!(next.path.ends_with("a.txt"), "checking entry #2");
-        assert!(next.path.is_file(), "checking entry #4");
+        assert!(next.path.ends_with("a.txt"), "checking entry #1");
+        assert!(next.path.is_file(), "checking entry #1");
 
         let next = readdir.next().unwrap().unwrap();
         assert!(next.path.ends_with("b.txt"), "checking entry #2");
-        assert!(next.path.is_file(), "checking entry #5");
+        assert!(next.path.is_file(), "checking entry #2");
+
+        let next = readdir.next().unwrap().unwrap();
+        assert!(next.path.ends_with("bar"), "checking entry #3");
+        assert!(next.path.is_dir(), "checking entry #3");
+
+        let next = readdir.next().unwrap().unwrap();
+        assert!(next.path.ends_with("baz"), "checking entry #4");
+        assert!(next.path.is_dir(), "checking entry #4");
+
+        let next = readdir.next().unwrap().unwrap();
+        assert!(next.path.ends_with("foo"), "checking entry #5");
+        assert!(next.path.is_dir(), "checking entry #5");
 
         if let Some(s) = readdir.next() {
             panic!("next: {:?}", s);
