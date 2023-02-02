@@ -33,7 +33,7 @@ impl Login {
                     registry_tld.suffix.as_deref(),
                 ) {
                     (Some(d), Some(s)) => {
-                        format!("Please paste the login token for https://{d}.{s}/me")
+                        format!("Please paste the login token from https://{d}.{s}/settings/access-tokens")
                     }
                     _ => "Please paste the login token".to_string(),
                 };
