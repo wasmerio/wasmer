@@ -132,7 +132,7 @@ impl Compiler for CraneliftCompiler {
                             let name = &context.func.params.user_named_funcs()[nameref];
                             UserFuncName::User(name.clone())
                         } else {
-                            ExternalName::default()
+                            UserFuncName::default()
                         }
                     }
                     ExternalName::TestCase(testcase) => UserFuncName::Testcase(testcase),
@@ -161,9 +161,9 @@ impl Compiler for CraneliftCompiler {
                 let mut code_buf: Vec<u8> = Vec::new();
                 context
                     .compile_and_emit(&*isa, &mut code_buf)
-                    .map_err(|error| CompileError::Codegen(pretty_error(&context.func, error)))?;
+                    .map_err(|error| CompileError::Codegen(error.inner.to_string()))?;
 
-                let result = context.mach_compile_result.as_ref().unwrap();
+                let result = context.compiled_code().unwrap();
                 let func_relocs = result
                     .buffer
                     .relocs()
