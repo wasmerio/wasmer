@@ -6,4 +6,3 @@ a basic operating system and is natively integrated with ATE and WAPM.
 For more information try:
 
 about wasmer
-about deploy
