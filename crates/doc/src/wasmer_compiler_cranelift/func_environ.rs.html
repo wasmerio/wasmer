@@ -1636,7 +1636,7 @@
 
 <span class="doccomment">/// Compute an `ir::ExternalName` for a given wasm function index.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_function_name</span>(<span class="ident">func_index</span>: <span class="ident">FunctionIndex</span>) -&gt; <span class="ident">ir::ExternalName</span> {
-    <span class="ident">ir::ExternalName::user</span>(<span class="number">0</span>, <span class="ident">func_index</span>.<span class="ident">as_u32</span>())
+    <span class="ident">ir::ExternalName::user</span>(<span class="ident">ir::UserExternalNameRef::from_u32</span>(<span class="ident">func_index</span>.<span class="ident">as_u32</span>()))
 }
 
 <span class="doccomment">/// The type of the `current_elements` field.</span>
@@ -2637,7 +2637,7 @@
             <span class="kw">_</span> =&gt; <span class="macro">unreachable!</span>(),
         };
 
-        <span class="prelude-val">Ok</span>(<span class="ident">pos</span>.<span class="ident">ins</span>().<span class="ident">bint</span>(<span class="ident">ir::types::I32</span>, <span class="ident">bool_is_null</span>))
+        <span class="prelude-val">Ok</span>(<span class="ident">pos</span>.<span class="ident">ins</span>().<span class="ident">uextend</span>(<span class="ident">ir::types::I32</span>, <span class="ident">bool_is_null</span>))
     }
 
     <span class="kw">fn</span> <span class="ident">translate_ref_func</span>(

@@ -113,7 +113,6 @@
 <span id="113">113</span>
 <span id="114">114</span>
 <span id="115">115</span>
-<span id="116">116</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -128,7 +127,6 @@
 <span class="kw">use</span> <span class="ident">cranelift_codegen::ir</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen::ir::InstBuilder</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen::isa::TargetIsa</span>;
-<span class="kw">use</span> <span class="ident">cranelift_codegen::print_errors::pretty_error</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen::Context</span>;
 <span class="kw">use</span> <span class="ident">cranelift_frontend</span>::{<span class="ident">FunctionBuilder</span>, <span class="ident">FunctionBuilderContext</span>};
 <span class="kw">use</span> <span class="ident">std::mem</span>;
@@ -158,7 +156,7 @@
     <span class="ident">wrapper_sig</span>.<span class="ident">params</span>.<span class="ident">push</span>(<span class="ident">ir::AbiParam::new</span>(<span class="ident">pointer_type</span>));
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">context</span> <span class="op">=</span> <span class="ident">Context::new</span>();
-    <span class="ident">context</span>.<span class="ident">func</span> <span class="op">=</span> <span class="ident">ir::Function::with_name_signature</span>(<span class="ident">ir::ExternalName::user</span>(<span class="number">0</span>, <span class="number">0</span>), <span class="ident">wrapper_sig</span>);
+    <span class="ident">context</span>.<span class="ident">func</span> <span class="op">=</span> <span class="ident">ir::Function::with_name_signature</span>(<span class="ident">ir::UserFuncName::user</span>(<span class="number">0</span>, <span class="number">0</span>), <span class="ident">wrapper_sig</span>);
 
     <span class="kw">let</span> <span class="ident">value_size</span> <span class="op">=</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">u128</span><span class="op">&gt;</span>();
     {
@@ -221,7 +219,7 @@
 
     <span class="ident">context</span>
         .<span class="ident">compile_and_emit</span>(<span class="ident">isa</span>, <span class="kw-2">&amp;mut</span> <span class="ident">code_buf</span>)
-        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">error</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="ident">pretty_error</span>(<span class="kw-2">&amp;</span><span class="ident">context</span>.<span class="ident">func</span>, <span class="ident">error</span>)))<span class="question-mark">?</span>;
+        .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">error</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="ident">error</span>.<span class="ident">inner</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
 
     <span class="kw">let</span> <span class="ident">unwind_info</span> <span class="op">=</span> <span class="ident">compiled_function_unwind_info</span>(<span class="ident">isa</span>, <span class="kw-2">&amp;</span><span class="ident">context</span>)<span class="question-mark">?</span>.<span class="ident">maybe_into_to_windows_unwind</span>();
 

@@ -3047,14 +3047,6 @@
 <span id="3047">3047</span>
 <span id="3048">3048</span>
 <span id="3049">3049</span>
-<span id="3050">3050</span>
-<span id="3051">3051</span>
-<span id="3052">3052</span>
-<span id="3053">3053</span>
-<span id="3054">3054</span>
-<span id="3055">3055</span>
-<span id="3056">3056</span>
-<span id="3057">3057</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -3181,7 +3173,7 @@
          *  disappear in the Cranelift Code
          ***********************************************************************************/</span>
         <span class="ident">Operator::LocalGet</span> { <span class="ident">local_index</span> } =&gt; {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">use_var</span>(<span class="ident">Variable::with_u32</span>(<span class="kw-2">*</span><span class="ident">local_index</span>));
+            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">use_var</span>(<span class="ident">Variable::from_u32</span>(<span class="kw-2">*</span><span class="ident">local_index</span>));
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">val</span>);
             <span class="kw">let</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">ValueLabel::from_u32</span>(<span class="kw-2">*</span><span class="ident">local_index</span>);
             <span class="ident">builder</span>.<span class="ident">set_val_label</span>(<span class="ident">val</span>, <span class="ident">label</span>);
@@ -3195,7 +3187,7 @@
                 <span class="ident">val</span> <span class="op">=</span> <span class="ident">optionally_bitcast_vector</span>(<span class="ident">val</span>, <span class="ident">I8X16</span>, <span class="ident">builder</span>);
             }
 
-            <span class="ident">builder</span>.<span class="ident">def_var</span>(<span class="ident">Variable::with_u32</span>(<span class="kw-2">*</span><span class="ident">local_index</span>), <span class="ident">val</span>);
+            <span class="ident">builder</span>.<span class="ident">def_var</span>(<span class="ident">Variable::from_u32</span>(<span class="kw-2">*</span><span class="ident">local_index</span>), <span class="ident">val</span>);
             <span class="kw">let</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">ValueLabel::from_u32</span>(<span class="kw-2">*</span><span class="ident">local_index</span>);
             <span class="ident">builder</span>.<span class="ident">set_val_label</span>(<span class="ident">val</span>, <span class="ident">label</span>);
         }
@@ -3208,7 +3200,7 @@
                 <span class="ident">val</span> <span class="op">=</span> <span class="ident">optionally_bitcast_vector</span>(<span class="ident">val</span>, <span class="ident">I8X16</span>, <span class="ident">builder</span>);
             }
 
-            <span class="ident">builder</span>.<span class="ident">def_var</span>(<span class="ident">Variable::with_u32</span>(<span class="kw-2">*</span><span class="ident">local_index</span>), <span class="ident">val</span>);
+            <span class="ident">builder</span>.<span class="ident">def_var</span>(<span class="ident">Variable::from_u32</span>(<span class="kw-2">*</span><span class="ident">local_index</span>), <span class="ident">val</span>);
             <span class="kw">let</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">ValueLabel::from_u32</span>(<span class="kw-2">*</span><span class="ident">local_index</span>);
             <span class="ident">builder</span>.<span class="ident">set_val_label</span>(<span class="ident">val</span>, <span class="ident">label</span>);
         }
@@ -3425,8 +3417,7 @@
         <span class="ident">Operator::End</span> =&gt; {
             <span class="kw">let</span> <span class="ident">frame</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">control_stack</span>.<span class="ident">pop</span>().<span class="ident">unwrap</span>();
             <span class="kw">let</span> <span class="ident">next_block</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">following_code</span>();
-
-            <span class="kw">if</span> <span class="op">!</span><span class="ident">builder</span>.<span class="ident">is_unreachable</span>() <span class="op">|</span><span class="op">|</span> <span class="op">!</span><span class="ident">builder</span>.<span class="ident">is_pristine</span>() {
+            <span class="kw">if</span> <span class="op">!</span><span class="ident">builder</span>.<span class="ident">is_unreachable</span>() <span class="op">|</span><span class="op">|</span> <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">layout</span>.<span class="ident">first_inst</span>(<span class="ident">next_block</span>).<span class="ident">is_some</span>() {
                 <span class="kw">let</span> <span class="ident">return_count</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">num_return_values</span>();
                 <span class="kw">let</span> <span class="ident">return_args</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">peekn</span>(<span class="ident">return_count</span>);
                 <span class="ident">canonicalise_then_jump</span>(<span class="ident">builder</span>, <span class="ident">frame</span>.<span class="ident">following_code</span>(), <span class="ident">return_args</span>);
@@ -3576,11 +3567,8 @@
             <span class="ident">state</span>.<span class="ident">reachable</span> <span class="op">=</span> <span class="bool-val">false</span>;
         }
         <span class="ident">Operator::Return</span> =&gt; {
-            <span class="kw">let</span> (<span class="ident">return_count</span>, <span class="ident">br_destination</span>) <span class="op">=</span> {
+            <span class="kw">let</span> (<span class="ident">return_count</span>, <span class="ident">_br_destination</span>) <span class="op">=</span> {
                 <span class="kw">let</span> <span class="ident">frame</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="ident">state</span>.<span class="ident">control_stack</span>[<span class="number">0</span>];
-                <span class="kw">if</span> <span class="ident">environ</span>.<span class="ident">return_mode</span>() <span class="op">==</span> <span class="ident">ReturnMode::FallthroughReturn</span> {
-                    <span class="ident">frame</span>.<span class="ident">set_branched_to_exit</span>();
-                }
                 <span class="kw">let</span> <span class="ident">return_count</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">num_return_values</span>();
                 (<span class="ident">return_count</span>, <span class="ident">frame</span>.<span class="ident">br_destination</span>())
             };
@@ -3593,9 +3581,6 @@
                 <span class="ident">bitcast_arguments</span>(<span class="ident">return_args</span>, <span class="kw-2">&amp;</span><span class="ident">return_types</span>, <span class="ident">builder</span>);
                 <span class="kw">match</span> <span class="ident">environ</span>.<span class="ident">return_mode</span>() {
                     <span class="ident">ReturnMode::NormalReturns</span> =&gt; <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">return_</span>(<span class="ident">return_args</span>),
-                    <span class="ident">ReturnMode::FallthroughReturn</span> =&gt; {
-                        <span class="ident">canonicalise_then_jump</span>(<span class="ident">builder</span>, <span class="ident">br_destination</span>, <span class="ident">return_args</span>)
-                    }
                 };
             }
             <span class="ident">state</span>.<span class="ident">popn</span>(<span class="ident">return_count</span>);
@@ -3918,19 +3903,19 @@
         }
         <span class="ident">Operator::F32ReinterpretI32</span> =&gt; {
             <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bitcast</span>(<span class="ident">F32</span>, <span class="ident">val</span>));
+            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bitcast</span>(<span class="ident">F32</span>, <span class="ident">MemFlags::new</span>(), <span class="ident">val</span>));
         }
         <span class="ident">Operator::F64ReinterpretI64</span> =&gt; {
             <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bitcast</span>(<span class="ident">F64</span>, <span class="ident">val</span>));
+            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bitcast</span>(<span class="ident">F64</span>, <span class="ident">MemFlags::new</span>(), <span class="ident">val</span>));
         }
         <span class="ident">Operator::I32ReinterpretF32</span> =&gt; {
             <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bitcast</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
+            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bitcast</span>(<span class="ident">I32</span>, <span class="ident">MemFlags::new</span>(), <span class="ident">val</span>));
         }
         <span class="ident">Operator::I64ReinterpretF64</span> =&gt; {
             <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bitcast</span>(<span class="ident">I64</span>, <span class="ident">val</span>));
+            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bitcast</span>(<span class="ident">I64</span>, <span class="ident">MemFlags::new</span>(), <span class="ident">val</span>));
         }
         <span class="ident">Operator::I32Extend8S</span> =&gt; {
             <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
@@ -4079,7 +4064,7 @@
         <span class="ident">Operator::I32Eqz</span> <span class="op">|</span> <span class="ident">Operator::I64Eqz</span> =&gt; {
             <span class="kw">let</span> <span class="ident">arg</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">icmp_imm</span>(<span class="ident">IntCC::Equal</span>, <span class="ident">arg</span>, <span class="number">0</span>);
-            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bint</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
+            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">uextend</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator::I32Eq</span> <span class="op">|</span> <span class="ident">Operator::I64Eq</span> =&gt; <span class="ident">translate_icmp</span>(<span class="ident">IntCC::Equal</span>, <span class="ident">builder</span>, <span class="ident">state</span>),
         <span class="ident">Operator::F32Eq</span> <span class="op">|</span> <span class="ident">Operator::F64Eq</span> =&gt; <span class="ident">translate_fcmp</span>(<span class="ident">FloatCC::Equal</span>, <span class="ident">builder</span>, <span class="ident">state</span>),
@@ -4640,7 +4625,7 @@
         }
         <span class="ident">Operator::I8x16MinS</span> <span class="op">|</span> <span class="ident">Operator::I16x8MinS</span> <span class="op">|</span> <span class="ident">Operator::I32x4MinS</span> =&gt; {
             <span class="kw">let</span> (<span class="ident">a</span>, <span class="ident">b</span>) <span class="op">=</span> <span class="ident">pop2_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">builder</span>);
-            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">imin</span>(<span class="ident">a</span>, <span class="ident">b</span>))
+            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">smin</span>(<span class="ident">a</span>, <span class="ident">b</span>))
         }
         <span class="ident">Operator::I8x16MinU</span> <span class="op">|</span> <span class="ident">Operator::I16x8MinU</span> <span class="op">|</span> <span class="ident">Operator::I32x4MinU</span> =&gt; {
             <span class="kw">let</span> (<span class="ident">a</span>, <span class="ident">b</span>) <span class="op">=</span> <span class="ident">pop2_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">builder</span>);
@@ -4648,7 +4633,7 @@
         }
         <span class="ident">Operator::I8x16MaxS</span> <span class="op">|</span> <span class="ident">Operator::I16x8MaxS</span> <span class="op">|</span> <span class="ident">Operator::I32x4MaxS</span> =&gt; {
             <span class="kw">let</span> (<span class="ident">a</span>, <span class="ident">b</span>) <span class="op">=</span> <span class="ident">pop2_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">builder</span>);
-            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">imax</span>(<span class="ident">a</span>, <span class="ident">b</span>))
+            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">smax</span>(<span class="ident">a</span>, <span class="ident">b</span>))
         }
         <span class="ident">Operator::I8x16MaxU</span> <span class="op">|</span> <span class="ident">Operator::I16x8MaxU</span> <span class="op">|</span> <span class="ident">Operator::I32x4MaxU</span> =&gt; {
             <span class="kw">let</span> (<span class="ident">a</span>, <span class="ident">b</span>) <span class="op">=</span> <span class="ident">pop2_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">builder</span>);
@@ -4729,7 +4714,7 @@
         <span class="ident">Operator::V128AnyTrue</span> =&gt; {
             <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">pop1_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">builder</span>);
             <span class="kw">let</span> <span class="ident">bool_result</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">vany_true</span>(<span class="ident">a</span>);
-            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bint</span>(<span class="ident">I32</span>, <span class="ident">bool_result</span>))
+            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">uextend</span>(<span class="ident">I32</span>, <span class="ident">bool_result</span>))
         }
         <span class="ident">Operator::I8x16AllTrue</span>
         <span class="op">|</span> <span class="ident">Operator::I16x8AllTrue</span>
@@ -4737,7 +4722,7 @@
         <span class="op">|</span> <span class="ident">Operator::I64x2AllTrue</span> =&gt; {
             <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">pop1_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">builder</span>);
             <span class="kw">let</span> <span class="ident">bool_result</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">vall_true</span>(<span class="ident">a</span>);
-            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bint</span>(<span class="ident">I32</span>, <span class="ident">bool_result</span>))
+            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">uextend</span>(<span class="ident">I32</span>, <span class="ident">bool_result</span>))
         }
         <span class="ident">Operator::I8x16Bitmask</span>
         <span class="op">|</span> <span class="ident">Operator::I16x8Bitmask</span>
@@ -5310,7 +5295,9 @@
     };
     <span class="macro">debug_assert!</span>(<span class="ident">adjusted_offset</span> <span class="op">&gt;</span> <span class="number">0</span>); <span class="comment">// want to bounds check at least 1 byte</span>
     <span class="kw">let</span> <span class="ident">check_size</span> <span class="op">=</span> <span class="ident">u32::try_from</span>(<span class="ident">adjusted_offset</span>).<span class="ident">unwrap_or</span>(<span class="ident">u32::MAX</span>);
-    <span class="kw">let</span> <span class="ident">base</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">heap_addr</span>(<span class="ident">addr_ty</span>, <span class="ident">heap</span>, <span class="ident">addr32</span>, <span class="ident">check_size</span>);
+    <span class="kw">let</span> <span class="ident">base</span> <span class="op">=</span> <span class="ident">builder</span>
+        .<span class="ident">ins</span>()
+        .<span class="ident">heap_addr</span>(<span class="ident">addr_ty</span>, <span class="ident">heap</span>, <span class="ident">addr32</span>, <span class="number">0u32</span>, <span class="ident">check_size</span> <span class="kw">as</span> <span class="ident">u8</span>);
 
     <span class="comment">// Native load/store instructions take a signed `Offset32` immediate, so adjust the base</span>
     <span class="comment">// pointer if necessary.</span>
@@ -5416,7 +5403,7 @@
 <span class="kw">fn</span> <span class="ident">translate_icmp</span>(<span class="ident">cc</span>: <span class="ident">IntCC</span>, <span class="ident">builder</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionBuilder</span>, <span class="ident">state</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FuncTranslationState</span>) {
     <span class="kw">let</span> (<span class="ident">arg0</span>, <span class="ident">arg1</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
     <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">icmp</span>(<span class="ident">cc</span>, <span class="ident">arg0</span>, <span class="ident">arg1</span>);
-    <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bint</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
+    <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">uextend</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
 }
 
 <span class="kw">fn</span> <span class="ident">fold_atomic_mem_addr</span>(
@@ -5432,12 +5419,10 @@
         <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">builder</span>
             .<span class="ident">ins</span>()
             .<span class="ident">iadd_imm</span>(<span class="ident">linear_mem_addr</span>, <span class="ident">memarg</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">i64</span>);
-        <span class="kw">let</span> <span class="ident">cflags</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ifcmp_imm</span>(<span class="ident">a</span>, <span class="number">0x1_0000_0000i64</span>);
-        <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">trapif</span>(
-            <span class="ident">IntCC::UnsignedGreaterThanOrEqual</span>,
-            <span class="ident">cflags</span>,
-            <span class="ident">ir::TrapCode::HeapOutOfBounds</span>,
-        );
+        <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> <span class="ident">builder</span>
+            .<span class="ident">ins</span>()
+            .<span class="ident">icmp_imm</span>(<span class="ident">IntCC::UnsignedGreaterThanOrEqual</span>, <span class="ident">a</span>, <span class="number">0x1_0000_0000i64</span>);
+        <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">trapnz</span>(<span class="ident">r</span>, <span class="ident">ir::TrapCode::HeapOutOfBounds</span>);
         <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ireduce</span>(<span class="ident">I32</span>, <span class="ident">a</span>)
     } <span class="kw">else</span> {
         <span class="ident">linear_mem_addr</span>
@@ -5448,10 +5433,8 @@
         .<span class="ident">band_imm</span>(<span class="ident">final_lma</span>, <span class="ident">i64::from</span>(<span class="ident">access_ty_bytes</span> <span class="op">-</span> <span class="number">1</span>));
     <span class="kw">let</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">builder</span>
         .<span class="ident">ins</span>()
-        .<span class="ident">ifcmp_imm</span>(<span class="ident">final_lma_misalignment</span>, <span class="ident">i64::from</span>(<span class="number">0</span>));
-    <span class="ident">builder</span>
-        .<span class="ident">ins</span>()
-        .<span class="ident">trapif</span>(<span class="ident">IntCC::NotEqual</span>, <span class="ident">f</span>, <span class="ident">ir::TrapCode::HeapMisaligned</span>);
+        .<span class="ident">icmp_imm</span>(<span class="ident">IntCC::Equal</span>, <span class="ident">final_lma_misalignment</span>, <span class="ident">i64::from</span>(<span class="number">0</span>));
+    <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">trapz</span>(<span class="ident">f</span>, <span class="ident">ir::TrapCode::HeapMisaligned</span>);
     <span class="ident">final_lma</span>
 }
 
@@ -5472,12 +5455,10 @@
         <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">builder</span>
             .<span class="ident">ins</span>()
             .<span class="ident">iadd_imm</span>(<span class="ident">linear_mem_addr</span>, <span class="ident">memarg</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">i64</span>);
-        <span class="kw">let</span> <span class="ident">cflags</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ifcmp_imm</span>(<span class="ident">a</span>, <span class="number">0x1_0000_0000i64</span>);
-        <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">trapif</span>(
-            <span class="ident">IntCC::UnsignedGreaterThanOrEqual</span>,
-            <span class="ident">cflags</span>,
-            <span class="ident">ir::TrapCode::HeapOutOfBounds</span>,
-        );
+        <span class="kw">let</span> <span class="ident">r</span> <span class="op">=</span> <span class="ident">builder</span>
+            .<span class="ident">ins</span>()
+            .<span class="ident">icmp_imm</span>(<span class="ident">IntCC::UnsignedGreaterThanOrEqual</span>, <span class="ident">a</span>, <span class="number">0x1_0000_0000i64</span>);
+        <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">trapnz</span>(<span class="ident">r</span>, <span class="ident">ir::TrapCode::HeapOutOfBounds</span>);
         <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ireduce</span>(<span class="ident">I32</span>, <span class="ident">a</span>)
     } <span class="kw">else</span> {
         <span class="ident">linear_mem_addr</span>
@@ -5490,10 +5471,8 @@
             .<span class="ident">band_imm</span>(<span class="ident">final_lma</span>, <span class="ident">i64::from</span>(<span class="ident">access_ty_bytes</span> <span class="op">-</span> <span class="number">1</span>));
         <span class="kw">let</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">builder</span>
             .<span class="ident">ins</span>()
-            .<span class="ident">ifcmp_imm</span>(<span class="ident">final_lma_misalignment</span>, <span class="ident">i64::from</span>(<span class="number">0</span>));
-        <span class="ident">builder</span>
-            .<span class="ident">ins</span>()
-            .<span class="ident">trapif</span>(<span class="ident">IntCC::NotEqual</span>, <span class="ident">f</span>, <span class="ident">ir::TrapCode::HeapMisaligned</span>);
+            .<span class="ident">icmp_imm</span>(<span class="ident">IntCC::Equal</span>, <span class="ident">final_lma_misalignment</span>, <span class="ident">i64::from</span>(<span class="number">0</span>));
+        <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">trapz</span>(<span class="ident">f</span>, <span class="ident">ir::TrapCode::HeapMisaligned</span>);
     }
 
     <span class="comment">// Compute the final effective address.</span>
@@ -5704,7 +5683,7 @@
 <span class="kw">fn</span> <span class="ident">translate_fcmp</span>(<span class="ident">cc</span>: <span class="ident">FloatCC</span>, <span class="ident">builder</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionBuilder</span>, <span class="ident">state</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FuncTranslationState</span>) {
     <span class="kw">let</span> (<span class="ident">arg0</span>, <span class="ident">arg1</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
     <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fcmp</span>(<span class="ident">cc</span>, <span class="ident">arg0</span>, <span class="ident">arg1</span>);
-    <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bint</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
+    <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">uextend</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
 }
 
 <span class="kw">fn</span> <span class="ident">translate_vector_fcmp</span>(
@@ -5970,7 +5949,11 @@
     <span class="ident">builder</span>: <span class="kw-2">&amp;mut</span> <span class="ident">FunctionBuilder</span>,
 ) -&gt; <span class="ident">Value</span> {
     <span class="kw">if</span> <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">value_type</span>(<span class="ident">value</span>) <span class="op">!</span><span class="op">=</span> <span class="ident">needed_type</span> {
-        <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">raw_bitcast</span>(<span class="ident">needed_type</span>, <span class="ident">value</span>)
+        <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bitcast</span>(
+            <span class="ident">needed_type</span>,
+            <span class="ident">MemFlags::new</span>().<span class="ident">with_endianness</span>(<span class="ident">ir::Endianness::Little</span>),
+            <span class="ident">value</span>,
+        )
     } <span class="kw">else</span> {
         <span class="ident">value</span>
     }
@@ -5978,10 +5961,7 @@
 
 <span class="attribute">#[<span class="ident">inline</span>(<span class="ident">always</span>)]</span>
 <span class="kw">fn</span> <span class="ident">is_non_canonical_v128</span>(<span class="ident">ty</span>: <span class="ident">ir::Type</span>) -&gt; <span class="ident">bool</span> {
-    <span class="macro">matches!</span>(
-        <span class="ident">ty</span>,
-        <span class="ident">B8X16</span> <span class="op">|</span> <span class="ident">B16X8</span> <span class="op">|</span> <span class="ident">B32X4</span> <span class="op">|</span> <span class="ident">B64X2</span> <span class="op">|</span> <span class="ident">I64X2</span> <span class="op">|</span> <span class="ident">I32X4</span> <span class="op">|</span> <span class="ident">I16X8</span> <span class="op">|</span> <span class="ident">F32X4</span> <span class="op">|</span> <span class="ident">F64X2</span>
-    )
+    <span class="macro">matches!</span>(<span class="ident">ty</span>, <span class="ident">I64X2</span> <span class="op">|</span> <span class="ident">I32X4</span> <span class="op">|</span> <span class="ident">I16X8</span> <span class="op">|</span> <span class="ident">F32X4</span> <span class="op">|</span> <span class="ident">F64X2</span>)
 }
 
 <span class="doccomment">/// Cast to I8X16, any vector values in `values` that are of &quot;non-canonical&quot; type (meaning, not</span>
@@ -6005,7 +5985,11 @@
     <span class="comment">// Otherwise we&#39;ll have to cast, and push the resulting `Value`s into `canonicalised`.</span>
     <span class="kw">for</span> <span class="ident">v</span> <span class="kw">in</span> <span class="ident">values</span> {
         <span class="ident">tmp_canonicalised</span>.<span class="ident">push</span>(<span class="kw">if</span> <span class="ident">is_non_canonical_v128</span>(<span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">value_type</span>(<span class="kw-2">*</span><span class="ident">v</span>)) {
-            <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">raw_bitcast</span>(<span class="ident">I8X16</span>, <span class="kw-2">*</span><span class="ident">v</span>)
+            <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bitcast</span>(
+                <span class="ident">I8X16</span>,
+                <span class="ident">MemFlags::new</span>().<span class="ident">with_endianness</span>(<span class="ident">ir::Endianness::Little</span>),
+                <span class="kw-2">*</span><span class="ident">v</span>,
+            )
         } <span class="kw">else</span> {
             <span class="kw-2">*</span><span class="ident">v</span>
         });

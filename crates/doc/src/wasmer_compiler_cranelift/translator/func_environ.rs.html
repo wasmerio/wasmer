@@ -490,8 +490,6 @@
 <span id="490">490</span>
 <span id="491">491</span>
 <span id="492">492</span>
-<span id="493">493</span>
-<span id="494">494</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -540,8 +538,6 @@
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">ReturnMode</span> {
     <span class="doccomment">/// Use normal return instructions as needed.</span>
     <span class="ident">NormalReturns</span>,
-    <span class="doccomment">/// Use a single fallthrough return at the end of the function.</span>
-    <span class="ident">FallthroughReturn</span>,
 }
 
 <span class="doccomment">/// Environment affecting the translation of a WebAssembly.</span>
@@ -875,7 +871,7 @@
         <span class="ident">value</span>: <span class="ident">ir::Value</span>,
     ) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">ir::Value</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">is_null</span> <span class="op">=</span> <span class="ident">pos</span>.<span class="ident">ins</span>().<span class="ident">is_null</span>(<span class="ident">value</span>);
-        <span class="prelude-val">Ok</span>(<span class="ident">pos</span>.<span class="ident">ins</span>().<span class="ident">bint</span>(<span class="ident">ir::types::I64</span>, <span class="ident">is_null</span>))
+        <span class="prelude-val">Ok</span>(<span class="ident">pos</span>.<span class="ident">ins</span>().<span class="ident">uextend</span>(<span class="ident">ir::types::I64</span>, <span class="ident">is_null</span>))
     }
 
     <span class="doccomment">/// Translate a `ref.func` WebAssembly instruction.</span>

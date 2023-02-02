@@ -55,7 +55,7 @@
 
     <span class="comment">// New-style backend: we have a `MachCompileResult` that will give us `MachSrcLoc` mapping</span>
     <span class="comment">// tuples.</span>
-    <span class="kw">let</span> <span class="ident">mcr</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">mach_compile_result</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>();
+    <span class="kw">let</span> <span class="ident">mcr</span> <span class="op">=</span> <span class="ident">context</span>.<span class="ident">compiled_code</span>().<span class="ident">unwrap</span>();
     <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">MachSrcLoc</span> { <span class="ident">start</span>, <span class="ident">end</span>, <span class="ident">loc</span> } <span class="kw">in</span> <span class="ident">mcr</span>.<span class="ident">buffer</span>.<span class="ident">get_srclocs_sorted</span>() {
         <span class="ident">instructions</span>.<span class="ident">push</span>(<span class="ident">InstructionAddressMap</span> {
             <span class="ident">srcloc</span>: <span class="ident">SourceLoc::new</span>(<span class="ident">loc</span>.<span class="ident">bits</span>()),

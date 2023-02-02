@@ -66,6 +66,8 @@
 <span id="66">66</span>
 <span id="67">67</span>
 <span id="68">68</span>
+<span id="69">69</span>
+<span id="70">70</span>
 </pre><pre class="rust"><code><span class="doccomment">//! A `Compilation` contains the compiled function bodies for a WebAssembly</span>
 <span class="doccomment">//! module.</span>
 
@@ -111,6 +113,8 @@
     <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="ident">Context</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">CraneliftUnwindInfo</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">unwind_info</span> <span class="op">=</span> <span class="ident">context</span>
+        .<span class="ident">compiled_code</span>()
+        .<span class="ident">unwrap</span>()
         .<span class="ident">create_unwind_info</span>(<span class="ident">isa</span>)
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">error</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="ident">pretty_error</span>(<span class="kw-2">&amp;</span><span class="ident">context</span>.<span class="ident">func</span>, <span class="ident">error</span>)))<span class="question-mark">?</span>;
 

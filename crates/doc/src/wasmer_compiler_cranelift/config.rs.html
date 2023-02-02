@@ -220,6 +220,11 @@
 <span id="220">220</span>
 <span id="221">221</span>
 <span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::compiler::CraneliftCompiler</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen::isa</span>::{<span class="ident">lookup</span>, <span class="ident">TargetIsa</span>};
 <span class="kw">use</span> <span class="ident">cranelift_codegen::settings</span>::{<span class="self">self</span>, <span class="ident">Configurable</span>};
@@ -345,6 +350,11 @@
     <span class="doccomment">/// Generates the flags for the compiler</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">flags</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">settings::Flags</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">flags</span> <span class="op">=</span> <span class="ident">settings::builder</span>();
+
+        <span class="comment">// Enable probestack</span>
+        <span class="ident">flags</span>
+            .<span class="ident">enable</span>(<span class="string">&quot;enable_probestack&quot;</span>)
+            .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
 
         <span class="comment">// There are two possible traps for division, and this way</span>
         <span class="comment">// we get the proper one if code traps.</span>

@@ -273,7 +273,6 @@
 <span id="273">273</span>
 <span id="274">274</span>
 <span id="275">275</span>
-<span id="276">276</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -519,7 +518,7 @@
     <span class="comment">// If the exit block is unreachable, it may not have the correct arguments, so we would</span>
     <span class="comment">// generate a return instruction that doesn&#39;t match the signature.</span>
     <span class="kw">if</span> <span class="ident">state</span>.<span class="ident">reachable</span> {
-        <span class="macro">debug_assert!</span>(<span class="ident">builder</span>.<span class="ident">is_pristine</span>());
+        <span class="comment">//debug_assert!(builder.is_pristine());</span>
         <span class="kw">if</span> <span class="op">!</span><span class="ident">builder</span>.<span class="ident">is_unreachable</span>() {
             <span class="kw">match</span> <span class="ident">environ</span>.<span class="ident">return_mode</span>() {
                 <span class="ident">ReturnMode::NormalReturns</span> =&gt; {
@@ -529,7 +528,6 @@
                     <span class="ident">bitcast_arguments</span>(<span class="kw-2">&amp;mut</span> <span class="ident">state</span>.<span class="ident">stack</span>, <span class="kw-2">&amp;</span><span class="ident">return_types</span>, <span class="ident">builder</span>);
                     <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">return_</span>(<span class="kw-2">&amp;</span><span class="ident">state</span>.<span class="ident">stack</span>)
                 }
-                <span class="ident">ReturnMode::FallthroughReturn</span> =&gt; <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fallthrough_return</span>(<span class="kw-2">&amp;</span><span class="ident">state</span>.<span class="ident">stack</span>),
             };
         }
     }
