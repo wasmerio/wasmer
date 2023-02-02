@@ -11470,7 +11470,7 @@
 
         <span class="ident">func</span>.<span class="ident">add_attribute</span>(<span class="ident">AttributeLoc::Function</span>, <span class="ident">intrinsics</span>.<span class="ident">stack_probe</span>);
         <span class="ident">func</span>.<span class="ident">set_personality_function</span>(<span class="ident">intrinsics</span>.<span class="ident">personality</span>);
-        <span class="ident">func</span>.<span class="ident">as_global_value</span>().<span class="ident">set_section</span>(<span class="prelude-val">Some</span>(<span class="ident">FUNCTION_SECTION</span>));
+        <span class="ident">func</span>.<span class="ident">as_global_value</span>().<span class="ident">set_section</span>(<span class="ident">FUNCTION_SECTION</span>);
         <span class="ident">func</span>.<span class="ident">set_linkage</span>(<span class="ident">Linkage::DLLExport</span>);
         <span class="ident">func</span>.<span class="ident">as_global_value</span>()
             .<span class="ident">set_dll_storage_class</span>(<span class="ident">DLLStorageClass::Export</span>);
@@ -13698,7 +13698,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="comment">// element type.</span>
                 <span class="kw">let</span> <span class="ident">casted_table_base</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_pointer_cast</span>(
                     <span class="ident">table_base</span>,
-                    <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">funcref_ty</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::default</span>()),
+                    <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">funcref_ty</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::Generic</span>),
                     <span class="string">&quot;casted_table_base&quot;</span>,
                 );
 
@@ -13867,7 +13867,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
 
                 <span class="kw">let</span> <span class="ident">typed_func_ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_pointer_cast</span>(
                     <span class="ident">func_ptr</span>,
-                    <span class="ident">llvm_func_type</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::default</span>()),
+                    <span class="ident">llvm_func_type</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::Generic</span>),
                     <span class="string">&quot;typed_func_ptr&quot;</span>,
                 );
 
