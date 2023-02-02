@@ -75,7 +75,6 @@ impl ConsoleConst {
     pub const WELCOME_SMALL: &'static str = include_str!("txt/welcome_small.txt");
 
     pub const ABOUT: &'static str = include_str!("txt/about.md");
-    pub const ABOUT_DEPLOY: &'static str = include_str!("txt/about_deploy.md");
     pub const ABOUT_WASMER: &'static str = include_str!("txt/about_wasmer.md");
     pub const HELP: &'static str = include_str!("txt/help.md");
     pub const BAD_WORKER: &'static str = include_str!("txt/bad_worker.md");
