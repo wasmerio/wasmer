@@ -14,10 +14,13 @@ use wasmer_vfs::{AsyncRead, AsyncSeek, AsyncWrite};
 pub struct RuntimeStdout {
     runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>,
     #[derivative(Debug = "ignore")]
-    writing: Option<(
-        Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync + 'static>>,
-        u64,
-    )>,
+    writing: Option<StdioState>,
+}
+
+/// Holds a future and a pointer to the buffer it is writing.
+struct StdioState {
+    fut: Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync + 'static>>,
+    buffer_pointer: u64,
 }
 
 impl RuntimeStdout {
@@ -48,10 +51,10 @@ impl AsyncWrite for RuntimeStdout {
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
         let buf_ptr = buf.as_ptr() as u64;
-        if let Some((writing, buf2)) = self.writing.as_mut() {
-            if *buf2 == buf_ptr {
-                let writing = writing.as_mut();
-                let written = writing.poll(cx);
+        if let Some(writing) = self.writing.as_mut() {
+            if writing.buffer_pointer == buf_ptr {
+                let fut = writing.fut.as_mut();
+                let written = fut.poll(cx);
                 if written.is_ready() {
                     self.writing.take();
                 }
@@ -63,10 +66,13 @@ impl AsyncWrite for RuntimeStdout {
             }
         }
         let stdout = self.runtime.stdout(buf);
-        self.writing.replace((stdout, buf_ptr));
-        let (writing, _) = self.writing.as_mut().unwrap();
-        let writing = writing.as_mut();
-        let written = writing.poll(cx);
+        self.writing.replace(StdioState {
+            fut: stdout,
+            buffer_pointer: buf_ptr,
+        });
+        let writing = self.writing.as_mut().unwrap();
+        let fut = writing.fut.as_mut();
+        let written = fut.poll(cx);
         if written.is_ready() {
             self.writing.take();
         }
@@ -137,10 +143,7 @@ impl wasmer_vfs::VirtualFile for RuntimeStdout {
 pub struct RuntimeStderr {
     runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>,
     #[derivative(Debug = "ignore")]
-    writing: Option<(
-        Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync + 'static>>,
-        u64,
-    )>,
+    writing: Option<StdioState>,
 }
 
 impl RuntimeStderr {
@@ -171,10 +174,10 @@ impl AsyncWrite for RuntimeStderr {
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
         let buf_ptr = buf.as_ptr() as u64;
-        if let Some((writing, buf2)) = self.writing.as_mut() {
-            if *buf2 == buf_ptr {
-                let writing = writing.as_mut();
-                let written = writing.poll(cx);
+        if let Some(state) = self.writing.as_mut() {
+            if state.buffer_pointer == buf_ptr {
+                let fut = state.fut.as_mut();
+                let written = fut.poll(cx);
                 if written.is_ready() {
                     self.writing.take();
                 }
@@ -186,9 +189,12 @@ impl AsyncWrite for RuntimeStderr {
             }
         }
         let stdout = self.runtime.stdout(buf);
-        self.writing.replace((stdout, buf_ptr));
-        let (writing, _) = self.writing.as_mut().unwrap();
-        let writing = writing.as_mut();
+        self.writing.replace(StdioState {
+            fut: stdout,
+            buffer_pointer: buf_ptr,
+        });
+        let state = self.writing.as_mut().unwrap();
+        let writing = state.fut.as_mut();
         let written = writing.poll(cx);
         if written.is_ready() {
             self.writing.take();
