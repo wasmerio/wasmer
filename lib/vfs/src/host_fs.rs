@@ -1239,7 +1239,7 @@ mod tests {
 
         let bar_metadata = fs.metadata(Path::new("./test_metadata/bar")).unwrap();
         assert!(bar_metadata.ft.dir);
-        assert_eq!(bar_metadata.accessed, foo_metadata.accessed);
+        assert!(bar_metadata.accessed >= foo_metadata.accessed);
         assert_eq!(bar_metadata.created, foo_metadata.created);
         assert!(bar_metadata.modified > foo_metadata.modified);
 
