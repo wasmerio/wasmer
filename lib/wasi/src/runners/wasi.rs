@@ -120,10 +120,13 @@ fn prepare_webc_env(
 pub(crate) fn exec_module(
     store: &mut Store,
     module: &Module,
-    wasi_env: crate::WasiFunctionEnv,
+    mut wasi_env: crate::WasiFunctionEnv,
 ) -> Result<(), anyhow::Error> {
     let import_object = wasi_env.import_object(store, module)?;
     let instance = Instance::new(store, module, &import_object)?;
+
+    wasi_env.initialize(store, &instance)?;
+
     // If this module exports an _initialize function, run that first.
     if let Ok(initialize) = instance.exports.get_function("_initialize") {
         initialize
