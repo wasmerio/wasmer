@@ -358,7 +358,7 @@ endif
 
 # Not really "all", just the default target that builds enough so make
 # install will go through.
-all: build-wasmer build-capi
+all: build-wasmer build-capi build-capi-headless
 
 check: check-wasmer check-wasmer-wasm check-capi
 
@@ -452,10 +452,10 @@ build-capi-llvm-universal:
 build-capi-headless:
 ifeq ($(CARGO_TARGET_FLAG),)
 	RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) build --target $(HOST_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features compiler-headless,wasi,webc_runner  --target-dir target/$(CARGO_TARGET)/headless
+		--no-default-features --features compiler-headless,wasi,webc_runner  --target-dir target/headless
 else
 	RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features compiler-headless,wasi,webc_runner --target-dir target/$(CARGO_TARGET)/headless
+		--no-default-features --features compiler-headless,wasi,webc_runner --target-dir target/headless
 endif
 
 build-capi-headless-ios:
@@ -562,10 +562,10 @@ test-wasi-unit:
 test-wasi:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) -- wasi::wasitests
 
-test-integration-cli: build-wasmer build-capi package dist
+test-integration-cli: build-wasmer build-capi package-capi-headless package distribution
 	cp ./dist/wasmer.tar.gz ./link.tar.gz
 	rustup target add wasm32-wasi
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
+	WASMER_DIR=`pwd`/package $(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
 
 # Before running this in the CI, we need to set up link.tar.gz and /cache/wasmer-[target].tar.gz
 test-integration-cli-ci:
@@ -618,6 +618,8 @@ ifeq ($(IS_DARWIN), 1)
 endif
 endif
 
+package-capi-headless: build-capi-headless package-capi
+
 package-capi:
 	mkdir -p "package/include"
 	mkdir -p "package/lib"
@@ -634,12 +636,20 @@ package-capi:
 		cp target/headless/$(CARGO_TARGET)/release/wasmer.dll package/lib/wasmer-headless.dll ;\
 	fi
 
+	if [ -f target/headless/$(HOST_TARGET)/release/wasmer.dll ]; then \
+		cp target/headless/$(HOST_TARGET)/release/wasmer.dll package/lib/wasmer-headless.dll ;\
+	fi
+
 	if [ -f $(TARGET_DIR)/wasmer.dll.lib ]; then \
 		cp $(TARGET_DIR)/wasmer.dll.lib package/lib/wasmer.dll.lib ;\
 	fi
 
 	if [ -f target/headless/$(CARGO_TARGET)/release/wasmer.dll.lib ]; then \
 		cp target/headless/$(CARGO_TARGET)/release/wasmer.dll.lib package/lib/wasmer-headless.dll.lib ;\
+	fi
+
+	if [ -f target/headless/$(HOST_TARGET)/release/wasmer.dll.lib ]; then \
+		cp target/headless/$(HOST_TARGET)/release/wasmer.dll.lib package/lib/wasmer-headless.dll.lib ;\
 	fi
 
 	if [ -f $(TARGET_DIR)/wasmer.lib ]; then \
@@ -650,12 +660,20 @@ package-capi:
 		cp target/headless/$(CARGO_TARGET)/release/wasmer.lib package/lib/wasmer-headless.lib ;\
 	fi
 
+	if [ -f target/headless/$(HOST_TARGET)/release/wasmer.lib ]; then \
+		cp target/headless/$(HOST_TARGET)/release/wasmer.lib package/lib/wasmer-headless.lib ;\
+	fi
+
 	if [ -f $(TARGET_DIR)/libwasmer.dylib ]; then \
 		cp $(TARGET_DIR)/libwasmer.dylib package/lib/libwasmer.dylib ;\
 	fi
 
 	if [ -f target/headless/$(CARGO_TARGET)/release/libwasmer.dylib ]; then \
 		cp target/headless/$(CARGO_TARGET)/release/libwasmer.dylib package/lib/libwasmer-headless.dylib ;\
+	fi
+
+	if [ -f target/headless/$(HOST_TARGET)/release/libwasmer.dylib ]; then \
+		cp target/headless/$(HOST_TARGET)/release/libwasmer.dylib package/lib/libwasmer-headless.dylib ;\
 	fi
 
 	if [ -f $(TARGET_DIR)/libwasmer.so ]; then \
@@ -666,12 +684,20 @@ package-capi:
 		cp target/headless/$(CARGO_TARGET)/release/libwasmer.so package/lib/libwasmer-headless.so ;\
 	fi
 
+	if [ -f target/headless/$(HOST_TARGET)/release/libwasmer.so ]; then \
+		cp target/headless/$(HOST_TARGET)/release/libwasmer.so package/lib/libwasmer-headless.so ;\
+	fi
+
 	if [ -f $(TARGET_DIR)/libwasmer.a ]; then \
 		cp $(TARGET_DIR)/libwasmer.a package/lib/libwasmer.a ;\
 	fi
 
 	if [ -f target/headless/$(CARGO_TARGET)/release/libwasmer.a ]; then \
 		cp target/headless/$(CARGO_TARGET)/release/libwasmer.a package/lib/libwasmer-headless.a ;\
+	fi
+
+	if [ -f target/headless/$(HOST_TARGET)/release/libwasmer.a ]; then \
+		cp target/headless/$(HOST_TARGET)/release/libwasmer.a package/lib/libwasmer-headless.a ;\
 	fi
 
 	if [ -f target/$(HOST_TARGET)/release/wasmer.dll ]; then \
@@ -694,32 +720,6 @@ package-capi:
 	fi
 	if [ -f target/$(HOST_TARGET)/release/libwasmer.a ]; then \
 		cp target/$(HOST_TARGET)/release/libwasmer.a package/lib/libwasmer.a ;\
-	fi
-
-package-capi-headless: build-capi-headless
-	mkdir -p "package/include"
-	mkdir -p "package/lib"
-	cp lib/c-api/wasmer.h* package/include
-	cp lib/c-api/wasmer_wasm.h* package/include
-	cp lib/c-api/wasm.h* package/include
-	cp lib/c-api/README.md package/include/README.md
-
-	if [ -f $(TARGET_DIR)/wasmer.dll ]; then \
-		cp $(TARGET_DIR)/wasmer.dll package/lib/wasmer-headless.dll ;\
-	fi
-	if [ -f $(TARGET_DIR)/wasmer.lib ]; then \
-		cp $(TARGET_DIR)/wasmer.lib package/lib/wasmer-headless.lib ;\
-	fi
-
-	if [ -f $(TARGET_DIR)/libwasmer.dylib ]; then \
-		cp $(TARGET_DIR)/libwasmer.dylib package/lib/libwasmer-headless.dylib ;\
-	fi
-
-	if [ -f $(TARGET_DIR)/libwasmer.so ]; then \
-		cp $(TARGET_DIR)/libwasmer.so package/lib/libwasmer-headless.so ;\
-	fi
-	if [ -f $(TARGET_DIR)/libwasmer.a ]; then \
-		cp $(TARGET_DIR)/libwasmer.a package/lib/libwasmer-headless.a ;\
 	fi
 
 package-docs: build-docs build-docs-capi
