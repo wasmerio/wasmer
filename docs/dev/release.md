@@ -66,6 +66,15 @@ There are a couple of problems with the scripts that you should watch out for:
 - The CHANGELOG is generated from the pull request titles since the last release. Sometimes these titles need
   to be fixed up to make any sense for a reader
 - The release notes should just highlight the most important changes for a release, not dump everything.
+- The following files should be released (TODO: more consistent naming schema):
+  - wasmer-darwin-amd64.tar.gz
+  - wasmer-darwin-arm64.tar.gz
+  - wasmer-linux-aarch64.tar.gz
+  - wasmer-linux-amd64.tar.gz
+  - wasmer-linux-musl-amd64.tar.gz
+  - wasmer-windows-amd64.tar.gz
+  - wasmer-windows-gnu64.tar.gz
+  - wasmer-windows.exe
 
 ## Videos
 
