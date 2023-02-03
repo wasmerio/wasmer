@@ -211,12 +211,14 @@ impl Artifact {
 
         Ok(Self {
             artifact,
-            finished_functions,
-            finished_function_call_trampolines,
-            finished_dynamic_function_trampolines,
-            signatures,
-            frame_info_registration: Some(Mutex::new(None)),
-            finished_function_lengths,
+            allocated: Some(AllocatedArtifact {
+                finished_functions,
+                finished_function_call_trampolines,
+                finished_dynamic_function_trampolines,
+                signatures,
+                frame_info_registration: Some(Mutex::new(None)),
+                finished_function_lengths,
+            }),
         })
     }
 
@@ -261,7 +263,12 @@ impl Artifact {
     ///
     /// This is required to ensure that any traps can be properly symbolicated.
     pub fn register_frame_info(&self) {
-        if let Some(frame_info_registration) = self.frame_info_registration.as_ref() {
+        if let Some(frame_info_registration) = self
+            .allocated
+            .expect("It must be allocated")
+            .frame_info_registration
+            .as_ref()
+        {
             let mut info = frame_info_registration.lock().unwrap();
 
             if info.is_some() {
@@ -269,10 +276,18 @@ impl Artifact {
             }
 
             let finished_function_extents = self
+                .allocated
+                .expect("It must be allocated")
                 .finished_functions
                 .values()
                 .copied()
-                .zip(self.finished_function_lengths.values().copied())
+                .zip(
+                    self.allocated
+                        .expect("It must be allocated")
+                        .finished_function_lengths
+                        .values()
+                        .copied(),
+                )
                 .map(|(ptr, length)| FunctionExtent { ptr, length })
                 .collect::<PrimaryMap<LocalFunctionIndex, _>>()
                 .into_boxed_slice();
@@ -289,13 +304,19 @@ impl Artifact {
     /// Returns the functions allocated in memory or this `Artifact`
     /// ready to be run.
     pub fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
-        &self.finished_functions
+        &self
+            .allocated
+            .expect("It must be allocated")
+            .finished_functions
     }
 
     /// Returns the function call trampolines allocated in memory of this
     /// `Artifact`, ready to be run.
     pub fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
-        &self.finished_function_call_trampolines
+        &self
+            .allocated
+            .expect("It must be allocated")
+            .finished_function_call_trampolines
     }
 
     /// Returns the dynamic function trampolines allocated in memory
@@ -303,12 +324,15 @@ impl Artifact {
     pub fn finished_dynamic_function_trampolines(
         &self,
     ) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr> {
-        &self.finished_dynamic_function_trampolines
+        &self
+            .allocated
+            .expect("It must be allocated")
+            .finished_dynamic_function_trampolines
     }
 
     /// Returns the associated VM signatures for this `Artifact`.
     pub fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
-        &self.signatures
+        &self.allocated.expect("It must be allocated").signatures
     }
 
     /// Do preinstantiation logic that is executed before instantiating
