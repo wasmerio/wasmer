@@ -115,15 +115,35 @@ impl UnwindRegistry {
     }
 
     /// Publishes all registered functions.
-    pub fn publish(&mut self, _eh_frame: Option<&[u8]>) -> Result<(), String> {
+    pub fn publish(&mut self, eh_frame: Option<&[u8]>) -> Result<(), String> {
         if self.published {
             return Err("unwind registry has already been published".to_string());
+        }
+
+        let have_eh_frame = eh_frame.is_some();
+        match self.ty {
+            #[cfg(unix)]
+            UnwindType::SystemV => {}
+            #[cfg(all(windows, target_arch = "x86_64"))]
+            UnwindType::WindowsX64 => {
+                if have_eh_frame {
+                    return Err("unwind mysmatch eh_frame on WindowsX64".to_string());
+                }
+            }
+            UnwindType::Dummy => {}
+            UnwindType::Unknown =>
+            {
+                #[cfg(unix)]
+                if have_eh_frame {
+                    self.ty = UnwindType::SystemV;
+                }
+            }
         }
 
         match self.ty {
             #[cfg(unix)]
             UnwindType::SystemV => {
-                if let Some(eh_frame) = _eh_frame {
+                if let Some(eh_frame) = eh_frame {
                     unsafe {
                         self.register_frames(eh_frame);
                     }
