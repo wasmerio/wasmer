@@ -74,7 +74,7 @@ fn test_login_2() {
 
     assert_eq!(
         login.get_token_or_ask_user().unwrap(),
-        "Please paste the login token for https://wapm.dev/me"
+        "Please paste the login token from https://wapm.dev/settings/access-tokens"
     );
 
     let login = Login {
