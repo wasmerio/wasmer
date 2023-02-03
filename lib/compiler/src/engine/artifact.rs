@@ -36,9 +36,7 @@ use wasmer_types::{SerializableModule, SerializeError};
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
 use wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMExtern, VMInstance};
 
-/// A compiled wasm module, ready to be instantiated.
-pub struct Artifact {
-    artifact: ArtifactBuild,
+pub struct AllocatedArtifact {
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
@@ -46,6 +44,14 @@ pub struct Artifact {
     /// Some(_) only if this is not a deserialized static artifact
     frame_info_registration: Option<Mutex<Option<GlobalFrameInfoRegistration>>>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
+}
+
+/// A compiled wasm module, ready to be instantiated.
+pub struct Artifact {
+    artifact: ArtifactBuild,
+    // The artifact will only be allocated in memory in case we can execute it
+    // (that means, if the target != host then this will be None).
+    allocated: Option<AllocatedArtifact>,
 }
 
 impl Artifact {
@@ -80,6 +86,13 @@ impl Artifact {
         )?;
 
         Self::from_parts(&mut inner_engine, artifact)
+    }
+
+    /// This indicates if the Artifact is allocated and can be run by the current
+    /// host. In case it can't be run (for example, if the artifact is cross compiled to
+    /// other architecture), it will return false.
+    pub fn allocated(&self) -> bool {
+        self.allocated.is_some()
     }
 
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
