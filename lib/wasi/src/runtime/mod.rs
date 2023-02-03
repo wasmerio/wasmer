@@ -5,7 +5,7 @@ mod ws;
 use self::task_manager::StubTaskManager;
 pub use self::{
     stdio::*,
-    task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager},
+    task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager, VirtualTaskManagerExt},
     ws::*,
 };
 

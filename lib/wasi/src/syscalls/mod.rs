@@ -365,12 +365,7 @@ where
     };
 
     // Block on the work and process it
-    let (tx, rx) = std::sync::mpsc::channel();
-    tasks.block_on(Box::pin(async move {
-        let ret = work.await;
-        tx.send(ret);
-    }));
-    rx.recv().unwrap()
+    tasks.block_on(work)
 }
 
 /// Performs mutable work on a socket under an asynchronous runtime with
@@ -414,12 +409,7 @@ where
                 let work = actor(socket);
 
                 // Block on the work and process it
-                let (tx, rx) = std::sync::mpsc::channel();
-                tasks.block_on(Box::pin(async move {
-                    let ret = work.await;
-                    tx.send(ret);
-                }));
-                rx.recv().unwrap()
+                tasks.block_on(work)
             }
             _ => Err(Errno::Notsock),
         }

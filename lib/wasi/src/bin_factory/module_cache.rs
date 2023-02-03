@@ -275,7 +275,7 @@ mod tests {
         for _ in 0..2 {
             let webc = cache.get_webc("sharrattj/dash", &rt, &tasks).unwrap();
             store.push(webc);
-            tasks.block_on_generic(tasks.sleep_now(0.into(), 1000));
+            tasks.runtime().block_on(tasks.sleep_now(0.into(), 1000));
         }
     }
 }

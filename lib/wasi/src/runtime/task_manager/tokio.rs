@@ -69,12 +69,9 @@ impl VirtualTaskManager for TokioTaskManager {
         Ok(())
     }
 
-    /// See [`VirtualTaskManager::block_on`].
-    fn block_on_generic<'a>(&self, task: Pin<Box<dyn Future<Output = ()> + 'a>>) {
-        let _guard = self.0.enter();
-        self.0.block_on(async move {
-            task.await;
-        });
+    /// See [`VirtualTaskManager::runtime`].
+    fn runtime(&self) -> &Runtime {
+        &self.0
     }
 
     /// See [`VirtualTaskManager::block_on`].

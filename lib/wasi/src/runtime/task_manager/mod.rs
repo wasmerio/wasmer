@@ -4,6 +4,7 @@ pub mod tokio;
 
 use std::pin::Pin;
 
+use ::tokio::runtime::Runtime;
 use futures::Future;
 use wasmer::{vm::VMMemory, MemoryType, Module, Store};
 #[cfg(feature = "sys")]
@@ -47,10 +48,8 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
         >,
     ) -> Result<(), WasiThreadError>;
 
-    /// Starts an asynchronous task on the local thread (by running it in a runtime)
-    // TODO: return output future?
-    // TODO: should be fallible
-    fn block_on_generic<'a>(&self, task: Pin<Box<dyn Future<Output = ()> + 'a>>);
+    /// Returns a runtime that can be used for asynchronous tasks
+    fn runtime(&self) -> &Runtime;
 
     /// Enters a runtime context
     #[allow(dyn_drop)]
@@ -108,8 +107,7 @@ impl VirtualTaskManager for StubTaskManager {
         Err(WasiThreadError::Unsupported)
     }
 
-    #[allow(unused_variables)]
-    fn block_on_generic<'a>(&self, task: Pin<Box<dyn Future<Output = ()> + 'a>>) {
+    fn runtime(&self) -> &Runtime {
         unimplemented!("asynchronous operations are not supported on this task manager");
     }
 
@@ -149,13 +147,7 @@ impl dyn VirtualTaskManager {
     /// This method blocks until the future is complete.
     // This needs to be a generic impl on `dyn T` because it is generic, and hence not object-safe.
     pub fn block_on<'a, A>(&self, task: impl Future<Output = A> + 'a) -> A {
-        // TODO: evaluate if this is a reasonable default impl.
-        let (tx, rx) = std::sync::mpsc::channel();
-        self.block_on_generic(Box::pin(async move {
-            let ret = task.await;
-            tx.send(ret).unwrap();
-        }));
-        rx.recv().unwrap()
+        self.runtime().block_on(task)
     }
 }
 
@@ -166,22 +158,12 @@ pub trait VirtualTaskManagerExt {
 
 impl<'a, T: VirtualTaskManager> VirtualTaskManagerExt for &'a T {
     fn block_on<'x, A>(&self, task: impl Future<Output = A> + 'x) -> A {
-        let (tx, rx) = std::sync::mpsc::channel();
-        self.block_on_generic(Box::pin(async move {
-            let ret = task.await;
-            tx.send(ret).unwrap();
-        }));
-        rx.recv().unwrap()
+        self.runtime().block_on(task)
     }
 }
 
 impl<T: VirtualTaskManager + ?Sized> VirtualTaskManagerExt for std::sync::Arc<T> {
     fn block_on<'x, A>(&self, task: impl Future<Output = A> + 'x) -> A {
-        let (tx, rx) = std::sync::mpsc::channel();
-        self.block_on_generic(Box::pin(async move {
-            let ret = task.await;
-            tx.send(ret).unwrap();
-        }));
-        rx.recv().unwrap()
+        self.runtime().block_on(task)
     }
 }
