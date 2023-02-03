@@ -16,26 +16,29 @@ use winapi::um::winnt;
 enum UnwindType {
     Unknown,
     Dummy,
+    #[cfg(unix)]
     SystemV,
     #[cfg(all(windows, target_arch = "x86_64"))]
     WindowsX64,
 }
 
 /// Represents a registry of function unwind information for System V or Windows X64 ABI.
-/// Not that Windows X64 ABI unwind info will only work on native Windows
-/// Cross-compiling from Linux to Windows will not handle the Unwind info for now
+/// Cross-compiling will not handle the Unwind info for now,
+/// and will fallback to the Dummy implementation
 pub struct UnwindRegistry {
     ty: UnwindType,
     // WINNT: A hashmap mapping the baseaddress with the registered runtime functions
     #[cfg(all(windows, target_arch = "x86_64"))]
     functions: HashMap<usize, Vec<winnt::RUNTIME_FUNCTION>>,
     // SYSV: registraction vector
+    #[cfg(unix)]
     registrations: Vec<usize>,
     // common: published?
     published: bool,
 }
 
 // SystemV helper
+#[cfg(unix)]
 extern "C" {
     // libunwind import
     fn __register_frame(fde: *const u8);
@@ -49,6 +52,7 @@ impl UnwindRegistry {
             ty: UnwindType::Unknown,
             #[cfg(all(windows, target_arch = "x86_64"))]
             functions: HashMap::new(),
+            #[cfg(unix)]
             registrations: Vec::new(),
             published: false,
         }
@@ -93,6 +97,7 @@ impl UnwindRegistry {
 
                 entries.push(entry);
             }
+            #[cfg(unix)]
             CompiledFunctionUnwindInfo::Dwarf => {
                 if self.ty != UnwindType::Unknown && self.ty != UnwindType::SystemV {
                     return Err("unwind registry has already un incompatible type".to_string());
@@ -110,14 +115,15 @@ impl UnwindRegistry {
     }
 
     /// Publishes all registered functions.
-    pub fn publish(&mut self, eh_frame: Option<&[u8]>) -> Result<(), String> {
+    pub fn publish(&mut self, _eh_frame: Option<&[u8]>) -> Result<(), String> {
         if self.published {
             return Err("unwind registry has already been published".to_string());
         }
 
         match self.ty {
+            #[cfg(unix)]
             UnwindType::SystemV => {
-                if let Some(eh_frame) = eh_frame {
+                if let Some(_eh_frame) = eh_frame {
                     unsafe {
                         self.register_frames(eh_frame);
                     }
@@ -154,6 +160,7 @@ impl UnwindRegistry {
     }
 
     #[allow(clippy::cast_ptr_alignment)]
+    #[cfg(unix)]
     unsafe fn register_frames(&mut self, eh_frame: &[u8]) {
         if cfg!(any(
             all(target_os = "linux", target_env = "gnu"),
@@ -208,6 +215,7 @@ impl Drop for UnwindRegistry {
                         winnt::RtlDeleteFunctionTable(functions.as_mut_ptr());
                     }
                 },
+                #[cfg(unix)]
                 UnwindType::SystemV => {
                     unsafe {
                         // libgcc stores the frame entries as a linked list in decreasing sort order
