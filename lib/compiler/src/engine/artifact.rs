@@ -758,14 +758,16 @@ impl Artifact {
 
         Ok(Self {
             artifact,
-            finished_functions: finished_functions.into_boxed_slice(),
-            finished_function_call_trampolines: finished_function_call_trampolines
-                .into_boxed_slice(),
-            finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
-                .into_boxed_slice(),
-            signatures: signatures.into_boxed_slice(),
-            finished_function_lengths,
-            frame_info_registration: None,
+            allocated: Some(ArtifactBuild {
+                finished_functions: finished_functions.into_boxed_slice(),
+                finished_function_call_trampolines: finished_function_call_trampolines
+                    .into_boxed_slice(),
+                finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
+                    .into_boxed_slice(),
+                signatures: signatures.into_boxed_slice(),
+                finished_function_lengths,
+                frame_info_registration: None,
+            }),
         })
     }
 }
