@@ -42,7 +42,7 @@ pub fn callback_signal<M: MemorySize>(
         inner.signal_set = true;
     }
 
-    let _ = ctx.data().clone().process_signals_and_exit(&mut ctx)?;
+    let _ = WasiEnv::process_signals_and_exit(&mut ctx)?;
 
     Ok(())
 }

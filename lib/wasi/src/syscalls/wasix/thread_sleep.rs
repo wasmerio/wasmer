@@ -18,7 +18,7 @@ pub fn thread_sleep(
         ctx.data().tid()
     );
     */
-    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let env = ctx.data();
 

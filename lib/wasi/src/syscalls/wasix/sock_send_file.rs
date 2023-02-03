@@ -31,7 +31,7 @@ pub fn sock_send_file<M: MemorySize>(
         in_fd
     );
 
-    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let mut env = ctx.data();
     let net = env.net();

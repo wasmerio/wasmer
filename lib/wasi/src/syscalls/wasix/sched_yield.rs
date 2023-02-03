@@ -11,6 +11,6 @@ pub fn sched_yield(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, WasiEr
         tasks.sleep_now(current_caller_id(), 0).await;
         Ok(())
     })?);
-    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
     Ok(Errno::Success)
 }

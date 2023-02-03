@@ -6,7 +6,8 @@ use std::{
 use derivative::Derivative;
 use tracing::{trace, warn};
 use wasmer::{
-    AsStoreMut, AsStoreRef, Exports, Global, Instance, Memory, MemoryView, Module, TypedFunction,
+    AsStoreRef, Exports, FunctionEnvMut, Global, Instance, Memory, MemoryView, Module,
+    TypedFunction,
 };
 use wasmer_vbus::{SpawnEnvironmentIntrinsics, VirtualBus};
 use wasmer_vnet::DynVirtualNetworking;
@@ -331,20 +332,20 @@ impl WasiEnv {
 
     /// Porcesses any signals that are batched up or any forced exit codes
     pub fn process_signals_and_exit(
-        &self,
-        store: &mut impl AsStoreMut,
+        ctx: &mut FunctionEnvMut<'_, Self>,
     ) -> Result<Result<bool, Errno>, WasiError> {
         // If a signal handler has never been set then we need to handle signals
         // differently
-        if self.inner().signal_set == false {
-            if let Ok(signals) = self.thread.pop_signals_or_subscribe() {
+        let env = ctx.data();
+        if env.inner().signal_set == false {
+            if let Ok(signals) = env.thread.pop_signals_or_subscribe() {
                 let signal_cnt = signals.len();
                 for sig in signals {
                     if sig == Signal::Sigint || sig == Signal::Sigquit || sig == Signal::Sigkill {
-                        self.thread.terminate(Errno::Intr as u32);
+                        env.thread.terminate(Errno::Intr as u32);
                         return Err(WasiError::Exit(Errno::Intr as u32));
                     } else {
-                        trace!("wasi[{}]::signal-ignored: {:?}", self.pid(), sig);
+                        trace!("wasi[{}]::signal-ignored: {:?}", env.pid(), sig);
                     }
                 }
                 return Ok(Ok(signal_cnt > 0));
@@ -354,39 +355,39 @@ impl WasiEnv {
         }
 
         // Check for forced exit
-        if let Some(forced_exit) = self.should_exit() {
+        if let Some(forced_exit) = env.should_exit() {
             return Err(WasiError::Exit(forced_exit));
         }
 
-        Ok(self.process_signals(store)?)
+        Ok(Self::process_signals(ctx)?)
     }
 
     /// Porcesses any signals that are batched up
     pub fn process_signals(
-        &self,
-        store: &mut impl AsStoreMut,
+        ctx: &mut FunctionEnvMut<'_, Self>,
     ) -> Result<Result<bool, Errno>, WasiError> {
         // If a signal handler has never been set then we need to handle signals
         // differently
-        if self.inner().signal_set == false {
-            if self
+        let env = ctx.data();
+        if env.inner().signal_set == false {
+            if env
                 .thread
                 .has_signal(&[Signal::Sigint, Signal::Sigquit, Signal::Sigkill])
             {
-                self.thread.terminate(Errno::Intr as u32);
+                env.thread.terminate(Errno::Intr as u32);
             }
             return Ok(Ok(false));
         }
 
         // Check for any signals that we need to trigger
         // (but only if a signal handler is registered)
-        if let Some(handler) = self.inner().signal.clone() {
-            if let Ok(mut signals) = self.thread.pop_signals_or_subscribe() {
+        if let Some(handler) = env.inner().signal.clone() {
+            if let Ok(mut signals) = env.thread.pop_signals_or_subscribe() {
                 // We might also have signals that trigger on timers
                 let mut now = 0;
                 let has_signal_interval = {
                     let mut any = false;
-                    let inner = self.process.inner.read().unwrap();
+                    let inner = env.process.inner.read().unwrap();
                     if inner.signal_intervals.is_empty() == false {
                         now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000)
                             .unwrap() as u128;
@@ -401,7 +402,7 @@ impl WasiEnv {
                     any
                 };
                 if has_signal_interval {
-                    let mut inner = self.process.inner.write().unwrap();
+                    let mut inner = env.process.inner.write().unwrap();
                     for signal in inner.signal_intervals.values_mut() {
                         let elapsed = now - signal.last_signal;
                         if elapsed >= signal.interval.as_nanos() {
@@ -412,13 +413,17 @@ impl WasiEnv {
                 }
 
                 for signal in signals {
-                    tracing::trace!("wasi[{}]::processing-signal: {:?}", self.pid(), signal);
-                    if let Err(err) = handler.call(store, signal as i32) {
+                    tracing::trace!(
+                        "wasi[{}]::processing-signal: {:?}",
+                        ctx.data().pid(),
+                        signal
+                    );
+                    if let Err(err) = handler.call(ctx, signal as i32) {
                         match err.downcast::<WasiError>() {
                             Ok(wasi_err) => {
                                 warn!(
                                     "wasi[{}]::signal handler wasi error - {}",
-                                    self.pid(),
+                                    ctx.data().pid(),
                                     wasi_err
                                 );
                                 return Err(wasi_err);
@@ -426,7 +431,7 @@ impl WasiEnv {
                             Err(runtime_err) => {
                                 warn!(
                                     "wasi[{}]::signal handler runtime error - {}",
-                                    self.pid(),
+                                    ctx.data().pid(),
                                     runtime_err
                                 );
                                 return Err(WasiError::Exit(Errno::Intr as ExitCode));

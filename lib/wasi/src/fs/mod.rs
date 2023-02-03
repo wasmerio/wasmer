@@ -29,7 +29,8 @@ use wasmer_wasi_types::{
 
 pub use self::fd::{Fd, InodeVal, Kind};
 pub(crate) use self::inode_guard::{
-    InodeValFilePollGuard, InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard,
+    InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFileReadGuard,
+    InodeValFileWriteGuard, WasiStateFileGuard,
 };
 use crate::syscalls::map_io_err;
 use crate::{

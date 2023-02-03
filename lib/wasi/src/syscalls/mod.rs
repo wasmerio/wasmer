@@ -263,7 +263,7 @@ where
         let signaler = signals.1.subscribe();
         if signals.0.is_empty() == false {
             drop(signals);
-            match ctx.data().clone().process_signals(ctx)? {
+            match WasiEnv::process_signals(ctx)? {
                 Err(err) => return Ok(Err(err)),
                 Ok(processed) if processed == true => return Ok(Err(Errno::Intr)),
                 Ok(_) => {}
@@ -280,7 +280,7 @@ where
             ret = pinned_work => ret,
             // If a signaler is triggered then we interrupt the main process
             _ = signaler.recv() => {
-                ctx.data().clone().process_signals(ctx)?;
+                WasiEnv::process_signals(ctx)?;
                 Err(Errno::Intr)
             },
             // Optional timeout

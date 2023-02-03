@@ -384,7 +384,7 @@ pub fn bus_poll<M: MemorySize>(
                 return Ok(BusErrno::Success);
             }
 
-            let _ = ctx.data().clone().process_signals_and_exit(&mut ctx)?;
+            let _ = WasiEnv::process_signals_and_exit(&mut ctx)?;
             env = ctx.data();
 
             let remaining = timeout.checked_sub(delta).unwrap_or(0);

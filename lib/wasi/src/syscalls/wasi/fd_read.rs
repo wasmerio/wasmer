@@ -108,7 +108,7 @@ fn fd_read_internal<M: MemorySize>(
     nread: WasmPtr<M::Offset, M>,
     should_update_cursor: bool,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let mut env = ctx.data();
     let state = env.state.clone();

@@ -36,6 +36,18 @@ macro_rules! wasi_try_ok {
     }};
 }
 
+macro_rules! wasi_try_ok_ok {
+    ($expr:expr) => {{
+        let res: Result<_, crate::syscalls::types::wasi::Errno> = $expr;
+        match res {
+            Ok(val) => val,
+            Err(err) => {
+                return Ok(Err(err));
+            }
+        }
+    }};
+}
+
 /// Like the `try!` macro or `?` syntax: returns the value if the computation
 /// succeeded or returns the error value.
 #[allow(unused_macros)]

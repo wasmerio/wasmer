@@ -28,7 +28,7 @@ pub fn sock_accept<M: MemorySize>(
         fd_flags
     );
 
-    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let (child, addr) = wasi_try_ok!(__sock_actor(
         &mut ctx,

@@ -17,7 +17,7 @@ pub fn proc_raise(mut ctx: FunctionEnvMut<'_, WasiEnv>, sig: Signal) -> Result<E
     let env = ctx.data();
     env.process.signal_process(sig);
 
-    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     Ok(Errno::Success)
 }
@@ -51,7 +51,7 @@ pub fn proc_raise_interval(
     };
     env.process.signal_interval(sig, interval, repeat);
 
-    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     Ok(Errno::Success)
 }

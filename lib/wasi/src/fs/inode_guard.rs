@@ -166,23 +166,24 @@ impl InodeValFilePollGuard {
             | InodeValFilePollGuardMode::Socket { .. } => true,
         }
     }
-
-    pub async fn wait(&mut self) -> Vec<Event> {
-        InodeValFilePollGuardJoin::new(self).await
-    }
 }
 
-struct InodeValFilePollGuardJoin<'a> {
+pub(crate) struct InodeValFilePollGuardJoin<'a> {
     mode: &'a mut InodeValFilePollGuardMode,
+    fd: u32,
     subscriptions: HashMap<PollEventSet, Subscription>,
 }
 
 impl<'a> InodeValFilePollGuardJoin<'a> {
-    fn new(guard: &'a mut InodeValFilePollGuard) -> Self {
+    pub(crate) fn new(guard: &'a mut InodeValFilePollGuard) -> Self {
         Self {
             mode: &mut guard.mode,
+            fd: guard.fd,
             subscriptions: guard.subscriptions.clone(),
         }
+    }
+    pub(crate) fn fd(&self) -> u32 {
+        self.fd
     }
 }
 

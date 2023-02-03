@@ -12,7 +12,7 @@ pub fn proc_join<M: MemorySize>(
     pid_ptr: WasmPtr<Pid, M>,
     exit_code_ptr: WasmPtr<ExitCode, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(ctx.data().clone().process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
