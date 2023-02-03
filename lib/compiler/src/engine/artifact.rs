@@ -18,21 +18,20 @@ use enumset::EnumSet;
 use std::mem;
 use std::sync::Arc;
 use std::sync::Mutex;
-use wasmer_object::object::Architecture;
 #[cfg(feature = "static-artifact-create")]
 use wasmer_object::{emit_compilation, emit_data, get_object_for_target, Object};
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use wasmer_types::compilation::symbols::ModuleMetadata;
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
+#[cfg(feature = "static-artifact-create")]
+use wasmer_types::CompileModuleInfo;
 use wasmer_types::MetadataHeader;
 #[cfg(feature = "static-artifact-load")]
 use wasmer_types::SerializableCompilation;
 use wasmer_types::{
     CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
-    MemoryIndex, ModuleInfo, OwnedDataInitializer, SignatureIndex, TableIndex,
+    MemoryIndex, ModuleInfo, OwnedDataInitializer, SignatureIndex, TableIndex, Target,
 };
-#[cfg(feature = "static-artifact-create")]
-use wasmer_types::{CompileModuleInfo, Target};
 use wasmer_types::{SerializableModule, SerializeError};
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
 use wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMExtern, VMInstance};
@@ -86,7 +85,7 @@ impl Artifact {
             table_styles,
         )?;
 
-        Self::from_parts(&mut inner_engine, artifact)
+        Self::from_parts(&mut inner_engine, artifact, engine.target())
     }
 
     /// This indicates if the Artifact is allocated and can be run by the current
@@ -134,14 +133,22 @@ impl Artifact {
         let serializable = SerializableModule::deserialize(metadata_slice)?;
         let artifact = ArtifactBuild::from_serializable(serializable);
         let mut inner_engine = engine.inner_mut();
-        Self::from_parts(&mut inner_engine, artifact).map_err(DeserializeError::Compiler)
+        Self::from_parts(&mut inner_engine, artifact, engine.target())
+            .map_err(DeserializeError::Compiler)
     }
 
     /// Construct a `ArtifactBuild` from component parts.
     pub fn from_parts(
         engine_inner: &mut EngineInner,
         artifact: ArtifactBuild,
+        target: &Target,
     ) -> Result<Self, CompileError> {
+        if !target.is_native() {
+            return Ok(Self {
+                artifact,
+                allocated: None,
+            });
+        }
         let module_info = artifact.create_module_info();
         let (
             finished_functions,
