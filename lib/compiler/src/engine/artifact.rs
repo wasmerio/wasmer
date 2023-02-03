@@ -18,6 +18,7 @@ use enumset::EnumSet;
 use std::mem;
 use std::sync::Arc;
 use std::sync::Mutex;
+use wasmer_object::object::Architecture;
 #[cfg(feature = "static-artifact-create")]
 use wasmer_object::{emit_compilation, emit_data, get_object_for_target, Object};
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
@@ -265,6 +266,7 @@ impl Artifact {
     pub fn register_frame_info(&self) {
         if let Some(frame_info_registration) = self
             .allocated
+            .as_ref()
             .expect("It must be allocated")
             .frame_info_registration
             .as_ref()
@@ -277,12 +279,14 @@ impl Artifact {
 
             let finished_function_extents = self
                 .allocated
+                .as_ref()
                 .expect("It must be allocated")
                 .finished_functions
                 .values()
                 .copied()
                 .zip(
                     self.allocated
+                        .as_ref()
                         .expect("It must be allocated")
                         .finished_function_lengths
                         .values()
@@ -306,6 +310,7 @@ impl Artifact {
     pub fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
         &self
             .allocated
+            .as_ref()
             .expect("It must be allocated")
             .finished_functions
     }
@@ -315,6 +320,7 @@ impl Artifact {
     pub fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
         &self
             .allocated
+            .as_ref()
             .expect("It must be allocated")
             .finished_function_call_trampolines
     }
@@ -326,13 +332,18 @@ impl Artifact {
     ) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr> {
         &self
             .allocated
+            .as_ref()
             .expect("It must be allocated")
             .finished_dynamic_function_trampolines
     }
 
     /// Returns the associated VM signatures for this `Artifact`.
     pub fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
-        &self.allocated.expect("It must be allocated").signatures
+        &self
+            .allocated
+            .as_ref()
+            .expect("It must be allocated")
+            .signatures
     }
 
     /// Do preinstantiation logic that is executed before instantiating
@@ -758,7 +769,7 @@ impl Artifact {
 
         Ok(Self {
             artifact,
-            allocated: Some(ArtifactBuild {
+            allocated: Some(AllocatedArtifact {
                 finished_functions: finished_functions.into_boxed_slice(),
                 finished_function_call_trampolines: finished_function_call_trampolines
                     .into_boxed_slice(),

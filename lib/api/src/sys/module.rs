@@ -320,7 +320,7 @@ impl Module {
         if !self.artifact.allocated() {
             // Return an error mentioning that the artifact is compiled for a different
             // platform. Probably need a new error
-            return InstantiationError::DifferentStores;
+            return Err(InstantiationError::DifferentStores);
         }
         // Ensure all imports come from the same context.
         for import in imports {
