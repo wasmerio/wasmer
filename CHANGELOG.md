@@ -9,6 +9,35 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 3.1.1 - 03/02/2023
+
+## Added
+
+  - [#3512](https://github.com/wasmerio/wasmer/pull/3512) Add unit test for verifying that caching works when running packages twice
+  - [#3490](https://github.com/wasmerio/wasmer/pull/3490) Fix JS sample code by adding "&mut store"
+
+## Changed
+
+  - [#3353](https://github.com/wasmerio/wasmer/pull/3353) Speed up CI
+  - [#3564](https://github.com/wasmerio/wasmer/pull/3564) Updated Cranelift to 0.91
+  - [#3537](https://github.com/wasmerio/wasmer/pull/3537) bump inkwell to 0.1.0
+  - [#3562](https://github.com/wasmerio/wasmer/pull/3562) Improved handling of wasmer-headless generation and use on local run
+  - [#3563](https://github.com/wasmerio/wasmer/pull/3563) Revert "bump inkwell to 0.1.0"
+  - [#3558](https://github.com/wasmerio/wasmer/pull/3558) Reduce libwasmer-headless size
+  - [#3552](https://github.com/wasmerio/wasmer/pull/3552) create-exe: link with libwasmer-headless
+  - [#3547](https://github.com/wasmerio/wasmer/pull/3547) Remove setting memory for WASI compatibility
+  - [#3531](https://github.com/wasmerio/wasmer/pull/3531) Reenable create-exe tests
+  - [#3534](https://github.com/wasmerio/wasmer/pull/3534) Use JS VM store instead of artificially replicate it
+  - [#3532](https://github.com/wasmerio/wasmer/pull/3532) VMInstance cannot be Clone
+
+## Fixed
+
+  - [#3551](https://github.com/wasmerio/wasmer/pull/3551) Fix markup in Japanese README
+  - [#3493](https://github.com/wasmerio/wasmer/pull/3493) Fixed some memory leak issue with InstanceHandle
+  - [#3523](https://github.com/wasmerio/wasmer/pull/3523) Fix Windows-GNU distribution
+
+
+
 ## 3.2.0-alpha.1 - 23/01/2023
 
 ## Added
