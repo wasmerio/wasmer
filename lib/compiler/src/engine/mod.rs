@@ -38,6 +38,9 @@ pub use self::resolver::resolve_imports;
 pub use self::trap::*;
 #[cfg(not(target_arch = "wasm32"))]
 pub use self::tunables::{BaseTunables, Tunables};
+#[cfg(feature = "translator")]
+#[cfg(not(target_arch = "wasm32"))]
+pub use self::unwind::*;
 
 #[cfg(feature = "translator")]
 #[cfg(not(target_arch = "wasm32"))]
