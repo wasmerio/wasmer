@@ -33,7 +33,7 @@ impl Login {
                     registry_tld.suffix.as_deref(),
                 ) {
                     (Some(d), Some(s)) => {
-                        format!("Please paste the login token for https://{d}.{s}/me")
+                        format!("Please paste the login token from https://{d}.{s}/settings/access-tokens")
                     }
                     _ => "Please paste the login token".to_string(),
                 };
@@ -74,7 +74,7 @@ fn test_login_2() {
 
     assert_eq!(
         login.get_token_or_ask_user().unwrap(),
-        "Please paste the login token for https://wapm.dev/me"
+        "Please paste the login token from https://wapm.dev/settings/access-tokens"
     );
 
     let login = Login {

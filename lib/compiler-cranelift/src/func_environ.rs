@@ -27,7 +27,7 @@ use wasmer_types::{WasmError, WasmResult};
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
 pub fn get_function_name(func_index: FunctionIndex) -> ir::ExternalName {
-    ir::ExternalName::user(0, func_index.as_u32())
+    ir::ExternalName::user(ir::UserExternalNameRef::from_u32(func_index.as_u32()))
 }
 
 /// The type of the `current_elements` field.
@@ -1028,7 +1028,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             _ => unreachable!(),
         };
 
-        Ok(pos.ins().bint(ir::types::I32, bool_is_null))
+        Ok(pos.ins().uextend(ir::types::I32, bool_is_null))
     }
 
     fn translate_ref_func(
