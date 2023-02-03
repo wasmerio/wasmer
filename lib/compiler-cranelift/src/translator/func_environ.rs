@@ -46,8 +46,6 @@ pub enum GlobalVariable {
 pub enum ReturnMode {
     /// Use normal return instructions as needed.
     NormalReturns,
-    /// Use a single fallthrough return at the end of the function.
-    FallthroughReturn,
 }
 
 /// Environment affecting the translation of a WebAssembly.
@@ -381,7 +379,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         value: ir::Value,
     ) -> WasmResult<ir::Value> {
         let is_null = pos.ins().is_null(value);
-        Ok(pos.ins().bint(ir::types::I64, is_null))
+        Ok(pos.ins().uextend(ir::types::I64, is_null))
     }
 
     /// Translate a `ref.func` WebAssembly instruction.
