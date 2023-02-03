@@ -319,7 +319,7 @@ impl Module {
     ) -> Result<VMInstance, InstantiationError> {
         if !self.artifact.allocated() {
             // Return an error mentioning that the artifact is compiled for a different
-            // platform. Probably need a new error
+            // platform.
             return Err(InstantiationError::DifferentArchOS);
         }
         // Ensure all imports come from the same context.
