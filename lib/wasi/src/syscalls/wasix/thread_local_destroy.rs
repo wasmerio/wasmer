@@ -23,19 +23,15 @@ pub fn thread_local_destroy(mut ctx: FunctionEnvMut<'_, WasiEnv>, key: TlKey) ->
         .thread_local
         .iter()
         .filter(|((_, k), _)| *k == key)
-        .map(|(_, v)| v.clone())
+        .map(|(_, v)| *v)
         .collect::<Vec<_>>();
     inner.thread_local.retain(|(_, k), _| *k != key);
 
     if let Some(user_data) = inner.thread_local_user_data.remove(&key) {
         drop(inner);
 
-        if let Some(thread_local_destroy) = ctx
-            .data()
-            .inner()
-            .thread_local_destroy
-            .as_ref()
-            .map(|a| a.clone())
+        if let Some(thread_local_destroy) =
+            ctx.data().inner().thread_local_destroy.as_ref().cloned()
         {
             for val in data {
                 let user_data_low: u32 = (user_data & 0xFFFFFFFF) as u32;

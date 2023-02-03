@@ -43,11 +43,10 @@ pub fn bus_subcall<M: MemorySize>(
     // Get the parent call that we'll invoke this call for
     let mut guard = env.state.bus.protected();
     if let Some(parent) = guard.calls.get(&parent_cid) {
-        let bid = parent.bid.clone();
+        let bid = parent.bid;
 
         // Invoke the sub-call in the existing parent call
         let mut invoked = parent.invocation.invoke(topic_hash, format, buf);
-        drop(parent);
         drop(guard);
 
         // Poll the invocation until it does its thing

@@ -38,7 +38,7 @@ pub fn proc_exec<M: MemorySize>(
     let args: Vec<_> = args
         .split(&['\n', '\r'])
         .map(|a| a.to_string())
-        .filter(|a| a.len() > 0)
+        .filter(|a| !a.is_empty())
         .collect();
 
     // Convert relative paths into absolute paths
@@ -174,9 +174,7 @@ pub fn proc_exec<M: MemorySize>(
         // Add the process to the environment state
         {
             let mut inner = ctx.data().process.write();
-            inner
-                .bus_processes
-                .insert(child_pid.into(), Box::new(process));
+            inner.bus_processes.insert(child_pid, Box::new(process));
         }
 
         let mut memory_stack = vfork.memory_stack;
@@ -185,7 +183,7 @@ pub fn proc_exec<M: MemorySize>(
 
         // If the return value offset is within the memory stack then we need
         // to update it here rather than in the real memory
-        let pid_offset: u64 = vfork.pid_offset.into();
+        let pid_offset: u64 = vfork.pid_offset;
         if pid_offset >= stack_start && pid_offset < stack_base {
             // Make sure its within the "active" part of the memory stack
             let offset = stack_base - pid_offset;
@@ -290,7 +288,7 @@ pub fn proc_exec<M: MemorySize>(
                         }
                     }));
                     let exit_code = rx.recv().unwrap();
-                    return OnCalledAction::Trap(Box::new(WasiError::Exit(exit_code as ExitCode)));
+                    OnCalledAction::Trap(Box::new(WasiError::Exit(exit_code as ExitCode)))
                 }
                 Ok(Err(err)) => {
                     warn!(

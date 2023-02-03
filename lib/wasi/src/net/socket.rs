@@ -721,29 +721,28 @@ impl InodeSocket {
 
     pub async fn set_nonblocking(&self, val: bool) -> Result<(), Errno> {
         let mut inner = self.inner.write().await;
-        Ok(match &mut inner.kind {
+        match &mut inner.kind {
             InodeSocketKind::TcpStream(sock) => {
-                sock.set_nonblocking(val).map_err(net_error_into_wasi_err)?
+                sock.set_nonblocking(val).map_err(net_error_into_wasi_err)
             }
             InodeSocketKind::TcpListener(sock, ..) => {
-                sock.set_nonblocking(val).map_err(net_error_into_wasi_err)?
+                sock.set_nonblocking(val).map_err(net_error_into_wasi_err)
             }
             InodeSocketKind::UdpSocket(sock, ..) => {
-                sock.set_nonblocking(val).map_err(net_error_into_wasi_err)?
+                sock.set_nonblocking(val).map_err(net_error_into_wasi_err)
             }
             InodeSocketKind::Raw(sock, ..) => {
-                sock.set_nonblocking(val).map_err(net_error_into_wasi_err)?
+                sock.set_nonblocking(val).map_err(net_error_into_wasi_err)
             }
             InodeSocketKind::Icmp(sock, ..) => {
-                sock.set_nonblocking(val).map_err(net_error_into_wasi_err)?
+                sock.set_nonblocking(val).map_err(net_error_into_wasi_err)
             }
             InodeSocketKind::PreSocket { nonblocking, .. } => {
                 (*nonblocking) = val;
+                Ok(())
             }
-            _ => {
-                return Err(Errno::Notsup);
-            }
-        })
+            _ => Err(Errno::Notsup),
+        }
     }
 
     pub async fn linger(&self) -> Result<Option<std::time::Duration>, Errno> {
@@ -995,11 +994,7 @@ impl InodeSocket {
     pub async fn recv(&self, max_size: usize) -> Result<Bytes, Errno> {
         let mut inner = self.inner.write().await;
         loop {
-            let is_tcp = if let InodeSocketKind::TcpStream(..) = &inner.kind {
-                true
-            } else {
-                false
-            };
+            let is_tcp = matches!(&inner.kind, InodeSocketKind::TcpStream(..));
             if let Some(buf) = inner.read_buffer.as_mut() {
                 let buf_len = buf.len();
                 if buf_len > 0 {
@@ -1034,7 +1029,7 @@ impl InodeSocket {
                 InodeSocketKind::Closed => return Ok(Bytes::new()),
                 _ => return Err(Errno::Notsup),
             };
-            if data.len() == 0 {
+            if data.is_empty() {
                 return Ok(Bytes::new());
             }
             inner.read_buffer.replace(data);
@@ -1045,11 +1040,7 @@ impl InodeSocket {
     pub async fn recv_from(&self, max_size: usize) -> Result<(Bytes, SocketAddr), Errno> {
         let mut inner = self.inner.write().await;
         loop {
-            let is_tcp = if let InodeSocketKind::TcpStream(..) = &inner.kind {
-                true
-            } else {
-                false
-            };
+            let is_tcp = matches!(&inner.kind, InodeSocketKind::TcpStream(..));
             if let Some(buf) = inner.read_buffer.as_mut() {
                 if !buf.is_empty() {
                     let buf_len = buf.len();
@@ -1097,6 +1088,7 @@ impl InodeSocket {
 
     pub async fn can_write(&self) -> bool {
         if let Ok(mut guard) = self.inner.try_write() {
+            #[allow(clippy::match_like_matches_macro)]
             match &mut guard.kind {
                 InodeSocketKind::TcpStream(..)
                 | InodeSocketKind::UdpSocket(..)
@@ -1135,7 +1127,7 @@ impl InodeSocketInner {
         &mut self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<wasmer_vnet::Result<usize>> {
-        let ret = match &mut self.kind {
+        match &mut self.kind {
             InodeSocketKind::TcpListener(_) => std::task::Poll::Pending,
             InodeSocketKind::TcpStream(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::UdpSocket(socket) => socket.poll_write_ready(cx),
@@ -1148,8 +1140,7 @@ impl InodeSocketInner {
             InodeSocketKind::Closed => {
                 std::task::Poll::Ready(Err(wasmer_vnet::NetworkError::ConnectionAborted))
             }
-        };
-        ret
+        }
     }
 }
 

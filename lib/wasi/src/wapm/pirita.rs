@@ -1,8 +1,8 @@
 use serde::*;
 
-pub const WAPM_WEBC_URL: &'static str = "https://registry.wapm.dev/graphql?query=";
+pub const WAPM_WEBC_URL: &str = "https://registry.wapm.dev/graphql?query=";
 #[allow(dead_code)]
-pub const WAPM_WEBC_QUERY_ALL: &'static str = r#"
+pub const WAPM_WEBC_QUERY_ALL: &str = r#"
 {
     getPackage(name: "<NAME>") {
         versions {
@@ -14,7 +14,7 @@ pub const WAPM_WEBC_QUERY_ALL: &'static str = r#"
         }
     }
 }"#;
-pub const WAPM_WEBC_QUERY_LAST: &'static str = r#"
+pub const WAPM_WEBC_QUERY_LAST: &str = r#"
 {
     getPackage(name: "<NAME>") {
         lastVersion {
@@ -26,7 +26,7 @@ pub const WAPM_WEBC_QUERY_LAST: &'static str = r#"
         }
     }
 }"#;
-pub const WAPM_WEBC_QUERY_SPECIFIC: &'static str = r#"
+pub const WAPM_WEBC_QUERY_SPECIFIC: &str = r#"
 {
     getPackageVersion(name: "<NAME>", version: "<VERSION>") {
         version,
@@ -36,8 +36,8 @@ pub const WAPM_WEBC_QUERY_SPECIFIC: &'static str = r#"
         }
     }
 }"#;
-pub const WAPM_WEBC_QUERY_TAG: &'static str = "<NAME>";
-pub const WAPM_WEBC_VERSION_TAG: &'static str = "<VERSION>";
+pub const WAPM_WEBC_QUERY_TAG: &str = "<NAME>";
+pub const WAPM_WEBC_VERSION_TAG: &str = "<VERSION>";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct WapmWebQueryGetPackageLastVersionDistribution {

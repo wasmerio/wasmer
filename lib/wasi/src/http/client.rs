@@ -25,7 +25,7 @@ impl HttpClientCapabilityV1 {
     }
 
     pub fn is_deny_all(&self) -> bool {
-        self.allow_all == false && self.allowed_hosts.is_empty()
+        !self.allow_all && self.allowed_hosts.is_empty()
     }
 
     pub fn can_access_domain(&self, domain: &str) -> bool {
@@ -60,10 +60,7 @@ impl std::fmt::Debug for HttpRequest {
             .field("url", &self.url)
             .field("method", &self.method)
             .field("headers", &self.headers)
-            .field(
-                "body",
-                &self.body.as_deref().map(|b| String::from_utf8_lossy(b)),
-            )
+            .field("body", &self.body.as_deref().map(String::from_utf8_lossy))
             .field("options", &self.options)
             .finish()
     }
@@ -84,10 +81,7 @@ impl std::fmt::Debug for HttpResponse {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("HttpResponse")
             .field("pos", &self.pos)
-            .field(
-                "body",
-                &self.body.as_deref().map(|b| String::from_utf8_lossy(b)),
-            )
+            .field("body", &self.body.as_deref().map(String::from_utf8_lossy))
             .field("ok", &self.ok)
             .field("redirected", &self.redirected)
             .field("status", &self.status)

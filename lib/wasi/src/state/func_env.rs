@@ -181,13 +181,13 @@ impl WasiFunctionEnv {
             inner.thread_local.retain(|(t, _), _| *t != thread_id);
             to_local_destroy
         };
-        if to_local_destroy.len() > 0 {
+        if !to_local_destroy.is_empty() {
             if let Some(thread_local_destroy) = self
                 .data(store)
                 .inner()
                 .thread_local_destroy
                 .as_ref()
-                .map(|a| a.clone())
+                .cloned()
             {
                 for (user_data, val) in to_local_destroy {
                     let user_data_low: u32 = (user_data & 0xFFFFFFFF) as u32;

@@ -49,16 +49,16 @@ async fn fetch_webc(
     webc: &str,
     client: DynHttpClient,
 ) -> Result<BinaryPackage, anyhow::Error> {
-    let name = webc.split_once(":").map(|a| a.0).unwrap_or_else(|| webc);
-    let (name, version) = match name.split_once("@") {
+    let name = webc.split_once(':').map(|a| a.0).unwrap_or_else(|| webc);
+    let (name, version) = match name.split_once('@') {
         Some((name, version)) => (name, Some(version)),
         None => (name, None),
     };
     let url_query = match version {
         Some(version) => WAPM_WEBC_QUERY_SPECIFIC
-            .replace(WAPM_WEBC_QUERY_TAG, name.replace("\"", "'").as_str())
-            .replace(WAPM_WEBC_VERSION_TAG, version.replace("\"", "'").as_str()),
-        None => WAPM_WEBC_QUERY_LAST.replace(WAPM_WEBC_QUERY_TAG, name.replace("\"", "'").as_str()),
+            .replace(WAPM_WEBC_QUERY_TAG, name.replace('\"', "'").as_str())
+            .replace(WAPM_WEBC_VERSION_TAG, version.replace('\"', "'").as_str()),
+        None => WAPM_WEBC_QUERY_LAST.replace(WAPM_WEBC_QUERY_TAG, name.replace('\"', "'").as_str()),
     };
     let url = format!(
         "{}{}",
@@ -124,7 +124,7 @@ pub fn parse_static_webc(data: Vec<u8>) -> Result<BinaryPackage, anyhow::Error> 
         Ok(webc) => unsafe {
             let webc = Arc::new(webc);
             return parse_webc(webc.as_webc_ref(), webc.clone())
-                .with_context(|| format!("Could not parse webc"));
+                .with_context(|| "Could not parse webc".to_string());
         },
         Err(err) => {
             warn!("failed to parse WebC: {}", err);
@@ -140,11 +140,11 @@ async fn download_webc(
     client: DynHttpClient,
 ) -> Result<BinaryPackage, anyhow::Error> {
     let mut name_comps = pirita_download_url
-        .split("/")
+        .split('/')
         .collect::<Vec<_>>()
         .into_iter()
         .rev();
-    let mut name = name_comps.next().unwrap_or_else(|| name);
+    let mut name = name_comps.next().unwrap_or(name);
     let mut name_store;
     for _ in 0..2 {
         if let Some(prefix) = name_comps.next() {
@@ -153,8 +153,8 @@ async fn download_webc(
         }
     }
     let compute_path = |cache_dir: &str, name: &str| {
-        let name = name.replace("/", "._.");
-        std::path::Path::new(cache_dir).join(format!("{}", name.as_str()).as_str())
+        let name = name.replace('/', "._.");
+        std::path::Path::new(cache_dir).join(&name)
     };
 
     // build the parse options
@@ -198,7 +198,8 @@ async fn download_webc(
         let cache_dir = cache_dir.to_string();
         let name = name.to_string();
         let path = compute_path(cache_dir.as_str(), name.as_str());
-        let _ = std::fs::create_dir_all(path.parent().unwrap().clone());
+        std::fs::create_dir_all(path.parent().unwrap())
+            .with_context(|| format!("Could not create cache directory '{}'", cache_dir))?;
 
         let mut temp_path = path.clone();
         let rand_128: u128 = rand::random();
@@ -268,7 +269,7 @@ async fn download_package(
 }
 
 // TODO: should return Result<_, anyhow::Error>
-unsafe fn parse_webc<'a, 'b, T>(webc: webc::WebC<'a>, ownership: Arc<T>) -> Option<BinaryPackage>
+unsafe fn parse_webc<'a, T>(webc: webc::WebC<'a>, ownership: Arc<T>) -> Option<BinaryPackage>
 where
     T: std::fmt::Debug + Send + Sync + 'static,
     T: Deref<Target = WebC<'static>>,
@@ -335,7 +336,7 @@ where
     for uses in webc.manifest.use_map.values() {
         let uses = match uses {
             UrlOrManifest::Url(url) => Some(url.path().to_string()),
-            UrlOrManifest::Manifest(manifest) => manifest.origin.as_ref().map(|a| a.clone()),
+            UrlOrManifest::Manifest(manifest) => manifest.origin.clone(),
             UrlOrManifest::RegistryDependentUrl(url) => Some(url.clone()),
         };
         if let Some(uses) = uses {
@@ -474,9 +475,18 @@ where
 
 fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
     let mut total = 0;
-    if let Ok(dir) = fs.read_dir(path) {
-        for entry in dir {
-            if let Ok(entry) = entry {
+
+    let dir = match fs.read_dir(path) {
+        Ok(d) => d,
+        Err(_err) => {
+            // TODO: propagate error?
+            return 0;
+        }
+    };
+
+    for res in dir {
+        match res {
+            Ok(entry) => {
                 if let Ok(meta) = entry.metadata() {
                     total += meta.len();
                     if meta.is_dir() {
@@ -484,7 +494,11 @@ fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
                     }
                 }
             }
-        }
+            Err(_err) => {
+                // TODO: propagate error?
+            }
+        };
     }
+
     total
 }

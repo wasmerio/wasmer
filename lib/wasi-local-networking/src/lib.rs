@@ -261,16 +261,16 @@ impl VirtualTcpSocket for LocalTcpStream {
     fn set_opt_time(&mut self, ty: TimeType, timeout: Option<Duration>) -> Result<()> {
         match ty {
             TimeType::ReadTimeout => {
-                self.read_timeout = timeout.clone();
+                self.read_timeout = timeout;
             }
             TimeType::WriteTimeout => {
-                self.write_timeout = timeout.clone();
+                self.write_timeout = timeout;
             }
             TimeType::ConnectTimeout => {
                 self.connect_timeout = timeout;
             }
             TimeType::Linger => {
-                self.linger_timeout = timeout.clone();
+                self.linger_timeout = timeout;
             }
             _ => return Err(NetworkError::InvalidInput),
         }
@@ -336,16 +336,13 @@ impl LocalTcpStream {
     ) -> Result<SocketReceive> {
         if nonblocking {
             let max_buf_size = 8192;
-            let mut buf = Vec::with_capacity(max_buf_size);
-            unsafe {
-                buf.set_len(max_buf_size);
-            }
+            let mut buf = vec![0u8; max_buf_size];
 
             let waker = unsafe { Waker::from_raw(RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE)) };
             let mut cx = Context::from_waker(&waker);
             let stream = Pin::new(stream);
             let mut read_buf = tokio::io::ReadBuf::new(&mut buf);
-            return match stream.poll_read(&mut cx, &mut read_buf) {
+            match stream.poll_read(&mut cx, &mut read_buf) {
                 Poll::Ready(Ok(read)) => {
                     let read = read_buf.remaining();
                     unsafe {
@@ -362,7 +359,7 @@ impl LocalTcpStream {
                 }
                 Poll::Ready(Err(err)) => Err(io_err_into_net_error(err)),
                 Poll::Pending => Err(NetworkError::WouldBlock),
-            };
+            }
         } else {
             Self::recv_now(stream, timeout).await
         }
@@ -374,10 +371,7 @@ impl LocalTcpStream {
     ) -> Result<SocketReceive> {
         use tokio::io::AsyncReadExt;
         let max_buf_size = 8192;
-        let mut buf = Vec::with_capacity(max_buf_size);
-        unsafe {
-            buf.set_len(max_buf_size);
-        }
+        let mut buf = vec![0u8; max_buf_size];
 
         let work = async move {
             match timeout {
@@ -428,7 +422,7 @@ impl VirtualConnectedSocket for LocalTcpStream {
         }
 
         use tokio::io::AsyncWriteExt;
-        let timeout = self.write_timeout.clone();
+        let timeout = self.write_timeout;
         let work = async move {
             match timeout {
                 Some(timeout) => tokio::time::timeout(timeout, self.stream.write_all(&data[..]))
@@ -461,7 +455,7 @@ impl VirtualConnectedSocket for LocalTcpStream {
             }
         }
         use tokio::io::AsyncWriteExt;
-        let timeout = self.write_timeout.clone();
+        let timeout = self.write_timeout;
         let work = async move {
             match timeout {
                 Some(timeout) => tokio::time::timeout(timeout, self.stream.flush())
@@ -479,12 +473,7 @@ impl VirtualConnectedSocket for LocalTcpStream {
     }
 
     async fn recv(&mut self) -> Result<SocketReceive> {
-        Self::recv_now_ext(
-            self.nonblocking,
-            &mut self.stream,
-            self.read_timeout.clone(),
-        )
-        .await
+        Self::recv_now_ext(self.nonblocking, &mut self.stream, self.read_timeout).await
     }
 
     fn try_recv(&mut self) -> Result<Option<SocketReceive>> {
@@ -839,10 +828,7 @@ impl VirtualConnectedSocket for LocalUdpSocket {
 
     async fn recv(&mut self) -> Result<SocketReceive> {
         let buf_size = 8192;
-        let mut buf = Vec::with_capacity(buf_size);
-        unsafe {
-            buf.set_len(buf_size);
-        }
+        let mut buf = vec![0u8; buf_size];
 
         let read = self
             .socket
@@ -870,10 +856,7 @@ impl VirtualConnectedSocket for LocalUdpSocket {
 
     fn try_recv(&mut self) -> Result<Option<SocketReceive>> {
         let buf_size = 8192;
-        let mut buf = Vec::with_capacity(buf_size);
-        unsafe {
-            buf.set_len(buf_size);
-        }
+        let mut buf = vec![0u8; buf_size];
 
         let socket = self
             .socket
@@ -932,10 +915,7 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
 
     fn try_recv_from(&mut self) -> Result<Option<SocketReceiveFrom>> {
         let buf_size = 8192;
-        let mut buf = Vec::with_capacity(buf_size);
-        unsafe {
-            buf.set_len(buf_size);
-        }
+        let mut buf = vec![0u8; buf_size];
 
         let socket = self
             .socket
@@ -974,10 +954,7 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
 
     async fn recv_from(&mut self) -> Result<SocketReceiveFrom> {
         let buf_size = 8192;
-        let mut buf = Vec::with_capacity(buf_size);
-        unsafe {
-            buf.set_len(buf_size);
-        }
+        let mut buf = vec![0u8; buf_size];
 
         let (read, peer) = self
             .socket

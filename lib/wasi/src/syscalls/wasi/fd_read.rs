@@ -118,11 +118,9 @@ fn fd_read_internal<M: MemorySize>(
     let is_stdio = fd_entry.is_stdio;
 
     let bytes_read = {
-        if is_stdio == false {
-            if !fd_entry.rights.contains(Rights::FD_READ) {
-                // TODO: figure out the error to return when lacking rights
-                return Ok(Errno::Access);
-            }
+        if !is_stdio && !fd_entry.rights.contains(Rights::FD_READ) {
+            // TODO: figure out the error to return when lacking rights
+            return Ok(Errno::Access);
         }
 
         let is_non_blocking = fd_entry.flags.contains(Fdflags::NONBLOCK);
@@ -149,7 +147,6 @@ fn fd_read_internal<M: MemorySize>(
                 Kind::File { handle, .. } => {
                     if let Some(handle) = handle {
                         let handle = handle.clone();
-                        drop(inode);
                         drop(guard);
                         drop(inodes);
 
@@ -162,14 +159,15 @@ fn fd_read_internal<M: MemorySize>(
                             },
                             async move {
                                 let mut handle = handle.write().unwrap();
-                                if is_stdio == false {
+                                if !is_stdio {
                                     handle
                                         .seek(std::io::SeekFrom::Start(offset as u64))
                                         .await
                                         .map_err(map_io_err)?;
                                 }
 
-                                let mut data = Vec::with_capacity(max_size);
+                                // TODO: optimize with MaybeUninit
+                                let mut data = vec![0u8; max_size];
                                 unsafe { data.set_len(max_size) };
                                 let amt = handle.read(&mut data[..]).await.map_err(|err| {
                                     let err = From::<std::io::Error>::from(err);
@@ -184,7 +182,7 @@ fn fd_read_internal<M: MemorySize>(
                                         a => a,
                                     }
                                 })?;
-                                unsafe { data.set_len(amt) };
+                                data.truncate(amt);
                                 Ok(data)
                             }
                         )?
@@ -252,12 +250,12 @@ fn fd_read_internal<M: MemorySize>(
                             None
                         },
                         async move {
-                            let mut data = Vec::with_capacity(max_size);
-                            unsafe { data.set_len(max_size) };
+                            // TODO: optimize with MaybeUninit
+                            let mut data = vec![0u8; max_size];
                             let amt = wasmer_vfs::AsyncReadExt::read(&mut pipe, &mut data[..])
                                 .await
                                 .map_err(map_io_err)?;
-                            unsafe { data.set_len(amt) };
+                            data.truncate(amt);
                             Ok(data)
                         }
                     )?
@@ -296,9 +294,6 @@ fn fd_read_internal<M: MemorySize>(
                         guard.push_front(tx);
                     }
 
-                    drop(ref_counter);
-                    drop(ref_is_semaphore);
-                    drop(ref_wakers);
                     drop(guard);
                     drop(inodes);
 
@@ -350,7 +345,7 @@ fn fd_read_internal<M: MemorySize>(
             }
         };
 
-        if is_stdio == false && should_update_cursor && can_update_cursor {
+        if !is_stdio && should_update_cursor && can_update_cursor {
             // reborrow
             let mut fd_map = state.fs.fd_map.write().unwrap();
             let fd_entry = wasi_try_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));

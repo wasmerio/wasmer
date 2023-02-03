@@ -208,7 +208,7 @@ impl WasiBusState {
 
     /// Locks the protected area of the BUS and returns a guard that
     /// can be used to access it
-    pub fn protected<'a>(&'a self) -> MutexGuard<'a, WasiBusProtectedState> {
+    pub fn protected(&self) -> MutexGuard<'_, WasiBusProtectedState> {
         self.protected.lock().unwrap()
     }
 }
@@ -349,7 +349,7 @@ impl WasiState {
     pub fn fork(&self, inc_refs: bool) -> Self {
         WasiState {
             fs: self.fs.fork(inc_refs),
-            secret: self.secret.clone(),
+            secret: self.secret,
             inodes: self.inodes.clone(),
             threading: Default::default(),
             futexs: Default::default(),

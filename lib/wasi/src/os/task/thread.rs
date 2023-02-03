@@ -24,7 +24,7 @@ impl WasiThreadId {
     }
 
     pub fn inc(&mut self) -> WasiThreadId {
-        let ret = self.clone();
+        let ret = *self;
         self.0 += 1;
         ret
     }
@@ -36,9 +36,9 @@ impl From<i32> for WasiThreadId {
     }
 }
 
-impl Into<i32> for WasiThreadId {
-    fn into(self) -> i32 {
-        self.0 as i32
+impl From<WasiThreadId> for i32 {
+    fn from(val: WasiThreadId) -> Self {
+        val.0 as i32
     }
 }
 
@@ -159,7 +159,7 @@ impl WasiThread {
     /// Adds a signal for this thread to process
     pub fn signal(&self, signal: Signal) {
         let mut guard = self.state.signals.lock().unwrap();
-        if guard.0.contains(&signal) == false {
+        if !guard.0.contains(&signal) {
             guard.0.push(signal);
         }
         let _ = guard.1.send(());
@@ -206,23 +206,23 @@ impl WasiThread {
             let memory_stack_before = pstack.memory_stack.len();
             let memory_stack_after = memory_stack.len();
             if memory_stack_before > memory_stack_after
-                || (pstack
+                || (!pstack
                     .memory_stack
                     .iter()
                     .zip(memory_stack.iter())
                     .any(|(a, b)| *a == *b)
-                    == false
-                    && pstack
+                    && !pstack
                         .memory_stack_corrected
                         .iter()
                         .zip(memory_stack.iter())
-                        .any(|(a, b)| *a == *b)
-                        == false)
+                        .any(|(a, b)| *a == *b))
             {
                 // The stacks have changed so need to start again at this segment
-                let mut new_stack = ThreadStack::default();
-                new_stack.memory_stack = memory_stack.to_vec();
-                new_stack.memory_stack_corrected = memory_stack_corrected.to_vec();
+                let mut new_stack = ThreadStack {
+                    memory_stack: memory_stack.to_vec(),
+                    memory_stack_corrected: memory_stack_corrected.to_vec(),
+                    ..Default::default()
+                };
                 std::mem::swap(pstack, &mut new_stack);
                 memory_stack = &NO_MORE_BYTES[..];
                 memory_stack_corrected = &NO_MORE_BYTES[..];
@@ -230,7 +230,7 @@ impl WasiThread {
                 // Output debug info for the dead stack
                 let mut disown = Some(Box::new(new_stack));
                 if let Some(disown) = disown.as_ref() {
-                    if disown.snapshots.is_empty() == false {
+                    if !disown.snapshots.is_empty() {
                         tracing::trace!(
                             "wasi[{}]::stacks forgotten (memory_stack_before={}, memory_stack_after={})",
                             self.pid(),
@@ -256,15 +256,17 @@ impl WasiThread {
             }
 
             // If there is no more memory stack then we are done and can add the call stack
-            if memory_stack.len() <= 0 {
+            if memory_stack.is_empty() {
                 break;
             }
 
             // Otherwise we need to add a next stack pointer and continue the iterations
             if pstack.next.is_none() {
-                let mut new_stack = ThreadStack::default();
-                new_stack.memory_stack = memory_stack.to_vec();
-                new_stack.memory_stack_corrected = memory_stack_corrected.to_vec();
+                let new_stack = ThreadStack {
+                    memory_stack: memory_stack.to_vec(),
+                    memory_stack_corrected: memory_stack_corrected.to_vec(),
+                    ..Default::default()
+                };
                 pstack.next.replace(Box::new(new_stack));
             }
             pstack = pstack.next.as_mut().unwrap();

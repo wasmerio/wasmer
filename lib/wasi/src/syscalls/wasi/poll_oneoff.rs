@@ -235,10 +235,9 @@ pub(crate) fn poll_oneoff_internal(
 
         let entry = subscriptions
             .entry(fd)
-            .or_insert_with(|| HashMap::<state::PollEventSet, Subscription>::default());
+            .or_insert_with(HashMap::<state::PollEventSet, Subscription>::default);
         entry.extend(in_events.into_iter());
     }
-    drop(env);
 
     let mut events_seen: u32 = 0;
 
@@ -339,7 +338,7 @@ pub(crate) fn poll_oneoff_internal(
         }
         Err(Errno::Timedout) => {
             // The timeout has triggerred so lets add that event
-            if clock_subs.len() <= 0 && time_to_sleep != Some(Duration::ZERO) {
+            if clock_subs.is_empty() && time_to_sleep != Some(Duration::ZERO) {
                 tracing::warn!(
                     "wasi[{}:{}]::poll_oneoff triggered_timeout (without any clock subscriptions)",
                     pid,

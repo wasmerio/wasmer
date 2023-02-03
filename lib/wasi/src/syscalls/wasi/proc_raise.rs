@@ -45,10 +45,7 @@ pub fn proc_raise_interval(
         0 => None,
         a => Some(Duration::from_millis(a)),
     };
-    let repeat = match repeat {
-        Bool::True => true,
-        _ => false,
-    };
+    let repeat = matches!(repeat, Bool::True);
     env.process.signal_interval(sig, interval, repeat);
 
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);

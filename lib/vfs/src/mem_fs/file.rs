@@ -35,7 +35,7 @@ pub(super) struct FileHandle {
 impl Clone for FileHandle {
     fn clone(&self) -> Self {
         Self {
-            inode: self.inode.clone(),
+            inode: self.inode,
             filesystem: self.filesystem.clone(),
             readable: self.readable,
             writable: self.writable,
@@ -93,7 +93,7 @@ impl FileHandle {
             .as_mut()
             .unwrap()
             .as_mut()
-            .map_err(|err| err.clone())?
+            .map_err(|err| *err)?
             .as_mut())
     }
 }
@@ -152,7 +152,7 @@ impl VirtualFile for FileHandle {
             Some(Node::ReadOnlyFile(node)) => node.file.len().try_into().unwrap_or(0),
             Some(Node::CustomFile(node)) => {
                 let file = node.file.lock().unwrap();
-                file.size().try_into().unwrap_or(0)
+                file.size()
             }
             Some(Node::ArcFile(node)) => match self.arc_file.as_ref() {
                 Some(file) => file.as_ref().map(|file| file.size()).unwrap_or(0),
@@ -313,20 +313,16 @@ impl VirtualFile for FileHandle {
                         let file = Pin::new(file);
                         file.poll_read_ready(cx)
                     }
-                    Err(_) => {
-                        return Poll::Ready(Err(io::Error::new(
-                            io::ErrorKind::NotFound,
-                            format!("inode `{}` doesn't match a file", self.inode),
-                        )))
-                    }
+                    Err(_) => Poll::Ready(Err(io::Error::new(
+                        io::ErrorKind::NotFound,
+                        format!("inode `{}` doesn't match a file", self.inode),
+                    ))),
                 }
             }
-            _ => {
-                return Poll::Ready(Err(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    format!("inode `{}` doesn't match a file", self.inode),
-                )));
-            }
+            _ => Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("inode `{}` doesn't match a file", self.inode),
+            ))),
         }
     }
 
@@ -362,20 +358,16 @@ impl VirtualFile for FileHandle {
                         let file = Pin::new(file);
                         file.poll_read_ready(cx)
                     }
-                    Err(_) => {
-                        return Poll::Ready(Err(io::Error::new(
-                            io::ErrorKind::NotFound,
-                            format!("inode `{}` doesn't match a file", self.inode),
-                        )))
-                    }
+                    Err(_) => Poll::Ready(Err(io::Error::new(
+                        io::ErrorKind::NotFound,
+                        format!("inode `{}` doesn't match a file", self.inode),
+                    ))),
                 }
             }
-            _ => {
-                return Poll::Ready(Err(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    format!("inode `{}` doesn't match a file", self.inode),
-                )));
-            }
+            _ => Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("inode `{}` doesn't match a file", self.inode),
+            ))),
         }
     }
 }
@@ -796,7 +788,7 @@ impl AsyncWrite for FileHandle {
                         Poll::Pending => return Poll::Pending,
                     };
                     cursor += bytes_written as u64;
-                    node.metadata.len = guard.size().try_into().unwrap();
+                    node.metadata.len = guard.size();
                     bytes_written
                 }
                 Some(Node::ArcFile(_)) => {

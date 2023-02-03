@@ -396,9 +396,9 @@ impl From<io::Error> for FsError {
     }
 }
 
-impl Into<io::Error> for FsError {
-    fn into(self) -> io::Error {
-        let kind = match self {
+impl From<FsError> for io::Error {
+    fn from(val: FsError) -> Self {
+        let kind = match val {
             FsError::AddressInUse => io::ErrorKind::AddrInUse,
             FsError::AddressNotAvailable => io::ErrorKind::AddrNotAvailable,
             FsError::AlreadyExists => io::ErrorKind::AlreadyExists,

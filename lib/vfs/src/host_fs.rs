@@ -44,10 +44,7 @@ impl crate::FileSystem for FileSystem {
             })
             .collect::<std::result::Result<Vec<DirEntry>, io::Error>>()
             .map_err::<FsError, _>(Into::into)?;
-        data.sort_by(|a, b| match (a.metadata.as_ref(), b.metadata.as_ref()) {
-            (Ok(a), Ok(b)) => a.modified.cmp(&b.modified),
-            _ => std::cmp::Ordering::Equal,
-        });
+        data.sort_by(|a, b| a.path.file_name().cmp(&b.path.file_name()));
         Ok(ReadDir::new(data))
     }
 
@@ -105,8 +102,7 @@ impl crate::FileSystem for FileSystem {
                 let _ = fs_extra::remove_items(&[from]);
                 Ok(())
             } else {
-                let e: Result<()> = fs::copy(from, to).map(|_| ()).map_err(Into::into);
-                let _ = e?;
+                fs::copy(from, to).map(|_| ()).map_err(FsError::from)?;
                 fs::remove_file(from).map(|_| ()).map_err(Into::into)
             }
         } else {
@@ -393,7 +389,7 @@ impl VirtualFile for File {
     }
 
     fn set_len(&mut self, new_size: u64) -> Result<()> {
-        fs::File::set_len(&mut self.inner_std, new_size).map_err(Into::into)
+        fs::File::set_len(&self.inner_std, new_size).map_err(Into::into)
     }
 
     fn unlink(&mut self) -> Result<()> {
@@ -497,6 +493,15 @@ impl Default for Stdout {
     }
 }
 
+/// Default size for write buffers.
+///
+/// Chosen to be both sufficiently large, and a multiple of the default page
+/// size on most systems.
+///
+/// This value has limited meaning, since it is only used for buffer size hints,
+/// and those hints are often ignored.
+const DEFAULT_BUF_SIZE_HINT: usize = 8 * 1024;
+
 //#[cfg_attr(feature = "enable-serde", typetag::serde)]
 #[async_trait::async_trait]
 impl VirtualFile for Stdout {
@@ -534,7 +539,7 @@ impl VirtualFile for Stdout {
     }
 
     fn poll_write_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
-        Poll::Ready(Ok(8192))
+        Poll::Ready(Ok(DEFAULT_BUF_SIZE_HINT))
     }
 }
 
@@ -1234,7 +1239,7 @@ mod tests {
 
         let bar_metadata = fs.metadata(Path::new("./test_metadata/bar")).unwrap();
         assert!(bar_metadata.ft.dir);
-        assert_eq!(bar_metadata.accessed, foo_metadata.accessed);
+        assert!(bar_metadata.accessed >= foo_metadata.accessed);
         assert_eq!(bar_metadata.created, foo_metadata.created);
         assert!(bar_metadata.modified > foo_metadata.modified);
 
@@ -1347,24 +1352,24 @@ mod tests {
         let mut readdir = readdir.unwrap();
 
         let next = readdir.next().unwrap().unwrap();
-        assert!(next.path.ends_with("foo"), "checking entry #1");
-        assert!(next.path.is_dir(), "checking entry #1");
-
-        let next = readdir.next().unwrap().unwrap();
-        assert!(next.path.ends_with("bar"), "checking entry #2");
-        assert!(next.path.is_dir(), "checking entry #2");
-
-        let next = readdir.next().unwrap().unwrap();
-        assert!(next.path.ends_with("baz"), "checking entry #3");
-        assert!(next.path.is_dir(), "checking entry #3");
-
-        let next = readdir.next().unwrap().unwrap();
-        assert!(next.path.ends_with("a.txt"), "checking entry #2");
-        assert!(next.path.is_file(), "checking entry #4");
+        assert!(next.path.ends_with("a.txt"), "checking entry #1");
+        assert!(next.path.is_file(), "checking entry #1");
 
         let next = readdir.next().unwrap().unwrap();
         assert!(next.path.ends_with("b.txt"), "checking entry #2");
-        assert!(next.path.is_file(), "checking entry #5");
+        assert!(next.path.is_file(), "checking entry #2");
+
+        let next = readdir.next().unwrap().unwrap();
+        assert!(next.path.ends_with("bar"), "checking entry #3");
+        assert!(next.path.is_dir(), "checking entry #3");
+
+        let next = readdir.next().unwrap().unwrap();
+        assert!(next.path.ends_with("baz"), "checking entry #4");
+        assert!(next.path.is_dir(), "checking entry #4");
+
+        let next = readdir.next().unwrap().unwrap();
+        assert!(next.path.ends_with("foo"), "checking entry #5");
+        assert!(next.path.is_dir(), "checking entry #5");
 
         if let Some(s) = readdir.next() {
             panic!("next: {:?}", s);

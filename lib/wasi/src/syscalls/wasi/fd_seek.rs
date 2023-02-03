@@ -45,11 +45,13 @@ pub fn fd_seek<M: MemorySize>(
         Whence::Cur => {
             let mut fd_map = state.fs.fd_map.write().unwrap();
             let fd_entry = wasi_try_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
+
+            #[allow(clippy::comparison_chain)]
             if offset > 0 {
                 let offset = offset as u64;
                 fd_entry.offset.fetch_add(offset, Ordering::AcqRel) + offset
             } else if offset < 0 {
-                let offset = offset.abs() as u64;
+                let offset = offset.unsigned_abs();
                 // FIXME: need to handle underflow!
                 fd_entry.offset.fetch_sub(offset, Ordering::AcqRel) - offset
             } else {

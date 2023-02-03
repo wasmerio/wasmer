@@ -40,26 +40,23 @@ pub fn fd_fdstat_set_flags(
         }
 
         let mut guard = inodes.arena[inode].write();
-        match guard.deref_mut() {
-            Kind::Socket { socket } => {
-                let nonblocking = flags.contains(Fdflags::NONBLOCK);
-                debug!(
-                    "wasi[{}:{}]::socket(fd={}) nonblocking={}",
-                    ctx.data().pid(),
-                    ctx.data().tid(),
-                    fd,
-                    nonblocking
-                );
-                let socket = socket.clone();
-                drop(guard);
-                drop(fd_map);
-                drop(inodes);
+        if let Kind::Socket { socket } = guard.deref_mut() {
+            let nonblocking = flags.contains(Fdflags::NONBLOCK);
+            debug!(
+                "wasi[{}:{}]::socket(fd={}) nonblocking={}",
+                ctx.data().pid(),
+                ctx.data().tid(),
+                fd,
+                nonblocking
+            );
+            let socket = socket.clone();
+            drop(guard);
+            drop(fd_map);
+            drop(inodes);
 
-                wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-                    socket.set_nonblocking(nonblocking).await
-                })?)
-            }
-            _ => {}
+            wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+                socket.set_nonblocking(nonblocking).await
+            })?)
         }
     }
 

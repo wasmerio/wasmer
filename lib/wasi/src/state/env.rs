@@ -308,12 +308,12 @@ impl WasiEnv {
     }
 
     /// Returns a copy of the current runtime implementation for this environment
-    pub fn runtime<'a>(&'a self) -> &'a (dyn WasiRuntimeImplementation) {
+    pub fn runtime(&self) -> &(dyn WasiRuntimeImplementation) {
         self.runtime.deref()
     }
 
     /// Returns a copy of the current tasks implementation for this environment
-    pub fn tasks<'a>(&'a self) -> &'a (dyn VirtualTaskManager) {
+    pub fn tasks(&self) -> &(dyn VirtualTaskManager) {
         self.tasks.deref()
     }
 
@@ -337,7 +337,7 @@ impl WasiEnv {
         // If a signal handler has never been set then we need to handle signals
         // differently
         let env = ctx.data();
-        if env.inner().signal_set == false {
+        if !env.inner().signal_set {
             if let Ok(signals) = env.thread.pop_signals_or_subscribe() {
                 let signal_cnt = signals.len();
                 for sig in signals {
@@ -369,7 +369,7 @@ impl WasiEnv {
         // If a signal handler has never been set then we need to handle signals
         // differently
         let env = ctx.data();
-        if env.inner().signal_set == false {
+        if !env.inner().signal_set {
             if env
                 .thread
                 .has_signal(&[Signal::Sigint, Signal::Sigquit, Signal::Sigkill])
@@ -388,7 +388,7 @@ impl WasiEnv {
                 let has_signal_interval = {
                     let mut any = false;
                     let inner = env.process.inner.read().unwrap();
-                    if inner.signal_intervals.is_empty() == false {
+                    if !inner.signal_intervals.is_empty() {
                         now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000)
                             .unwrap() as u128;
                         for signal in inner.signal_intervals.values() {
@@ -457,7 +457,7 @@ impl WasiEnv {
     }
 
     /// Accesses the virtual networking implementation
-    pub fn net<'a>(&'a self) -> DynVirtualNetworking {
+    pub fn net(&self) -> DynVirtualNetworking {
         self.runtime.networking()
     }
 
@@ -537,7 +537,7 @@ impl WasiEnv {
         (memory, state, inodes)
     }
 
-    pub fn uses<'a, I>(&self, uses: I) -> Result<(), WasiStateCreationError>
+    pub fn uses<I>(&self, uses: I) -> Result<(), WasiStateCreationError>
     where
         I: IntoIterator<Item = String>,
     {
@@ -595,7 +595,7 @@ impl WasiEnv {
 
                     // Add all the commands as binaries in the bin folder
                     let commands = package.commands.read().unwrap();
-                    if commands.is_empty() == false {
+                    if !commands.is_empty() {
                         let _ = root_fs.create_dir(Path::new("/bin"));
                         for command in commands.iter() {
                             let path = format!("/bin/{}", command.name);
@@ -621,9 +621,9 @@ impl WasiEnv {
                         }
                     }
                 } else {
-                    return Err(WasiStateCreationError::WasiInheritError(format!(
-                        "failed to add package as the file system is not sandboxed"
-                    )));
+                    return Err(WasiStateCreationError::WasiInheritError(
+                        "failed to add package as the file system is not sandboxed".to_string(),
+                    ));
                 }
             } else {
                 return Err(WasiStateCreationError::WasiInheritError(format!(

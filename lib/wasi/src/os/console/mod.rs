@@ -32,9 +32,9 @@ use crate::{
 };
 
 //pub const DEFAULT_BOOT_WEBC: &'static str = "sharrattj/bash";
-pub const DEFAULT_BOOT_WEBC: &'static str = "sharrattj/dash";
+pub const DEFAULT_BOOT_WEBC: &str = "sharrattj/dash";
 //pub const DEFAULT_BOOT_USES: [&'static str; 2] = [ "sharrattj/coreutils", "sharrattj/catsay" ];
-pub const DEFAULT_BOOT_USES: [&'static str; 0] = [];
+pub const DEFAULT_BOOT_USES: [&str; 0] = [];
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -65,7 +65,7 @@ impl Console {
             .map(|a| a.to_string())
             .collect::<LinkedHashSet<_>>();
         let prog = DEFAULT_BOOT_WEBC
-            .split_once(" ")
+            .split_once(' ')
             .map(|a| a.1)
             .unwrap_or(DEFAULT_BOOT_WEBC);
         uses.insert(prog.to_string());
@@ -98,7 +98,7 @@ impl Console {
     }
 
     pub fn with_boot_cmd(mut self, cmd: String) -> Self {
-        let prog = cmd.split_once(" ").map(|a| a.0).unwrap_or(cmd.as_str());
+        let prog = cmd.split_once(' ').map(|a| a.0).unwrap_or(cmd.as_str());
         self.uses.insert(prog.to_string());
         self.boot_cmd = cmd;
         self
@@ -139,16 +139,16 @@ impl Console {
     pub fn run(&mut self) -> wasmer_vbus::Result<(BusSpawnedProcess, WasiProcess)> {
         // Extract the program name from the arguments
         let empty_args: Vec<&[u8]> = Vec::new();
-        let (webc, prog, args) = match self.boot_cmd.split_once(" ") {
+        let (webc, prog, args) = match self.boot_cmd.split_once(' ') {
             Some((webc, args)) => (
                 webc,
-                webc.split_once("/").map(|a| a.1).unwrap_or(webc),
-                args.split(" ").map(|a| a.as_bytes()).collect::<Vec<_>>(),
+                webc.split_once('/').map(|a| a.1).unwrap_or(webc),
+                args.split(' ').map(|a| a.as_bytes()).collect::<Vec<_>>(),
             ),
             None => (
                 self.boot_cmd.as_str(),
                 self.boot_cmd
-                    .split_once("/")
+                    .split_once('/')
                     .map(|a| a.1)
                     .unwrap_or(self.boot_cmd.as_str()),
                 empty_args,
@@ -210,7 +210,7 @@ impl Console {
 
         // Display the welcome message
         let tasks = env.tasks.clone();
-        if self.whitelabel == false && self.no_welcome == false {
+        if !self.whitelabel && !self.no_welcome {
             tasks.block_on(self.draw_welcome());
         }
 

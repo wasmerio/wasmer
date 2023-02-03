@@ -53,7 +53,6 @@ pub fn bus_call<M: MemorySize>(
         wasi_try_mem_bus_ok!(buf_slice.read_to_vec())
     };
     let mut invoked = process.inst.invoke(topic_hash, format, buf);
-    drop(process);
     drop(guard);
 
     // Poll the invocation until it does its thing

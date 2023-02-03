@@ -16,7 +16,6 @@ impl cooked_waker::WakeRef for WasiDummyWaker {
 unsafe impl cooked_waker::ViaRawPointer for WasiDummyWaker {
     type Target = ();
     fn into_raw(self) -> *mut () {
-        std::mem::forget(self);
         std::ptr::null_mut()
     }
     unsafe fn from_raw(_ptr: *mut ()) -> Self {

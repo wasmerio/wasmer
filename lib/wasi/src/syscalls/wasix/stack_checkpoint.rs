@@ -48,7 +48,7 @@ pub fn stack_checkpoint<M: MemorySize>(
     // Pass some offsets to the unwind function
     let ret_offset = ret_val.offset();
     let snapshot_offset = snapshot_ptr.offset();
-    let secret = env.state().secret.clone();
+    let secret = env.state().secret;
 
     // We clear the target memory location before we grab the stack so that
     // it correctly hashes
@@ -119,7 +119,7 @@ pub fn stack_checkpoint<M: MemorySize>(
                         let pstart = memory_stack_corrected.len() - offset as usize;
                         let pend = pstart + val_bytes.len();
                         let pbytes = &mut memory_stack_corrected[pstart..pend];
-                        pbytes.clone_from_slice(&val_bytes);
+                        pbytes.clone_from_slice(val_bytes);
                     }
                 }
             }

@@ -20,9 +20,15 @@ pub struct WasiPipe {
     tx: Arc<Mutex<mpsc::UnboundedSender<Vec<u8>>>>,
     /// Receives bytes from the pipe
     /// Also, buffers the last read message from the pipe while its being consumed
-    rx: Arc<Mutex<(mpsc::UnboundedReceiver<Vec<u8>>, Option<Bytes>)>>,
+    rx: Arc<Mutex<PipeReceiver>>,
     /// Whether the pipe should block or not block to wait for stdin reads
     block: bool,
+}
+
+#[derive(Debug)]
+struct PipeReceiver {
+    chan: mpsc::UnboundedReceiver<Vec<u8>>,
+    buffer: Option<Bytes>,
 }
 
 impl WasiPipe {
@@ -131,13 +137,19 @@ impl WasiBidirectionalPipePair {
 
         let pipe1 = WasiPipe {
             tx: Arc::new(Mutex::new(tx1)),
-            rx: Arc::new(Mutex::new((rx2, None))),
+            rx: Arc::new(Mutex::new(PipeReceiver {
+                chan: rx2,
+                buffer: None,
+            })),
             block: true,
         };
 
         let pipe2 = WasiPipe {
             tx: Arc::new(Mutex::new(tx2)),
-            rx: Arc::new(Mutex::new((rx1, None))),
+            rx: Arc::new(Mutex::new(PipeReceiver {
+                chan: rx1,
+                buffer: None,
+            })),
             block: true,
         };
 
@@ -180,7 +192,10 @@ impl WasiPipe {
     pub fn close(&self) {
         let (mut null_tx, _) = mpsc::unbounded_channel();
         let (_, null_rx) = mpsc::unbounded_channel();
-        let mut null_rx = (null_rx, None);
+        let mut null_rx = PipeReceiver {
+            chan: null_rx,
+            buffer: None,
+        };
         {
             let mut guard = self.rx.lock().unwrap();
             std::mem::swap(guard.deref_mut(), &mut null_rx);
@@ -205,7 +220,7 @@ impl Read for WasiPipe {
         let mut rx = self.rx.lock().unwrap();
         loop {
             {
-                if let Some(read_buffer) = rx.1.as_mut() {
+                if let Some(read_buffer) = rx.buffer.as_mut() {
                     let buf_len = read_buffer.len();
                     if buf_len > 0 {
                         let mut read = buf_len.min(max_size);
@@ -218,13 +233,13 @@ impl Read for WasiPipe {
             }
             let data = {
                 match self.block {
-                    true => match rx.0.blocking_recv() {
+                    true => match rx.chan.blocking_recv() {
                         Some(a) => a,
                         None => {
                             return Ok(0);
                         }
                     },
-                    false => match rx.0.try_recv() {
+                    false => match rx.chan.try_recv() {
                         Ok(a) => a,
                         Err(TryRecvError::Empty) => {
                             return Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock));
@@ -235,7 +250,7 @@ impl Read for WasiPipe {
                     },
                 }
             };
-            rx.1.replace(Bytes::from(data));
+            rx.buffer.replace(Bytes::from(data));
         }
     }
 }
@@ -293,7 +308,7 @@ impl AsyncRead for WasiPipe {
         let mut rx = self.rx.lock().unwrap();
         loop {
             {
-                if let Some(inner_buf) = rx.1.as_mut() {
+                if let Some(inner_buf) = rx.buffer.as_mut() {
                     let buf_len = inner_buf.len();
                     if buf_len > 0 {
                         let read = buf_len.min(buf.remaining());
@@ -304,7 +319,7 @@ impl AsyncRead for WasiPipe {
                 }
             }
             let mut rx = Pin::new(rx.deref_mut());
-            let data = match rx.0.poll_recv(cx) {
+            let data = match rx.chan.poll_recv(cx) {
                 Poll::Ready(Some(a)) => a,
                 Poll::Ready(None) => return Poll::Ready(Ok(())),
                 Poll::Pending => {
@@ -317,7 +332,7 @@ impl AsyncRead for WasiPipe {
                 }
             };
 
-            rx.1.replace(Bytes::from(data));
+            rx.buffer.replace(Bytes::from(data));
         }
     }
 }
@@ -359,7 +374,7 @@ impl VirtualFile for WasiPipe {
     fn is_open(&self) -> bool {
         self.tx
             .try_lock()
-            .map(|a| a.is_closed() == false)
+            .map(|a| !a.is_closed())
             .unwrap_or_else(|_| true)
     }
 
@@ -368,7 +383,7 @@ impl VirtualFile for WasiPipe {
         let mut rx = self.rx.lock().unwrap();
         loop {
             {
-                if let Some(inner_buf) = rx.1.as_mut() {
+                if let Some(inner_buf) = rx.buffer.as_mut() {
                     let buf_len = inner_buf.len();
                     if buf_len > 0 {
                         return Poll::Ready(Ok(buf_len));
@@ -376,7 +391,7 @@ impl VirtualFile for WasiPipe {
                 }
             }
 
-            let mut pinned_rx = Pin::new(&mut rx.0);
+            let mut pinned_rx = Pin::new(&mut rx.chan);
             let data = match pinned_rx.poll_recv(cx) {
                 Poll::Ready(Some(a)) => a,
                 Poll::Ready(None) => return Poll::Ready(Ok(0)),
@@ -390,7 +405,7 @@ impl VirtualFile for WasiPipe {
                 }
             };
 
-            rx.1.replace(Bytes::from(data));
+            rx.buffer.replace(Bytes::from(data));
         }
     }
 

@@ -4,7 +4,6 @@ use crate::sys::store::{AsStoreMut, AsStoreRef};
 use crate::sys::value::Value;
 use crate::sys::GlobalType;
 use crate::sys::Mutability;
-#[cfg(feature = "compiler")]
 use crate::sys::RuntimeError;
 use wasmer_vm::{InternalStoreHandle, StoreHandle, VMExtern, VMGlobal};
 

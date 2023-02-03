@@ -59,10 +59,11 @@ pub(crate) use tracing::{debug, error, trace, warn};
 pub use unix::*;
 #[cfg(any(target_family = "wasm"))]
 pub use wasm::*;
+
 pub(crate) use wasmer::{
-    vm::VMMemory, AsStoreMut, AsStoreRef, Extern, Function, FunctionEnv, FunctionEnvMut, Global,
-    Instance, Memory, Memory32, Memory64, MemoryAccessError, MemoryError, MemorySize, MemoryView,
-    Module, OnCalledAction, Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
+    AsStoreMut, AsStoreRef, Extern, Function, FunctionEnv, FunctionEnvMut, Global, Instance,
+    Memory, Memory32, Memory64, MemoryAccessError, MemoryError, MemorySize, MemoryView, Module,
+    OnCalledAction, Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
 };
 pub(crate) use wasmer_vbus::{
     BusInvocationEvent, BusSpawnedProcess, SignalHandlerAbi, SpawnOptionsConfig, StdioMode,
@@ -245,7 +246,7 @@ where
         let tasks_inner = tasks.clone();
         async move {
             if let Some(timeout) = timeout {
-                if nonblocking == false {
+                if !nonblocking {
                     tasks_inner
                         .sleep_now(current_caller_id(), timeout.as_millis())
                         .await
@@ -261,11 +262,11 @@ where
     let mut signaler = {
         let signals = env.thread.signals().lock().unwrap();
         let signaler = signals.1.subscribe();
-        if signals.0.is_empty() == false {
+        if !signals.0.is_empty() {
             drop(signals);
             match WasiEnv::process_signals(ctx)? {
                 Err(err) => return Ok(Err(err)),
-                Ok(processed) if processed == true => return Ok(Err(Errno::Intr)),
+                Ok(processed) if processed => return Ok(Err(Errno::Intr)),
                 Ok(_) => {}
             }
             env = ctx.data();
@@ -420,9 +421,7 @@ where
                 }));
                 rx.recv().unwrap()
             }
-            _ => {
-                return Err(Errno::Notsock);
-            }
+            _ => Err(Errno::Notsock),
         }
     }
 }
@@ -573,9 +572,7 @@ pub(crate) fn get_memory_stack_pointer(
             _ => stack_base,
         }
     } else {
-        return Err(format!(
-            "failed to save stack: not exported __stack_pointer global"
-        ));
+        return Err("failed to save stack: not exported __stack_pointer global".to_string());
     };
     Ok(stack_pointer)
 }
@@ -604,15 +601,14 @@ pub(crate) fn set_memory_stack_offset(
                 stack_pointer_ptr.set(ctx, Value::I64(stack_pointer as i64));
             }
             _ => {
-                return Err(format!(
+                return Err(
                     "failed to save stack: __stack_pointer global is of an unknown type"
-                ));
+                        .to_string(),
+                );
             }
         }
     } else {
-        return Err(format!(
-            "failed to save stack: not exported __stack_pointer global"
-        ));
+        return Err("failed to save stack: not exported __stack_pointer global".to_string());
     }
     Ok(())
 }
@@ -631,9 +627,7 @@ pub(crate) fn get_memory_stack<M: MemorySize>(
             _ => stack_base,
         }
     } else {
-        return Err(format!(
-            "failed to save stack: not exported __stack_pointer global"
-        ));
+        return Err("failed to save stack: not exported __stack_pointer global".to_string());
     };
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
@@ -643,7 +637,7 @@ pub(crate) fn get_memory_stack<M: MemorySize>(
     let memory_stack_ptr = WasmPtr::<u8, M>::new(
         stack_pointer
             .try_into()
-            .map_err(|_| format!("failed to save stack: stack pointer overflow"))?,
+            .map_err(|_| "failed to save stack: stack pointer overflow".to_string())?,
     );
 
     memory_stack_ptr
@@ -651,7 +645,7 @@ pub(crate) fn get_memory_stack<M: MemorySize>(
             &memory,
             stack_offset
                 .try_into()
-                .map_err(|_| format!("failed to save stack: stack pointer overflow"))?,
+                .map_err(|_| "failed to save stack: stack pointer overflow".to_string())?,
         )
         .and_then(|memory_stack| memory_stack.read_to_bytes())
         .map_err(|err| format!("failed to read stack: {}", err))
@@ -669,7 +663,7 @@ pub(crate) fn set_memory_stack<M: MemorySize>(
     let stack_ptr = WasmPtr::<u8, M>::new(
         stack_pointer
             .try_into()
-            .map_err(|_| format!("failed to restore stack: stack pointer overflow"))?,
+            .map_err(|_| "failed to restore stack: stack pointer overflow".to_string())?,
     );
 
     let env = ctx.data();
@@ -679,7 +673,7 @@ pub(crate) fn set_memory_stack<M: MemorySize>(
             &memory,
             stack_offset
                 .try_into()
-                .map_err(|_| format!("failed to restore stack: stack pointer overflow"))?,
+                .map_err(|_| "failed to restore stack: stack pointer overflow".to_string())?,
         )
         .and_then(|memory_stack| memory_stack.write_slice(&stack[..]))
         .map_err(|err| format!("failed to write stack: {}", err))?;
@@ -715,7 +709,7 @@ where
     let memory = env.memory_view(&ctx);
 
     // Write the addresses to the start of the stack space
-    let unwind_pointer: u64 = wasi_try_ok!(env.stack_start.try_into().map_err(|_| Errno::Overflow));
+    let unwind_pointer = env.stack_start;
     let unwind_data_start =
         unwind_pointer + (std::mem::size_of::<__wasi_asyncify_t<M::Offset>>() as u64);
     let unwind_data = __wasi_asyncify_t::<M::Offset> {
@@ -776,14 +770,14 @@ where
         let unwind_stack_ptr = WasmPtr::<u8, M>::new(
             unwind_stack_begin
                 .try_into()
-                .map_err(|_| format!("failed to save stack: stack pointer overflow"))?,
+                .map_err(|_| "failed to save stack: stack pointer overflow".to_string())?,
         );
         let unwind_stack = unwind_stack_ptr
             .slice(
                 &memory,
                 unwind_size
                     .try_into()
-                    .map_err(|_| format!("failed to save stack: stack pointer overflow"))?,
+                    .map_err(|_| "failed to save stack: stack pointer overflow".to_string())?,
             )
             .and_then(|memory_stack| memory_stack.read_to_bytes())
             .map_err(|err| format!("failed to read stack: {}", err))?;
@@ -835,7 +829,7 @@ pub(crate) fn rewind<M: MemorySize>(
     let memory = env.memory_view(&ctx);
 
     // Write the addresses to the start of the stack space
-    let rewind_pointer: u64 = wasi_try!(env.stack_start.try_into().map_err(|_| Errno::Overflow));
+    let rewind_pointer = env.stack_start;
     let rewind_data_start =
         rewind_pointer + (std::mem::size_of::<__wasi_asyncify_t<M::Offset>>() as u64);
     let rewind_data_end = rewind_data_start + (rewind_stack.len() as u64);
@@ -909,7 +903,7 @@ pub(crate) fn _prepare_wasi(wasi_env: &mut WasiEnv, args: Option<Vec<String>>) {
     let close_fds = {
         let preopen_fds = {
             let preopen_fds = wasi_env.state.fs.preopen_fds.read().unwrap();
-            preopen_fds.iter().map(|a| *a).collect::<HashSet<_>>()
+            preopen_fds.iter().copied().collect::<HashSet<_>>()
         };
         let mut fd_map = wasi_env.state.fs.fd_map.read().unwrap();
         fd_map
@@ -934,31 +928,15 @@ pub(crate) fn conv_bus_err_to_exit_code(err: VirtualBusError) -> ExitCode {
         VirtualBusError::AccessDenied => Errno::Access as ExitCode,
         VirtualBusError::NotFound => Errno::Noent as ExitCode,
         VirtualBusError::Unsupported => Errno::Noexec as ExitCode,
-        VirtualBusError::BadRequest | _ => Errno::Inval as ExitCode,
+        _ => Errno::Inval as ExitCode,
     }
 }
 
 // Function for converting the format
 pub(crate) fn conv_bus_format(format: BusDataFormat) -> BusDataFormat {
-    match format {
-        BusDataFormat::Raw => BusDataFormat::Raw,
-        BusDataFormat::Bincode => BusDataFormat::Bincode,
-        BusDataFormat::MessagePack => BusDataFormat::MessagePack,
-        BusDataFormat::Json => BusDataFormat::Json,
-        BusDataFormat::Yaml => BusDataFormat::Yaml,
-        BusDataFormat::Xml => BusDataFormat::Xml,
-        BusDataFormat::Rkyv => BusDataFormat::Rkyv,
-    }
+    format
 }
 
 pub(crate) fn conv_bus_format_from(format: BusDataFormat) -> BusDataFormat {
-    match format {
-        BusDataFormat::Raw => BusDataFormat::Raw,
-        BusDataFormat::Bincode => BusDataFormat::Bincode,
-        BusDataFormat::MessagePack => BusDataFormat::MessagePack,
-        BusDataFormat::Json => BusDataFormat::Json,
-        BusDataFormat::Yaml => BusDataFormat::Yaml,
-        BusDataFormat::Xml => BusDataFormat::Xml,
-        BusDataFormat::Rkyv => BusDataFormat::Rkyv,
-    }
+    format
 }

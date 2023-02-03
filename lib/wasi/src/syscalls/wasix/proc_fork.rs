@@ -1,3 +1,5 @@
+use wasmer_vm::VMMemory;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -151,7 +153,7 @@ pub fn proc_fork<M: MemorySize>(
                     ctx.data().tid(),
                     fork_op
                 );
-                MemoryError::Generic(format!("the memory could not be cloned"))
+                MemoryError::Generic("the memory could not be cloned".to_string())
             })
             .and_then(|mut memory| memory.duplicate())
         {
@@ -281,9 +283,7 @@ pub fn proc_fork<M: MemorySize>(
                 child_pid.raw()
             );
             let mut inner = ctx.data().process.write();
-            inner
-                .bus_processes
-                .insert(child_pid.into(), Box::new(process));
+            inner.bus_processes.insert(child_pid, Box::new(process));
         }
 
         // If the return value offset is within the memory stack then we need

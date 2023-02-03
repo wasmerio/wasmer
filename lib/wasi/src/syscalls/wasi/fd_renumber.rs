@@ -34,7 +34,7 @@ pub fn fd_renumber(ctx: FunctionEnvMut<'_, WasiEnv>, from: WasiFd, to: WasiFd) -
         ..*fd_entry
     };
 
-    if let Some(fd_entry) = fd_map.get(&to).map(|a| a.clone()) {
+    if let Some(fd_entry) = fd_map.get(&to).cloned() {
         if fd_entry.ref_cnt.fetch_sub(1, Ordering::AcqRel) == 1 {
             wasi_try!(state.fs.close_fd_ext(inodes.deref(), &mut fd_map, to));
         }

@@ -47,8 +47,7 @@ impl Commands {
         compiled_modules: Arc<ModuleCache>,
     ) -> Self {
         let mut cmd = Self::new();
-        let cmd_wasmer =
-            builtins::cmd_wasmer::CmdWasmer::new(runtime.clone(), compiled_modules.clone());
+        let cmd_wasmer = builtins::cmd_wasmer::CmdWasmer::new(runtime.clone(), compiled_modules);
         cmd.register_command(cmd_wasmer);
 
         cmd

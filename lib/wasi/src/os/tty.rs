@@ -204,7 +204,7 @@ impl Tty {
             // Add a line feed on the end and take the line
             let mut data = self.line.clone();
             self.line.clear();
-            data.push_str("\n");
+            data.push('\n');
 
             // If echo is on then write a new line
             {
@@ -248,7 +248,7 @@ impl Tty {
             return Box::pin(async move { self });
         }
         let len = self.line.len();
-        self.line = (&self.line[..len - 1]).to_string();
+        self.line = self.line[..len - 1].to_string();
 
         Box::pin(async move {
             // If echo is on then write the backspace
@@ -358,7 +358,6 @@ impl Tty {
         let options = { self.options.inner.lock().unwrap().clone() };
         if options.line_buffering {
             let echo = options.echo;
-            drop(options);
             return match String::from_utf8_lossy(data.as_ref()).as_ref() {
                 "\r" | "\u{000A}" => self.on_enter(data),
                 "\u{0003}" => self.on_ctrl_c(data),
@@ -386,7 +385,7 @@ impl Tty {
                 "\u{001B}\u{005B}\u{0032}\u{0033}\u{007E}" => self.on_f11(data),
                 "\u{001B}\u{005B}\u{0032}\u{0034}\u{007E}" => self.on_f12(data),
                 _ => Box::pin(async move {
-                    if echo == true {
+                    if echo {
                         let _ = self.stdout.write(data.as_ref()).await;
                     }
                     self.line
@@ -398,11 +397,9 @@ impl Tty {
 
         Box::pin(async move {
             // If the echo is enabled then write it to the terminal
-            if options.echo == true {
-                drop(options);
+            if options.echo {
+                // TODO: log / propagate error?
                 let _ = self.stdout.write(data.as_ref()).await;
-            } else {
-                drop(options);
             }
 
             // Now send it to the process

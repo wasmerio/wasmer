@@ -35,7 +35,7 @@ impl TaskJoinHandle {
             let mut rx = {
                 let code_opt = self.exit_code.lock().unwrap();
                 if code_opt.is_some() {
-                    return code_opt.clone();
+                    return *code_opt;
                 }
                 self.sender.subscribe()
             };
@@ -47,6 +47,12 @@ impl TaskJoinHandle {
 
     /// Returns the exit code if the task has finished, and None otherwise.
     pub fn get_exit_code(&self) -> Option<ExitCode> {
-        self.exit_code.lock().unwrap().clone()
+        *self.exit_code.lock().unwrap()
+    }
+}
+
+impl Default for TaskJoinHandle {
+    fn default() -> Self {
+        Self::new()
     }
 }
