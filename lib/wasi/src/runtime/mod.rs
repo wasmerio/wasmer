@@ -1,12 +1,10 @@
 mod stdio;
 pub mod task_manager;
-mod ws;
 
 use self::task_manager::StubTaskManager;
 pub use self::{
     stdio::*,
-    task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager, VirtualTaskManagerExt},
-    ws::*,
+    task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager},
 };
 
 use std::{
@@ -155,25 +153,6 @@ where
     /// Returns a HTTP client
     fn http_client(&self) -> Option<&DynHttpClient> {
         None
-    }
-
-    /// Make a web socket connection to a particular URL
-    #[cfg(not(feature = "host-ws"))]
-    fn web_socket(
-        &self,
-        url: &str,
-    ) -> Pin<Box<dyn Future<Output = Result<Box<dyn WebSocketAbi>, String>>>> {
-        Box::pin(async move { Err("not supported".to_string()) })
-    }
-
-    /// Make a web socket connection to a particular URL
-    #[cfg(feature = "host-ws")]
-    fn web_socket(
-        &self,
-        url: &str,
-    ) -> Pin<Box<dyn Future<Output = Result<Box<dyn WebSocketAbi>, String>>>> {
-        let url = url.to_string();
-        Box::pin(async move { Box::new(TerminalWebSocket::new(url.as_str())).await })
     }
 
     /// Writes output to the console
