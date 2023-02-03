@@ -123,7 +123,7 @@ impl UnwindRegistry {
         match self.ty {
             #[cfg(unix)]
             UnwindType::SystemV => {
-                if let Some(_eh_frame) = eh_frame {
+                if let Some(eh_frame) = _eh_frame {
                     unsafe {
                         self.register_frames(eh_frame);
                     }
