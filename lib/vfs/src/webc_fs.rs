@@ -46,23 +46,13 @@ where
 }
 
 /// Custom file opener, returns a WebCFile
-#[derive(Debug)]
-struct WebCFileOpener<T>
-where
-    T: std::fmt::Debug + Send + Sync + 'static,
-{
-    pub package: String,
-    pub webc: Arc<T>,
-    pub memory: Arc<MemFileSystem>,
-}
-
-impl<T> FileOpener for WebCFileOpener<T>
+impl<T> FileOpener for WebcFileSystem<T>
 where
     T: std::fmt::Debug + Send + Sync + 'static,
     T: Deref<Target = WebC<'static>>,
 {
     fn open(
-        &mut self,
+        &self,
         path: &Path,
         _conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync>, FsError> {
@@ -357,11 +347,7 @@ where
         }
     }
     fn new_open_options(&self) -> OpenOptions {
-        OpenOptions::new(Box::new(WebCFileOpener {
-            package: self.package.clone(),
-            webc: self.webc.clone(),
-            memory: self.memory.clone(),
-        }))
+        OpenOptions::new(self)
     }
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         let path = normalizes_path(path);

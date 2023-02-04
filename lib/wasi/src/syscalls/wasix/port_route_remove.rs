@@ -17,8 +17,8 @@ pub fn port_route_remove<M: MemorySize>(
     let ip = wasi_try_ok!(crate::net::read_ip(&memory, ip));
 
     let net = env.net();
-    wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-        net.route_remove(ip).await.map_err(net_error_into_wasi_err)
+    wasi_try_ok!(__asyncify(&mut ctx, None, async {
+        net.route_remove(ip).map_err(net_error_into_wasi_err)
     })?);
 
     Ok(Errno::Success)

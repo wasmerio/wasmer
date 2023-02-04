@@ -41,14 +41,14 @@ impl FileSystem for EmptyFileSystem {
     }
 
     fn new_open_options(&self) -> OpenOptions {
-        OpenOptions::new(Box::new(EmptyFileSystem::default()))
+        OpenOptions::new(self)
     }
 }
 
 impl FileOpener for EmptyFileSystem {
     #[allow(unused_variables)]
     fn open(
-        &mut self,
+        &self,
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {

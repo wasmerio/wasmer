@@ -1,10 +1,13 @@
 use std::fmt;
+use std::mem::MaybeUninit;
 use std::net::IpAddr;
 use std::net::Ipv4Addr;
 use std::net::Ipv6Addr;
 use std::net::Shutdown;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::task::Context;
+use std::task::Poll;
 use std::time::Duration;
 use thiserror::Error;
 
@@ -62,37 +65,37 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
     }
 
     /// Adds a static IP address to the interface with a netmask prefix
-    async fn ip_add(&self, ip: IpAddr, prefix: u8) -> Result<()> {
+    fn ip_add(&self, ip: IpAddr, prefix: u8) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Removes a static (or dynamic) IP address from the interface
-    async fn ip_remove(&self, ip: IpAddr) -> Result<()> {
+    fn ip_remove(&self, ip: IpAddr) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Clears all the assigned IP addresses for this interface
-    async fn ip_clear(&self) -> Result<()> {
+    fn ip_clear(&self) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Lists all the IP addresses currently assigned to this interface
-    async fn ip_list(&self) -> Result<Vec<IpCidr>> {
+    fn ip_list(&self) -> Result<Vec<IpCidr>> {
         Err(NetworkError::Unsupported)
     }
 
     /// Returns the hardware MAC address for this interface
-    async fn mac(&self) -> Result<[u8; 6]> {
+    fn mac(&self) -> Result<[u8; 6]> {
         Err(NetworkError::Unsupported)
     }
 
     /// Adds a default gateway to the routing table
-    async fn gateway_set(&self, ip: IpAddr) -> Result<()> {
+    fn gateway_set(&self, ip: IpAddr) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Adds a specific route to the routing table
-    async fn route_add(
+    fn route_add(
         &self,
         cidr: IpCidr,
         via_router: IpAddr,
@@ -103,17 +106,17 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
     }
 
     /// Removes a routing rule from the routing table
-    async fn route_remove(&self, cidr: IpAddr) -> Result<()> {
+    fn route_remove(&self, cidr: IpAddr) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Clears the routing table for this interface
-    async fn route_clear(&self) -> Result<()> {
+    fn route_clear(&self) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Lists all the routes defined in the routing table for this interface
-    async fn route_list(&self) -> Result<Vec<IpRoute>> {
+    fn route_list(&self) -> Result<Vec<IpRoute>> {
         Err(NetworkError::Unsupported)
     }
 
@@ -159,7 +162,6 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
         &self,
         addr: SocketAddr,
         peer: SocketAddr,
-        timeout: Option<Duration>,
     ) -> Result<Box<dyn VirtualTcpSocket + Sync>> {
         Err(NetworkError::Unsupported)
     }
@@ -177,25 +179,6 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
 
 pub type DynVirtualNetworking = Arc<dyn VirtualNetworking>;
 
-#[derive(Debug, Clone)]
-pub struct SocketReceive {
-    /// Data that was received
-    pub data: Bytes,
-    /// Indicates if the data was truncated (e.g. UDP packet)
-    pub truncated: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct SocketReceiveFrom {
-    /// Data that was received
-    pub data: Bytes,
-    /// Indicates if the data was truncated (e.g. UDP packet)
-    pub truncated: bool,
-    /// Peer sender address of the data
-    pub addr: SocketAddr,
-}
-
-#[async_trait::async_trait]
 pub trait VirtualTcpListener: fmt::Debug + Send + Sync + 'static {
     /// Tries to accept a new connection
     fn try_accept(&mut self) -> Option<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>>;
@@ -212,38 +195,19 @@ pub trait VirtualTcpListener: fmt::Debug + Send + Sync + 'static {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>>;
 
-    /// Sets the accept timeout
-    fn set_timeout(&mut self, timeout: Option<Duration>) -> Result<()>;
-
-    /// Gets the accept timeout
-    fn timeout(&self) -> Result<Option<Duration>>;
-
     /// Returns the local address of this TCP listener
     fn addr_local(&self) -> Result<SocketAddr>;
 
     /// Sets how many network hops the packets are permitted for new connections
-    async fn set_ttl(&mut self, ttl: u8) -> Result<()>;
+    fn set_ttl(&mut self, ttl: u8) -> Result<()>;
 
     /// Returns the maximum number of network hops before packets are dropped
     fn ttl(&self) -> Result<u8>;
-
-    /// Determines if the socket is blocking or not
-    fn set_nonblocking(&mut self, nonblocking: bool) -> Result<()>;
-
-    // Returns true if the socket is nonblocking
-    fn nonblocking(&self) -> Result<bool>;
 }
 
-#[async_trait::async_trait]
 pub trait VirtualSocket: fmt::Debug + Send + Sync + 'static {
     /// Sets how many network hops the packets are permitted for new connections
-    async fn set_ttl(&mut self, ttl: u32) -> Result<()>;
-
-    /// Determines if the socket is blocking or not
-    fn set_nonblocking(&mut self, nonblocking: bool) -> Result<()>;
-
-    // Returns true if the socket is nonblocking
-    fn nonblocking(&self) -> Result<bool>;
+    fn set_ttl(&mut self, ttl: u32) -> Result<()>;
 
     /// Returns the maximum number of network hops before packets are dropped
     fn ttl(&self) -> Result<u32>;
@@ -284,19 +248,22 @@ pub enum StreamSecurity {
 }
 
 /// Interface used for sending and receiving data from a web socket
-#[async_trait::async_trait]
 pub trait VirtualWebSocket: fmt::Debug + Send + Sync + 'static {
     /// Sends out a datagram or stream of bytes on this socket
-    async fn send(&mut self, data: Bytes) -> Result<usize>;
+    fn poll_send(&mut self, cx: &mut Context<'_>, data: &[u8]) -> Poll<Result<usize>>;
 
     /// FLushes all the datagrams
     fn flush(&mut self) -> Result<()>;
 
     /// Recv a packet from the socket
-    async fn recv(&mut self) -> Result<SocketReceive>;
+    fn poll_recv<'a>(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &'a mut [MaybeUninit<u8>],
+    ) -> Poll<Result<usize>>;
 
     /// Recv a packet from the socket
-    fn try_recv(&mut self) -> Result<Option<SocketReceive>>;
+    fn try_recv<'a>(&mut self, buf: &'a mut [MaybeUninit<u8>]) -> Result<usize>;
 
     /// Polls the socket for when there is data to be received
     fn poll_read_ready(
@@ -312,7 +279,6 @@ pub trait VirtualWebSocket: fmt::Debug + Send + Sync + 'static {
 }
 
 /// Connected sockets have a persistent connection to a remote peer
-#[async_trait::async_trait]
 pub trait VirtualConnectedSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
     /// Determines how long the socket will remain in a TIME_WAIT
     /// after it disconnects (only the one that initiates the close will
@@ -324,63 +290,93 @@ pub trait VirtualConnectedSocket: VirtualSocket + fmt::Debug + Send + Sync + 'st
     /// after it disconnects
     fn linger(&self) -> Result<Option<Duration>>;
 
-    /// Sends out a datagram or stream of bytes on this socket
-    async fn send(&mut self, data: Bytes) -> Result<usize>;
+    /// Tries to send out a datagram or stream of bytes on this socket
+    fn try_send(&mut self, data: &[u8]) -> Result<usize>;
 
-    /// FLushes all the datagrams
-    async fn flush(&mut self) -> Result<()>;
+    /// Sends out a datagram or stream of bytes on this socket
+    fn poll_send(&mut self, cx: &mut Context<'_>, data: &[u8]) -> Poll<Result<usize>>;
+
+    /// Attempts to flush the object, ensuring that any buffered data reach
+    /// their destination.
+    fn poll_flush(&mut self, cx: &mut Context<'_>) -> Poll<Result<()>>;
 
     /// Closes the socket
     fn close(&mut self) -> Result<()>;
 
     /// Recv a packet from the socket
-    async fn recv(&mut self) -> Result<SocketReceive>;
+    fn poll_recv<'a>(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &'a mut [MaybeUninit<u8>],
+    ) -> Poll<Result<usize>>;
 
     /// Recv a packet from the socket
-    fn try_recv(&mut self) -> Result<Option<SocketReceive>>;
+    fn try_recv<'a>(&mut self, buf: &'a mut [MaybeUninit<u8>]) -> Result<usize>;
 }
 
 /// Connectionless sockets are able to send and receive datagrams and stream
 /// bytes to multiple addresses at the same time (peer-to-peer)
-#[async_trait::async_trait]
 pub trait VirtualConnectionlessSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
     /// Sends out a datagram or stream of bytes on this socket
     /// to a specific address
-    async fn send_to(&mut self, data: Bytes, addr: SocketAddr) -> Result<usize>;
+    fn poll_send_to(
+        &mut self,
+        cx: &mut Context<'_>,
+        data: &[u8],
+        addr: SocketAddr,
+    ) -> Poll<Result<usize>>;
+
+    /// Sends out a datagram or stream of bytes on this socket
+    /// to a specific address
+    fn try_send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize>;
 
     /// Recv a packet from the socket
-    async fn recv_from(&mut self) -> Result<SocketReceiveFrom>;
+    fn poll_recv_from<'a>(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &'a mut [MaybeUninit<u8>],
+    ) -> Poll<Result<(usize, SocketAddr)>>;
 
     /// Recv a packet from the socket
-    fn try_recv_from(&mut self) -> Result<Option<SocketReceiveFrom>>;
+    fn try_recv_from<'a>(&mut self, buf: &'a mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)>;
 }
 
 /// ICMP sockets are low level devices bound to a specific address
 /// that can send and receive ICMP packets
-#[async_trait::async_trait]
 pub trait VirtualIcmpSocket:
     VirtualConnectionlessSocket + fmt::Debug + Send + Sync + 'static
 {
 }
 
-#[async_trait::async_trait]
 pub trait VirtualRawSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
-    /// Sends out a raw packet on this socket
-    async fn send(&mut self, data: Bytes) -> Result<usize>;
+    /// Sends out a datagram or stream of bytes on this socket
+    fn poll_send(&mut self, cx: &mut Context<'_>, data: &[u8]) -> Poll<Result<usize>>;
 
-    /// FLushes all the datagrams
-    async fn flush(&mut self) -> Result<()>;
+    /// Sends out a datagram or stream of bytes on this socket
+    fn try_send(&mut self, data: &[u8]) -> Result<usize>;
+
+    /// Attempts to flush the object, ensuring that any buffered data reach
+    /// their destination.
+    fn poll_flush(&mut self, cx: &mut Context<'_>) -> Poll<Result<()>>;
+
+    /// Attempts to flush the object, ensuring that any buffered data reach
+    /// their destination.
+    fn try_flush(&mut self) -> Result<()>;
 
     /// Recv a packet from the socket
-    async fn recv(&mut self) -> Result<SocketReceive>;
+    fn poll_recv<'a>(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &'a mut [MaybeUninit<u8>],
+    ) -> Poll<Result<usize>>;
 
     /// Recv a packet from the socket
-    fn try_recv(&mut self) -> Result<Option<SocketReceive>>;
+    fn try_recv<'a>(&mut self, buf: &'a mut [MaybeUninit<u8>]) -> Result<usize>;
 
     /// Tells the raw socket and its backing switch that all packets
     /// should be received by this socket even if they are not
     /// destined for this device
-    async fn set_promiscuous(&mut self, promiscuous: bool) -> Result<()>;
+    fn set_promiscuous(&mut self, promiscuous: bool) -> Result<()>;
 
     /// Returns if the socket is running in promiscuous mode whereby it
     /// will receive all packets even if they are not destined for the
@@ -388,23 +384,7 @@ pub trait VirtualRawSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
     fn promiscuous(&self) -> Result<bool>;
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum TimeType {
-    ReadTimeout,
-    WriteTimeout,
-    AcceptTimeout,
-    ConnectTimeout,
-    Linger,
-}
-
-#[async_trait::async_trait]
 pub trait VirtualTcpSocket: VirtualConnectedSocket + fmt::Debug + Send + Sync + 'static {
-    /// Sets the timeout for a specific action on the socket
-    fn set_opt_time(&mut self, ty: TimeType, timeout: Option<Duration>) -> Result<()>;
-
-    /// Returns one of the previous set timeouts
-    fn opt_time(&self, ty: TimeType) -> Result<Option<Duration>>;
-
     /// Sets the receive buffer size which acts as a trottle for how
     /// much data is buffered on this side of the pipe
     fn set_recv_buf_size(&mut self, size: usize) -> Result<()>;
@@ -425,7 +405,7 @@ pub trait VirtualTcpSocket: VirtualConnectedSocket + fmt::Debug + Send + Sync + 
     /// the peer is sent immediately rather than waiting for a bigger
     /// batch of data, this reduces latency but increases encapsulation
     /// overhead.
-    async fn set_nodelay(&mut self, reuse: bool) -> Result<()>;
+    fn set_nodelay(&mut self, reuse: bool) -> Result<()>;
 
     /// Indicates if the NO_DELAY flag is set which means that data
     /// is immediately sent to the peer without waiting. This reduces
@@ -438,20 +418,15 @@ pub trait VirtualTcpSocket: VirtualConnectedSocket + fmt::Debug + Send + Sync + 
 
     /// Shuts down either the READER or WRITER sides of the socket
     /// connection.
-    async fn shutdown(&mut self, how: Shutdown) -> Result<()>;
+    fn shutdown(&mut self, how: Shutdown) -> Result<()>;
 
     /// Return true if the socket is closed
     fn is_closed(&self) -> bool;
 }
 
-#[async_trait::async_trait]
 pub trait VirtualUdpSocket:
-    VirtualConnectedSocket + VirtualConnectionlessSocket + fmt::Debug + Send + Sync + 'static
+    VirtualConnectionlessSocket + fmt::Debug + Send + Sync + 'static
 {
-    /// Connects to a destination peer so that the normal
-    /// send/recv operations can be used.
-    async fn connect(&mut self, addr: SocketAddr) -> Result<()>;
-
     /// Sets a flag that means that the UDP socket is able
     /// to receive and process broadcast packets.
     fn set_broadcast(&mut self, broadcast: bool) -> Result<()>;

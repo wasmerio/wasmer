@@ -1,3 +1,5 @@
+use std::mem::MaybeUninit;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -34,10 +36,10 @@ pub fn sock_recv_from<M: MemorySize>(
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let mut env = ctx.data();
+    let memory = env.memory_view(&ctx);
+    let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
 
     let max_size = {
-        let memory = env.memory_view(&ctx);
-        let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
         let mut max_size = 0usize;
         for iovs in iovs_arr.iter() {
             let iovs = wasi_try_mem_ok!(iovs.read());
@@ -47,23 +49,60 @@ pub fn sock_recv_from<M: MemorySize>(
         max_size
     };
 
-    let (data, peer) = wasi_try_ok!(__sock_actor_mut(
-        &mut ctx,
-        sock,
-        Rights::SOCK_RECV_FROM,
-        move |socket| async move { socket.recv_from(max_size).await }
-    ));
-    env = ctx.data();
+    let (bytes_read, peer) = {
+        if max_size <= 10240 {
+            let mut buf: [MaybeUninit<u8>; 10240] = unsafe { MaybeUninit::uninit().assume_init() };
+            let writer = &mut buf[..max_size];
+            let (amt, peer) = wasi_try_ok!(__sock_asyncify(
+                env,
+                sock,
+                Rights::SOCK_RECV,
+                |socket, fd| async move { socket.recv_from(env.tasks.deref(), writer, fd.flags).await },
+            ));
 
-    let memory = env.memory_view(&ctx);
-    let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
+            if amt > 0 {
+                let buf: &[MaybeUninit<u8>] = &buf[..amt];
+                let buf: &[u8] = unsafe { std::mem::transmute(buf) };
+                wasi_try_ok!(copy_from_slice(buf, &memory, iovs_arr).map(|_| (amt, peer)))
+            } else {
+                (amt, peer)
+            }
+        } else {
+            let (data, peer) = wasi_try_ok!(__sock_asyncify(
+                env,
+                sock,
+                Rights::SOCK_RECV_FROM,
+                |socket, fd| async move {
+                    let mut buf = Vec::with_capacity(max_size);
+                    unsafe {
+                        buf.set_len(max_size);
+                    }
+                    socket
+                        .recv_from(env.tasks.deref(), &mut buf, fd.flags)
+                        .await
+                        .map(|(amt, addr)| {
+                            unsafe {
+                                buf.set_len(amt);
+                            }
+                            let buf: Vec<u8> = unsafe { std::mem::transmute(buf) };
+                            (buf, addr)
+                        })
+                }
+            ));
+
+            let data_len = data.len();
+            if data_len > 0 {
+                let mut reader = &data[..];
+                wasi_try_ok!(read_bytes(reader, &memory, iovs_arr).map(|_| (data_len, peer)))
+            } else {
+                (0, peer)
+            }
+        }
+    };
+
     wasi_try_ok!(write_ip_port(&memory, ro_addr, peer.ip(), peer.port()));
 
-    let data_len = data.len();
-    let mut reader = &data[..];
-    let bytes_read = wasi_try_ok!(read_bytes(reader, &memory, iovs_arr).map(|_| data_len));
     let bytes_read: M::Offset = wasi_try_ok!(bytes_read.try_into().map_err(|_| Errno::Overflow));
-
     wasi_try_mem_ok!(ro_flags.write(&memory, 0));
     wasi_try_mem_ok!(ro_data_len.write(&memory, bytes_read));
 

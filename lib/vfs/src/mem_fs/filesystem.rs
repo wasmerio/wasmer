@@ -21,10 +21,8 @@ pub struct FileSystem {
 }
 
 impl FileSystem {
-    pub fn new_open_options_ext(&self) -> FileOpener {
-        FileOpener {
-            filesystem: self.clone(),
-        }
+    pub fn new_open_options_ext(&self) -> &FileSystem {
+        self
     }
 
     pub fn union(&self, other: &Arc<dyn crate::FileSystem + Send + Sync>) {
@@ -526,9 +524,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn new_open_options(&self) -> OpenOptions {
-        OpenOptions::new(Box::new(FileOpener {
-            filesystem: self.clone(),
-        }))
+        OpenOptions::new(self)
     }
 }
 

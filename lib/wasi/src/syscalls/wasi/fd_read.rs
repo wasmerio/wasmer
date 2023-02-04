@@ -123,8 +123,8 @@ fn fd_read_internal<M: MemorySize>(
             return Ok(Errno::Access);
         }
 
-        let is_non_blocking = fd_entry.flags.contains(Fdflags::NONBLOCK);
         let inode_idx = fd_entry.inode;
+        let fd_flags = fd_entry.flags;
 
         let max_size = {
             let memory = env.memory_view(&ctx);
@@ -152,7 +152,7 @@ fn fd_read_internal<M: MemorySize>(
 
                         let data = wasi_try_ok!(__asyncify(
                             &mut ctx,
-                            if is_non_blocking {
+                            if fd_flags.contains(Fdflags::NONBLOCK) {
                                 Some(Duration::ZERO)
                             } else {
                                 None
@@ -206,14 +206,30 @@ fn fd_read_internal<M: MemorySize>(
                     drop(guard);
                     drop(inodes);
 
+                    let tasks = env.tasks.clone();
                     let res = __asyncify(
                         &mut ctx,
-                        if is_non_blocking {
+                        if fd_flags.contains(Fdflags::NONBLOCK) {
                             Some(Duration::ZERO)
                         } else {
                             None
                         },
-                        async move { socket.recv(max_size).await },
+                        async {
+                            let mut buf = Vec::with_capacity(max_size);
+                            unsafe {
+                                buf.set_len(max_size);
+                            }
+                            socket
+                                .recv(tasks.deref(), &mut buf, fd_flags)
+                                .await
+                                .map(|amt| {
+                                    unsafe {
+                                        buf.set_len(amt);
+                                    }
+                                    let buf: Vec<u8> = unsafe { std::mem::transmute(buf) };
+                                    buf
+                                })
+                        },
                     )?
                     .map_err(|err| match err {
                         Errno::Timedout => Errno::Again,
@@ -244,7 +260,7 @@ fn fd_read_internal<M: MemorySize>(
 
                     let data = wasi_try_ok!(__asyncify(
                         &mut ctx,
-                        if is_non_blocking {
+                        if fd_flags.contains(Fdflags::NONBLOCK) {
                             Some(Duration::ZERO)
                         } else {
                             None
@@ -317,7 +333,7 @@ fn fd_read_internal<M: MemorySize>(
                         }
 
                         // If its none blocking then exit
-                        if is_non_blocking {
+                        if fd_flags.contains(Fdflags::NONBLOCK) {
                             return Ok(Errno::Again);
                         }
 

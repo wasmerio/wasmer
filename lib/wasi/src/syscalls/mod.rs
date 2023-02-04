@@ -19,12 +19,14 @@ pub mod windows;
 pub mod wasi;
 pub mod wasix;
 
+use bytes::{Buf, BufMut};
 use futures::Future;
 pub use wasi::*;
 pub use wasix::*;
 
 pub mod legacy;
 
+use std::mem::MaybeUninit;
 pub(crate) use std::{
     borrow::{Borrow, Cow},
     cell::RefCell,
@@ -158,6 +160,60 @@ pub(crate) fn write_bytes<T: Write, M: MemorySize>(
     result
 }
 
+pub(crate) fn copy_to_slice<M: MemorySize>(
+    memory: &MemoryView,
+    iovs_arr_cell: WasmSlice<__wasi_ciovec_t<M>>,
+    mut write_loc: &mut [MaybeUninit<u8>],
+) -> Result<usize, Errno> {
+    let mut bytes_written = 0usize;
+    for iov in iovs_arr_cell.iter() {
+        let iov_inner = iov.read().map_err(mem_error_to_wasi)?;
+
+        let amt = from_offset::<M>(iov_inner.buf_len)?;
+
+        let (left, right) = write_loc.split_at_mut(amt);
+        let bytes = WasmPtr::<u8, M>::new(iov_inner.buf)
+            .slice(memory, iov_inner.buf_len)
+            .map_err(mem_error_to_wasi)?;
+
+        if amt != bytes.copy_to_slice(left).map_err(mem_error_to_wasi)? {
+            return Err(Errno::Fault);
+        }
+
+        write_loc = right;
+        bytes_written += amt;
+    }
+    Ok(bytes_written)
+}
+
+pub(crate) fn copy_from_slice<M: MemorySize>(
+    mut read_loc: &[u8],
+    memory: &MemoryView,
+    iovs_arr: WasmSlice<__wasi_iovec_t<M>>,
+) -> Result<usize, Errno> {
+    let mut bytes_read = 0usize;
+
+    for iov in iovs_arr.iter() {
+        let iov_inner = iov.read().map_err(mem_error_to_wasi)?;
+
+        let to_read = from_offset::<M>(iov_inner.buf_len)?;
+        let to_read = to_read.min(read_loc.len());
+        if to_read == 0 {
+            break;
+        }
+        let (left, right) = read_loc.split_at(to_read);
+
+        let buf = WasmPtr::<u8, M>::new(iov_inner.buf)
+            .slice(memory, to_read.try_into().map_err(|_| Errno::Overflow)?)
+            .map_err(mem_error_to_wasi)?;
+        buf.write_slice(left).map_err(mem_error_to_wasi)?;
+
+        read_loc = right;
+        bytes_read += to_read;
+    }
+    Ok(bytes_read)
+}
+
 pub(crate) fn read_bytes<T: Read, M: MemorySize>(
     mut reader: T,
     memory: &MemoryView,
@@ -167,7 +223,7 @@ pub(crate) fn read_bytes<T: Read, M: MemorySize>(
 
     // We allocate the raw_bytes first once instead of
     // N times in the loop.
-    let mut raw_bytes: Vec<u8> = vec![0; 1024];
+    let mut raw_bytes: Vec<u8> = vec![0; 10240];
 
     for iov in iovs_arr.iter() {
         let iov_inner = iov.read().map_err(mem_error_to_wasi)?;
@@ -221,35 +277,17 @@ where
         return Err(WasiError::Exit(exit_code));
     }
 
-    // Fast path (inline synchronous)
-    let pinned_work = {
-        let _guard = env.tasks.runtime_enter();
-        let waker = WasiDummyWaker.into_waker();
-        let mut cx = Context::from_waker(&waker);
-        let mut pinned_work = Box::pin(work);
-        if let Poll::Ready(i) = pinned_work.as_mut().poll(&mut cx) {
-            return Ok(i);
-        }
-        pinned_work
-    };
-
-    // Slow path (will may put the thread to sleep)
-    //let mut env = ctx.data();
-    let tasks = env.tasks.clone();
-
     // Create the timeout
     let mut nonblocking = false;
     if timeout == Some(Duration::ZERO) {
         nonblocking = true;
     }
     let timeout = {
-        let tasks_inner = tasks.clone();
+        let tasks_inner = env.tasks.clone();
         async move {
             if let Some(timeout) = timeout {
                 if !nonblocking {
-                    tasks_inner
-                        .sleep_now(current_caller_id(), timeout.as_millis())
-                        .await
+                    tasks_inner.sleep_now(timeout).await
                 } else {
                     InfiniteSleep::default().await
                 }
@@ -259,51 +297,148 @@ where
         }
     };
 
-    let mut signaler = {
-        let signals = env.thread.signals().lock().unwrap();
-        let signaler = signals.1.subscribe();
-        if !signals.0.is_empty() {
-            drop(signals);
-            match WasiEnv::process_signals(ctx)? {
-                Err(err) => return Ok(Err(err)),
-                Ok(processed) if processed => return Ok(Err(Errno::Intr)),
-                Ok(_) => {}
+    // This poller will process any signals when the main working function is idle
+    struct WorkWithSignalPoller<'a, 'b, Fut, T>
+    where
+        Fut: Future<Output = Result<T, Errno>>,
+    {
+        ctx: &'a mut FunctionEnvMut<'b, WasiEnv>,
+        pinned_work: Pin<Box<Fut>>,
+    }
+    impl<'a, 'b, Fut, T> Future for WorkWithSignalPoller<'a, 'b, Fut, T>
+    where
+        Fut: Future<Output = Result<T, Errno>>,
+    {
+        type Output = Result<Fut::Output, WasiError>;
+        fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+            if let Poll::Ready(res) = Pin::new(&mut self.pinned_work).poll(cx) {
+                return Poll::Ready(Ok(res));
             }
-            env = ctx.data();
+            if let Some(exit_code) = self.ctx.data().should_exit() {
+                return Poll::Ready(Err(WasiError::Exit(exit_code)));
+            }
+            if let Some(signals) = self.ctx.data().thread.pop_signals_or_subscribe(cx.waker()) {
+                if let Err(err) = WasiEnv::process_signals_internal(self.ctx, signals) {
+                    return Poll::Ready(Err(err));
+                }
+                return Poll::Ready(Ok(Err(Errno::Intr)));
+            }
+            Poll::Pending
         }
-        signaler
-    };
+    }
 
     // Define the work function
-    let work = async move {
+    let tasks = env.tasks.clone();
+    let mut pinned_work = Box::pin(work);
+    let work = async {
         Ok(tokio::select! {
             // The main work we are doing
-            ret = pinned_work => ret,
-            // If a signaler is triggered then we interrupt the main process
-            _ = signaler.recv() => {
-                WasiEnv::process_signals(ctx)?;
-                Err(Errno::Intr)
-            },
+            res = WorkWithSignalPoller { ctx, pinned_work } => res?,
             // Optional timeout
             _ = timeout => Err(Errno::Timedout),
         })
     };
 
-    // If we are in nonblocking mode then we register a fake waker
-    // and poll then return immediately with a timeout if nothing happened
+    // Fast path
     if nonblocking {
         let waker = WasiDummyWaker.into_waker();
         let mut cx = Context::from_waker(&waker);
+        let _guard = tasks.runtime_enter();
         let mut pinned_work = Box::pin(work);
         if let Poll::Ready(res) = pinned_work.as_mut().poll(&mut cx) {
-            res
-        } else {
-            Ok(Err(Errno::Again))
+            return res;
         }
-    } else {
-        // Block on the work and process process
-        tasks.block_on(work)
+        return Ok(Err(Errno::Again));
     }
+
+    // Slow path, block on the work and process process
+    tasks.block_on(work)
+}
+
+/// Asyncify takes the current thread and blocks on the async runtime associated with it
+/// thus allowed for asynchronous operations to execute. It has built in functionality
+/// to (optionally) timeout the IO, force exit the process, callback signals and pump
+/// synchronous IO engine
+pub(crate) fn __asyncify_light<'a, T, Fut>(
+    env: &'a WasiEnv,
+    timeout: Option<Duration>,
+    work: Fut,
+) -> Result<Result<T, Errno>, WasiError>
+where
+    T: 'static,
+    Fut: std::future::Future<Output = Result<T, Errno>>,
+{
+    // Create the timeout
+    let mut nonblocking = false;
+    if timeout == Some(Duration::ZERO) {
+        nonblocking = true;
+    }
+    let timeout = {
+        async {
+            if let Some(timeout) = timeout {
+                if !nonblocking {
+                    env.tasks.sleep_now(timeout).await
+                } else {
+                    InfiniteSleep::default().await
+                }
+            } else {
+                InfiniteSleep::default().await
+            }
+        }
+    };
+
+    // This poller will process any signals when the main working function is idle
+    struct WorkWithSignalPoller<'a, Fut, T>
+    where
+        Fut: Future<Output = Result<T, Errno>>,
+    {
+        env: &'a WasiEnv,
+        pinned_work: Pin<Box<Fut>>,
+    }
+    impl<'a, Fut, T> Future for WorkWithSignalPoller<'a, Fut, T>
+    where
+        Fut: Future<Output = Result<T, Errno>>,
+    {
+        type Output = Result<Fut::Output, WasiError>;
+        fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+            if let Poll::Ready(res) = Pin::new(&mut self.pinned_work).poll(cx) {
+                return Poll::Ready(Ok(res));
+            }
+            if let Some(exit_code) = self.env.should_exit() {
+                return Poll::Ready(Err(WasiError::Exit(exit_code)));
+            }
+            if let Some(signals) = self.env.thread.pop_signals_or_subscribe(cx.waker()) {
+                return Poll::Ready(Ok(Err(Errno::Intr)));
+            }
+            Poll::Pending
+        }
+    }
+
+    // Define the work function
+    let mut pinned_work = Box::pin(work);
+    let work = async move {
+        Ok(tokio::select! {
+            // The main work we are doing
+            res = WorkWithSignalPoller { env, pinned_work } => res?,
+            // Optional timeout
+            _ = timeout => Err(Errno::Timedout),
+        })
+    };
+
+    // Fast path
+    if nonblocking {
+        let waker = WasiDummyWaker.into_waker();
+        let mut cx = Context::from_waker(&waker);
+        let _guard = env.tasks.runtime_enter();
+        let mut pinned_work = Box::pin(work);
+        if let Poll::Ready(res) = pinned_work.as_mut().poll(&mut cx) {
+            return res;
+        }
+        return Ok(Err(Errno::Again));
+    }
+
+    // Slow path, block on the work and process process
+    env.tasks.block_on(work)
 }
 
 // This should be compiled away, it will simply wait forever however its never
@@ -318,22 +453,18 @@ impl std::future::Future for InfiniteSleep {
     }
 }
 
-/// Performs an immuatble operation on the socket while running in an asynchronous runtime
+/// Performs an immutable operation on the socket while running in an asynchronous runtime
 /// This has built in signal support
-pub(crate) fn __sock_actor<T, F, Fut>(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+pub(crate) fn __sock_asyncify<'a, T, F, Fut>(
+    env: &'a WasiEnv,
     sock: WasiFd,
     rights: Rights,
     actor: F,
 ) -> Result<T, Errno>
 where
-    T: 'static,
-    F: FnOnce(crate::net::socket::InodeSocket) -> Fut + 'static,
+    F: FnOnce(crate::net::socket::InodeSocket, Fd) -> Fut,
     Fut: std::future::Future<Output = Result<T, Errno>>,
 {
-    let env = ctx.data();
-    let tasks = env.tasks.clone();
-
     let state = env.state.clone();
     let inodes = state.inodes.clone();
 
@@ -356,7 +487,7 @@ where
                 drop(guard);
 
                 // Start the work using the socket
-                actor(socket)
+                actor(socket, fd_entry)
             }
             _ => {
                 return Err(Errno::Notsock);
@@ -365,21 +496,20 @@ where
     };
 
     // Block on the work and process it
-    tasks.block_on(work)
+    env.tasks.block_on(work)
 }
 
 /// Performs mutable work on a socket under an asynchronous runtime with
 /// built in signal processing
-pub(crate) fn __sock_actor_mut<'a, T, F, Fut>(
-    ctx: &'a mut FunctionEnvMut<'_, WasiEnv>,
+pub(crate) fn __sock_asyncify_mut<T, F, Fut>(
+    ctx: &'_ mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     rights: Rights,
     actor: F,
 ) -> Result<T, Errno>
 where
-    T: 'static,
-    F: FnOnce(crate::net::socket::InodeSocket) -> Fut,
-    Fut: std::future::Future<Output = Result<T, Errno>> + 'a,
+    F: FnOnce(crate::net::socket::InodeSocket, Fd) -> Fut,
+    Fut: std::future::Future<Output = Result<T, Errno>>,
 {
     let env = ctx.data();
     let tasks = env.tasks.clone();
@@ -392,27 +522,109 @@ where
         return Err(Errno::Access);
     }
 
-    let tasks = env.tasks.clone();
-    {
-        let inode_idx = fd_entry.inode;
-        let inodes_guard = inodes.read().unwrap();
-        let inode = &inodes_guard.arena[inode_idx];
-        let mut guard = inode.write();
-        match guard.deref_mut() {
-            Kind::Socket { socket } => {
-                // Clone the socket and release the lock
-                let socket = socket.clone();
-                drop(guard);
-                drop(inodes_guard);
+    let inode_idx = fd_entry.inode;
+    let inodes_guard = inodes.read().unwrap();
+    let inode = &inodes_guard.arena[inode_idx];
+    let mut guard = inode.write();
+    match guard.deref_mut() {
+        Kind::Socket { socket } => {
+            // Clone the socket and release the lock
+            let socket = socket.clone();
+            drop(guard);
+            drop(inodes_guard);
 
-                // Start the work using the socket
-                let work = actor(socket);
+            // Start the work using the socket
+            let work = actor(socket, fd_entry);
 
-                // Block on the work and process it
-                tasks.block_on(work)
-            }
-            _ => Err(Errno::Notsock),
+            // Block on the work and process it
+            tasks.block_on(work)
         }
+        _ => Err(Errno::Notsock),
+    }
+}
+
+/// Performs an immutable operation on the socket while running in an asynchronous runtime
+/// This has built in signal support
+pub(crate) fn __sock_actor<T, F>(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    rights: Rights,
+    actor: F,
+) -> Result<T, Errno>
+where
+    T: 'static,
+    F: FnOnce(crate::net::socket::InodeSocket, Fd) -> Result<T, Errno>,
+{
+    let env = ctx.data();
+    let tasks = env.tasks.clone();
+
+    let state = env.state.clone();
+    let inodes = state.inodes.clone();
+
+    let fd_entry = state.fs.get_fd(sock)?;
+    if !rights.is_empty() && !fd_entry.rights.contains(rights) {
+        return Err(Errno::Access);
+    }
+
+    let inodes_guard = inodes.read().unwrap();
+    let inode_idx = fd_entry.inode;
+    let inode = &inodes_guard.arena[inode_idx];
+
+    let tasks = env.tasks.clone();
+    let mut guard = inode.read();
+    match guard.deref() {
+        Kind::Socket { socket } => {
+            // Clone the socket and release the lock
+            let socket = socket.clone();
+            drop(guard);
+
+            // Start the work using the socket
+            actor(socket, fd_entry)
+        }
+        _ => {
+            return Err(Errno::Notsock);
+        }
+    }
+}
+
+/// Performs mutable work on a socket under an asynchronous runtime with
+/// built in signal processing
+pub(crate) fn __sock_actor_mut<'a, T, F>(
+    ctx: &'a mut FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    rights: Rights,
+    actor: F,
+) -> Result<T, Errno>
+where
+    T: 'static,
+    F: FnOnce(crate::net::socket::InodeSocket, Fd) -> Result<T, Errno>,
+{
+    let env = ctx.data();
+    let tasks = env.tasks.clone();
+
+    let state = env.state.clone();
+    let inodes = state.inodes.clone();
+
+    let fd_entry = state.fs.get_fd(sock)?;
+    if !rights.is_empty() && !fd_entry.rights.contains(rights) {
+        return Err(Errno::Access);
+    }
+
+    let inode_idx = fd_entry.inode;
+    let inodes_guard = inodes.read().unwrap();
+    let inode = &inodes_guard.arena[inode_idx];
+    let mut guard = inode.write();
+    match guard.deref_mut() {
+        Kind::Socket { socket } => {
+            // Clone the socket and release the lock
+            let socket = socket.clone();
+            drop(guard);
+            drop(inodes_guard);
+
+            // Start the work using the socket
+            actor(socket, fd_entry)
+        }
+        _ => Err(Errno::Notsock),
     }
 }
 

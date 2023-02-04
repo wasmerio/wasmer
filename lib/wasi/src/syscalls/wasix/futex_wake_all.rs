@@ -18,20 +18,26 @@ pub fn futex_wake_all<M: MemorySize>(
     let pointer: u64 = wasi_try!(futex_ptr.offset().try_into().map_err(|_| Errno::Overflow));
     let mut woken = false;
 
-    let mut guard = state.futexs.read().unwrap();
-    if let Some(futex) = guard.get(&pointer) {
-        woken = futex.waker.receiver_count() > 0;
-        let _ = futex.waker.send(());
+    let woken = {
+        let mut guard = state.futexs.lock().unwrap();
+        if let Some(futex) = guard.remove(&pointer) {
+            futex.wakers.into_iter().for_each(|w| w.wake());
+            true
+        } else {
+            false
+        }
+    };
+    if woken {
         trace!(
             %woken,
-            "wasi[{}:{}]::futex_wake_all(offset={})",
+            "wasi[{}:{}]::futex_wake(offset={})",
             ctx.data().pid(),
             ctx.data().tid(),
             futex_ptr.offset()
         );
     } else {
         trace!(
-            "wasi[{}:{}]::futex_wake_all(offset={}) - nothing waiting",
+            "wasi[{}:{}]::futex_wake(offset={}) - nothing waiting",
             ctx.data().pid(),
             ctx.data().tid(),
             futex_ptr.offset()

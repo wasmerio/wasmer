@@ -28,7 +28,7 @@ pub fn sock_addr_peer<M: MemorySize>(
         &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move { socket.addr_peer().await }
+        |socket, _| socket.addr_peer()
     ));
 
     let env = ctx.data();

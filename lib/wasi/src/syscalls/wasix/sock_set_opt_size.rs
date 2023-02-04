@@ -1,5 +1,5 @@
 use super::*;
-use crate::syscalls::*;
+use crate::{net::socket::TimeType, syscalls::*};
 
 /// ### `sock_set_opt_size()
 /// Set size of particular option for this socket
@@ -25,11 +25,11 @@ pub fn sock_set_opt_size(
     );
 
     let ty = match opt {
-        Sockoption::RecvTimeout => wasmer_vnet::TimeType::ReadTimeout,
-        Sockoption::SendTimeout => wasmer_vnet::TimeType::WriteTimeout,
-        Sockoption::ConnectTimeout => wasmer_vnet::TimeType::ConnectTimeout,
-        Sockoption::AcceptTimeout => wasmer_vnet::TimeType::AcceptTimeout,
-        Sockoption::Linger => wasmer_vnet::TimeType::Linger,
+        Sockoption::RecvTimeout => TimeType::ReadTimeout,
+        Sockoption::SendTimeout => TimeType::WriteTimeout,
+        Sockoption::ConnectTimeout => TimeType::ConnectTimeout,
+        Sockoption::AcceptTimeout => TimeType::AcceptTimeout,
+        Sockoption::Linger => TimeType::Linger,
         _ => return Errno::Inval,
     };
 
@@ -38,14 +38,12 @@ pub fn sock_set_opt_size(
         &mut ctx,
         sock,
         Rights::empty(),
-        move |mut socket| async move {
-            match opt {
-                Sockoption::RecvBufSize => socket.set_recv_buf_size(size as usize).await,
-                Sockoption::SendBufSize => socket.set_send_buf_size(size as usize).await,
-                Sockoption::Ttl => socket.set_ttl(size as u32).await,
-                Sockoption::MulticastTtlV4 => socket.set_multicast_ttl_v4(size as u32).await,
-                _ => Err(Errno::Inval),
-            }
+        |mut socket, _| match opt {
+            Sockoption::RecvBufSize => socket.set_recv_buf_size(size as usize),
+            Sockoption::SendBufSize => socket.set_send_buf_size(size as usize),
+            Sockoption::Ttl => socket.set_ttl(size as u32),
+            Sockoption::MulticastTtlV4 => socket.set_multicast_ttl_v4(size as u32),
+            _ => Err(Errno::Inval),
         }
     ));
     Errno::Success

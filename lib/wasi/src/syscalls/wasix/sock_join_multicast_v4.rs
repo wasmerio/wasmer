@@ -30,7 +30,7 @@ pub fn sock_join_multicast_v4<M: MemorySize>(
         &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move { socket.join_multicast_v4(multiaddr, iface).await }
+        |socket, _| socket.join_multicast_v4(multiaddr, iface)
     ));
     Errno::Success
 }

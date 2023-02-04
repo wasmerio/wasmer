@@ -364,10 +364,7 @@ impl FileSystem for UnionFileSystem {
         Err(ret_error)
     }
     fn new_open_options(&self) -> OpenOptions {
-        let opener = Box::new(UnionFileOpener {
-            mounts: self.mounts.clone(),
-        });
-        OpenOptions::new(opener)
+        OpenOptions::new(self)
     }
 }
 
@@ -413,14 +410,9 @@ fn filter_mounts(
     ret.into_iter()
 }
 
-#[derive(Debug)]
-pub struct UnionFileOpener {
-    mounts: Vec<MountPoint>,
-}
-
-impl FileOpener for UnionFileOpener {
+impl FileOpener for UnionFileSystem {
     fn open(
-        &mut self,
+        &self,
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync>> {

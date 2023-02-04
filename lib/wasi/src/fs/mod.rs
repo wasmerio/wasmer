@@ -515,7 +515,9 @@ impl WasiFs {
         if path.starts_with("./") {
             let current_dir = self.current_dir.lock().unwrap();
             path = format!("{}{}", current_dir.as_str(), &path[1..]);
-            path = path.replace("//", "/");
+            if path.contains("//") {
+                path = path.replace("//", "/");
+            }
         }
         path
     }

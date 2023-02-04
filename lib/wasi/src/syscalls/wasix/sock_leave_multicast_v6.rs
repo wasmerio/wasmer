@@ -29,7 +29,7 @@ pub fn sock_leave_multicast_v6<M: MemorySize>(
         &mut ctx,
         sock,
         Rights::empty(),
-        move |mut socket| async move { socket.leave_multicast_v6(multiaddr, iface).await }
+        |mut socket, _| socket.leave_multicast_v6(multiaddr, iface)
     ));
     Errno::Success
 }

@@ -36,7 +36,7 @@ pub fn sock_set_opt_flag(
         &mut ctx,
         sock,
         Rights::empty(),
-        move |mut socket| async move { socket.set_opt_flag(option, flag).await }
+        |mut socket, _| socket.set_opt_flag(option, flag)
     ));
     Errno::Success
 }

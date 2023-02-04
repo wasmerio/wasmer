@@ -20,9 +20,8 @@ pub fn port_addr_add<M: MemorySize>(
     let memory = env.memory_view(&ctx);
     let cidr = wasi_try_ok!(crate::net::read_cidr(&memory, ip));
     let net = env.net();
-    wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+    wasi_try_ok!(__asyncify(&mut ctx, None, async {
         net.ip_add(cidr.ip, cidr.prefix)
-            .await
             .map_err(net_error_into_wasi_err)
     })?);
     Ok(Errno::Success)

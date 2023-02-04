@@ -31,11 +31,13 @@ pub fn sock_connect<M: MemorySize>(
     let addr = wasi_try!(crate::net::read_ip_port(&memory, addr));
     let addr = SocketAddr::new(addr.0, addr.1);
 
+    let tasks = ctx.data().tasks.clone();
     wasi_try!(__sock_upgrade(
         &mut ctx,
         sock,
         Rights::SOCK_CONNECT,
-        move |mut socket| async move { socket.connect(net, addr).await }
+        move |mut socket| async move { socket.connect(tasks.deref(), net.deref(), addr, None).await }
     ));
+
     Errno::Success
 }

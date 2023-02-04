@@ -1,3 +1,5 @@
+use std::mem::MaybeUninit;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -26,10 +28,10 @@ pub fn sock_recv<M: MemorySize>(
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let mut env = ctx.data();
+    let memory = env.memory_view(&ctx);
+    let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
 
     let max_size = {
-        let memory = env.memory_view(&ctx);
-        let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
         let mut max_size = 0usize;
         for iovs in iovs_arr.iter() {
             let iovs = wasi_try_mem_ok!(iovs.read());
@@ -39,23 +41,55 @@ pub fn sock_recv<M: MemorySize>(
         max_size
     };
 
-    let data = wasi_try_ok!(__sock_actor_mut(
-        &mut ctx,
-        sock,
-        Rights::SOCK_RECV,
-        move |socket| async move { socket.recv(max_size).await },
-    ));
-    env = ctx.data();
+    let bytes_read = {
+        if max_size <= 10240 {
+            let mut buf: [MaybeUninit<u8>; 10240] = unsafe { MaybeUninit::uninit().assume_init() };
+            let writer = &mut buf[..max_size];
+            let amt = wasi_try_ok!(__sock_asyncify(
+                env,
+                sock,
+                Rights::SOCK_RECV,
+                |socket, fd| async move { socket.recv(env.tasks.deref(), writer, fd.flags).await },
+            ));
 
-    let memory = env.memory_view(&ctx);
+            if amt > 0 {
+                let buf: &[MaybeUninit<u8>] = &buf[..amt];
+                let buf: &[u8] = unsafe { std::mem::transmute(buf) };
+                wasi_try_ok!(copy_from_slice(buf, &memory, iovs_arr).map(|_| amt))
+            } else {
+                0
+            }
+        } else {
+            let data = wasi_try_ok!(__sock_asyncify(
+                env,
+                sock,
+                Rights::SOCK_RECV,
+                |socket, fd| async move {
+                    let mut buf = Vec::with_capacity(max_size);
+                    unsafe {
+                        buf.set_len(max_size);
+                    }
+                    socket
+                        .recv(env.tasks.deref(), &mut buf, fd.flags)
+                        .await
+                        .map(|amt| {
+                            unsafe {
+                                buf.set_len(amt);
+                            }
+                            let buf: Vec<u8> = unsafe { std::mem::transmute(buf) };
+                            buf
+                        })
+                },
+            ));
 
-    let data_len = data.len();
-    let bytes_read = if data_len > 0 {
-        let mut reader = &data[..];
-        let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
-        wasi_try_ok!(read_bytes(reader, &memory, iovs_arr).map(|_| data_len))
-    } else {
-        0
+            let data_len = data.len();
+            if data_len > 0 {
+                let mut reader = &data[..];
+                wasi_try_ok!(read_bytes(reader, &memory, iovs_arr).map(|_| data_len))
+            } else {
+                0
+            }
+        }
     };
 
     debug!(

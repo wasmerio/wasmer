@@ -30,7 +30,7 @@ impl TmpFileSystem {
         Self::default()
     }
 
-    pub fn new_open_options_ext(&self) -> mem_fs::FileOpener {
+    pub fn new_open_options_ext(&self) -> &mem_fs::FileSystem {
         self.fs.new_open_options_ext()
     }
 

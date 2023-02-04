@@ -36,7 +36,7 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
                     drop(inodes);
 
                     __asyncify(&mut ctx, None, async move {
-                        socket.close().await.map(|()| Errno::Success)
+                        socket.close().map(|()| Errno::Success)
                     })?
                     .unwrap_or_else(|a| a)
                 }

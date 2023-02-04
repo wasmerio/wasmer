@@ -1,5 +1,61 @@
+use std::task::Waker;
+
 use super::*;
 use crate::syscalls::*;
+
+struct FutexPoller<'a, M>
+where
+    M: MemorySize,
+{
+    env: &'a WasiEnv,
+    view: MemoryView<'a>,
+    futex_idx: u64,
+    futex_ptr: WasmPtr<u32, M>,
+    expected: u32,
+}
+impl<'a, M> Future for FutexPoller<'a, M>
+where
+    M: MemorySize,
+{
+    type Output = Result<(), Errno>;
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let waker = cx.waker();
+        let mut guard = self.env.state.futexs.lock().unwrap();
+
+        {
+            let val = match self.futex_ptr.read(&self.view) {
+                Ok(a) => a,
+                Err(err) => return Poll::Ready(Err(mem_error_to_wasi(err))),
+            };
+            if val != self.expected {
+                return Poll::Ready(Ok(()));
+            }
+        }
+
+        let futex = guard
+            .entry(self.futex_idx)
+            .or_insert_with(|| WasiFutex { wakers: vec![] });
+        if futex.wakers.iter().any(|w| w.will_wake(waker)) == false {
+            futex.wakers.push(waker.clone());
+        }
+
+        Poll::Pending
+    }
+}
+impl<'a, M> Drop for FutexPoller<'a, M>
+where
+    M: MemorySize,
+{
+    fn drop(&mut self) {
+        let futex = {
+            let mut guard = self.env.state.futexs.lock().unwrap();
+            guard.remove(&self.futex_idx)
+        };
+        if let Some(futex) = futex {
+            futex.wakers.into_iter().for_each(|w| w.wake());
+        }
+    }
+}
 
 /// Wait for a futex_wake operation to wake us.
 /// Returns with EINVAL if the futex doesn't hold the expected value.
@@ -29,7 +85,7 @@ pub fn futex_wait<M: MemorySize>(
     let mut env = ctx.data();
     let state = env.state.clone();
 
-    let pointer: u64 = wasi_try_ok!(futex_ptr.offset().try_into().map_err(|_| Errno::Overflow));
+    let futex_idx: u64 = wasi_try_ok!(futex_ptr.offset().try_into().map_err(|_| Errno::Overflow));
 
     // Determine the timeout
     let timeout = {
@@ -37,74 +93,36 @@ pub fn futex_wait<M: MemorySize>(
         wasi_try_mem_ok!(timeout.read(&memory))
     };
     let timeout = match timeout.tag {
-        OptionTag::Some => Some(timeout.u as u128),
+        OptionTag::Some => Some(Duration::from_nanos(timeout.u as u64)),
         _ => None,
     };
 
-    // Loop until we either hit a yield error or the futex is woken
-    let mut woken = Bool::False;
-    let start = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1).unwrap() as u128;
-    loop {
-        // Register the waiting futex (if its not already registered)
-        let mut rx = {
-            use std::collections::hash_map::Entry;
-            let mut guard = state.futexs.write().unwrap();
-            guard.entry(pointer).or_insert_with(|| WasiFutex {
-                refcnt: AtomicU32::new(1),
-                waker: tokio::sync::broadcast::channel(1).0,
-            });
-            let futex = guard.get_mut(&pointer).unwrap();
+    // Create a poller which will register ourselves against
+    // this futex event and check when it has changed
+    let view = env.memory_view(&ctx);
+    let poller = FutexPoller {
+        env,
+        view,
+        futex_idx,
+        futex_ptr,
+        expected,
+    };
 
-            // If the value of the memory is no longer the expected value
-            // then terminate from the loop (we do this under a futex lock
-            // so that its protected)
-            let rx = futex.waker.subscribe();
-            {
-                let view = env.memory_view(&ctx);
-                let val = wasi_try_mem_ok!(futex_ptr.read(&view));
-                if val != expected {
-                    woken = Bool::True;
-                    break;
-                }
-            }
-            rx
-        };
+    // Wait for the futex to trigger or a timeout to occur
+    let res = __asyncify_light(env, timeout, poller)?;
 
-        // Check if we have timed out
-        let mut sub_timeout = None;
-        if let Some(timeout) = timeout.as_ref() {
-            let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1).unwrap() as u128;
-            let delta = now.saturating_sub(start);
-            if delta >= *timeout {
-                break;
-            }
-            let remaining = *timeout - delta;
-            sub_timeout = Some(Duration::from_nanos(remaining as u64));
+    // Process it and return the result
+    let mut ret = Errno::Success;
+    let woken = match res {
+        Err(Errno::Timedout) => Bool::False,
+        Err(err) => {
+            ret = err;
+            Bool::True
         }
-        //sub_timeout.replace(sub_timeout.map(|a| a.min(Duration::from_millis(10))).unwrap_or(Duration::from_millis(10)));
-
-        // Now wait for it to be triggered
-        __asyncify(&mut ctx, sub_timeout, async move {
-            rx.recv().await.ok();
-            Ok(())
-        })?;
-        env = ctx.data();
-    }
-
-    // Drop the reference count to the futex (and remove it if the refcnt hits zero)
-    {
-        let mut guard = state.futexs.write().unwrap();
-        if guard
-            .get(&pointer)
-            .map(|futex| futex.refcnt.fetch_sub(1, Ordering::AcqRel) == 1)
-            .unwrap_or(false)
-        {
-            guard.remove(&pointer);
-        }
-    }
-
+        Ok(_) => Bool::True,
+    };
     let memory = env.memory_view(&ctx);
-    wasi_try_mem_ok!(ret_woken.write(&memory, woken));
-
-    Ok(Errno::Success)
+    let mut env = ctx.data();
+    wasi_try_mem_ok!(ret_woken.write(&memory, Bool::False));
+    Ok(ret)
 }

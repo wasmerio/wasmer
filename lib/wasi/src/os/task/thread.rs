@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
     sync::{Arc, Mutex, RwLock},
+    task::Waker,
 };
 
 use bytes::{Bytes, BytesMut};
@@ -88,7 +89,7 @@ struct WasiThreadState {
     is_main: bool,
     pid: WasiProcessId,
     id: WasiThreadId,
-    signals: Mutex<(Vec<Signal>, tokio::sync::broadcast::Sender<()>)>,
+    signals: Mutex<(Vec<Signal>, Vec<Waker>)>,
     stack: Mutex<ThreadStack>,
     finished: Arc<TaskJoinHandle>,
 
@@ -113,7 +114,7 @@ impl WasiThread {
                 pid,
                 id,
                 finished,
-                signals: Mutex::new((Vec::new(), tokio::sync::broadcast::channel(1).0)),
+                signals: Mutex::new((Vec::new(), Vec::new())),
                 stack: Mutex::new(ThreadStack::default()),
                 _task_count_guard: guard,
             }),
@@ -136,7 +137,7 @@ impl WasiThread {
     }
 
     // TODO: this should be private, access should go through utility methods.
-    pub fn signals(&self) -> &Mutex<(Vec<Signal>, tokio::sync::broadcast::Sender<()>)> {
+    pub fn signals(&self) -> &Mutex<(Vec<Signal>, Vec<Waker>)> {
         &self.state.signals
     }
 
@@ -162,7 +163,7 @@ impl WasiThread {
         if !guard.0.contains(&signal) {
             guard.0.push(signal);
         }
-        let _ = guard.1.send(());
+        guard.1.drain(..).for_each(|w| w.wake());
     }
 
     /// Returns all the signals that are waiting to be processed
@@ -177,16 +178,39 @@ impl WasiThread {
     }
 
     /// Returns all the signals that are waiting to be processed
-    pub fn pop_signals_or_subscribe(
-        &self,
-    ) -> Result<Vec<Signal>, tokio::sync::broadcast::Receiver<()>> {
+    pub fn pop_signals_or_subscribe(&self, waker: &Waker) -> Option<Vec<Signal>> {
         let mut guard = self.state.signals.lock().unwrap();
         let mut ret = Vec::new();
         std::mem::swap(&mut ret, &mut guard.0);
         match ret.is_empty() {
-            true => Err(guard.1.subscribe()),
-            false => Ok(ret),
+            true => {
+                if guard.1.iter().any(|w| w.will_wake(waker)) == false {
+                    guard.1.push(waker.clone());
+                }
+                None
+            }
+            false => Some(ret),
         }
+    }
+
+    /// Returns all the signals that are waiting to be processed
+    pub fn has_signals_or_subscribe(&self, waker: &Waker) -> bool {
+        let mut guard = self.state.signals.lock().unwrap();
+        let has_signals = !guard.0.is_empty();
+        if has_signals == false {
+            if guard.1.iter().any(|w| w.will_wake(waker)) == false {
+                guard.1.push(waker.clone());
+            }
+        }
+        has_signals
+    }
+
+    /// Returns all the signals that are waiting to be processed
+    pub fn pop_signals(&self) -> Vec<Signal> {
+        let mut guard = self.state.signals.lock().unwrap();
+        let mut ret = Vec::new();
+        std::mem::swap(&mut ret, &mut guard.0);
+        ret
     }
 
     /// Adds a stack snapshot and removes dead ones

@@ -1,11 +1,11 @@
-use std::pin::Pin;
+use std::{pin::Pin, time::Duration};
 
 use futures::Future;
 #[cfg(feature = "sys-thread")]
 use tokio::runtime::{Builder, Runtime};
 use wasmer::{vm::VMMemory, Module, Store};
 
-use crate::{os::task::thread::WasiThreadError, WasiCallingId};
+use crate::os::task::thread::WasiThreadError;
 
 use super::{SpawnType, VirtualTaskManager};
 
@@ -39,20 +39,15 @@ impl<'g> Drop for TokioRuntimeGuard<'g> {
     fn drop(&mut self) {}
 }
 
+#[async_trait::async_trait]
 impl VirtualTaskManager for TokioTaskManager {
     /// See [`VirtualTaskManager::sleep_now`].
-    fn sleep_now(
-        &self,
-        _id: WasiCallingId,
-        ms: u128,
-    ) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>> {
-        Box::pin(async move {
-            if ms == 0 {
-                tokio::task::yield_now().await;
-            } else {
-                tokio::time::sleep(std::time::Duration::from_millis(ms as u64)).await;
-            }
-        })
+    async fn sleep_now(&self, time: Duration) {
+        if time == Duration::ZERO {
+            tokio::task::yield_now().await;
+        } else {
+            tokio::time::sleep(time).await;
+        }
     }
 
     /// See [`VirtualTaskManager::task_shared`].

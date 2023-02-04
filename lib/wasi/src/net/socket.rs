@@ -1,27 +1,25 @@
 use std::{
     future::Future,
+    mem::MaybeUninit,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
-    ops::DerefMut,
     pin::Pin,
-    sync::Arc,
+    sync::{Arc, RwLock},
     task::Poll,
     time::Duration,
 };
 
-use bytes::{Buf, Bytes};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use tokio::sync::OwnedRwLockWriteGuard;
 use wasmer_types::MemorySize;
 use wasmer_vnet::{
-    DynVirtualNetworking, TimeType, VirtualConnectedSocket, VirtualIcmpSocket, VirtualRawSocket,
-    VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket, VirtualWebSocket,
+    VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener, VirtualTcpSocket,
+    VirtualUdpSocket, VirtualWebSocket,
 };
 use wasmer_wasi_types::wasi::{
     Addressfamily, Errno, Fdflags, Rights, SockProto, Sockoption, Socktype,
 };
 
-use crate::net::net_error_into_wasi_err;
+use crate::{net::net_error_into_wasi_err, VirtualTaskManager};
 
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -45,20 +43,29 @@ pub enum InodeSocketKind {
         only_v6: bool,
         reuse_port: bool,
         reuse_addr: bool,
-        nonblocking: bool,
         send_buf_size: Option<usize>,
         recv_buf_size: Option<usize>,
-        send_timeout: Option<Duration>,
-        recv_timeout: Option<Duration>,
-        connect_timeout: Option<Duration>,
+        write_timeout: Option<Duration>,
+        read_timeout: Option<Duration>,
         accept_timeout: Option<Duration>,
+        connect_timeout: Option<Duration>,
     },
     WebSocket(Box<dyn VirtualWebSocket + Sync>),
     Icmp(Box<dyn VirtualIcmpSocket + Sync>),
     Raw(Box<dyn VirtualRawSocket + Sync>),
-    TcpListener(Box<dyn VirtualTcpListener + Sync>),
-    TcpStream(Box<dyn VirtualTcpSocket + Sync>),
-    UdpSocket(Box<dyn VirtualUdpSocket + Sync>),
+    TcpListener {
+        socket: Box<dyn VirtualTcpListener + Sync>,
+        accept_timeout: Option<Duration>,
+    },
+    TcpStream {
+        socket: Box<dyn VirtualTcpSocket + Sync>,
+        write_timeout: Option<Duration>,
+        read_timeout: Option<Duration>,
+    },
+    UdpSocket {
+        socket: Box<dyn VirtualUdpSocket + Sync>,
+        peer: Option<SocketAddr>,
+    },
     Closed,
 }
 
@@ -135,236 +142,227 @@ pub enum WasiSocketStatus {
     Failed,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum TimeType {
+    ReadTimeout,
+    WriteTimeout,
+    AcceptTimeout,
+    ConnectTimeout,
+    BindTimeout,
+    Linger,
+}
+
 #[derive(Debug)]
 //#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct InodeSocketInner {
     pub kind: InodeSocketKind,
-    pub read_buffer: Option<Bytes>,
-    pub read_addr: Option<SocketAddr>,
 }
 
 #[derive(Debug, Clone)]
 //#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct InodeSocket {
-    pub(crate) inner: Arc<tokio::sync::RwLock<InodeSocketInner>>,
+    pub(crate) inner: Arc<RwLock<InodeSocketInner>>,
 }
 
 impl InodeSocket {
     pub fn new(kind: InodeSocketKind) -> Self {
         Self {
-            inner: Arc::new(tokio::sync::RwLock::new(InodeSocketInner {
-                kind,
-                read_buffer: None,
-                read_addr: None,
-            })),
+            inner: Arc::new(RwLock::new(InodeSocketInner { kind })),
         }
     }
 
     pub async fn bind(
         &self,
-        net: DynVirtualNetworking,
+        tasks: &dyn VirtualTaskManager,
+        net: &dyn VirtualNetworking,
         set_addr: SocketAddr,
     ) -> Result<Option<InodeSocket>, Errno> {
-        let mut inner = self.inner.write().await;
-        match &mut inner.kind {
-            InodeSocketKind::PreSocket {
-                family,
-                ty,
-                addr,
-                reuse_port,
-                reuse_addr,
-                nonblocking,
-                ..
-            } => {
-                match *family {
-                    Addressfamily::Inet4 => {
-                        if !set_addr.is_ipv4() {
-                            return Err(Errno::Inval);
+        let timeout = self
+            .opt_time(TimeType::BindTimeout)
+            .ok()
+            .flatten()
+            .unwrap_or(Duration::from_secs(30));
+
+        let socket = {
+            let mut inner = self.inner.write().unwrap();
+            match &mut inner.kind {
+                InodeSocketKind::PreSocket {
+                    family,
+                    ty,
+                    addr,
+                    reuse_port,
+                    reuse_addr,
+                    ..
+                } => {
+                    match *family {
+                        Addressfamily::Inet4 => {
+                            if !set_addr.is_ipv4() {
+                                return Err(Errno::Inval);
+                            }
+                        }
+                        Addressfamily::Inet6 => {
+                            if !set_addr.is_ipv6() {
+                                return Err(Errno::Inval);
+                            }
+                        }
+                        _ => {
+                            return Err(Errno::Notsup);
                         }
                     }
-                    Addressfamily::Inet6 => {
-                        if !set_addr.is_ipv6() {
-                            return Err(Errno::Inval);
+
+                    addr.replace(set_addr);
+                    let addr = (*addr).unwrap();
+
+                    match *ty {
+                        Socktype::Stream => {
+                            // we already set the socket address - next we need a bind or connect so nothing
+                            // more to do at this time
+                            return Ok(None);
                         }
-                    }
-                    _ => {
-                        return Err(Errno::Notsup);
+                        Socktype::Dgram => {
+                            let reuse_port = *reuse_port;
+                            let reuse_addr = *reuse_addr;
+                            drop(inner);
+
+                            net.bind_udp(addr, reuse_port, reuse_addr)
+                        }
+                        _ => return Err(Errno::Inval),
                     }
                 }
-
-                addr.replace(set_addr);
-                let addr = (*addr).unwrap();
-
-                Ok(match *ty {
-                    Socktype::Stream => {
-                        // we already set the socket address - next we need a bind or connect so nothing
-                        // more to do at this time
-                        None
-                    }
-                    Socktype::Dgram => {
-                        let mut socket = net
-                            .bind_udp(addr, *reuse_port, *reuse_addr)
-                            .await
-                            .map_err(net_error_into_wasi_err)?;
-                        socket
-                            .set_nonblocking(*nonblocking)
-                            .map_err(net_error_into_wasi_err)?;
-                        Some(InodeSocket::new(InodeSocketKind::UdpSocket(socket)))
-                    }
-                    _ => return Err(Errno::Inval),
-                })
+                _ => return Err(Errno::Notsup),
             }
-            _ => Err(Errno::Notsup),
+        };
+
+        tokio::select! {
+            socket = socket => {
+                let socket = socket.map_err(net_error_into_wasi_err)?;
+                Ok(Some(InodeSocket::new(InodeSocketKind::UdpSocket { socket, peer: None })))
+            },
+            _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
         }
     }
 
     pub async fn listen(
         &self,
-        net: DynVirtualNetworking,
+        tasks: &dyn VirtualTaskManager,
+        net: &dyn VirtualNetworking,
         _backlog: usize,
     ) -> Result<Option<InodeSocket>, Errno> {
-        let inner = self.inner.read().await;
-        match &inner.kind {
-            InodeSocketKind::PreSocket {
-                ty,
-                addr,
-                only_v6,
-                reuse_port,
-                reuse_addr,
-                accept_timeout,
-                nonblocking,
-                ..
-            } => Ok(match *ty {
-                Socktype::Stream => {
-                    if addr.is_none() {
-                        tracing::warn!("wasi[?]::sock_listen - failed - address not set");
-                        return Err(Errno::Inval);
+        let timeout = self
+            .opt_time(TimeType::AcceptTimeout)
+            .ok()
+            .flatten()
+            .unwrap_or(Duration::from_secs(30));
+
+        let socket = {
+            let inner = self.inner.read().unwrap();
+            match &inner.kind {
+                InodeSocketKind::PreSocket {
+                    ty,
+                    addr,
+                    only_v6,
+                    reuse_port,
+                    reuse_addr,
+                    ..
+                } => match *ty {
+                    Socktype::Stream => {
+                        if addr.is_none() {
+                            tracing::warn!("wasi[?]::sock_listen - failed - address not set");
+                            return Err(Errno::Inval);
+                        }
+                        let addr = *addr.as_ref().unwrap();
+                        let only_v6 = *only_v6;
+                        let reuse_port = *reuse_port;
+                        let reuse_addr = *reuse_addr;
+                        drop(inner);
+
+                        net.listen_tcp(addr, only_v6, reuse_port, reuse_addr)
                     }
-                    let addr = *addr.as_ref().unwrap();
-                    let mut socket = net
-                        .listen_tcp(addr, *only_v6, *reuse_port, *reuse_addr)
-                        .await
-                        .map_err(|err| {
-                            tracing::warn!("wasi[?]::sock_listen - failed - {}", err);
-                            net_error_into_wasi_err(err)
-                        })?;
-                    socket
-                        .set_nonblocking(*nonblocking)
-                        .map_err(net_error_into_wasi_err)?;
-                    if let Some(accept_timeout) = accept_timeout {
-                        socket
-                            .set_timeout(Some(*accept_timeout))
-                            .map_err(net_error_into_wasi_err)?;
+                    _ => {
+                        tracing::warn!("wasi[?]::sock_listen - failed - not supported(1)");
+                        return Err(Errno::Notsup);
                     }
-                    Some(InodeSocket::new(InodeSocketKind::TcpListener(socket)))
+                },
+                InodeSocketKind::Closed => {
+                    tracing::warn!("wasi[?]::sock_listen - failed - socket closed");
+                    return Err(Errno::Io);
                 }
                 _ => {
-                    tracing::warn!("wasi[?]::sock_listen - failed - not supported(1)");
+                    tracing::warn!("wasi[?]::sock_listen - failed - not supported(2)");
                     return Err(Errno::Notsup);
                 }
-            }),
-            InodeSocketKind::Closed => {
-                tracing::warn!("wasi[?]::sock_listen - failed - socket closed");
-                Err(Errno::Io)
             }
-            _ => {
-                tracing::warn!("wasi[?]::sock_listen - failed - not supported(2)");
-                Err(Errno::Notsup)
-            }
+        };
+
+        tokio::select! {
+            socket = socket => {
+                let socket = socket.map_err(net_error_into_wasi_err)?;
+                Ok(Some(InodeSocket::new(InodeSocketKind::TcpListener {
+                    socket,
+                    accept_timeout: Some(timeout),
+                })))
+            },
+            _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
         }
     }
 
     pub async fn accept(
         &self,
+        tasks: &dyn VirtualTaskManager,
         fd_flags: Fdflags,
     ) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr), Errno> {
         let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
-        let timeout = self.opt_time(TimeType::AcceptTimeout).await?;
+        let timeout = self
+            .opt_time(TimeType::AcceptTimeout)
+            .ok()
+            .flatten()
+            .unwrap_or(Duration::from_secs(30));
+
         struct SocketAccepter<'a> {
             sock: &'a InodeSocket,
             nonblocking: bool,
-            next_lock:
-                Option<Pin<Box<dyn Future<Output = OwnedRwLockWriteGuard<InodeSocketInner>>>>>,
         }
         impl<'a> Future for SocketAccepter<'a> {
             type Output = Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr), Errno>;
             fn poll(
-                mut self: Pin<&mut Self>,
+                self: Pin<&mut Self>,
                 cx: &mut std::task::Context<'_>,
             ) -> std::task::Poll<Self::Output> {
-                if self.next_lock.is_none() {
-                    let inner = self.sock.inner.clone();
-                    self.next_lock.replace(Box::pin(inner.write_owned()));
-                }
-                let next_lock = self.next_lock.as_mut().unwrap().as_mut();
-                match next_lock.poll(cx) {
-                    Poll::Ready(mut inner) => {
-                        self.next_lock.take();
-                        match &mut inner.kind {
-                            InodeSocketKind::TcpListener(sock) => {
-                                if self.nonblocking {
-                                    match sock.try_accept() {
-                                        Some(Ok((mut child, addr))) => {
-                                            if let Err(err) = child.set_nonblocking(true) {
-                                                child.close().ok();
-                                                return Poll::Ready(Err(net_error_into_wasi_err(
-                                                    err,
-                                                )));
-                                            }
-                                            Poll::Ready(Ok((child, addr)))
-                                        }
-                                        Some(Err(err)) => {
-                                            Poll::Ready(Err(net_error_into_wasi_err(err)))
-                                        }
-                                        None => Poll::Ready(Err(Errno::Again)),
-                                    }
-                                } else {
-                                    sock.poll_accept(cx).map_err(net_error_into_wasi_err)
-                                }
+                let mut inner = self.sock.inner.write().unwrap();
+                match &mut inner.kind {
+                    InodeSocketKind::TcpListener { socket, .. } => {
+                        if self.nonblocking {
+                            match socket.try_accept() {
+                                Some(Ok((child, addr))) => Poll::Ready(Ok((child, addr))),
+                                Some(Err(err)) => Poll::Ready(Err(net_error_into_wasi_err(err))),
+                                None => Poll::Ready(Err(Errno::Again)),
                             }
-                            InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
-                            InodeSocketKind::Closed => Poll::Ready(Err(Errno::Io)),
-                            _ => Poll::Ready(Err(Errno::Notsup)),
+                        } else {
+                            socket.poll_accept(cx).map_err(net_error_into_wasi_err)
                         }
                     }
-                    Poll::Pending => Poll::Pending,
+                    InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
+                    InodeSocketKind::Closed => Poll::Ready(Err(Errno::Io)),
+                    _ => Poll::Ready(Err(Errno::Notsup)),
                 }
             }
         }
-        if let Some(timeout) = timeout {
-            #[cfg(not(feature = "js"))]
-            tokio::select! {
-                res = SocketAccepter { sock: self, nonblocking, next_lock: None } => res,
-                _ = tokio::time::sleep(timeout) => Err(Errno::Timedout)
-            }
 
-            // FIXME: enable timeouts for JS! (sleep not available in js tokio)
-            #[cfg(feature = "js")]
-            {
-                let _ = timeout;
-
-                tokio::select! {
-                    res = SocketAccepter { sock: self, next_lock: None, nonblocking } => res,
-                }
-            }
-        } else {
-            tokio::select! {
-                res = SocketAccepter { sock: self, nonblocking, next_lock: None } => res,
-            }
+        tokio::select! {
+            res = SocketAccepter { sock: self, nonblocking } => res,
+            _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
         }
     }
 
-    pub async fn close(&self) -> Result<(), Errno> {
-        let mut inner = self.inner.write().await;
+    pub fn close(&self) -> Result<(), Errno> {
+        let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
-            InodeSocketKind::TcpListener(_) => {}
-            InodeSocketKind::TcpStream(sock) => {
-                sock.close().map_err(net_error_into_wasi_err)?;
+            InodeSocketKind::TcpListener { .. } => {}
+            InodeSocketKind::TcpStream { socket, .. } => {
+                socket.close().map_err(net_error_into_wasi_err)?;
             }
             InodeSocketKind::Icmp(_) => {}
-            InodeSocketKind::UdpSocket(sock) => {
-                sock.close().map_err(net_error_into_wasi_err)?;
-            }
+            InodeSocketKind::UdpSocket { .. } => {}
             InodeSocketKind::WebSocket(_) => {}
             InodeSocketKind::Raw(_) => {}
             InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
@@ -373,102 +371,121 @@ impl InodeSocket {
         Ok(())
     }
 
-    pub async fn flush(&self) -> Result<(), Errno> {
-        let mut inner = self.inner.write().await;
-        match &mut inner.kind {
-            InodeSocketKind::TcpListener(_) => {}
-            InodeSocketKind::TcpStream(sock) => {
-                VirtualConnectedSocket::flush(sock.deref_mut())
-                    .await
-                    .map_err(net_error_into_wasi_err)?;
+    pub async fn flush(&self, tasks: &dyn VirtualTaskManager) -> Result<(), Errno> {
+        let timeout = self
+            .opt_time(TimeType::WriteTimeout)
+            .ok()
+            .flatten()
+            .unwrap_or(Duration::from_secs(30));
+
+        #[derive(Debug)]
+        struct SocketFlusher<'a> {
+            sock: &'a RwLock<InodeSocketInner>,
+        }
+        impl<'a> Future for SocketFlusher<'a> {
+            type Output = Result<(), Errno>;
+            fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+                let mut inner = self.sock.write().unwrap();
+                match &mut inner.kind {
+                    InodeSocketKind::TcpListener { .. } => Poll::Ready(Ok(())),
+                    InodeSocketKind::TcpStream { socket, .. } => {
+                        socket.poll_flush(cx).map_err(net_error_into_wasi_err)
+                    }
+                    InodeSocketKind::Icmp(_) => Poll::Ready(Ok(())),
+                    InodeSocketKind::UdpSocket { .. } => Poll::Ready(Ok(())),
+                    InodeSocketKind::WebSocket(_) => Poll::Ready(Ok(())),
+                    InodeSocketKind::Raw(_) => Poll::Ready(Ok(())),
+                    InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
+                    InodeSocketKind::Closed => Poll::Ready(Err(Errno::Notconn)),
+                }
             }
-            InodeSocketKind::Icmp(_) => {}
-            InodeSocketKind::UdpSocket(sock) => {
-                VirtualConnectedSocket::flush(sock.as_mut())
-                    .await
-                    .map_err(net_error_into_wasi_err)?;
-            }
-            InodeSocketKind::WebSocket(_) => {}
-            InodeSocketKind::Raw(sock) => {
-                VirtualRawSocket::flush(sock.deref_mut())
-                    .await
-                    .map_err(net_error_into_wasi_err)?;
-            }
-            InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
-            InodeSocketKind::Closed => return Err(Errno::Notconn),
-        };
-        Ok(())
+        }
+
+        tokio::select! {
+            res = SocketFlusher { sock: &self.inner } => res,
+            _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
+        }
     }
 
     pub async fn connect(
         &mut self,
-        net: DynVirtualNetworking,
+        tasks: &dyn VirtualTaskManager,
+        net: &dyn VirtualNetworking,
         peer: SocketAddr,
+        timeout: Option<std::time::Duration>,
     ) -> Result<Option<InodeSocket>, Errno> {
-        let mut inner = self.inner.write().await;
-        match &mut inner.kind {
-            InodeSocketKind::PreSocket {
-                ty,
-                addr,
-                send_timeout,
-                recv_timeout,
-                connect_timeout,
-                ..
-            } => Ok(match *ty {
-                Socktype::Stream => {
-                    let addr = match addr {
-                        Some(a) => *a,
-                        None => {
-                            let ip = match peer.is_ipv4() {
-                                true => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                                false => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+        let new_write_timeout;
+        let new_read_timeout;
+
+        let timeout = timeout.unwrap_or(Duration::from_secs(30));
+
+        let connect = {
+            let mut inner = self.inner.write().unwrap();
+            match &mut inner.kind {
+                InodeSocketKind::PreSocket {
+                    ty,
+                    addr,
+                    write_timeout,
+                    read_timeout,
+                    ..
+                } => {
+                    new_write_timeout = *write_timeout;
+                    new_read_timeout = *read_timeout;
+                    match *ty {
+                        Socktype::Stream => {
+                            let addr = match addr {
+                                Some(a) => *a,
+                                None => {
+                                    let ip = match peer.is_ipv4() {
+                                        true => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                                        false => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+                                    };
+                                    SocketAddr::new(ip, 0)
+                                }
                             };
-                            SocketAddr::new(ip, 0)
+                            net.connect_tcp(addr, peer)
                         }
-                    };
-                    let mut socket = net
-                        .connect_tcp(addr, peer, *connect_timeout)
-                        .await
-                        .map_err(net_error_into_wasi_err)?;
-                    if let Some(timeout) = send_timeout {
-                        socket
-                            .set_opt_time(TimeType::WriteTimeout, Some(*timeout))
-                            .map_err(net_error_into_wasi_err)?;
+                        Socktype::Dgram => return Err(Errno::Inval),
+                        _ => return Err(Errno::Notsup),
                     }
-                    if let Some(timeout) = recv_timeout {
-                        socket
-                            .set_opt_time(TimeType::ReadTimeout, Some(*timeout))
-                            .map_err(net_error_into_wasi_err)?;
-                    }
-                    Some(InodeSocket::new(InodeSocketKind::TcpStream(socket)))
                 }
-                Socktype::Dgram => return Err(Errno::Inval),
+                InodeSocketKind::UdpSocket {
+                    peer: target_peer, ..
+                } => {
+                    target_peer.replace(peer);
+                    return Ok(None);
+                }
+                InodeSocketKind::Closed => return Err(Errno::Io),
                 _ => return Err(Errno::Notsup),
-            }),
-            InodeSocketKind::UdpSocket(sock) => {
-                sock.connect(peer).await.map_err(net_error_into_wasi_err)?;
-                Ok(None)
             }
-            InodeSocketKind::Closed => Err(Errno::Io),
-            _ => Err(Errno::Notsup),
-        }
+        };
+
+        let socket = tokio::select! {
+            res = connect => res.map_err(net_error_into_wasi_err)?,
+            _ = tasks.sleep_now(timeout) => return Err(Errno::Timedout)
+        };
+        Ok(Some(InodeSocket::new(InodeSocketKind::TcpStream {
+            socket,
+            write_timeout: new_write_timeout,
+            read_timeout: new_read_timeout,
+        })))
     }
 
-    pub async fn status(&self) -> Result<WasiSocketStatus, Errno> {
-        let inner = self.inner.read().await;
+    pub fn status(&self) -> Result<WasiSocketStatus, Errno> {
+        let inner = self.inner.read().unwrap();
         Ok(match &inner.kind {
             InodeSocketKind::PreSocket { .. } => WasiSocketStatus::Opening,
             InodeSocketKind::WebSocket(_) => WasiSocketStatus::Opened,
-            InodeSocketKind::TcpListener(_) => WasiSocketStatus::Opened,
-            InodeSocketKind::TcpStream(_) => WasiSocketStatus::Opened,
-            InodeSocketKind::UdpSocket(_) => WasiSocketStatus::Opened,
+            InodeSocketKind::TcpListener { .. } => WasiSocketStatus::Opened,
+            InodeSocketKind::TcpStream { .. } => WasiSocketStatus::Opened,
+            InodeSocketKind::UdpSocket { .. } => WasiSocketStatus::Opened,
             InodeSocketKind::Closed => WasiSocketStatus::Closed,
             _ => WasiSocketStatus::Failed,
         })
     }
 
-    pub async fn addr_local(&self) -> Result<SocketAddr, Errno> {
-        let inner = self.inner.read().await;
+    pub fn addr_local(&self) -> Result<SocketAddr, Errno> {
+        let inner = self.inner.read().unwrap();
         Ok(match &inner.kind {
             InodeSocketKind::PreSocket { family, addr, .. } => {
                 if let Some(addr) = addr {
@@ -485,22 +502,22 @@ impl InodeSocket {
                 }
             }
             InodeSocketKind::Icmp(sock) => sock.addr_local().map_err(net_error_into_wasi_err)?,
-            InodeSocketKind::TcpListener(sock) => {
-                sock.addr_local().map_err(net_error_into_wasi_err)?
+            InodeSocketKind::TcpListener { socket, .. } => {
+                socket.addr_local().map_err(net_error_into_wasi_err)?
             }
-            InodeSocketKind::TcpStream(sock) => {
-                sock.addr_local().map_err(net_error_into_wasi_err)?
+            InodeSocketKind::TcpStream { socket, .. } => {
+                socket.addr_local().map_err(net_error_into_wasi_err)?
             }
-            InodeSocketKind::UdpSocket(sock) => {
-                sock.addr_local().map_err(net_error_into_wasi_err)?
+            InodeSocketKind::UdpSocket { socket, .. } => {
+                socket.addr_local().map_err(net_error_into_wasi_err)?
             }
             InodeSocketKind::Closed => return Err(Errno::Io),
             _ => return Err(Errno::Notsup),
         })
     }
 
-    pub async fn addr_peer(&self) -> Result<SocketAddr, Errno> {
-        let inner = self.inner.read().await;
+    pub fn addr_peer(&self) -> Result<SocketAddr, Errno> {
+        let inner = self.inner.read().unwrap();
         Ok(match &inner.kind {
             InodeSocketKind::PreSocket { family, .. } => SocketAddr::new(
                 match *family {
@@ -510,15 +527,16 @@ impl InodeSocket {
                 },
                 0,
             ),
-            InodeSocketKind::TcpStream(sock) => {
-                sock.addr_peer().map_err(net_error_into_wasi_err)?
+            InodeSocketKind::TcpStream { socket, .. } => {
+                socket.addr_peer().map_err(net_error_into_wasi_err)?
             }
-            InodeSocketKind::UdpSocket(sock) => sock
+            InodeSocketKind::UdpSocket { socket, .. } => socket
                 .addr_peer()
                 .map_err(net_error_into_wasi_err)?
                 .map(Ok)
                 .unwrap_or_else(|| {
-                    sock.addr_local()
+                    socket
+                        .addr_local()
                         .map_err(net_error_into_wasi_err)
                         .map(|addr| {
                             SocketAddr::new(
@@ -535,8 +553,8 @@ impl InodeSocket {
         })
     }
 
-    pub async fn set_opt_flag(&mut self, option: WasiSocketOption, val: bool) -> Result<(), Errno> {
-        let mut inner = self.inner.write().await;
+    pub fn set_opt_flag(&mut self, option: WasiSocketOption, val: bool) -> Result<(), Errno> {
+        let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::PreSocket {
                 only_v6,
@@ -552,27 +570,25 @@ impl InodeSocket {
                 };
             }
             InodeSocketKind::Raw(sock) => match option {
-                WasiSocketOption::Promiscuous => sock
-                    .set_promiscuous(val)
-                    .await
-                    .map_err(net_error_into_wasi_err)?,
-                _ => return Err(Errno::Inval),
-            },
-            InodeSocketKind::TcpStream(sock) => match option {
-                WasiSocketOption::NoDelay => sock
-                    .set_nodelay(val)
-                    .await
-                    .map_err(net_error_into_wasi_err)?,
-                _ => return Err(Errno::Inval),
-            },
-            InodeSocketKind::UdpSocket(sock) => match option {
-                WasiSocketOption::Broadcast => {
-                    sock.set_broadcast(val).map_err(net_error_into_wasi_err)?
+                WasiSocketOption::Promiscuous => {
+                    sock.set_promiscuous(val).map_err(net_error_into_wasi_err)?
                 }
-                WasiSocketOption::MulticastLoopV4 => sock
+                _ => return Err(Errno::Inval),
+            },
+            InodeSocketKind::TcpStream { socket, .. } => match option {
+                WasiSocketOption::NoDelay => {
+                    socket.set_nodelay(val).map_err(net_error_into_wasi_err)?
+                }
+                _ => return Err(Errno::Inval),
+            },
+            InodeSocketKind::UdpSocket { socket, .. } => match option {
+                WasiSocketOption::Broadcast => {
+                    socket.set_broadcast(val).map_err(net_error_into_wasi_err)?
+                }
+                WasiSocketOption::MulticastLoopV4 => socket
                     .set_multicast_loop_v4(val)
                     .map_err(net_error_into_wasi_err)?,
-                WasiSocketOption::MulticastLoopV6 => sock
+                WasiSocketOption::MulticastLoopV6 => socket
                     .set_multicast_loop_v6(val)
                     .map_err(net_error_into_wasi_err)?,
                 _ => return Err(Errno::Inval),
@@ -583,8 +599,8 @@ impl InodeSocket {
         Ok(())
     }
 
-    pub async fn get_opt_flag(&self, option: WasiSocketOption) -> Result<bool, Errno> {
-        let mut inner = self.inner.write().await;
+    pub fn get_opt_flag(&self, option: WasiSocketOption) -> Result<bool, Errno> {
+        let mut inner = self.inner.write().unwrap();
         Ok(match &mut inner.kind {
             InodeSocketKind::PreSocket {
                 only_v6,
@@ -603,18 +619,20 @@ impl InodeSocket {
                 }
                 _ => return Err(Errno::Inval),
             },
-            InodeSocketKind::TcpStream(sock) => match option {
-                WasiSocketOption::NoDelay => sock.nodelay().map_err(net_error_into_wasi_err)?,
+            InodeSocketKind::TcpStream { socket, .. } => match option {
+                WasiSocketOption::NoDelay => socket.nodelay().map_err(net_error_into_wasi_err)?,
                 _ => return Err(Errno::Inval),
             },
-            InodeSocketKind::UdpSocket(sock) => match option {
-                WasiSocketOption::Broadcast => sock.broadcast().map_err(net_error_into_wasi_err)?,
-                WasiSocketOption::MulticastLoopV4 => {
-                    sock.multicast_loop_v4().map_err(net_error_into_wasi_err)?
+            InodeSocketKind::UdpSocket { socket, .. } => match option {
+                WasiSocketOption::Broadcast => {
+                    socket.broadcast().map_err(net_error_into_wasi_err)?
                 }
-                WasiSocketOption::MulticastLoopV6 => {
-                    sock.multicast_loop_v6().map_err(net_error_into_wasi_err)?
-                }
+                WasiSocketOption::MulticastLoopV4 => socket
+                    .multicast_loop_v4()
+                    .map_err(net_error_into_wasi_err)?,
+                WasiSocketOption::MulticastLoopV6 => socket
+                    .multicast_loop_v6()
+                    .map_err(net_error_into_wasi_err)?,
                 _ => return Err(Errno::Inval),
             },
             InodeSocketKind::Closed => return Err(Errno::Io),
@@ -622,14 +640,15 @@ impl InodeSocket {
         })
     }
 
-    pub async fn set_send_buf_size(&mut self, size: usize) -> Result<(), Errno> {
-        let mut inner = self.inner.write().await;
+    pub fn set_send_buf_size(&mut self, size: usize) -> Result<(), Errno> {
+        let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::PreSocket { send_buf_size, .. } => {
                 *send_buf_size = Some(size);
             }
-            InodeSocketKind::TcpStream(sock) => {
-                sock.set_send_buf_size(size)
+            InodeSocketKind::TcpStream { socket, .. } => {
+                socket
+                    .set_send_buf_size(size)
                     .map_err(net_error_into_wasi_err)?;
             }
             InodeSocketKind::Closed => return Err(Errno::Io),
@@ -638,28 +657,29 @@ impl InodeSocket {
         Ok(())
     }
 
-    pub async fn send_buf_size(&self) -> Result<usize, Errno> {
-        let inner = self.inner.read().await;
+    pub fn send_buf_size(&self) -> Result<usize, Errno> {
+        let inner = self.inner.read().unwrap();
         match &inner.kind {
             InodeSocketKind::PreSocket { send_buf_size, .. } => {
                 Ok((*send_buf_size).unwrap_or_default())
             }
-            InodeSocketKind::TcpStream(sock) => {
-                sock.send_buf_size().map_err(net_error_into_wasi_err)
+            InodeSocketKind::TcpStream { socket, .. } => {
+                socket.send_buf_size().map_err(net_error_into_wasi_err)
             }
             InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
 
-    pub async fn set_recv_buf_size(&mut self, size: usize) -> Result<(), Errno> {
-        let mut inner = self.inner.write().await;
+    pub fn set_recv_buf_size(&mut self, size: usize) -> Result<(), Errno> {
+        let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::PreSocket { recv_buf_size, .. } => {
                 *recv_buf_size = Some(size);
             }
-            InodeSocketKind::TcpStream(sock) => {
-                sock.set_recv_buf_size(size)
+            InodeSocketKind::TcpStream { socket, .. } => {
+                socket
+                    .set_recv_buf_size(size)
                     .map_err(net_error_into_wasi_err)?;
             }
             InodeSocketKind::Closed => return Err(Errno::Io),
@@ -668,25 +688,25 @@ impl InodeSocket {
         Ok(())
     }
 
-    pub async fn recv_buf_size(&self) -> Result<usize, Errno> {
-        let inner = self.inner.read().await;
+    pub fn recv_buf_size(&self) -> Result<usize, Errno> {
+        let inner = self.inner.read().unwrap();
         match &inner.kind {
             InodeSocketKind::PreSocket { recv_buf_size, .. } => {
                 Ok((*recv_buf_size).unwrap_or_default())
             }
-            InodeSocketKind::TcpStream(sock) => {
-                sock.recv_buf_size().map_err(net_error_into_wasi_err)
+            InodeSocketKind::TcpStream { socket, .. } => {
+                socket.recv_buf_size().map_err(net_error_into_wasi_err)
             }
             InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
 
-    pub async fn set_linger(&mut self, linger: Option<std::time::Duration>) -> Result<(), Errno> {
-        let mut inner = self.inner.write().await;
+    pub fn set_linger(&mut self, linger: Option<std::time::Duration>) -> Result<(), Errno> {
+        let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
-            InodeSocketKind::TcpStream(sock) => {
-                sock.set_linger(linger).map_err(net_error_into_wasi_err)
+            InodeSocketKind::TcpStream { socket, .. } => {
+                socket.set_linger(linger).map_err(net_error_into_wasi_err)
             }
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             InodeSocketKind::Closed => Err(Errno::Io),
@@ -694,132 +714,92 @@ impl InodeSocket {
         }
     }
 
-    pub async fn nonblocking(&self) -> Result<bool, Errno> {
-        let inner = self.inner.read().await;
-        Ok(match &inner.kind {
-            InodeSocketKind::TcpStream(sock) => {
-                sock.nonblocking().map_err(net_error_into_wasi_err)?
-            }
-            InodeSocketKind::TcpListener(sock, ..) => {
-                sock.nonblocking().map_err(net_error_into_wasi_err)?
-            }
-            InodeSocketKind::UdpSocket(sock, ..) => {
-                sock.nonblocking().map_err(net_error_into_wasi_err)?
-            }
-            InodeSocketKind::Raw(sock, ..) => {
-                sock.nonblocking().map_err(net_error_into_wasi_err)?
-            }
-            InodeSocketKind::Icmp(sock, ..) => {
-                sock.nonblocking().map_err(net_error_into_wasi_err)?
-            }
-            InodeSocketKind::PreSocket { nonblocking, .. } => *nonblocking,
-            _ => {
-                return Err(Errno::Notsup);
-            }
-        })
-    }
-
-    pub async fn set_nonblocking(&self, val: bool) -> Result<(), Errno> {
-        let mut inner = self.inner.write().await;
-        match &mut inner.kind {
-            InodeSocketKind::TcpStream(sock) => {
-                sock.set_nonblocking(val).map_err(net_error_into_wasi_err)
-            }
-            InodeSocketKind::TcpListener(sock, ..) => {
-                sock.set_nonblocking(val).map_err(net_error_into_wasi_err)
-            }
-            InodeSocketKind::UdpSocket(sock, ..) => {
-                sock.set_nonblocking(val).map_err(net_error_into_wasi_err)
-            }
-            InodeSocketKind::Raw(sock, ..) => {
-                sock.set_nonblocking(val).map_err(net_error_into_wasi_err)
-            }
-            InodeSocketKind::Icmp(sock, ..) => {
-                sock.set_nonblocking(val).map_err(net_error_into_wasi_err)
-            }
-            InodeSocketKind::PreSocket { nonblocking, .. } => {
-                (*nonblocking) = val;
-                Ok(())
-            }
-            _ => Err(Errno::Notsup),
-        }
-    }
-
-    pub async fn linger(&self) -> Result<Option<std::time::Duration>, Errno> {
-        let inner = self.inner.read().await;
+    pub fn linger(&self) -> Result<Option<std::time::Duration>, Errno> {
+        let inner = self.inner.read().unwrap();
         match &inner.kind {
-            InodeSocketKind::TcpStream(sock) => sock.linger().map_err(net_error_into_wasi_err),
+            InodeSocketKind::TcpStream { socket, .. } => {
+                socket.linger().map_err(net_error_into_wasi_err)
+            }
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
 
-    pub async fn set_opt_time(
+    pub fn set_opt_time(
         &self,
         ty: TimeType,
         timeout: Option<std::time::Duration>,
     ) -> Result<(), Errno> {
-        let mut inner = self.inner.write().await;
+        let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
-            InodeSocketKind::TcpStream(sock) => sock
-                .set_opt_time(ty, timeout)
-                .map_err(net_error_into_wasi_err),
-            InodeSocketKind::TcpListener(sock) => match ty {
-                TimeType::AcceptTimeout => {
-                    sock.set_timeout(timeout).map_err(net_error_into_wasi_err)
+            InodeSocketKind::TcpStream {
+                write_timeout,
+                read_timeout,
+                ..
+            } => {
+                match ty {
+                    TimeType::WriteTimeout => *write_timeout = timeout,
+                    TimeType::ReadTimeout => *read_timeout = timeout,
+                    _ => return Err(Errno::Inval),
                 }
-                _ => Err(Errno::Inval),
-            },
+                Ok(())
+            }
+            InodeSocketKind::TcpListener { accept_timeout, .. } => {
+                match ty {
+                    TimeType::AcceptTimeout => *accept_timeout = timeout,
+                    _ => return Err(Errno::Inval),
+                }
+                Ok(())
+            }
             InodeSocketKind::PreSocket {
-                recv_timeout,
-                send_timeout,
+                read_timeout,
+                write_timeout,
                 connect_timeout,
                 accept_timeout,
                 ..
-            } => match ty {
-                TimeType::ConnectTimeout => {
-                    *connect_timeout = timeout;
-                    Ok(())
+            } => {
+                match ty {
+                    TimeType::ConnectTimeout => *connect_timeout = timeout,
+                    TimeType::AcceptTimeout => *accept_timeout = timeout,
+                    TimeType::ReadTimeout => *read_timeout = timeout,
+                    TimeType::WriteTimeout => *write_timeout = timeout,
+                    _ => return Err(Errno::Io),
                 }
-                TimeType::AcceptTimeout => {
-                    *accept_timeout = timeout;
-                    Ok(())
-                }
-                TimeType::ReadTimeout => {
-                    *recv_timeout = timeout;
-                    Ok(())
-                }
-                TimeType::WriteTimeout => {
-                    *send_timeout = timeout;
-                    Ok(())
-                }
-                _ => Err(Errno::Io),
-            },
+                Ok(())
+            }
             InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
 
-    pub async fn opt_time(&self, ty: TimeType) -> Result<Option<std::time::Duration>, Errno> {
-        let inner = self.inner.read().await;
+    pub fn opt_time(&self, ty: TimeType) -> Result<Option<std::time::Duration>, Errno> {
+        let inner = self.inner.read().unwrap();
         match &inner.kind {
-            InodeSocketKind::TcpStream(sock) => sock.opt_time(ty).map_err(net_error_into_wasi_err),
-            InodeSocketKind::TcpListener(sock) => match ty {
-                TimeType::AcceptTimeout => sock.timeout().map_err(net_error_into_wasi_err),
-                _ => Err(Errno::Inval),
-            },
+            InodeSocketKind::TcpStream {
+                read_timeout,
+                write_timeout,
+                ..
+            } => Ok(match ty {
+                TimeType::ReadTimeout => *read_timeout,
+                TimeType::WriteTimeout => *write_timeout,
+                _ => return Err(Errno::Inval),
+            }),
+            InodeSocketKind::TcpListener { accept_timeout, .. } => Ok(match ty {
+                TimeType::AcceptTimeout => *accept_timeout,
+                _ => return Err(Errno::Inval),
+            }),
             InodeSocketKind::PreSocket {
-                recv_timeout,
-                send_timeout,
+                read_timeout,
+                write_timeout,
                 connect_timeout,
                 accept_timeout,
                 ..
             } => match ty {
                 TimeType::ConnectTimeout => Ok(*connect_timeout),
                 TimeType::AcceptTimeout => Ok(*accept_timeout),
-                TimeType::ReadTimeout => Ok(*recv_timeout),
-                TimeType::WriteTimeout => Ok(*send_timeout),
+                TimeType::ReadTimeout => Ok(*read_timeout),
+                TimeType::WriteTimeout => Ok(*write_timeout),
                 _ => Err(Errno::Inval),
             },
             InodeSocketKind::Closed => Err(Errno::Io),
@@ -827,14 +807,14 @@ impl InodeSocket {
         }
     }
 
-    pub async fn set_ttl(&self, ttl: u32) -> Result<(), Errno> {
-        let mut inner = self.inner.write().await;
+    pub fn set_ttl(&self, ttl: u32) -> Result<(), Errno> {
+        let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
-            InodeSocketKind::TcpStream(sock) => {
-                sock.set_ttl(ttl).await.map_err(net_error_into_wasi_err)
+            InodeSocketKind::TcpStream { socket, .. } => {
+                socket.set_ttl(ttl).map_err(net_error_into_wasi_err)
             }
-            InodeSocketKind::UdpSocket(sock) => {
-                sock.set_ttl(ttl).await.map_err(net_error_into_wasi_err)
+            InodeSocketKind::UdpSocket { socket, .. } => {
+                socket.set_ttl(ttl).map_err(net_error_into_wasi_err)
             }
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             InodeSocketKind::Closed => Err(Errno::Io),
@@ -842,21 +822,25 @@ impl InodeSocket {
         }
     }
 
-    pub async fn ttl(&self) -> Result<u32, Errno> {
-        let inner = self.inner.read().await;
+    pub fn ttl(&self) -> Result<u32, Errno> {
+        let inner = self.inner.read().unwrap();
         match &inner.kind {
-            InodeSocketKind::TcpStream(sock) => sock.ttl().map_err(net_error_into_wasi_err),
-            InodeSocketKind::UdpSocket(sock) => sock.ttl().map_err(net_error_into_wasi_err),
+            InodeSocketKind::TcpStream { socket, .. } => {
+                socket.ttl().map_err(net_error_into_wasi_err)
+            }
+            InodeSocketKind::UdpSocket { socket, .. } => {
+                socket.ttl().map_err(net_error_into_wasi_err)
+            }
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
 
-    pub async fn set_multicast_ttl_v4(&self, ttl: u32) -> Result<(), Errno> {
-        let mut inner = self.inner.write().await;
+    pub fn set_multicast_ttl_v4(&self, ttl: u32) -> Result<(), Errno> {
+        let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
-            InodeSocketKind::UdpSocket(sock) => sock
+            InodeSocketKind::UdpSocket { socket, .. } => socket
                 .set_multicast_ttl_v4(ttl)
                 .map_err(net_error_into_wasi_err),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
@@ -865,11 +849,11 @@ impl InodeSocket {
         }
     }
 
-    pub async fn multicast_ttl_v4(&self) -> Result<u32, Errno> {
-        let inner = self.inner.read().await;
+    pub fn multicast_ttl_v4(&self) -> Result<u32, Errno> {
+        let inner = self.inner.read().unwrap();
         match &inner.kind {
-            InodeSocketKind::UdpSocket(sock) => {
-                sock.multicast_ttl_v4().map_err(net_error_into_wasi_err)
+            InodeSocketKind::UdpSocket { socket, .. } => {
+                socket.multicast_ttl_v4().map_err(net_error_into_wasi_err)
             }
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             InodeSocketKind::Closed => Err(Errno::Io),
@@ -877,14 +861,10 @@ impl InodeSocket {
         }
     }
 
-    pub async fn join_multicast_v4(
-        &self,
-        multiaddr: Ipv4Addr,
-        iface: Ipv4Addr,
-    ) -> Result<(), Errno> {
-        let mut inner = self.inner.write().await;
+    pub fn join_multicast_v4(&self, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<(), Errno> {
+        let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
-            InodeSocketKind::UdpSocket(sock) => sock
+            InodeSocketKind::UdpSocket { socket, .. } => socket
                 .join_multicast_v4(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
@@ -893,14 +873,10 @@ impl InodeSocket {
         }
     }
 
-    pub async fn leave_multicast_v4(
-        &self,
-        multiaddr: Ipv4Addr,
-        iface: Ipv4Addr,
-    ) -> Result<(), Errno> {
-        let mut inner = self.inner.write().await;
+    pub fn leave_multicast_v4(&self, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<(), Errno> {
+        let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
-            InodeSocketKind::UdpSocket(sock) => sock
+            InodeSocketKind::UdpSocket { socket, .. } => socket
                 .leave_multicast_v4(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
@@ -909,10 +885,10 @@ impl InodeSocket {
         }
     }
 
-    pub async fn join_multicast_v6(&self, multiaddr: Ipv6Addr, iface: u32) -> Result<(), Errno> {
-        let mut inner = self.inner.write().await;
+    pub fn join_multicast_v6(&self, multiaddr: Ipv6Addr, iface: u32) -> Result<(), Errno> {
+        let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
-            InodeSocketKind::UdpSocket(sock) => sock
+            InodeSocketKind::UdpSocket { socket, .. } => socket
                 .join_multicast_v6(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
@@ -921,14 +897,10 @@ impl InodeSocket {
         }
     }
 
-    pub async fn leave_multicast_v6(
-        &mut self,
-        multiaddr: Ipv6Addr,
-        iface: u32,
-    ) -> Result<(), Errno> {
-        let mut inner = self.inner.write().await;
+    pub fn leave_multicast_v6(&mut self, multiaddr: Ipv6Addr, iface: u32) -> Result<(), Errno> {
+        let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
-            InodeSocketKind::UdpSocket(sock) => sock
+            InodeSocketKind::UdpSocket { socket, .. } => socket
                 .leave_multicast_v6(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
@@ -937,147 +909,309 @@ impl InodeSocket {
         }
     }
 
-    pub async fn send(&self, buf: Vec<u8>) -> Result<usize, Errno> {
-        let buf_len = buf.len();
-        let mut inner = self.inner.write().await;
+    pub async fn send(
+        &self,
+        tasks: &dyn VirtualTaskManager,
+        buf: &[u8],
+        fd_flags: Fdflags,
+    ) -> Result<usize, Errno> {
+        let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
+        let timeout = self
+            .opt_time(TimeType::WriteTimeout)
+            .ok()
+            .flatten()
+            .unwrap_or(Duration::from_secs(30));
 
-        let ret = match &mut inner.kind {
-            InodeSocketKind::WebSocket(sock) => sock
-                .send(Bytes::from(buf))
-                .await
-                .map(|_| buf_len)
-                .map_err(net_error_into_wasi_err),
-            InodeSocketKind::Raw(sock) => sock
-                .send(Bytes::from(buf))
-                .await
-                .map_err(net_error_into_wasi_err),
-            InodeSocketKind::TcpStream(sock) => sock
-                .send(Bytes::from(buf))
-                .await
-                .map_err(net_error_into_wasi_err),
-            InodeSocketKind::UdpSocket(sock) => sock
-                .send(Bytes::from(buf))
-                .await
-                .map_err(net_error_into_wasi_err),
-            InodeSocketKind::PreSocket { .. } => Err(Errno::Notconn),
-            InodeSocketKind::Closed => Err(Errno::Io),
-            _ => Err(Errno::Notsup),
+        #[derive(Debug)]
+        struct SocketSender<'a, 'b> {
+            sock: &'a RwLock<InodeSocketInner>,
+            data: &'b [u8],
+            nonblocking: bool,
         }
-        .map(|_| buf_len)?;
-        Ok(ret)
+        impl<'a, 'b> Future for SocketSender<'a, 'b> {
+            type Output = Result<usize, Errno>;
+            fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+                let mut inner = self.sock.write().unwrap();
+                match &mut inner.kind {
+                    InodeSocketKind::WebSocket(sock) => sock
+                        .poll_send(cx, self.data)
+                        .map_err(net_error_into_wasi_err),
+                    InodeSocketKind::Raw(sock) => {
+                        if self.nonblocking {
+                            match sock.try_send(self.data) {
+                                Ok(amt) => Poll::Ready(Ok(amt)),
+                                Err(err) => Poll::Ready(Err(net_error_into_wasi_err(err))),
+                            }
+                        } else {
+                            sock.poll_send(cx, self.data)
+                                .map_err(net_error_into_wasi_err)
+                        }
+                    }
+                    InodeSocketKind::TcpStream { socket, .. } => {
+                        if self.nonblocking {
+                            match socket.try_send(self.data) {
+                                Ok(amt) => Poll::Ready(Ok(amt)),
+                                Err(err) => Poll::Ready(Err(net_error_into_wasi_err(err))),
+                            }
+                        } else {
+                            socket
+                                .poll_send(cx, self.data)
+                                .map_err(net_error_into_wasi_err)
+                        }
+                    }
+                    InodeSocketKind::UdpSocket { socket, peer } => {
+                        if let Some(peer) = peer {
+                            if self.nonblocking {
+                                match socket.try_send_to(self.data, *peer) {
+                                    Ok(amt) => Poll::Ready(Ok(amt)),
+                                    Err(err) => Poll::Ready(Err(net_error_into_wasi_err(err))),
+                                }
+                            } else {
+                                socket
+                                    .poll_send_to(cx, self.data, *peer)
+                                    .map_err(net_error_into_wasi_err)
+                            }
+                        } else {
+                            Poll::Ready(Err(Errno::Notconn))
+                        }
+                    }
+                    InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
+                    InodeSocketKind::Closed => Poll::Ready(Err(Errno::Io)),
+                    _ => Poll::Ready(Err(Errno::Notsup)),
+                }
+            }
+        }
+
+        tokio::select! {
+            res = SocketSender { sock: &self.inner, data: buf, nonblocking } => res,
+            _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
+        }
     }
 
     pub async fn send_to<M: MemorySize>(
         &self,
-        buf: Vec<u8>,
+        tasks: &dyn VirtualTaskManager,
+        buf: &[u8],
         addr: SocketAddr,
+        fd_flags: Fdflags,
     ) -> Result<usize, Errno> {
-        let buf_len = buf.len();
-        let mut inner = self.inner.write().await;
-        let ret = match &mut inner.kind {
-            InodeSocketKind::Icmp(sock) => sock
-                .send_to(Bytes::from(buf), addr)
-                .await
-                .map_err(net_error_into_wasi_err),
-            InodeSocketKind::UdpSocket(sock) => sock
-                .send_to(Bytes::from(buf), addr)
-                .await
-                .map_err(net_error_into_wasi_err),
-            InodeSocketKind::PreSocket { .. } => Err(Errno::Notconn),
-            InodeSocketKind::Closed => Err(Errno::Io),
-            _ => Err(Errno::Notsup),
-        }
-        .map(|_| buf_len)?;
-        Ok(ret)
-    }
+        let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
+        let timeout = self
+            .opt_time(TimeType::WriteTimeout)
+            .ok()
+            .flatten()
+            .unwrap_or(Duration::from_secs(30));
 
-    pub async fn recv(&self, max_size: usize) -> Result<Bytes, Errno> {
-        let mut inner = self.inner.write().await;
-        loop {
-            let is_tcp = matches!(&inner.kind, InodeSocketKind::TcpStream(..));
-            if let Some(buf) = inner.read_buffer.as_mut() {
-                let buf_len = buf.len();
-                if buf_len > 0 {
-                    let read = buf_len.min(max_size);
-                    let ret = buf.slice(..read);
-                    if is_tcp {
-                        buf.advance(read);
-                    } else {
-                        buf.clear();
+        #[derive(Debug)]
+        struct SocketSender<'a, 'b> {
+            sock: &'a RwLock<InodeSocketInner>,
+            data: &'b [u8],
+            addr: SocketAddr,
+            nonblocking: bool,
+        }
+        impl<'a, 'b> Future for SocketSender<'a, 'b> {
+            type Output = Result<usize, Errno>;
+            fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+                let mut inner = self.sock.write().unwrap();
+                match &mut inner.kind {
+                    InodeSocketKind::Icmp(sock) => {
+                        if self.nonblocking {
+                            match sock.try_send_to(self.data, self.addr) {
+                                Ok(amt) => Poll::Ready(Ok(amt)),
+                                Err(err) => Poll::Ready(Err(net_error_into_wasi_err(err))),
+                            }
+                        } else {
+                            sock.poll_send_to(cx, self.data, self.addr)
+                                .map_err(net_error_into_wasi_err)
+                        }
                     }
-                    return Ok(ret);
-                }
-            }
-            let data = match &mut inner.kind {
-                InodeSocketKind::WebSocket(sock) => {
-                    let read = sock.recv().await.map_err(net_error_into_wasi_err)?;
-                    read.data
-                }
-                InodeSocketKind::Raw(sock) => {
-                    let read = sock.recv().await.map_err(net_error_into_wasi_err)?;
-                    read.data
-                }
-                InodeSocketKind::TcpStream(sock) => {
-                    let read = sock.recv().await.map_err(net_error_into_wasi_err)?;
-                    read.data
-                }
-                InodeSocketKind::UdpSocket(sock) => {
-                    let read = sock.recv().await.map_err(net_error_into_wasi_err)?;
-                    read.data
-                }
-                InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
-                InodeSocketKind::Closed => return Ok(Bytes::new()),
-                _ => return Err(Errno::Notsup),
-            };
-            if data.is_empty() {
-                return Ok(Bytes::new());
-            }
-            inner.read_buffer.replace(data);
-            inner.read_addr.take();
-        }
-    }
-
-    pub async fn recv_from(&self, max_size: usize) -> Result<(Bytes, SocketAddr), Errno> {
-        let mut inner = self.inner.write().await;
-        loop {
-            let is_tcp = matches!(&inner.kind, InodeSocketKind::TcpStream(..));
-            if let Some(buf) = inner.read_buffer.as_mut() {
-                if !buf.is_empty() {
-                    let buf_len = buf.len();
-                    let read = buf_len.min(max_size);
-                    let ret = buf.slice(..read);
-                    if is_tcp {
-                        buf.advance(read);
-                    } else {
-                        buf.clear();
+                    InodeSocketKind::UdpSocket { socket, .. } => {
+                        if self.nonblocking {
+                            match socket.try_send_to(self.data, self.addr) {
+                                Ok(amt) => Poll::Ready(Ok(amt)),
+                                Err(err) => Poll::Ready(Err(net_error_into_wasi_err(err))),
+                            }
+                        } else {
+                            socket
+                                .poll_send_to(cx, self.data, self.addr)
+                                .map_err(net_error_into_wasi_err)
+                        }
                     }
-                    let peer = inner
-                        .read_addr
-                        .unwrap_or_else(|| SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0));
-                    return Ok((ret, peer));
+                    InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
+                    InodeSocketKind::Closed => Poll::Ready(Err(Errno::Io)),
+                    _ => Poll::Ready(Err(Errno::Notsup)),
                 }
             }
-            let rcv = match &mut inner.kind {
-                InodeSocketKind::Icmp(sock) => {
-                    sock.recv_from().await.map_err(net_error_into_wasi_err)?
-                }
-                InodeSocketKind::UdpSocket(sock) => {
-                    sock.recv_from().await.map_err(net_error_into_wasi_err)?
-                }
-                InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
-                InodeSocketKind::Closed => return Err(Errno::Io),
-                _ => return Err(Errno::Notsup),
-            };
-            inner.read_buffer.replace(rcv.data);
-            inner.read_addr.replace(rcv.addr);
+        }
+
+        tokio::select! {
+            res = SocketSender { sock: &self.inner, data: buf, addr, nonblocking } => res,
+            _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
         }
     }
 
-    pub async fn shutdown(&mut self, how: std::net::Shutdown) -> Result<(), Errno> {
-        let mut inner = self.inner.write().await;
+    pub async fn recv(
+        &self,
+        tasks: &dyn VirtualTaskManager,
+        buf: &mut [MaybeUninit<u8>],
+        fd_flags: Fdflags,
+    ) -> Result<usize, Errno> {
+        let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
+        let timeout = self
+            .opt_time(TimeType::ReadTimeout)
+            .ok()
+            .flatten()
+            .unwrap_or(Duration::from_secs(30));
+
+        #[derive(Debug)]
+        struct SocketReceiver<'a, 'b> {
+            sock: &'a RwLock<InodeSocketInner>,
+            data: &'b mut [MaybeUninit<u8>],
+            nonblocking: bool,
+        }
+        impl<'a, 'b> Future for SocketReceiver<'a, 'b> {
+            type Output = Result<usize, Errno>;
+            fn poll(
+                mut self: Pin<&mut Self>,
+                cx: &mut std::task::Context<'_>,
+            ) -> Poll<Self::Output> {
+                let mut inner = self.sock.write().unwrap();
+                match &mut inner.kind {
+                    InodeSocketKind::WebSocket(sock) => sock
+                        .poll_recv(cx, self.data)
+                        .map_err(net_error_into_wasi_err),
+                    InodeSocketKind::Raw(sock) => {
+                        if self.nonblocking {
+                            match sock.try_recv(self.data) {
+                                Ok(amt) => Poll::Ready(Ok(amt)),
+                                Err(err) => Poll::Ready(Err(net_error_into_wasi_err(err))),
+                            }
+                        } else {
+                            sock.poll_recv(cx, self.data)
+                                .map_err(net_error_into_wasi_err)
+                        }
+                    }
+                    InodeSocketKind::TcpStream { socket, .. } => {
+                        if self.nonblocking {
+                            match socket.try_recv(self.data) {
+                                Ok(amt) => Poll::Ready(Ok(amt)),
+                                Err(err) => Poll::Ready(Err(net_error_into_wasi_err(err))),
+                            }
+                        } else {
+                            socket
+                                .poll_recv(cx, self.data)
+                                .map_err(net_error_into_wasi_err)
+                        }
+                    }
+                    InodeSocketKind::UdpSocket { socket, peer } => {
+                        if let Some(peer) = peer {
+                            if self.nonblocking {
+                                loop {
+                                    match socket
+                                        .try_recv_from(self.data)
+                                        .map_err(net_error_into_wasi_err)
+                                    {
+                                        Ok((_, addr)) if addr != *peer => continue,
+                                        Ok((amt, _)) => return Poll::Ready(Ok(amt)),
+                                        Err(err) => return Poll::Ready(Err(err)),
+                                    }
+                                }
+                            } else {
+                                loop {
+                                    match socket
+                                        .poll_recv_from(cx, self.data)
+                                        .map_err(net_error_into_wasi_err)
+                                    {
+                                        Poll::Ready(Ok((_, addr))) if addr != *peer => continue,
+                                        res => return res.map_ok(|a| a.0),
+                                    }
+                                }
+                            }
+                        } else {
+                            Poll::Ready(Err(Errno::Notconn))
+                        }
+                    }
+                    InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
+                    InodeSocketKind::Closed => Poll::Ready(Err(Errno::Io)),
+                    _ => Poll::Ready(Err(Errno::Notsup)),
+                }
+            }
+        }
+
+        tokio::select! {
+            res = SocketReceiver { sock: &self.inner, data: buf, nonblocking } => res,
+            _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
+        }
+    }
+
+    pub async fn recv_from(
+        &self,
+        tasks: &dyn VirtualTaskManager,
+        buf: &mut [MaybeUninit<u8>],
+        fd_flags: Fdflags,
+    ) -> Result<(usize, SocketAddr), Errno> {
+        let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
+        let timeout = self
+            .opt_time(TimeType::ReadTimeout)
+            .ok()
+            .flatten()
+            .unwrap_or(Duration::from_secs(30));
+
+        #[derive(Debug)]
+        struct SocketReceiver<'a, 'b> {
+            sock: &'a RwLock<InodeSocketInner>,
+            data: &'b mut [MaybeUninit<u8>],
+            nonblocking: bool,
+        }
+        impl<'a, 'b> Future for SocketReceiver<'a, 'b> {
+            type Output = Result<(usize, SocketAddr), Errno>;
+            fn poll(
+                mut self: Pin<&mut Self>,
+                cx: &mut std::task::Context<'_>,
+            ) -> Poll<Self::Output> {
+                let mut inner = self.sock.write().unwrap();
+                match &mut inner.kind {
+                    InodeSocketKind::Icmp(sock) => {
+                        if self.nonblocking {
+                            match sock.try_recv_from(self.data) {
+                                Ok(res) => Poll::Ready(Ok(res)),
+                                Err(err) => Poll::Ready(Err(net_error_into_wasi_err(err))),
+                            }
+                        } else {
+                            sock.poll_recv_from(cx, self.data)
+                                .map_err(net_error_into_wasi_err)
+                        }
+                    }
+                    InodeSocketKind::UdpSocket { socket, .. } => {
+                        if self.nonblocking {
+                            match socket.try_recv_from(self.data) {
+                                Ok(res) => Poll::Ready(Ok(res)),
+                                Err(err) => Poll::Ready(Err(net_error_into_wasi_err(err))),
+                            }
+                        } else {
+                            socket
+                                .poll_recv_from(cx, self.data)
+                                .map_err(net_error_into_wasi_err)
+                        }
+                    }
+                    InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
+                    InodeSocketKind::Closed => Poll::Ready(Err(Errno::Io)),
+                    _ => Poll::Ready(Err(Errno::Notsup)),
+                }
+            }
+        }
+
+        tokio::select! {
+            res = SocketReceiver { sock: &self.inner, data: buf, nonblocking } => res,
+            _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
+        }
+    }
+
+    pub fn shutdown(&mut self, how: std::net::Shutdown) -> Result<(), Errno> {
+        let mut inner = self.inner.write().unwrap();
         match &mut inner.kind {
-            InodeSocketKind::TcpStream(sock) => {
-                sock.shutdown(how).await.map_err(net_error_into_wasi_err)?;
+            InodeSocketKind::TcpStream { socket, .. } => {
+                socket.shutdown(how).map_err(net_error_into_wasi_err)?;
             }
             InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
             InodeSocketKind::Closed => return Err(Errno::Io),
@@ -1090,8 +1224,8 @@ impl InodeSocket {
         if let Ok(mut guard) = self.inner.try_write() {
             #[allow(clippy::match_like_matches_macro)]
             match &mut guard.kind {
-                InodeSocketKind::TcpStream(..)
-                | InodeSocketKind::UdpSocket(..)
+                InodeSocketKind::TcpStream { .. }
+                | InodeSocketKind::UdpSocket { .. }
                 | InodeSocketKind::Raw(..)
                 | InodeSocketKind::WebSocket(..) => true,
                 _ => false,
@@ -1108,9 +1242,9 @@ impl InodeSocketInner {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<wasmer_vnet::Result<usize>> {
         match &mut self.kind {
-            InodeSocketKind::TcpListener(socket) => socket.poll_accept_ready(cx),
-            InodeSocketKind::TcpStream(socket) => socket.poll_read_ready(cx),
-            InodeSocketKind::UdpSocket(socket) => socket.poll_read_ready(cx),
+            InodeSocketKind::TcpListener { socket, .. } => socket.poll_accept_ready(cx),
+            InodeSocketKind::TcpStream { socket, .. } => socket.poll_read_ready(cx),
+            InodeSocketKind::UdpSocket { socket, .. } => socket.poll_read_ready(cx),
             InodeSocketKind::Raw(socket) => socket.poll_read_ready(cx),
             InodeSocketKind::WebSocket(socket) => socket.poll_read_ready(cx),
             InodeSocketKind::Icmp(socket) => socket.poll_read_ready(cx),
@@ -1128,9 +1262,9 @@ impl InodeSocketInner {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<wasmer_vnet::Result<usize>> {
         match &mut self.kind {
-            InodeSocketKind::TcpListener(_) => std::task::Poll::Pending,
-            InodeSocketKind::TcpStream(socket) => socket.poll_write_ready(cx),
-            InodeSocketKind::UdpSocket(socket) => socket.poll_write_ready(cx),
+            InodeSocketKind::TcpListener { .. } => std::task::Poll::Pending,
+            InodeSocketKind::TcpStream { socket, .. } => socket.poll_write_ready(cx),
+            InodeSocketKind::UdpSocket { socket, .. } => socket.poll_write_ready(cx),
             InodeSocketKind::Raw(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::WebSocket(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::Icmp(socket) => socket.poll_write_ready(cx),
