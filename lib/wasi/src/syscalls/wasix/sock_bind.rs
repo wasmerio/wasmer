@@ -26,11 +26,14 @@ pub fn sock_bind<M: MemorySize>(
     let addr = wasi_try!(crate::net::read_ip_port(&memory, addr));
     let addr = SocketAddr::new(addr.0, addr.1);
     let net = env.net();
+
+    let tasks = ctx.data().tasks.clone();
     wasi_try!(__sock_upgrade(
         &mut ctx,
         sock,
         Rights::SOCK_BIND,
-        move |socket| async move { socket.bind(net, addr).await }
+        move |socket| async move { socket.bind(tasks.deref(), net.deref(), addr).await }
     ));
+
     Errno::Success
 }

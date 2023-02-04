@@ -28,7 +28,7 @@ pub fn sock_shutdown(mut ctx: FunctionEnvMut<'_, WasiEnv>, sock: WasiFd, how: Sd
         &mut ctx,
         sock,
         Rights::SOCK_SHUTDOWN,
-        move |mut socket| async move { socket.shutdown(how).await }
+        |mut socket, _| socket.shutdown(how)
     ));
 
     Errno::Success

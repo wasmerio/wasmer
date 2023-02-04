@@ -247,6 +247,8 @@ impl ModuleCache {
 #[cfg(test)]
 #[cfg(feature = "sys")]
 mod tests {
+    use std::time::Duration;
+
     use tracing_subscriber::{
         filter, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
     };
@@ -275,7 +277,9 @@ mod tests {
         for _ in 0..2 {
             let webc = cache.get_webc("sharrattj/dash", &rt, &tasks).unwrap();
             store.push(webc);
-            tasks.runtime().block_on(tasks.sleep_now(0.into(), 1000));
+            tasks
+                .runtime()
+                .block_on(tasks.sleep_now(Duration::from_secs(1)));
         }
     }
 }

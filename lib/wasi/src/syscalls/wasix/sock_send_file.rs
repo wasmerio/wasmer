@@ -53,6 +53,8 @@ pub fn sock_send_file<M: MemorySize>(
             count -= sub_count;
 
             let fd_entry = wasi_try_ok!(state.fs.get_fd(in_fd));
+            let fd_flags = fd_entry.flags;
+
             let data = {
                 let inodes = env.state.inodes.clone();
                 match in_fd {
@@ -116,13 +118,22 @@ pub fn sock_send_file<M: MemorySize>(
                                     drop(guard);
                                     drop(inodes);
 
-                                    let data =
-                                        wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-                                            socket
-                                                .recv(sub_count as usize)
-                                                .await
-                                                .map(|a| a.to_vec())
-                                        })?);
+                                    let data = wasi_try_ok!(__asyncify(&mut ctx, None, async {
+                                        let mut buf = Vec::with_capacity(sub_count as usize);
+                                        unsafe {
+                                            buf.set_len(sub_count as usize);
+                                        }
+                                        socket.recv(tasks.deref(), &mut buf, fd_flags).await.map(
+                                            |amt| {
+                                                unsafe {
+                                                    buf.set_len(amt);
+                                                }
+                                                let buf: Vec<u8> =
+                                                    unsafe { std::mem::transmute(buf) };
+                                                buf
+                                            },
+                                        )
+                                    })?);
                                     env = ctx.data();
                                     data
                                 }
@@ -177,11 +188,12 @@ pub fn sock_send_file<M: MemorySize>(
             };
 
             // Write it down to the socket
-            let bytes_written = wasi_try_ok!(__sock_actor_mut(
+            let tasks = ctx.data().tasks.clone();
+            let bytes_written = wasi_try_ok!(__sock_asyncify_mut(
                 &mut ctx,
                 sock,
                 Rights::SOCK_SEND,
-                move |socket| async move { socket.send(data).await },
+                |socket, fd| async move { socket.send(tasks.deref(), &data, fd.flags).await },
             ));
             env = ctx.data();
 

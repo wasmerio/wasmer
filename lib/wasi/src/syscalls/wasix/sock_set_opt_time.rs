@@ -1,5 +1,5 @@
 use super::*;
-use crate::syscalls::*;
+use crate::{net::socket::TimeType, syscalls::*};
 
 /// ### `sock_set_opt_time()`
 /// Sets one of the times the socket
@@ -33,11 +33,11 @@ pub fn sock_set_opt_time<M: MemorySize>(
     };
 
     let ty = match opt {
-        Sockoption::RecvTimeout => wasmer_vnet::TimeType::ReadTimeout,
-        Sockoption::SendTimeout => wasmer_vnet::TimeType::WriteTimeout,
-        Sockoption::ConnectTimeout => wasmer_vnet::TimeType::ConnectTimeout,
-        Sockoption::AcceptTimeout => wasmer_vnet::TimeType::AcceptTimeout,
-        Sockoption::Linger => wasmer_vnet::TimeType::Linger,
+        Sockoption::RecvTimeout => TimeType::ReadTimeout,
+        Sockoption::SendTimeout => TimeType::WriteTimeout,
+        Sockoption::ConnectTimeout => TimeType::ConnectTimeout,
+        Sockoption::AcceptTimeout => TimeType::AcceptTimeout,
+        Sockoption::Linger => TimeType::Linger,
         _ => return Errno::Inval,
     };
 
@@ -46,7 +46,7 @@ pub fn sock_set_opt_time<M: MemorySize>(
         &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move { socket.set_opt_time(ty, time).await }
+        |socket, _| socket.set_opt_time(ty, time)
     ));
     Errno::Success
 }

@@ -80,7 +80,7 @@ impl dyn FileSystem + 'static {
 
 pub trait FileOpener {
     fn open(
-        &mut self,
+        &self,
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>>;
@@ -134,19 +134,19 @@ impl OpenOptionsConfig {
     }
 }
 
-impl fmt::Debug for OpenOptions {
+impl<'a> fmt::Debug for OpenOptions<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.conf.fmt(f)
     }
 }
 
-pub struct OpenOptions {
-    opener: Box<dyn FileOpener>,
+pub struct OpenOptions<'a> {
+    opener: &'a dyn FileOpener,
     conf: OpenOptionsConfig,
 }
 
-impl OpenOptions {
-    pub fn new(opener: Box<dyn FileOpener>) -> Self {
+impl<'a> OpenOptions<'a> {
+    pub fn new(opener: &'a dyn FileOpener) -> Self {
         Self {
             opener,
             conf: OpenOptionsConfig {

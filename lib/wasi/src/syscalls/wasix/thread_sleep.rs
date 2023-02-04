@@ -11,6 +11,13 @@ pub fn thread_sleep(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     duration: Timestamp,
 ) -> Result<Errno, WasiError> {
+    thread_sleep_internal(ctx, duration)
+}
+
+pub(crate) fn thread_sleep_internal(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    duration: Timestamp,
+) -> Result<Errno, WasiError> {
     /*
     trace!(
         "wasi[{}:{}]::thread_sleep",

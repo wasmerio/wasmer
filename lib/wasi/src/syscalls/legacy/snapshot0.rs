@@ -6,8 +6,12 @@ use wasmer_wasi_types::wasi::{
 };
 
 use crate::{
-    mem_error_to_wasi, os::task::thread::WasiThread, syscalls, syscalls::types, Memory32,
-    MemorySize, WasiEnv, WasiError,
+    mem_error_to_wasi,
+    os::task::thread::WasiThread,
+    state::{PollEventBuilder, PollEventSet},
+    syscalls,
+    syscalls::types,
+    Memory32, MemorySize, WasiEnv, WasiError,
 };
 
 /// Wrapper around `syscalls::fd_filestat_get` with extra logic to handle the size
@@ -141,7 +145,11 @@ pub fn poll_oneoff(
     let in_origs = wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions));
     let in_origs = wasi_try_mem_ok!(in_origs.read_to_vec());
     for in_orig in in_origs {
-        subscriptions.push(Into::<Subscription>::into(in_orig));
+        subscriptions.push((
+            None,
+            PollEventSet::default(),
+            Into::<Subscription>::into(in_orig),
+        ));
     }
 
     // make the call

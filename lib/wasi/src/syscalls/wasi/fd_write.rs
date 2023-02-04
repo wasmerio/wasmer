@@ -112,7 +112,7 @@ fn fd_write_internal<M: MemorySize>(
             return Ok(Errno::Access);
         }
 
-        let is_non_blocking = fd_entry.flags.contains(Fdflags::NONBLOCK);
+        let fd_flags = fd_entry.flags;
         let inode_idx = fd_entry.inode;
 
         let (bytes_written, can_update_cursor) = {
@@ -138,12 +138,12 @@ fn fd_write_internal<M: MemorySize>(
 
                         let written = wasi_try_ok!(__asyncify(
                             &mut ctx,
-                            if is_non_blocking {
+                            if fd_entry.flags.contains(Fdflags::NONBLOCK) {
                                 Some(Duration::ZERO)
                             } else {
                                 None
                             },
-                            async move {
+                            async {
                                 let mut handle = handle.write().unwrap();
                                 if !is_stdio {
                                     handle
@@ -179,8 +179,9 @@ fn fd_write_internal<M: MemorySize>(
                     let mut buf = Vec::with_capacity(buf_len);
                     wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
 
+                    let tasks = env.tasks.clone();
                     let written = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-                        socket.send(buf).await
+                        socket.send(tasks.deref(), &buf, fd_flags).await
                     })?);
                     (written, false)
                 }
@@ -208,12 +209,13 @@ fn fd_write_internal<M: MemorySize>(
                     immediate,
                     ..
                 } => {
-                    let mut val = 0u64.to_ne_bytes();
-                    let written = wasi_try_ok!(write_bytes(&mut val[..], &memory, iovs_arr));
+                    let mut val: [MaybeUninit<u8>; 8] =
+                        unsafe { MaybeUninit::uninit().assume_init() };
+                    let written = wasi_try_ok!(copy_to_slice(&memory, iovs_arr, &mut val[..]));
                     if written != val.len() {
                         return Ok(Errno::Inval);
                     }
-                    let val = u64::from_ne_bytes(val);
+                    let val = u64::from_ne_bytes(unsafe { std::mem::transmute(val) });
 
                     counter.fetch_add(val, Ordering::AcqRel);
                     {

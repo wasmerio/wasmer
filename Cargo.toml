@@ -135,6 +135,9 @@ coverage = []
 [profile.dev]
 split-debuginfo = "unpacked"
 
+#[profile.release]
+#debug = true
+
 [[bench]]
 name = "static_and_dynamic_functions"
 harness = false

@@ -280,7 +280,7 @@ pub fn proc_exec<M: MemorySize>(
                     let tasks_inner = tasks.clone();
                     tasks.block_on(Box::pin(async move {
                         loop {
-                            tasks_inner.sleep_now(current_caller_id(), 5).await;
+                            tasks_inner.sleep_now(Duration::from_millis(5)).await;
                             if let Some(exit_code) = process.inst.exit_code() {
                                 tx.send(exit_code).unwrap();
                                 break;

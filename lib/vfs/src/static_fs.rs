@@ -43,16 +43,9 @@ impl StaticFileSystem {
 }
 
 /// Custom file opener, returns a WebCFile
-#[derive(Debug)]
-struct WebCFileOpener {
-    pub package: String,
-    pub volumes: Arc<webc::IndexMap<String, webc::Volume<'static>>>,
-    pub memory: Arc<MemFileSystem>,
-}
-
-impl FileOpener for WebCFileOpener {
+impl FileOpener for StaticFileSystem {
     fn open(
-        &mut self,
+        &self,
         path: &Path,
         _conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync>, FsError> {
@@ -338,11 +331,7 @@ impl FileSystem for StaticFileSystem {
         }
     }
     fn new_open_options(&self) -> OpenOptions {
-        OpenOptions::new(Box::new(WebCFileOpener {
-            package: self.package.clone(),
-            volumes: self.volumes.clone(),
-            memory: self.memory.clone(),
-        }))
+        OpenOptions::new(self)
     }
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         let path = normalizes_path(path);

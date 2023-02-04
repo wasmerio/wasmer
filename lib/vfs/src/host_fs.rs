@@ -120,7 +120,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn new_open_options(&self) -> OpenOptions {
-        OpenOptions::new(Box::new(FileOpener))
+        OpenOptions::new(self)
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
@@ -188,12 +188,9 @@ impl TryInto<Metadata> for std::fs::Metadata {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct FileOpener;
-
-impl crate::FileOpener for FileOpener {
+impl crate::FileOpener for FileSystem {
     fn open(
-        &mut self,
+        &self,
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {

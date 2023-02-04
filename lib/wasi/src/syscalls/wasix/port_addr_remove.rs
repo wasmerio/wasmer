@@ -20,8 +20,8 @@ pub fn port_addr_remove<M: MemorySize>(
     let memory = env.memory_view(&ctx);
     let ip = wasi_try_ok!(crate::net::read_ip(&memory, ip));
     let net = env.net();
-    wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-        net.ip_remove(ip).await.map_err(net_error_into_wasi_err)
+    wasi_try_ok!(__asyncify(&mut ctx, None, async {
+        net.ip_remove(ip).map_err(net_error_into_wasi_err)
     })?);
     Ok(Errno::Success)
 }

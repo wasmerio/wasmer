@@ -28,7 +28,7 @@ pub fn sock_get_opt_flag<M: MemorySize>(
         &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move { socket.get_opt_flag(option).await }
+        |socket, _| socket.get_opt_flag(option)
     ));
 
     let env = ctx.data();

@@ -4,7 +4,6 @@ mod filesystem;
 mod stdio;
 
 use file::{File, FileHandle, ReadOnlyFile};
-pub use file_opener::FileOpener;
 pub use filesystem::FileSystem;
 pub use stdio::{Stderr, Stdin, Stdout};
 

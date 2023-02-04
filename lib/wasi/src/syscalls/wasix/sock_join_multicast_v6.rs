@@ -29,7 +29,7 @@ pub fn sock_join_multicast_v6<M: MemorySize>(
         &mut ctx,
         sock,
         Rights::empty(),
-        move |socket| async move { socket.join_multicast_v6(multiaddr, iface).await }
+        |socket, _| socket.join_multicast_v6(multiaddr, iface)
     ));
     Errno::Success
 }

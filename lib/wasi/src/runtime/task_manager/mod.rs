@@ -2,7 +2,7 @@
 #[cfg(feature = "sys-thread")]
 pub mod tokio;
 
-use std::pin::Pin;
+use std::{pin::Pin, time::Duration};
 
 use ::tokio::runtime::Runtime;
 use futures::Future;
@@ -10,7 +10,7 @@ use wasmer::{vm::VMMemory, MemoryType, Module, Store};
 #[cfg(feature = "sys")]
 use wasmer_types::MemoryStyle;
 
-use crate::{os::task::thread::WasiThreadError, WasiCallingId};
+use crate::os::task::thread::WasiThreadError;
 
 #[derive(Debug)]
 pub struct SpawnedMemory {
@@ -28,16 +28,13 @@ pub enum SpawnType {
 }
 
 /// An implementation of task management
+#[async_trait::async_trait]
 #[allow(unused_variables)]
 pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     /// Invokes whenever a WASM thread goes idle. In some runtimes (like singlethreaded
     /// execution environments) they will need to do asynchronous work whenever the main
     /// thread goes idle and this is the place to hook for that.
-    fn sleep_now(
-        &self,
-        _id: WasiCallingId,
-        ms: u128,
-    ) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>>;
+    async fn sleep_now(&self, time: Duration);
 
     /// Starts an asynchronous task that will run on a shared worker pool
     /// This task must not block the execution or it could cause a deadlock
@@ -82,19 +79,15 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
 #[derive(Clone, Debug)]
 pub struct StubTaskManager;
 
+#[async_trait::async_trait]
 impl VirtualTaskManager for StubTaskManager {
     #[allow(unused_variables)]
-    fn sleep_now(
-        &self,
-        id: WasiCallingId,
-        ms: u128,
-    ) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>> {
-        if ms == 0 {
+    async fn sleep_now(&self, time: Duration) {
+        if time == Duration::ZERO {
             std::thread::yield_now();
         } else {
-            std::thread::sleep(std::time::Duration::from_millis(ms as u64));
+            std::thread::sleep(time);
         }
-        Box::pin(async move {})
     }
 
     #[allow(unused_variables)]

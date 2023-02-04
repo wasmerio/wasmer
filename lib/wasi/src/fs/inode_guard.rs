@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     future::Future,
     io::{IoSlice, SeekFrom},
     ops::{Deref, DerefMut},
@@ -39,36 +38,23 @@ pub(crate) enum InodeValFilePollGuardMode {
         counter: Arc<AtomicU64>,
     },
     Socket {
-        inner: Arc<tokio::sync::RwLock<InodeSocketInner>>,
-        lock_state: InodeValFilePollGuardSocketLocking,
+        inner: Arc<RwLock<InodeSocketInner>>,
     },
-}
-
-pub(crate) enum InodeValFilePollGuardSocketLocking {
-    Locking(
-        Pin<
-            Box<
-                dyn Future<Output = tokio::sync::OwnedRwLockWriteGuard<InodeSocketInner>>
-                    + Send
-                    + Sync
-                    + 'static,
-            >,
-        >,
-    ),
-    Locked(tokio::sync::OwnedRwLockWriteGuard<InodeSocketInner>),
 }
 
 pub(crate) struct InodeValFilePollGuard {
     pub(crate) fd: u32,
+    pub(crate) peb: PollEventSet,
+    pub(crate) subscription: Subscription,
     pub(crate) mode: InodeValFilePollGuardMode,
-    pub(crate) subscriptions: HashMap<PollEventSet, Subscription>,
 }
 
 impl InodeValFilePollGuard {
     pub(crate) fn new(
         fd: u32,
+        peb: PollEventSet,
+        subscription: Subscription,
         guard: &Kind,
-        subscriptions: HashMap<PollEventSet, Subscription>,
     ) -> Option<Self> {
         let mode = match guard.deref() {
             Kind::EventNotifications {
@@ -91,22 +77,9 @@ impl InodeValFilePollGuard {
                     counter: counter.clone(),
                 }
             }
-            Kind::Socket { socket } => {
-                if let Ok(guard) = socket.inner.clone().try_write_owned() {
-                    InodeValFilePollGuardMode::Socket {
-                        inner: socket.inner.clone(),
-                        lock_state: InodeValFilePollGuardSocketLocking::Locked(guard),
-                    }
-                } else {
-                    let socket = socket.clone();
-                    InodeValFilePollGuardMode::Socket {
-                        inner: socket.inner.clone(),
-                        lock_state: InodeValFilePollGuardSocketLocking::Locking(Box::pin(
-                            socket.inner.write_owned(),
-                        )),
-                    }
-                }
-            }
+            Kind::Socket { socket } => InodeValFilePollGuardMode::Socket {
+                inner: socket.inner.clone(),
+            },
             Kind::File {
                 handle: Some(handle),
                 ..
@@ -118,7 +91,8 @@ impl InodeValFilePollGuard {
         Some(Self {
             fd,
             mode,
-            subscriptions,
+            peb,
+            subscription,
         })
     }
 }
@@ -130,22 +104,22 @@ impl std::fmt::Debug for InodeValFilePollGuard {
             InodeValFilePollGuardMode::EventNotifications { .. } => {
                 write!(f, "guard-notifications")
             }
-            InodeValFilePollGuardMode::Socket { lock_state, .. } => match lock_state {
-                InodeValFilePollGuardSocketLocking::Locked(guard) => match guard.kind {
-                    InodeSocketKind::TcpListener(..) => write!(f, "guard-tcp-listener"),
-                    InodeSocketKind::TcpStream(ref stream) => {
-                        if stream.is_closed() {
+            InodeValFilePollGuardMode::Socket { inner } => {
+                let inner = inner.read().unwrap();
+                match inner.kind {
+                    InodeSocketKind::TcpListener { .. } => write!(f, "guard-tcp-listener"),
+                    InodeSocketKind::TcpStream { ref socket, .. } => {
+                        if socket.is_closed() {
                             write!(f, "guard-tcp-stream (closed)")
                         } else {
                             write!(f, "guard-tcp-stream")
                         }
                     }
-                    InodeSocketKind::UdpSocket(..) => write!(f, "guard-udp-socket"),
+                    InodeSocketKind::UdpSocket { .. } => write!(f, "guard-udp-socket"),
                     InodeSocketKind::Raw(..) => write!(f, "guard-raw-socket"),
                     _ => write!(f, "guard-socket"),
-                },
-                _ => write!(f, "guard-socket (locked)"),
-            },
+                }
+            }
         }
     }
 }
@@ -167,7 +141,8 @@ impl InodeValFilePollGuard {
 pub(crate) struct InodeValFilePollGuardJoin<'a> {
     mode: &'a mut InodeValFilePollGuardMode,
     fd: u32,
-    subscriptions: HashMap<PollEventSet, Subscription>,
+    peb: PollEventSet,
+    subscription: Subscription,
 }
 
 impl<'a> InodeValFilePollGuardJoin<'a> {
@@ -175,7 +150,8 @@ impl<'a> InodeValFilePollGuardJoin<'a> {
         Self {
             mode: &mut guard.mode,
             fd: guard.fd,
-            subscriptions: guard.subscriptions.clone(),
+            peb: guard.peb,
+            subscription: guard.subscription,
         }
     }
     pub(crate) fn fd(&self) -> u32 {
@@ -184,37 +160,34 @@ impl<'a> InodeValFilePollGuardJoin<'a> {
 }
 
 impl<'a> Future for InodeValFilePollGuardJoin<'a> {
-    type Output = Vec<Event>;
+    type Output = Event;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
-        let mut has_read = None;
-        let mut has_write = None;
-        let mut has_close = None;
+        let mut has_read = false;
+        let mut has_write = false;
+        let mut has_close = false;
         let mut has_hangup = false;
 
-        let mut ret = Vec::new();
-        for (set, s) in self.subscriptions.iter() {
-            for in_event in iterate_poll_events(*set) {
-                match in_event {
-                    PollEvent::PollIn => {
-                        has_read = Some(*s);
-                    }
-                    PollEvent::PollOut => {
-                        has_write = Some(*s);
-                    }
-                    PollEvent::PollHangUp => {
-                        has_hangup = true;
-                        has_close = Some(*s);
-                    }
-                    PollEvent::PollError | PollEvent::PollInvalid => {
-                        if !has_hangup {
-                            has_close = Some(*s);
-                        }
+        for in_event in iterate_poll_events(self.peb) {
+            match in_event {
+                PollEvent::PollIn => {
+                    has_read = true;
+                }
+                PollEvent::PollOut => {
+                    has_write = true;
+                }
+                PollEvent::PollHangUp => {
+                    has_hangup = true;
+                    has_close = true;
+                }
+                PollEvent::PollError | PollEvent::PollInvalid => {
+                    if !has_hangup {
+                        has_close = true;
                     }
                 }
             }
         }
-        if let Some(s) = has_close.as_ref() {
+        if has_close {
             let is_closed = match &mut self.mode {
                 InodeValFilePollGuardMode::File(file) => {
                     let mut guard = file.write().unwrap();
@@ -222,29 +195,11 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                     file.poll_shutdown(cx).is_ready()
                 }
                 InodeValFilePollGuardMode::EventNotifications { .. } => false,
-                InodeValFilePollGuardMode::Socket {
-                    ref inner,
-                    ref mut lock_state,
-                    ..
-                } => {
-                    let guard = match lock_state {
-                        InodeValFilePollGuardSocketLocking::Locking(locking) => {
-                            match locking.as_mut().poll(cx) {
-                                Poll::Ready(guard) => {
-                                    *lock_state = InodeValFilePollGuardSocketLocking::Locked(guard);
-                                    match lock_state {
-                                        InodeValFilePollGuardSocketLocking::Locked(guard) => guard,
-                                        _ => unreachable!(),
-                                    }
-                                }
-                                Poll::Pending => return Poll::Pending,
-                            }
-                        }
-                        InodeValFilePollGuardSocketLocking::Locked(guard) => guard,
-                    };
+                InodeValFilePollGuardMode::Socket { ref inner } => {
+                    let mut guard = inner.write().unwrap();
                     let is_closed = if let InodeSocketKind::Closed = guard.kind {
                         true
-                    } else if has_read.is_some() || has_write.is_some() {
+                    } else if has_read || has_write {
                         // this will be handled in the read/write poll instead
                         false
                     } else {
@@ -261,21 +216,15 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                             _ => false,
                         }
                     };
-                    // Release the lock so we don't cause any blocking issues
-                    drop(guard);
-                    *lock_state = InodeValFilePollGuardSocketLocking::Locking(Box::pin(
-                        inner.clone().write_owned(),
-                    ));
-
                     is_closed
                 }
             };
             if is_closed {
-                ret.push(Event {
-                    userdata: s.userdata,
+                return Poll::Ready(Event {
+                    userdata: self.subscription.userdata,
                     error: Errno::Success,
-                    type_: s.type_,
-                    u: match s.type_ {
+                    type_: self.subscription.type_,
+                    u: match self.subscription.type_ {
                         Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
                             fd_readwrite: EventFdReadwrite {
                                 nbytes: 0,
@@ -291,7 +240,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                 });
             }
         }
-        if let Some(s) = has_read {
+        if has_read {
             let mut poll_result = match &mut self.mode {
                 InodeValFilePollGuardMode::File(file) => {
                     let mut guard = file.write().unwrap();
@@ -317,37 +266,12 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         })
                     }
                 }
-                InodeValFilePollGuardMode::Socket {
-                    ref inner,
-                    ref mut lock_state,
-                } => {
-                    let guard = match lock_state {
-                        InodeValFilePollGuardSocketLocking::Locking(locking) => {
-                            match locking.as_mut().poll(cx) {
-                                Poll::Ready(guard) => {
-                                    *lock_state = InodeValFilePollGuardSocketLocking::Locked(guard);
-                                    match lock_state {
-                                        InodeValFilePollGuardSocketLocking::Locked(guard) => guard,
-                                        _ => unreachable!(),
-                                    }
-                                }
-                                Poll::Pending => return Poll::Pending,
-                            }
-                        }
-                        InodeValFilePollGuardSocketLocking::Locked(guard) => guard,
-                    };
-                    let res = guard.poll_read_ready(cx).map_err(net_error_into_io_err);
-
-                    // drop the lock so we don't block things
-                    drop(guard);
-                    *lock_state = InodeValFilePollGuardSocketLocking::Locking(Box::pin(
-                        inner.clone().write_owned(),
-                    ));
-
-                    res
+                InodeValFilePollGuardMode::Socket { ref inner } => {
+                    let mut guard = inner.write().unwrap();
+                    guard.poll_read_ready(cx).map_err(net_error_into_io_err)
                 }
             };
-            if let Some(s) = has_close.as_ref() {
+            if has_close {
                 poll_result = match poll_result {
                     Poll::Ready(Err(err))
                         if err.kind() == std::io::ErrorKind::ConnectionAborted
@@ -357,11 +281,11 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                             || err.kind() == std::io::ErrorKind::NotConnected
                             || err.kind() == std::io::ErrorKind::UnexpectedEof =>
                     {
-                        ret.push(Event {
-                            userdata: s.userdata,
+                        return Poll::Ready(Event {
+                            userdata: self.subscription.userdata,
                             error: Errno::Success,
-                            type_: s.type_,
-                            u: match s.type_ {
+                            type_: self.subscription.type_,
+                            u: match self.subscription.type_ {
                                 Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
                                     fd_readwrite: EventFdReadwrite {
                                         nbytes: 0,
@@ -375,7 +299,6 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                                 Eventtype::Clock => EventUnion { clock: 0 },
                             },
                         });
-                        Poll::Pending
                     }
                     a => a,
                 };
@@ -389,11 +312,11 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         0
                     }
                 };
-                ret.push(Event {
-                    userdata: s.userdata,
+                return Poll::Ready(Event {
+                    userdata: self.subscription.userdata,
                     error,
-                    type_: s.type_,
-                    u: match s.type_ {
+                    type_: self.subscription.type_,
+                    u: match self.subscription.type_ {
                         Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
                             fd_readwrite: EventFdReadwrite {
                                 nbytes: bytes_available as u64,
@@ -409,7 +332,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                 });
             }
         }
-        if let Some(s) = has_write {
+        if has_write {
             let mut poll_result = match &mut self.mode {
                 InodeValFilePollGuardMode::File(file) => {
                     let mut guard = file.write().unwrap();
@@ -435,37 +358,12 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         })
                     }
                 }
-                InodeValFilePollGuardMode::Socket {
-                    ref inner,
-                    ref mut lock_state,
-                } => {
-                    let guard = match lock_state {
-                        InodeValFilePollGuardSocketLocking::Locking(locking) => {
-                            match locking.as_mut().poll(cx) {
-                                Poll::Ready(guard) => {
-                                    *lock_state = InodeValFilePollGuardSocketLocking::Locked(guard);
-                                    match lock_state {
-                                        InodeValFilePollGuardSocketLocking::Locked(guard) => guard,
-                                        _ => unreachable!(),
-                                    }
-                                }
-                                Poll::Pending => return Poll::Pending,
-                            }
-                        }
-                        InodeValFilePollGuardSocketLocking::Locked(guard) => guard,
-                    };
-                    let res = guard.poll_write_ready(cx).map_err(net_error_into_io_err);
-
-                    // drop the lock so we don't block things
-                    drop(guard);
-                    *lock_state = InodeValFilePollGuardSocketLocking::Locking(Box::pin(
-                        inner.clone().write_owned(),
-                    ));
-
-                    res
+                InodeValFilePollGuardMode::Socket { ref inner } => {
+                    let mut guard = inner.write().unwrap();
+                    guard.poll_write_ready(cx).map_err(net_error_into_io_err)
                 }
             };
-            if let Some(s) = has_close.as_ref() {
+            if has_close {
                 poll_result = match poll_result {
                     Poll::Ready(Err(err))
                         if err.kind() == std::io::ErrorKind::ConnectionAborted
@@ -475,11 +373,11 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                             || err.kind() == std::io::ErrorKind::NotConnected
                             || err.kind() == std::io::ErrorKind::UnexpectedEof =>
                     {
-                        ret.push(Event {
-                            userdata: s.userdata,
+                        return Poll::Ready(Event {
+                            userdata: self.subscription.userdata,
                             error: Errno::Success,
-                            type_: s.type_,
-                            u: match s.type_ {
+                            type_: self.subscription.type_,
+                            u: match self.subscription.type_ {
                                 Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
                                     fd_readwrite: EventFdReadwrite {
                                         nbytes: 0,
@@ -493,7 +391,6 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                                 Eventtype::Clock => EventUnion { clock: 0 },
                             },
                         });
-                        Poll::Pending
                     }
                     a => a,
                 };
@@ -507,11 +404,11 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         0
                     }
                 };
-                ret.push(Event {
-                    userdata: s.userdata,
+                return Poll::Ready(Event {
+                    userdata: self.subscription.userdata,
                     error,
-                    type_: s.type_,
-                    u: match s.type_ {
+                    type_: self.subscription.type_,
+                    u: match self.subscription.type_ {
                         Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
                             fd_readwrite: EventFdReadwrite {
                                 nbytes: bytes_available as u64,
@@ -527,11 +424,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                 });
             }
         }
-        if !ret.is_empty() {
-            Poll::Ready(ret)
-        } else {
-            Poll::Pending
-        }
+        Poll::Pending
     }
 }
 
@@ -556,11 +449,13 @@ impl InodeValFileReadGuard {
     pub fn into_poll_guard(
         self,
         fd: u32,
-        subscriptions: HashMap<PollEventSet, Subscription>,
+        peb: PollEventSet,
+        subscription: Subscription,
     ) -> InodeValFilePollGuard {
         InodeValFilePollGuard {
             fd,
-            subscriptions,
+            peb,
+            subscription,
             mode: InodeValFilePollGuardMode::File(self.file),
         }
     }

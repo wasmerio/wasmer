@@ -30,8 +30,8 @@ pub fn port_addr_list<M: MemorySize>(
     let max_addrs: u64 = wasi_try_ok!(max_addrs.try_into().map_err(|_| Errno::Overflow));
 
     let net = env.net();
-    let addrs = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-        net.ip_list().await.map_err(net_error_into_wasi_err)
+    let addrs = wasi_try_ok!(__asyncify(&mut ctx, None, async {
+        net.ip_list().map_err(net_error_into_wasi_err)
     })?);
     let env = ctx.data();
     let memory = env.memory_view(&ctx);

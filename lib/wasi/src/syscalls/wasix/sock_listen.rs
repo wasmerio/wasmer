@@ -28,11 +28,14 @@ pub fn sock_listen<M: MemorySize>(
     let env = ctx.data();
     let net = env.net();
     let backlog: usize = wasi_try!(backlog.try_into().map_err(|_| Errno::Inval));
+
+    let tasks = ctx.data().tasks.clone();
     wasi_try!(__sock_upgrade(
         &mut ctx,
         sock,
         Rights::SOCK_LISTEN,
-        move |socket| async move { socket.listen(net, backlog).await }
+        |socket| async move { socket.listen(tasks.deref(), net.deref(), backlog).await }
     ));
+
     Errno::Success
 }

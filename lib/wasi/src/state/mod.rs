@@ -25,7 +25,7 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     path::Path,
-    sync::{atomic::AtomicU32, Arc, Mutex, MutexGuard, RwLock},
+    sync::{Arc, Mutex, MutexGuard, RwLock},
     task::Waker,
     time::Duration,
 };
@@ -102,9 +102,7 @@ impl WasiState {
     }
 
     pub(crate) fn fs_new_open_options(&self) -> OpenOptions {
-        OpenOptions::new(Box::new(WasiStateOpener {
-            root_fs: self.fs.root_fs.clone(),
-        }))
+        self.fs.root_fs.new_open_options()
     }
 }
 
@@ -114,7 +112,7 @@ struct WasiStateOpener {
 
 impl FileOpener for WasiStateOpener {
     fn open(
-        &mut self,
+        &self,
         path: &Path,
         conf: &wasmer_vfs::OpenOptionsConfig,
     ) -> wasmer_vfs::Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
@@ -155,8 +153,7 @@ pub(crate) struct WasiStateThreading {
 /// CPU efficient manner
 #[derive(Debug)]
 pub struct WasiFutex {
-    pub(crate) refcnt: AtomicU32,
-    pub(crate) waker: tokio::sync::broadcast::Sender<()>,
+    pub(crate) wakers: Vec<Waker>,
 }
 
 #[derive(Debug)]
@@ -250,7 +247,7 @@ pub struct WasiState {
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) threading: RwLock<WasiStateThreading>,
-    pub(crate) futexs: RwLock<HashMap<u64, WasiFutex>>,
+    pub(crate) futexs: Mutex<HashMap<u64, WasiFutex>>,
     pub(crate) clock_offset: Mutex<HashMap<Snapshot0Clockid, i64>>,
     pub(crate) bus: WasiBusState,
     pub args: Vec<String>,
