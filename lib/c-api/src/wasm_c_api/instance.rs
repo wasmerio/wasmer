@@ -85,6 +85,12 @@ pub unsafe extern "C" fn wasm_instance_new(
 
             return None;
         }
+
+        Err(e @ InstantiationError::DifferentArchOS) => {
+            crate::error::update_last_error(e);
+
+            return None;
+        }
     };
 
     Some(Box::new(wasm_instance_t {
