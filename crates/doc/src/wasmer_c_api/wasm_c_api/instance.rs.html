@@ -312,6 +312,12 @@
 <span id="310">310</span>
 <span id="311">311</span>
 <span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::externals</span>::{<span class="ident">wasm_extern_t</span>, <span class="ident">wasm_extern_vec_t</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::module::wasm_module_t</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::store</span>::{<span class="ident">wasm_store_t</span>, <span class="ident">StoreRef</span>};
@@ -395,6 +401,12 @@
         }
 
         <span class="prelude-val">Err</span>(<span class="ident">e</span> @ <span class="ident">InstantiationError::DifferentStores</span>) =&gt; {
+            <span class="ident"><span class="kw">crate</span>::error::update_last_error</span>(<span class="ident">e</span>);
+
+            <span class="kw">return</span> <span class="prelude-val">None</span>;
+        }
+
+        <span class="prelude-val">Err</span>(<span class="ident">e</span> @ <span class="ident">InstantiationError::DifferentArchOS</span>) =&gt; {
             <span class="ident"><span class="kw">crate</span>::error::update_last_error</span>(<span class="ident">e</span>);
 
             <span class="kw">return</span> <span class="prelude-val">None</span>;

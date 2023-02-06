@@ -207,6 +207,11 @@
 <span id="205">205</span>
 <span id="206">206</span>
 <span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::exports::Exports</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::module::Module</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys</span>::{<span class="ident">LinkError</span>, <span class="ident">RuntimeError</span>};
@@ -276,6 +281,11 @@
     <span class="doccomment">/// This error occurs when an import from a different store is used.</span>
     <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;cannot mix imports from different stores&quot;</span>)]</span>
     <span class="ident">DifferentStores</span>,
+
+    <span class="doccomment">/// Import from a different Store.</span>
+    <span class="doccomment">/// This error occurs when an import from a different store is used.</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;incorrect OS or architecture&quot;</span>)]</span>
+    <span class="ident">DifferentArchOS</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">wasmer_compiler::InstantiationError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">InstantiationError</span> {

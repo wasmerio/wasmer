@@ -732,6 +732,63 @@
 <span id="732">732</span>
 <span id="733">733</span>
 <span id="734">734</span>
+<span id="735">735</span>
+<span id="736">736</span>
+<span id="737">737</span>
+<span id="738">738</span>
+<span id="739">739</span>
+<span id="740">740</span>
+<span id="741">741</span>
+<span id="742">742</span>
+<span id="743">743</span>
+<span id="744">744</span>
+<span id="745">745</span>
+<span id="746">746</span>
+<span id="747">747</span>
+<span id="748">748</span>
+<span id="749">749</span>
+<span id="750">750</span>
+<span id="751">751</span>
+<span id="752">752</span>
+<span id="753">753</span>
+<span id="754">754</span>
+<span id="755">755</span>
+<span id="756">756</span>
+<span id="757">757</span>
+<span id="758">758</span>
+<span id="759">759</span>
+<span id="760">760</span>
+<span id="761">761</span>
+<span id="762">762</span>
+<span id="763">763</span>
+<span id="764">764</span>
+<span id="765">765</span>
+<span id="766">766</span>
+<span id="767">767</span>
+<span id="768">768</span>
+<span id="769">769</span>
+<span id="770">770</span>
+<span id="771">771</span>
+<span id="772">772</span>
+<span id="773">773</span>
+<span id="774">774</span>
+<span id="775">775</span>
+<span id="776">776</span>
+<span id="777">777</span>
+<span id="778">778</span>
+<span id="779">779</span>
+<span id="780">780</span>
+<span id="781">781</span>
+<span id="782">782</span>
+<span id="783">783</span>
+<span id="784">784</span>
+<span id="785">785</span>
+<span id="786">786</span>
+<span id="787">787</span>
+<span id="788">788</span>
+<span id="789">789</span>
+<span id="790">790</span>
+<span id="791">791</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`</span>
 <span class="doccomment">//! to allow compiling and instantiating to be done as separate steps.</span>
 
@@ -757,22 +814,20 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
 <span class="kw">use</span> <span class="ident">wasmer_types::compilation::symbols::ModuleMetadata</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">BoxedSlice</span>, <span class="ident">PrimaryMap</span>};
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident">wasmer_types::CompileModuleInfo</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::MetadataHeader</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_types::SerializableCompilation</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">CompileError</span>, <span class="ident">CpuFeature</span>, <span class="ident">DataInitializer</span>, <span class="ident">DeserializeError</span>, <span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>,
-    <span class="ident">MemoryIndex</span>, <span class="ident">ModuleInfo</span>, <span class="ident">OwnedDataInitializer</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>,
+    <span class="ident">MemoryIndex</span>, <span class="ident">ModuleInfo</span>, <span class="ident">OwnedDataInitializer</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">Target</span>,
 };
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CompileModuleInfo</span>, <span class="ident">Target</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">SerializableModule</span>, <span class="ident">SerializeError</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">FunctionBodyPtr</span>, <span class="ident">MemoryStyle</span>, <span class="ident">TableStyle</span>, <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTrampoline</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">InstanceAllocator</span>, <span class="ident">StoreObjects</span>, <span class="ident">TrapHandlerFn</span>, <span class="ident">VMExtern</span>, <span class="ident">VMInstance</span>};
 
-<span class="doccomment">/// A compiled wasm module, ready to be instantiated.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Artifact</span> {
-    <span class="ident">artifact</span>: <span class="ident">ArtifactBuild</span>,
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">AllocatedArtifact</span> {
     <span class="ident">finished_functions</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
     <span class="ident">finished_function_call_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMTrampoline</span><span class="op">&gt;</span>,
     <span class="ident">finished_dynamic_function_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
@@ -780,6 +835,14 @@
     <span class="doccomment">/// Some(_) only if this is not a deserialized static artifact</span>
     <span class="ident">frame_info_registration</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Mutex</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">GlobalFrameInfoRegistration</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">finished_function_lengths</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">usize</span><span class="op">&gt;</span>,
+}
+
+<span class="doccomment">/// A compiled wasm module, ready to be instantiated.</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Artifact</span> {
+    <span class="ident">artifact</span>: <span class="ident">ArtifactBuild</span>,
+    <span class="comment">// The artifact will only be allocated in memory in case we can execute it</span>
+    <span class="comment">// (that means, if the target != host then this will be None).</span>
+    <span class="ident">allocated</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">AllocatedArtifact</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Artifact</span> {
@@ -813,7 +876,14 @@
             <span class="ident">table_styles</span>,
         )<span class="question-mark">?</span>;
 
-        <span class="ident"><span class="self">Self</span>::from_parts</span>(<span class="kw-2">&amp;mut</span> <span class="ident">inner_engine</span>, <span class="ident">artifact</span>)
+        <span class="ident"><span class="self">Self</span>::from_parts</span>(<span class="kw-2">&amp;mut</span> <span class="ident">inner_engine</span>, <span class="ident">artifact</span>, <span class="ident">engine</span>.<span class="ident">target</span>())
+    }
+
+    <span class="doccomment">/// This indicates if the Artifact is allocated and can be run by the current</span>
+    <span class="doccomment">/// host. In case it can&#39;t be run (for example, if the artifact is cross compiled to</span>
+    <span class="doccomment">/// other architecture), it will return false.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">allocated</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">allocated</span>.<span class="ident">is_some</span>()
     }
 
     <span class="doccomment">/// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.</span>
@@ -854,14 +924,22 @@
         <span class="kw">let</span> <span class="ident">serializable</span> <span class="op">=</span> <span class="ident">SerializableModule::deserialize</span>(<span class="ident">metadata_slice</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">artifact</span> <span class="op">=</span> <span class="ident">ArtifactBuild::from_serializable</span>(<span class="ident">serializable</span>);
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner_engine</span> <span class="op">=</span> <span class="ident">engine</span>.<span class="ident">inner_mut</span>();
-        <span class="ident"><span class="self">Self</span>::from_parts</span>(<span class="kw-2">&amp;mut</span> <span class="ident">inner_engine</span>, <span class="ident">artifact</span>).<span class="ident">map_err</span>(<span class="ident">DeserializeError::Compiler</span>)
+        <span class="ident"><span class="self">Self</span>::from_parts</span>(<span class="kw-2">&amp;mut</span> <span class="ident">inner_engine</span>, <span class="ident">artifact</span>, <span class="ident">engine</span>.<span class="ident">target</span>())
+            .<span class="ident">map_err</span>(<span class="ident">DeserializeError::Compiler</span>)
     }
 
     <span class="doccomment">/// Construct a `ArtifactBuild` from component parts.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_parts</span>(
         <span class="ident">engine_inner</span>: <span class="kw-2">&amp;mut</span> <span class="ident">EngineInner</span>,
         <span class="ident">artifact</span>: <span class="ident">ArtifactBuild</span>,
+        <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
+        <span class="kw">if</span> <span class="op">!</span><span class="ident">target</span>.<span class="ident">is_native</span>() {
+            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
+                <span class="ident">artifact</span>,
+                <span class="ident">allocated</span>: <span class="prelude-val">None</span>,
+            });
+        }
         <span class="kw">let</span> <span class="ident">module_info</span> <span class="op">=</span> <span class="ident">artifact</span>.<span class="ident">create_module_info</span>();
         <span class="kw">let</span> (
             <span class="ident">finished_functions</span>,
@@ -932,12 +1010,14 @@
 
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">artifact</span>,
-            <span class="ident">finished_functions</span>,
-            <span class="ident">finished_function_call_trampolines</span>,
-            <span class="ident">finished_dynamic_function_trampolines</span>,
-            <span class="ident">signatures</span>,
-            <span class="ident">frame_info_registration</span>: <span class="prelude-val">Some</span>(<span class="ident">Mutex::new</span>(<span class="prelude-val">None</span>)),
-            <span class="ident">finished_function_lengths</span>,
+            <span class="ident">allocated</span>: <span class="prelude-val">Some</span>(<span class="ident">AllocatedArtifact</span> {
+                <span class="ident">finished_functions</span>,
+                <span class="ident">finished_function_call_trampolines</span>,
+                <span class="ident">finished_dynamic_function_trampolines</span>,
+                <span class="ident">signatures</span>,
+                <span class="ident">frame_info_registration</span>: <span class="prelude-val">Some</span>(<span class="ident">Mutex::new</span>(<span class="prelude-val">None</span>)),
+                <span class="ident">finished_function_lengths</span>,
+            }),
         })
     }
 
@@ -982,7 +1062,13 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// This is required to ensure that any traps can be properly symbolicated.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">register_frame_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">frame_info_registration</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">frame_info_registration</span>.<span class="ident">as_ref</span>() {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">frame_info_registration</span>) <span class="op">=</span> <span class="self">self</span>
+            .<span class="ident">allocated</span>
+            .<span class="ident">as_ref</span>()
+            .<span class="ident">expect</span>(<span class="string">&quot;It must be allocated&quot;</span>)
+            .<span class="ident">frame_info_registration</span>
+            .<span class="ident">as_ref</span>()
+        {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">frame_info_registration</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();
 
             <span class="kw">if</span> <span class="ident">info</span>.<span class="ident">is_some</span>() {
@@ -990,10 +1076,20 @@
             }
 
             <span class="kw">let</span> <span class="ident">finished_function_extents</span> <span class="op">=</span> <span class="self">self</span>
+                .<span class="ident">allocated</span>
+                .<span class="ident">as_ref</span>()
+                .<span class="ident">expect</span>(<span class="string">&quot;It must be allocated&quot;</span>)
                 .<span class="ident">finished_functions</span>
                 .<span class="ident">values</span>()
                 .<span class="ident">copied</span>()
-                .<span class="ident">zip</span>(<span class="self">self</span>.<span class="ident">finished_function_lengths</span>.<span class="ident">values</span>().<span class="ident">copied</span>())
+                .<span class="ident">zip</span>(
+                    <span class="self">self</span>.<span class="ident">allocated</span>
+                        .<span class="ident">as_ref</span>()
+                        .<span class="ident">expect</span>(<span class="string">&quot;It must be allocated&quot;</span>)
+                        .<span class="ident">finished_function_lengths</span>
+                        .<span class="ident">values</span>()
+                        .<span class="ident">copied</span>(),
+                )
                 .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">ptr</span>, <span class="ident">length</span>)<span class="op">|</span> <span class="ident">FunctionExtent</span> { <span class="ident">ptr</span>, <span class="ident">length</span> })
                 .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
                 .<span class="ident">into_boxed_slice</span>();
@@ -1010,13 +1106,21 @@
     <span class="doccomment">/// Returns the functions allocated in memory or this `Artifact`</span>
     <span class="doccomment">/// ready to be run.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finished_functions</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">finished_functions</span>
+        <span class="kw-2">&amp;</span><span class="self">self</span>
+            .<span class="ident">allocated</span>
+            .<span class="ident">as_ref</span>()
+            .<span class="ident">expect</span>(<span class="string">&quot;It must be allocated&quot;</span>)
+            .<span class="ident">finished_functions</span>
     }
 
     <span class="doccomment">/// Returns the function call trampolines allocated in memory of this</span>
     <span class="doccomment">/// `Artifact`, ready to be run.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finished_function_call_trampolines</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMTrampoline</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">finished_function_call_trampolines</span>
+        <span class="kw-2">&amp;</span><span class="self">self</span>
+            .<span class="ident">allocated</span>
+            .<span class="ident">as_ref</span>()
+            .<span class="ident">expect</span>(<span class="string">&quot;It must be allocated&quot;</span>)
+            .<span class="ident">finished_function_call_trampolines</span>
     }
 
     <span class="doccomment">/// Returns the dynamic function trampolines allocated in memory</span>
@@ -1024,12 +1128,20 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">finished_dynamic_function_trampolines</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
     ) -&gt; <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">finished_dynamic_function_trampolines</span>
+        <span class="kw-2">&amp;</span><span class="self">self</span>
+            .<span class="ident">allocated</span>
+            .<span class="ident">as_ref</span>()
+            .<span class="ident">expect</span>(<span class="string">&quot;It must be allocated&quot;</span>)
+            .<span class="ident">finished_dynamic_function_trampolines</span>
     }
 
     <span class="doccomment">/// Returns the associated VM signatures for this `Artifact`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">signatures</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">signatures</span>
+        <span class="kw-2">&amp;</span><span class="self">self</span>
+            .<span class="ident">allocated</span>
+            .<span class="ident">as_ref</span>()
+            .<span class="ident">expect</span>(<span class="string">&quot;It must be allocated&quot;</span>)
+            .<span class="ident">signatures</span>
     }
 
     <span class="doccomment">/// Do preinstantiation logic that is executed before instantiating</span>
@@ -1455,14 +1567,16 @@
 
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">artifact</span>,
-            <span class="ident">finished_functions</span>: <span class="ident">finished_functions</span>.<span class="ident">into_boxed_slice</span>(),
-            <span class="ident">finished_function_call_trampolines</span>: <span class="ident">finished_function_call_trampolines</span>
-                .<span class="ident">into_boxed_slice</span>(),
-            <span class="ident">finished_dynamic_function_trampolines</span>: <span class="ident">finished_dynamic_function_trampolines</span>
-                .<span class="ident">into_boxed_slice</span>(),
-            <span class="ident">signatures</span>: <span class="ident">signatures</span>.<span class="ident">into_boxed_slice</span>(),
-            <span class="ident">finished_function_lengths</span>,
-            <span class="ident">frame_info_registration</span>: <span class="prelude-val">None</span>,
+            <span class="ident">allocated</span>: <span class="prelude-val">Some</span>(<span class="ident">AllocatedArtifact</span> {
+                <span class="ident">finished_functions</span>: <span class="ident">finished_functions</span>.<span class="ident">into_boxed_slice</span>(),
+                <span class="ident">finished_function_call_trampolines</span>: <span class="ident">finished_function_call_trampolines</span>
+                    .<span class="ident">into_boxed_slice</span>(),
+                <span class="ident">finished_dynamic_function_trampolines</span>: <span class="ident">finished_dynamic_function_trampolines</span>
+                    .<span class="ident">into_boxed_slice</span>(),
+                <span class="ident">signatures</span>: <span class="ident">signatures</span>.<span class="ident">into_boxed_slice</span>(),
+                <span class="ident">finished_function_lengths</span>,
+                <span class="ident">frame_info_registration</span>: <span class="prelude-val">None</span>,
+            }),
         })
     }
 }

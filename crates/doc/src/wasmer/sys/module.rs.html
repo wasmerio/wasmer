@@ -484,6 +484,11 @@
 <span id="482">482</span>
 <span id="483">483</span>
 <span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">bytes::Bytes</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::io</span>;
@@ -803,6 +808,11 @@
         <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>,
         <span class="ident">imports</span>: <span class="kw-2">&amp;</span>[<span class="ident"><span class="kw">crate</span>::Extern</span>],
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">VMInstance</span>, <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
+        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">allocated</span>() {
+            <span class="comment">// Return an error mentioning that the artifact is compiled for a different</span>
+            <span class="comment">// platform.</span>
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">InstantiationError::DifferentArchOS</span>);
+        }
         <span class="comment">// Ensure all imports come from the same context.</span>
         <span class="kw">for</span> <span class="ident">import</span> <span class="kw">in</span> <span class="ident">imports</span> {
             <span class="kw">if</span> <span class="op">!</span><span class="ident">import</span>.<span class="ident">is_from_store</span>(<span class="ident">store</span>) {

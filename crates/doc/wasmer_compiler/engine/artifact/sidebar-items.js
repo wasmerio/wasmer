@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["Artifact","A compiled wasm module, ready to be instantiated."]]};
+window.SIDEBAR_ITEMS = {"struct":[["AllocatedArtifact",""],["Artifact","A compiled wasm module, ready to be instantiated."]]};

@@ -203,6 +203,13 @@
 <span id="203">203</span>
 <span id="204">204</span>
 <span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Target configuration</span>
 
 <span class="comment">// The clippy::use_self exception is due to a false positive indicating that</span>
@@ -396,6 +403,13 @@
     <span class="doccomment">/// The triple associated for the target.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">cpu_features</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">EnumSet</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">cpu_features</span>
+    }
+
+    <span class="doccomment">/// Check if target is a native (eq to host) or not</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_native</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
+        <span class="kw">let</span> <span class="ident">host</span> <span class="op">=</span> <span class="ident">Triple::host</span>();
+        <span class="ident">host</span>.<span class="ident">operating_system</span> <span class="op">==</span> <span class="self">self</span>.<span class="ident">triple</span>.<span class="ident">operating_system</span>
+            <span class="op">&amp;&amp;</span> <span class="ident">host</span>.<span class="ident">architecture</span> <span class="op">==</span> <span class="self">self</span>.<span class="ident">triple</span>.<span class="ident">architecture</span>
     }
 }
 
