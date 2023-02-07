@@ -268,7 +268,7 @@ impl VirtualBusSpawner<WasiEnv> for BinFactory {
 
             // Find the binary (or die trying) and make the spawn type
             let binary = self
-                .get_binary(name.as_str())
+                .get_binary(name.as_str(), Some(config.env.fs_root()))
                 .await
                 .ok_or(VirtualBusError::NotFound);
             if binary.is_err() {

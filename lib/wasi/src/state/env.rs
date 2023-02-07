@@ -3,7 +3,10 @@ use std::{
     sync::{Arc, RwLockReadGuard, RwLockWriteGuard},
 };
 
-use crate::vbus::{SpawnEnvironmentIntrinsics, VirtualBus};
+use crate::{
+    fs::WasiFsRoot,
+    vbus::{SpawnEnvironmentIntrinsics, VirtualBus},
+};
 use derivative::Derivative;
 use tracing::{trace, warn};
 use wasmer::{AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryView, TypedFunction};
@@ -242,11 +245,7 @@ impl WasiEnv {
 
         let state = Arc::new(self.state.fork(true));
 
-        let bin_factory = {
-            let mut bin_factory = self.bin_factory.clone();
-            bin_factory.state = state.clone();
-            bin_factory
-        };
+        let bin_factory = self.bin_factory.clone();
 
         let new_env = Self {
             process,
@@ -282,7 +281,7 @@ impl WasiEnv {
         thread: WasiThreadHandle,
         runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync>,
     ) -> Self {
-        let bin_factory = BinFactory::new(state.clone(), compiled_modules, runtime.clone());
+        let bin_factory = BinFactory::new(compiled_modules, runtime.clone());
         let tasks = runtime.new_task_manager();
         let mut ret = Self {
             process,
@@ -310,6 +309,10 @@ impl WasiEnv {
     /// Returns a copy of the current tasks implementation for this environment
     pub fn tasks(&self) -> &(dyn VirtualTaskManager) {
         self.tasks.deref()
+    }
+
+    pub fn fs_root(&self) -> &WasiFsRoot {
+        &self.state.fs.root_fs
     }
 
     /// Overrides the runtime implementation for this environment
@@ -557,8 +560,6 @@ impl WasiEnv {
         #[allow(unused_imports)]
         use wasmer_vfs::FileSystem;
 
-        use crate::fs::WasiFsRoot;
-
         let mut already: HashMap<String, Cow<'static, str>> = HashMap::new();
 
         let mut use_packages = uses.into_iter().collect::<VecDeque<_>>();
@@ -651,8 +652,6 @@ impl WasiEnv {
 
         #[allow(unused_imports)]
         use wasmer_vfs::FileSystem;
-
-        use crate::fs::WasiFsRoot;
 
         #[cfg(feature = "sys")]
         for (command, target) in map_commands.iter() {
