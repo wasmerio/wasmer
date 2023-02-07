@@ -108,7 +108,7 @@ fn prepare_webc_env(
 
     let filesystem = Box::new(WebcFileSystem::init(webc, &package_name));
     let mut wasi_env = WasiState::builder(command);
-    wasi_env.set_fs(filesystem);
+    wasi_env.fs(filesystem);
     wasi_env.args(args);
     for f_name in top_level_dirs.iter() {
         wasi_env.preopen(|p| p.directory(f_name).read(true).write(true).create(true))?;
@@ -125,7 +125,7 @@ pub(crate) fn exec_module(
     let import_object = wasi_env.import_object(store, module)?;
     let instance = Instance::new(store, module, &import_object)?;
 
-    wasi_env.initialize(store, &instance)?;
+    wasi_env.initialize(store, instance)?;
 
     // If this module exports an _initialize function, run that first.
     if let Ok(initialize) = instance.exports.get_function("_initialize") {

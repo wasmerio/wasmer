@@ -109,8 +109,8 @@ pub use crate::utils::is_wasix_module;
 
 pub use crate::{
     state::{
-        Capabilities, Pipe, WasiEnv, WasiEnvInner, WasiFunctionEnv, WasiState, WasiEnvBuilder,
-        WasiStateCreationError, ALL_RIGHTS,
+        Capabilities, Pipe, WasiEnv, WasiEnvBuilder, WasiFunctionEnv, WasiInstanceHandles,
+        WasiState, WasiStateCreationError, ALL_RIGHTS,
     },
     syscalls::types,
     tty_file::TtyFile,
@@ -671,7 +671,7 @@ pub fn build_wasi_instance(
 
     let instance = wasmer::Instance::new(store, module, &import_object)?;
     init(&instance, &store)?;
-    env.initialize(store, &instance)?;
+    env.initialize(store, instance.clone())?;
 
     Ok(instance)
 }

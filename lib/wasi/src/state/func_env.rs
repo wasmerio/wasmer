@@ -3,7 +3,7 @@ use wasmer::{AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance
 use wasmer_wasi_types::wasi::ExitCode;
 
 use crate::{
-    state::WasiEnvInner,
+    state::WasiInstanceHandles,
     utils::{get_wasi_version, get_wasi_versions},
     WasiEnv, WasiError, DEFAULT_STACK_SIZE,
 };
@@ -50,7 +50,7 @@ impl WasiFunctionEnv {
     pub fn initialize(
         &mut self,
         store: &mut impl AsStoreMut,
-        instance: &Instance,
+        instance: Instance,
     ) -> Result<(), ExportError> {
         // List all the exports and imports
         for ns in instance.module().exports() {
@@ -61,13 +61,13 @@ impl WasiFunctionEnv {
             trace!("module::import - {}::{}", ns.module(), ns.name());
         }
 
+        let is_wasix_module = crate::utils::is_wasix_module(instance.module());
+
         // First we get the malloc function which if it exists will be used to
         // create the pthread_self structure
         let memory = instance.exports.get_memory("memory")?.clone();
-        let new_inner = WasiEnvInner {
+        let new_inner = WasiInstanceHandles {
             memory,
-            module: instance.module().clone(),
-            exports: instance.exports.clone(),
             stack_pointer: instance
                 .exports
                 .get_global("__stack_pointer")
@@ -112,15 +112,16 @@ impl WasiFunctionEnv {
                 .exports
                 .get_typed_function(store, "_thread_local_destroy")
                 .ok(),
+            instance,
         };
 
         let env = self.data_mut(store);
         env.inner.replace(new_inner);
 
-        env.state.fs.is_wasix.store(
-            crate::utils::is_wasix_module(instance.module()),
-            std::sync::atomic::Ordering::Release,
-        );
+        env.state
+            .fs
+            .is_wasix
+            .store(is_wasix_module, std::sync::atomic::Ordering::Release);
 
         // Set the base stack
         let stack_base = if let Some(stack_pointer) = env.inner().stack_pointer.clone() {

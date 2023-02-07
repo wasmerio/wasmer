@@ -42,7 +42,7 @@ use wasmer_wasi_types::wasi::{Cid, Errno, Fd as WasiFd, Rights, Snapshot0Clockid
 pub use self::{
     builder::*,
     capabilities::Capabilities,
-    env::{WasiEnv, WasiEnvInner},
+    env::{WasiEnv, WasiInstanceHandles},
     func_env::WasiFunctionEnv,
     types::*,
 };
@@ -51,7 +51,7 @@ use crate::{
     os::task::process::WasiProcessId,
     syscalls::types::*,
     utils::WasiParkingLot,
-    WasiCallingId, WasiRuntimeImplementation,
+    WasiCallingId,
 };
 
 /// all the rights enabled
@@ -241,8 +241,9 @@ impl WasiBusState {
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct WasiState {
-    pub fs: WasiFs,
     pub secret: [u8; 32],
+
+    pub fs: WasiFs,
     pub inodes: Arc<RwLock<WasiInodes>>,
     // TODO: review allow...
     #[allow(dead_code)]
@@ -253,7 +254,6 @@ pub struct WasiState {
     pub args: Vec<String>,
     pub envs: Vec<Vec<u8>>,
     pub preopen: Vec<String>,
-    pub(crate) runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync>,
 }
 
 impl WasiState {
@@ -355,7 +355,6 @@ impl WasiState {
             args: self.args.clone(),
             envs: self.envs.clone(),
             preopen: self.preopen.clone(),
-            runtime: self.runtime.clone(),
         }
     }
 }

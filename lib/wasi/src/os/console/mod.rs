@@ -169,9 +169,9 @@ impl Console {
             .expect("creating the main thread should always work");
 
         // Create the state
-        let mut state = WasiState::builder(prog);
+        let mut builder = WasiState::builder(prog);
         if let Some(stdin) = self.stdin.take() {
-            state.stdin(Box::new(stdin));
+            builder.set_stdin(Box::new(stdin));
         }
 
         // If we preopen anything from the host then shallow copy it over
@@ -183,23 +183,23 @@ impl Console {
             .build();
 
         // Open the root
-        state
+        let builder = builder
             .args(args.iter())
             .envs(envs.iter())
-            .set_sandbox_fs(root_fs)
+            .sandbox_fs(root_fs)
             .preopen_dir(Path::new("/"))
             .unwrap()
             .map_dir(".", "/")
             .unwrap();
 
-        let state = state
+        let state = builder
             .stdout(Box::new(RuntimeStdout::new(self.runtime.clone())))
             .stderr(Box::new(RuntimeStderr::new(self.runtime.clone())))
             .build()
             .unwrap();
 
         // Create the environment
-        let mut env = WasiEnv::new_ext(
+        let mut env = WasiEnv::new(
             Arc::new(state),
             self.compiled_modules.clone(),
             wasi_process.clone(),

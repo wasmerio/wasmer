@@ -41,29 +41,29 @@ use crate::{
 #[derive(Default)]
 pub struct WasiEnvBuilder {
     /// Command line arguments.
-    args: Vec<String>,
+    pub(super) args: Vec<String>,
     /// Environment variables.
-    envs: Vec<(String, Vec<u8>)>,
+    pub(super) envs: Vec<(String, Vec<u8>)>,
     /// Pre-opened directories that will be accessible from WASI.
-    preopens: Vec<PreopenedDir>,
+    pub(super) preopens: Vec<PreopenedDir>,
     /// Pre-opened virtual directories that will be accessible from WASI.
     vfs_preopens: Vec<String>,
-
-    compiled_modules: Arc<ModuleCache>,
+    pub(super) compiled_modules: Option<Arc<ModuleCache>>,
     #[allow(clippy::type_complexity)]
-    setup_fs_fn: Option<Box<dyn Fn(&mut WasiInodes, &mut WasiFs) -> Result<(), String> + Send>>,
-    stdout_override: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
-    stderr_override: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
-    stdin_override: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
-    fs_override: Option<WasiFsRoot>,
-    runtime_override: Option<Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>>,
+    pub(super) setup_fs_fn:
+        Option<Box<dyn Fn(&mut WasiInodes, &mut WasiFs) -> Result<(), String> + Send>>,
+    pub(super) stdout: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
+    pub(super) stderr: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
+    pub(super) stdin: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
+    pub(super) fs: Option<WasiFsRoot>,
+    pub(super) runtime: Option<Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>>,
 
     /// List of webc dependencies to be injected.
-    uses: Vec<String>,
+    pub(super) uses: Vec<String>,
 
     /// List of host commands to map into the WASI instance.
     #[cfg(feature = "sys")]
-    map_commands: HashMap<String, PathBuf>,
+    pub(super) map_commands: HashMap<String, PathBuf>,
 }
 
 impl std::fmt::Debug for WasiEnvBuilder {
@@ -75,10 +75,10 @@ impl std::fmt::Debug for WasiEnvBuilder {
             .field("preopens", &self.preopens)
             .field("uses", &self.uses)
             .field("setup_fs_fn exists", &self.setup_fs_fn.is_some())
-            .field("stdout_override exists", &self.stdout_override.is_some())
-            .field("stderr_override exists", &self.stderr_override.is_some())
-            .field("stdin_override exists", &self.stdin_override.is_some())
-            .field("runtime_override_exists", &self.runtime_override.is_some())
+            .field("stdout_override exists", &self.stdout.is_some())
+            .field("stderr_override exists", &self.stderr.is_some())
+            .field("stdin_override exists", &self.stdin.is_some())
+            .field("runtime_override_exists", &self.runtime.is_some())
             .finish()
     }
 }
@@ -124,9 +124,9 @@ pub type SetupFsFn = Box<dyn Fn(&mut WasiInodes, &mut WasiFs) -> Result<(), Stri
 // return stdout somehow, it's unclear what that API should look like)
 impl WasiEnvBuilder {
     /// Creates an empty [`WasiEnvBuilder`].
-    pub(crate) fn new(program_name: &str) -> Self {
+    pub fn new(program_name: impl Into<String>) -> Self {
         WasiEnvBuilder {
-            args: vec![program_name.to_string()],
+            args: vec![program_name.into()],
             ..WasiEnvBuilder::default()
         }
     }
@@ -136,7 +136,21 @@ impl WasiEnvBuilder {
     /// Both the key and value of an environment variable must not
     /// contain a nul byte (`0x0`), and the key must not contain the
     /// `=` byte (`0x3d`).
-    pub fn env<Key, Value>(&mut self, key: Key, value: Value) -> &mut Self
+    pub fn env<Key, Value>(mut self, key: Key, value: Value) -> Self
+    where
+        Key: AsRef<[u8]>,
+        Value: AsRef<[u8]>,
+    {
+        self.add_env(key, value);
+        self
+    }
+
+    /// Add an environment variable pair.
+    ///
+    /// Both the key and value of an environment variable must not
+    /// contain a nul byte (`0x0`), and the key must not contain the
+    /// `=` byte (`0x3d`).
+    pub fn add_env<Key, Value>(&mut self, key: Key, value: Value)
     where
         Key: AsRef<[u8]>,
         Value: AsRef<[u8]>,
@@ -145,21 +159,6 @@ impl WasiEnvBuilder {
             String::from_utf8_lossy(key.as_ref()).to_string(),
             value.as_ref().to_vec(),
         ));
-
-        self
-    }
-
-    /// Add an argument.
-    ///
-    /// Arguments must not contain the nul (0x0) byte
-    pub fn arg<Arg>(&mut self, arg: Arg) -> &mut Self
-    where
-        Arg: AsRef<[u8]>,
-    {
-        self.args
-            .push(String::from_utf8_lossy(arg.as_ref()).to_string());
-
-        self
     }
 
     /// Add multiple environment variable pairs.
@@ -167,21 +166,80 @@ impl WasiEnvBuilder {
     /// Both the key and value of the environment variables must not
     /// contain a nul byte (`0x0`), and the key must not contain the
     /// `=` byte (`0x3d`).
-    pub fn envs<I, Key, Value>(&mut self, env_pairs: I) -> &mut Self
+    pub fn envs<I, Key, Value>(mut self, env_pairs: I) -> Self
     where
         I: IntoIterator<Item = (Key, Value)>,
         Key: AsRef<[u8]>,
         Value: AsRef<[u8]>,
     {
         env_pairs.into_iter().for_each(|(key, value)| {
-            self.env(key, value);
+            self.add_env(key, value);
         });
 
         self
     }
 
+    /// Get a reference to the configured environment variables.
+    pub fn get_env(&self) -> &[(String, Vec<u8>)] {
+        &self.envs
+    }
+
+    /// Get a mutable reference to the configured environment variables.
+    pub fn get_env_mut(&mut self) -> &mut Vec<(String, Vec<u8>)> {
+        &mut self.envs
+    }
+
+    /// Add an argument.
+    ///
+    /// Arguments must not contain the nul (0x0) byte
+    // TODO: should take Into<Vec<u8>>
+    pub fn arg<V>(mut self, arg: V) -> Self
+    where
+        V: AsRef<[u8]>,
+    {
+        self.add_arg(arg);
+        self
+    }
+
+    /// Add an argument.
+    ///
+    /// Arguments must not contain the nul (0x0) byte.
+    // TODO: should take Into<Vec<u8>>
+    pub fn add_arg<V>(&mut self, arg: V)
+    where
+        V: AsRef<[u8]>,
+    {
+        self.args
+            .push(String::from_utf8_lossy(arg.as_ref()).to_string());
+    }
+
+    /// Add multiple arguments.
+    ///
+    /// Arguments must not contain the nul (0x0) byte
+    pub fn args<I, Arg>(mut self, args: I) -> Self
+    where
+        I: IntoIterator<Item = Arg>,
+        Arg: AsRef<[u8]>,
+    {
+        args.into_iter().for_each(|arg| {
+            self.add_arg(arg);
+        });
+
+        self
+    }
+
+    /// Get a reference to the configured arguments.
+    pub fn get_args(&self) -> &[String] {
+        &self.args
+    }
+
+    /// Get a mutable reference to the configured arguments.
+    pub fn get_args_mut(&mut self) -> &mut Vec<String> {
+        &mut self.args
+    }
+
     /// Adds a container this module inherits from
-    pub fn use_webc<Name>(&mut self, webc: Name) -> &mut Self
+    pub fn use_webc<Name>(mut self, webc: Name) -> Self
     where
         Name: AsRef<str>,
     {
@@ -190,7 +248,7 @@ impl WasiEnvBuilder {
     }
 
     /// Adds a list of other containers this module inherits from
-    pub fn uses<I>(&mut self, uses: I) -> &mut Self
+    pub fn uses<I>(mut self, uses: I) -> Self
     where
         I: IntoIterator<Item = String>,
     {
@@ -202,7 +260,7 @@ impl WasiEnvBuilder {
 
     /// Map an atom to a local binary
     #[cfg(feature = "sys")]
-    pub fn map_command<Name, Target>(&mut self, name: Name, target: Target) -> &mut Self
+    pub fn map_command<Name, Target>(mut self, name: Name, target: Target) -> Self
     where
         Name: AsRef<str>,
         Target: AsRef<str>,
@@ -215,7 +273,7 @@ impl WasiEnvBuilder {
 
     /// Maps a series of atoms to the local binaries
     #[cfg(feature = "sys")]
-    pub fn map_commands<I, Name, Target>(&mut self, map_commands: I) -> &mut Self
+    pub fn map_commands<I, Name, Target>(mut self, map_commands: I) -> Self
     where
         I: IntoIterator<Item = (Name, Target)>,
         Name: AsRef<str>,
@@ -229,31 +287,25 @@ impl WasiEnvBuilder {
         self
     }
 
-    /// Add multiple arguments.
-    ///
-    /// Arguments must not contain the nul (0x0) byte
-    pub fn args<I, Arg>(&mut self, args: I) -> &mut Self
-    where
-        I: IntoIterator<Item = Arg>,
-        Arg: AsRef<[u8]>,
-    {
-        args.into_iter().for_each(|arg| {
-            self.arg(arg);
-        });
-
-        self
-    }
-
     /// Preopen a directory
     ///
     /// This opens the given directory at the virtual root, `/`, and allows
     /// the WASI module to read and write to the given directory.
-    pub fn preopen_dir<FilePath>(
-        &mut self,
-        po_dir: FilePath,
-    ) -> Result<&mut Self, WasiStateCreationError>
+    pub fn preopen_dir<P>(mut self, po_dir: P) -> Result<Self, WasiStateCreationError>
     where
-        FilePath: AsRef<Path>,
+        P: AsRef<Path>,
+    {
+        self.add_preopen_dir(po_dir)?;
+        Ok(self)
+    }
+
+    /// Adds a preopen a directory
+    ///
+    /// This opens the given directory at the virtual root, `/`, and allows
+    /// the WASI module to read and write to the given directory.
+    pub fn add_preopen_dir<P>(&mut self, po_dir: P) -> Result<(), WasiStateCreationError>
+    where
+        P: AsRef<Path>,
     {
         let mut pdb = PreopenDirBuilder::new();
         let path = po_dir.as_ref();
@@ -261,6 +313,22 @@ impl WasiEnvBuilder {
         let preopen = pdb.build()?;
 
         self.preopens.push(preopen);
+
+        Ok(())
+    }
+
+    /// Preopen multiple directories.
+    ///
+    /// This opens the given directories at the virtual root, `/`, and allows
+    /// the WASI module to read and write to the given directory.
+    pub fn preopen_dirs<I, P>(mut self, dirs: I) -> Result<Self, WasiStateCreationError>
+    where
+        I: IntoIterator<Item = P>,
+        P: AsRef<Path>,
+    {
+        for po_dir in dirs {
+            self.add_preopen_dir(po_dir)?;
+        }
 
         Ok(self)
     }
@@ -279,7 +347,29 @@ impl WasiEnvBuilder {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn preopen<F>(&mut self, inner: F) -> Result<&mut Self, WasiStateCreationError>
+    pub fn preopen_build<F>(mut self, inner: F) -> Result<Self, WasiStateCreationError>
+    where
+        F: Fn(&mut PreopenDirBuilder) -> &mut PreopenDirBuilder,
+    {
+        self.add_preopen_build(inner)?;
+        Ok(self)
+    }
+
+    /// Preopen a directory and configure it.
+    ///
+    /// Usage:
+    ///
+    /// ```no_run
+    /// # use wasmer_wasi::{WasiState, WasiStateCreationError};
+    /// # fn main() -> Result<(), WasiStateCreationError> {
+    /// WasiState::builder("program_name")
+    ///    .preopen(|p| p.directory("src").read(true).write(true).create(true))?
+    ///    .preopen(|p| p.directory(".").alias("dot").read(true))?
+    ///    .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn add_preopen_build<F>(&mut self, inner: F) -> Result<(), WasiStateCreationError>
     where
         F: Fn(&mut PreopenDirBuilder) -> &mut PreopenDirBuilder,
     {
@@ -288,26 +378,7 @@ impl WasiEnvBuilder {
 
         self.preopens.push(po_dir);
 
-        Ok(self)
-    }
-
-    /// Preopen a directory.
-    ///
-    /// This opens the given directory at the virtual root, `/`, and allows
-    /// the WASI module to read and write to the given directory.
-    pub fn preopen_dirs<I, FilePath>(
-        &mut self,
-        po_dirs: I,
-    ) -> Result<&mut Self, WasiStateCreationError>
-    where
-        I: IntoIterator<Item = FilePath>,
-        FilePath: AsRef<Path>,
-    {
-        for po_dir in po_dirs {
-            self.preopen_dir(po_dir)?;
-        }
-
-        Ok(self)
+        Ok(())
     }
 
     /// Preopen the given directories from the
@@ -324,13 +395,18 @@ impl WasiEnvBuilder {
     }
 
     /// Preopen a directory with a different name exposed to the WASI.
-    pub fn map_dir<FilePath>(
-        &mut self,
-        alias: &str,
-        po_dir: FilePath,
-    ) -> Result<&mut Self, WasiStateCreationError>
+    pub fn map_dir<P>(mut self, alias: &str, po_dir: P) -> Result<Self, WasiStateCreationError>
     where
-        FilePath: AsRef<Path>,
+        P: AsRef<Path>,
+    {
+        self.add_map_dir(alias, po_dir)?;
+        Ok(self)
+    }
+
+    /// Preopen a directory with a different name exposed to the WASI.
+    pub fn add_map_dir<P>(&mut self, alias: &str, po_dir: P) -> Result<(), WasiStateCreationError>
+    where
+        P: AsRef<Path>,
     {
         let mut pdb = PreopenDirBuilder::new();
         let path = po_dir.as_ref();
@@ -343,20 +419,17 @@ impl WasiEnvBuilder {
 
         self.preopens.push(preopen);
 
-        Ok(self)
+        Ok(())
     }
 
     /// Preopen directorys with a different names exposed to the WASI.
-    pub fn map_dirs<I, FilePath>(
-        &mut self,
-        mapped_dirs: I,
-    ) -> Result<&mut Self, WasiStateCreationError>
+    pub fn map_dirs<I, P>(mut self, mapped_dirs: I) -> Result<Self, WasiStateCreationError>
     where
-        I: IntoIterator<Item = (String, FilePath)>,
-        FilePath: AsRef<Path>,
+        I: IntoIterator<Item = (String, P)>,
+        P: AsRef<Path>,
     {
         for (alias, dir) in mapped_dirs {
-            self.map_dir(&alias, dir)?;
+            self.add_map_dir(&alias, dir)?;
         }
 
         Ok(self)
@@ -364,47 +437,55 @@ impl WasiEnvBuilder {
 
     /// Overwrite the default WASI `stdout`, if you want to hold on to the
     /// original `stdout` use [`WasiFs::swap_file`] after building.
-    pub fn stdout(&mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) -> &mut Self {
-        self.stdout_override = Some(new_file);
+    pub fn stdout(mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) -> Self {
+        self.stdout = Some(new_file);
 
         self
     }
 
     /// Overwrite the default WASI `stderr`, if you want to hold on to the
     /// original `stderr` use [`WasiFs::swap_file`] after building.
-    pub fn stderr(&mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) -> &mut Self {
-        self.stderr_override = Some(new_file);
+    pub fn stderr(mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) -> Self {
+        self.stderr = Some(new_file);
 
         self
     }
 
     /// Overwrite the default WASI `stdin`, if you want to hold on to the
     /// original `stdin` use [`WasiFs::swap_file`] after building.
-    pub fn stdin(&mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) -> &mut Self {
-        self.stdin_override = Some(new_file);
+    pub fn stdin(mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) -> Self {
+        self.stdin = Some(new_file);
 
         self
+    }
+
+    pub fn set_stdin(&mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) {
+        self.stdin = Some(new_file);
     }
 
     /// Sets the FileSystem to be used with this WASI instance.
     ///
     /// This is usually used in case a custom `wasmer_vfs::FileSystem` is needed.
-    pub fn set_fs(&mut self, fs: Box<dyn wasmer_vfs::FileSystem + Send + Sync>) -> &mut Self {
-        self.fs_override = Some(WasiFsRoot::Backing(Arc::new(fs)));
+    pub fn fs(mut self, fs: Box<dyn wasmer_vfs::FileSystem + Send + Sync>) -> Self {
+        self.set_fs(fs);
         self
+    }
+
+    pub fn set_fs(&mut self, fs: Box<dyn wasmer_vfs::FileSystem + Send + Sync>) {
+        self.fs = Some(WasiFsRoot::Backing(Arc::new(fs)));
     }
 
     /// Sets a new sandbox FileSystem to be used with this WASI instance.
     ///
     /// This is usually used in case a custom `wasmer_vfs::FileSystem` is needed.
-    pub fn set_sandbox_fs(&mut self, fs: TmpFileSystem) -> &mut Self {
-        self.fs_override = Some(WasiFsRoot::Sandbox(Arc::new(fs)));
+    pub fn sandbox_fs(mut self, fs: TmpFileSystem) -> Self {
+        self.fs = Some(WasiFsRoot::Sandbox(Arc::new(fs)));
         self
     }
 
     /// Configure the WASI filesystem before running.
     // TODO: improve ergonomics on this function
-    pub fn setup_fs(&mut self, setup_fs_fn: SetupFsFn) -> &mut Self {
+    pub fn setup_fs(mut self, setup_fs_fn: SetupFsFn) -> Self {
         self.setup_fs_fn = Some(setup_fs_fn);
 
         self
@@ -412,19 +493,18 @@ impl WasiEnvBuilder {
 
     /// Sets the WASI runtime implementation and overrides the default
     /// implementation
-    pub fn runtime<R>(&mut self, runtime: &Arc<R>) -> &mut Self
+    pub fn runtime<R>(mut self, runtime: &Arc<R>) -> Self
     where
         R: crate::WasiRuntimeImplementation + Send + Sync + 'static,
     {
-        self.runtime_override = Some(runtime.clone());
+        self.runtime = Some(runtime.clone());
         self
     }
 
     /// Sets the compiled modules to use with this builder (sharing the
     /// cached modules is better for performance and memory consumption)
-    pub fn compiled_modules(&mut self, compiled_modules: &Arc<ModuleCache>) -> &mut Self {
-        let mut compiled_modules = compiled_modules.clone();
-        std::mem::swap(&mut self.compiled_modules, &mut compiled_modules);
+    pub fn compiled_modules(mut self, compiled_modules: Arc<ModuleCache>) -> Self {
+        self.compiled_modules = Some(compiled_modules);
         self
     }
 
@@ -444,10 +524,10 @@ impl WasiEnvBuilder {
     /// * [Self::stdout],
     /// * [Self::stderr].
     ///
-    /// Ideally, the builder must be refactord to update `&mut self`
+    /// Ideally, the builder must be refactord to update `mut self`
     /// to `mut self` for every _builder method_, but it will break
     /// existing code. It will be addressed in a next major release.
-    pub fn build(&mut self) -> Result<WasiState, WasiStateCreationError> {
+    pub fn build(mut self) -> Result<WasiState, WasiStateCreationError> {
         for arg in self.args.iter() {
             for b in arg.as_bytes().iter() {
                 if *b == 0 {
@@ -499,22 +579,23 @@ impl WasiEnvBuilder {
             }
         }
 
-        // Get a reference to the runtime
-        let runtime = self
-            .runtime_override
-            .clone()
-            .unwrap_or_else(|| Arc::new(PluggableRuntimeImplementation::default()));
+        // TODO: must be used! (runtime was removed from env, must ensure configured runtime is used)
+        // // Get a reference to the runtime
+        // let runtime = self
+        //     .runtime
+        //     .clone()
+        //     .unwrap_or_else(|| Arc::new(PluggableRuntimeImplementation::default()));
 
         // Determine the STDIN
         let stdin: Box<dyn VirtualFile + Send + Sync + 'static> = self
-            .stdin_override
+            .stdin
             .take()
             .unwrap_or_else(|| Box::new(ArcFile::new(Box::new(super::Stdin::default()))));
 
         // If we are running WASIX then we start a full sandbox FS
         // otherwise we drop through to a default file system
         let fs_backing = self
-            .fs_override
+            .fs
             .take()
             .unwrap_or_else(|| WasiFsRoot::Sandbox(Arc::new(TmpFileSystem::new())));
 
@@ -540,13 +621,13 @@ impl WasiEnvBuilder {
                 .swap_file(inodes.deref(), __WASI_STDIN_FILENO, stdin)
                 .map_err(WasiStateCreationError::FileSystemError)?;
 
-            if let Some(stdout_override) = self.stdout_override.take() {
+            if let Some(stdout_override) = self.stdout.take() {
                 wasi_fs
                     .swap_file(inodes.deref(), __WASI_STDOUT_FILENO, stdout_override)
                     .map_err(WasiStateCreationError::FileSystemError)?;
             }
 
-            if let Some(stderr_override) = self.stderr_override.take() {
+            if let Some(stderr_override) = self.stderr.take() {
                 wasi_fs
                     .swap_file(inodes.deref(), __WASI_STDERR_FILENO, stderr_override)
                     .map_err(WasiStateCreationError::FileSystemError)?;
@@ -570,7 +651,6 @@ impl WasiEnvBuilder {
             futexs: Default::default(),
             clock_offset: Default::default(),
             bus: Default::default(),
-            runtime,
             envs: self
                 .envs
                 .iter()
@@ -597,7 +677,7 @@ impl WasiEnvBuilder {
     /// which is changing the builder's internal state. See
     /// [Self::build]'s documentation to learn more.
     pub fn finalize(
-        &mut self,
+        self,
         store: &mut impl AsStoreMut,
     ) -> Result<WasiFunctionEnv, WasiStateCreationError> {
         let control_plane = WasiControlPlane::default();
@@ -616,27 +696,29 @@ impl WasiEnvBuilder {
     /// which is changing the builder's internal state. See
     /// [Self::build]'s documentation to learn more.
     pub fn finalize_with(
-        &mut self,
+        mut self,
         store: &mut impl AsStoreMut,
         control_plane: &WasiControlPlane,
     ) -> Result<WasiFunctionEnv, WasiStateCreationError> {
+        // TODO: this method should not exist - must have unified construction flow!
+        let compiled_modules = self.compiled_modules.take().unwrap_or_default();
+        let runtime = self
+            .runtime
+            .take()
+            .unwrap_or_else(|| Arc::new(PluggableRuntimeImplementation::default()));
+        let uses = self.uses.clone();
+        let map_commands = self.map_commands.clone();
+
         let state = Arc::new(self.build()?);
-        let runtime = state.runtime.clone();
 
         let process = control_plane.new_process()?;
         let thread = process.new_thread()?;
 
-        let env = WasiEnv::new_ext(
-            state,
-            self.compiled_modules.clone(),
-            process,
-            thread,
-            runtime,
-        );
+        let env = WasiEnv::new(state, compiled_modules, process, thread, runtime);
 
-        env.uses(self.uses.clone())?;
+        env.uses(uses)?;
         #[cfg(feature = "sys")]
-        env.map_commands(self.map_commands.clone())?;
+        env.map_commands(map_commands.clone())?;
 
         Ok(WasiFunctionEnv::new(store, env))
     }

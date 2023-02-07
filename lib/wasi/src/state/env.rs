@@ -6,10 +6,7 @@ use std::{
 use crate::vbus::{SpawnEnvironmentIntrinsics, VirtualBus};
 use derivative::Derivative;
 use tracing::{trace, warn};
-use wasmer::{
-    AsStoreRef, Exports, FunctionEnvMut, Global, Instance, Memory, MemoryView, Module,
-    TypedFunction,
-};
+use wasmer::{AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryView, TypedFunction};
 use wasmer_vnet::DynVirtualNetworking;
 use wasmer_wasi_types::{
     types::Signal,
@@ -29,56 +26,67 @@ use crate::{
         },
     },
     syscalls::platform_clock_time_get,
-    PluggableRuntimeImplementation, VirtualTaskManager, WasiError, WasiRuntimeImplementation,
-    WasiState, WasiStateCreationError, WasiVFork, DEFAULT_STACK_SIZE,
+    VirtualTaskManager, WasiError, WasiRuntimeImplementation, WasiState, WasiStateCreationError,
+    WasiVFork, DEFAULT_STACK_SIZE,
 };
 
 use super::Capabilities;
 
+/// Various [`TypedFunction`] and [`Global`] handles for an active WASI(X) instance.
+///
+/// Used to access and modify runtime state.
+// TODO: make fields private
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
-pub struct WasiEnvInner {
+pub struct WasiInstanceHandles {
+    // TODO: the two fields below are instance specific, while all others are module specific.
+    // Should be split up.
     /// Represents a reference to the memory
     pub(crate) memory: Memory,
-    /// Represents the module that is being used (this is NOT send/sync)
-    /// however the code itself makes sure that it is used in a safe way
-    pub(crate) module: Module,
-    /// All the exports for the module
-    pub(crate) exports: Exports,
-    //// Points to the current location of the memory stack pointer
+    pub(crate) instance: wasmer::Instance,
+
+    /// Points to the current location of the memory stack pointer
     pub(crate) stack_pointer: Option<Global>,
+
     /// Main function that will be invoked (name = "_start")
     #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) start: Option<TypedFunction<(), ()>>,
+
     /// Function thats invoked to initialize the WASM module (nane = "_initialize")
     #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) initialize: Option<TypedFunction<(), ()>>,
+
     /// Represents the callback for spawning a thread (name = "_start_thread")
     /// (due to limitations with i64 in browsers the parameters are broken into i32 pairs)
     /// [this takes a user_data field]
     #[derivative(Debug = "ignore")]
     pub(crate) thread_spawn: Option<TypedFunction<(i32, i32), ()>>,
+
     /// Represents the callback for spawning a reactor (name = "_react")
     /// (due to limitations with i64 in browsers the parameters are broken into i32 pairs)
     /// [this takes a user_data field]
     #[derivative(Debug = "ignore")]
     pub(crate) react: Option<TypedFunction<(i32, i32), ()>>,
+
     /// Represents the callback for signals (name = "__wasm_signal")
     /// Signals are triggered asynchronously at idle times of the process
     #[derivative(Debug = "ignore")]
     pub(crate) signal: Option<TypedFunction<i32, ()>>,
+
     /// Flag that indicates if the signal callback has been set by the WASM
     /// process - if it has not been set then the runtime behaves differently
     /// when a CTRL-C is pressed.
     pub(crate) signal_set: bool,
+
     /// Represents the callback for destroying a local thread variable (name = "_thread_local_destroy")
     /// [this takes a pointer to the destructor and the data to be destroyed]
     #[derivative(Debug = "ignore")]
     pub(crate) thread_local_destroy: Option<TypedFunction<(i32, i32, i32, i32), ()>>,
+
     /// asyncify_start_unwind(data : i32): call this to start unwinding the
     /// stack from the current location. "data" must point to a data
     /// structure as described above (with fields containing valid data).
@@ -86,6 +94,7 @@ pub struct WasiEnvInner {
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) asyncify_start_unwind: Option<TypedFunction<i32, ()>>,
+
     /// asyncify_stop_unwind(): call this to note that unwinding has
     /// concluded. If no other code will run before you start to rewind,
     /// this is not strictly necessary, however, if you swap between
@@ -97,6 +106,7 @@ pub struct WasiEnvInner {
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) asyncify_stop_unwind: Option<TypedFunction<(), ()>>,
+
     /// asyncify_start_rewind(data : i32): call this to start rewinding the
     /// stack vack up to the location stored in the provided data. This prepares
     /// for the rewind; to start it, you must call the first function in the
@@ -105,12 +115,14 @@ pub struct WasiEnvInner {
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) asyncify_start_rewind: Option<TypedFunction<i32, ()>>,
+
     /// asyncify_stop_rewind(): call this to note that rewinding has
     /// concluded, and normal execution can resume.
     #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]
     pub(crate) asyncify_stop_rewind: Option<TypedFunction<(), ()>>,
+
     /// asyncify_get_state(): call this to get the current value of the
     /// internal "__asyncify_state" variable as described above.
     /// It can be used to distinguish between unwinding/rewinding and normal
@@ -121,17 +133,10 @@ pub struct WasiEnvInner {
     pub(crate) asyncify_get_state: Option<TypedFunction<(), i32>>,
 }
 
-impl WasiEnvInner {
-    pub fn new(
-        module: Module,
-        memory: Memory,
-        store: &impl AsStoreRef,
-        instance: &Instance,
-    ) -> Self {
-        WasiEnvInner {
-            module,
+impl WasiInstanceHandles {
+    pub fn new(memory: Memory, store: &impl AsStoreRef, instance: Instance) -> Self {
+        WasiInstanceHandles {
             memory,
-            exports: instance.exports.clone(),
             stack_pointer: instance
                 .exports
                 .get_global("__stack_pointer")
@@ -176,6 +181,7 @@ impl WasiEnvInner {
                 .exports
                 .get_typed_function(store, "_thread_local_destroy")
                 .ok(),
+            instance,
         }
     }
 }
@@ -183,9 +189,9 @@ impl WasiEnvInner {
 /// The code itself makes safe use of the struct so multiple threads don't access
 /// it (without this the JS code prevents the reference to the module from being stored
 /// which is needed for the multithreading mode)
-unsafe impl Send for WasiEnvInner {}
+unsafe impl Send for WasiInstanceHandles {}
 
-unsafe impl Sync for WasiEnvInner {}
+unsafe impl Sync for WasiInstanceHandles {}
 
 /// The environment provided to the WASI imports.
 #[derive(Debug, Clone)]
@@ -206,7 +212,7 @@ pub struct WasiEnv {
     /// Binary factory attached to this environment
     pub bin_factory: BinFactory,
     /// Inner functions and references that are loaded before the environment starts
-    pub inner: Option<WasiEnvInner>,
+    pub inner: Option<WasiInstanceHandles>,
     /// List of the handles that are owned by this context
     /// (this can be used to ensure that threads own themselves or others)
     pub owned_handles: Vec<WasiThreadHandle>,
@@ -270,17 +276,6 @@ impl WasiEnv {
 
 impl WasiEnv {
     pub fn new(
-        state: WasiState,
-        compiled_modules: Arc<bin_factory::ModuleCache>,
-        process: WasiProcess,
-        thread: WasiThreadHandle,
-    ) -> Self {
-        let state = Arc::new(state);
-        let runtime = Arc::new(PluggableRuntimeImplementation::default());
-        Self::new_ext(state, compiled_modules, process, thread, runtime)
-    }
-
-    pub fn new_ext(
         state: Arc<WasiState>,
         compiled_modules: Arc<bin_factory::ModuleCache>,
         process: WasiProcess,
@@ -478,7 +473,7 @@ impl WasiEnv {
 
     /// Providers safe access to the initialized part of WasiEnv
     /// (it must be initialized before it can be used)
-    pub fn inner(&self) -> &WasiEnvInner {
+    pub fn inner(&self) -> &WasiInstanceHandles {
         self.inner
             .as_ref()
             .expect("You must initialize the WasiEnv before using it")
@@ -486,7 +481,7 @@ impl WasiEnv {
 
     /// Providers safe access to the initialized part of WasiEnv
     /// (it must be initialized before it can be used)
-    pub fn inner_mut(&mut self) -> &mut WasiEnvInner {
+    pub fn inner_mut(&mut self) -> &mut WasiInstanceHandles {
         self.inner
             .as_mut()
             .expect("You must initialize the WasiEnv before using it")

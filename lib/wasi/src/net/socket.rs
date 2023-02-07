@@ -13,7 +13,7 @@ use serde_derive::{Deserialize, Serialize};
 use wasmer_types::MemorySize;
 use wasmer_vnet::{
     VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener, VirtualTcpSocket,
-    VirtualUdpSocket
+    VirtualUdpSocket,
 };
 use wasmer_wasi_types::wasi::{
     Addressfamily, Errno, Fdflags, Rights, SockProto, Sockoption, Socktype,

@@ -110,7 +110,7 @@ pub fn thread_spawn<M: MemorySize>(
 
             // Set the current thread ID
             ctx.data_mut(&mut store).inner =
-                Some(WasiEnvInner::new(module, memory, &store, &instance));
+                Some(WasiInstanceHandles::new(memory, &store, instance));
             trace!(
                 "threading: new context created for thread_id = {}",
                 thread.tid().raw()
@@ -254,7 +254,7 @@ pub fn thread_spawn<M: MemorySize>(
 
             // Now spawn a thread
             trace!("threading: spawning background thread");
-            let thread_module = env.inner().module.clone();
+            let thread_module = env.inner().instance.module().clone();
             wasi_try!(tasks
                 .task_wasm(
                     Box::new(move |store, module, thread_memory| {

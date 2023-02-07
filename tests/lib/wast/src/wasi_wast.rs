@@ -163,10 +163,10 @@ impl<'a> WasiTest<'a> {
         let mut builder = WasiState::builder(self.wasm_path);
 
         let stdin_pipe = WasiBidirectionalPipePair::new().with_blocking(false);
-        builder.stdin(Box::new(stdin_pipe));
+        builder.set_stdin(Box::new(stdin_pipe));
 
         for (name, value) in &self.envs {
-            builder.env(name, value);
+            builder.add_env(name, value);
         }
 
         let mut host_temp_dirs_to_not_drop = vec![];
@@ -178,19 +178,19 @@ impl<'a> WasiTest<'a> {
                 for (alias, real_dir) in &self.mapped_dirs {
                     let mut dir = PathBuf::from(BASE_TEST_DIR);
                     dir.push(real_dir);
-                    builder.map_dir(alias, dir)?;
+                    builder.add_map_dir(alias, dir)?;
                 }
 
                 // due to the structure of our code, all preopen dirs must be mapped now
                 for dir in &self.dirs {
                     let mut new_dir = PathBuf::from(BASE_TEST_DIR);
                     new_dir.push(dir);
-                    builder.map_dir(dir, new_dir)?;
+                    builder.add_map_dir(dir, new_dir)?;
                 }
 
                 for alias in &self.temp_dirs {
                     let temp_dir = tempfile::tempdir()?;
-                    builder.map_dir(alias, temp_dir.path())?;
+                    builder.add_map_dir(alias, temp_dir.path())?;
                     host_temp_dirs_to_not_drop.push(temp_dir);
                 }
 
@@ -242,21 +242,21 @@ impl<'a> WasiTest<'a> {
                 for (alias, real_dir) in &self.mapped_dirs {
                     let mut path = root.clone();
                     path.push(real_dir);
-                    builder.map_dir(alias, path)?;
+                    builder.add_map_dir(alias, path)?;
                 }
 
                 for dir in &self.dirs {
                     let mut new_dir = PathBuf::from("/");
                     new_dir.push(dir);
 
-                    builder.map_dir(dir, new_dir)?;
+                    builder.add_map_dir(dir, new_dir)?;
                 }
 
                 for alias in &self.temp_dirs {
                     let temp_dir_name =
                         PathBuf::from(format!("/.tmp_wasmer_wast_{}", temp_dir_index));
                     fs.create_dir(temp_dir_name.as_path())?;
-                    builder.map_dir(alias, temp_dir_name)?;
+                    builder.add_map_dir(alias, temp_dir_name)?;
                     temp_dir_index += 1;
                 }
 

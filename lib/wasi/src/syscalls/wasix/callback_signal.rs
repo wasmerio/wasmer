@@ -27,7 +27,12 @@ pub fn callback_signal<M: MemorySize>(
         }
     };
 
-    let funct = env.inner().exports.get_typed_function(&ctx, &name).ok();
+    let funct = env
+        .inner()
+        .instance
+        .exports
+        .get_typed_function(&ctx, &name)
+        .ok();
     trace!(
         "wasi[{}:{}]::callback_signal (name={}, found={})",
         ctx.data().pid(),

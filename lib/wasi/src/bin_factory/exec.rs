@@ -142,7 +142,7 @@ pub fn spawn_exec_module(
                     init(&instance, &store).unwrap();
 
                     // Initialize the WASI environment
-                    if let Err(err) = wasi_env.initialize(&mut store, &instance) {
+                    if let Err(err) = wasi_env.initialize(&mut store, instance.clone()) {
                         error!("wasi[{}]::wasi initialize error ({})", pid, err);
                         wasi_env
                             .data(&store)

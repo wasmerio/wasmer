@@ -115,15 +115,14 @@ impl Wasi {
 
         let runtime = Arc::new(PluggableRuntimeImplementation::default());
 
-        let mut wasi_state_builder = WasiState::builder(program_name);
-        wasi_state_builder
+        let wasi_state_builder = WasiState::builder(program_name)
             .args(args)
             .envs(self.env_vars.clone())
             .uses(self.uses.clone())
             .runtime(&runtime)
             .map_commands(map_commands.clone());
 
-        if wasmer_wasi::is_wasix_module(module) {
+        let wasi_state_builder = if wasmer_wasi::is_wasix_module(module) {
             // If we preopen anything from the host then shallow copy it over
             let root_fs = RootFileSystemBuilder::new()
                 .with_tty(Box::new(TtyFile::new(
@@ -145,16 +144,16 @@ impl Wasi {
 
             // Open the root of the new filesystem
             wasi_state_builder
-                .set_sandbox_fs(root_fs)
+                .sandbox_fs(root_fs)
                 .preopen_dir(Path::new("/"))
                 .unwrap()
-                .map_dir(".", "/")?;
+                .map_dir(".", "/")?
         } else {
             wasi_state_builder
-                .set_fs(default_fs_backing())
+                .fs(default_fs_backing())
                 .preopen_dirs(self.pre_opened_directories.clone())?
-                .map_dirs(self.mapped_dirs.clone())?;
-        }
+                .map_dirs(self.mapped_dirs.clone())?
+        };
 
         #[cfg(feature = "experimental-io-devices")]
         {

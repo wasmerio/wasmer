@@ -22,7 +22,12 @@ pub fn callback_thread_local_destroy<M: MemorySize>(
         name
     );
 
-    let funct = env.inner().exports.get_typed_function(&ctx, &name).ok();
+    let funct = env
+        .inner()
+        .instance
+        .exports
+        .get_typed_function(&ctx, &name)
+        .ok();
 
     ctx.data_mut().inner_mut().thread_local_destroy = funct;
     Ok(())

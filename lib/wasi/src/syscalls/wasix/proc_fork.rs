@@ -169,7 +169,7 @@ pub fn proc_fork<M: MemorySize>(
                 return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)));
             }
         };
-        let fork_module = env.inner().module.clone();
+        let fork_module = env.inner().instance.module().clone();
 
         let mut fork_store = ctx.data().runtime.new_store();
 
@@ -218,7 +218,7 @@ pub fn proc_fork<M: MemorySize>(
 
                     // Set the current thread ID
                     ctx.data_mut(&mut store).inner = Some(
-                        WasiEnvInner::new(module, memory, &store, &instance)
+                        WasiInstanceHandles::new(memory, &store, instance)
                     );
 
                     // Rewind the stack and carry on
