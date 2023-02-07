@@ -136,7 +136,7 @@ impl Console {
         self
     }
 
-    pub fn run(&mut self) -> crate::vbus::Result<(BusSpawnedProcess, WasiProcess)> {
+    pub fn run(&mut self) -> Result<(BusSpawnedProcess, WasiProcess), VirtualBusError> {
         // Extract the program name from the arguments
         let empty_args: Vec<&[u8]> = Vec::new();
         let (webc, prog, args) = match self.boot_cmd.split_once(' ') {

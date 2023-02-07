@@ -59,7 +59,7 @@ impl CmdWasmer {
         config: &mut Option<SpawnOptions<WasiEnv>>,
         what: Option<String>,
         mut args: Vec<String>,
-    ) -> crate::vbus::Result<BusSpawnedProcess> {
+    ) -> Result<BusSpawnedProcess, VirtualBusError> {
         if let Some(what) = what {
             let store = store.take().ok_or(VirtualBusError::UnknownError)?;
             let mut config = config.take().ok_or(VirtualBusError::UnknownError)?.conf();
@@ -118,7 +118,7 @@ impl VirtualCommand for CmdWasmer {
         name: &str,
         store: &mut Option<Store>,
         config: &mut Option<SpawnOptions<WasiEnv>>,
-    ) -> crate::vbus::Result<BusSpawnedProcess> {
+    ) -> Result<BusSpawnedProcess, VirtualBusError> {
         // Read the command we want to run
         let config_inner = config.as_ref().ok_or(VirtualBusError::UnknownError)?;
         let mut args = config_inner

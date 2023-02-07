@@ -28,7 +28,7 @@ pub fn spawn_exec(
     config: SpawnOptionsConfig<WasiEnv>,
     runtime: &Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
     compiled_modules: &ModuleCache,
-) -> crate::vbus::Result<BusSpawnedProcess> {
+) -> Result<BusSpawnedProcess, VirtualBusError> {
     // Load the module
     #[cfg(feature = "sys")]
     let compiler = store.engine().name();
@@ -78,7 +78,7 @@ pub fn spawn_exec_module(
     store: Store,
     config: SpawnOptionsConfig<WasiEnv>,
     runtime: &Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
-) -> crate::vbus::Result<BusSpawnedProcess> {
+) -> Result<BusSpawnedProcess, VirtualBusError> {
     // Create a new task manager
     let tasks = runtime.new_task_manager();
 
@@ -237,7 +237,7 @@ impl BinFactory {
         parent_ctx: Option<&FunctionEnvMut<'_, WasiEnv>>,
         store: &mut Option<Store>,
         builder: &mut Option<SpawnOptions<WasiEnv>>,
-    ) -> crate::vbus::Result<BusSpawnedProcess> {
+    ) -> Result<BusSpawnedProcess, VirtualBusError> {
         // We check for built in commands
         if let Some(parent_ctx) = parent_ctx {
             if self.commands.exists(name.as_str()) {
@@ -259,7 +259,7 @@ impl VirtualBusSpawner<WasiEnv> for BinFactory {
         store: Store,
         config: SpawnOptionsConfig<WasiEnv>,
         _fallback: Box<dyn VirtualBusSpawner<WasiEnv>>,
-    ) -> Pin<Box<dyn Future<Output = crate::vbus::Result<BusSpawnedProcess>> + 'a>> {
+    ) -> Pin<Box<dyn Future<Output = Result<BusSpawnedProcess, VirtualBusError>> + 'a>> {
         Box::pin(async move {
             if config.remote_instance().is_some() {
                 config.env.cleanup(Some(Errno::Inval as ExitCode));

@@ -11,9 +11,6 @@ pub use wasmer_vfs::StdioMode;
 use wasmer_vfs::VirtualFile;
 use wasmer_wasi_types::wasi::{BusDataFormat, ExitCode};
 
-// TODO: remove type alias
-pub type Result<T> = std::result::Result<T, VirtualBusError>;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct CallDescriptor(u32);
@@ -41,7 +38,7 @@ where
     }
 
     /// Creates a listener thats used to receive BUS commands
-    fn listen(&self) -> Result<&'_ dyn VirtualBusListener> {
+    fn listen(&self) -> Result<&'_ dyn VirtualBusListener, VirtualBusError> {
         Err(VirtualBusError::Unsupported)
     }
 }
@@ -54,7 +51,7 @@ pub trait VirtualBusSpawner<T> {
         store: Store,
         config: SpawnOptionsConfig<T>,
         fallback: Box<dyn VirtualBusSpawner<T>>,
-    ) -> Pin<Box<dyn Future<Output = Result<BusSpawnedProcess>> + 'a>>
+    ) -> Pin<Box<dyn Future<Output = Result<BusSpawnedProcess, VirtualBusError>> + 'a>>
     where
         T: 'static,
     {
@@ -74,7 +71,7 @@ impl<T> VirtualBusSpawner<T> for UnsupportedVirtualBusSpawner {
         _store: Store,
         _config: SpawnOptionsConfig<T>,
         _fallback: Box<dyn VirtualBusSpawner<T>>,
-    ) -> Pin<Box<dyn Future<Output = Result<BusSpawnedProcess>>>> {
+    ) -> Pin<Box<dyn Future<Output = Result<BusSpawnedProcess, VirtualBusError>>>> {
         Box::pin(async move { Err(VirtualBusError::Unsupported) })
     }
 }
@@ -166,7 +163,7 @@ where
         name: String,
         store: Store,
         fallback: Box<dyn VirtualBusSpawner<T>>,
-    ) -> Pin<Box<dyn Future<Output = Result<BusSpawnedProcess>> + 'static>>
+    ) -> Pin<Box<dyn Future<Output = Result<BusSpawnedProcess, VirtualBusError>> + 'static>>
     where
         T: 'static,
     {
@@ -294,7 +291,7 @@ impl VirtualBusInvoked for UnsupportedBusInvoker {
     fn poll_invoked(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-    ) -> Poll<Result<Box<dyn VirtualBusInvocation + Sync>>> {
+    ) -> Poll<Result<Box<dyn VirtualBusInvocation + Sync>, VirtualBusError>> {
         Poll::Ready(Err(VirtualBusError::Unsupported))
     }
 }
@@ -304,7 +301,7 @@ pub trait VirtualBusInvoked: fmt::Debug + Unpin + 'static {
     fn poll_invoked(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
-    ) -> Poll<Result<Box<dyn VirtualBusInvocation + Sync>>>;
+    ) -> Poll<Result<Box<dyn VirtualBusInvocation + Sync>, VirtualBusError>>;
 }
 pub struct VirtualBusInvokedWait {
     invoked: Box<dyn VirtualBusInvoked>,
@@ -315,7 +312,7 @@ impl VirtualBusInvokedWait {
     }
 }
 impl Future for VirtualBusInvokedWait {
-    type Output = Result<Box<dyn VirtualBusInvocation + Sync>>;
+    type Output = Result<Box<dyn VirtualBusInvocation + Sync>, VirtualBusError>;
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let invoked = Pin::new(self.invoked.deref_mut());
         invoked.poll_invoked(cx)
@@ -376,7 +373,7 @@ impl VirtualBusInvoked for InstantInvocation {
     fn poll_invoked(
         mut self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
-    ) -> Poll<Result<Box<dyn VirtualBusInvocation + Sync>>> {
+    ) -> Poll<Result<Box<dyn VirtualBusInvocation + Sync>, VirtualBusError>> {
         if let Some(err) = self.err.take() {
             return Poll::Ready(Err(err));
         }
