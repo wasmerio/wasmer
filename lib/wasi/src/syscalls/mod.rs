@@ -62,14 +62,14 @@ pub use unix::*;
 #[cfg(any(target_family = "wasm"))]
 pub use wasm::*;
 
+pub(crate) use crate::vbus::{
+    BusInvocationEvent, BusSpawnedProcess, SignalHandlerAbi, SpawnOptionsConfig, StdioMode,
+    VirtualBusError, VirtualBusInvokedWait,
+};
 pub(crate) use wasmer::{
     AsStoreMut, AsStoreRef, Extern, Function, FunctionEnv, FunctionEnvMut, Global, Instance,
     Memory, Memory32, Memory64, MemoryAccessError, MemoryError, MemorySize, MemoryView, Module,
     OnCalledAction, Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
-};
-pub(crate) use wasmer_vbus::{
-    BusInvocationEvent, BusSpawnedProcess, SignalHandlerAbi, SpawnOptionsConfig, StdioMode,
-    VirtualBusError, VirtualBusInvokedWait,
 };
 pub(crate) use wasmer_vfs::{
     AsyncSeekExt, AsyncWriteExt, FileSystem, FsError, VirtualFile, WasiBidirectionalPipePair,

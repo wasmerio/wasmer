@@ -3,9 +3,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use crate::vbus::SignalHandlerAbi;
 use derivative::*;
 use futures::future::BoxFuture;
-use wasmer_vbus::SignalHandlerAbi;
 use wasmer_vfs::{AsyncWriteExt, NullFile, VirtualFile};
 use wasmer_wasi_types::wasi::{Signal, Snapshot0Clockid};
 

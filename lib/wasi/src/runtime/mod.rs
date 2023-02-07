@@ -15,7 +15,7 @@ use std::{
     sync::Arc,
 };
 
-use wasmer_vbus::{DefaultVirtualBus, VirtualBus};
+use crate::vbus::{DefaultVirtualBus, VirtualBus};
 use wasmer_vnet::{DynVirtualNetworking, VirtualNetworking};
 
 use crate::{os::tty::WasiTtyState, WasiEnv};

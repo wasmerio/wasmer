@@ -3,13 +3,13 @@ use std::{
     sync::{Arc, RwLockReadGuard, RwLockWriteGuard},
 };
 
+use crate::vbus::{SpawnEnvironmentIntrinsics, VirtualBus};
 use derivative::Derivative;
 use tracing::{trace, warn};
 use wasmer::{
     AsStoreRef, Exports, FunctionEnvMut, Global, Instance, Memory, MemoryView, Module,
     TypedFunction,
 };
-use wasmer_vbus::{SpawnEnvironmentIntrinsics, VirtualBus};
 use wasmer_vnet::DynVirtualNetworking;
 use wasmer_wasi_types::{
     types::Signal,
@@ -716,24 +716,24 @@ impl SpawnEnvironmentIntrinsics for WasiEnv {
         &self.state.preopen
     }
 
-    fn stdin_mode(&self) -> wasmer_vbus::StdioMode {
+    fn stdin_mode(&self) -> crate::vbus::StdioMode {
         match self.state.stdin() {
-            Ok(Some(_)) => wasmer_vbus::StdioMode::Inherit,
-            _ => wasmer_vbus::StdioMode::Null,
+            Ok(Some(_)) => crate::vbus::StdioMode::Inherit,
+            _ => crate::vbus::StdioMode::Null,
         }
     }
 
-    fn stdout_mode(&self) -> wasmer_vbus::StdioMode {
+    fn stdout_mode(&self) -> crate::vbus::StdioMode {
         match self.state.stdout() {
-            Ok(Some(_)) => wasmer_vbus::StdioMode::Inherit,
-            _ => wasmer_vbus::StdioMode::Null,
+            Ok(Some(_)) => crate::vbus::StdioMode::Inherit,
+            _ => crate::vbus::StdioMode::Null,
         }
     }
 
-    fn stderr_mode(&self) -> wasmer_vbus::StdioMode {
+    fn stderr_mode(&self) -> crate::vbus::StdioMode {
         match self.state.stderr() {
-            Ok(Some(_)) => wasmer_vbus::StdioMode::Inherit,
-            _ => wasmer_vbus::StdioMode::Null,
+            Ok(Some(_)) => crate::vbus::StdioMode::Inherit,
+            _ => crate::vbus::StdioMode::Null,
         }
     }
 

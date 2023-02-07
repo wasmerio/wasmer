@@ -5067,20 +5067,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-vbus"
-version = "3.2.0-alpha.1"
-dependencies = [
- "libc",
- "slab",
- "thiserror",
- "tracing",
- "typetag",
- "wasmer",
- "wasmer-vfs",
- "wasmer-wasi-types",
-]
-
-[[package]]
 name = "wasmer-vfs"
 version = "3.2.0-alpha.1"
 dependencies = [
@@ -5187,7 +5173,6 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-types",
- "wasmer-vbus",
  "wasmer-vfs",
  "wasmer-vm",
  "wasmer-vnet",

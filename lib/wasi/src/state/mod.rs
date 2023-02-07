@@ -30,12 +30,12 @@ use std::{
     time::Duration,
 };
 
+use crate::vbus::{VirtualBusCalled, VirtualBusInvocation};
 use derivative::Derivative;
 pub use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasmer::Store;
-use wasmer_vbus::{VirtualBusCalled, VirtualBusInvocation};
 use wasmer_vfs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
 use wasmer_wasi_types::wasi::{Cid, Errno, Fd as WasiFd, Rights, Snapshot0Clockid};
 

@@ -119,8 +119,8 @@ mod tests {
         sync::{Arc, Mutex},
     };
 
+    use crate::vbus::{DefaultVirtualBus, VirtualBus};
     use futures::Future;
-    use wasmer_vbus::{DefaultVirtualBus, VirtualBus};
     use wasmer_vfs::{AsyncWriteExt, WasiBidirectionalPipePair};
     use wasmer_vnet::DynVirtualNetworking;
 

@@ -9,8 +9,8 @@ use std::{
     time::Duration,
 };
 
+use crate::vbus::{BusSpawnedProcess, SignalHandlerAbi};
 use tracing::trace;
-use wasmer_vbus::{BusSpawnedProcess, SignalHandlerAbi};
 use wasmer_wasi_types::{
     types::Signal,
     wasi::{Errno, ExitCode, Snapshot0Clockid, TlKey, TlUser, TlVal},

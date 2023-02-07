@@ -11,6 +11,7 @@ use std::{
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
+use crate::vbus::{BusSpawnedProcess, SpawnOptionsConfig, VirtualBusError};
 use derivative::*;
 use linked_hash_set::LinkedHashSet;
 use tokio::sync::{mpsc, RwLock};
@@ -18,7 +19,6 @@ use tokio::sync::{mpsc, RwLock};
 use tracing::{debug, error, info, trace, warn};
 #[cfg(feature = "sys")]
 use wasmer::Engine;
-use wasmer_vbus::{BusSpawnedProcess, SpawnOptionsConfig, VirtualBusError};
 use wasmer_vfs::{FileSystem, RootFileSystemBuilder, SpecialFile, WasiPipe};
 use wasmer_wasi_types::{types::__WASI_STDIN_FILENO, wasi::BusErrno};
 
@@ -136,7 +136,7 @@ impl Console {
         self
     }
 
-    pub fn run(&mut self) -> wasmer_vbus::Result<(BusSpawnedProcess, WasiProcess)> {
+    pub fn run(&mut self) -> crate::vbus::Result<(BusSpawnedProcess, WasiProcess)> {
         // Extract the program name from the arguments
         let empty_args: Vec<&[u8]> = Vec::new();
         let (webc, prog, args) = match self.boot_cmd.split_once(' ') {
@@ -227,7 +227,7 @@ impl Console {
                     .await;
             });
             tracing::debug!("failed to get webc dependency - {}", webc);
-            return Err(wasmer_vbus::VirtualBusError::NotFound);
+            return Err(crate::vbus::VirtualBusError::NotFound);
         };
 
         if let Err(err) = env.uses(self.uses.clone()) {
@@ -235,7 +235,7 @@ impl Console {
                 let _ = self.runtime.stderr(format!("{}\r\n", err).as_bytes()).await;
             });
             tracing::debug!("failed to load used dependency - {}", err);
-            return Err(wasmer_vbus::VirtualBusError::BadRequest);
+            return Err(crate::vbus::VirtualBusError::BadRequest);
         }
 
         // Build the config

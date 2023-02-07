@@ -11,6 +11,7 @@ pub use wasmer_vfs::StdioMode;
 use wasmer_vfs::VirtualFile;
 use wasmer_wasi_types::wasi::{BusDataFormat, ExitCode};
 
+// TODO: remove type alias
 pub type Result<T> = std::result::Result<T, VirtualBusError>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

@@ -21,7 +21,6 @@ wasmer-types = { path = "../types", version = "=3.2.0-alpha.1", default-features
 wasmer = { path = "../api", version = "=3.2.0-alpha.1", default-features = false, features = ["wat", "js-serializable-module"] }
 wasmer-vfs = { path = "../vfs", version = "=3.2.0-alpha.1", default-features = false, features = ["webc-fs"] }
 wasmer-vm = { path = "../vm", version = "=3.2.0-alpha.1", optional = true }
-wasmer-vbus = { path = "../vbus", version = "=3.2.0-alpha.1", default-features = false }
 wasmer-vnet = { path = "../vnet", version = "=3.2.0-alpha.1", default-features = false }
 wasmer-wasi-local-networking = { path = "../wasi-local-networking", version = "=3.2.0-alpha.1", default-features = false, optional = true }
 wasmer-emscripten = { path = "../emscripten", version = "=3.2.0-alpha.1", optional = true }

@@ -1,7 +1,7 @@
 use std::{any::Any, ops::Deref, sync::Arc};
 
+use crate::vbus::{BusSpawnedProcess, SpawnOptions, VirtualBusError};
 use wasmer::{FunctionEnvMut, Store};
-use wasmer_vbus::{BusSpawnedProcess, SpawnOptions, VirtualBusError};
 use wasmer_wasi_types::wasi::Errno;
 
 use crate::{
@@ -59,7 +59,7 @@ impl CmdWasmer {
         config: &mut Option<SpawnOptions<WasiEnv>>,
         what: Option<String>,
         mut args: Vec<String>,
-    ) -> wasmer_vbus::Result<BusSpawnedProcess> {
+    ) -> crate::vbus::Result<BusSpawnedProcess> {
         if let Some(what) = what {
             let store = store.take().ok_or(VirtualBusError::UnknownError)?;
             let mut config = config.take().ok_or(VirtualBusError::UnknownError)?.conf();
@@ -118,7 +118,7 @@ impl VirtualCommand for CmdWasmer {
         name: &str,
         store: &mut Option<Store>,
         config: &mut Option<SpawnOptions<WasiEnv>>,
-    ) -> wasmer_vbus::Result<BusSpawnedProcess> {
+    ) -> crate::vbus::Result<BusSpawnedProcess> {
         // Read the command we want to run
         let config_inner = config.as_ref().ok_or(VirtualBusError::UnknownError)?;
         let mut args = config_inner
