@@ -2287,7 +2287,11 @@
 <span id="2285">2285</span>
 <span id="2286">2286</span>
 <span id="2287">2287</span>
+<span id="2288">2288</span>
+<span id="2289">2289</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.</span>
+
+<span class="kw">use</span> <span class="ident"><span class="self">self</span>::utils::normalize_atom_name</span>;
 
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::ObjectFormat</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::normalize_path</span>;
@@ -2820,7 +2824,7 @@
             <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
                 <span class="ident">input_hashes</span>: <span class="ident">atoms</span>
                     .<span class="ident">iter</span>()
-                    .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">name</span>, <span class="ident">bytes</span>)<span class="op">|</span> (<span class="ident">name</span>.<span class="ident">clone</span>(), <span class="ident"><span class="self">Self</span>::hash_for_bytes</span>(<span class="ident">bytes</span>)))
+                    .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">name</span>, <span class="ident">bytes</span>)<span class="op">|</span> (<span class="ident">normalize_atom_name</span>(<span class="ident">name</span>), <span class="ident"><span class="self">Self</span>::hash_for_bytes</span>(<span class="ident">bytes</span>)))
                     .<span class="ident">collect</span>(),
                 <span class="ident">manual_prefixes</span>: <span class="ident">BTreeMap::new</span>(),
                 <span class="ident">compilation_objects</span>: <span class="ident">BTreeMap::new</span>(),
@@ -2829,10 +2833,10 @@
 
         <span class="comment">// if prefixes are specified, have to match the atom names exactly</span>
         <span class="kw">if</span> <span class="ident">prefixes</span>.<span class="ident">len</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">atoms</span>.<span class="ident">len</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;invalid mapping of prefix and atoms: expected prefixes for {} atoms, got {} prefixes&quot;</span>, 
+            <span class="macro">println!</span>(
+                <span class="string">&quot;WARNING: invalid mapping of prefix and atoms: expected prefixes for {} atoms, got {} prefixes&quot;</span>, 
                 <span class="ident">atoms</span>.<span class="ident">len</span>(), <span class="ident">prefixes</span>.<span class="ident">len</span>()
-            ));
+            );
         }
 
         <span class="kw">let</span> <span class="ident">available_atoms</span> <span class="op">=</span> <span class="ident">atoms</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">k</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="ident">k</span>.<span class="ident">clone</span>()).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
@@ -2849,11 +2853,11 @@
                 [<span class="ident">atom</span>, <span class="ident">prefix</span>, <span class="ident">path</span>] =&gt; {
                     <span class="kw">if</span> <span class="ident">only_validate_prefixes</span> {
                         <span class="comment">// only insert the prefix in order to not error out of the fs::read(path)</span>
-                        <span class="ident">manual_prefixes</span>.<span class="ident">insert</span>(<span class="ident">atom</span>.<span class="ident">to_string</span>(), <span class="ident">prefix</span>.<span class="ident">to_string</span>());
+                        <span class="ident">manual_prefixes</span>.<span class="ident">insert</span>(<span class="ident">normalize_atom_name</span>(<span class="ident">atom</span>), <span class="ident">prefix</span>.<span class="ident">to_string</span>());
                     } <span class="kw">else</span> {
                         <span class="kw">let</span> <span class="ident">atom_hash</span> <span class="op">=</span> <span class="ident">atoms</span>
                         .<span class="ident">iter</span>()
-                        .<span class="ident">find_map</span>(<span class="op">|</span>(<span class="ident">name</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="kw">if</span> <span class="ident">name</span>.<span class="ident">as_str</span>() <span class="op">==</span> <span class="ident">atom</span>.<span class="ident">as_str</span>() { <span class="prelude-val">Some</span>(<span class="ident">prefix</span>.<span class="ident">to_string</span>()) } <span class="kw">else</span> { <span class="prelude-val">None</span> })
+                        .<span class="ident">find_map</span>(<span class="op">|</span>(<span class="ident">name</span>, <span class="kw">_</span>)<span class="op">|</span> <span class="kw">if</span> <span class="ident">normalize_atom_name</span>(<span class="ident">name</span>) <span class="op">==</span> <span class="ident">normalize_atom_name</span>(<span class="ident">atom</span>) { <span class="prelude-val">Some</span>(<span class="ident">prefix</span>.<span class="ident">to_string</span>()) } <span class="kw">else</span> { <span class="prelude-val">None</span> })
                         .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no atom {atom:?} found, for prefix {p:?}, available atoms are {available_atoms:?}&quot;</span>))<span class="question-mark">?</span>;
 
                         <span class="kw">let</span> <span class="ident">current_dir</span> <span class="op">=</span> <span class="ident">std::env::current_dir</span>().<span class="ident">unwrap</span>().<span class="ident">canonicalize</span>().<span class="ident">unwrap</span>();
@@ -2862,17 +2866,17 @@
                             <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not read file for atom {atom:?} (prefix {p}, path {} in dir {}): {e}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>(), <span class="ident">current_dir</span>.<span class="ident">display</span>())
                         })<span class="question-mark">?</span>;
 
-                        <span class="ident">compilation_objects</span>.<span class="ident">insert</span>(<span class="ident">atom</span>.<span class="ident">to_string</span>(), <span class="ident">bytes</span>);
-                        <span class="ident">manual_prefixes</span>.<span class="ident">insert</span>(<span class="ident">atom</span>.<span class="ident">to_string</span>(), <span class="ident">atom_hash</span>.<span class="ident">to_string</span>());
+                        <span class="ident">compilation_objects</span>.<span class="ident">insert</span>(<span class="ident">normalize_atom_name</span>(<span class="ident">atom</span>), <span class="ident">bytes</span>);
+                        <span class="ident">manual_prefixes</span>.<span class="ident">insert</span>(<span class="ident">normalize_atom_name</span>(<span class="ident">atom</span>), <span class="ident">atom_hash</span>.<span class="ident">to_string</span>());
                     }
                 }
                 <span class="comment">// atom + path, but default SHA256 prefix</span>
                 [<span class="ident">atom</span>, <span class="ident">path</span>] =&gt; {
                     <span class="kw">let</span> <span class="ident">atom_hash</span> <span class="op">=</span> <span class="ident">atoms</span>
                     .<span class="ident">iter</span>()
-                    .<span class="ident">find_map</span>(<span class="op">|</span>(<span class="ident">name</span>, <span class="ident">bytes</span>)<span class="op">|</span> <span class="kw">if</span> <span class="ident">name</span>.<span class="ident">as_str</span>() <span class="op">==</span> <span class="ident">atom</span>.<span class="ident">as_str</span>() { <span class="prelude-val">Some</span>(<span class="ident"><span class="self">Self</span>::hash_for_bytes</span>(<span class="ident">bytes</span>)) } <span class="kw">else</span> { <span class="prelude-val">None</span> })
+                    .<span class="ident">find_map</span>(<span class="op">|</span>(<span class="ident">name</span>, <span class="ident">bytes</span>)<span class="op">|</span> <span class="kw">if</span> <span class="ident">normalize_atom_name</span>(<span class="ident">name</span>) <span class="op">==</span> <span class="ident">normalize_atom_name</span>(<span class="ident">atom</span>) { <span class="prelude-val">Some</span>(<span class="ident"><span class="self">Self</span>::hash_for_bytes</span>(<span class="ident">bytes</span>)) } <span class="kw">else</span> { <span class="prelude-val">None</span> })
                     .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no atom {atom:?} found, for prefix {p:?}, available atoms are {available_atoms:?}&quot;</span>))<span class="question-mark">?</span>;
-                    <span class="ident">manual_prefixes</span>.<span class="ident">insert</span>(<span class="ident">atom</span>.<span class="ident">to_string</span>(), <span class="ident">atom_hash</span>.<span class="ident">to_string</span>());
+                    <span class="ident">manual_prefixes</span>.<span class="ident">insert</span>(<span class="ident">normalize_atom_name</span>(<span class="ident">atom</span>), <span class="ident">atom_hash</span>.<span class="ident">to_string</span>());
 
                     <span class="kw">if</span> <span class="op">!</span><span class="ident">only_validate_prefixes</span> {
                         <span class="kw">let</span> <span class="ident">current_dir</span> <span class="op">=</span> <span class="ident">std::env::current_dir</span>().<span class="ident">unwrap</span>().<span class="ident">canonicalize</span>().<span class="ident">unwrap</span>();
@@ -2880,12 +2884,12 @@
                         <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
                             <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not read file for atom {atom:?} (prefix {p}, path {} in dir {}): {e}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>(), <span class="ident">current_dir</span>.<span class="ident">display</span>())
                         })<span class="question-mark">?</span>;
-                        <span class="ident">compilation_objects</span>.<span class="ident">insert</span>(<span class="ident">atom</span>.<span class="ident">to_string</span>(), <span class="ident">bytes</span>);
+                        <span class="ident">compilation_objects</span>.<span class="ident">insert</span>(<span class="ident">normalize_atom_name</span>(<span class="ident">atom</span>), <span class="ident">bytes</span>);
                     }
                 }
                 <span class="comment">// only prefix if atoms.len() == 1</span>
                 [<span class="ident">prefix</span>] <span class="kw">if</span> <span class="ident">atoms</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="number">1</span> =&gt; {
-                    <span class="ident">manual_prefixes</span>.<span class="ident">insert</span>(<span class="ident">atoms</span>[<span class="number">0</span>].<span class="number">0</span>.<span class="ident">clone</span>(), <span class="ident">prefix</span>.<span class="ident">to_string</span>());
+                    <span class="ident">manual_prefixes</span>.<span class="ident">insert</span>(<span class="ident">normalize_atom_name</span>(<span class="kw-2">&amp;</span><span class="ident">atoms</span>[<span class="number">0</span>].<span class="number">0</span>), <span class="ident">prefix</span>.<span class="ident">to_string</span>());
                 }
                 <span class="kw">_</span> =&gt; {
                     <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;invalid --precompiled-atom {p:?} - correct format is ATOM:PREFIX:PATH or ATOM:PATH&quot;</span>));
@@ -3024,7 +3028,7 @@
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">module_infos</span> <span class="op">=</span> <span class="ident">BTreeMap::new</span>();
     <span class="kw">for</span> (<span class="ident">a</span>, <span class="ident">data</span>) <span class="kw">in</span> <span class="ident">atoms</span> {
         <span class="kw">let</span> <span class="ident">prefix</span> <span class="op">=</span> <span class="ident">prefixes</span>
-            .<span class="ident">get_prefix_for_atom</span>(<span class="ident">a</span>)
+            .<span class="ident">get_prefix_for_atom</span>(<span class="kw-2">&amp;</span><span class="ident">normalize_atom_name</span>(<span class="ident">a</span>))
             .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no prefix given for atom {a}&quot;</span>))<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">atom_name</span> <span class="op">=</span> <span class="ident">utils::normalize_atom_name</span>(<span class="ident">a</span>);
         <span class="kw">let</span> <span class="ident">output_object_path</span> <span class="op">=</span> <span class="ident">output_dir</span>.<span class="ident">join</span>(<span class="macro">format!</span>(<span class="string">&quot;{atom_name}.o&quot;</span>));
