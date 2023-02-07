@@ -67,6 +67,11 @@ pub enum InstantiationError {
     /// This error occurs when an import from a different store is used.
     #[error("cannot mix imports from different stores")]
     DifferentStores,
+
+    /// Import from a different Store.
+    /// This error occurs when an import from a different store is used.
+    #[error("incorrect OS or architecture")]
+    DifferentArchOS,
 }
 
 impl From<wasmer_compiler::InstantiationError> for InstantiationError {
