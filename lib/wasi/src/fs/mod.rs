@@ -1780,7 +1780,7 @@ pub struct FallbackFileSystem;
 
 impl FallbackFileSystem {
     fn fail() -> ! {
-        panic!("No filesystem set for wasmer-wasi, please enable either the `host-fs` or `mem-fs` feature or set your custom filesystem with `WasiStateBuilder::set_fs`");
+        panic!("No filesystem set for wasmer-wasi, please enable either the `host-fs` or `mem-fs` feature or set your custom filesystem with `WasiEnvBuilder::set_fs`");
     }
 }
 

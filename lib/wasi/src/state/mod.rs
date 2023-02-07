@@ -257,18 +257,18 @@ pub struct WasiState {
 }
 
 impl WasiState {
-    /// Create a [`WasiStateBuilder`] to construct a validated instance of
+    /// Create a [`WasiEnvBuilder`] to construct a validated instance of
     /// [`WasiState`].
     #[allow(clippy::new_ret_no_self)]
     #[deprecated(note = "Use WasiState::builder() instead", since = "3.2.0")]
-    pub fn new(program_name: impl AsRef<str>) -> WasiStateBuilder {
+    pub fn new(program_name: impl AsRef<str>) -> WasiEnvBuilder {
         WasiState::builder(program_name)
     }
 
-    /// Create a [`WasiStateBuilder`] to construct a validated instance of
+    /// Create a [`WasiEnvBuilder`] to construct a validated instance of
     /// [`WasiState`].
-    pub fn builder(program_name: impl AsRef<str>) -> WasiStateBuilder {
-        WasiStateBuilder::new(program_name.as_ref())
+    pub fn builder(program_name: impl AsRef<str>) -> WasiEnvBuilder {
+        WasiEnvBuilder::new(program_name.as_ref())
     }
 
     /// Turn the WasiState into bytes

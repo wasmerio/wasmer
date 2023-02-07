@@ -22,7 +22,7 @@ use crate::{
     PluggableRuntimeImplementation, WasiEnv, WasiFunctionEnv,
 };
 
-/// Convenient builder API for configuring WASI via [`WasiState`].
+/// Builder API for configuring a [`WasiEnv`] environment needed to run WASI modules.
 ///
 /// Usage:
 /// ```no_run
@@ -39,14 +39,16 @@ use crate::{
 /// # }
 /// ```
 #[derive(Default)]
-pub struct WasiStateBuilder {
+pub struct WasiEnvBuilder {
+    /// Command line arguments.
     args: Vec<String>,
+    /// Environment variables.
     envs: Vec<(String, Vec<u8>)>,
+    /// Pre-opened directories that will be accessible from WASI.
     preopens: Vec<PreopenedDir>,
-    uses: Vec<String>,
-    #[cfg(feature = "sys")]
-    map_commands: HashMap<String, PathBuf>,
+    /// Pre-opened virtual directories that will be accessible from WASI.
     vfs_preopens: Vec<String>,
+
     compiled_modules: Arc<ModuleCache>,
     #[allow(clippy::type_complexity)]
     setup_fs_fn: Option<Box<dyn Fn(&mut WasiInodes, &mut WasiFs) -> Result<(), String> + Send>>,
@@ -55,12 +57,19 @@ pub struct WasiStateBuilder {
     stdin_override: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     fs_override: Option<WasiFsRoot>,
     runtime_override: Option<Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>>,
+
+    /// List of webc dependencies to be injected.
+    uses: Vec<String>,
+
+    /// List of host commands to map into the WASI instance.
+    #[cfg(feature = "sys")]
+    map_commands: HashMap<String, PathBuf>,
 }
 
-impl std::fmt::Debug for WasiStateBuilder {
+impl std::fmt::Debug for WasiEnvBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO: update this when stable
-        f.debug_struct("WasiStateBuilder")
+        f.debug_struct("WasiEnvBuilder")
             .field("args", &self.args)
             .field("envs", &self.envs)
             .field("preopens", &self.preopens)
@@ -74,7 +83,7 @@ impl std::fmt::Debug for WasiStateBuilder {
     }
 }
 
-/// Error type returned when bad data is given to [`WasiStateBuilder`].
+/// Error type returned when bad data is given to [`WasiEnvBuilder`].
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum WasiStateCreationError {
     #[error("bad environment variable format: `{0}`")]
@@ -113,12 +122,12 @@ pub type SetupFsFn = Box<dyn Fn(&mut WasiInodes, &mut WasiFs) -> Result<(), Stri
 
 // TODO add other WasiFS APIs here like swapping out stdout, for example (though we need to
 // return stdout somehow, it's unclear what that API should look like)
-impl WasiStateBuilder {
-    /// Creates an empty [`WasiStateBuilder`].
+impl WasiEnvBuilder {
+    /// Creates an empty [`WasiEnvBuilder`].
     pub(crate) fn new(program_name: &str) -> Self {
-        WasiStateBuilder {
+        WasiEnvBuilder {
             args: vec![program_name.to_string()],
-            ..WasiStateBuilder::default()
+            ..WasiEnvBuilder::default()
         }
     }
 
@@ -419,7 +428,7 @@ impl WasiStateBuilder {
         self
     }
 
-    /// Consumes the [`WasiStateBuilder`] and produces a [`WasiState`]
+    /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiState`]
     ///
     /// Returns the error from `WasiFs::new` if there's an error
     ///
@@ -577,7 +586,7 @@ impl WasiStateBuilder {
         })
     }
 
-    /// Consumes the [`WasiStateBuilder`] and produces a [`WasiEnv`]
+    /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnv`]
     ///
     /// Returns the error from `WasiFs::new` if there's an error.
     ///
@@ -595,7 +604,7 @@ impl WasiStateBuilder {
         self.finalize_with(store, &control_plane)
     }
 
-    /// Consumes the [`WasiStateBuilder`] and produces a [`WasiEnv`]
+    /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnv`]
     /// with a particular control plane
     ///
     /// Returns the error from `WasiFs::new` if there's an error.
@@ -747,7 +756,7 @@ mod test {
     fn env_var_errors() {
         // `=` in the key is invalid.
         assert!(
-            WasiStateBuilder::new("test_prog")
+            WasiEnvBuilder::new("test_prog")
                 .env("HOM=E", "/home/home")
                 .build()
                 .is_err(),
@@ -756,7 +765,7 @@ mod test {
 
         // `\0` in the key is invalid.
         assert!(
-            WasiStateBuilder::new("test_prog")
+            WasiEnvBuilder::new("test_prog")
                 .env("HOME\0", "/home/home")
                 .build()
                 .is_err(),
@@ -765,7 +774,7 @@ mod test {
 
         // `=` in the value is valid.
         assert!(
-            WasiStateBuilder::new("test_prog")
+            WasiEnvBuilder::new("test_prog")
                 .env("HOME", "/home/home=home")
                 .build()
                 .is_ok(),
@@ -774,7 +783,7 @@ mod test {
 
         // `\0` in the value is invalid.
         assert!(
-            WasiStateBuilder::new("test_prog")
+            WasiEnvBuilder::new("test_prog")
                 .env("HOME", "/home/home\0")
                 .build()
                 .is_err(),
@@ -784,12 +793,12 @@ mod test {
 
     #[test]
     fn nul_character_in_args() {
-        let output = WasiStateBuilder::new("test_prog").arg("--h\0elp").build();
+        let output = WasiEnvBuilder::new("test_prog").arg("--h\0elp").build();
         match output {
             Err(WasiStateCreationError::ArgumentContainsNulByte(_)) => assert!(true),
             _ => assert!(false),
         }
-        let output = WasiStateBuilder::new("test_prog")
+        let output = WasiEnvBuilder::new("test_prog")
             .args(&["--help", "--wat\0"])
             .build();
         match output {

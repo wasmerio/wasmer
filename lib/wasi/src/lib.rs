@@ -109,7 +109,7 @@ pub use crate::utils::is_wasix_module;
 
 pub use crate::{
     state::{
-        Capabilities, Pipe, WasiEnv, WasiEnvInner, WasiFunctionEnv, WasiState, WasiStateBuilder,
+        Capabilities, Pipe, WasiEnv, WasiEnvInner, WasiFunctionEnv, WasiState, WasiEnvBuilder,
         WasiStateCreationError, ALL_RIGHTS,
     },
     syscalls::types,
@@ -197,7 +197,7 @@ pub fn current_caller_id() -> WasiCallingId {
 
 /// Create an [`Imports`] with an existing [`WasiEnv`]. `WasiEnv`
 /// needs a [`WasiState`], that can be constructed from a
-/// [`WasiStateBuilder`](state::WasiStateBuilder).
+/// [`WasiEnvBuilder`](state::WasiEnvBuilder).
 pub fn generate_import_object_from_env(
     store: &mut impl AsStoreMut,
     ctx: &FunctionEnv<WasiEnv>,

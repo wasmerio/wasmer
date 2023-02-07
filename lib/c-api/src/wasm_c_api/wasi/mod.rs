@@ -19,7 +19,7 @@ use std::slice;
 use wasmer_api::{AsStoreMut, Imports, Module};
 use wasmer_wasi::{
     get_wasi_version, wasmer_vfs::AsyncReadExt, WasiBidirectionalPipePair, WasiEnv, WasiFile,
-    WasiFunctionEnv, WasiState, WasiStateBuilder, WasiVersion,
+    WasiFunctionEnv, WasiState, WasiEnvBuilder, WasiVersion,
 };
 
 #[derive(Debug)]
@@ -28,7 +28,7 @@ pub struct wasi_config_t {
     inherit_stdout: bool,
     inherit_stderr: bool,
     inherit_stdin: bool,
-    state_builder: WasiStateBuilder,
+    state_builder: WasiEnvBuilder,
 }
 
 #[no_mangle]
