@@ -111,7 +111,7 @@ pub use crate::utils::is_wasix_module;
 pub use crate::{
     state::{
         Capabilities, Pipe, WasiEnv, WasiEnvBuilder, WasiFunctionEnv, WasiInstanceHandles,
-        WasiState, WasiStateCreationError, ALL_RIGHTS,
+        WasiStateCreationError, ALL_RIGHTS,
     },
     syscalls::types,
     tty_file::TtyFile,

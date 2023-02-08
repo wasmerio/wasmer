@@ -2,7 +2,7 @@
 //! WebC container support for running WASI modules
 
 use crate::runners::WapmContainer;
-use crate::{WasiEnv, WasiEnvBuilder, WasiState};
+use crate::{WasiEnv, WasiEnvBuilder};
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;
@@ -114,7 +114,7 @@ fn prepare_webc_env(
         .collect::<Vec<_>>();
 
     let filesystem = Box::new(WebcFileSystem::init(webc, &package_name));
-    let mut builder = WasiState::builder(command).fs(filesystem).args(args);
+    let mut builder = WasiEnv::builder(command).fs(filesystem).args(args);
     for f_name in top_level_dirs.iter() {
         builder.add_preopen_build(|p| p.directory(f_name).read(true).write(true).create(true))?;
     }

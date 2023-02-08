@@ -14,7 +14,7 @@ use wasmer_wasi::runtime::task_manager::tokio::TokioTaskManager;
 use wasmer_wasi::types::wasi::{Filesize, Timestamp};
 use wasmer_wasi::{
     generate_import_object_from_env, get_wasi_version, FsError, VirtualFile, VirtualTaskManagerExt,
-    WasiBidirectionalPipePair, WasiEnv, WasiEnvBuilder, WasiState, WasiVersion,
+    WasiBidirectionalPipePair, WasiEnv, WasiEnvBuilder, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 
@@ -110,7 +110,7 @@ impl<'a> WasiTest<'a> {
         let start = instance.exports.get_function("_start")?;
 
         if let Some(stdin) = &self.stdin {
-            let mut wasi_stdin = { wasi_env.data(store).state().stdin().unwrap().unwrap() };
+            let mut wasi_stdin = { wasi_env.data(store).stdin().unwrap().unwrap() };
             // Then we can write to it!
             let data = format!("{}", stdin.stream);
             runtime.block_on(async move { wasi_stdin.write(data.as_bytes()).await })?;
@@ -156,7 +156,7 @@ impl<'a> WasiTest<'a> {
         mpsc::Receiver<Vec<u8>>,
         mpsc::Receiver<Vec<u8>>,
     )> {
-        let mut builder = WasiState::builder(self.wasm_path);
+        let mut builder = WasiEnv::builder(self.wasm_path);
 
         let stdin_pipe = WasiBidirectionalPipePair::new().with_blocking(false);
         builder.set_stdin(Box::new(stdin_pipe));

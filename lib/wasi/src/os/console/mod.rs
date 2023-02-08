@@ -28,7 +28,7 @@ use crate::{
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
     runtime::{RuntimeStderr, RuntimeStdout},
     state::Capabilities,
-    TtyFile, VirtualTaskManagerExt, WasiEnv, WasiRuntime, WasiState,
+    TtyFile, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
 };
 
 //pub const DEFAULT_BOOT_WEBC: &'static str = "sharrattj/bash";
@@ -160,7 +160,7 @@ impl Console {
         let store = self.runtime.new_store();
 
         // Create the state
-        let mut builder = WasiState::builder(prog);
+        let mut builder = WasiEnv::builder(prog);
         if let Some(stdin) = self.stdin.take() {
             builder.set_stdin(Box::new(stdin));
         }

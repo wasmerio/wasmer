@@ -57,55 +57,6 @@ use crate::{
 /// all the rights enabled
 pub const ALL_RIGHTS: Rights = Rights::all();
 
-// Implementations of direct to FS calls so that we can easily change their implementation
-impl WasiState {
-    pub(crate) fn fs_read_dir<P: AsRef<Path>>(
-        &self,
-        path: P,
-    ) -> Result<wasmer_vfs::ReadDir, Errno> {
-        self.fs
-            .root_fs
-            .read_dir(path.as_ref())
-            .map_err(fs_error_into_wasi_err)
-    }
-
-    pub(crate) fn fs_create_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
-        self.fs
-            .root_fs
-            .create_dir(path.as_ref())
-            .map_err(fs_error_into_wasi_err)
-    }
-
-    pub(crate) fn fs_remove_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
-        self.fs
-            .root_fs
-            .remove_dir(path.as_ref())
-            .map_err(fs_error_into_wasi_err)
-    }
-
-    pub(crate) fn fs_rename<P: AsRef<Path>, Q: AsRef<Path>>(
-        &self,
-        from: P,
-        to: Q,
-    ) -> Result<(), Errno> {
-        self.fs
-            .root_fs
-            .rename(from.as_ref(), to.as_ref())
-            .map_err(fs_error_into_wasi_err)
-    }
-
-    pub(crate) fn fs_remove_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
-        self.fs
-            .root_fs
-            .remove_file(path.as_ref())
-            .map_err(fs_error_into_wasi_err)
-    }
-
-    pub(crate) fn fs_new_open_options(&self) -> OpenOptions {
-        self.fs.root_fs.new_open_options()
-    }
-}
-
 struct WasiStateOpener {
     root_fs: WasiFsRoot,
 }
@@ -225,7 +176,7 @@ impl WasiBusState {
 /// ```
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct WasiState {
+pub(crate) struct WasiState {
     pub secret: [u8; 32],
 
     pub fs: WasiFs,
@@ -240,19 +191,52 @@ pub struct WasiState {
     pub preopen: Vec<String>,
 }
 
+// Implementations of direct to FS calls so that we can easily change their implementation
 impl WasiState {
-    /// Create a [`WasiEnvBuilder`] to construct a validated instance of
-    /// [`WasiState`].
-    #[allow(clippy::new_ret_no_self)]
-    #[deprecated(note = "Use WasiState::builder() instead", since = "3.2.0")]
-    pub fn new(program_name: impl AsRef<str>) -> WasiEnvBuilder {
-        WasiState::builder(program_name)
+    pub(crate) fn fs_read_dir<P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) -> Result<wasmer_vfs::ReadDir, Errno> {
+        self.fs
+            .root_fs
+            .read_dir(path.as_ref())
+            .map_err(fs_error_into_wasi_err)
     }
 
-    /// Create a [`WasiEnvBuilder`] to construct a validated instance of
-    /// [`WasiState`].
-    pub fn builder(program_name: impl AsRef<str>) -> WasiEnvBuilder {
-        WasiEnvBuilder::new(program_name.as_ref())
+    pub(crate) fn fs_create_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
+        self.fs
+            .root_fs
+            .create_dir(path.as_ref())
+            .map_err(fs_error_into_wasi_err)
+    }
+
+    pub(crate) fn fs_remove_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
+        self.fs
+            .root_fs
+            .remove_dir(path.as_ref())
+            .map_err(fs_error_into_wasi_err)
+    }
+
+    pub(crate) fn fs_rename<P: AsRef<Path>, Q: AsRef<Path>>(
+        &self,
+        from: P,
+        to: Q,
+    ) -> Result<(), Errno> {
+        self.fs
+            .root_fs
+            .rename(from.as_ref(), to.as_ref())
+            .map_err(fs_error_into_wasi_err)
+    }
+
+    pub(crate) fn fs_remove_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
+        self.fs
+            .root_fs
+            .remove_file(path.as_ref())
+            .map_err(fs_error_into_wasi_err)
+    }
+
+    pub(crate) fn fs_new_open_options(&self) -> OpenOptions {
+        self.fs.root_fs.new_open_options()
     }
 
     /// Turn the WasiState into bytes

@@ -11,7 +11,7 @@ use wasmer_wasi::types::__WASI_STDIN_FILENO;
 use wasmer_wasi::TtyFile;
 use wasmer_wasi::{
     default_fs_backing, get_wasi_versions, PluggableRuntimeImplementation, WasiEnv, WasiError,
-    WasiState, WasiVersion,
+    WasiVersion,
 };
 
 use clap::Parser;
@@ -115,7 +115,7 @@ impl Wasi {
 
         let runtime = Arc::new(PluggableRuntimeImplementation::default());
 
-        let builder = WasiState::builder(program_name)
+        let builder = WasiEnv::builder(program_name)
             .args(args)
             .envs(self.env_vars.clone())
             .uses(self.uses.clone())

@@ -74,7 +74,7 @@ pub fn path_filestat_get<M: MemorySize>(
 /// Output:
 /// - `__wasi_file_stat_t *buf`
 ///     The location where the metadata will be stored
-pub fn path_filestat_get_internal(
+pub(crate) fn path_filestat_get_internal(
     memory: &MemoryView,
     state: &WasiState,
     inodes: &mut crate::WasiInodes,

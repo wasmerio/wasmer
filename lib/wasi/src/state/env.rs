@@ -16,10 +16,11 @@ use wasmer::{
     AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryView, Module,
     TypedFunction,
 };
+use wasmer_vfs::{FsError, VirtualFile};
 use wasmer_vnet::DynVirtualNetworking;
 use wasmer_wasi_types::{
     types::Signal,
-    wasi::{Errno, ExitCode, Snapshot0Clockid},
+    wasi::{Errno, ExitCode, Fd as WasiFd, Snapshot0Clockid},
 };
 
 use crate::{
@@ -34,11 +35,11 @@ use crate::{
         },
     },
     syscalls::platform_clock_time_get,
-    VirtualTaskManager, WasiError, WasiRuntime, WasiState, WasiStateCreationError, WasiVFork,
+    VirtualTaskManager, WasiError, WasiRuntime, WasiStateCreationError, WasiVFork,
     DEFAULT_STACK_SIZE,
 };
 
-use super::Capabilities;
+use super::{Capabilities, WasiState};
 
 /// Various [`TypedFunction`] and [`Global`] handles for an active WASI(X) instance.
 ///
@@ -204,7 +205,7 @@ unsafe impl Sync for WasiInstanceHandles {}
 /// Data required to construct a [`WasiEnv`].
 #[derive(Debug)]
 pub(crate) struct WasiEnvInit {
-    pub state: WasiState,
+    pub(crate) state: WasiState,
     pub runtime: Arc<dyn WasiRuntime + Send + Sync>,
     pub module_cache: Arc<ModuleCache>,
     pub webc_dependencies: Vec<String>,
@@ -238,7 +239,7 @@ pub struct WasiEnv {
     pub stack_start: u64,
     /// Shared state of the WASI system. Manages all the data that the
     /// executing WASI program can see.
-    pub state: Arc<WasiState>,
+    pub(crate) state: Arc<WasiState>,
     /// Binary factory attached to this environment
     pub bin_factory: BinFactory,
     /// Inner functions and references that are loaded before the environment starts
@@ -641,8 +642,42 @@ impl WasiEnv {
     }
 
     /// Get the WASI state
-    pub fn state(&self) -> &WasiState {
+    pub(crate) fn state(&self) -> &WasiState {
         &self.state
+    }
+
+    /// Get the `VirtualFile` object at stdout
+    pub fn stdout(&self) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
+        self.state.stdout()
+    }
+
+    /// Get the `VirtualFile` object at stderr
+    pub fn stderr(&self) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
+        self.state.stderr()
+    }
+
+    /// Get the `VirtualFile` object at stdin
+    pub fn stdin(&self) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
+        self.state.stdin()
+    }
+
+    #[deprecated(
+        since = "3.0.0",
+        note = "stdin_mut() is no longer needed - just use stdin() instead"
+    )]
+    pub fn stdin_mut(
+        &self,
+    ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
+        self.stdin()
+    }
+
+    /// Internal helper function to get a standard device handle.
+    /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
+    fn std_dev_get(
+        &self,
+        fd: WasiFd,
+    ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
+        self.state.std_dev_get(fd)
     }
 
     pub(crate) fn get_memory_and_wasi_state<'a>(

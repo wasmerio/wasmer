@@ -25,9 +25,9 @@ use wasmer_wasi_types::{
 use super::Kind;
 use crate::{
     net::socket::{InodeSocketInner, InodeSocketKind},
-    state::{iterate_poll_events, PollEvent, PollEventSet},
+    state::{iterate_poll_events, PollEvent, PollEventSet, WasiState},
     syscalls::map_io_err,
-    WasiInodes, WasiState,
+    WasiInodes,
 };
 
 pub(crate) enum InodeValFilePollGuardMode {
