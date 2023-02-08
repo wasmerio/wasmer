@@ -19,8 +19,8 @@ use crate::{
     os::task::control_plane::{ControlPlaneError, WasiControlPlane},
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
-    Capabilities, PluggableRuntimeImplementation, VirtualTaskManager, WasiEnv, WasiFunctionEnv,
-    WasiRuntimeError, WasiRuntimeImplementation,
+    Capabilities, PluggableRuntimeImplementation, WasiEnv, WasiFunctionEnv, WasiRuntimeError,
+    WasiRuntimeImplementation,
 };
 
 use super::env::WasiEnvInit;
@@ -67,8 +67,6 @@ pub struct WasiEnvBuilder {
     /// List of host commands to map into the WASI instance.
     #[cfg(feature = "sys")]
     pub(super) map_commands: HashMap<String, PathBuf>,
-
-    pub(super) task_manager: Option<Arc<dyn VirtualTaskManager>>,
 
     pub(super) capabilites: Capabilities,
 }
@@ -516,15 +514,6 @@ impl WasiEnvBuilder {
         self
     }
 
-    pub fn task_manager(mut self, task_manager: Arc<dyn VirtualTaskManager>) -> Self {
-        self.set_task_manager(task_manager);
-        self
-    }
-
-    pub fn set_task_manager(&mut self, task_manager: Arc<dyn VirtualTaskManager>) {
-        self.task_manager = Some(task_manager);
-    }
-
     pub fn capabilities(mut self, capabilities: Capabilities) -> Self {
         self.set_capabilities(capabilities);
         self
@@ -690,10 +679,6 @@ impl WasiEnvBuilder {
 
         let bin_factory = BinFactory::new(module_cache.clone(), runtime.clone());
 
-        let task_manager = self
-            .task_manager
-            .unwrap_or_else(|| runtime.new_task_manager());
-
         let capabilities = self.capabilites;
 
         let control_plane = WasiControlPlane::default();
@@ -707,7 +692,6 @@ impl WasiEnvBuilder {
             mapped_commands: map_commands,
             control_plane,
             bin_factory,
-            task_manager,
             capabilities,
             spawn_type: None,
             process,
@@ -868,7 +852,7 @@ mod test {
         assert!(
             WasiEnvBuilder::new("test_prog")
                 .env("HOM=E", "/home/home")
-                .build()
+                .build_init()
                 .is_err(),
             "equal sign in key must be invalid"
         );
@@ -877,7 +861,7 @@ mod test {
         assert!(
             WasiEnvBuilder::new("test_prog")
                 .env("HOME\0", "/home/home")
-                .build()
+                .build_init()
                 .is_err(),
             "nul in key must be invalid"
         );
@@ -886,7 +870,7 @@ mod test {
         assert!(
             WasiEnvBuilder::new("test_prog")
                 .env("HOME", "/home/home=home")
-                .build()
+                .build_init()
                 .is_ok(),
             "equal sign in the value must be valid"
         );
@@ -895,7 +879,7 @@ mod test {
         assert!(
             WasiEnvBuilder::new("test_prog")
                 .env("HOME", "/home/home\0")
-                .build()
+                .build_init()
                 .is_err(),
             "nul in value must be invalid"
         );
@@ -903,21 +887,21 @@ mod test {
 
     #[test]
     fn nul_character_in_args() {
-        let output = WasiEnvBuilder::new("test_prog").arg("--h\0elp").build();
+        let output = WasiEnvBuilder::new("test_prog")
+            .arg("--h\0elp")
+            .build_init();
         let err = output.err().expect("should fail");
-        let cerr = err.downcast::<WasiStateCreationError>().unwrap();
         assert!(matches!(
-            cerr,
+            err,
             WasiStateCreationError::ArgumentContainsNulByte(_)
         ));
 
         let output = WasiEnvBuilder::new("test_prog")
             .args(&["--help", "--wat\0"])
-            .build();
+            .build_init();
         let err = output.err().expect("should fail");
-        let cerr = err.downcast::<WasiStateCreationError>().unwrap();
         assert!(matches!(
-            cerr,
+            err,
             WasiStateCreationError::ArgumentContainsNulByte(_)
         ));
     }

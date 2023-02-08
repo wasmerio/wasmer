@@ -79,7 +79,7 @@ pub fn spawn_exec_module(
     runtime: &Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
 ) -> Result<BusSpawnedProcess, VirtualBusError> {
     // Create a new task manager
-    let tasks = runtime.new_task_manager();
+    let tasks = runtime.task_manager();
 
     // Create the signaler
     let pid = env.pid();
@@ -117,8 +117,7 @@ pub fn spawn_exec_module(
                 // Create the WasiFunctionEnv
                 let mut wasi_env = env.clone();
                 wasi_env.runtime = runtime;
-                wasi_env.tasks = tasks;
-                let memory = match wasi_env.tasks.build_memory(spawn_type) {
+                let memory = match wasi_env.tasks().build_memory(spawn_type) {
                     Ok(m) => m,
                     Err(err) => {
                         error!("wasi[{}]::wasm could not build memory error ({})", pid, err);

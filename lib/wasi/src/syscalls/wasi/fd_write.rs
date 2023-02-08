@@ -179,7 +179,7 @@ fn fd_write_internal<M: MemorySize>(
                     let mut buf = Vec::with_capacity(buf_len);
                     wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
 
-                    let tasks = env.tasks.clone();
+                    let tasks = env.tasks().clone();
                     let written = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
                         socket.send(tasks.deref(), &buf, fd_flags).await
                     })?);

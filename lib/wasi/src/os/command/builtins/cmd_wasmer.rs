@@ -72,11 +72,11 @@ impl CmdWasmer {
 
             // Get the binary
             let tasks = parent_ctx.data().tasks();
-            if let Some(binary) = self.get_package(what.clone(), tasks) {
+            if let Some(binary) = self.get_package(what.clone(), tasks.deref()) {
                 // Now run the module
                 spawn_exec(binary, name, store, env, &self.runtime, &self.cache)
             } else {
-                parent_ctx.data().tasks.clone().block_on(async move {
+                parent_ctx.data().tasks().block_on(async move {
                     let _ = stderr_write(
                         parent_ctx,
                         format!("package not found - {}\r\n", what).as_bytes(),
@@ -86,7 +86,7 @@ impl CmdWasmer {
                 Ok(BusSpawnedProcess::exited_process(Errno::Noent as u32))
             }
         } else {
-            parent_ctx.data().tasks.clone().block_on(async move {
+            parent_ctx.data().tasks().block_on(async move {
                 let _ = stderr_write(parent_ctx, HELP_RUN.as_bytes()).await;
             });
             Ok(BusSpawnedProcess::exited_process(0))
@@ -133,7 +133,7 @@ impl VirtualCommand for CmdWasmer {
                 self.run(parent_ctx, name, store, env, what, args)
             }
             Some("--help") | None => {
-                parent_ctx.data().tasks.clone().block_on(async move {
+                parent_ctx.data().tasks().block_on(async move {
                     let _ = stderr_write(parent_ctx, HELP.as_bytes()).await;
                 });
                 Ok(BusSpawnedProcess::exited_process(0))

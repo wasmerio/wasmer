@@ -243,7 +243,7 @@ pub(crate) fn poll_oneoff_internal(
     let ret = {
         // Build the batch of things we are going to poll
         let state = ctx.data().state.clone();
-        let tasks = ctx.data().tasks.clone();
+        let tasks = ctx.data().tasks().clone();
         let mut guards = {
             // We start by building a list of files we are going to poll
             // and open a read lock on them all

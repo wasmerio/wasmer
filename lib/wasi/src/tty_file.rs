@@ -160,6 +160,10 @@ mod tests {
             self.networking.clone()
         }
 
+        fn task_manager(&self) -> &Arc<dyn crate::VirtualTaskManager> {
+            unimplemented!()
+        }
+
         #[cfg(feature = "sys")]
         fn engine(&self) -> Option<wasmer::Engine> {
             None

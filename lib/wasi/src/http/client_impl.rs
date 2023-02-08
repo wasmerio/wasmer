@@ -113,7 +113,7 @@ impl sys::WasixHttpClientV1 for WasixHttpClientImpl {
         };
         let f = self_.client.request(req);
 
-        let res = self.env.tasks.block_on(f).map_err(|e| e.to_string())?;
+        let res = self.env.tasks().block_on(f).map_err(|e| e.to_string())?;
 
         let res_headers = res
             .headers

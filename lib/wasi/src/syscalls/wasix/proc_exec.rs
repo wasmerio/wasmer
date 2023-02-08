@@ -95,7 +95,7 @@ pub fn proc_exec<M: MemorySize>(
 
         let mut process = {
             let bin_factory = Box::new(ctx.data().bin_factory.clone());
-            let tasks = wasi_env.tasks.clone();
+            let tasks = wasi_env.tasks().clone();
 
             let mut new_store = Some(new_store);
             let mut config = Some(wasi_env);
@@ -229,7 +229,7 @@ pub fn proc_exec<M: MemorySize>(
 
             // Get a reference to the runtime
             let bin_factory = ctx.data().bin_factory.clone();
-            let tasks = wasi_env.tasks.clone();
+            let tasks = wasi_env.tasks().clone();
 
             // Create the process and drop the context
             let bin_factory = Box::new(ctx.data().bin_factory.clone());

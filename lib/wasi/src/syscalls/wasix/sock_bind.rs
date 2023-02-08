@@ -27,7 +27,7 @@ pub fn sock_bind<M: MemorySize>(
     let addr = SocketAddr::new(addr.0, addr.1);
     let net = env.net();
 
-    let tasks = ctx.data().tasks.clone();
+    let tasks = ctx.data().tasks().clone();
     wasi_try!(__sock_upgrade(
         &mut ctx,
         sock,

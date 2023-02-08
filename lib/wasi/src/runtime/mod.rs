@@ -1,7 +1,6 @@
 mod stdio;
 pub mod task_manager;
 
-use self::task_manager::StubTaskManager;
 pub use self::{
     stdio::*,
     task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager},
@@ -39,17 +38,8 @@ where
     /// By default networking is not implemented.
     fn networking(&self) -> DynVirtualNetworking;
 
-    /// Create a new task management runtime
-    fn new_task_manager(&self) -> Arc<dyn VirtualTaskManager> {
-        // FIXME: move this to separate thread implementors.
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "sys-thread")] {
-                Arc::new(task_manager::tokio::TokioTaskManager::default())
-            } else {
-                Arc::new(task_manager::StubTaskManager)
-            }
-        }
-    }
+    /// Retrieve the active [`VirtualTaskManager`].
+    fn task_manager(&self) -> &Arc<dyn VirtualTaskManager>;
 
     /// Gets the TTY state
     #[cfg(not(feature = "host-termios"))]
@@ -194,7 +184,7 @@ where
 
 #[derive(Debug)]
 pub struct PluggableRuntimeImplementation {
-    pub rt: Option<Arc<dyn VirtualTaskManager>>,
+    pub rt: Arc<dyn VirtualTaskManager>,
     pub networking: DynVirtualNetworking,
     pub http_client: Option<DynHttpClient>,
     #[cfg(feature = "sys")]
@@ -214,7 +204,7 @@ impl PluggableRuntimeImplementation {
         self.engine = engine;
     }
 
-    pub fn new(rt: Option<Arc<dyn VirtualTaskManager>>) -> Self {
+    pub fn new(rt: Arc<dyn VirtualTaskManager>) -> Self {
         // TODO: the cfg flags below should instead be handled by separate implementations.
         cfg_if::cfg_if! {
             if #[cfg(feature = "host-vnet")] {
@@ -234,7 +224,7 @@ impl PluggableRuntimeImplementation {
         }
 
         Self {
-            rt,
+            rt: rt,
             networking,
             http_client,
             #[cfg(feature = "sys")]
@@ -244,12 +234,10 @@ impl PluggableRuntimeImplementation {
 }
 
 impl Default for PluggableRuntimeImplementation {
+    #[cfg(feature = "sys-thread")]
     fn default() -> Self {
-        #[cfg(feature = "sys-thread")]
-        let rt = Some(Arc::new(task_manager::tokio::TokioTaskManager::default())
-            as Arc<dyn VirtualTaskManager>);
-        #[cfg(not(feature = "sys-thread"))]
-        let rt = None;
+        let rt = Arc::new(task_manager::tokio::TokioTaskManager::default())
+            as Arc<dyn VirtualTaskManager>;
 
         Self::new(rt)
     }
@@ -269,11 +257,7 @@ impl WasiRuntimeImplementation for PluggableRuntimeImplementation {
         self.engine.clone()
     }
 
-    fn new_task_manager(&self) -> Arc<dyn VirtualTaskManager> {
-        if let Some(rt) = &self.rt {
-            rt.clone()
-        } else {
-            Arc::new(StubTaskManager)
-        }
+    fn task_manager(&self) -> &Arc<dyn VirtualTaskManager> {
+        &self.rt
     }
 }

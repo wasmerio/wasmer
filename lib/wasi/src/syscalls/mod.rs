@@ -283,7 +283,7 @@ where
         nonblocking = true;
     }
     let timeout = {
-        let tasks_inner = env.tasks.clone();
+        let tasks_inner = env.tasks().clone();
         async move {
             if let Some(timeout) = timeout {
                 if !nonblocking {
@@ -328,7 +328,7 @@ where
     }
 
     // Define the work function
-    let tasks = env.tasks.clone();
+    let tasks = env.tasks().clone();
     let mut pinned_work = Box::pin(work);
     let work = async {
         Ok(tokio::select! {
@@ -377,7 +377,7 @@ where
         async {
             if let Some(timeout) = timeout {
                 if !nonblocking {
-                    env.tasks.sleep_now(timeout).await
+                    env.tasks().sleep_now(timeout).await
                 } else {
                     InfiniteSleep::default().await
                 }
@@ -429,7 +429,7 @@ where
     if nonblocking {
         let waker = WasiDummyWaker.into_waker();
         let mut cx = Context::from_waker(&waker);
-        let _guard = env.tasks.runtime_enter();
+        let _guard = env.tasks().runtime_enter();
         let mut pinned_work = Box::pin(work);
         if let Poll::Ready(res) = pinned_work.as_mut().poll(&mut cx) {
             return res;
@@ -438,7 +438,7 @@ where
     }
 
     // Slow path, block on the work and process process
-    env.tasks.block_on(work)
+    env.tasks().block_on(work)
 }
 
 // This should be compiled away, it will simply wait forever however its never
@@ -478,7 +478,7 @@ where
         let inode_idx = fd_entry.inode;
         let inode = &inodes_guard.arena[inode_idx];
 
-        let tasks = env.tasks.clone();
+        let tasks = env.tasks().clone();
         let mut guard = inode.read();
         match guard.deref() {
             Kind::Socket { socket } => {
@@ -496,7 +496,7 @@ where
     };
 
     // Block on the work and process it
-    env.tasks.block_on(work)
+    env.tasks().block_on(work)
 }
 
 /// Performs mutable work on a socket under an asynchronous runtime with
@@ -512,7 +512,7 @@ where
     Fut: std::future::Future<Output = Result<T, Errno>>,
 {
     let env = ctx.data();
-    let tasks = env.tasks.clone();
+    let tasks = env.tasks().clone();
 
     let state = env.state.clone();
     let inodes = state.inodes.clone();
@@ -556,7 +556,7 @@ where
     F: FnOnce(crate::net::socket::InodeSocket, Fd) -> Result<T, Errno>,
 {
     let env = ctx.data();
-    let tasks = env.tasks.clone();
+    let tasks = env.tasks().clone();
 
     let state = env.state.clone();
     let inodes = state.inodes.clone();
@@ -570,7 +570,7 @@ where
     let inode_idx = fd_entry.inode;
     let inode = &inodes_guard.arena[inode_idx];
 
-    let tasks = env.tasks.clone();
+    let tasks = env.tasks().clone();
     let mut guard = inode.read();
     match guard.deref() {
         Kind::Socket { socket } => {
@@ -600,7 +600,7 @@ where
     F: FnOnce(crate::net::socket::InodeSocket, Fd) -> Result<T, Errno>,
 {
     let env = ctx.data();
-    let tasks = env.tasks.clone();
+    let tasks = env.tasks().clone();
 
     let state = env.state.clone();
     let inodes = state.inodes.clone();
@@ -657,7 +657,7 @@ where
         return Err(Errno::Access);
     }
 
-    let tasks = env.tasks.clone();
+    let tasks = env.tasks().clone();
     {
         let inode_idx = fd_entry.inode;
         let inodes_guard = inodes.read().unwrap();

@@ -29,7 +29,7 @@ pub fn sock_listen<M: MemorySize>(
     let net = env.net();
     let backlog: usize = wasi_try!(backlog.try_into().map_err(|_| Errno::Inval));
 
-    let tasks = ctx.data().tasks.clone();
+    let tasks = ctx.data().tasks().clone();
     wasi_try!(__sock_upgrade(
         &mut ctx,
         sock,

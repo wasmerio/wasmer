@@ -43,7 +43,7 @@ pub fn thread_spawn<M: MemorySize>(
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
     let runtime = env.runtime.clone();
-    let tasks = env.tasks.clone();
+    let tasks = env.tasks().clone();
 
     // Create the handle that represents this thread
     let mut thread_handle = match env.process.new_thread() {

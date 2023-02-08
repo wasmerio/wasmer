@@ -59,7 +59,7 @@ pub fn sock_send<M: MemorySize>(
                 env,
                 sock,
                 Rights::SOCK_SEND,
-                |socket, fd| async move { socket.send(env.tasks.deref(), reader, fd.flags).await },
+                |socket, fd| async move { socket.send(env.tasks().deref(), reader, fd.flags).await },
             ))
         } else {
             let mut buf = Vec::with_capacity(buf_len);
@@ -70,7 +70,7 @@ pub fn sock_send<M: MemorySize>(
                 env,
                 sock,
                 Rights::SOCK_SEND,
-                |socket, fd| async move { socket.send(env.tasks.deref(), reader, fd.flags).await },
+                |socket, fd| async move { socket.send(env.tasks().deref(), reader, fd.flags).await },
             ))
         }
     };

@@ -175,7 +175,7 @@ pub fn proc_fork<M: MemorySize>(
 
         // Now we use the environment and memory references
         let runtime = child_env.runtime.clone();
-        let tasks = child_env.tasks.clone();
+        let tasks = child_env.tasks().clone();
         let child_memory_stack = memory_stack.clone();
         let child_rewind_stack = rewind_stack.clone();
 
@@ -196,7 +196,6 @@ pub fn proc_fork<M: MemorySize>(
                 let pid = child_env.pid();
                 let tid = child_env.tid();
                 child_env.runtime = runtime.clone();
-                child_env.tasks = tasks.clone();
                 let mut ctx = WasiFunctionEnv::new(&mut store, child_env);
                 // fork_store, fork_module,
 

@@ -30,7 +30,7 @@ pub fn sock_accept<M: MemorySize>(
 
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
-    let tasks = ctx.data().tasks.clone();
+    let tasks = ctx.data().tasks().clone();
     let (child, addr, fd_flags) = wasi_try_ok!(__sock_asyncify(
         ctx.data(),
         sock,

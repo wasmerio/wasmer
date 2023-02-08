@@ -210,7 +210,6 @@ pub(crate) struct WasiEnvInit {
     pub mapped_commands: HashMap<String, PathBuf>,
     pub control_plane: WasiControlPlane,
     pub bin_factory: BinFactory,
-    pub task_manager: Arc<dyn VirtualTaskManager>,
     pub capabilities: Capabilities,
 
     // TODO: remove these again?
@@ -248,8 +247,6 @@ pub struct WasiEnv {
     pub owned_handles: Vec<WasiThreadHandle>,
     /// Implementation of the WASI runtime.
     pub runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
-    /// Task manager used to spawn threads and manage the ASYNC runtime
-    pub tasks: Arc<dyn VirtualTaskManager>,
     pub module_cache: Arc<ModuleCache>,
 
     pub capabilities: Capabilities,
@@ -286,7 +283,6 @@ impl WasiEnv {
             inner: None,
             owned_handles: Vec::new(),
             runtime: self.runtime.clone(),
-            tasks: self.tasks.clone(),
             capabilities: self.capabilities.clone(),
             module_cache: self.module_cache.clone(),
         };
@@ -318,7 +314,6 @@ impl WasiEnv {
             inner: None,
             owned_handles: Vec::new(),
             runtime: init.runtime,
-            tasks: init.task_manager,
             bin_factory: init.bin_factory,
             module_cache: init.module_cache.clone(),
             capabilities: init.capabilities,
@@ -347,7 +342,6 @@ impl WasiEnv {
             inner: None,
             owned_handles: Vec::new(),
             runtime: init.runtime,
-            tasks: init.task_manager,
             bin_factory: init.bin_factory,
             module_cache: init.module_cache.clone(),
             capabilities: init.capabilities,
@@ -364,7 +358,7 @@ impl WasiEnv {
 
         let mut store = store.as_store_mut();
 
-        let tasks = env.tasks.clone();
+        let tasks = env.runtime.task_manager().clone();
         let mut func_env = WasiFunctionEnv::new(&mut store, env);
 
         // Determine if shared memory needs to be created and imported
@@ -390,7 +384,7 @@ impl WasiEnv {
         let memory = tasks.build_memory(spawn_type)?;
 
         // Let's instantiate the module with the imports.
-        let (mut import_object, init) =
+        let (mut import_object, instance_init_callback) =
             import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
         if let Some(memory) = memory {
             import_object.define(
@@ -413,7 +407,7 @@ impl WasiEnv {
         };
 
         // Run initializers.
-        init(&instance, &store).unwrap();
+        instance_init_callback(&instance, &store).unwrap();
 
         // Initialize the WASI environment
         if let Err(err) = func_env.initialize(&mut store, instance.clone()) {
@@ -425,12 +419,14 @@ impl WasiEnv {
         }
 
         // If this module exports an _initialize function, run that first.
-        if let Ok(initialize) = instance.exports.get_function("_initialize") {
-            if let Err(err) = crate::run_wasi_func_start(initialize, &mut store) {
-                func_env
-                    .data(&store)
-                    .cleanup(Some(Errno::Noexec as ExitCode));
-                return Err(err);
+        if init.call_initialize {
+            if let Ok(initialize) = instance.exports.get_function("_initialize") {
+                if let Err(err) = crate::run_wasi_func_start(initialize, &mut store) {
+                    func_env
+                        .data(&store)
+                        .cleanup(Some(Errno::Noexec as ExitCode));
+                    return Err(err);
+                }
             }
         }
 
@@ -443,8 +439,8 @@ impl WasiEnv {
     }
 
     /// Returns a copy of the current tasks implementation for this environment
-    pub fn tasks(&self) -> &(dyn VirtualTaskManager) {
-        self.tasks.deref()
+    pub fn tasks(&self) -> &Arc<dyn VirtualTaskManager> {
+        self.runtime.task_manager()
     }
 
     pub fn fs_root(&self) -> &WasiFsRoot {
@@ -701,7 +697,7 @@ impl WasiEnv {
         while let Some(use_package) = use_packages.pop_back() {
             if let Some(package) = cmd_wasmer
                 .as_ref()
-                .and_then(|cmd| cmd.get_package(use_package.clone(), self.tasks.deref()))
+                .and_then(|cmd| cmd.get_package(use_package.clone(), self.tasks().deref()))
             {
                 // If its already been added make sure the version is correct
                 let package_name = package.package_name.to_string();
