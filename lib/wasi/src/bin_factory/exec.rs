@@ -109,110 +109,120 @@ pub fn spawn_exec_module(
         // Create a thread that will run this process
         let runtime = runtime.clone();
         let tasks_outer = tasks.clone();
-        tasks_outer
-            .task_wasm(
-                Box::new(move |mut store, module, memory| {
-                    // Create the WasiFunctionEnv
-                    let mut wasi_env = config.env().clone();
-                    wasi_env.runtime = runtime;
-                    wasi_env.tasks = tasks;
-                    let mut wasi_env = WasiFunctionEnv::new(&mut store, wasi_env);
 
-                    // Let's instantiate the module with the imports.
-                    let (mut import_object, init) =
-                        import_object_for_all_wasi_versions(&module, &mut store, &wasi_env.env);
-                    if let Some(memory) = memory {
-                        import_object.define(
-                            "env",
-                            "memory",
-                            Memory::new_from_existing(&mut store, memory),
-                        );
+        let task = {
+            let spawn_type = memory_spawn;
+            let mut store = store;
+
+            move || {
+                // Create the WasiFunctionEnv
+                let mut wasi_env = config.env().clone();
+                wasi_env.runtime = runtime;
+                wasi_env.tasks = tasks;
+                let memory = match wasi_env.tasks.build_memory(spawn_type) {
+                    Ok(m) => m,
+                    Err(err) => {
+                        error!("wasi[{}]::wasm could not build memory error ({})", pid, err);
+                        wasi_env.cleanup(Some(Errno::Noexec as ExitCode));
+                        return;
                     }
-                    let instance = match Instance::new(&mut store, &module, &import_object) {
-                        Ok(a) => a,
-                        Err(err) => {
-                            error!("wasi[{}]::wasm instantiate error ({})", pid, err);
-                            wasi_env
-                                .data(&store)
-                                .cleanup(Some(Errno::Noexec as ExitCode));
-                            return;
-                        }
-                    };
+                };
 
-                    init(&instance, &store).unwrap();
+                let mut wasi_env = WasiFunctionEnv::new(&mut store, wasi_env);
 
-                    // Initialize the WASI environment
-                    if let Err(err) = wasi_env.initialize(&mut store, instance.clone()) {
-                        error!("wasi[{}]::wasi initialize error ({})", pid, err);
+                // Let's instantiate the module with the imports.
+                let (mut import_object, init) =
+                    import_object_for_all_wasi_versions(&module, &mut store, &wasi_env.env);
+                if let Some(memory) = memory {
+                    import_object.define(
+                        "env",
+                        "memory",
+                        Memory::new_from_existing(&mut store, memory),
+                    );
+                }
+                let instance = match Instance::new(&mut store, &module, &import_object) {
+                    Ok(a) => a,
+                    Err(err) => {
+                        error!("wasi[{}]::wasm instantiate error ({})", pid, err);
                         wasi_env
                             .data(&store)
                             .cleanup(Some(Errno::Noexec as ExitCode));
                         return;
                     }
+                };
 
-                    // If this module exports an _initialize function, run that first.
-                    if let Ok(initialize) = instance.exports.get_function("_initialize") {
-                        if let Err(e) = initialize.call(&mut store, &[]) {
-                            let code = match e.downcast::<WasiError>() {
-                                Ok(WasiError::Exit(code)) => code as ExitCode,
-                                Ok(WasiError::UnknownWasiVersion) => {
-                                    debug!("wasi[{}]::exec-failed: unknown wasi version", pid);
-                                    Errno::Noexec as ExitCode
-                                }
-                                Err(err) => {
-                                    debug!("wasi[{}]::exec-failed: runtime error - {}", pid, err);
-                                    Errno::Noexec as ExitCode
-                                }
-                            };
-                            let _ = exit_code_tx.send(code);
-                            wasi_env
-                                .data(&store)
-                                .cleanup(Some(Errno::Noexec as ExitCode));
-                            return;
-                        }
+                init(&instance, &store).unwrap();
+
+                // Initialize the WASI environment
+                if let Err(err) = wasi_env.initialize(&mut store, instance.clone()) {
+                    error!("wasi[{}]::wasi initialize error ({})", pid, err);
+                    wasi_env
+                        .data(&store)
+                        .cleanup(Some(Errno::Noexec as ExitCode));
+                    return;
+                }
+
+                // If this module exports an _initialize function, run that first.
+                if let Ok(initialize) = instance.exports.get_function("_initialize") {
+                    if let Err(e) = initialize.call(&mut store, &[]) {
+                        let code = match e.downcast::<WasiError>() {
+                            Ok(WasiError::Exit(code)) => code as ExitCode,
+                            Ok(WasiError::UnknownWasiVersion) => {
+                                debug!("wasi[{}]::exec-failed: unknown wasi version", pid);
+                                Errno::Noexec as ExitCode
+                            }
+                            Err(err) => {
+                                debug!("wasi[{}]::exec-failed: runtime error - {}", pid, err);
+                                Errno::Noexec as ExitCode
+                            }
+                        };
+                        let _ = exit_code_tx.send(code);
+                        wasi_env
+                            .data(&store)
+                            .cleanup(Some(Errno::Noexec as ExitCode));
+                        return;
                     }
+                }
 
-                    // Let's call the `_start` function, which is our `main` function in Rust.
-                    let start = instance.exports.get_function("_start").ok();
+                // Let's call the `_start` function, which is our `main` function in Rust.
+                let start = instance.exports.get_function("_start").ok();
 
-                    // If there is a start function
-                    debug!("wasi[{}]::called main()", pid);
-                    let ret = if let Some(start) = start {
-                        match start.call(&mut store, &[]) {
-                            Ok(_) => 0,
-                            Err(e) => match e.downcast::<WasiError>() {
-                                Ok(WasiError::Exit(code)) => code,
-                                Ok(WasiError::UnknownWasiVersion) => {
-                                    debug!("wasi[{}]::exec-failed: unknown wasi version", pid);
-                                    Errno::Noexec as u32
-                                }
-                                Err(err) => {
-                                    debug!("wasi[{}]::exec-failed: runtime error - {}", pid, err);
-                                    9999u32
-                                }
-                            },
-                        }
-                    } else {
-                        debug!("wasi[{}]::exec-failed: missing _start function", pid);
-                        Errno::Noexec as u32
-                    };
-                    debug!("wasi[{}]::main() has exited with {}", pid, ret);
+                // If there is a start function
+                debug!("wasi[{}]::called main()", pid);
+                let ret = if let Some(start) = start {
+                    match start.call(&mut store, &[]) {
+                        Ok(_) => 0,
+                        Err(e) => match e.downcast::<WasiError>() {
+                            Ok(WasiError::Exit(code)) => code,
+                            Ok(WasiError::UnknownWasiVersion) => {
+                                debug!("wasi[{}]::exec-failed: unknown wasi version", pid);
+                                Errno::Noexec as u32
+                            }
+                            Err(err) => {
+                                debug!("wasi[{}]::exec-failed: runtime error - {}", pid, err);
+                                9999u32
+                            }
+                        },
+                    }
+                } else {
+                    debug!("wasi[{}]::exec-failed: missing _start function", pid);
+                    Errno::Noexec as u32
+                };
+                debug!("wasi[{}]::main() has exited with {}", pid, ret);
 
-                    // Cleanup the environment
-                    wasi_env.data(&store).cleanup(Some(ret));
+                // Cleanup the environment
+                wasi_env.data(&store).cleanup(Some(ret));
 
-                    // Send the result
-                    let _ = exit_code_tx.send(ret);
-                    drop(exit_code_tx);
-                }),
-                store,
-                module,
-                memory_spawn,
-            )
-            .map_err(|err| {
-                error!("wasi[{}]::failed to launch module - {}", pid, err);
-                VirtualBusError::UnknownError
-            })?
+                // Send the result
+                let _ = exit_code_tx.send(ret);
+                drop(exit_code_tx);
+            }
+        };
+
+        tasks_outer.task_wasm(Box::new(task)).map_err(|err| {
+            error!("wasi[{}]::failed to launch module - {}", pid, err);
+            VirtualBusError::UnknownError
+        })?
     };
 
     let inst = Box::new(SpawnedProcess {

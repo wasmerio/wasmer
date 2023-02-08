@@ -3,7 +3,8 @@ use std::{pin::Pin, time::Duration};
 use futures::Future;
 #[cfg(feature = "sys-thread")]
 use tokio::runtime::{Builder, Runtime};
-use wasmer::{vm::VMMemory, Module, Store};
+use wasmer::vm::VMMemory;
+use wasmer_vm::VMSharedMemory;
 
 use crate::os::task::thread::WasiThreadError;
 
@@ -41,6 +42,19 @@ impl<'g> Drop for TokioRuntimeGuard<'g> {
 
 #[async_trait::async_trait]
 impl VirtualTaskManager for TokioTaskManager {
+    fn build_memory(&self, spawn_type: SpawnType) -> Result<Option<VMMemory>, WasiThreadError> {
+        match spawn_type {
+            SpawnType::CreateWithType(mem) => VMSharedMemory::new(&mem.ty, &mem.style)
+                .map_err(|err| {
+                    tracing::error!("could not create memory: {err}");
+                    WasiThreadError::MemoryCreateFailed
+                })
+                .map(|m| Some(m.into())),
+            SpawnType::NewThread(mem) => Ok(Some(mem)),
+            SpawnType::Create => Ok(None),
+        }
+    }
+
     /// See [`VirtualTaskManager::sleep_now`].
     async fn sleep_now(&self, time: Duration) {
         if time == Duration::ZERO {
@@ -78,31 +92,10 @@ impl VirtualTaskManager for TokioTaskManager {
     }
 
     /// See [`VirtualTaskManager::enter`].
-    fn task_wasm(
-        &self,
-        task: Box<dyn FnOnce(Store, Module, Option<VMMemory>) + Send + 'static>,
-        store: Store,
-        module: Module,
-        spawn_type: SpawnType,
-    ) -> Result<(), WasiThreadError> {
-        use wasmer::vm::VMSharedMemory;
-
-        let memory: Option<VMMemory> = match spawn_type {
-            SpawnType::CreateWithType(mem) => Some(
-                VMSharedMemory::new(&mem.ty, &mem.style)
-                    .map_err(|err| {
-                        tracing::error!("failed to create memory - {}", err);
-                    })
-                    .unwrap()
-                    .into(),
-            ),
-            SpawnType::NewThread(mem) => Some(mem),
-            SpawnType::Create => None,
-        };
-
+    fn task_wasm(&self, task: Box<dyn FnOnce() + Send + 'static>) -> Result<(), WasiThreadError> {
         self.0.spawn_blocking(move || {
             // Invoke the callback
-            task(store, module, memory);
+            task();
         });
         Ok(())
     }

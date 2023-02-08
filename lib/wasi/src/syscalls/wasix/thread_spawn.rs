@@ -252,20 +252,19 @@ pub fn thread_spawn<M: MemorySize>(
                 return Errno::Notcapable;
             }
 
+            let spawn_type = crate::runtime::SpawnType::NewThread(thread_memory);
+
             // Now spawn a thread
             trace!("threading: spawning background thread");
             let thread_module = env.inner().instance.module().clone();
+            let tasks2 = tasks.clone();
             wasi_try!(tasks
-                .task_wasm(
-                    Box::new(move |store, module, thread_memory| {
-                        let mut thread_memory = thread_memory;
-                        let mut store = Some(store);
-                        execute_module(&mut store, module, &mut thread_memory);
-                    }),
-                    store,
-                    thread_module,
-                    crate::runtime::SpawnType::NewThread(thread_memory)
-                )
+                .task_wasm(Box::new(move || {
+                    // FIXME: should not use unwrap() here! (initializiation refactor)
+                    let mut thread_memory = tasks2.build_memory(spawn_type).unwrap();
+                    let mut store = Some(store);
+                    execute_module(&mut store, thread_module, &mut thread_memory);
+                }),)
                 .map_err(|err| { Into::<Errno>::into(err) }));
         }
         _ => {
