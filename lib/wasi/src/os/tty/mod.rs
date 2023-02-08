@@ -13,6 +13,9 @@ use crate::syscalls::platform_clock_time_get;
 
 const TTY_MOBILE_PAUSE: u128 = std::time::Duration::from_millis(200).as_nanos();
 
+#[cfg(feature = "host-termios")]
+pub mod tty_sys;
+
 #[derive(Debug)]
 pub enum InputEvent {
     Key,
@@ -439,3 +442,14 @@ impl Default for WasiTtyState {
         }
     }
 }
+
+/// Provides access to a TTY.
+pub trait TtyBridge {
+    /// Retrieve the current TTY state.
+    fn tty_get(&self) -> WasiTtyState;
+
+    /// Set the TTY state.
+    fn tty_set(&self, _tty_state: WasiTtyState);
+}
+
+pub type DynTtyBridge = Arc<dyn TtyBridge>;

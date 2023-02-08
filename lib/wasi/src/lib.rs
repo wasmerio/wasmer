@@ -43,7 +43,6 @@ pub mod runners;
 pub mod runtime;
 mod state;
 mod syscalls;
-mod tty_file;
 mod utils;
 pub mod vbus;
 pub mod wapm;
@@ -114,7 +113,6 @@ pub use crate::{
         WasiStateCreationError, ALL_RIGHTS,
     },
     syscalls::types,
-    tty_file::TtyFile,
     utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion},
 };
 

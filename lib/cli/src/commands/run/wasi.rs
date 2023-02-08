@@ -8,7 +8,6 @@ use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, RuntimeError, Value};
 use wasmer_vfs::FileSystem;
 use wasmer_vfs::{PassthruFileSystem, RootFileSystemBuilder, SpecialFile};
 use wasmer_wasi::types::__WASI_STDIN_FILENO;
-use wasmer_wasi::TtyFile;
 use wasmer_wasi::{
     default_fs_backing, get_wasi_versions, PluggableRuntimeImplementation, WasiEnv, WasiError,
     WasiVersion,
@@ -125,10 +124,7 @@ impl Wasi {
         let mut builder = if wasmer_wasi::is_wasix_module(module) {
             // If we preopen anything from the host then shallow copy it over
             let root_fs = RootFileSystemBuilder::new()
-                .with_tty(Box::new(TtyFile::new(
-                    runtime.clone(),
-                    Box::new(SpecialFile::new(__WASI_STDIN_FILENO)),
-                )))
+                .with_tty(Box::new(SpecialFile::new(__WASI_STDIN_FILENO)))
                 .build();
             if self.mapped_dirs.len() > 0 {
                 let fs_backing: Arc<dyn FileSystem + Send + Sync> =

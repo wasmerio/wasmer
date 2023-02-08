@@ -19,16 +19,18 @@ use tokio::sync::{mpsc, RwLock};
 use tracing::{debug, error, info, trace, warn};
 #[cfg(feature = "sys")]
 use wasmer::Engine;
-use wasmer_vfs::{FileSystem, RootFileSystemBuilder, SpecialFile, WasiPipe};
+use wasmer_vfs::{
+    AsyncWriteExt, FileSystem, RootFileSystemBuilder, SpecialFile, WasiBidirectionalPipePair,
+    WasiPipe,
+};
 use wasmer_wasi_types::{types::__WASI_STDIN_FILENO, wasi::BusErrno};
 
 use super::{cconst::ConsoleConst, common::*};
 use crate::{
     bin_factory::{spawn_exec, BinFactory, ModuleCache},
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
-    runtime::{RuntimeStderr, RuntimeStdout},
     state::Capabilities,
-    TtyFile, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
+    VirtualTaskManagerExt, WasiEnv, WasiRuntime,
 };
 
 //pub const DEFAULT_BOOT_WEBC: &'static str = "sharrattj/bash";
@@ -51,7 +53,7 @@ pub struct Console {
     env: HashMap<String, String>,
     runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
     compiled_modules: Arc<ModuleCache>,
-    stdin: Option<WasiPipe>,
+    stdio: WasiBidirectionalPipePair,
     capabilities: Capabilities,
 }
 
@@ -59,6 +61,7 @@ impl Console {
     pub fn new(
         runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
         compiled_modules: Arc<ModuleCache>,
+        stdio: WasiBidirectionalPipePair,
     ) -> Self {
         let mut uses = DEFAULT_BOOT_USES
             .iter()
@@ -82,14 +85,9 @@ impl Console {
             runtime,
             prompt: "wasmer.sh".to_string(),
             compiled_modules,
-            stdin: None,
+            stdio,
             capabilities: Default::default(),
         }
-    }
-
-    pub fn with_stdin(mut self, stdin: WasiPipe) -> Self {
-        self.stdin = Some(stdin);
-        self
     }
 
     pub fn with_prompt(mut self, prompt: String) -> Self {
@@ -159,33 +157,21 @@ impl Console {
         // Build a new store that will be passed to the thread
         let store = self.runtime.new_store();
 
-        // Create the state
-        let mut builder = WasiEnv::builder(prog);
-        if let Some(stdin) = self.stdin.take() {
-            builder.set_stdin(Box::new(stdin));
-        }
-
-        // If we preopen anything from the host then shallow copy it over
         let root_fs = RootFileSystemBuilder::new()
-            .with_tty(Box::new(TtyFile::new(
-                self.runtime.clone(),
-                Box::new(SpecialFile::new(__WASI_STDIN_FILENO)),
-            )))
+            .with_tty(Box::new(self.stdio.clone()))
             .build();
 
-        // Open the root
-        let builder = builder
+        let env_init = WasiEnv::builder(prog)
+            .stdin(Box::new(self.stdio.clone()))
             .args(args.iter())
             .envs(envs.iter())
             .sandbox_fs(root_fs)
             .preopen_dir(Path::new("/"))
             .unwrap()
             .map_dir(".", "/")
-            .unwrap();
-
-        let env_init = builder
-            .stdout(Box::new(RuntimeStdout::new(self.runtime.clone())))
-            .stderr(Box::new(RuntimeStderr::new(self.runtime.clone())))
+            .unwrap()
+            .stdout(Box::new(self.stdio.clone()))
+            .stderr(Box::new(self.stdio.clone()))
             .compiled_modules(self.compiled_modules.clone())
             .runtime(self.runtime.clone())
             .capabilities(self.capabilities.clone())
@@ -210,10 +196,11 @@ impl Console {
             binary
         } else {
             tasks.block_on(async {
-                let _ = self
-                    .runtime
-                    .stderr(format!("package not found [{}]\r\n", webc).as_bytes())
-                    .await;
+                self.stdio
+                    .clone()
+                    .write_all(format!("package not found [{}]\r\n", webc).as_bytes())
+                    .await
+                    .ok();
             });
             tracing::debug!("failed to get webc dependency - {}", webc);
             return Err(crate::vbus::VirtualBusError::NotFound);
@@ -257,6 +244,10 @@ impl Console {
             .replace("\\n", "\n");
         data.insert_str(0, ConsoleConst::TERM_NO_WRAPAROUND);
 
-        let _ = self.runtime.stdout(data.as_str().as_bytes()).await;
+        self.stdio
+            .clone()
+            .write_all(data.as_str().as_bytes())
+            .await
+            .ok();
     }
 }

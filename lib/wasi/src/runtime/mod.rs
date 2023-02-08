@@ -1,28 +1,12 @@
-mod stdio;
 pub mod task_manager;
 
-pub use self::{
-    stdio::*,
-    task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager},
-};
+pub use self::task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager};
 
-use std::{
-    fmt,
-    future::Future,
-    io::{self, Write},
-    pin::Pin,
-    sync::Arc,
-};
+use std::{fmt, sync::Arc};
 
 use wasmer_vnet::{DynVirtualNetworking, VirtualNetworking};
 
-use crate::os::tty::WasiTtyState;
-
-#[cfg(feature = "termios")]
-pub mod term;
-use crate::http::DynHttpClient;
-#[cfg(feature = "termios")]
-pub use term::*;
+use crate::{http::DynHttpClient, os::DynTtyBridge};
 
 #[cfg(feature = "sys")]
 pub type ArcTunables = std::sync::Arc<dyn wasmer::Tunables + Send + Sync>;
@@ -67,118 +51,9 @@ where
         None
     }
 
-    // TODO: remove from this trait
-    /// Gets the TTY state
-    #[cfg(not(feature = "host-termios"))]
-    fn tty_get(&self) -> WasiTtyState {
-        Default::default()
-    }
-
-    // TODO: remove from this trait
-    /// Sets the TTY state
-    #[cfg(not(feature = "host-termios"))]
-    fn tty_set(&self, _tty_state: WasiTtyState) {}
-
-    // TODO: remove from this trait
-    #[cfg(feature = "host-termios")]
-    fn tty_get(&self) -> WasiTtyState {
-        let mut echo = false;
-        let mut line_buffered = false;
-        let mut line_feeds = false;
-
-        if let Ok(termios) = termios::Termios::from_fd(0) {
-            echo = (termios.c_lflag & termios::ECHO) != 0;
-            line_buffered = (termios.c_lflag & termios::ICANON) != 0;
-            line_feeds = (termios.c_lflag & termios::ONLCR) != 0;
-        }
-
-        if let Some((w, h)) = term_size::dimensions() {
-            WasiTtyState {
-                cols: w as u32,
-                rows: h as u32,
-                width: 800,
-                height: 600,
-                stdin_tty: true,
-                stdout_tty: true,
-                stderr_tty: true,
-                echo,
-                line_buffered,
-                line_feeds,
-            }
-        } else {
-            WasiTtyState {
-                rows: 80,
-                cols: 25,
-                width: 800,
-                height: 600,
-                stdin_tty: true,
-                stdout_tty: true,
-                stderr_tty: true,
-                echo,
-                line_buffered,
-                line_feeds,
-            }
-        }
-    }
-
-    // TODO: remove from this trait
-    /// Sets the TTY state
-    #[cfg(feature = "host-termios")]
-    fn tty_set(&self, tty_state: WasiTtyState) {
-        if tty_state.echo {
-            set_mode_echo();
-        } else {
-            set_mode_no_echo();
-        }
-        if tty_state.line_buffered {
-            set_mode_line_buffered();
-        } else {
-            set_mode_no_line_buffered();
-        }
-        if tty_state.line_feeds {
-            set_mode_line_feeds();
-        } else {
-            set_mode_no_line_feeds();
-        }
-    }
-
-    // TODO: remove from this trait
-    /// Writes output to the console
-    fn stdout(&self, data: &[u8]) -> Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync>> {
-        let data = data.to_vec();
-        Box::pin(async move {
-            let mut handle = io::stdout();
-            handle.write_all(&data[..])
-        })
-    }
-
-    // TODO: remove from this trait
-    /// Writes output to the console
-    fn stderr(&self, data: &[u8]) -> Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync>> {
-        let data = data.to_vec();
-        Box::pin(async move {
-            let mut handle = io::stderr();
-            handle.write_all(&data[..])
-        })
-    }
-
-    // TODO: remove from this trait
-    /// Flushes the output to the console
-    fn flush(&self) -> Pin<Box<dyn Future<Output = io::Result<()>>>> {
-        Box::pin(async move {
-            io::stdout().flush()?;
-            io::stderr().flush()?;
-            Ok(())
-        })
-    }
-
-    // TODO: remove from this trait
-    /// Clears the terminal
-    fn cls(&self) -> Pin<Box<dyn Future<Output = io::Result<()>>>> {
-        Box::pin(async move {
-            let mut handle = io::stdout();
-            handle.write_all("\x1B[H\x1B[2J".as_bytes())
-        })
+    /// Get access to the TTY used by the environment.
+    fn tty(&self) -> Option<&DynTtyBridge> {
+        None
     }
 }
 
