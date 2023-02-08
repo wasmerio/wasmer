@@ -17,7 +17,7 @@ use wasmer_wasi_types::wasi::{Errno, ExitCode};
 use super::{BinFactory, BinaryPackage, ModuleCache};
 use crate::{
     import_object_for_all_wasi_versions, runtime::SpawnType, SpawnedMemory, WasiEnv, WasiError,
-    WasiFunctionEnv, WasiRuntimeImplementation,
+    WasiFunctionEnv, WasiRuntime,
 };
 
 pub fn spawn_exec(
@@ -25,7 +25,7 @@ pub fn spawn_exec(
     name: &str,
     store: Store,
     env: WasiEnv,
-    runtime: &Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
+    runtime: &Arc<dyn WasiRuntime + Send + Sync + 'static>,
     compiled_modules: &ModuleCache,
 ) -> Result<BusSpawnedProcess, VirtualBusError> {
     // Load the module
@@ -76,7 +76,7 @@ pub fn spawn_exec_module(
     module: Module,
     store: Store,
     env: WasiEnv,
-    runtime: &Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
+    runtime: &Arc<dyn WasiRuntime + Send + Sync + 'static>,
 ) -> Result<BusSpawnedProcess, VirtualBusError> {
     // Create a new task manager
     let tasks = runtime.task_manager();

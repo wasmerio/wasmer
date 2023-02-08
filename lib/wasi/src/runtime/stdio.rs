@@ -12,7 +12,7 @@ use wasmer_vfs::{AsyncRead, AsyncSeek, AsyncWrite};
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct RuntimeStdout {
-    runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>,
+    runtime: Arc<dyn crate::WasiRuntime + Send + Sync + 'static>,
     #[derivative(Debug = "ignore")]
     writing: Option<StdioState>,
 }
@@ -24,7 +24,7 @@ struct StdioState {
 }
 
 impl RuntimeStdout {
-    pub fn new(runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>) -> Self {
+    pub fn new(runtime: Arc<dyn crate::WasiRuntime + Send + Sync + 'static>) -> Self {
         Self {
             runtime,
             writing: None,
@@ -141,13 +141,13 @@ impl wasmer_vfs::VirtualFile for RuntimeStdout {
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct RuntimeStderr {
-    runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>,
+    runtime: Arc<dyn crate::WasiRuntime + Send + Sync + 'static>,
     #[derivative(Debug = "ignore")]
     writing: Option<StdioState>,
 }
 
 impl RuntimeStderr {
-    pub fn new(runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>) -> Self {
+    pub fn new(runtime: Arc<dyn crate::WasiRuntime + Send + Sync + 'static>) -> Self {
         Self {
             runtime,
             writing: None,

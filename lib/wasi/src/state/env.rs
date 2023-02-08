@@ -33,7 +33,7 @@ use crate::{
         },
     },
     syscalls::platform_clock_time_get,
-    VirtualTaskManager, WasiError, WasiRuntimeImplementation, WasiState, WasiStateCreationError,
+    VirtualTaskManager, WasiError, WasiRuntime, WasiState, WasiStateCreationError,
     WasiVFork, DEFAULT_STACK_SIZE,
 };
 
@@ -204,7 +204,7 @@ unsafe impl Sync for WasiInstanceHandles {}
 #[derive(Debug)]
 pub(crate) struct WasiEnvInit {
     pub state: WasiState,
-    pub runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync>,
+    pub runtime: Arc<dyn WasiRuntime + Send + Sync>,
     pub module_cache: Arc<ModuleCache>,
     pub webc_dependencies: Vec<String>,
     pub mapped_commands: HashMap<String, PathBuf>,
@@ -246,7 +246,7 @@ pub struct WasiEnv {
     /// (this can be used to ensure that threads own themselves or others)
     pub owned_handles: Vec<WasiThreadHandle>,
     /// Implementation of the WASI runtime.
-    pub runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
+    pub runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
     pub module_cache: Arc<ModuleCache>,
 
     pub capabilities: Capabilities,
@@ -434,7 +434,7 @@ impl WasiEnv {
     }
 
     /// Returns a copy of the current runtime implementation for this environment
-    pub fn runtime(&self) -> &(dyn WasiRuntimeImplementation) {
+    pub fn runtime(&self) -> &(dyn WasiRuntime) {
         self.runtime.deref()
     }
 
@@ -450,7 +450,7 @@ impl WasiEnv {
     /// Overrides the runtime implementation for this environment
     pub fn set_runtime<R>(&mut self, runtime: R)
     where
-        R: WasiRuntimeImplementation + Send + Sync + 'static,
+        R: WasiRuntime + Send + Sync + 'static,
     {
         self.runtime = Arc::new(runtime);
     }

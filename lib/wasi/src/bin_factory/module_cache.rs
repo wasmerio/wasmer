@@ -5,7 +5,7 @@ use wasmer::{AsEngineRef, Module};
 use wasmer_wasi_types::wasi::Snapshot0Clockid;
 
 use super::BinaryPackage;
-use crate::{syscalls::platform_clock_time_get, VirtualTaskManager, WasiRuntimeImplementation};
+use crate::{syscalls::platform_clock_time_get, VirtualTaskManager, WasiRuntime};
 
 pub const DEFAULT_COMPILED_PATH: &str = "~/.wasmer/compiled";
 pub const DEFAULT_WEBC_PATH: &str = "~/.wasmer/webc";
@@ -87,7 +87,7 @@ impl ModuleCache {
     pub fn get_webc(
         &self,
         webc: &str,
-        runtime: &dyn WasiRuntimeImplementation,
+        runtime: &dyn WasiRuntime,
         tasks: &dyn VirtualTaskManager,
     ) -> Option<BinaryPackage> {
         let name = webc.to_string();

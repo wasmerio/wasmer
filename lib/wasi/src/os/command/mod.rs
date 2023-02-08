@@ -6,7 +6,7 @@ use crate::vbus::{BusSpawnedProcess, VirtualBusError};
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_wasi_types::wasi::Errno;
 
-use crate::{bin_factory::ModuleCache, syscalls::stderr_write, WasiEnv, WasiRuntimeImplementation};
+use crate::{bin_factory::ModuleCache, syscalls::stderr_write, WasiEnv, WasiRuntime};
 
 /// A command available to an OS environment.
 pub trait VirtualCommand
@@ -43,7 +43,7 @@ impl Commands {
 
     // TODO: this method should be somewhere on the runtime, not here.
     pub fn new_with_builtins(
-        runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
+        runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
         compiled_modules: Arc<ModuleCache>,
     ) -> Self {
         let mut cmd = Self::new();

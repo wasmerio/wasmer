@@ -28,7 +28,7 @@ use crate::{
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
     runtime::{RuntimeStderr, RuntimeStdout},
     state::Capabilities,
-    TtyFile, VirtualTaskManagerExt, WasiEnv, WasiRuntimeImplementation, WasiState,
+    TtyFile, VirtualTaskManagerExt, WasiEnv, WasiRuntime, WasiState,
 };
 
 //pub const DEFAULT_BOOT_WEBC: &'static str = "sharrattj/bash";
@@ -49,7 +49,7 @@ pub struct Console {
     no_welcome: bool,
     prompt: String,
     env: HashMap<String, String>,
-    runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
+    runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
     compiled_modules: Arc<ModuleCache>,
     stdin: Option<WasiPipe>,
     capabilities: Capabilities,
@@ -57,7 +57,7 @@ pub struct Console {
 
 impl Console {
     pub fn new(
-        runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
+        runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
         compiled_modules: Arc<ModuleCache>,
     ) -> Self {
         let mut uses = DEFAULT_BOOT_USES

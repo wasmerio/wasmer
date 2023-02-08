@@ -18,12 +18,12 @@ pub use self::{
     exec::{spawn_exec, spawn_exec_module},
     module_cache::ModuleCache,
 };
-use crate::{os::command::Commands, WasiRuntimeImplementation};
+use crate::{os::command::Commands, WasiRuntime};
 
 #[derive(Debug, Clone)]
 pub struct BinFactory {
     pub(crate) commands: Commands,
-    runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
+    runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
     pub(crate) cache: Arc<ModuleCache>,
     pub(crate) local: Arc<RwLock<HashMap<String, Option<BinaryPackage>>>>,
 }
@@ -31,7 +31,7 @@ pub struct BinFactory {
 impl BinFactory {
     pub fn new(
         compiled_modules: Arc<ModuleCache>,
-        runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
+        runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
     ) -> BinFactory {
         BinFactory {
             commands: Commands::new_with_builtins(runtime.clone(), compiled_modules.clone()),
@@ -41,7 +41,7 @@ impl BinFactory {
         }
     }
 
-    pub fn runtime(&self) -> &dyn WasiRuntimeImplementation {
+    pub fn runtime(&self) -> &dyn WasiRuntime {
         self.runtime.deref()
     }
 

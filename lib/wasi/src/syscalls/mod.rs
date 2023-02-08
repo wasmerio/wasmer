@@ -110,7 +110,7 @@ pub(crate) use crate::{
     },
     utils::{self, map_io_err},
     VirtualTaskManager, WasiEnv, WasiError, WasiFunctionEnv, WasiInstanceHandles,
-    WasiRuntimeImplementation, WasiVFork, DEFAULT_STACK_SIZE,
+    WasiRuntime, WasiVFork, DEFAULT_STACK_SIZE,
 };
 use crate::{
     fs::{

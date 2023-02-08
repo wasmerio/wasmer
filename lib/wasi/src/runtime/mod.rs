@@ -30,7 +30,7 @@ pub type ArcTunables = std::sync::Arc<dyn wasmer::Tunables + Send + Sync>;
 /// Represents an implementation of the WASI runtime - by default everything is
 /// unimplemented.
 #[allow(unused_variables)]
-pub trait WasiRuntimeImplementation
+pub trait WasiRuntime
 where
     Self: fmt::Debug + Sync,
 {
@@ -243,7 +243,7 @@ impl Default for PluggableRuntimeImplementation {
     }
 }
 
-impl WasiRuntimeImplementation for PluggableRuntimeImplementation {
+impl WasiRuntime for PluggableRuntimeImplementation {
     fn networking(&self) -> DynVirtualNetworking {
         self.networking.clone()
     }

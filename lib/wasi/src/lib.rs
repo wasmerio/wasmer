@@ -101,7 +101,7 @@ pub use crate::{
     },
     runtime::{
         task_manager::{VirtualTaskManager, VirtualTaskManagerExt},
-        PluggableRuntimeImplementation, SpawnedMemory, WasiRuntimeImplementation,
+        PluggableRuntimeImplementation, SpawnedMemory, WasiRuntime,
     },
     wapm::parse_static_webc,
 };

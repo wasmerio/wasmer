@@ -11,7 +11,7 @@ use wasmer_vfs::{AsyncRead, AsyncSeek, AsyncWrite, VirtualFile};
 use crate::runtime::RuntimeStdout;
 
 /// Special file for `/dev/tty` that can print to stdout
-/// (hence the requirement for a `WasiRuntimeImplementation`)
+/// (hence the requirement for a `WasiRuntime`)
 #[derive(Debug)]
 pub struct TtyFile {
     stdout: RuntimeStdout,
@@ -20,7 +20,7 @@ pub struct TtyFile {
 
 impl TtyFile {
     pub fn new(
-        runtime: Arc<dyn crate::WasiRuntimeImplementation + Send + Sync + 'static>,
+        runtime: Arc<dyn crate::WasiRuntime + Send + Sync + 'static>,
         stdin: Box<dyn VirtualFile + Send + Sync + 'static>,
     ) -> Self {
         let stdout = RuntimeStdout::new(runtime);
@@ -123,7 +123,7 @@ mod tests {
     use wasmer_vfs::{AsyncWriteExt, WasiBidirectionalPipePair};
     use wasmer_vnet::DynVirtualNetworking;
 
-    use crate::WasiRuntimeImplementation;
+    use crate::WasiRuntime;
 
     struct FakeRuntimeImplementation {
         pub data: Arc<Mutex<Vec<u8>>>,
@@ -155,7 +155,7 @@ mod tests {
         }
     }
 
-    impl WasiRuntimeImplementation for FakeRuntimeImplementation {
+    impl WasiRuntime for FakeRuntimeImplementation {
         fn networking<'a>(&'a self) -> DynVirtualNetworking {
             self.networking.clone()
         }
