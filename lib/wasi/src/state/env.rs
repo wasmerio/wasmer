@@ -299,6 +299,10 @@ impl WasiEnv {
 }
 
 impl WasiEnv {
+    pub fn builder(program_name: impl Into<String>) -> WasiEnvBuilder {
+        WasiEnvBuilder::new(program_name)
+    }
+
     #[deprecated(note = "Use `WasiEnv::instantiate` instead")]
     pub(crate) fn from_init(init: WasiEnvInit) -> Result<Self, anyhow::Error> {
         let process = init.process;
