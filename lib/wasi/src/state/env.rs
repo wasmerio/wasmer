@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     bin_factory::ModuleCache, fs::WasiFsRoot, import_object_for_all_wasi_versions,
-    runtime::SpawnType, SpawnedMemory, WasiControlPlane, WasiFunctionEnv,
+    runtime::SpawnType, SpawnedMemory, WasiControlPlane, WasiFunctionEnv, WasiRuntimeError,
 };
 use derivative::Derivative;
 use tracing::{trace, warn};
@@ -333,7 +333,7 @@ impl WasiEnv {
         init: WasiEnvInit,
         module: Module,
         store: &mut impl AsStoreMut,
-    ) -> Result<(Instance, WasiFunctionEnv), anyhow::Error> {
+    ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
         let process = init.process;
         let thread = process.new_thread()?;
 
@@ -426,22 +426,11 @@ impl WasiEnv {
 
         // If this module exports an _initialize function, run that first.
         if let Ok(initialize) = instance.exports.get_function("_initialize") {
-            if let Err(err) = initialize.call(&mut store, &[]) {
-                let code = match err.downcast_ref::<WasiError>() {
-                    Some(WasiError::Exit(code)) => (*code) as ExitCode,
-                    Some(WasiError::UnknownWasiVersion) => {
-                        tracing::debug!("wasi[{}]::exec-failed: unknown wasi version", pid);
-                        Errno::Noexec as ExitCode
-                    }
-                    None => {
-                        tracing::debug!("wasi[{}]::exec-failed: runtime error - {}", pid, err);
-                        Errno::Noexec as ExitCode
-                    }
-                };
+            if let Err(err) = crate::run_wasi_func_start(initialize, &mut store) {
                 func_env
                     .data(&store)
                     .cleanup(Some(Errno::Noexec as ExitCode));
-                return Err(err.into());
+                return Err(err);
             }
         }
 

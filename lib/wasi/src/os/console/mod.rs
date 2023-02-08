@@ -191,7 +191,7 @@ impl Console {
             .capabilities(self.capabilities.clone())
             .build_init()
             // TODO: propagate better error
-            .map_err(|e| VirtualBusError::InternalError)?;
+            .map_err(|_e| VirtualBusError::InternalError)?;
 
         // TODO: no unwrap!
         let env = WasiEnv::from_init(env_init).unwrap();

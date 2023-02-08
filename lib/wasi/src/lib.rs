@@ -59,6 +59,7 @@ use std::{
 
 #[allow(unused_imports)]
 use bytes::{Bytes, BytesMut};
+use os::task::control_plane::ControlPlaneError;
 use thiserror::Error;
 use tracing::error;
 // re-exports needed for OS
@@ -67,7 +68,7 @@ pub use wasmer_wasi_types;
 
 use wasmer::{
     imports, namespace, AsStoreMut, Exports, FunctionEnv, Imports, Memory32, MemoryAccessError,
-    MemorySize,
+    MemorySize, RuntimeError,
 };
 
 pub use crate::vbus::BusSpawnedProcessJoin;
@@ -156,6 +157,54 @@ impl From<WasiCallingId> for u32 {
 /// The default stack size for WASIX
 pub const DEFAULT_STACK_SIZE: u64 = 1_048_576u64;
 pub const DEFAULT_STACK_BASE: u64 = DEFAULT_STACK_SIZE;
+
+#[derive(thiserror::Error, Debug)]
+pub enum WasiRuntimeError {
+    #[error("WASI state setup failed")]
+    Init(#[from] WasiStateCreationError),
+    #[error("Loading exports failed")]
+    Export(#[from] wasmer::ExportError),
+    #[error("Instantiation failed")]
+    Instantiation(#[from] wasmer::InstantiationError),
+    #[error("WASI error")]
+    Wasi(#[from] WasiError),
+    #[error("Process manager error")]
+    ControlPlane(#[from] ControlPlaneError),
+    #[error("Runtime error")]
+    Runtime(#[from] RuntimeError),
+    #[error("Memory access error")]
+    Thread(#[from] WasiThreadError),
+}
+
+pub(crate) fn run_wasi_func(
+    func: &wasmer::Function,
+    store: &mut impl AsStoreMut,
+    params: &[wasmer::Value],
+) -> Result<Box<[wasmer::Value]>, WasiRuntimeError> {
+    func.call(store, params).map_err(|err| {
+        if let Some(werr) = err.downcast_ref::<WasiError>() {
+            std::mem::drop(werr);
+            let werr = err.downcast::<WasiError>().unwrap();
+            WasiRuntimeError::Wasi(werr)
+        } else {
+            WasiRuntimeError::Runtime(err)
+        }
+    })
+}
+
+/// Run a main function.
+///
+/// This is usually called "_start" in WASI modules.
+/// The function will not receive arguments or return values.
+///
+/// An exit code that is not 0 will be returned as a `WasiError::Exit`.
+pub(crate) fn run_wasi_func_start(
+    func: &wasmer::Function,
+    store: &mut impl AsStoreMut,
+) -> Result<(), WasiRuntimeError> {
+    run_wasi_func(func, store, &[])?;
+    Ok(())
+}
 
 #[derive(Debug, Clone)]
 pub struct WasiVFork {

@@ -188,6 +188,7 @@ pub fn spawn_exec_module(
 
                 // If there is a start function
                 debug!("wasi[{}]::called main()", pid);
+                // TODO: rewrite to use crate::run_wasi_func
                 let ret = if let Some(start) = start {
                     match start.call(&mut store, &[]) {
                         Ok(_) => 0,

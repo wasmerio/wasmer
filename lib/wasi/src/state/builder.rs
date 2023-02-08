@@ -20,7 +20,7 @@ use crate::{
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     Capabilities, PluggableRuntimeImplementation, VirtualTaskManager, WasiEnv, WasiFunctionEnv,
-    WasiRuntimeImplementation,
+    WasiRuntimeError, WasiRuntimeImplementation,
 };
 
 use super::env::WasiEnvInit;
@@ -727,9 +727,28 @@ impl WasiEnvBuilder {
         self,
         module: Module,
         store: &mut impl AsStoreMut,
-    ) -> Result<(Instance, WasiFunctionEnv), anyhow::Error> {
+    ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
         let init = self.build_init()?;
         WasiEnv::instantiate(init, module, store)
+    }
+
+    pub fn run(self, module: Module) -> Result<(), WasiRuntimeError> {
+        let mut store = wasmer::Store::default();
+        self.run_with_store(module, &mut store)
+    }
+
+    pub fn run_with_store(
+        self,
+        module: Module,
+        store: &mut impl AsStoreMut,
+    ) -> Result<(), WasiRuntimeError> {
+        let (instance, _env) = self.instantiate(module, store)?;
+
+        let start = instance.exports.get_function("_start")?;
+
+        crate::run_wasi_func_start(start, store)?;
+
+        Ok(())
     }
 }
 
