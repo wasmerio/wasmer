@@ -8,7 +8,7 @@ use tracing::{debug, info, metadata::LevelFilter};
 use tracing_subscriber::fmt::SubscriberBuilder;
 use wasmer::{Module, Store};
 use wasmer_vfs::{AsyncReadExt, AsyncWriteExt};
-use wasmer_wasi::{Pipe, WasiError, WasiState};
+use wasmer_wasi::{Pipe, WasiEnv};
 
 #[cfg(feature = "sys")]
 mod sys {
@@ -100,7 +100,7 @@ async fn run_test(mut store: Store, module: Module) {
     stdin.write_all("hi there".as_bytes()).await.unwrap();
     drop(stdin);
 
-    WasiState::builder("catsay")
+    WasiEnv::builder("catsay")
         .stdin(Box::new(stdin2.clone()))
         .stdout(Box::new(stdout2.clone()))
         .stderr(Box::new(stdout2.clone()))

@@ -1,6 +1,6 @@
 use wasmer::{Module, Store};
 use wasmer_vfs::{AsyncReadExt, AsyncWriteExt};
-use wasmer_wasi::{WasiBidirectionalSharedPipePair, WasiEnv, WasiState};
+use wasmer_wasi::{WasiBidirectionalSharedPipePair, WasiEnv};
 
 mod sys {
     #[tokio::test]
@@ -76,7 +76,7 @@ async fn test_stdout() {
 
     // FIXME: evaluate if needed (method not available on ArcFile)
     // pipe.set_blocking(false);
-    WasiState::builder("command-name")
+    WasiEnv::builder("command-name")
         .args(&["Gordon"])
         .stdout(Box::new(pipe.clone()))
         .run_with_store(module, &mut store)
@@ -103,7 +103,7 @@ async fn test_env() {
     let mut pipe = WasiBidirectionalSharedPipePair::default();
     // FIXME: evaluate if needed (method not available)
     // .with_blocking(false);
-    WasiState::builder("command-name")
+    WasiEnv::builder("command-name")
         .args(&["Gordon"])
         .env("DOG", "X")
         .env("TEST", "VALUE")

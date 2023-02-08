@@ -2,7 +2,7 @@
 use tracing_subscriber::fmt::SubscriberBuilder;
 use wasmer::{Features, Module, Store};
 use wasmer_vfs::AsyncReadExt;
-use wasmer_wasi::{Pipe, WasiEnv, WasiEnvBuilder, WasiError, WasiState};
+use wasmer_wasi::{Pipe, WasiEnv};
 
 #[cfg(feature = "sys")]
 mod sys {

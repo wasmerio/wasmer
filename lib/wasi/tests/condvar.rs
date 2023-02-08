@@ -8,7 +8,7 @@ use tracing::{debug, info, metadata::LevelFilter};
 use tracing_subscriber::fmt::SubscriberBuilder;
 use wasmer::{Features, Module, Store};
 use wasmer_vfs::AsyncReadExt;
-use wasmer_wasi::{Pipe, WasiState};
+use wasmer_wasi::{Pipe, WasiEnv};
 
 #[cfg(feature = "sys")]
 mod sys {
@@ -83,7 +83,7 @@ async fn run_test(mut store: Store, module: Module) {
         }
     });
 
-    WasiState::builder("multi-threading")
+    WasiEnv::builder("multi-threading")
         .stdout(Box::new(stdout.clone()))
         .stderr(Box::new(stdout.clone()))
         .run_with_store(module, &mut store)
