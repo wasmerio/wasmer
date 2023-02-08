@@ -1,6 +1,7 @@
 use super::*;
 use crate::syscalls::*;
 
+// FIXME: remove , since it's no longer used.
 /// Closes a bus process and releases all associated resources
 ///
 /// ## Parameters

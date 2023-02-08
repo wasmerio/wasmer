@@ -1,6 +1,7 @@
 use super::*;
 use crate::syscalls::*;
 
+// FIXME: remove , since it's no longer used.
 /// ### `callback_reactor()`
 /// Sets the callback to invoke for reactors
 ///

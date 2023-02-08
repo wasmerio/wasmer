@@ -1,6 +1,7 @@
 use super::*;
 use crate::syscalls::*;
 
+// FIXME: remove , since it's no longer used.
 /// Replies to a call that was made to this process
 /// from another process; where 'cid' is the call context.
 /// This will may also drop the handle and release any

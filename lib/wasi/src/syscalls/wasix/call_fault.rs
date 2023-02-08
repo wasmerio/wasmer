@@ -1,6 +1,7 @@
 use super::*;
 use crate::syscalls::*;
 
+// FIXME: remove , since it's no longer used.
 /// Causes a fault on a particular call that was made
 /// to this process from another process; where 'bid'
 /// is the callering process context.

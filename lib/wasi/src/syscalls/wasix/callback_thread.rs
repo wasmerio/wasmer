@@ -1,6 +1,7 @@
 use super::*;
 use crate::syscalls::*;
 
+// FIXME: remove , since it's no longer used.
 /// ### `callback_spawn()`
 /// Sets the callback to invoke upon spawning of new threads
 ///
