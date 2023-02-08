@@ -66,54 +66,7 @@ impl WasiFunctionEnv {
         // First we get the malloc function which if it exists will be used to
         // create the pthread_self structure
         let memory = instance.exports.get_memory("memory")?.clone();
-        let new_inner = WasiInstanceHandles {
-            memory,
-            stack_pointer: instance
-                .exports
-                .get_global("__stack_pointer")
-                .map(|a| a.clone())
-                .ok(),
-            start: instance.exports.get_typed_function(store, "_start").ok(),
-            initialize: instance
-                .exports
-                .get_typed_function(store, "_initialize")
-                .ok(),
-            thread_spawn: instance
-                .exports
-                .get_typed_function(store, "_start_thread")
-                .ok(),
-            react: instance.exports.get_typed_function(store, "_react").ok(),
-            signal: instance
-                .exports
-                .get_typed_function(&store, "__wasm_signal")
-                .ok(),
-            signal_set: false,
-            asyncify_start_unwind: instance
-                .exports
-                .get_typed_function(store, "asyncify_start_unwind")
-                .ok(),
-            asyncify_stop_unwind: instance
-                .exports
-                .get_typed_function(store, "asyncify_stop_unwind")
-                .ok(),
-            asyncify_start_rewind: instance
-                .exports
-                .get_typed_function(store, "asyncify_start_rewind")
-                .ok(),
-            asyncify_stop_rewind: instance
-                .exports
-                .get_typed_function(store, "asyncify_stop_rewind")
-                .ok(),
-            asyncify_get_state: instance
-                .exports
-                .get_typed_function(store, "asyncify_get_state")
-                .ok(),
-            thread_local_destroy: instance
-                .exports
-                .get_typed_function(store, "_thread_local_destroy")
-                .ok(),
-            instance,
-        };
+        let new_inner = WasiInstanceHandles::new(memory, store, instance);
 
         let env = self.data_mut(store);
         env.inner.replace(new_inner);
