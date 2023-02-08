@@ -266,13 +266,28 @@ pub struct WasiFs {
     pub next_fd: AtomicU32,
     inode_counter: AtomicU64,
     pub current_dir: Mutex<String>,
-    pub is_wasix: AtomicBool,
     #[cfg_attr(feature = "enable-serde", serde(skip, default))]
     pub root_fs: WasiFsRoot,
     pub has_unioned: Arc<Mutex<HashSet<String>>>,
+
+    // TODO: remove
+    // using an atomic is a hack to enable customization after construction,
+    // but it shouldn't be necessary
+    // It should not be necessary at all.
+    is_wasix: AtomicBool,
 }
 
 impl WasiFs {
+    pub fn is_wasix(&self) -> bool {
+        // NOTE: this will only be set once very early in the instance lifetime,
+        // so Relaxed should be okay.
+        self.is_wasix.load(Ordering::Relaxed)
+    }
+
+    pub fn set_is_wasix(&self, is_wasix: bool) {
+        self.is_wasix.store(is_wasix, Ordering::SeqCst);
+    }
+
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self, inc_refs: bool) -> Self {
         let fd_map = self.fd_map.read().unwrap().clone();
@@ -1207,7 +1222,7 @@ impl WasiFs {
         path: &str,
         follow_symlinks: bool,
     ) -> Result<Inode, Errno> {
-        let start_inode = if !path.starts_with('/') && self.is_wasix.load(Ordering::Acquire) {
+        let start_inode = if !path.starts_with('/') && self.is_wasix() {
             let (cur_inode, _) = self.get_current_dir(inodes, base)?;
             cur_inode
         } else {

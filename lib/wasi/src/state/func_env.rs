@@ -71,10 +71,7 @@ impl WasiFunctionEnv {
         let env = self.data_mut(store);
         env.inner.replace(new_inner);
 
-        env.state
-            .fs
-            .is_wasix
-            .store(is_wasix_module, std::sync::atomic::Ordering::Release);
+        env.state.fs.set_is_wasix(is_wasix_module);
 
         // Set the base stack
         let stack_base = if let Some(stack_pointer) = env.inner().stack_pointer.clone() {
