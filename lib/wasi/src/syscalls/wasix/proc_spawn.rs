@@ -223,11 +223,10 @@ pub fn proc_spawn_internal(
 
     // Create the new process
     let bin_factory = Box::new(ctx.data().bin_factory.clone());
-    let bus = env.runtime.bus();
     let child_pid = child_env.pid();
 
     let mut new_store = Some(new_store);
-    let mut builder = Some(bus.spawn(child_env));
+    let mut builder = Some(child_env);
 
     // First we try the built in commands
     let mut process =
@@ -244,10 +243,7 @@ pub fn proc_spawn_internal(
                 }
                 // Now we actually spawn the process
                 let child_work =
-                    builder
-                        .take()
-                        .unwrap()
-                        .spawn(name, new_store.take().unwrap(), bin_factory);
+                    bin_factory.spawn(name, new_store.take().unwrap(), builder.take().unwrap());
 
                 match __asyncify(&mut ctx, None, async move {
                     Ok(child_work.await.map_err(vbus_error_into_bus_errno))

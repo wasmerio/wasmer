@@ -119,16 +119,14 @@ mod tests {
         sync::{Arc, Mutex},
     };
 
-    use crate::vbus::{DefaultVirtualBus, VirtualBus};
     use futures::Future;
     use wasmer_vfs::{AsyncWriteExt, WasiBidirectionalPipePair};
     use wasmer_vnet::DynVirtualNetworking;
 
-    use crate::{WasiEnv, WasiRuntimeImplementation};
+    use crate::WasiRuntimeImplementation;
 
     struct FakeRuntimeImplementation {
         pub data: Arc<Mutex<Vec<u8>>>,
-        pub bus: Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static>,
         pub networking: DynVirtualNetworking,
     }
 
@@ -140,7 +138,6 @@ mod tests {
                 networking: Arc::new(wasmer_vnet::UnsupportedVirtualNetworking::default()),
                 #[cfg(feature = "host-vnet")]
                 networking: Arc::new(wasmer_wasi_local_networking::LocalNetworking::default()),
-                bus: Arc::new(DefaultVirtualBus::default()),
             }
         }
     }
@@ -159,10 +156,6 @@ mod tests {
     }
 
     impl WasiRuntimeImplementation for FakeRuntimeImplementation {
-        fn bus<'a>(&'a self) -> Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static> {
-            self.bus.clone()
-        }
-
         fn networking<'a>(&'a self) -> DynVirtualNetworking {
             self.networking.clone()
         }

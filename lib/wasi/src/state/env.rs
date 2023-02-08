@@ -3,10 +3,7 @@ use std::{
     sync::{Arc, RwLockReadGuard, RwLockWriteGuard},
 };
 
-use crate::{
-    fs::WasiFsRoot,
-    vbus::{SpawnEnvironmentIntrinsics, VirtualBus},
-};
+use crate::fs::WasiFsRoot;
 use derivative::Derivative;
 use tracing::{trace, warn};
 use wasmer::{AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryView, TypedFunction};
@@ -469,11 +466,6 @@ impl WasiEnv {
         self.runtime.networking()
     }
 
-    /// Accesses the virtual bus implementation
-    pub fn bus<'a>(&'a self) -> Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static> {
-        self.runtime.bus()
-    }
-
     /// Providers safe access to the initialized part of WasiEnv
     /// (it must be initialized before it can be used)
     pub fn inner(&self) -> &WasiInstanceHandles {
@@ -698,41 +690,5 @@ impl WasiEnv {
             let exit_code = exit_code.unwrap_or(Errno::Canceled as ExitCode);
             self.process.terminate(exit_code);
         }
-    }
-}
-
-impl SpawnEnvironmentIntrinsics for WasiEnv {
-    fn args(&self) -> &Vec<String> {
-        &self.state.args
-    }
-
-    fn preopen(&self) -> &Vec<String> {
-        &self.state.preopen
-    }
-
-    fn stdin_mode(&self) -> crate::vbus::StdioMode {
-        match self.state.stdin() {
-            Ok(Some(_)) => crate::vbus::StdioMode::Inherit,
-            _ => crate::vbus::StdioMode::Null,
-        }
-    }
-
-    fn stdout_mode(&self) -> crate::vbus::StdioMode {
-        match self.state.stdout() {
-            Ok(Some(_)) => crate::vbus::StdioMode::Inherit,
-            _ => crate::vbus::StdioMode::Null,
-        }
-    }
-
-    fn stderr_mode(&self) -> crate::vbus::StdioMode {
-        match self.state.stderr() {
-            Ok(Some(_)) => crate::vbus::StdioMode::Inherit,
-            _ => crate::vbus::StdioMode::Null,
-        }
-    }
-
-    fn working_dir(&self) -> String {
-        let guard = self.state.fs.current_dir.lock().unwrap();
-        guard.clone()
     }
 }

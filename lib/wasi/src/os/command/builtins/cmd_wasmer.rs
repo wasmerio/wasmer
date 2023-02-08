@@ -1,6 +1,6 @@
 use std::{any::Any, ops::Deref, sync::Arc};
 
-use crate::vbus::{BusSpawnedProcess, SpawnOptions, VirtualBusError};
+use crate::vbus::{BusSpawnedProcess, VirtualBusError};
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_wasi_types::wasi::Errno;
 
@@ -56,25 +56,25 @@ impl CmdWasmer {
         parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
         name: &str,
         store: &mut Option<Store>,
-        config: &mut Option<SpawnOptions<WasiEnv>>,
+        config: &mut Option<WasiEnv>,
         what: Option<String>,
         mut args: Vec<String>,
     ) -> Result<BusSpawnedProcess, VirtualBusError> {
         if let Some(what) = what {
             let store = store.take().ok_or(VirtualBusError::UnknownError)?;
-            let mut config = config.take().ok_or(VirtualBusError::UnknownError)?.conf();
+            let mut env = config.take().ok_or(VirtualBusError::UnknownError)?;
 
             // Set the arguments of the environment by replacing the state
-            let mut state = config.env().state.fork(true);
+            let mut state = env.state.fork(true);
             args.insert(0, what.clone());
             state.args = args;
-            config.env_mut().state = Arc::new(state);
+            env.state = Arc::new(state);
 
             // Get the binary
             let tasks = parent_ctx.data().tasks();
             if let Some(binary) = self.get_package(what.clone(), tasks) {
                 // Now run the module
-                spawn_exec(binary, name, store, config, &self.runtime, &self.cache)
+                spawn_exec(binary, name, store, env, &self.runtime, &self.cache)
             } else {
                 parent_ctx.data().tasks.clone().block_on(async move {
                     let _ = stderr_write(
@@ -117,17 +117,11 @@ impl VirtualCommand for CmdWasmer {
         parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
         name: &str,
         store: &mut Option<Store>,
-        config: &mut Option<SpawnOptions<WasiEnv>>,
+        env: &mut Option<WasiEnv>,
     ) -> Result<BusSpawnedProcess, VirtualBusError> {
         // Read the command we want to run
-        let config_inner = config.as_ref().ok_or(VirtualBusError::UnknownError)?;
-        let mut args = config_inner
-            .conf_ref()
-            .env()
-            .state
-            .args
-            .iter()
-            .map(|a| a.as_str());
+        let env_inner = env.as_ref().ok_or(VirtualBusError::UnknownError)?;
+        let mut args = env_inner.state.args.iter().map(|a| a.as_str());
         let _alias = args.next();
         let cmd = args.next();
 
@@ -136,7 +130,7 @@ impl VirtualCommand for CmdWasmer {
             Some("run") => {
                 let what = args.next().map(|a| a.to_string());
                 let args = args.map(|a| a.to_string()).collect();
-                self.run(parent_ctx, name, store, config, what, args)
+                self.run(parent_ctx, name, store, env, what, args)
             }
             Some("--help") | None => {
                 parent_ctx.data().tasks.clone().block_on(async move {
@@ -147,7 +141,7 @@ impl VirtualCommand for CmdWasmer {
             Some(what) => {
                 let what = Some(what.to_string());
                 let args = args.map(|a| a.to_string()).collect();
-                self.run(parent_ctx, name, store, config, what, args)
+                self.run(parent_ctx, name, store, env, what, args)
             }
         }
     }

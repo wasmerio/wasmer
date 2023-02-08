@@ -70,7 +70,7 @@ use wasmer::{
     MemorySize,
 };
 
-pub use crate::vbus::{BusSpawnedProcessJoin, DefaultVirtualBus, VirtualBus};
+pub use crate::vbus::BusSpawnedProcessJoin;
 pub use wasmer_vfs;
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
 pub use wasmer_vfs::FsError as WasiFsError;

@@ -6,8 +6,7 @@ use std::{
 };
 
 use crate::vbus::{
-    BusSpawnedProcess, SpawnOptions, SpawnOptionsConfig, VirtualBusError, VirtualBusInvokable,
-    VirtualBusProcess, VirtualBusScope, VirtualBusSpawner,
+    BusSpawnedProcess, VirtualBusError, VirtualBusInvokable, VirtualBusProcess, VirtualBusScope,
 };
 use futures::Future;
 use tokio::sync::mpsc;
@@ -25,7 +24,7 @@ pub fn spawn_exec(
     binary: BinaryPackage,
     name: &str,
     store: Store,
-    config: SpawnOptionsConfig<WasiEnv>,
+    env: WasiEnv,
     runtime: &Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
     compiled_modules: &ModuleCache,
 ) -> Result<BusSpawnedProcess, VirtualBusError> {
@@ -48,7 +47,7 @@ pub fn spawn_exec(
                 VirtualBusError::CompileError
             });
             if module.is_err() {
-                config.env.cleanup(Some(Errno::Noexec as ExitCode));
+                env.cleanup(Some(Errno::Noexec as ExitCode));
             }
             let module = module?;
             compiled_modules.set_compiled_module(binary.hash().as_str(), compiler, &module);
@@ -56,16 +55,16 @@ pub fn spawn_exec(
         }
         (None, None) => {
             error!("package has no entry [{}]", name,);
-            config.env.cleanup(Some(Errno::Noexec as ExitCode));
+            env.cleanup(Some(Errno::Noexec as ExitCode));
             return Err(VirtualBusError::CompileError);
         }
     };
 
     // If the file system has not already been union'ed then do so
-    config.env().state.fs.conditional_union(&binary);
+    env.state.fs.conditional_union(&binary);
 
     // Now run the module
-    let mut ret = spawn_exec_module(module, store, config, runtime);
+    let mut ret = spawn_exec_module(module, store, env, runtime);
     if let Ok(ret) = ret.as_mut() {
         ret.module_memory_footprint = binary.module_memory_footprint;
         ret.file_system_memory_footprint = binary.file_system_memory_footprint;
@@ -76,15 +75,15 @@ pub fn spawn_exec(
 pub fn spawn_exec_module(
     module: Module,
     store: Store,
-    config: SpawnOptionsConfig<WasiEnv>,
+    env: WasiEnv,
     runtime: &Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
 ) -> Result<BusSpawnedProcess, VirtualBusError> {
     // Create a new task manager
     let tasks = runtime.new_task_manager();
 
     // Create the signaler
-    let pid = config.env().pid();
-    let signaler = Box::new(config.env().process.clone());
+    let pid = env.pid();
+    let signaler = Box::new(env.process.clone());
 
     // Now run the binary
     let (exit_code_tx, exit_code_rx) = mpsc::unbounded_channel();
@@ -116,7 +115,7 @@ pub fn spawn_exec_module(
 
             move || {
                 // Create the WasiFunctionEnv
-                let mut wasi_env = config.env().clone();
+                let mut wasi_env = env.clone();
                 wasi_env.runtime = runtime;
                 wasi_env.tasks = tasks;
                 let memory = match wasi_env.tasks.build_memory(spawn_type) {
@@ -241,12 +240,41 @@ pub fn spawn_exec_module(
 }
 
 impl BinFactory {
+    pub fn spawn<'a>(
+        &'a self,
+        name: String,
+        store: Store,
+        env: WasiEnv,
+    ) -> Pin<Box<dyn Future<Output = Result<BusSpawnedProcess, VirtualBusError>> + 'a>> {
+        Box::pin(async move {
+            // Find the binary (or die trying) and make the spawn type
+            let binary = self
+                .get_binary(name.as_str(), Some(env.fs_root()))
+                .await
+                .ok_or(VirtualBusError::NotFound);
+            if binary.is_err() {
+                env.cleanup(Some(Errno::Noent as ExitCode));
+            }
+            let binary = binary?;
+
+            // Execute
+            spawn_exec(
+                binary,
+                name.as_str(),
+                store,
+                env,
+                &self.runtime,
+                &self.cache,
+            )
+        })
+    }
+
     pub fn try_built_in(
         &self,
         name: String,
         parent_ctx: Option<&FunctionEnvMut<'_, WasiEnv>>,
         store: &mut Option<Store>,
-        builder: &mut Option<SpawnOptions<WasiEnv>>,
+        builder: &mut Option<WasiEnv>,
     ) -> Result<BusSpawnedProcess, VirtualBusError> {
         // We check for built in commands
         if let Some(parent_ctx) = parent_ctx {
@@ -259,43 +287,6 @@ impl BinFactory {
             tracing::warn!("builtin command without a parent ctx - {}", name);
         }
         Err(VirtualBusError::NotFound)
-    }
-}
-
-impl VirtualBusSpawner<WasiEnv> for BinFactory {
-    fn spawn<'a>(
-        &'a self,
-        name: String,
-        store: Store,
-        config: SpawnOptionsConfig<WasiEnv>,
-        _fallback: Box<dyn VirtualBusSpawner<WasiEnv>>,
-    ) -> Pin<Box<dyn Future<Output = Result<BusSpawnedProcess, VirtualBusError>> + 'a>> {
-        Box::pin(async move {
-            if config.remote_instance().is_some() {
-                config.env.cleanup(Some(Errno::Inval as ExitCode));
-                return Err(VirtualBusError::Unsupported);
-            }
-
-            // Find the binary (or die trying) and make the spawn type
-            let binary = self
-                .get_binary(name.as_str(), Some(config.env.fs_root()))
-                .await
-                .ok_or(VirtualBusError::NotFound);
-            if binary.is_err() {
-                config.env.cleanup(Some(Errno::Noent as ExitCode));
-            }
-            let binary = binary?;
-
-            // Execute
-            spawn_exec(
-                binary,
-                name.as_str(),
-                store,
-                config,
-                &self.runtime,
-                &self.cache,
-            )
-        })
     }
 }
 

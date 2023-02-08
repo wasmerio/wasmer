@@ -2,7 +2,7 @@ pub mod builtins;
 
 use std::{collections::HashMap, sync::Arc};
 
-use crate::vbus::{BusSpawnedProcess, SpawnOptions, VirtualBusError};
+use crate::vbus::{BusSpawnedProcess, VirtualBusError};
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_wasi_types::wasi::Errno;
 
@@ -25,7 +25,7 @@ where
         parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
         path: &str,
         store: &mut Option<Store>,
-        config: &mut Option<SpawnOptions<WasiEnv>>,
+        config: &mut Option<WasiEnv>,
     ) -> Result<BusSpawnedProcess, VirtualBusError>;
 }
 
@@ -87,7 +87,7 @@ impl Commands {
         parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
         path: &str,
         store: &mut Option<Store>,
-        builder: &mut Option<SpawnOptions<WasiEnv>>,
+        builder: &mut Option<WasiEnv>,
     ) -> Result<BusSpawnedProcess, VirtualBusError> {
         let path = path.to_string();
         if let Some(cmd) = self.commands.get(&path) {

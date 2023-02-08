@@ -11,7 +11,7 @@ use std::{
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
-use crate::vbus::{BusSpawnedProcess, SpawnOptionsConfig, VirtualBusError};
+use crate::vbus::{BusSpawnedProcess, VirtualBusError};
 use derivative::*;
 use linked_hash_set::LinkedHashSet;
 use tokio::sync::{mpsc, RwLock};
@@ -239,19 +239,12 @@ impl Console {
         }
 
         // Build the config
-        let config = SpawnOptionsConfig {
-            reuse: false,
-            env,
-            remote_instance: None,
-            access_token: self.token.clone(),
-        };
-
         // Run the binary
         let process = spawn_exec(
             binary,
             prog,
             store,
-            config,
+            env,
             &self.runtime,
             self.compiled_modules.as_ref(),
         )?;

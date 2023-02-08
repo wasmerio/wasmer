@@ -25,19 +25,19 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     path::Path,
-    sync::{Arc, Mutex, MutexGuard, RwLock},
+    sync::{Arc, Mutex, RwLock},
     task::Waker,
     time::Duration,
 };
 
-use crate::vbus::{VirtualBusCalled, VirtualBusInvocation};
+use crate::vbus::VirtualBusInvocation;
 use derivative::Derivative;
 pub use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasmer::Store;
 use wasmer_vfs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
-use wasmer_wasi_types::wasi::{Cid, Errno, Fd as WasiFd, Rights, Snapshot0Clockid};
+use wasmer_wasi_types::wasi::{Errno, Fd as WasiFd, Rights, Snapshot0Clockid};
 
 pub use self::{
     builder::*,
@@ -162,20 +162,11 @@ pub struct WasiBusCall {
     pub invocation: Box<dyn VirtualBusInvocation + Sync>,
 }
 
-/// Protected area of the BUS state
-#[derive(Debug, Default)]
-pub struct WasiBusProtectedState {
-    pub call_seed: u64,
-    pub called: HashMap<Cid, Box<dyn VirtualBusCalled + Sync + Unpin>>,
-    pub calls: HashMap<Cid, WasiBusCall>,
-}
-
 /// Structure that holds the state of BUS calls to this process and from
 /// this process. BUS calls are the equivalent of RPC's with support
 /// for all the major serializers
 #[derive(Debug, Default)]
 pub struct WasiBusState {
-    protected: Mutex<WasiBusProtectedState>,
     poll_waker: WasiParkingLot,
 }
 
@@ -201,12 +192,6 @@ impl WasiBusState {
     #[allow(dead_code)]
     pub fn poll_wait(&self, timeout: Duration) -> bool {
         self.poll_waker.wait(timeout)
-    }
-
-    /// Locks the protected area of the BUS and returns a guard that
-    /// can be used to access it
-    pub fn protected(&self) -> MutexGuard<'_, WasiBusProtectedState> {
-        self.protected.lock().unwrap()
     }
 }
 
@@ -250,7 +235,6 @@ pub struct WasiState {
     pub(crate) threading: RwLock<WasiStateThreading>,
     pub(crate) futexs: Mutex<HashMap<u64, WasiFutex>>,
     pub(crate) clock_offset: Mutex<HashMap<Snapshot0Clockid, i64>>,
-    pub(crate) bus: WasiBusState,
     pub args: Vec<String>,
     pub envs: Vec<Vec<u8>>,
     pub preopen: Vec<String>,
@@ -351,7 +335,6 @@ impl WasiState {
             threading: Default::default(),
             futexs: Default::default(),
             clock_offset: Mutex::new(self.clock_offset.lock().unwrap().clone()),
-            bus: Default::default(),
             args: self.args.clone(),
             envs: self.envs.clone(),
             preopen: self.preopen.clone(),

@@ -15,10 +15,9 @@ use std::{
     sync::Arc,
 };
 
-use crate::vbus::{DefaultVirtualBus, VirtualBus};
 use wasmer_vnet::{DynVirtualNetworking, VirtualNetworking};
 
-use crate::{os::tty::WasiTtyState, WasiEnv};
+use crate::os::tty::WasiTtyState;
 
 #[cfg(feature = "termios")]
 pub mod term;
@@ -36,12 +35,6 @@ pub trait WasiRuntimeImplementation
 where
     Self: fmt::Debug + Sync,
 {
-    /// For WASI runtimes that support it they can implement a message BUS implementation
-    /// which allows runtimes to pass serialized messages between each other similar to
-    /// RPC's. BUS implementation can be implemented that communicate across runtimes
-    /// thus creating a distributed computing architecture.
-    fn bus(&self) -> Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static>;
-
     /// Provides access to all the networking related functions such as sockets.
     /// By default networking is not implemented.
     fn networking(&self) -> DynVirtualNetworking;
@@ -202,7 +195,6 @@ where
 #[derive(Debug)]
 pub struct PluggableRuntimeImplementation {
     pub rt: Option<Arc<dyn VirtualTaskManager>>,
-    pub bus: Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static>,
     pub networking: DynVirtualNetworking,
     pub http_client: Option<DynHttpClient>,
     #[cfg(feature = "sys")]
@@ -210,13 +202,6 @@ pub struct PluggableRuntimeImplementation {
 }
 
 impl PluggableRuntimeImplementation {
-    pub fn set_bus_implementation<I>(&mut self, bus: I)
-    where
-        I: VirtualBus<WasiEnv> + Sync,
-    {
-        self.bus = Arc::new(bus)
-    }
-
     pub fn set_networking_implementation<I>(&mut self, net: I)
     where
         I: VirtualNetworking + Sync,
@@ -251,7 +236,6 @@ impl PluggableRuntimeImplementation {
         Self {
             rt,
             networking,
-            bus: Arc::new(DefaultVirtualBus::default()),
             http_client,
             #[cfg(feature = "sys")]
             engine: None,
@@ -272,10 +256,6 @@ impl Default for PluggableRuntimeImplementation {
 }
 
 impl WasiRuntimeImplementation for PluggableRuntimeImplementation {
-    fn bus(&self) -> Arc<dyn VirtualBus<WasiEnv> + Send + Sync + 'static> {
-        self.bus.clone()
-    }
-
     fn networking(&self) -> DynVirtualNetworking {
         self.networking.clone()
     }

@@ -650,7 +650,6 @@ impl WasiEnvBuilder {
             threading: Default::default(),
             futexs: Default::default(),
             clock_offset: Default::default(),
-            bus: Default::default(),
             envs: self
                 .envs
                 .iter()

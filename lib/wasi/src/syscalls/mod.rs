@@ -63,8 +63,8 @@ pub use unix::*;
 pub use wasm::*;
 
 pub(crate) use crate::vbus::{
-    BusInvocationEvent, BusSpawnedProcess, SignalHandlerAbi, SpawnOptionsConfig, StdioMode,
-    VirtualBusError, VirtualBusInvokedWait,
+    BusInvocationEvent, BusSpawnedProcess, SignalHandlerAbi, StdioMode, VirtualBusError,
+    VirtualBusInvokedWait,
 };
 pub(crate) use wasmer::{
     AsStoreMut, AsStoreRef, Extern, Function, FunctionEnv, FunctionEnvMut, Global, Instance,
