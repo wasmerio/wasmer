@@ -7,7 +7,8 @@ use std::{
 
 use crate::{
     bin_factory::ModuleCache, fs::WasiFsRoot, import_object_for_all_wasi_versions,
-    runtime::SpawnType, SpawnedMemory, WasiControlPlane, WasiFunctionEnv, WasiRuntimeError,
+    runtime::SpawnType, SpawnedMemory, WasiControlPlane, WasiEnvBuilder, WasiFunctionEnv,
+    WasiRuntimeError,
 };
 use derivative::Derivative;
 use tracing::{trace, warn};
@@ -33,8 +34,8 @@ use crate::{
         },
     },
     syscalls::platform_clock_time_get,
-    VirtualTaskManager, WasiError, WasiRuntime, WasiState, WasiStateCreationError,
-    WasiVFork, DEFAULT_STACK_SIZE,
+    VirtualTaskManager, WasiError, WasiRuntime, WasiState, WasiStateCreationError, WasiVFork,
+    DEFAULT_STACK_SIZE,
 };
 
 use super::Capabilities;
@@ -601,7 +602,7 @@ impl WasiEnv {
     }
 
     /// Accesses the virtual networking implementation
-    pub fn net(&self) -> DynVirtualNetworking {
+    pub fn net(&self) -> &DynVirtualNetworking {
         self.runtime.networking()
     }
 

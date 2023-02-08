@@ -10,7 +10,7 @@ pub fn port_dhcp_acquire(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, 
         ctx.data().tid()
     );
     let env = ctx.data();
-    let net = env.net();
+    let net = env.net().clone();
     let tasks = env.tasks().clone();
     wasi_try_ok!(__asyncify(&mut ctx, None, async move {
         net.dhcp_acquire().await.map_err(net_error_into_wasi_err)

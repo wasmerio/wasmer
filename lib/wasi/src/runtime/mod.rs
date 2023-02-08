@@ -36,7 +36,7 @@ where
 {
     /// Provides access to all the networking related functions such as sockets.
     /// By default networking is not implemented.
-    fn networking(&self) -> DynVirtualNetworking;
+    fn networking(&self) -> &DynVirtualNetworking;
 
     /// Retrieve the active [`VirtualTaskManager`].
     fn task_manager(&self) -> &Arc<dyn VirtualTaskManager>;
@@ -244,8 +244,8 @@ impl Default for PluggableRuntimeImplementation {
 }
 
 impl WasiRuntime for PluggableRuntimeImplementation {
-    fn networking(&self) -> DynVirtualNetworking {
-        self.networking.clone()
+    fn networking(&self) -> &DynVirtualNetworking {
+        &self.networking
     }
 
     fn http_client(&self) -> Option<&DynHttpClient> {

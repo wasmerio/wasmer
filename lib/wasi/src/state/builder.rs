@@ -19,8 +19,8 @@ use crate::{
     os::task::control_plane::{ControlPlaneError, WasiControlPlane},
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
-    Capabilities, PluggableRuntimeImplementation, WasiEnv, WasiFunctionEnv, WasiRuntimeError,
-    WasiRuntime,
+    Capabilities, PluggableRuntimeImplementation, WasiEnv, WasiFunctionEnv, WasiRuntime,
+    WasiRuntimeError,
 };
 
 use super::env::WasiEnvInit;

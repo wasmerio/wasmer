@@ -156,8 +156,8 @@ mod tests {
     }
 
     impl WasiRuntime for FakeRuntimeImplementation {
-        fn networking<'a>(&'a self) -> DynVirtualNetworking {
-            self.networking.clone()
+        fn networking<'a>(&'a self) -> &DynVirtualNetworking {
+            &self.networking
         }
 
         fn task_manager(&self) -> &Arc<dyn crate::VirtualTaskManager> {

@@ -26,7 +26,7 @@ pub fn sock_listen<M: MemorySize>(
     );
 
     let env = ctx.data();
-    let net = env.net();
+    let net = env.net().clone();
     let backlog: usize = wasi_try!(backlog.try_into().map_err(|_| Errno::Inval));
 
     let tasks = ctx.data().tasks().clone();

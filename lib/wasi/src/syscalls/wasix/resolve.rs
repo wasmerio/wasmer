@@ -44,7 +44,7 @@ pub fn resolve<M: MemorySize>(
 
     let port = if port > 0 { Some(port) } else { None };
 
-    let net = env.net();
+    let net = env.net().clone();
     let tasks = env.tasks().clone();
     let found_ips = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
         net.resolve(host_str.as_str(), port, None)

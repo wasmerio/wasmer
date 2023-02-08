@@ -109,8 +109,8 @@ pub(crate) use crate::{
         PollEvent, PollEventBuilder, WasiBusCall, WasiFutex, WasiState, WasiThreadContext,
     },
     utils::{self, map_io_err},
-    VirtualTaskManager, WasiEnv, WasiError, WasiFunctionEnv, WasiInstanceHandles,
-    WasiRuntime, WasiVFork, DEFAULT_STACK_SIZE,
+    VirtualTaskManager, WasiEnv, WasiError, WasiFunctionEnv, WasiInstanceHandles, WasiRuntime,
+    WasiVFork, DEFAULT_STACK_SIZE,
 };
 use crate::{
     fs::{

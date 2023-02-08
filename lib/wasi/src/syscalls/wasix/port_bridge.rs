@@ -34,7 +34,7 @@ pub fn port_bridge<M: MemorySize>(
         _ => return Ok(Errno::Inval),
     };
 
-    let net = env.net();
+    let net = env.net().clone();
     wasi_try_ok!(__asyncify(&mut ctx, None, async move {
         net.bridge(network.as_str(), token.as_str(), security)
             .await
