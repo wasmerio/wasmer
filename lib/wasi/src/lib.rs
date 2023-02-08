@@ -651,31 +651,6 @@ fn import_object_for_all_wasi_versions(
     (imports, init)
 }
 
-pub fn build_wasi_instance(
-    module: &wasmer::Module,
-    env: &mut WasiFunctionEnv,
-    store: &mut impl AsStoreMut,
-) -> Result<wasmer::Instance, anyhow::Error> {
-    // Allowed due to JS warning.
-    #[allow(unused_mut)]
-    let (mut import_object, init) = import_object_for_all_wasi_versions(module, store, &env.env);
-
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "sys")] {
-            import_object.import_shared_memory(module, store);
-        } else {
-            // Prevent warning.
-            let _ = module;
-        }
-    }
-
-    let instance = wasmer::Instance::new(store, module, &import_object)?;
-    init(&instance, &store)?;
-    env.initialize(store, instance.clone())?;
-
-    Ok(instance)
-}
-
 /// Combines a state generating function with the import list for legacy WASI
 fn generate_import_object_snapshot0(
     store: &mut impl AsStoreMut,

@@ -159,15 +159,6 @@ impl Console {
         // Build a new store that will be passed to the thread
         let store = self.runtime.new_store();
 
-        // Create the control plane, process and thread
-        let control_plane = WasiControlPlane::default();
-        let wasi_process = control_plane
-            .new_process()
-            .expect("creating processes on new control planes should always work");
-        let wasi_thread = wasi_process
-            .new_thread()
-            .expect("creating the main thread should always work");
-
         // Create the state
         let mut builder = WasiState::builder(prog);
         if let Some(stdin) = self.stdin.take() {
@@ -192,31 +183,29 @@ impl Console {
             .map_dir(".", "/")
             .unwrap();
 
-        let state = builder
+        let env_init = builder
             .stdout(Box::new(RuntimeStdout::new(self.runtime.clone())))
             .stderr(Box::new(RuntimeStderr::new(self.runtime.clone())))
-            .build()
-            .unwrap();
+            .compiled_modules(self.compiled_modules.clone())
+            .runtime(self.runtime.clone())
+            .capabilities(self.capabilities.clone())
+            .build_init()
+            // TODO: propagate better error
+            .map_err(|e| VirtualBusError::InternalError)?;
 
-        // Create the environment
-        let mut env = WasiEnv::new(
-            Arc::new(state),
-            self.compiled_modules.clone(),
-            wasi_process.clone(),
-            wasi_thread,
-            self.runtime.clone(),
-        );
-        env.capabilities = self.capabilities.clone();
+        // TODO: no unwrap!
+        let env = WasiEnv::from_init(env_init).unwrap();
 
+        // TODO: this should not happen here...
         // Display the welcome message
-        let tasks = env.tasks.clone();
+        let tasks = env.tasks().clone();
         if !self.whitelabel && !self.no_welcome {
             tasks.block_on(self.draw_welcome());
         }
 
         let binary = if let Some(binary) =
             self.compiled_modules
-                .get_webc(webc, self.runtime.deref(), env.tasks.deref())
+                .get_webc(webc, self.runtime.deref(), tasks.deref())
         {
             binary
         } else {
@@ -230,13 +219,16 @@ impl Console {
             return Err(crate::vbus::VirtualBusError::NotFound);
         };
 
-        if let Err(err) = env.uses(self.uses.clone()) {
-            tasks.block_on(async {
-                let _ = self.runtime.stderr(format!("{}\r\n", err).as_bytes()).await;
-            });
-            tracing::debug!("failed to load used dependency - {}", err);
-            return Err(crate::vbus::VirtualBusError::BadRequest);
-        }
+        let wasi_process = env.process.clone();
+
+        // TODO: fetching dependencies should be moved to the builder!
+        // if let Err(err) = env.uses(self.uses.clone()) {
+        //     tasks.block_on(async {
+        //         let _ = self.runtime.stderr(format!("{}\r\n", err).as_bytes()).await;
+        //     });
+        //     tracing::debug!("failed to load used dependency - {}", err);
+        //     return Err(crate::vbus::VirtualBusError::BadRequest);
+        // }
 
         // Build the config
         // Run the binary

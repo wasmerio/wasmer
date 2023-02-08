@@ -14,7 +14,7 @@ use wasmer_wasi::runtime::task_manager::tokio::TokioTaskManager;
 use wasmer_wasi::types::wasi::{Filesize, Timestamp};
 use wasmer_wasi::{
     generate_import_object_from_env, get_wasi_version, FsError, VirtualFile, VirtualTaskManagerExt,
-    WasiBidirectionalPipePair, WasiEnv, WasiFunctionEnv, WasiState, WasiVersion,
+    WasiBidirectionalPipePair, WasiEnv, WasiEnvBuilder, WasiState, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 
@@ -102,18 +102,15 @@ impl<'a> WasiTest<'a> {
         };
         let runtime = Arc::new(TokioTaskManager::default());
         let module = Module::new(store, wasm_bytes)?;
-        let (mut env, _tempdirs, stdout_rx, stderr_rx) =
-            { runtime.block_on(async { self.create_wasi_env(store, filesystem_kind).await }) }?;
+        let (builder, _tempdirs, stdout_rx, stderr_rx) =
+            { runtime.block_on(async { self.create_wasi_env(filesystem_kind).await }) }?;
 
-        let instance = wasmer_wasi::build_wasi_instance(&module, &mut env, &mut store)?;
-
-        let wasi_env = env.data(&store);
+        let (instance, wasi_env) = builder.instantiate(module, store)?;
 
         let start = instance.exports.get_function("_start")?;
 
         if let Some(stdin) = &self.stdin {
-            let state = wasi_env.state();
-            let mut wasi_stdin = state.stdin().unwrap().unwrap();
+            let mut wasi_stdin = { wasi_env.data(store).state().stdin().unwrap().unwrap() };
             // Then we can write to it!
             let data = format!("{}", stdin.stream);
             runtime.block_on(async move { wasi_stdin.write(data.as_bytes()).await })?;
@@ -152,10 +149,9 @@ impl<'a> WasiTest<'a> {
     #[allow(clippy::type_complexity)]
     async fn create_wasi_env(
         &self,
-        mut store: &mut Store,
         filesystem_kind: WasiFileSystemKind,
     ) -> anyhow::Result<(
-        WasiFunctionEnv,
+        WasiEnvBuilder,
         Vec<tempfile::TempDir>,
         mpsc::Receiver<Vec<u8>>,
         mpsc::Receiver<Vec<u8>>,
@@ -266,15 +262,14 @@ impl<'a> WasiTest<'a> {
 
         let (stdout, stdout_rx) = OutputCapturerer::new();
         let (stderr, stderr_rx) = OutputCapturerer::new();
-        let out = builder
+        let builder = builder
             .args(&self.args)
             // adding this causes some tests to fail. TODO: investigate this
             //.env("RUST_BACKTRACE", "1")
             .stdout(Box::new(stdout))
-            .stderr(Box::new(stderr))
-            .finalize(&mut store)?;
+            .stderr(Box::new(stderr));
 
-        Ok((out, host_temp_dirs_to_not_drop, stdout_rx, stderr_rx))
+        Ok((builder, host_temp_dirs_to_not_drop, stdout_rx, stderr_rx))
     }
 
     /// Get the correct [`WasiVersion`] from the Wasm [`Module`].

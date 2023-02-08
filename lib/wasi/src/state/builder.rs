@@ -10,17 +10,20 @@ use std::{
 use generational_arena::Arena;
 use rand::Rng;
 use thiserror::Error;
-use wasmer::AsStoreMut;
+use wasmer::{AsStoreMut, Instance, Module};
 use wasmer_vfs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
 
 use crate::{
-    bin_factory::ModuleCache,
+    bin_factory::{BinFactory, ModuleCache},
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneError, WasiControlPlane},
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
-    PluggableRuntimeImplementation, WasiEnv, WasiFunctionEnv,
+    Capabilities, PluggableRuntimeImplementation, VirtualTaskManager, WasiEnv, WasiFunctionEnv,
+    WasiRuntimeImplementation,
 };
+
+use super::env::WasiEnvInit;
 
 /// Builder API for configuring a [`WasiEnv`] environment needed to run WASI modules.
 ///
@@ -64,6 +67,10 @@ pub struct WasiEnvBuilder {
     /// List of host commands to map into the WASI instance.
     #[cfg(feature = "sys")]
     pub(super) map_commands: HashMap<String, PathBuf>,
+
+    pub(super) task_manager: Option<Arc<dyn VirtualTaskManager>>,
+
+    pub(super) capabilites: Capabilities,
 }
 
 impl std::fmt::Debug for WasiEnvBuilder {
@@ -493,12 +500,13 @@ impl WasiEnvBuilder {
 
     /// Sets the WASI runtime implementation and overrides the default
     /// implementation
-    pub fn runtime<R>(mut self, runtime: &Arc<R>) -> Self
-    where
-        R: crate::WasiRuntimeImplementation + Send + Sync + 'static,
-    {
-        self.runtime = Some(runtime.clone());
+    pub fn runtime(mut self, runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync>) -> Self {
+        self.set_runtime(runtime);
         self
+    }
+
+    pub fn set_runtime(&mut self, runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync>) {
+        self.runtime = Some(runtime);
     }
 
     /// Sets the compiled modules to use with this builder (sharing the
@@ -508,26 +516,33 @@ impl WasiEnvBuilder {
         self
     }
 
-    /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiState`]
+    pub fn task_manager(mut self, task_manager: Arc<dyn VirtualTaskManager>) -> Self {
+        self.set_task_manager(task_manager);
+        self
+    }
+
+    pub fn set_task_manager(&mut self, task_manager: Arc<dyn VirtualTaskManager>) {
+        self.task_manager = Some(task_manager);
+    }
+
+    pub fn capabilities(mut self, capabilities: Capabilities) -> Self {
+        self.set_capabilities(capabilities);
+        self
+    }
+
+    pub fn capabilities_mut(&mut self) -> &mut Capabilities {
+        &mut self.capabilites
+    }
+
+    pub fn set_capabilities(&mut self, capabilities: Capabilities) {
+        self.capabilites = capabilities;
+    }
+
+    /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
+    /// can be used to construct a new [`WasiEnv`] with [`WasiEnv::new`].
     ///
     /// Returns the error from `WasiFs::new` if there's an error
-    ///
-    /// # Calling `build` multiple times
-    ///
-    /// Calling this method multiple times might not produce a
-    /// determinisic result. This method is changing the builder's
-    /// internal state. The values set with the following methods are
-    /// reset to their defaults:
-    ///
-    /// * [Self::set_fs],
-    /// * [Self::stdin],
-    /// * [Self::stdout],
-    /// * [Self::stderr].
-    ///
-    /// Ideally, the builder must be refactord to update `mut self`
-    /// to `mut self` for every _builder method_, but it will break
-    /// existing code. It will be addressed in a next major release.
-    pub fn build(mut self) -> Result<WasiState, WasiStateCreationError> {
+    pub(crate) fn build_init(mut self) -> Result<WasiEnvInit, WasiStateCreationError> {
         for arg in self.args.iter() {
             for b in arg.as_bytes().iter() {
                 if *b == 0 {
@@ -641,7 +656,7 @@ impl WasiEnvBuilder {
         };
         let inodes = Arc::new(inodes);
 
-        Ok(WasiState {
+        let state = WasiState {
             fs: wasi_fs,
             secret: rand::thread_rng().gen::<[u8; 32]>(),
             inodes,
@@ -662,64 +677,59 @@ impl WasiEnvBuilder {
                     env
                 })
                 .collect(),
-        })
-    }
+        };
 
-    /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnv`]
-    ///
-    /// Returns the error from `WasiFs::new` if there's an error.
-    ///
-    /// # Calling `finalize` multiple times
-    ///
-    /// Calling this method multiple times might not produce a
-    /// determinisic result. This method is calling [Self::build],
-    /// which is changing the builder's internal state. See
-    /// [Self::build]'s documentation to learn more.
-    pub fn finalize(
-        self,
-        store: &mut impl AsStoreMut,
-    ) -> Result<WasiFunctionEnv, WasiStateCreationError> {
-        let control_plane = WasiControlPlane::default();
-        self.finalize_with(store, &control_plane)
-    }
-
-    /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnv`]
-    /// with a particular control plane
-    ///
-    /// Returns the error from `WasiFs::new` if there's an error.
-    ///
-    /// # Calling `finalize` multiple times
-    ///
-    /// Calling this method multiple times might not produce a
-    /// determinisic result. This method is calling [Self::build],
-    /// which is changing the builder's internal state. See
-    /// [Self::build]'s documentation to learn more.
-    pub fn finalize_with(
-        mut self,
-        store: &mut impl AsStoreMut,
-        control_plane: &WasiControlPlane,
-    ) -> Result<WasiFunctionEnv, WasiStateCreationError> {
         // TODO: this method should not exist - must have unified construction flow!
-        let compiled_modules = self.compiled_modules.take().unwrap_or_default();
+        let module_cache = self.compiled_modules.unwrap_or_default();
         let runtime = self
             .runtime
-            .take()
             .unwrap_or_else(|| Arc::new(PluggableRuntimeImplementation::default()));
-        let uses = self.uses.clone();
-        let map_commands = self.map_commands.clone();
 
-        let state = Arc::new(self.build()?);
+        let uses = self.uses;
+        let map_commands = self.map_commands;
 
+        let bin_factory = BinFactory::new(module_cache.clone(), runtime.clone());
+
+        let task_manager = self
+            .task_manager
+            .unwrap_or_else(|| runtime.new_task_manager());
+
+        let capabilities = self.capabilites;
+
+        let control_plane = WasiControlPlane::default();
         let process = control_plane.new_process()?;
-        let thread = process.new_thread()?;
 
-        let env = WasiEnv::new(state, compiled_modules, process, thread, runtime);
+        let init = WasiEnvInit {
+            state,
+            runtime,
+            module_cache,
+            webc_dependencies: uses,
+            mapped_commands: map_commands,
+            control_plane,
+            bin_factory,
+            task_manager,
+            capabilities,
+            spawn_type: None,
+            process,
+            thread: None,
+            call_initialize: true,
+        };
 
-        env.uses(uses)?;
-        #[cfg(feature = "sys")]
-        env.map_commands(map_commands.clone())?;
+        Ok(init)
+    }
 
-        Ok(WasiFunctionEnv::new(store, env))
+    /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
+    /// can be used to construct a new [`WasiEnv`] with [`WasiEnv::new`].
+    ///
+    /// Returns the error from `WasiFs::new` if there's an error
+    // FIXME: use a proper custom error type
+    pub fn instantiate(
+        self,
+        module: Module,
+        store: &mut impl AsStoreMut,
+    ) -> Result<(Instance, WasiFunctionEnv), anyhow::Error> {
+        let init = self.build_init()?;
+        WasiEnv::instantiate(init, module, store)
     }
 }
 
@@ -875,16 +885,21 @@ mod test {
     #[test]
     fn nul_character_in_args() {
         let output = WasiEnvBuilder::new("test_prog").arg("--h\0elp").build();
-        match output {
-            Err(WasiStateCreationError::ArgumentContainsNulByte(_)) => assert!(true),
-            _ => assert!(false),
-        }
+        let err = output.err().expect("should fail");
+        let cerr = err.downcast::<WasiStateCreationError>().unwrap();
+        assert!(matches!(
+            cerr,
+            WasiStateCreationError::ArgumentContainsNulByte(_)
+        ));
+
         let output = WasiEnvBuilder::new("test_prog")
             .args(&["--help", "--wat\0"])
             .build();
-        match output {
-            Err(WasiStateCreationError::ArgumentContainsNulByte(_)) => assert!(true),
-            _ => assert!(false),
-        }
+        let err = output.err().expect("should fail");
+        let cerr = err.downcast::<WasiStateCreationError>().unwrap();
+        assert!(matches!(
+            cerr,
+            WasiStateCreationError::ArgumentContainsNulByte(_)
+        ));
     }
 }

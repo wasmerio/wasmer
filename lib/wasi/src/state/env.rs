@@ -1,12 +1,20 @@
 use std::{
+    collections::HashMap,
     ops::Deref,
+    path::PathBuf,
     sync::{Arc, RwLockReadGuard, RwLockWriteGuard},
 };
 
-use crate::fs::WasiFsRoot;
+use crate::{
+    bin_factory::ModuleCache, fs::WasiFsRoot, import_object_for_all_wasi_versions,
+    runtime::SpawnType, SpawnedMemory, WasiControlPlane, WasiFunctionEnv,
+};
 use derivative::Derivative;
 use tracing::{trace, warn};
-use wasmer::{AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryView, TypedFunction};
+use wasmer::{
+    AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryView, Module,
+    TypedFunction,
+};
 use wasmer_vnet::DynVirtualNetworking;
 use wasmer_wasi_types::{
     types::Signal,
@@ -14,7 +22,6 @@ use wasmer_wasi_types::{
 };
 
 use crate::{
-    bin_factory,
     bin_factory::BinFactory,
     fs::WasiInodes,
     os::{
@@ -193,6 +200,29 @@ unsafe impl Send for WasiInstanceHandles {}
 
 unsafe impl Sync for WasiInstanceHandles {}
 
+/// Data required to construct a [`WasiEnv`].
+#[derive(Debug)]
+pub(crate) struct WasiEnvInit {
+    pub state: WasiState,
+    pub runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync>,
+    pub module_cache: Arc<ModuleCache>,
+    pub webc_dependencies: Vec<String>,
+    pub mapped_commands: HashMap<String, PathBuf>,
+    pub control_plane: WasiControlPlane,
+    pub bin_factory: BinFactory,
+    pub task_manager: Arc<dyn VirtualTaskManager>,
+    pub capabilities: Capabilities,
+
+    // TODO: remove these again?
+    pub spawn_type: Option<SpawnType>,
+    pub process: WasiProcess,
+    pub thread: Option<WasiThread>,
+
+    /// Whether to call the `_initialize` function in the WASI module.
+    /// Will be true for regular new instances, but false for threads.
+    pub call_initialize: bool,
+}
+
 /// The environment provided to the WASI imports.
 #[derive(Debug, Clone)]
 pub struct WasiEnv {
@@ -220,6 +250,7 @@ pub struct WasiEnv {
     pub runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
     /// Task manager used to spawn threads and manage the ASYNC runtime
     pub tasks: Arc<dyn VirtualTaskManager>,
+    pub module_cache: Arc<ModuleCache>,
 
     pub capabilities: Capabilities,
 }
@@ -257,6 +288,7 @@ impl WasiEnv {
             runtime: self.runtime.clone(),
             tasks: self.tasks.clone(),
             capabilities: self.capabilities.clone(),
+            module_cache: self.module_cache.clone(),
         };
         Ok((new_env, handle))
     }
@@ -271,31 +303,149 @@ impl WasiEnv {
 }
 
 impl WasiEnv {
-    pub fn new(
-        state: Arc<WasiState>,
-        compiled_modules: Arc<bin_factory::ModuleCache>,
-        process: WasiProcess,
-        thread: WasiThreadHandle,
-        runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync>,
-    ) -> Self {
-        let bin_factory = BinFactory::new(compiled_modules, runtime.clone());
-        let tasks = runtime.new_task_manager();
-        let mut ret = Self {
+    #[deprecated(note = "Use `WasiEnv::instantiate` instead")]
+    pub(crate) fn from_init(init: WasiEnvInit) -> Result<Self, anyhow::Error> {
+        let process = init.process;
+        let thread = process.new_thread()?;
+
+        let mut env = Self {
             process,
             thread: thread.as_thread(),
             vfork: None,
             stack_base: DEFAULT_STACK_SIZE,
             stack_start: 0,
-            state,
+            state: Arc::new(init.state),
             inner: None,
             owned_handles: Vec::new(),
-            runtime,
-            tasks,
-            bin_factory,
-            capabilities: Default::default(),
+            runtime: init.runtime,
+            tasks: init.task_manager,
+            bin_factory: init.bin_factory,
+            module_cache: init.module_cache.clone(),
+            capabilities: init.capabilities,
         };
-        ret.owned_handles.push(thread);
-        ret
+        env.owned_handles.push(thread);
+
+        Ok(env)
+    }
+
+    // FIXME: use custom error type
+    pub(crate) fn instantiate(
+        init: WasiEnvInit,
+        module: Module,
+        store: &mut impl AsStoreMut,
+    ) -> Result<(Instance, WasiFunctionEnv), anyhow::Error> {
+        let process = init.process;
+        let thread = process.new_thread()?;
+
+        let mut env = Self {
+            process,
+            thread: thread.as_thread(),
+            vfork: None,
+            stack_base: DEFAULT_STACK_SIZE,
+            stack_start: 0,
+            state: Arc::new(init.state),
+            inner: None,
+            owned_handles: Vec::new(),
+            runtime: init.runtime,
+            tasks: init.task_manager,
+            bin_factory: init.bin_factory,
+            module_cache: init.module_cache.clone(),
+            capabilities: init.capabilities,
+        };
+        env.owned_handles.push(thread);
+
+        // TODO: should not be here - should be callers responsibility!
+        env.uses(init.webc_dependencies)?;
+
+        #[cfg(feature = "sys")]
+        env.map_commands(init.mapped_commands.clone())?;
+
+        let pid = env.process.pid();
+
+        let mut store = store.as_store_mut();
+
+        let tasks = env.tasks.clone();
+        let mut func_env = WasiFunctionEnv::new(&mut store, env);
+
+        // Determine if shared memory needs to be created and imported
+        let shared_memory = module.imports().memories().next().map(|a| *a.ty());
+
+        // Determine if we are going to create memory and import it or just rely on self creation of memory
+        let spawn_type = if let Some(t) = init.spawn_type {
+            t
+        } else {
+            match shared_memory {
+                Some(ty) => {
+                    #[cfg(feature = "sys")]
+                    let style = store.tunables().memory_style(&ty);
+                    SpawnType::CreateWithType(SpawnedMemory {
+                        ty,
+                        #[cfg(feature = "sys")]
+                        style,
+                    })
+                }
+                None => SpawnType::Create,
+            }
+        };
+        let memory = tasks.build_memory(spawn_type)?;
+
+        // Let's instantiate the module with the imports.
+        let (mut import_object, init) =
+            import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
+        if let Some(memory) = memory {
+            import_object.define(
+                "env",
+                "memory",
+                Memory::new_from_existing(&mut store, memory),
+            );
+        }
+
+        // Construct the instance.
+        let instance = match Instance::new(&mut store, &module, &import_object) {
+            Ok(a) => a,
+            Err(err) => {
+                tracing::error!("wasi[{}]::wasm instantiate error ({})", pid, err);
+                func_env
+                    .data(&store)
+                    .cleanup(Some(Errno::Noexec as ExitCode));
+                return Err(err.into());
+            }
+        };
+
+        // Run initializers.
+        init(&instance, &store).unwrap();
+
+        // Initialize the WASI environment
+        if let Err(err) = func_env.initialize(&mut store, instance.clone()) {
+            tracing::error!("wasi[{}]::wasi initialize error ({})", pid, err);
+            func_env
+                .data(&store)
+                .cleanup(Some(Errno::Noexec as ExitCode));
+            return Err(err.into());
+        }
+
+        // If this module exports an _initialize function, run that first.
+        if let Ok(initialize) = instance.exports.get_function("_initialize") {
+            if let Err(err) = initialize.call(&mut store, &[]) {
+                let code = match err.downcast_ref::<WasiError>() {
+                    Some(WasiError::Exit(code)) => (*code) as ExitCode,
+                    Some(WasiError::UnknownWasiVersion) => {
+                        tracing::debug!("wasi[{}]::exec-failed: unknown wasi version", pid);
+                        Errno::Noexec as ExitCode
+                    }
+                    None => {
+                        tracing::debug!("wasi[{}]::exec-failed: runtime error - {}", pid, err);
+                        Errno::Noexec as ExitCode
+                    }
+                };
+                func_env
+                    .data(&store)
+                    .cleanup(Some(Errno::Noexec as ExitCode));
+                return Err(err.into());
+            }
+        }
+
+        Ok((instance, func_env))
     }
 
     /// Returns a copy of the current runtime implementation for this environment
@@ -544,10 +694,7 @@ impl WasiEnv {
         // Load all the containers that we inherit from
         #[allow(unused_imports)]
         use std::path::Path;
-        use std::{
-            borrow::Cow,
-            collections::{HashMap, VecDeque},
-        };
+        use std::{borrow::Cow, collections::VecDeque};
 
         #[allow(unused_imports)]
         use wasmer_vfs::FileSystem;

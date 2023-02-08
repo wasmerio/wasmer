@@ -2,7 +2,7 @@
 //! WebC container support for running WASI modules
 
 use crate::runners::WapmContainer;
-use crate::{WasiFunctionEnv, WasiState};
+use crate::{WasiEnv, WasiEnvBuilder, WasiState};
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;
@@ -68,14 +68,21 @@ impl crate::runners::Runner for WasiRunner {
         let mut module = Module::new(&self.store, atom_bytes)?;
         module.set_name(&atom_name);
 
-        let env = prepare_webc_env(
+        let builder = prepare_webc_env(
             &mut self.store,
             container.webc.clone(),
             &atom_name,
             &self.args,
         )?;
 
-        exec_module(&mut self.store, &module, env)?;
+        let init = builder.build_init()?;
+
+        let (instance, env) = WasiEnv::instantiate(init, module, &mut self.store)?;
+
+        let _result = instance
+            .exports
+            .get_function("_start")?
+            .call(&mut self.store, &[])?;
 
         Ok(())
     }
@@ -87,7 +94,7 @@ fn prepare_webc_env(
     webc: Arc<WebCMmap>,
     command: &str,
     args: &[String],
-) -> Result<WasiFunctionEnv, anyhow::Error> {
+) -> Result<WasiEnvBuilder, anyhow::Error> {
     use webc::FsEntryType;
 
     let package_name = webc.get_package_name();
@@ -107,12 +114,12 @@ fn prepare_webc_env(
         .collect::<Vec<_>>();
 
     let filesystem = Box::new(WebcFileSystem::init(webc, &package_name));
-    let mut wasi_env = WasiState::builder(command).fs(filesystem).args(args);
+    let mut builder = WasiState::builder(command).fs(filesystem).args(args);
     for f_name in top_level_dirs.iter() {
-        wasi_env.add_preopen_build(|p| p.directory(f_name).read(true).write(true).create(true))?;
+        builder.add_preopen_build(|p| p.directory(f_name).read(true).write(true).create(true))?;
     }
 
-    Ok(wasi_env.finalize(store)?)
+    Ok(builder)
 }
 
 pub(crate) fn exec_module(

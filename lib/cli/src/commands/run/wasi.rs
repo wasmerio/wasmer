@@ -115,14 +115,14 @@ impl Wasi {
 
         let runtime = Arc::new(PluggableRuntimeImplementation::default());
 
-        let wasi_state_builder = WasiState::builder(program_name)
+        let builder = WasiState::builder(program_name)
             .args(args)
             .envs(self.env_vars.clone())
             .uses(self.uses.clone())
-            .runtime(&runtime)
+            .runtime(runtime.clone())
             .map_commands(map_commands.clone());
 
-        let wasi_state_builder = if wasmer_wasi::is_wasix_module(module) {
+        let mut builder = if wasmer_wasi::is_wasix_module(module) {
             // If we preopen anything from the host then shallow copy it over
             let root_fs = RootFileSystemBuilder::new()
                 .with_tty(Box::new(TtyFile::new(
@@ -143,17 +143,22 @@ impl Wasi {
             }
 
             // Open the root of the new filesystem
-            wasi_state_builder
+            builder
                 .sandbox_fs(root_fs)
                 .preopen_dir(Path::new("/"))
                 .unwrap()
                 .map_dir(".", "/")?
         } else {
-            wasi_state_builder
+            builder
                 .fs(default_fs_backing())
                 .preopen_dirs(self.pre_opened_directories.clone())?
                 .map_dirs(self.mapped_dirs.clone())?
         };
+
+        if self.http_client {
+            let caps = wasmer_wasi::http::HttpClientCapabilityV1::new_allow_all();
+            builder.capabilities_mut().http_client = caps;
+        }
 
         #[cfg(feature = "experimental-io-devices")]
         {
@@ -163,14 +168,7 @@ impl Wasi {
             }
         }
 
-        let mut wasi_env = wasi_state_builder.finalize(store)?;
-
-        if self.http_client {
-            let caps = wasmer_wasi::http::HttpClientCapabilityV1::new_allow_all();
-            wasi_env.data_mut(store).capabilities.http_client = caps;
-        }
-
-        let instance = wasmer_wasi::build_wasi_instance(module, &mut wasi_env, store)?;
+        let (instance, wasi_env) = builder.instantiate(module.clone(), store)?;
         Ok((wasi_env.env, instance))
     }
 
