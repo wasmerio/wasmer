@@ -54,9 +54,6 @@ linked_hash_set = { version = "0.1" }
 # used by feature='host-termios'
 termios = { version = "0.3", optional = true }
 # the various compilers
-wasmer-compiler-cranelift = { version = "=3.2.0-alpha.1", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-llvm = { version = "=3.2.0-alpha.1", path = "../compiler-llvm", optional = true }
-wasmer-compiler-singlepass = { version = "=3.2.0-alpha.1", path = "../compiler-singlepass", optional = true }
 wasmer-compiler = { version = "=3.2.0-alpha.1", path = "../compiler", features = [ "translator" ], optional = true }
 http = "0.2.8"
 wai-bindgen-wasmer = { path = "../wai-bindgen-wasmer", version = "0.2.3", features = ["tracing"] }
@@ -92,7 +89,7 @@ default = ["sys-default"]
 
 time = ["tokio/time"]
 
-webc_runner = ["serde_cbor", "wasmer/compiler", "wasmer/cranelift"]
+webc_runner = ["serde_cbor", "wasmer/compiler"]
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
 webc_runner_rt_wasi = []
 
@@ -102,9 +99,6 @@ sys-poll = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 
 compiler = [ "wasmer/compiler", "wasmer-compiler"]
-compiler-cranelift = [ "wasmer-compiler-cranelift" ]
-compiler-llvm = [ "wasmer-compiler-llvm" ]
-compiler-singlepass = [ "wasmer-compiler-singlepass" ]
 
 js = ["wasmer/js", "wasmer-vfs/no-time", "getrandom/js", "chrono", "wasmer-wasi-types/js"]
 js-default = ["js", "wasmer/js-default"]
