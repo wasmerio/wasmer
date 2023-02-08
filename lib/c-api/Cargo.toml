@@ -59,7 +59,7 @@ default = [
     "middlewares",
 ]
 wat = ["wasmer-api/wat"]
-wasi = ["wasmer-wasi"]
+wasi = ["wasmer-wasi", "wasmer-wasi/sys-thread"]
 middlewares = [
     "compiler",
     "wasmer-middlewares",
