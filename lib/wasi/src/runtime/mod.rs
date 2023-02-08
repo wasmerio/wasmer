@@ -67,14 +67,6 @@ where
         None
     }
 
-    /// Writes output to the log
-    fn log(&self, text: String) -> Pin<Box<dyn Future<Output = io::Result<()>>>> {
-        Box::pin(async move {
-            tracing::info!("{}", text);
-            Ok(())
-        })
-    }
-
     // TODO: remove from this trait
     /// Gets the TTY state
     #[cfg(not(feature = "host-termios"))]
