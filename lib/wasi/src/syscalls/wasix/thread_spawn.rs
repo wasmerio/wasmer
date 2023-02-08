@@ -78,7 +78,7 @@ pub fn thread_spawn<M: MemorySize>(
     // can be used to call back into the process
     let create_ctx = {
         let state = env.state.clone();
-        let wasi_env = env.clone();
+        let wasi_env = env.duplicate();
         let thread = thread_handle.as_thread();
         move |mut store: Store, module: Module, memory: VMMemory| {
             // We need to reconstruct some things
@@ -86,7 +86,7 @@ pub fn thread_spawn<M: MemorySize>(
             let memory = Memory::new_from_existing(&mut store, memory);
 
             // Build the context object and import the memory
-            let mut ctx = WasiFunctionEnv::new(&mut store, wasi_env.clone());
+            let mut ctx = WasiFunctionEnv::new(&mut store, wasi_env.duplicate());
             {
                 let env = ctx.data_mut(&mut store);
                 env.thread = thread.clone();

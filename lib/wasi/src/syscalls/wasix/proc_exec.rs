@@ -224,7 +224,7 @@ pub fn proc_exec<M: MemorySize>(
         // We need to unwind out of this process and launch a new process in its place
         unwind::<M, _>(ctx, move |mut ctx, _, _| {
             // Prepare the environment
-            let mut wasi_env = ctx.data_mut().clone();
+            let mut wasi_env = ctx.data_mut().duplicate();
             _prepare_wasi(&mut wasi_env, Some(args));
 
             // Get a reference to the runtime

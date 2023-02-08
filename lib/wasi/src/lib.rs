@@ -206,7 +206,7 @@ pub(crate) fn run_wasi_func_start(
     Ok(())
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct WasiVFork {
     /// The unwound stack before the vfork occured
     pub rewind_stack: BytesMut,
@@ -214,14 +214,37 @@ pub struct WasiVFork {
     pub memory_stack: BytesMut,
     /// The mutable parts of the store
     pub store_data: Bytes,
-    /// The environment before the vfork occured
-    pub env: Box<WasiEnv>,
-    /// Handle of the thread we have forked (dropping this handle
-    /// will signal that the thread is dead)
-    pub handle: WasiThreadHandle,
     /// Offset into the memory where the PID will be
     /// written when the real fork takes places
     pub pid_offset: u64,
+
+    /// The environment before the vfork occured
+    pub env: Box<WasiEnv>,
+
+    /// Handle of the thread we have forked (dropping this handle
+    /// will signal that the thread is dead)
+    pub handle: WasiThreadHandle,
+}
+
+impl WasiVFork {
+    /// Clones this env.
+    ///
+    /// This is a custom function instead of a [`Clone`] implementation because
+    /// this type should not be cloned.
+    ///
+    // TODO: remove WasiEnv::duplicate()
+    // This function should not exist, since it just copies internal state.
+    // Currently only used by fork/spawn related syscalls.
+    pub(crate) fn duplicate(&self) -> Self {
+        Self {
+            rewind_stack: self.rewind_stack.clone(),
+            memory_stack: self.memory_stack.clone(),
+            store_data: self.store_data.clone(),
+            pid_offset: self.pid_offset,
+            env: Box::new(self.env.duplicate()),
+            handle: self.handle.clone(),
+        }
+    }
 }
 
 // Represents the current thread ID for the executing method
@@ -677,14 +700,13 @@ fn import_object_for_all_wasi_versions(
             let has_wasix_http_import = module.imports().any(|t| t.module() == "wasix_http_client_v1");
 
             let init = if has_canonical_realloc && has_wasix_http_import {
-                let wenv = { env.as_ref(store).clone() };
-                let http = crate::http::client_impl::WasixHttpClientImpl::new(wenv);
+                let wenv = env.as_ref(store);
+                let http = crate::http::client_impl::WasixHttpClientImpl::new(&wenv);
                     crate::bindings::wasix_http_client_v1::add_to_imports(
                         store,
                         &mut imports,
                         http,
                     )
-
             } else {
                 Box::new(stub_initializer) as ModuleInitializer
             };

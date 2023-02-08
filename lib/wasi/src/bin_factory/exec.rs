@@ -115,7 +115,7 @@ pub fn spawn_exec_module(
 
             move || {
                 // Create the WasiFunctionEnv
-                let mut wasi_env = env.clone();
+                let mut wasi_env = env;
                 wasi_env.runtime = runtime;
                 let memory = match wasi_env.tasks().build_memory(spawn_type) {
                     Ok(m) => m,

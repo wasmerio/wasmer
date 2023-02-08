@@ -163,7 +163,7 @@ impl WasiInstanceHandles {
             react: instance.exports.get_typed_function(store, "_react").ok(),
             signal: instance
                 .exports
-                .get_typed_function(store, "__wasm_signal")
+                .get_typed_function(&store, "__wasm_signal")
                 .ok(),
             signal_set: false,
             asyncify_start_unwind: instance
@@ -225,7 +225,7 @@ pub(crate) struct WasiEnvInit {
 }
 
 /// The environment provided to the WASI imports.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct WasiEnv {
     /// Represents the process this environment is attached to
     pub process: WasiProcess,
@@ -262,6 +262,31 @@ unsafe impl Send for WasiEnv {}
 unsafe impl Sync for WasiEnv {}
 
 impl WasiEnv {
+    /// Clones this env.
+    ///
+    /// This is a custom function instead of a [`Clone`] implementation because
+    /// this type should not be cloned.
+    ///
+    // TODO: remove WasiEnv::duplicate()
+    // This function should not exist, since it just copies internal state.
+    // Currently only used by fork/spawn related syscalls.
+    pub(crate) fn duplicate(&self) -> Self {
+        Self {
+            process: self.process.clone(),
+            thread: self.thread.clone(),
+            vfork: self.vfork.as_ref().map(|v| v.duplicate()),
+            stack_base: self.stack_base,
+            stack_start: self.stack_start,
+            state: self.state.clone(),
+            bin_factory: self.bin_factory.clone(),
+            inner: self.inner.clone(),
+            owned_handles: self.owned_handles.clone(),
+            runtime: self.runtime.clone(),
+            module_cache: self.module_cache.clone(),
+            capabilities: self.capabilities.clone(),
+        }
+    }
+
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Result<(Self, WasiThreadHandle), ControlPlaneError> {
         let process = self.process.compute.new_process()?;
