@@ -41,12 +41,6 @@ where
     /// Retrieve the active [`VirtualTaskManager`].
     fn task_manager(&self) -> &Arc<dyn VirtualTaskManager>;
 
-    /// Gets the TTY state
-    #[cfg(not(feature = "host-termios"))]
-    fn tty_get(&self) -> WasiTtyState {
-        Default::default()
-    }
-
     /// Get a [`wasmer::Engine`] for module compilation.
     #[cfg(feature = "sys")]
     fn engine(&self) -> Option<wasmer::Engine> {
@@ -68,10 +62,32 @@ where
         }
     }
 
+    /// Returns a HTTP client
+    fn http_client(&self) -> Option<&DynHttpClient> {
+        None
+    }
+
+    /// Writes output to the log
+    fn log(&self, text: String) -> Pin<Box<dyn Future<Output = io::Result<()>>>> {
+        Box::pin(async move {
+            tracing::info!("{}", text);
+            Ok(())
+        })
+    }
+
+    // TODO: remove from this trait
+    /// Gets the TTY state
+    #[cfg(not(feature = "host-termios"))]
+    fn tty_get(&self) -> WasiTtyState {
+        Default::default()
+    }
+
+    // TODO: remove from this trait
     /// Sets the TTY state
     #[cfg(not(feature = "host-termios"))]
     fn tty_set(&self, _tty_state: WasiTtyState) {}
 
+    // TODO: remove from this trait
     #[cfg(feature = "host-termios")]
     fn tty_get(&self) -> WasiTtyState {
         let mut echo = false;
@@ -113,6 +129,7 @@ where
         }
     }
 
+    // TODO: remove from this trait
     /// Sets the TTY state
     #[cfg(feature = "host-termios")]
     fn tty_set(&self, tty_state: WasiTtyState) {
@@ -133,11 +150,7 @@ where
         }
     }
 
-    /// Returns a HTTP client
-    fn http_client(&self) -> Option<&DynHttpClient> {
-        None
-    }
-
+    // TODO: remove from this trait
     /// Writes output to the console
     fn stdout(&self, data: &[u8]) -> Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync>> {
         let data = data.to_vec();
@@ -147,6 +160,7 @@ where
         })
     }
 
+    // TODO: remove from this trait
     /// Writes output to the console
     fn stderr(&self, data: &[u8]) -> Pin<Box<dyn Future<Output = io::Result<()>> + Send + Sync>> {
         let data = data.to_vec();
@@ -156,6 +170,7 @@ where
         })
     }
 
+    // TODO: remove from this trait
     /// Flushes the output to the console
     fn flush(&self) -> Pin<Box<dyn Future<Output = io::Result<()>>>> {
         Box::pin(async move {
@@ -165,14 +180,7 @@ where
         })
     }
 
-    /// Writes output to the log
-    fn log(&self, text: String) -> Pin<Box<dyn Future<Output = io::Result<()>>>> {
-        Box::pin(async move {
-            tracing::info!("{}", text);
-            Ok(())
-        })
-    }
-
+    // TODO: remove from this trait
     /// Clears the terminal
     fn cls(&self) -> Pin<Box<dyn Future<Output = io::Result<()>>>> {
         Box::pin(async move {
