@@ -2,7 +2,7 @@
 use tracing_subscriber::fmt::SubscriberBuilder;
 use wasmer::{Features, Module, Store};
 use wasmer_vfs::AsyncReadExt;
-use wasmer_wasi::{Pipe, WasiError, WasiState};
+use wasmer_wasi::{Pipe, WasiEnv, WasiEnvBuilder, WasiError, WasiState};
 
 #[cfg(feature = "sys")]
 mod sys {
@@ -63,30 +63,12 @@ async fn test_coreutils() {
 async fn run_test(mut store: Store, module: Module) {
     // Create the `WasiEnv`.
     let mut stdout = Pipe::default();
-    let mut wasi_state_builder = WasiState::builder("echo");
-    wasi_state_builder.args(&["apple"]);
 
-    let mut wasi_env = wasi_state_builder
+    WasiEnv::builder("test")
+        .args(&["apple"])
         .stdout(Box::new(stdout.clone()))
-        .finalize(&mut store)
+        .run_with_store(module, &mut store)
         .unwrap();
-
-    let instance = wasmer_wasi::build_wasi_instance(&module, &mut wasi_env, &mut store).unwrap();
-
-    // Let's call the `_start` function, which is our `main` function in Rust.
-    let start = instance.exports.get_function("_start").unwrap();
-    let ret = start.call(&mut store, &[]);
-    if let Err(e) = ret {
-        match e.downcast::<WasiError>() {
-            Ok(WasiError::Exit(0)) => {}
-            _ => {
-                assert!(
-                    false,
-                    "The call should have returned Err(WasiError::Exit(0))"
-                );
-            }
-        }
-    }
 
     let mut stdout_str = String::new();
     stdout.read_to_string(&mut stdout_str).await.unwrap();

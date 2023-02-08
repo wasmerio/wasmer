@@ -58,13 +58,7 @@ async fn test_multithreading() {
 async fn run_test(mut store: Store, module: Module) {
     // Create the `WasiEnv`.
     let mut stdout = Pipe::default();
-    let mut wasi_state_builder = WasiState::builder("multi-threading");
-
-    let mut wasi_env = wasi_state_builder
-        .stdout(Box::new(stdout.clone()))
-        .stderr(Box::new(stdout.clone()))
-        .finalize(&mut store)
-        .unwrap();
+    let stdout2 = stdout.clone();
 
     // Start a thread that will dump STDOUT to info
     #[cfg(feature = "sys")]
@@ -86,27 +80,16 @@ async fn run_test(mut store: Store, module: Module) {
         }
     });
 
-    let instance = wasmer_wasi::build_wasi_instance(&module, &mut wasi_env, &mut store).unwrap();
-
-    // Let's call the `_start` function, which is our `main` function in Rust.
-    let start = instance.exports.get_function("_start").unwrap();
-    let ret = start.call(&mut store, &[]);
-    if let Err(e) = ret {
-        match e.downcast::<WasiError>() {
-            Ok(WasiError::Exit(0)) => {}
-            _ => {
-                assert!(
-                    false,
-                    "The call should have returned Err(WasiError::Exit(0))"
-                );
-            }
-        }
-    }
+    WasiState::builder("multi-threading")
+        .stdout(Box::new(stdout2.clone()))
+        .stderr(Box::new(stdout2.clone()))
+        .run_with_store(module, &mut store)
+        .unwrap();
 
     #[cfg(feature = "js")]
     {
         let mut stdout_str = String::new();
-        stdout.read_to_string(&mut stdout_str).unwrap();
+        stdout2.read_to_string(&mut stdout_str).unwrap();
         let stdout_as_str = stdout_str.as_str();
         for line in stdout_str.lines() {
             info!("{}", line);

@@ -71,16 +71,10 @@ async fn test_catsay() {
 async fn run_test(mut store: Store, module: Module) {
     // Create the `WasiEnv`.
     let mut stdout = Pipe::default();
-    let mut wasi_state_builder = WasiState::builder("catsay");
+    let stdout2 = stdout.clone();
 
-    let mut stdin_pipe = Pipe::default();
-
-    let mut wasi_env = wasi_state_builder
-        .stdin(Box::new(stdin_pipe.clone()))
-        .stdout(Box::new(stdout.clone()))
-        .stderr(Box::new(stdout.clone()))
-        .finalize(&mut store)
-        .unwrap();
+    let mut stdin = Pipe::default();
+    let stdin2 = stdin.clone();
 
     // Start a thread that will dump STDOUT to info
     #[cfg(feature = "sys")]
@@ -103,33 +97,15 @@ async fn run_test(mut store: Store, module: Module) {
     });
 
     // Write some text to catsay stdin
-    stdin_pipe.write_all("hi there".as_bytes()).await.unwrap();
-    drop(stdin_pipe);
+    stdin.write_all("hi there".as_bytes()).await.unwrap();
+    drop(stdin);
 
-    // Generate an `ImportObject`.
-    let instance = wasmer_wasi::build_wasi_instance(&module, &mut wasi_env, &mut store).unwrap();
-
-    // Let's call the `_start` function, which is our `main` function in Rust.
-    let start = instance.exports.get_function("_start").unwrap();
-    let ret = start.call(&mut store, &[]);
-    if let Err(e) = ret {
-        match e.downcast::<WasiError>() {
-            Ok(WasiError::Exit(0)) => {}
-            Ok(WasiError::Exit(code)) => {
-                assert!(
-                    false,
-                    "The call should have returned Err(WasiError::Exit(0)) but returned {}",
-                    code
-                );
-            }
-            Ok(WasiError::UnknownWasiVersion) => {
-                assert!(false, "The call should have returned Err(WasiError::Exit(0)) but returned UnknownWasiVersion");
-            }
-            Err(err) => {
-                assert!(false, "The call returned an error {:?}", err);
-            }
-        }
-    }
+    WasiState::builder("catsay")
+        .stdin(Box::new(stdin2.clone()))
+        .stdout(Box::new(stdout2.clone()))
+        .stderr(Box::new(stdout2.clone()))
+        .run_with_store(module, &mut store)
+        .unwrap();
 
     #[cfg(feature = "js")]
     {

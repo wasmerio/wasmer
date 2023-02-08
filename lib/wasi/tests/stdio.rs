@@ -1,6 +1,6 @@
-use wasmer::{Instance, Module, Store};
+use wasmer::{Module, Store};
 use wasmer_vfs::{AsyncReadExt, AsyncWriteExt};
-use wasmer_wasi::{WasiBidirectionalSharedPipePair, WasiState};
+use wasmer_wasi::{WasiBidirectionalSharedPipePair, WasiEnv, WasiState};
 
 mod sys {
     #[tokio::test]
@@ -73,27 +73,14 @@ async fn test_stdout() {
 
     // Create the `WasiEnv`.
     let mut pipe = WasiBidirectionalSharedPipePair::default();
+
     // FIXME: evaluate if needed (method not available on ArcFile)
     // pipe.set_blocking(false);
-    let mut wasi_env = WasiState::builder("command-name")
+    WasiState::builder("command-name")
         .args(&["Gordon"])
         .stdout(Box::new(pipe.clone()))
-        .finalize(&mut store)
+        .run_with_store(module, &mut store)
         .unwrap();
-
-    // Generate an `ImportObject`.
-    let import_object = wasi_env.import_object(&mut store, &module).unwrap();
-
-    // Let's instantiate the module with the imports.
-    let instance = Instance::new(&mut store, &module, &import_object).unwrap();
-    // FIXME: evaluate initialize() vs below two lines
-    wasi_env.initialize(&mut store, &instance).unwrap();
-    // let memory = instance.exports.get_memory("memory").unwrap();
-    // wasi_env.data_mut(&mut store).set_memory(memory.clone());
-
-    // Let's call the `_start` function, which is our `main` function in Rust.
-    let start = instance.exports.get_function("_start").unwrap();
-    start.call(&mut store, &[]).unwrap();
 
     let mut stdout_str = String::new();
     pipe.read_to_string(&mut stdout_str).await.unwrap();
@@ -116,34 +103,14 @@ async fn test_env() {
     let mut pipe = WasiBidirectionalSharedPipePair::default();
     // FIXME: evaluate if needed (method not available)
     // .with_blocking(false);
-    let mut wasi_state_builder = WasiState::builder("command-name");
-    wasi_state_builder
+    WasiState::builder("command-name")
         .args(&["Gordon"])
         .env("DOG", "X")
         .env("TEST", "VALUE")
-        .env("TEST2", "VALUE2");
-    // panic!("envs: {:?}", wasi_state_builder.envs);
-    let mut wasi_env = wasi_state_builder
+        .env("TEST2", "VALUE2")
         .stdout(Box::new(pipe.clone()))
-        .finalize(&mut store)
+        .run_with_store(module, &mut store)
         .unwrap();
-
-    // Generate an `ImportObject`.
-    let import_object = wasi_env.import_object(&mut store, &module).unwrap();
-
-    // Let's instantiate the module with the imports.
-    let instance = Instance::new(&mut store, &module, &import_object).unwrap();
-
-    // FIXME: evaluate initialize() vs below two lines
-    // wasi_env.initialize(&mut store, &instance).unwrap();
-    // let memory = instance.exports.get_memory("memory").unwrap();
-    wasi_env.data_mut(&mut store);
-    // FIXME: where did the method go?
-    // wasi_env.set_memory(memory.clone());
-
-    // Let's call the `_start` function, which is our `main` function in Rust.
-    let start = instance.exports.get_function("_start").unwrap();
-    start.call(&mut store, &[]).unwrap();
 
     let mut stdout_str = String::new();
     pipe.read_to_string(&mut stdout_str).await.unwrap();
@@ -164,26 +131,10 @@ async fn test_stdin() {
     let buf = "Hello, stdin!\n".as_bytes().to_owned();
     pipe.write(&buf[..]).await.unwrap();
 
-    let mut wasi_env = WasiState::builder("command-name")
+    WasiEnv::builder("command-name")
         .stdin(Box::new(pipe.clone()))
-        .finalize(&mut store)
+        .run_with_store(module, &mut store)
         .unwrap();
-
-    // Generate an `ImportObject`.
-    let import_object = wasi_env.import_object(&mut store, &module).unwrap();
-
-    // Let's instantiate the module with the imports.
-    let instance = Instance::new(&mut store, &module, &import_object).unwrap();
-
-    // FIXME: evaluate initialize() vs below lines
-    wasi_env.initialize(&mut store, &instance).unwrap();
-    // let memory = instance.exports.get_memory("memory").unwrap();
-    // wasi_env.data_mut(&mut store).set_memory(memory.clone());
-
-    // Let's call the `_start` function, which is our `main` function in Rust.
-    let start = instance.exports.get_function("_start").unwrap();
-    let result = start.call(&mut store, &[]);
-    assert!(result.is_ok());
 
     // We assure stdin is now empty
     let mut buf = Vec::new();
