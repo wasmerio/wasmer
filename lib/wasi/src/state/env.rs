@@ -210,14 +210,15 @@ pub(crate) struct WasiEnvInit {
     pub module_cache: Arc<ModuleCache>,
     pub webc_dependencies: Vec<String>,
     pub mapped_commands: HashMap<String, PathBuf>,
-    pub control_plane: WasiControlPlane,
     pub bin_factory: BinFactory,
     pub capabilities: Capabilities,
 
+    pub control_plane: WasiControlPlane,
     // TODO: remove these again?
+    // Only needed if WasiEnvInit is also used for process/thread spawning.
     pub spawn_type: Option<SpawnType>,
-    pub process: WasiProcess,
-    pub thread: Option<WasiThread>,
+    pub process: Option<WasiProcess>,
+    pub thread: Option<WasiThreadHandle>,
 
     /// Whether to call the `_initialize` function in the WASI module.
     /// Will be true for regular new instances, but false for threads.
@@ -330,10 +331,17 @@ impl WasiEnv {
         WasiEnvBuilder::new(program_name)
     }
 
-    #[deprecated(note = "Use `WasiEnv::instantiate` instead")]
-    pub(crate) fn from_init(init: WasiEnvInit) -> Result<Self, anyhow::Error> {
-        let process = init.process;
-        let thread = process.new_thread()?;
+    pub(crate) fn from_init(init: WasiEnvInit) -> Result<Self, WasiRuntimeError> {
+        let process = if let Some(p) = init.process {
+            p
+        } else {
+            init.control_plane.new_process()?
+        };
+        let thread = if let Some(t) = init.thread {
+            t
+        } else {
+            process.new_thread()?
+        };
 
         let mut env = Self {
             process,
@@ -360,8 +368,16 @@ impl WasiEnv {
         module: Module,
         store: &mut impl AsStoreMut,
     ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
-        let process = init.process;
-        let thread = process.new_thread()?;
+        let process = if let Some(p) = init.process {
+            p
+        } else {
+            init.control_plane.new_process()?
+        };
+        let thread = if let Some(t) = init.thread {
+            t
+        } else {
+            process.new_thread()?
+        };
 
         let mut env = Self {
             process,
@@ -686,19 +702,9 @@ impl WasiEnv {
         self.state.stdin()
     }
 
-    #[deprecated(
-        since = "3.0.0",
-        note = "stdin_mut() is no longer needed - just use stdin() instead"
-    )]
-    pub fn stdin_mut(
-        &self,
-    ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
-        self.stdin()
-    }
-
     /// Internal helper function to get a standard device handle.
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
-    fn std_dev_get(
+    pub fn std_dev_get(
         &self,
         fd: WasiFd,
     ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {

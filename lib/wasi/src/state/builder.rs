@@ -682,7 +682,6 @@ impl WasiEnvBuilder {
         let capabilities = self.capabilites;
 
         let control_plane = WasiControlPlane::default();
-        let process = control_plane.new_process()?;
 
         let init = WasiEnvInit {
             state,
@@ -694,7 +693,7 @@ impl WasiEnvBuilder {
             bin_factory,
             capabilities,
             spawn_type: None,
-            process,
+            process: None,
             thread: None,
             call_initialize: true,
         };

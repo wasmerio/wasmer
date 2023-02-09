@@ -256,44 +256,14 @@ impl WasiState {
         self.std_dev_get(__WASI_STDOUT_FILENO)
     }
 
-    #[deprecated(
-        since = "3.0.0",
-        note = "stdout_mut() is no longer needed - just use stdout() instead"
-    )]
-    pub fn stdout_mut(
-        &self,
-    ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
-        self.stdout()
-    }
-
     /// Get the `VirtualFile` object at stderr
     pub fn stderr(&self) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
         self.std_dev_get(__WASI_STDERR_FILENO)
     }
 
-    #[deprecated(
-        since = "3.0.0",
-        note = "stderr_mut() is no longer needed - just use stderr() instead"
-    )]
-    pub fn stderr_mut(
-        &self,
-    ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
-        self.stderr()
-    }
-
     /// Get the `VirtualFile` object at stdin
     pub fn stdin(&self) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
         self.std_dev_get(__WASI_STDIN_FILENO)
-    }
-
-    #[deprecated(
-        since = "3.0.0",
-        note = "stdin_mut() is no longer needed - just use stdin() instead"
-    )]
-    pub fn stdin_mut(
-        &self,
-    ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
-        self.stdin()
     }
 
     /// Internal helper function to get a standard device handle.
