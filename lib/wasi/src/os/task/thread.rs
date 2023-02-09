@@ -184,7 +184,7 @@ impl WasiThread {
         std::mem::swap(&mut ret, &mut guard.0);
         match ret.is_empty() {
             true => {
-                if guard.1.iter().any(|w| w.will_wake(waker)) == false {
+                if !guard.1.iter().any(|w| w.will_wake(waker)) {
                     guard.1.push(waker.clone());
                 }
                 None
@@ -197,10 +197,8 @@ impl WasiThread {
     pub fn has_signals_or_subscribe(&self, waker: &Waker) -> bool {
         let mut guard = self.state.signals.lock().unwrap();
         let has_signals = !guard.0.is_empty();
-        if has_signals == false {
-            if guard.1.iter().any(|w| w.will_wake(waker)) == false {
-                guard.1.push(waker.clone());
-            }
+        if !has_signals && !guard.1.iter().any(|w| w.will_wake(waker)) {
+            guard.1.push(waker.clone());
         }
         has_signals
     }

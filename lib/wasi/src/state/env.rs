@@ -263,7 +263,7 @@ impl WasiEnvInit {
             spawn_type: None,
             process: None,
             thread: None,
-            call_initialize: self.call_initialize.clone(),
+            call_initialize: self.call_initialize,
         }
     }
 }
@@ -553,7 +553,7 @@ impl WasiEnv {
             return Err(WasiError::Exit(forced_exit));
         }
 
-        Ok(Self::process_signals(ctx)?)
+        Self::process_signals(ctx)
     }
 
     /// Porcesses any signals that are batched up
@@ -575,7 +575,7 @@ impl WasiEnv {
 
         // Check for any signals that we need to trigger
         // (but only if a signal handler is registered)
-        if let Some(_) = env.inner().signal.as_ref() {
+        if env.inner().signal.as_ref().is_some() {
             let signals = env.thread.pop_signals();
             Ok(Ok(Self::process_signals_internal(ctx, signals)?))
         } else {

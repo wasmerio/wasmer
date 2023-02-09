@@ -35,7 +35,7 @@ where
         let futex = guard
             .entry(self.futex_idx)
             .or_insert_with(|| WasiFutex { wakers: vec![] });
-        if futex.wakers.iter().any(|w| w.will_wake(waker)) == false {
+        if !futex.wakers.iter().any(|w| w.will_wake(waker)) {
             futex.wakers.push(waker.clone());
         }
 

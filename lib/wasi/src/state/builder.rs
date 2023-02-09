@@ -915,7 +915,7 @@ mod test {
         let output = WasiEnvBuilder::new("test_prog")
             .arg("--h\0elp")
             .build_init();
-        let err = output.err().expect("should fail");
+        let err = output.expect_err("should fail");
         assert!(matches!(
             err,
             WasiStateCreationError::ArgumentContainsNulByte(_)
@@ -924,7 +924,7 @@ mod test {
         let output = WasiEnvBuilder::new("test_prog")
             .args(&["--help", "--wat\0"])
             .build_init();
-        let err = output.err().expect("should fail");
+        let err = output.expect_err("should fail");
         assert!(matches!(
             err,
             WasiStateCreationError::ArgumentContainsNulByte(_)

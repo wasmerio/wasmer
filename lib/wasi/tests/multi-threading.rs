@@ -82,7 +82,7 @@ async fn run_test(mut store: Store, module: Module) {
 
     WasiEnv::builder("multi-threading")
         .stdout(Box::new(stdout2.clone()))
-        .stderr(Box::new(stdout2.clone()))
+        .stderr(Box::new(stdout2))
         .run_with_store(module, &mut store)
         .unwrap();
 

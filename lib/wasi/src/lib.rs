@@ -699,7 +699,7 @@ fn import_object_for_all_wasi_versions(
 
             let init = if has_canonical_realloc && has_wasix_http_import {
                 let wenv = env.as_ref(store);
-                let http = crate::http::client_impl::WasixHttpClientImpl::new(&wenv);
+                let http = crate::http::client_impl::WasixHttpClientImpl::new(wenv);
                     crate::bindings::wasix_http_client_v1::add_to_imports(
                         store,
                         &mut imports,

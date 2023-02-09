@@ -582,7 +582,7 @@ where
             actor(socket, fd_entry)
         }
         _ => {
-            return Err(Errno::Notsock);
+            Err(Errno::Notsock)
         }
     }
 }

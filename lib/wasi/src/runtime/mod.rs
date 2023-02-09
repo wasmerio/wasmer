@@ -99,7 +99,7 @@ impl PluggableRuntimeImplementation {
         }
 
         Self {
-            rt: rt,
+            rt,
             networking,
             http_client,
             #[cfg(feature = "sys")]

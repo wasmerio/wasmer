@@ -197,7 +197,8 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                 InodeValFilePollGuardMode::EventNotifications { .. } => false,
                 InodeValFilePollGuardMode::Socket { ref inner } => {
                     let mut guard = inner.write().unwrap();
-                    let is_closed = if let InodeSocketKind::Closed = guard.kind {
+                    
+                    if let InodeSocketKind::Closed = guard.kind {
                         true
                     } else if has_read || has_write {
                         // this will be handled in the read/write poll instead
@@ -215,8 +216,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                             | Poll::Ready(Err(NetworkError::UnexpectedEof)) => true,
                             _ => false,
                         }
-                    };
-                    is_closed
+                    }
                 }
             };
             if is_closed {
