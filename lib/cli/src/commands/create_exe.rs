@@ -2279,8 +2279,8 @@ mod http_fetch {
     pub(super) fn untar(tarball: &Path, target: &Path) -> Result<Vec<PathBuf>> {
         if !target.exists() {
             std::fs::create_dir_all(&target)
-            .map_err(|e| anyhow::anyhow!("{e}"))
-            .with_context(|| anyhow::anyhow!("{}", target.display()))?;
+                .map_err(|e| anyhow::anyhow!("{e}"))
+                .with_context(|| anyhow::anyhow!("{}", target.display()))?;
 
             println!("unpacking tarball {}", tarball.display());
             let _ = std::fs::remove_dir(target);

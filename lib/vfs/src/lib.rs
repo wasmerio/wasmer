@@ -20,6 +20,8 @@ pub mod static_fs;
 #[cfg(feature = "webc-fs")]
 pub mod webc_fs;
 
+pub mod dual_fs;
+
 pub type Result<T> = std::result::Result<T, FsError>;
 
 #[derive(Debug)]
