@@ -3,9 +3,10 @@ use crate::sys::engine::{default_engine, Engine};
 use derivative::Derivative;
 use std::fmt;
 use wasmer_compiler::Tunables;
-use wasmer_types::OnCalledAction;
-use wasmer_vm::{init_traps, StoreId, TrapHandlerFn};
+use wasmer_types::{OnCalledAction, StoreId};
+use wasmer_vm::{init_traps, TrapHandlerFn};
 
+#[cfg(feature = "sys")]
 use wasmer_vm::StoreObjects;
 
 /// Call handler for a store.
