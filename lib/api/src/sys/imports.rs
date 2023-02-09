@@ -6,8 +6,6 @@ use std::collections::HashMap;
 use std::fmt;
 use wasmer_compiler::LinkError;
 use wasmer_types::ImportError;
-#[cfg(feature = "compiler")]
-use wasmer_vm::VMSharedMemory;
 
 /// All of the import data used when instantiating.
 ///
@@ -121,37 +119,6 @@ impl Imports {
     pub fn define(&mut self, ns: &str, name: &str, val: impl Into<Extern>) {
         self.map
             .insert((ns.to_string(), name.to_string()), val.into());
-    }
-
-    /// Imports (any) shared memory into the imports.
-    /// (if the module does not import memory then this function is ignored)
-    #[cfg(feature = "compiler")]
-    pub fn import_shared_memory(
-        &mut self,
-        module: &Module,
-        store: &mut impl crate::AsStoreMut,
-    ) -> Option<VMSharedMemory> {
-        // Determine if shared memory needs to be created and imported
-        let shared_memory = module
-            .imports()
-            .memories()
-            .next()
-            .map(|a| *a.ty())
-            .map(|ty| {
-                let style = store.as_store_ref().engine().tunables().memory_style(&ty);
-                VMSharedMemory::new(&ty, &style).unwrap()
-            });
-
-        if let Some(memory) = shared_memory {
-            self.define(
-                "env",
-                "memory",
-                crate::Memory::new_from_existing(store, memory.clone().into()),
-            );
-            Some(memory)
-        } else {
-            None
-        }
     }
 
     /// Returns the contents of a namespace as an `Exports`.
