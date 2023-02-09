@@ -5,7 +5,7 @@ use std::fmt;
 use wasmer_compiler::Tunables;
 #[cfg(feature = "compiler")]
 use wasmer_types::OnCalledAction;
-use wasmer_vm::{init_traps, StoreId, TrapHandler, TrapHandlerFn};
+use wasmer_vm::{init_traps, StoreId, TrapHandlerFn};
 
 use wasmer_vm::StoreObjects;
 
@@ -132,16 +132,6 @@ impl Store {
 impl PartialEq for Store {
     fn eq(&self, other: &Self) -> bool {
         Self::same(self, other)
-    }
-}
-
-unsafe impl TrapHandler for Store {
-    fn custom_trap_handler(&self, call: &dyn Fn(&TrapHandlerFn) -> bool) -> bool {
-        if let Some(handler) = self.inner.trap_handler.as_ref() {
-            call(handler.as_ref())
-        } else {
-            false
-        }
     }
 }
 
