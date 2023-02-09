@@ -197,7 +197,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                 InodeValFilePollGuardMode::EventNotifications { .. } => false,
                 InodeValFilePollGuardMode::Socket { ref inner } => {
                     let mut guard = inner.write().unwrap();
-                    
+
                     if let InodeSocketKind::Closed = guard.kind {
                         true
                     } else if has_read || has_write {

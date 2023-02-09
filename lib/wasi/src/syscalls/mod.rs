@@ -359,8 +359,8 @@ where
 /// thus allowed for asynchronous operations to execute. It has built in functionality
 /// to (optionally) timeout the IO, force exit the process, callback signals and pump
 /// synchronous IO engine
-pub(crate) fn __asyncify_light<'a, T, Fut>(
-    env: &'a WasiEnv,
+pub(crate) fn __asyncify_light<T, Fut>(
+    env: &WasiEnv,
     timeout: Option<Duration>,
     work: Fut,
 ) -> Result<Result<T, Errno>, WasiError>
@@ -455,8 +455,8 @@ impl std::future::Future for InfiniteSleep {
 
 /// Performs an immutable operation on the socket while running in an asynchronous runtime
 /// This has built in signal support
-pub(crate) fn __sock_asyncify<'a, T, F, Fut>(
-    env: &'a WasiEnv,
+pub(crate) fn __sock_asyncify<T, F, Fut>(
+    env: &WasiEnv,
     sock: WasiFd,
     rights: Rights,
     actor: F,
@@ -581,16 +581,14 @@ where
             // Start the work using the socket
             actor(socket, fd_entry)
         }
-        _ => {
-            Err(Errno::Notsock)
-        }
+        _ => Err(Errno::Notsock),
     }
 }
 
 /// Performs mutable work on a socket under an asynchronous runtime with
 /// built in signal processing
-pub(crate) fn __sock_actor_mut<'a, T, F>(
-    ctx: &'a mut FunctionEnvMut<'_, WasiEnv>,
+pub(crate) fn __sock_actor_mut<T, F>(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     rights: Rights,
     actor: F,

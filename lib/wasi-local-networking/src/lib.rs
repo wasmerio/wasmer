@@ -293,7 +293,7 @@ impl VirtualConnectedSocket for LocalTcpStream {
         }
     }
 
-    fn try_recv<'a>(&mut self, buf: &'a mut [MaybeUninit<u8>]) -> Result<usize> {
+    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize> {
         let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
         self.stream.try_read(buf).map_err(io_err_into_net_error)
     }
@@ -512,7 +512,7 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
         }
     }
 
-    fn try_recv_from<'a>(&mut self, buf: &'a mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)> {
+    fn try_recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)> {
         let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
         self.socket
             .try_recv_from(buf)

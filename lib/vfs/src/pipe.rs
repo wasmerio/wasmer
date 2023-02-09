@@ -51,6 +51,12 @@ impl WasiPipe {
     }
 }
 
+impl Default for WasiPipe {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Pipe pair of (a, b) WasiPipes that are connected together
 #[derive(Clone, Debug)]
 pub struct WasiBidirectionalPipePair {

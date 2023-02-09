@@ -208,8 +208,7 @@ pub fn proc_fork<M: MemorySize>(
                             "wasi[{}:{}]::{} failed - could not build instance memory - {}",
                             pid, tid, fork_op, err
                         );
-                        ctx.data(&mut store)
-                            .cleanup(Some(Errno::Noexec as ExitCode));
+                        ctx.data(&store).cleanup(Some(Errno::Noexec as ExitCode));
                         return;
                     }
                 };

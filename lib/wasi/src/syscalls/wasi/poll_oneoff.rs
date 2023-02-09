@@ -75,7 +75,7 @@ struct PollBatch<'a> {
     joins: Vec<InodeValFilePollGuardJoin<'a>>,
 }
 impl<'a> PollBatch<'a> {
-    fn new(pid: WasiProcessId, tid: WasiThreadId, fds: &'a mut Vec<InodeValFilePollGuard>) -> Self {
+    fn new(pid: WasiProcessId, tid: WasiThreadId, fds: &'a mut [InodeValFilePollGuard]) -> Self {
         Self {
             pid,
             tid,
