@@ -3,7 +3,6 @@ use crate::sys::engine::{default_engine, Engine};
 use derivative::Derivative;
 use std::fmt;
 use wasmer_compiler::Tunables;
-#[cfg(feature = "compiler")]
 use wasmer_types::OnCalledAction;
 use wasmer_vm::{init_traps, StoreId, TrapHandlerFn};
 
@@ -23,8 +22,8 @@ pub type OnCalledHandler = Box<
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
     #[derivative(Debug = "ignore")]
-    #[cfg(feature = "compiler")]
     pub(crate) engine: Engine,
+    #[cfg(feature = "sys")]
     #[derivative(Debug = "ignore")]
     pub(crate) trap_handler: Option<Box<TrapHandlerFn<'static>>>,
     #[derivative(Debug = "ignore")]
@@ -42,12 +41,9 @@ pub(crate) struct StoreInner {
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 pub struct Store {
     pub(crate) inner: Box<StoreInner>,
-    #[cfg(feature = "compiler")]
-    engine: Engine,
 }
 
 impl Store {
-    #[cfg(feature = "compiler")]
     /// Creates a new `Store` with a specific [`Engine`].
     pub fn new(engine: impl Into<Engine>) -> Self {
         let engine = engine.into();
@@ -63,11 +59,9 @@ impl Store {
                 trap_handler: None,
                 on_called: None,
             }),
-            engine: engine.cloned(),
         }
     }
 
-    #[cfg(feature = "compiler")]
     #[deprecated(
         since = "3.0.0",
         note = "Store::new_with_engine has been deprecated in favor of Store::new"
@@ -77,12 +71,12 @@ impl Store {
         Self::new(engine)
     }
 
+    #[cfg(feature = "sys")]
     /// Set the trap handler in this store.
     pub fn set_trap_handler(&mut self, handler: Option<Box<TrapHandlerFn<'static>>>) {
         self.inner.trap_handler = handler;
     }
 
-    #[cfg(feature = "compiler")]
     #[deprecated(
         since = "3.2.0",
         note = "store.new_with_tunables() has been deprecated in favor of engine.set_tunables()"
@@ -98,28 +92,24 @@ impl Store {
         Self::new(engine)
     }
 
-    #[cfg(feature = "compiler")]
     #[deprecated(
         since = "3.2.0",
         note = "store.tunables() has been deprecated in favor of store.engine().tunables()"
     )]
     /// Returns the [`Tunables`].
     pub fn tunables(&self) -> &dyn Tunables {
-        self.engine.tunables()
+        self.inner.engine.tunables()
     }
 
-    #[cfg(feature = "compiler")]
     /// Returns the [`Engine`].
     pub fn engine(&self) -> &Engine {
-        &self.engine
+        &self.inner.engine
     }
 
-    #[cfg(feature = "compiler")]
     /// Checks whether two stores are identical. A store is considered
-    /// equal to another store if both have the same engine. The
-    /// tunables are excluded from the logic.
+    /// equal to another store if both have the same engine.
     pub fn same(a: &Self, b: &Self) -> bool {
-        a.engine.id() == b.engine.id()
+        a.id() == b.id()
     }
 
     /// Returns the ID of this store
@@ -128,18 +118,11 @@ impl Store {
     }
 }
 
-#[cfg(feature = "compiler")]
 impl PartialEq for Store {
     fn eq(&self, other: &Self) -> bool {
         Self::same(self, other)
     }
 }
-
-// impl PartialEq for Store {
-//     fn eq(&self, other: &Self) -> bool {
-//         Self::same(self, other)
-//     }
-// }
 
 // This is required to be able to set the trap_handler in the
 // Store.
@@ -168,28 +151,24 @@ impl AsStoreMut for Store {
     }
 }
 
-#[cfg(feature = "compiler")]
 impl AsEngineRef for Store {
     fn as_engine_ref(&self) -> EngineRef<'_> {
-        EngineRef::new(&self.engine)
+        EngineRef::new(&self.inner.engine)
     }
 }
 
-#[cfg(feature = "compiler")]
 impl AsEngineRef for &Store {
     fn as_engine_ref(&self) -> EngineRef<'_> {
-        EngineRef::new(&self.engine)
+        EngineRef::new(&self.inner.engine)
     }
 }
 
-#[cfg(feature = "compiler")]
 impl AsEngineRef for StoreRef<'_> {
     fn as_engine_ref(&self) -> EngineRef<'_> {
         EngineRef::new(&self.inner.engine)
     }
 }
 
-#[cfg(feature = "compiler")]
 impl AsEngineRef for StoreMut<'_> {
     fn as_engine_ref(&self) -> EngineRef<'_> {
         EngineRef::new(&self.inner.engine)
@@ -212,7 +191,6 @@ impl<'a> StoreRef<'a> {
         &self.inner.objects
     }
 
-    #[cfg(feature = "compiler")]
     #[deprecated(
         since = "3.2.0",
         note = "store.tunables() has been deprecated in favor of store.engine().tunables()"
@@ -222,21 +200,20 @@ impl<'a> StoreRef<'a> {
         self.inner.engine.tunables()
     }
 
-    #[cfg(feature = "compiler")]
     /// Returns the [`Engine`].
     pub fn engine(&self) -> &Engine {
         &self.inner.engine
     }
 
-    #[cfg(feature = "compiler")]
     /// Checks whether two stores are identical. A store is considered
     /// equal to another store if both have the same engine. The
     /// tunables are excluded from the logic.
     pub fn same(a: &Self, b: &Self) -> bool {
-        a.inner.engine.id() == b.inner.engine.id()
+        a.inner.objects.id() == b.inner.objects.id()
     }
 
     /// The signal handler
+    #[cfg(feature = "sys")]
     #[inline]
     pub fn signal_handler(&self) -> Option<*const TrapHandlerFn<'static>> {
         self.inner
@@ -253,7 +230,6 @@ pub struct StoreMut<'a> {
 
 impl<'a> StoreMut<'a> {
     /// Returns the [`Tunables`].
-    #[cfg(feature = "compiler")]
     #[deprecated(
         since = "3.2.0",
         note = "store.tunables() has been deprecated in favor of store.engine().tunables()"
@@ -263,20 +239,16 @@ impl<'a> StoreMut<'a> {
     }
 
     /// Returns the [`Engine`].
-    #[cfg(feature = "compiler")]
     pub fn engine(&self) -> &Engine {
         &self.inner.engine
     }
 
-    #[cfg(feature = "compiler")]
     /// Checks whether two stores are identical. A store is considered
-    /// equal to another store if both have the same engine. The
-    /// tunables are excluded from the logic.
+    /// equal to another store if both have the same engine.
     pub fn same(a: &Self, b: &Self) -> bool {
-        a.inner.engine.id() == b.inner.engine.id()
+        a.inner.objects.id() == b.inner.objects.id()
     }
 
-    #[cfg(feature = "compiler")]
     pub(crate) fn engine_and_objects_mut(&mut self) -> (&Engine, &mut StoreObjects) {
         (&self.inner.engine, &mut self.inner.objects)
     }
