@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     ops::Deref,
     path::PathBuf,
-    sync::{Arc, RwLockReadGuard, RwLockWriteGuard},
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use crate::{
@@ -11,6 +11,7 @@ use crate::{
     WasiRuntimeError,
 };
 use derivative::Derivative;
+use rand::Rng;
 use tracing::{trace, warn};
 use wasmer::{
     AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryView, Module,
@@ -204,7 +205,7 @@ unsafe impl Sync for WasiInstanceHandles {}
 
 /// Data required to construct a [`WasiEnv`].
 #[derive(Debug)]
-pub(crate) struct WasiEnvInit {
+pub struct WasiEnvInit {
     pub(crate) state: WasiState,
     pub runtime: Arc<dyn WasiRuntime + Send + Sync>,
     pub module_cache: Arc<ModuleCache>,
@@ -223,6 +224,48 @@ pub(crate) struct WasiEnvInit {
     /// Whether to call the `_initialize` function in the WASI module.
     /// Will be true for regular new instances, but false for threads.
     pub call_initialize: bool,
+}
+
+impl WasiEnvInit {
+    pub fn duplicate(&self) -> Self {
+        let mut inodes = WasiInodes::new();
+
+        // TODO: preserve preopens?
+        let fs = crate::fs::WasiFs::new_with_preopen(
+            &mut inodes,
+            &[],
+            &[],
+            self.state.fs.root_fs.clone(),
+        )
+        .unwrap();
+
+        Self {
+            state: WasiState {
+                secret: rand::thread_rng().gen::<[u8; 32]>(),
+                inodes: Arc::new(RwLock::new(inodes)),
+                fs,
+                threading: Default::default(),
+                futexs: Default::default(),
+                clock_offset: std::sync::Mutex::new(
+                    self.state.clock_offset.lock().unwrap().clone(),
+                ),
+                args: self.state.args.clone(),
+                envs: self.state.envs.clone(),
+                preopen: self.state.preopen.clone(),
+            },
+            runtime: self.runtime.clone(),
+            module_cache: self.module_cache.clone(),
+            webc_dependencies: self.webc_dependencies.clone(),
+            mapped_commands: self.mapped_commands.clone(),
+            bin_factory: self.bin_factory.clone(),
+            capabilities: self.capabilities.clone(),
+            control_plane: self.control_plane.clone(),
+            spawn_type: None,
+            process: None,
+            thread: None,
+            call_initialize: self.call_initialize.clone(),
+        }
+    }
 }
 
 /// The environment provided to the WASI imports.
@@ -263,6 +306,11 @@ unsafe impl Send for WasiEnv {}
 unsafe impl Sync for WasiEnv {}
 
 impl WasiEnv {
+    /// Construct a new [`WasiEnvBuilder`] that allows customizing an environment.
+    pub fn builder(program_name: impl Into<String>) -> WasiEnvBuilder {
+        WasiEnvBuilder::new(program_name)
+    }
+
     /// Clones this env.
     ///
     /// This is a custom function instead of a [`Clone`] implementation because
@@ -324,50 +372,8 @@ impl WasiEnv {
     pub fn tid(&self) -> WasiThreadId {
         self.thread.tid()
     }
-}
-
-impl WasiEnv {
-    pub fn builder(program_name: impl Into<String>) -> WasiEnvBuilder {
-        WasiEnvBuilder::new(program_name)
-    }
 
     pub(crate) fn from_init(init: WasiEnvInit) -> Result<Self, WasiRuntimeError> {
-        let process = if let Some(p) = init.process {
-            p
-        } else {
-            init.control_plane.new_process()?
-        };
-        let thread = if let Some(t) = init.thread {
-            t
-        } else {
-            process.new_thread()?
-        };
-
-        let mut env = Self {
-            process,
-            thread: thread.as_thread(),
-            vfork: None,
-            stack_base: DEFAULT_STACK_SIZE,
-            stack_start: 0,
-            state: Arc::new(init.state),
-            inner: None,
-            owned_handles: Vec::new(),
-            runtime: init.runtime,
-            bin_factory: init.bin_factory,
-            module_cache: init.module_cache.clone(),
-            capabilities: init.capabilities,
-        };
-        env.owned_handles.push(thread);
-
-        Ok(env)
-    }
-
-    // FIXME: use custom error type
-    pub(crate) fn instantiate(
-        init: WasiEnvInit,
-        module: Module,
-        store: &mut impl AsStoreMut,
-    ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
         let process = if let Some(p) = init.process {
             p
         } else {
@@ -401,6 +407,20 @@ impl WasiEnv {
         #[cfg(feature = "sys")]
         env.map_commands(init.mapped_commands.clone())?;
 
+        Ok(env)
+    }
+
+    // FIXME: use custom error type
+    pub(crate) fn instantiate(
+        mut init: WasiEnvInit,
+        module: Module,
+        store: &mut impl AsStoreMut,
+    ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
+        let call_initialize = init.call_initialize;
+        let spawn_type = init.spawn_type.take();
+
+        let env = Self::from_init(init)?;
+
         let pid = env.process.pid();
 
         let mut store = store.as_store_mut();
@@ -412,7 +432,7 @@ impl WasiEnv {
         let shared_memory = module.imports().memories().next().map(|a| *a.ty());
 
         // Determine if we are going to create memory and import it or just rely on self creation of memory
-        let spawn_type = if let Some(t) = init.spawn_type {
+        let spawn_type = if let Some(t) = spawn_type {
             t
         } else {
             match shared_memory {
@@ -466,7 +486,7 @@ impl WasiEnv {
         }
 
         // If this module exports an _initialize function, run that first.
-        if init.call_initialize {
+        if call_initialize {
             if let Ok(initialize) = instance.exports.get_function("_initialize") {
                 if let Err(err) = crate::run_wasi_func_start(initialize, &mut store) {
                     func_env

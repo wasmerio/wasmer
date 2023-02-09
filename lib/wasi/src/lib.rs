@@ -109,8 +109,8 @@ pub use crate::utils::is_wasix_module;
 
 pub use crate::{
     state::{
-        Capabilities, Pipe, WasiEnv, WasiEnvBuilder, WasiFunctionEnv, WasiInstanceHandles,
-        WasiStateCreationError, ALL_RIGHTS,
+        Capabilities, Pipe, WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv,
+        WasiInstanceHandles, WasiStateCreationError, ALL_RIGHTS,
     },
     syscalls::types,
     utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion},

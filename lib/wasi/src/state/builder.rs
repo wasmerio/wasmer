@@ -7,7 +7,6 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use generational_arena::Arena;
 use rand::Rng;
 use thiserror::Error;
 use wasmer::{AsStoreMut, Instance, Module};
@@ -448,12 +447,23 @@ impl WasiEnvBuilder {
         self
     }
 
+    /// Overwrite the default WASI `stdout`, if you want to hold on to the
+    /// original `stdout` use [`WasiFs::swap_file`] after building.
+    pub fn set_stdout(&mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) {
+        self.stdout = Some(new_file);
+    }
+
     /// Overwrite the default WASI `stderr`, if you want to hold on to the
     /// original `stderr` use [`WasiFs::swap_file`] after building.
     pub fn stderr(mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) -> Self {
-        self.stderr = Some(new_file);
-
+        self.set_stderr(new_file);
         self
+    }
+
+    /// Overwrite the default WASI `stderr`, if you want to hold on to the
+    /// original `stderr` use [`WasiFs::swap_file`] after building.
+    pub fn set_stderr(&mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) {
+        self.stderr = Some(new_file);
     }
 
     /// Overwrite the default WASI `stdin`, if you want to hold on to the
@@ -464,6 +474,8 @@ impl WasiEnvBuilder {
         self
     }
 
+    /// Overwrite the default WASI `stdin`, if you want to hold on to the
+    /// original `stdin` use [`WasiFs::swap_file`] after building.
     pub fn set_stdin(&mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) {
         self.stdin = Some(new_file);
     }
@@ -604,10 +616,7 @@ impl WasiEnvBuilder {
             .unwrap_or_else(|| WasiFsRoot::Sandbox(Arc::new(TmpFileSystem::new())));
 
         // self.preopens are checked in [`PreopenDirBuilder::build`]
-        let inodes = RwLock::new(crate::state::WasiInodes {
-            arena: Arena::new(),
-            orphan_fds: HashMap::new(),
-        });
+        let inodes = RwLock::new(crate::state::WasiInodes::new());
         let wasi_fs = {
             let mut inodes = inodes.write().unwrap();
 
@@ -645,6 +654,19 @@ impl WasiEnvBuilder {
         };
         let inodes = Arc::new(inodes);
 
+        let envs = self
+            .envs
+            .into_iter()
+            .map(|(key, value)| {
+                let mut env = Vec::with_capacity(key.len() + value.len() + 1);
+                env.extend_from_slice(key.as_bytes());
+                env.push(b'=');
+                env.extend_from_slice(&value);
+
+                env
+            })
+            .collect();
+
         let state = WasiState {
             fs: wasi_fs,
             secret: rand::thread_rng().gen::<[u8; 32]>(),
@@ -654,18 +676,7 @@ impl WasiEnvBuilder {
             threading: Default::default(),
             futexs: Default::default(),
             clock_offset: Default::default(),
-            envs: self
-                .envs
-                .iter()
-                .map(|(key, value)| {
-                    let mut env = Vec::with_capacity(key.len() + value.len() + 1);
-                    env.extend_from_slice(key.as_bytes());
-                    env.push(b'=');
-                    env.extend_from_slice(value);
-
-                    env
-                })
-                .collect(),
+            envs,
         };
 
         // TODO: this method should not exist - must have unified construction flow!
@@ -699,6 +710,21 @@ impl WasiEnvBuilder {
         };
 
         Ok(init)
+    }
+
+    /// Construct a [`WasiFunctionEnv`].
+    ///
+    /// NOTE: you still must call [`WasiFunctionEnv::initialize`] to make an
+    /// instance usable.
+    #[doc(hidden)]
+    pub fn build_func_env(
+        self,
+        store: &mut impl AsStoreMut,
+    ) -> Result<WasiFunctionEnv, WasiRuntimeError> {
+        let init = self.build_init()?;
+        let env = WasiEnv::from_init(init)?;
+        let func_env = WasiFunctionEnv::new(store, env);
+        Ok(func_env)
     }
 
     /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which

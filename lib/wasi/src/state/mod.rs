@@ -42,7 +42,7 @@ use wasmer_wasi_types::wasi::{Errno, Fd as WasiFd, Rights, Snapshot0Clockid};
 pub use self::{
     builder::*,
     capabilities::Capabilities,
-    env::{WasiEnv, WasiInstanceHandles},
+    env::{WasiEnv, WasiEnvInit, WasiInstanceHandles},
     func_env::WasiFunctionEnv,
     types::*,
 };
@@ -181,14 +181,30 @@ pub(crate) struct WasiState {
 
     pub fs: WasiFs,
     pub inodes: Arc<RwLock<WasiInodes>>,
-    // TODO: review allow...
-    #[allow(dead_code)]
-    pub(crate) threading: RwLock<WasiStateThreading>,
-    pub(crate) futexs: Mutex<HashMap<u64, WasiFutex>>,
-    pub(crate) clock_offset: Mutex<HashMap<Snapshot0Clockid, i64>>,
+    pub threading: RwLock<WasiStateThreading>,
+    pub futexs: Mutex<HashMap<u64, WasiFutex>>,
+    pub clock_offset: Mutex<HashMap<Snapshot0Clockid, i64>>,
     pub args: Vec<String>,
     pub envs: Vec<Vec<u8>>,
+    // TODO: should not be here, since this requires active work to resolve.
+    // State should only hold active runtime state that can be reproducibly re-created.
     pub preopen: Vec<String>,
+}
+
+impl WasiState {
+    // fn new(fs: WasiFs, inodes: Arc<RwLock<WasiInodes>>) -> Self {
+    //     WasiState {
+    //         fs,
+    //         secret: rand::thread_rng().gen::<[u8; 32]>(),
+    //         inodes,
+    //         args: Vec::new(),
+    //         preopen: Vec::new(),
+    //         threading: Default::default(),
+    //         futexs: Default::default(),
+    //         clock_offset: Default::default(),
+    //         envs: Vec::new(),
+    //     }
+    // }
 }
 
 // Implementations of direct to FS calls so that we can easily change their implementation

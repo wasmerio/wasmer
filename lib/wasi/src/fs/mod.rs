@@ -76,11 +76,19 @@ pub const MAX_SYMLINKS: u32 = 128;
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct WasiInodes {
+    // TODO: make private!
     pub arena: Arena<InodeVal>,
     pub orphan_fds: HashMap<Inode, InodeVal>,
 }
 
 impl WasiInodes {
+    pub fn new() -> Self {
+        Self {
+            arena: Arena::new(),
+            orphan_fds: HashMap::new(),
+        }
+    }
+
     /// gets either a normal inode or an orphaned inode
     pub fn get_inodeval(&self, inode: generational_arena::Index) -> Result<&InodeVal, Errno> {
         if let Some(iv) = self.arena.get(inode) {
@@ -194,6 +202,12 @@ impl WasiInodes {
             // this should only trigger if we made a mistake in this crate
             Err(FsError::NoDevice)
         }
+    }
+}
+
+impl Default for WasiInodes {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -539,7 +553,10 @@ impl WasiFs {
 
     /// Private helper function to init the filesystem, called in `new` and
     /// `new_with_preopen`
-    fn new_init(fs_backing: WasiFsRoot, inodes: &mut WasiInodes) -> Result<(Self, Inode), String> {
+    pub(crate) fn new_init(
+        fs_backing: WasiFsRoot,
+        inodes: &mut WasiInodes,
+    ) -> Result<(Self, Inode), String> {
         debug!("Initializing WASI filesystem");
 
         let wasi_fs = Self {
