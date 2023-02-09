@@ -1,6 +1,6 @@
+use crate::store::{AsStoreMut, AsStoreRef};
 use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
-use crate::sys::store::{AsStoreMut, AsStoreRef};
 use crate::sys::value::Value;
 use crate::sys::GlobalType;
 use crate::sys::Mutability;

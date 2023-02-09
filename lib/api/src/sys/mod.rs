@@ -1,4 +1,4 @@
-mod engine;
+pub(crate) mod engine;
 mod exports;
 mod extern_ref;
 mod externals;
@@ -10,10 +10,10 @@ pub(crate) mod module;
 mod native;
 mod native_type;
 mod ptr;
-mod store;
 mod tunables;
 mod value;
 
+pub use crate::store::{AsStoreMut, AsStoreRef, Store, StoreMut, StoreRef};
 pub use crate::sys::engine::Engine;
 pub use crate::sys::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::sys::extern_ref::ExternRef;
@@ -28,10 +28,8 @@ pub use crate::sys::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSlic
 pub use crate::sys::module::Module;
 pub use crate::sys::native::TypedFunction;
 pub use crate::sys::native_type::NativeWasmTypeInto;
-pub use crate::sys::store::{AsStoreMut, AsStoreRef, StoreMut, StoreRef};
 
 pub use crate::sys::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
-pub use crate::sys::store::Store;
 pub use crate::sys::tunables::BaseTunables;
 pub use crate::sys::value::Value;
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};

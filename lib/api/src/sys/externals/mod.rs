@@ -16,7 +16,7 @@ use crate::sys::ExternType;
 use std::fmt;
 use wasmer_vm::VMExtern;
 
-use super::store::{AsStoreMut, AsStoreRef};
+use super::{AsStoreMut, AsStoreRef};
 
 /// An `Extern` is the runtime representation of an entity that
 /// can be imported or exported.

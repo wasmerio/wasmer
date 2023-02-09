@@ -5,9 +5,9 @@ use wasmer_vm::{
     VMTrampoline,
 };
 
+use crate::store::{AsStoreMut, AsStoreRef};
 use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
-use crate::sys::store::{AsStoreMut, AsStoreRef};
 use crate::sys::{FunctionType, RuntimeError, TypedFunction};
 use crate::FunctionEnv;
 
@@ -16,7 +16,7 @@ pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, Witho
 #[cfg(feature = "compiler")]
 use {
     crate::{
-        sys::store::{StoreInner, StoreMut},
+        store::{StoreInner, StoreMut},
         FunctionEnvMut, Value,
     },
     inner::StaticFunction,

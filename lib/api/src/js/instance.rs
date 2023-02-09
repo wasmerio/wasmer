@@ -2,9 +2,9 @@ use crate::js::error::InstantiationError;
 use crate::js::exports::Exports;
 use crate::js::externals::Extern;
 use crate::js::imports::Imports;
-use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::vm::{VMExtern, VMInstance};
 use crate::module::Module;
+use crate::store::{AsStoreMut, AsStoreRef};
 use js_sys::WebAssembly;
 use std::fmt;
 

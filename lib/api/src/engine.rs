@@ -1,8 +1,12 @@
 #[cfg(feature = "sys")]
-use crate::sys as engine_imp;
+use crate::sys::engine as engine_imp;
+#[cfg(feature = "sys")]
+pub(crate) use crate::sys::engine::default_engine;
 
 #[cfg(feature = "js")]
-use crate::js as engine_imp;
+use crate::js::engine as engine_imp;
+#[cfg(feature = "js")]
+pub(crate) use crate::js::engine::default_engine;
 
 /// The engine type
 pub type Engine = engine_imp::Engine;

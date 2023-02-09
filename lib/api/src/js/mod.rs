@@ -23,7 +23,7 @@ mod lib {
     }
 }
 
-mod engine;
+pub(crate) mod engine;
 pub(crate) mod error;
 mod exports;
 mod externals;
@@ -37,7 +37,7 @@ mod module_info_polyfill;
 mod native;
 mod native_type;
 mod ptr;
-mod store;
+pub(crate) mod store;
 mod trap;
 mod types;
 mod value;
@@ -59,11 +59,8 @@ pub use crate::js::module::{Module, ModuleTypeHints};
 pub use crate::js::native::TypedFunction;
 pub use crate::js::native_type::NativeWasmTypeInto;
 pub use crate::js::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
+pub use crate::js::store::StoreObjects;
 pub use crate::js::trap::RuntimeError;
-
-pub use crate::js::store::{
-    AsStoreMut, AsStoreRef, Store, StoreHandle, StoreMut, StoreObjects, StoreRef,
-};
 pub use crate::js::types::ValType as Type;
 pub use crate::js::types::{
     ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,

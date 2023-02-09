@@ -1,5 +1,5 @@
-use crate::js::store::AsStoreRef;
 use crate::js::MemoryAccessError;
+use crate::store::AsStoreRef;
 use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;

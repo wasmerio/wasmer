@@ -5,9 +5,9 @@
 /// once the type reflection is added to the WebAssembly JS API.
 /// https://github.com/WebAssembly/js-types/
 use crate::js::error::WasmError;
-use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::wasm_bindgen_polyfill::Global;
 use crate::js::wasm_bindgen_polyfill::Global as JsGlobal;
+use crate::store::{AsStoreMut, AsStoreRef};
 use crate::MemoryView;
 use js_sys::Function;
 use js_sys::Function as JsFunction;

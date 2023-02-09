@@ -1,15 +1,19 @@
-use crate::engine::{AsEngineRef, EngineRef};
-use crate::sys::engine::{default_engine, Engine};
+use crate::engine::{default_engine, AsEngineRef, Engine, EngineRef};
 use derivative::Derivative;
 use std::fmt;
-use wasmer_types::{OnCalledAction, StoreId};
 #[cfg(feature = "sys")]
-use wasmer_vm::{init_traps, TrapHandlerFn};
+pub use wasmer_compiler::Tunables;
+pub use wasmer_types::{OnCalledAction, StoreId};
 #[cfg(feature = "sys")]
-use wasmer_compiler::Tunables;
+use wasmer_vm::init_traps;
+#[cfg(feature = "sys")]
+pub use wasmer_vm::TrapHandlerFn;
 
 #[cfg(feature = "sys")]
-use wasmer_vm::StoreObjects;
+pub use wasmer_vm::StoreObjects;
+
+#[cfg(feature = "js")]
+pub use crate::js::store::StoreObjects;
 
 /// Call handler for a store.
 // TODO: better documentation!
@@ -51,6 +55,7 @@ impl Store {
     pub fn new(engine: impl Into<Engine>) -> Self {
         // Make sure the signal handlers are installed.
         // This is required for handling traps.
+        #[cfg(feature = "sys")]
         init_traps();
 
         Self {

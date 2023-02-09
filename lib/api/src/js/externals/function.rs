@@ -2,13 +2,13 @@ pub use self::inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv,
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
 use crate::js::function_env::FunctionEnvMut;
-use crate::js::store::{AsStoreMut, AsStoreRef, StoreMut};
 use crate::js::types::{param_from_js, AsJs}; /* ValFuncRef */
 use crate::js::vm::VMExtern;
 use crate::js::RuntimeError;
 use crate::js::TypedFunction;
 use crate::js::Value;
 use crate::js::{FunctionEnv, FunctionType};
+use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
 use js_sys::{Array, Function as JSFunction};
 use std::iter::FromIterator;
 use wasm_bindgen::prelude::*;
@@ -630,9 +630,10 @@ mod inner {
     use super::RuntimeError;
     use super::VMFunctionBody;
     use crate::js::function_env::{FunctionEnvMut, VMFunctionEnvironment};
-    use crate::js::store::{AsStoreMut, AsStoreRef, InternalStoreHandle, StoreHandle, StoreMut};
+    use crate::js::store::{InternalStoreHandle, StoreHandle};
     use crate::js::FunctionEnv;
     use crate::js::NativeWasmTypeInto;
+    use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
     use std::array::TryFromSliceError;
     use std::convert::{Infallible, TryInto};
     use std::error::Error;

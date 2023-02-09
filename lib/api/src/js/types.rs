@@ -1,8 +1,8 @@
 //use crate::js::externals::Function;
-// use crate::js::store::{Store, StoreObject};
+// use crate::store::{Store, StoreObject};
 // use crate::js::RuntimeError;
-use crate::js::store::AsStoreRef;
 use crate::js::value::Value;
+use crate::store::AsStoreRef;
 use wasm_bindgen::JsValue;
 pub use wasmer_types::{
     ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,

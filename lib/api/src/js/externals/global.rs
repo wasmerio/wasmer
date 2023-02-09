@@ -1,12 +1,12 @@
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
-use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::value::Value;
 use crate::js::vm::{VMExtern, VMGlobal};
 use crate::js::wasm_bindgen_polyfill::Global as JSGlobal;
 use crate::js::GlobalType;
 use crate::js::Mutability;
 use crate::js::RuntimeError;
+use crate::store::{AsStoreMut, AsStoreRef};
 use wasm_bindgen::JsValue;
 
 /// A WebAssembly `global` instance.

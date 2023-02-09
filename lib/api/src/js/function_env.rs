@@ -1,8 +1,8 @@
 use std::{any::Any, marker::PhantomData};
 
-use crate::js::{StoreHandle, StoreObjects};
+use crate::js::store::{StoreHandle, StoreObjects};
 
-use crate::js::{AsStoreMut, AsStoreRef, StoreMut, StoreRef};
+use crate::store::{AsStoreMut, AsStoreRef, StoreMut, StoreRef};
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -147,6 +147,7 @@ impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
 }
 
 /// Underlying FunctionEnvironment used by a `VMFunction`.
+#[derive(Debug)]
 pub struct VMFunctionEnvironment {
     contents: Box<dyn Any + Send + 'static>,
 }

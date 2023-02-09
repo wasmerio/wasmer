@@ -10,8 +10,8 @@
 use std::marker::PhantomData;
 
 use crate::js::externals::Function;
-use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::{FromToNativeWasmType, RuntimeError, WasmTypeList};
+use crate::store::{AsStoreMut, AsStoreRef};
 // use std::panic::{catch_unwind, AssertUnwindSafe};
 use crate::js::types::param_from_js;
 use crate::js::types::AsJs;

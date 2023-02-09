@@ -4,10 +4,10 @@
 use crate::js::error::{LinkError, WasmError};
 use crate::js::exports::Exports;
 use crate::js::module::Module;
-use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::types::AsJs;
 use crate::js::vm::VMExtern;
 use crate::js::ExternType;
+use crate::store::{AsStoreMut, AsStoreRef};
 use crate::Extern;
 use std::collections::HashMap;
 use std::fmt;
@@ -421,7 +421,8 @@ macro_rules! import_namespace {
 
 #[cfg(test)]
 mod test {
-    use crate::js::{Global, Store, Value};
+    use crate::js::{Global, Value};
+    use crate::store::Store;
 
     // use wasm_bindgen::*;
     use wasm_bindgen_test::*;

@@ -15,7 +15,7 @@ use crate::sys::{
 };
 use wasmer_types::RawValue;
 
-use super::store::OnCalledHandler;
+use crate::store::OnCalledHandler;
 
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).

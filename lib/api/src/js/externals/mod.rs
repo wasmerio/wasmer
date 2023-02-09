@@ -11,9 +11,9 @@ pub use self::memory_view::MemoryView;
 pub use self::table::Table;
 
 use crate::js::exports::{ExportError, Exportable};
-use crate::js::store::{AsStoreMut, AsStoreRef};
 use crate::js::types::AsJs;
 use crate::js::vm::VMExtern;
+use crate::store::{AsStoreMut, AsStoreRef};
 use std::fmt;
 use wasmer_types::ExternType;
 

@@ -431,6 +431,7 @@ compile_error!(
 
 mod engine;
 mod module;
+mod store;
 
 #[cfg(feature = "sys")]
 mod sys;
@@ -446,6 +447,9 @@ pub use js::*;
 
 pub use engine::{AsEngineRef, Engine};
 pub use module::{IoCompileError, Module};
+pub use store::{OnCalledHandler, Store, StoreId};
+#[cfg(feature = "sys")]
+pub use store::{TrapHandlerFn, Tunables};
 
 mod into_bytes;
 pub use into_bytes::IntoBytes;

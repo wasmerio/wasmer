@@ -1,4 +1,4 @@
-use crate::sys::store::AsStoreRef;
+use crate::store::AsStoreRef;
 use crate::MemoryAccessError;
 use std::convert::TryInto;
 use std::marker::PhantomData;

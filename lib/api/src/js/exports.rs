@@ -1,7 +1,7 @@
 use crate::js::externals::{Extern, Function, Global, Memory, Table};
 use crate::js::native::TypedFunction;
-use crate::js::store::AsStoreRef;
 use crate::js::WasmTypeList;
+use crate::store::AsStoreRef;
 use indexmap::IndexMap;
 use std::fmt;
 use std::iter::{ExactSizeIterator, FromIterator};

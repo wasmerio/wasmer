@@ -6,7 +6,7 @@ use thiserror::Error;
 use wasmer_vm::{StoreHandle, VMInstance};
 
 #[cfg(feature = "compiler")]
-use super::store::AsStoreMut;
+use crate::store::AsStoreMut;
 #[cfg(feature = "compiler")]
 use crate::sys::{externals::Extern, imports::Imports};
 

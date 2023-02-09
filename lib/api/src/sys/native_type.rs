@@ -8,7 +8,7 @@ use wasmer_vm::VMFuncRef;
 
 use crate::{ExternRef, Function, TypedFunction, WasmTypeList};
 
-use super::store::AsStoreMut;
+use crate::store::AsStoreMut;
 
 /// `NativeWasmTypeInto` performs conversions from and into `NativeWasmType`
 /// types with a context.
