@@ -2,9 +2,11 @@ use crate::engine::{AsEngineRef, EngineRef};
 use crate::sys::engine::{default_engine, Engine};
 use derivative::Derivative;
 use std::fmt;
-use wasmer_compiler::Tunables;
 use wasmer_types::{OnCalledAction, StoreId};
+#[cfg(feature = "sys")]
 use wasmer_vm::{init_traps, TrapHandlerFn};
+#[cfg(feature = "sys")]
+use wasmer_compiler::Tunables;
 
 #[cfg(feature = "sys")]
 use wasmer_vm::StoreObjects;
@@ -47,8 +49,6 @@ pub struct Store {
 impl Store {
     /// Creates a new `Store` with a specific [`Engine`].
     pub fn new(engine: impl Into<Engine>) -> Self {
-        let engine = engine.into();
-
         // Make sure the signal handlers are installed.
         // This is required for handling traps.
         init_traps();
@@ -56,7 +56,8 @@ impl Store {
         Self {
             inner: Box::new(StoreInner {
                 objects: Default::default(),
-                engine: engine.cloned(),
+                engine: engine.into(),
+                #[cfg(feature = "sys")]
                 trap_handler: None,
                 on_called: None,
             }),
@@ -78,6 +79,7 @@ impl Store {
         self.inner.trap_handler = handler;
     }
 
+    #[cfg(feature = "sys")]
     #[deprecated(
         since = "3.2.0",
         note = "store.new_with_tunables() has been deprecated in favor of engine.set_tunables()"
@@ -93,6 +95,7 @@ impl Store {
         Self::new(engine)
     }
 
+    #[cfg(feature = "sys")]
     #[deprecated(
         since = "3.2.0",
         note = "store.tunables() has been deprecated in favor of store.engine().tunables()"
@@ -192,6 +195,7 @@ impl<'a> StoreRef<'a> {
         &self.inner.objects
     }
 
+    #[cfg(feature = "sys")]
     #[deprecated(
         since = "3.2.0",
         note = "store.tunables() has been deprecated in favor of store.engine().tunables()"
@@ -207,8 +211,7 @@ impl<'a> StoreRef<'a> {
     }
 
     /// Checks whether two stores are identical. A store is considered
-    /// equal to another store if both have the same engine. The
-    /// tunables are excluded from the logic.
+    /// equal to another store if both have the same engine.
     pub fn same(a: &Self, b: &Self) -> bool {
         a.inner.objects.id() == b.inner.objects.id()
     }
@@ -231,6 +234,7 @@ pub struct StoreMut<'a> {
 
 impl<'a> StoreMut<'a> {
     /// Returns the [`Tunables`].
+    #[cfg(feature = "sys")]
     #[deprecated(
         since = "3.2.0",
         note = "store.tunables() has been deprecated in favor of store.engine().tunables()"
