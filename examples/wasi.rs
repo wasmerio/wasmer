@@ -17,7 +17,7 @@
 
 use wasmer::{Instance, Module, Store};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_wasi::WasiState;
+use wasmer_wasi::WasiEnv;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_path = concat!(
@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Creating `WasiEnv`...");
     // First, we create the `WasiEnv`
-    let mut wasi_env = WasiState::builder("hello")
+    let mut wasi_env = WasiEnv::builder("hello")
         // .args(&["world"])
         // .env("KEY", "Value")
         .finalize(&mut store)?;

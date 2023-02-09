@@ -286,7 +286,7 @@ fn prepare_webc_env(
             .add_preopen_build(|p| p.directory(f_name).read(true).write(true).create(true))
             .ok()?;
     }
-    let env = builder.build_func_env(store).ok()?;
+    let env = builder.finalize(store).ok()?;
 
     let import_object = env.import_object(store, &module).ok()?;
     Some((env, import_object))
@@ -323,7 +323,7 @@ pub unsafe extern "C" fn wasi_env_new(
 
     // TODO: impl capturer for stdin
 
-    let env = c_try!(config.builder.build_func_env(&mut store_mut));
+    let env = c_try!(config.builder.finalize(&mut store_mut));
 
     Some(Box::new(wasi_env_t {
         inner: env,

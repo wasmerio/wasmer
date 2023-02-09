@@ -717,7 +717,7 @@ impl WasiEnvBuilder {
     /// NOTE: you still must call [`WasiFunctionEnv::initialize`] to make an
     /// instance usable.
     #[doc(hidden)]
-    pub fn build_func_env(
+    pub fn finalize(
         self,
         store: &mut impl AsStoreMut,
     ) -> Result<WasiFunctionEnv, WasiRuntimeError> {
