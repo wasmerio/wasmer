@@ -9,12 +9,12 @@ use crate::{
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-pub trait ReadOnly: FileSystem + Debug + Default + Clone {}
+pub trait ReadOnly: FileSystem + Debug + Default {}
 
-impl<T: FileSystem + Debug + Default + Clone> ReadOnly for T {}
-pub trait ReadWrite: FileSystem + Debug + Default + Clone {}
+impl<T: FileSystem + Debug + Default> ReadOnly for T {}
+pub trait ReadWrite: FileSystem + Debug + Default {}
 
-impl<T: FileSystem + Debug + Default + Clone> ReadWrite for T {}
+impl<T: FileSystem + Debug + Default> ReadWrite for T {}
 
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
