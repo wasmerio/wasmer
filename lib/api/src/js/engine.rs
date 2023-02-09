@@ -7,3 +7,8 @@ impl Default for Engine {
         Engine
     }
 }
+
+/// Returns the default engine for the JS engine
+pub(crate) fn default_engine() -> Engine {
+    Engine::default()
+}

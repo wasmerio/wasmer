@@ -1,3 +1,4 @@
+mod engine;
 mod exports;
 mod extern_ref;
 mod externals;
@@ -13,6 +14,7 @@ mod store;
 mod tunables;
 mod value;
 
+pub use crate::sys::engine::Engine;
 pub use crate::sys::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::sys::extern_ref::ExternRef;
 pub use crate::sys::externals::{
@@ -75,7 +77,6 @@ pub use wasmer_compiler_cranelift::{Cranelift, CraneliftOptLevel};
 #[cfg(feature = "llvm")]
 pub use wasmer_compiler_llvm::{LLVMOptLevel, LLVM};
 
-pub use wasmer_compiler::Engine;
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::{Artifact, EngineBuilder};
 
