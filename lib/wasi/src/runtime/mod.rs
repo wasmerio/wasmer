@@ -57,7 +57,7 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct PluggableRuntimeImplementation {
     pub rt: Arc<dyn VirtualTaskManager>,
     pub networking: DynVirtualNetworking,
@@ -111,10 +111,8 @@ impl PluggableRuntimeImplementation {
 impl Default for PluggableRuntimeImplementation {
     #[cfg(feature = "sys-thread")]
     fn default() -> Self {
-        let rt = Arc::new(task_manager::tokio::TokioTaskManager::default())
-            as Arc<dyn VirtualTaskManager>;
-
-        Self::new(rt)
+        let rt = task_manager::tokio::TokioTaskManager::shared();
+        Self::new(Arc::new(rt))
     }
 }
 

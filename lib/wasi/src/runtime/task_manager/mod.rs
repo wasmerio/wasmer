@@ -4,7 +4,8 @@ pub mod tokio;
 
 use std::{pin::Pin, time::Duration};
 
-use ::tokio::runtime::Runtime;
+use ::tokio::runtime::Handle;
+
 use futures::Future;
 use wasmer::{vm::VMMemory, MemoryType};
 #[cfg(feature = "sys")]
@@ -51,7 +52,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     ) -> Result<(), WasiThreadError>;
 
     /// Returns a runtime that can be used for asynchronous tasks
-    fn runtime(&self) -> &Runtime;
+    fn runtime(&self) -> &Handle;
 
     /// Enters a runtime context
     #[allow(dyn_drop)]
@@ -103,7 +104,7 @@ impl VirtualTaskManager for StubTaskManager {
         Err(WasiThreadError::Unsupported)
     }
 
-    fn runtime(&self) -> &Runtime {
+    fn runtime(&self) -> &Handle {
         unimplemented!("asynchronous operations are not supported on this task manager");
     }
 
