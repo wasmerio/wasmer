@@ -269,24 +269,25 @@ fn prepare_webc_env(
         .collect::<Vec<_>>();
 
     let filesystem = Box::new(StaticFileSystem::init(slice, &package_name)?);
-    let mut wasi_env = config.state_builder;
+    let mut builder = config.builder;
 
     if !config.inherit_stdout {
-        wasi_env.stdout(Box::new(WasiBidirectionalPipePair::new()));
+        builder.set_stdout(Box::new(WasiBidirectionalPipePair::new()));
     }
 
     if !config.inherit_stderr {
-        wasi_env.stderr(Box::new(WasiBidirectionalPipePair::new()));
+        builder.set_stderr(Box::new(WasiBidirectionalPipePair::new()));
     }
 
-    wasi_env.set_fs(filesystem);
+    builder.set_fs(filesystem);
 
     for f_name in top_level_dirs.iter() {
-        wasi_env
-            .preopen(|p| p.directory(f_name).read(true).write(true).create(true))
+        builder
+            .add_preopen_build(|p| p.directory(f_name).read(true).write(true).create(true))
             .ok()?;
     }
-    let env = wasi_env.finalize(store).ok()?;
+    let env = builder.build_func_env(store).ok()?;
+
     let import_object = env.import_object(store, &module).ok()?;
     Some((env, import_object))
 }
