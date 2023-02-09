@@ -751,11 +751,14 @@ impl WasiEnvBuilder {
         module: Module,
         store: &mut impl AsStoreMut,
     ) -> Result<(), WasiRuntimeError> {
-        let (instance, _env) = self.instantiate(module, store)?;
+        let (instance, env) = self.instantiate(module, store)?;
 
         let start = instance.exports.get_function("_start")?;
 
-        crate::run_wasi_func_start(start, store)?;
+        let res = crate::run_wasi_func_start(start, store);
+
+        let exit_code = if res.is_ok() { 0 } else { 1 };
+        env.cleanup(store, Some(exit_code));
 
         Ok(())
     }

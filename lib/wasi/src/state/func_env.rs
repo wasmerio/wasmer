@@ -1,5 +1,5 @@
 use tracing::trace;
-use wasmer::{AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Module, Store};
+use wasmer::{AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Module};
 use wasmer_wasi_types::wasi::ExitCode;
 
 use crate::{
@@ -110,7 +110,7 @@ impl WasiFunctionEnv {
         Ok(resolver)
     }
 
-    pub fn cleanup(&self, store: &mut Store, exit_code: Option<ExitCode>) {
+    pub fn cleanup(&self, store: &mut impl AsStoreMut, exit_code: Option<ExitCode>) {
         trace!(
             "wasi[{}:{}]::cleanup - destroying local thread variables",
             self.data(store).pid(),
