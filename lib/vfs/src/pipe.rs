@@ -32,6 +32,19 @@ struct PipeReceiver {
 }
 
 impl WasiPipe {
+    pub fn new() -> Self {
+        let (tx, rx) = mpsc::unbounded_channel();
+
+        WasiPipe {
+            tx: Arc::new(Mutex::new(tx)),
+            rx: Arc::new(Mutex::new(PipeReceiver {
+                chan: rx,
+                buffer: None,
+            })),
+            block: true,
+        }
+    }
+
     pub fn channel() -> (WasiPipe, WasiPipe) {
         let pair = WasiBidirectionalPipePair::new();
         (pair.tx, pair.rx)
