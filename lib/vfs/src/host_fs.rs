@@ -1062,6 +1062,8 @@ mod tests {
             "renaming to a directory that has parent that doesn't exist",
         );
 
+        // On Windows, rename "to" must not be an existing directory
+        #[cfg(not(target_os = "windows"))]
         assert_eq!(fs.create_dir(Path::new("./test_rename/bar")), Ok(()));
 
         assert_eq!(
@@ -1379,7 +1381,12 @@ mod tests {
     fn test_canonicalize() {
         let fs = FileSystem::default();
 
-        let root_dir = env!("CARGO_MANIFEST_DIR");
+        let mut root_dir = env!("CARGO_MANIFEST_DIR").to_owned();
+        if cfg!(windows) {
+            // Windows will use UNC path, so force it
+            root_dir.insert_str(0, "\\\\?\\");
+        }
+        let char_dir = if cfg!(windows) { "\\" } else { "/" };
 
         let _ = fs_extra::remove_items(&["./test_canonicalize"]);
 
@@ -1422,7 +1429,7 @@ mod tests {
 
         assert_eq!(
             fs.canonicalize(Path::new("./test_canonicalize")),
-            Ok(Path::new(&format!("{root_dir}/test_canonicalize")).to_path_buf()),
+            Ok(Path::new(&format!("{root_dir}{char_dir}test_canonicalize")).to_path_buf()),
             "canonicalizing `/`",
         );
         assert_eq!(
@@ -1432,24 +1439,35 @@ mod tests {
         );
         assert_eq!(
             fs.canonicalize(Path::new("./test_canonicalize/././././foo/")),
-            Ok(Path::new(&format!("{root_dir}/test_canonicalize/foo")).to_path_buf()),
+            Ok(Path::new(&format!(
+                "{root_dir}{char_dir}test_canonicalize{char_dir}foo"
+            ))
+            .to_path_buf()),
             "canonicalizing `/././././foo/`",
         );
         assert_eq!(
             fs.canonicalize(Path::new("./test_canonicalize/foo/bar//")),
-            Ok(Path::new(&format!("{root_dir}/test_canonicalize/foo/bar")).to_path_buf()),
+            Ok(Path::new(&format!(
+                "{root_dir}{char_dir}test_canonicalize{char_dir}foo{char_dir}bar"
+            ))
+            .to_path_buf()),
             "canonicalizing `/foo/bar//`",
         );
         assert_eq!(
             fs.canonicalize(Path::new("./test_canonicalize/foo/bar/../bar")),
-            Ok(Path::new(&format!("{root_dir}/test_canonicalize/foo/bar")).to_path_buf()),
+            Ok(Path::new(&format!(
+                "{root_dir}{char_dir}test_canonicalize{char_dir}foo{char_dir}bar"
+            ))
+            .to_path_buf()),
             "canonicalizing `/foo/bar/../bar`",
         );
         assert_eq!(
             fs.canonicalize(Path::new("./test_canonicalize/foo/bar/../..")),
-            Ok(Path::new(&format!("{root_dir}/test_canonicalize")).to_path_buf()),
+            Ok(Path::new(&format!("{root_dir}{char_dir}test_canonicalize")).to_path_buf()),
             "canonicalizing `/foo/bar/../..`",
         );
+        // Path::new("/foo/bar/../../..").exists() gives true on windows
+        #[cfg(not(target_os = "windows"))]
         assert_eq!(
             fs.canonicalize(Path::new("/foo/bar/../../..")),
             Err(FsError::InvalidInput),
@@ -1464,7 +1482,7 @@ mod tests {
             fs.canonicalize(Path::new(
                 "./test_canonicalize/foo/./../foo/bar/../../foo/bar/./baz/./../baz/qux/../../baz/./qux/hello.txt"
             )),
-            Ok(Path::new(&format!("{root_dir}/test_canonicalize/foo/bar/baz/qux/hello.txt")).to_path_buf()),
+            Ok(Path::new(&format!("{root_dir}{char_dir}test_canonicalize{char_dir}foo{char_dir}bar{char_dir}baz{char_dir}qux{char_dir}hello.txt")).to_path_buf()),
             "canonicalizing a crazily stupid path name",
         );
 
