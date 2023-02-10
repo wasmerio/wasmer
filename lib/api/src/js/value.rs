@@ -87,25 +87,19 @@ impl Value {
     }
 
     /// Converts the `Value` into a `f64`.
-    pub fn as_raw(&self, _store: &impl AsStoreRef) -> f64 {
+    pub fn as_raw(&self, _store: &impl AsStoreRef) -> RawValue {
         match *self {
-            Self::I32(v) => v as f64,
-            Self::I64(v) => v as f64,
-            Self::F32(v) => v as f64,
-            Self::F64(v) => v,
-            Self::V128(v) => v as f64,
-            Self::FuncRef(Some(ref f)) => f.handle.function.as_f64().unwrap_or(0_f64), //TODO is this correct?
-
-            Self::FuncRef(None) => 0_f64,
-            //Self::ExternRef(Some(ref e)) => unsafe { *e.address().0 } as .into_raw(),
-            //Self::ExternRef(None) =>  externref: 0 },
-        }
-    }
-
-    /// Converts the `Value` into a `RawValue`.
-    pub unsafe fn as_raw_value(&self, store: &impl AsStoreRef) -> RawValue {
-        RawValue {
-            f64: self.as_raw(store),
+            Self::I32(i32) => RawValue { i32 },
+            Self::I64(i64) => RawValue { i64 },
+            Self::F32(f32) => RawValue { f32 },
+            Self::F64(f64) => RawValue { f64 },
+            Self::V128(u128) => RawValue { u128 },
+            Self::FuncRef(None) => RawValue { funcref: 0 },
+            Self::FuncRef(Some(ref f)) => RawValue {
+                funcref: f.handle.function.as_f64().unwrap_or(0_f64) as _,
+            },
+            // Self::ExternRef(Some(ref e)) => e.vm_externref().into_raw(),
+            // Self::ExternRef(None) => RawValue { externref: 0 },
         }
     }
 
@@ -113,19 +107,23 @@ impl Value {
     ///
     /// # Safety
     ///
-    pub unsafe fn from_raw(_store: &impl AsStoreRef, ty: Type, raw: f64) -> Self {
+    pub unsafe fn from_raw(_store: &impl AsStoreRef, ty: Type, raw: RawValue) -> Self {
         match ty {
-            Type::I32 => Self::I32(raw as _),
-            Type::I64 => Self::I64(raw as _),
-            Type::F32 => Self::F32(raw as _),
-            Type::F64 => Self::F64(raw),
-            Type::V128 => Self::V128(raw as _),
-            Type::FuncRef => todo!(),
-            Type::ExternRef => todo!(),
-            //Self::ExternRef(
-            //{
-            //VMExternRef::from_raw(raw).map(|e| ExternRef::from_vm_externref(store, e)),
-            //),
+            Type::I32 => Self::I32(raw.i32),
+            Type::I64 => Self::I64(raw.i64),
+            Type::F32 => Self::F32(raw.f32),
+            Type::F64 => Self::F64(raw.f64),
+            Type::V128 => Self::V128(raw.u128),
+            Type::FuncRef => {
+                unimplemented!();
+                // Self::FuncRef(VMFuncRef::from_raw(raw).map(|f| Function::from_vm_funcref(store, f)))
+            }
+            Type::ExternRef => {
+                unimplemented!();
+                // Self::ExternRef(
+                //     VMExternRef::from_raw(raw).map(|e| ExternRef::from_vm_externref(store, e)),
+                // )
+            }
         }
     }
 

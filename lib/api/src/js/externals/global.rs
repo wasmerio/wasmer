@@ -8,6 +8,7 @@ use crate::js::Mutability;
 use crate::js::RuntimeError;
 use crate::store::{AsStoreMut, AsStoreRef};
 use wasm_bindgen::JsValue;
+use wasmer_types::{RawValue, Type};
 
 /// A WebAssembly `global` instance.
 ///
@@ -130,8 +131,35 @@ impl Global {
     /// ```
     pub fn get(&self, store: &impl AsStoreRef) -> Value {
         unsafe {
-            let raw = self.handle.global.value().as_f64().unwrap();
+            let value = self.handle.global.value();
             let ty = self.handle.ty;
+            let raw = match ty.ty {
+                Type::I32 => RawValue {
+                    i32: value.as_f64().unwrap() as _,
+                },
+                Type::I64 => RawValue {
+                    i64: value.as_f64().unwrap() as _,
+                },
+                Type::F32 => RawValue {
+                    f32: value.as_f64().unwrap() as _,
+                },
+                Type::F64 => RawValue {
+                    f64: value.as_f64().unwrap(),
+                },
+                Type::V128 => RawValue {
+                    u128: value.as_f64().unwrap() as _,
+                },
+                Type::FuncRef => {
+                    unimplemented!();
+                    // Self::FuncRef(VMFuncRef::from_raw(raw).map(|f| Function::from_vm_funcref(store, f)))
+                }
+                Type::ExternRef => {
+                    unimplemented!();
+                    // Self::ExternRef(
+                    //     VMExternRef::from_raw(raw).map(|e| ExternRef::from_vm_externref(store, e)),
+                    // )
+                }
+            };
             Value::from_raw(store, ty.ty, raw)
         }
     }

@@ -20,6 +20,30 @@ pub union RawValue {
     pub bytes: [u8; 16],
 }
 
+impl From<i32> for RawValue {
+    fn from(value: i32) -> Self {
+        RawValue { i32: value }
+    }
+}
+
+impl From<i64> for RawValue {
+    fn from(value: i64) -> Self {
+        RawValue { i64: value }
+    }
+}
+
+impl From<f32> for RawValue {
+    fn from(value: f32) -> Self {
+        RawValue { f32: value }
+    }
+}
+
+impl From<f64> for RawValue {
+    fn from(value: f64) -> Self {
+        RawValue { f64: value }
+    }
+}
+
 impl Default for RawValue {
     fn default() -> Self {
         Self { bytes: [0; 16] }
@@ -43,7 +67,39 @@ macro_rules! partial_eq {
         }
     )*)
 }
+
+macro_rules! into {
+    ($($t:ty => $f:tt),*) => ($(
+        impl From<&RawValue> for $t {
+            fn from(from: &RawValue) -> $t {
+                unsafe {
+                    match &from {
+                        RawValue { i32: i32 } => *i32 as _,
+                        // RawValue { f32: f32 } => *f32 as _,
+                        // RawValue { u32: u32 } => *u32 as _,
+                        // RawValue { i64: i64 } => *i64 as _,
+                        // RawValue { f64: f64 } => *f64 as _,
+                        // RawValue { u64: u64 } => *u64 as _,
+                        // _ => unimplemented!()
+                    }
+                }
+            }
+        }
+    )*)
+}
+
 partial_eq! {
+    i32 => i32,
+    u32 => u32,
+    i64 => i64,
+    u64 => u64,
+    f32 => f32,
+    f64 => f64,
+    i128 => i128,
+    u128 => u128
+}
+
+into! {
     i32 => i32,
     u32 => u32,
     i64 => i64,

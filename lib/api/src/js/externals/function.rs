@@ -405,7 +405,7 @@ impl Function {
         let params: Vec<_> = unsafe {
             params
                 .iter()
-                .map(|a| a.as_raw_value(&store.as_store_ref()))
+                .map(|a| a.as_raw(&store.as_store_ref()))
                 .collect()
         };
         let arr = js_sys::Array::new_with_length(params.len() as u32);
@@ -640,7 +640,7 @@ mod inner {
     use std::marker::PhantomData;
     use std::panic::{self, AssertUnwindSafe};
 
-    use wasmer_types::{FunctionType, NativeWasmType, Type};
+    use wasmer_types::{FunctionType, NativeWasmType, RawValue, Type};
     // use wasmer::{raise_user_trap, resume_panic};
 
     /// A trait to convert a Rust value to a `WasmNativeType` value,
@@ -783,7 +783,7 @@ mod inner {
         /// The array type that can hold all the represented values.
         ///
         /// Note that all values are stored in their binary form.
-        type Array: AsMut<[f64]>;
+        type Array: AsMut<[RawValue]>;
 
         /// The size of the array
         fn size() -> u32;
@@ -803,7 +803,7 @@ mod inner {
         /// # Safety
         unsafe fn from_slice(
             store: &mut impl AsStoreMut,
-            slice: &[f64],
+            slice: &[RawValue],
         ) -> Result<Self, TryFromSliceError>;
 
         /// Builds and returns an array of type `Array` from a tuple
@@ -1037,7 +1037,7 @@ mod inner {
             {
                 type CStruct = $c_struct_name< $( $x ),* >;
 
-                type Array = [f64; count_idents!( $( $x ),* )];
+                type Array = [RawValue; count_idents!( $( $x ),* )];
 
                 fn size() -> u32 {
                     count_idents!( $( $x ),* ) as _
@@ -1054,13 +1054,13 @@ mod inner {
                     // Build the tuple.
                     (
                         $(
-                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_raw(_store, $x))
+                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_raw(_store, $x.into()))
                         ),*
                     )
                 }
 
                 #[allow(clippy::missing_safety_doc)]
-                unsafe fn from_slice(store: &mut impl AsStoreMut, slice: &[f64]) -> Result<Self, TryFromSliceError> {
+                unsafe fn from_slice(store: &mut impl AsStoreMut, slice: &[RawValue]) -> Result<Self, TryFromSliceError> {
                     Ok(Self::from_array(store, slice.try_into()?))
                 }
 
@@ -1081,7 +1081,7 @@ mod inner {
 
                 fn empty_array() -> Self::Array {
                     // Build an array initialized with `0`.
-                    [0_f64; count_idents!( $( $x ),* )]
+                    [RawValue { i32: 0 }; count_idents!( $( $x ),* )]
                 }
 
                 #[allow(unused_mut)]
@@ -1094,7 +1094,7 @@ mod inner {
 
                     (
                         $(
-                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(_store, $x))
+                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(_store, $x.into()))
                         ),*
                     )
                 }
@@ -1288,7 +1288,7 @@ mod inner {
     // fail (with `Result<_, Infallible>`).
     impl WasmTypeList for Infallible {
         type CStruct = Self;
-        type Array = [f64; 0];
+        type Array = [RawValue; 0];
 
         fn size() -> u32 {
             0
@@ -1300,7 +1300,7 @@ mod inner {
 
         unsafe fn from_slice(
             _: &mut impl AsStoreMut,
-            _: &[f64],
+            _: &[RawValue],
         ) -> Result<Self, TryFromSliceError> {
             unreachable!()
         }

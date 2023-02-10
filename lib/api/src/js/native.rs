@@ -68,7 +68,7 @@ macro_rules! impl_native_traits {
             {
                 #[allow(unused_unsafe)]
                 let params_list: Vec<RawValue> = unsafe {
-                    vec![ $( RawValue { f64: $x.into_raw(store) } ),* ]
+                    vec![ $( $x.into_raw(store) ),* ]
                 };
                 let params_list: Vec<JsValue> = params_list
                     .into_iter()
@@ -96,7 +96,7 @@ macro_rules! impl_native_traits {
                     r?
                 };
                 let mut rets_list_array = Rets::empty_array();
-                let mut_rets = rets_list_array.as_mut() as *mut [f64] as *mut f64;
+                let mut_rets = rets_list_array.as_mut() as *mut [RawValue] as *mut RawValue;
                 match Rets::size() {
                     0 => {},
                     1 => unsafe {

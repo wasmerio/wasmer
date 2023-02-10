@@ -1,7 +1,7 @@
 //! This module permits to create native functions
 //! easily in Rust, thanks to its advanced typing system.
 
-use wasmer_types::{NativeWasmType, Type};
+use wasmer_types::{NativeWasmType, RawValue, Type};
 
 use crate::js::Function;
 
@@ -17,13 +17,13 @@ pub trait NativeWasmTypeInto: NativeWasmType + Sized {
     unsafe fn from_abi(store: &mut impl AsStoreMut, abi: Self::Abi) -> Self;
 
     /// Convert self to raw value representation.
-    fn into_raw(self, store: &mut impl AsStoreMut) -> f64;
+    fn into_raw(self, store: &mut impl AsStoreMut) -> RawValue;
 
     /// Convert to self from raw value representation.
     ///
     /// # Safety
     ///
-    unsafe fn from_raw(store: &mut impl AsStoreMut, raw: f64) -> Self;
+    unsafe fn from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self;
 }
 
 impl NativeWasmTypeInto for i32 {
@@ -38,13 +38,13 @@ impl NativeWasmTypeInto for i32 {
     }
 
     #[inline]
-    fn into_raw(self, _store: &mut impl AsStoreMut) -> f64 {
-        self.into()
+    fn into_raw(self, _store: &mut impl AsStoreMut) -> RawValue {
+        RawValue { i32: self }
     }
 
     #[inline]
-    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: f64) -> Self {
-        raw as _
+    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
+        raw.i32
     }
 }
 
@@ -60,13 +60,13 @@ impl NativeWasmTypeInto for i64 {
     }
 
     #[inline]
-    fn into_raw(self, _store: &mut impl AsStoreMut) -> f64 {
-        self as _
+    fn into_raw(self, _store: &mut impl AsStoreMut) -> RawValue {
+        RawValue { i64: self }
     }
 
     #[inline]
-    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: f64) -> Self {
-        raw as _
+    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
+        raw.i64
     }
 }
 
@@ -82,13 +82,13 @@ impl NativeWasmTypeInto for f32 {
     }
 
     #[inline]
-    fn into_raw(self, _store: &mut impl AsStoreMut) -> f64 {
-        self as _
+    fn into_raw(self, _store: &mut impl AsStoreMut) -> RawValue {
+        RawValue { f32: self }
     }
 
     #[inline]
-    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: f64) -> Self {
-        raw as _
+    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
+        raw.f32
     }
 }
 
@@ -104,13 +104,13 @@ impl NativeWasmTypeInto for f64 {
     }
 
     #[inline]
-    fn into_raw(self, _store: &mut impl AsStoreMut) -> f64 {
-        self
+    fn into_raw(self, _store: &mut impl AsStoreMut) -> RawValue {
+        RawValue { f64: self }
     }
 
     #[inline]
-    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: f64) -> Self {
-        raw
+    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
+        raw.f64
     }
 }
 
@@ -126,19 +126,19 @@ impl NativeWasmTypeInto for u128 {
     }
 
     #[inline]
-    fn into_raw(self, _store: &mut impl AsStoreMut) -> f64 {
-        self as _
+    fn into_raw(self, _store: &mut impl AsStoreMut) -> RawValue {
+        RawValue { u128: self }
     }
 
     #[inline]
-    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: f64) -> Self {
-        raw as _
+    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
+        raw.u128
     }
 }
 
 impl NativeWasmType for Function {
     const WASM_TYPE: Type = Type::FuncRef;
-    type Abi = f64;
+    type Abi = usize;
 }
 
 /*
