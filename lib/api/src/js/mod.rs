@@ -26,10 +26,9 @@ mod lib {
 pub(crate) mod engine;
 pub(crate) mod error;
 mod exports;
-mod externals;
+pub(crate) mod externals;
 mod imports;
 mod instance;
-mod mem_access;
 pub(crate) mod module;
 #[cfg(feature = "wasm-types-polyfill")]
 mod module_info_polyfill;
@@ -52,7 +51,6 @@ pub use crate::js::externals::{
 };
 pub use crate::js::imports::Imports;
 pub use crate::js::instance::Instance;
-pub use crate::js::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use crate::js::module::{Module, ModuleTypeHints};
 pub use crate::js::native::TypedFunction;
 pub use crate::js::native_type::NativeWasmTypeInto;

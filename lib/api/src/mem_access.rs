@@ -1,6 +1,6 @@
-use crate::js::externals::memory::MemoryBuffer;
-use crate::js::RuntimeError;
-use crate::js::{Memory32, Memory64, MemoryView, WasmPtr};
+use crate::RuntimeError;
+#[allow(unused_imports)]
+use crate::{Memory, Memory32, Memory64, MemorySize, MemoryView, WasmPtr};
 use std::{
     convert::TryInto,
     fmt,
@@ -11,7 +11,12 @@ use std::{
     string::FromUtf8Error,
 };
 use thiserror::Error;
-use wasmer_types::{MemorySize, ValueType};
+use wasmer_types::ValueType;
+
+#[cfg(feature = "js")]
+use crate::js::externals::memory::MemoryBuffer;
+#[cfg(feature = "sys")]
+use crate::sys::externals::memory::MemoryBuffer;
 
 /// Error for invalid [`Memory`] access.
 #[derive(Clone, Copy, Debug, Error)]

@@ -1,7 +1,8 @@
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
 use crate::js::vm::{VMExtern, VMMemory};
-use crate::js::{MemoryAccessError, MemoryType};
+use crate::js::MemoryType;
+use crate::mem_access::MemoryAccessError;
 use crate::store::{AsStoreMut, AsStoreRef, StoreObjects};
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;

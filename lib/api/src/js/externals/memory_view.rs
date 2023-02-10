@@ -1,4 +1,4 @@
-use crate::js::MemoryAccessError;
+use crate::mem_access::MemoryAccessError;
 use crate::store::AsStoreRef;
 use std::convert::TryInto;
 use std::marker::PhantomData;

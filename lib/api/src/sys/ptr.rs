@@ -1,6 +1,6 @@
+use crate::mem_access::{MemoryAccessError, WasmRef, WasmSlice};
 use crate::sys::{externals::MemoryView, FromToNativeWasmType};
 use crate::NativeWasmTypeInto;
-use crate::{MemoryAccessError, WasmRef, WasmSlice};
 use std::convert::TryFrom;
 use std::{fmt, marker::PhantomData, mem};
 use wasmer_types::ValueType;
