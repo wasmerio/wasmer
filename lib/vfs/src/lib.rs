@@ -1,7 +1,9 @@
 use std::any::Any;
 use std::ffi::OsString;
 use std::fmt;
+use std::future::Future;
 use std::io;
+use std::marker::PhantomPinned;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::task::Context;
@@ -250,6 +252,47 @@ pub trait VirtualFile:
 
     /// Polls the file for when it is available for writing
     fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>>;
+
+    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let _ = cx;
+        // TODO: remove default impl and implement for all.
+        Poll::Ready(Ok(()))
+    }
+}
+
+pin_project_lite::pin_project! {
+    #[must_use = "futures do nothing unless you `.await` or poll them"]
+    pub struct VirtualFileClose<'a, F: ?Sized> {
+        file: &'a mut F,
+        // Make this future `!Unpin` for compatibility with async trait methods.
+        #[pin]
+        _pin: PhantomPinned,
+    }
+}
+
+impl<F> Future for VirtualFileClose<'_, F>
+where
+    F: VirtualFile + Unpin + ?Sized,
+{
+    type Output = io::Result<()>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let this = self.project();
+        Pin::new(&mut **this.file).poll_close(cx)
+    }
+}
+
+pub trait VirtualFileExt {
+    fn close<'a>(&'a mut self) -> VirtualFileClose<'a, Self>;
+}
+
+impl<T: VirtualFile + Unpin + ?Sized> VirtualFileExt for T {
+    fn close<'a>(&'a mut self) -> VirtualFileClose<'a, Self> {
+        VirtualFileClose {
+            file: self,
+            _pin: PhantomPinned,
+        }
+    }
 }
 
 // Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .

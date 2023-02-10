@@ -58,6 +58,7 @@ wasmer-compiler = { version = "=3.2.0-alpha.1", path = "../compiler", features =
 http = "0.2.8"
 wai-bindgen-wasmer = { path = "../wai-bindgen-wasmer", version = "0.2.3", features = ["tracing"] }
 once_cell = "1.17.0"
+pin-project = "1.0.12"
 
 [dependencies.reqwest]
 version = "0.11"

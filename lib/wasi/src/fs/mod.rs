@@ -18,7 +18,7 @@ use generational_arena::{Arena, Index as Inode};
 use serde_derive::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
-use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile};
+use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile, VirtualFileExt, WasiPipe};
 use wasmer_wasi_types::{
     types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     wasi::{
@@ -329,12 +329,34 @@ impl WasiFs {
     }
 
     /// Closes all the file handles
-    pub fn close_all(&self, inodes: &WasiInodes) {
+    pub async fn close_all(&self, inodes: &WasiInodes) {
         let mut guard = self.fd_map.write().unwrap();
         let fds = { guard.iter().map(|a| *a.0).collect::<Vec<_>>() };
 
         for fd in fds {
-            _ = self.close_fd_ext(inodes, &mut guard, fd);
+            let kind = self.close_fd_ext(inodes, &mut guard, fd);
+            if let Ok(Some(kind)) = kind {
+                match kind {
+                    Kind::File { handle, .. } => {
+                        if let Some(handle) = handle {
+                            if let Ok(mut lock) = handle.try_write() {
+                                lock.close().await.ok();
+                            }
+                        }
+                    }
+                    Kind::Socket { socket } => {
+                        socket.close().ok();
+                    }
+                    Kind::Pipe { pipe } => {
+                        pipe.close();
+                    }
+                    Kind::Dir { .. } => {}
+                    Kind::Root { .. } => {}
+                    Kind::Symlink { .. } => {}
+                    Kind::Buffer { .. } => {}
+                    Kind::EventNotifications { .. } => {}
+                }
+            }
         }
     }
 
@@ -1704,7 +1726,7 @@ impl WasiFs {
     }
 
     /// Closes an open FD, handling all details such as FD being preopen
-    pub(crate) fn close_fd(&self, inodes: &WasiInodes, fd: WasiFd) -> Result<(), Errno> {
+    pub(crate) fn close_fd(&self, inodes: &WasiInodes, fd: WasiFd) -> Result<Option<Kind>, Errno> {
         let mut fd_map = self.fd_map.write().unwrap();
         self.close_fd_ext(inodes, &mut fd_map, fd)
     }
@@ -1715,7 +1737,7 @@ impl WasiFs {
         inodes: &WasiInodes,
         fd_map: &mut RwLockWriteGuard<HashMap<WasiFd, Fd>>,
         fd: WasiFd,
-    ) -> Result<(), Errno> {
+    ) -> Result<Option<Kind>, Errno> {
         let pfd = fd_map.remove(&fd).ok_or(Errno::Badf)?;
         let ref_cnt = pfd.ref_cnt.fetch_sub(1, Ordering::AcqRel);
         if ref_cnt > 1 {
@@ -1724,7 +1746,7 @@ impl WasiFs {
                 fd,
                 ref_cnt
             );
-            return Ok(());
+            return Ok(None);
         }
         trace!("closing file descriptor({}) - inode", fd);
 
@@ -1733,17 +1755,30 @@ impl WasiFs {
         let is_preopened = inodeval.is_preopened;
 
         let mut guard = inodeval.write();
-        match guard.deref_mut() {
-            Kind::File { ref mut handle, .. } => {
-                let mut empty_handle = None;
-                std::mem::swap(handle, &mut empty_handle);
+        let kind = match guard.deref_mut() {
+            Kind::File {
+                ref mut handle,
+                path,
+                fd,
+            } => {
+                let item = handle.take();
+                Some(Kind::File {
+                    handle: item,
+                    path: path.to_owned(),
+                    fd: *fd,
+                })
             }
             Kind::Socket { ref mut socket, .. } => {
                 let mut closed_socket = InodeSocket::new(InodeSocketKind::Closed);
                 std::mem::swap(socket, &mut closed_socket);
+                Some(Kind::Socket {
+                    socket: closed_socket,
+                })
             }
             Kind::Pipe { ref mut pipe } => {
-                pipe.close();
+                let mut swap = WasiPipe::new();
+                std::mem::swap(pipe, &mut swap);
+                Some(Kind::Pipe { pipe: swap })
             }
             Kind::Dir { parent, path, .. } => {
                 debug!("Closing dir {:?}", &path);
@@ -1777,6 +1812,7 @@ impl WasiFs {
                                     // Maybe recursively closes fds if original preopen?
                                 }
                             }
+                            None
                         }
                         _ => unreachable!(
                             "Fatal internal logic error, directory's parent is not a directory"
@@ -1788,12 +1824,12 @@ impl WasiFs {
                     return Err(Errno::Inval);
                 }
             }
-            Kind::EventNotifications { .. } => {}
+            Kind::EventNotifications { .. } => None,
             Kind::Root { .. } => return Err(Errno::Access),
             Kind::Symlink { .. } | Kind::Buffer { .. } => return Err(Errno::Inval),
-        }
+        };
 
-        Ok(())
+        Ok(kind)
     }
 }
 

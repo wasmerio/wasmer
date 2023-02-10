@@ -898,13 +898,13 @@ impl WasiEnv {
     }
 
     /// Cleans up all the open files (if this is the main thread)
-    pub fn cleanup(&self, exit_code: Option<ExitCode>) {
+    pub async fn cleanup_async(&self, exit_code: Option<ExitCode>) {
         // If this is the main thread then also close all the files
         if self.thread.is_main() {
             trace!("wasi[{}]:: cleaning up open file handles", self.pid());
 
             let inodes = self.state.inodes.read().unwrap();
-            self.state.fs.close_all(inodes.deref());
+            self.state.fs.close_all(inodes.deref()).await;
 
             // Now send a signal that the thread is terminated
             self.process.signal_process(Signal::Sigquit);
@@ -913,5 +913,11 @@ impl WasiEnv {
             let exit_code = exit_code.unwrap_or(Errno::Canceled as ExitCode);
             self.process.terminate(exit_code);
         }
+    }
+
+    pub fn cleanup(&self, exit_code: Option<ExitCode>) {
+        self.runtime
+            .task_manager()
+            .block_on(self.cleanup_async(exit_code));
     }
 }
