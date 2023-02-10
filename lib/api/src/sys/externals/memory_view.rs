@@ -96,6 +96,7 @@ impl<'a> MemoryView<'a> {
         self.size
     }
 
+    #[inline]
     pub(crate) fn buffer(&'a self) -> MemoryBuffer<'a> {
         self.buffer
     }

@@ -30,12 +30,12 @@ pub enum MemoryAccessError {
 
 impl From<MemoryAccessError> for RuntimeError {
     fn from(err: MemoryAccessError) -> Self {
-        RuntimeError::new(err.to_string())
+        Self::new(err.to_string())
     }
 }
 impl From<FromUtf8Error> for MemoryAccessError {
     fn from(_err: FromUtf8Error) -> Self {
-        MemoryAccessError::NonUtf8String
+        Self::NonUtf8String
     }
 }
 
@@ -158,7 +158,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
     ///
     /// Returns a `MemoryAccessError` if the slice length overflows.
     #[inline]
-    pub fn new(memory: &'a MemoryView, offset: u64, len: u64) -> Result<Self, MemoryAccessError> {
+    pub fn new(view: &'a MemoryView, offset: u64, len: u64) -> Result<Self, MemoryAccessError> {
         let total_len = len
             .checked_mul(mem::size_of::<T>() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
@@ -166,7 +166,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
             .checked_add(total_len)
             .ok_or(MemoryAccessError::Overflow)?;
         Ok(Self {
-            buffer: memory.buffer(),
+            buffer: view.buffer(),
             offset,
             len,
             marker: PhantomData,
@@ -197,7 +197,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
         self.len
     }
 
-    /// Return if the slice is empty.
+    /// Returns `true` if the number of elements is 0.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len == 0
@@ -367,7 +367,7 @@ impl<'a, T: ValueType> Iterator for WasmSliceIter<'a, T> {
     type Item = WasmRef<'a, T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.slice.len() != 0 {
+        if !self.slice.is_empty() {
             let elem = self.slice.index(0);
             self.slice = self.slice.subslice(1..self.slice.len());
             Some(elem)
@@ -383,7 +383,7 @@ impl<'a, T: ValueType> Iterator for WasmSliceIter<'a, T> {
 
 impl<'a, T: ValueType> DoubleEndedIterator for WasmSliceIter<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        if self.slice.len() != 0 {
+        if !self.slice.is_empty() {
             let elem = self.slice.index(self.slice.len() - 1);
             self.slice = self.slice.subslice(0..self.slice.len() - 1);
             Some(elem)

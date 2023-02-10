@@ -103,6 +103,7 @@ impl<'a> MemoryView<'a> {
         Bytes(self.size as usize).try_into().unwrap()
     }
 
+    #[inline]
     pub(crate) fn buffer(&self) -> MemoryBuffer<'a> {
         MemoryBuffer {
             base: &self.view as *const _ as *mut _,
