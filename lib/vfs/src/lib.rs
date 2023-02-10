@@ -283,11 +283,11 @@ where
 }
 
 pub trait VirtualFileExt {
-    fn close<'a>(&'a mut self) -> VirtualFileClose<'a, Self>;
+    fn close(&mut self) -> VirtualFileClose<'_, Self>;
 }
 
 impl<T: VirtualFile + Unpin + ?Sized> VirtualFileExt for T {
-    fn close<'a>(&'a mut self) -> VirtualFileClose<'a, Self> {
+    fn close(&mut self) -> VirtualFileClose<'_, Self> {
         VirtualFileClose {
             file: self,
             _pin: PhantomPinned,

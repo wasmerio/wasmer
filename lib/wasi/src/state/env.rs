@@ -898,6 +898,7 @@ impl WasiEnv {
     }
 
     /// Cleans up all the open files (if this is the main thread)
+    #[allow(clippy::await_holding_lock)]
     pub async fn cleanup_async(&self, exit_code: Option<ExitCode>) {
         // If this is the main thread then also close all the files
         if self.thread.is_main() {

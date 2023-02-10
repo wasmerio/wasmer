@@ -507,7 +507,7 @@ mod tests {
             .create_new(true)
             .open(Path::new("/test_new_filesystem/foo2.txt"))
             .unwrap();
-        file_write.write(b"hello").await.unwrap();
+        file_write.write_all(b"hello").await.unwrap();
         let _ = std::fs::remove_file("/test_new_filesystem/foo2.txt");
     }
 

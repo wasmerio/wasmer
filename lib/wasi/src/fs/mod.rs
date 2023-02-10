@@ -329,6 +329,7 @@ impl WasiFs {
     }
 
     /// Closes all the file handles
+    #[allow(clippy::await_holding_lock)]
     pub async fn close_all(&self, inodes: &WasiInodes) {
         let mut guard = self.fd_map.write().unwrap();
         let fds = { guard.iter().map(|a| *a.0).collect::<Vec<_>>() };
