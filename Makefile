@@ -472,6 +472,7 @@ build-capi-headless-ios:
 #####
 
 # test compilers
+# FIXME forcing only 1 test thread to avoid issues with host_fs::path_rename tests
 test-stage-0-wast:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) -- --test-threads=1
 
