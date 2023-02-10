@@ -152,28 +152,6 @@ impl WasiBusState {
 /// * The contents of files are not stored and may be modified by
 /// other, concurrently running programs.  Data such as the contents
 /// of directories are lazily loaded.
-///
-/// Usage:
-///
-/// ```no_run
-/// # use wasmer_wasi::{WasiState, WasiStateCreationError};
-/// # fn main() -> Result<(), WasiStateCreationError> {
-/// WasiState::builder("program_name")
-///    .env(b"HOME", "/home/home".to_string())
-///    .arg("--help")
-///    .envs({
-///        let mut hm = std::collections::HashMap::new();
-///        hm.insert("COLOR_OUTPUT", "TRUE");
-///        hm.insert("PATH", "/usr/bin");
-///        hm
-///    })
-///    .args(&["--verbose", "list"])
-///    .preopen(|p| p.directory("src").read(true).write(true).create(true))?
-///    .preopen(|p| p.directory(".").alias("dot").read(true))?
-///    .build()?;
-/// # Ok(())
-/// # }
-/// ```
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct WasiState {

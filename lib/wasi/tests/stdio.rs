@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use wasmer::{Module, Store};
 use wasmer_vfs::{AsyncReadExt, AsyncWriteExt};
-use wasmer_wasi::{WasiBidirectionalSharedPipePair, WasiEnv};
+use wasmer_wasi::{PluggableRuntimeImplementation, WasiEnv, WasiPipe};
 
 mod sys {
     #[tokio::test]
@@ -72,15 +74,21 @@ async fn test_stdout() {
     "#).unwrap();
 
     // Create the `WasiEnv`.
-    let mut pipe = WasiBidirectionalSharedPipePair::default();
+    let mut pipe = WasiPipe::new();
 
-    // FIXME: evaluate if needed (method not available on ArcFile)
-    // pipe.set_blocking(false);
-    WasiEnv::builder("command-name")
-        .args(&["Gordon"])
-        .stdout(Box::new(pipe.clone()))
-        .run_with_store(module, &mut store)
-        .unwrap();
+    let rt = PluggableRuntimeImplementation::default();
+
+    let pipe2 = pipe.clone();
+    std::thread::spawn(move || {
+        WasiEnv::builder("command-name")
+            .runtime(Arc::new(rt))
+            .args(&["Gordon"])
+            .stdout(Box::new(pipe2))
+            .run_with_store(module, &mut store)
+    })
+    .join()
+    .unwrap()
+    .unwrap();
 
     let mut stdout_str = String::new();
     pipe.read_to_string(&mut stdout_str).await.unwrap();
@@ -99,18 +107,25 @@ async fn test_env() {
         builder.build()
     });
 
+    let rt = PluggableRuntimeImplementation::default();
+
     // Create the `WasiEnv`.
-    let mut pipe = WasiBidirectionalSharedPipePair::default();
-    // FIXME: evaluate if needed (method not available)
-    // .with_blocking(false);
-    WasiEnv::builder("command-name")
-        .args(&["Gordon"])
-        .env("DOG", "X")
-        .env("TEST", "VALUE")
-        .env("TEST2", "VALUE2")
-        .stdout(Box::new(pipe.clone()))
-        .run_with_store(module, &mut store)
-        .unwrap();
+    let mut pipe = WasiPipe::default();
+    let pipe2 = pipe.clone();
+
+    std::thread::spawn(move || {
+        WasiEnv::builder("command-name")
+            .runtime(Arc::new(rt))
+            .args(&["Gordon"])
+            .env("DOG", "X")
+            .env("TEST", "VALUE")
+            .env("TEST2", "VALUE2")
+            .stdout(Box::new(pipe2))
+            .run_with_store(module, &mut store)
+    })
+    .join()
+    .unwrap()
+    .unwrap();
 
     let mut stdout_str = String::new();
     pipe.read_to_string(&mut stdout_str).await.unwrap();
@@ -123,7 +138,7 @@ async fn test_stdin() {
     let module = Module::new(&store, include_bytes!("stdin-hello.wasm")).unwrap();
 
     // Create the `WasiEnv`.
-    let mut pipe = WasiBidirectionalSharedPipePair::default();
+    let mut pipe = WasiPipe::default();
     // FIXME: needed? (method not available)
     // .with_blocking(false);
 
@@ -131,10 +146,18 @@ async fn test_stdin() {
     let buf = "Hello, stdin!\n".as_bytes().to_owned();
     pipe.write(&buf[..]).await.unwrap();
 
-    WasiEnv::builder("command-name")
-        .stdin(Box::new(pipe.clone()))
-        .run_with_store(module, &mut store)
-        .unwrap();
+    let rt = PluggableRuntimeImplementation::default();
+
+    let pipe2 = pipe.clone();
+    std::thread::spawn(move || {
+        WasiEnv::builder("command-name")
+            .runtime(Arc::new(rt))
+            .stdin(Box::new(pipe2))
+            .run_with_store(module, &mut store)
+    })
+    .join()
+    .unwrap()
+    .unwrap();
 
     // We assure stdin is now empty
     let mut buf = Vec::new();
