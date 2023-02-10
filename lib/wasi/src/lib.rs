@@ -181,7 +181,6 @@ pub(crate) fn run_wasi_func(
 ) -> Result<Box<[wasmer::Value]>, WasiRuntimeError> {
     func.call(store, params).map_err(|err| {
         if let Some(werr) = err.downcast_ref::<WasiError>() {
-            std::mem::drop(werr);
             let werr = err.downcast::<WasiError>().unwrap();
             WasiRuntimeError::Wasi(werr)
         } else {
