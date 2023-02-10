@@ -6,13 +6,18 @@ use std::{
     collections::{HashMap, HashSet},
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
+    pin::Pin,
     sync::{
         atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
         Arc, Mutex, RwLock, RwLockWriteGuard,
     },
 };
 
-use crate::state::{Stderr, Stdin, Stdout};
+use crate::{
+    state::{Stderr, Stdin, Stdout},
+    utils::WasiDummyWaker,
+};
+use cooked_waker::IntoWaker;
 use generational_arena::{Arena, Index as Inode};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
@@ -330,7 +335,7 @@ impl WasiFs {
 
     /// Closes all the file handles
     #[allow(clippy::await_holding_lock)]
-    pub async fn close_all(&self, inodes: &WasiInodes) {
+    pub fn close_all(&self, inodes: &WasiInodes) {
         let mut guard = self.fd_map.write().unwrap();
         let fds = { guard.iter().map(|a| *a.0).collect::<Vec<_>>() };
 
@@ -341,7 +346,15 @@ impl WasiFs {
                     Kind::File { handle, .. } => {
                         if let Some(handle) = handle {
                             if let Ok(mut lock) = handle.try_write() {
-                                lock.shutdown().await.ok();
+                                // TODO: make this function async
+                                // The below code is a dumb hack to trigger close.
+                                // It will only work properly on VirtualFile impls
+                                // that close synchronously without ever returning
+                                // Poll::Pending.
+                                // This is enough to make it work for WasiPipe.
+                                let waker = WasiDummyWaker.into_waker();
+                                let mut ctx = std::task::Context::from_waker(&waker);
+                                let _ = Pin::new(&mut **lock).poll_shutdown(&mut ctx);
                             }
                         }
                     }
