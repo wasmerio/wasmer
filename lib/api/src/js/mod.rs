@@ -26,6 +26,7 @@ mod lib {
 pub(crate) mod engine;
 pub(crate) mod error;
 mod exports;
+pub(crate) mod extern_ref;
 pub(crate) mod externals;
 mod imports;
 mod instance;

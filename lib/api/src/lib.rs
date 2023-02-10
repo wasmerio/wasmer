@@ -430,6 +430,7 @@ compile_error!(
 );
 
 mod engine;
+mod extern_ref;
 mod function_env;
 mod mem_access;
 mod module;
@@ -448,6 +449,7 @@ mod js;
 pub use js::*;
 
 pub use engine::{AsEngineRef, Engine};
+pub use extern_ref::ExternRef;
 pub use function_env::{FunctionEnv, FunctionEnvMut};
 pub use mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use module::{IoCompileError, Module};

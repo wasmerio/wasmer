@@ -1,6 +1,6 @@
 pub(crate) mod engine;
 mod exports;
-mod extern_ref;
+pub(crate) mod extern_ref;
 pub(crate) mod externals;
 mod imports;
 mod instance;
@@ -12,7 +12,6 @@ mod tunables;
 mod value;
 
 pub use crate::sys::exports::{ExportError, Exportable, Exports, ExportsIterator};
-pub use crate::sys::extern_ref::ExternRef;
 pub use crate::sys::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryView, Table,
     WasmTypeList,
