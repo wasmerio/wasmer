@@ -273,6 +273,8 @@ impl FileSystem for UnionFileSystem {
         let mut ret_error = FsError::EntryNotFound;
         let from = from.to_string_lossy();
         let to = to.to_string_lossy();
+        #[cfg(target_os = "windows")]
+        let to = to.replace('\\', "/");
         for (path, mount) in filter_mounts(&self.mounts, from.as_ref()) {
             let mut to = if to.starts_with(mount.path.as_str()) {
                 (to[mount.path.len()..]).to_string()
