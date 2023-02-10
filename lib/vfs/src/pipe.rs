@@ -176,6 +176,7 @@ impl AsyncWrite for WasiPipe {
         Poll::Ready(Ok(()))
     }
     fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        self.close();
         Poll::Ready(Ok(()))
     }
 }
@@ -257,11 +258,6 @@ impl VirtualFile for WasiPipe {
             .try_lock()
             .map(|a| !a.is_closed())
             .unwrap_or_else(|_| true)
-    }
-
-    fn poll_close(self: Pin<&mut WasiPipe>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.close();
-        Poll::Ready(Ok(()))
     }
 
     /// Polls the file for when there is data to be read

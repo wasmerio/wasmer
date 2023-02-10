@@ -18,7 +18,7 @@ use generational_arena::{Arena, Index as Inode};
 use serde_derive::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
-use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile, VirtualFileExt, WasiPipe};
+use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile, WasiPipe};
 use wasmer_wasi_types::{
     types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     wasi::{
@@ -341,7 +341,7 @@ impl WasiFs {
                     Kind::File { handle, .. } => {
                         if let Some(handle) = handle {
                             if let Ok(mut lock) = handle.try_write() {
-                                lock.close().await.ok();
+                                lock.shutdown().await.ok();
                             }
                         }
                     }
