@@ -19,10 +19,7 @@ use tokio::sync::{mpsc, RwLock};
 use tracing::{debug, error, info, trace, warn};
 #[cfg(feature = "sys")]
 use wasmer::Engine;
-use wasmer_vfs::{
-    AsyncWriteExt, FileSystem, RootFileSystemBuilder, SpecialFile, WasiBidirectionalPipePair,
-    WasiPipe,
-};
+use wasmer_vfs::{AsyncWriteExt, BidiPipe, FileSystem, Pipe, RootFileSystemBuilder, SpecialFile};
 use wasmer_wasi_types::{types::__WASI_STDIN_FILENO, wasi::BusErrno};
 
 use super::{cconst::ConsoleConst, common::*};
@@ -53,7 +50,7 @@ pub struct Console {
     env: HashMap<String, String>,
     runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
     compiled_modules: Arc<ModuleCache>,
-    stdio: WasiBidirectionalPipePair,
+    stdio: BidiPipe,
     capabilities: Capabilities,
 }
 
@@ -61,7 +58,7 @@ impl Console {
     pub fn new(
         runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
         compiled_modules: Arc<ModuleCache>,
-        stdio: WasiBidirectionalPipePair,
+        stdio: BidiPipe,
     ) -> Self {
         let mut uses = DEFAULT_BOOT_USES
             .iter()

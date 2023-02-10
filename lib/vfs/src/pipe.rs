@@ -15,7 +15,7 @@ use tokio::sync::{mpsc, mpsc::error::TryRecvError};
 use crate::{ArcFile, FsError, VirtualFile};
 
 #[derive(Debug, Clone)]
-pub struct WasiPipe {
+pub struct Pipe {
     /// Sends bytes down the pipe
     tx: Arc<Mutex<mpsc::UnboundedSender<Vec<u8>>>>,
     /// Receives bytes from the pipe
@@ -31,11 +31,11 @@ struct PipeReceiver {
     buffer: Option<Bytes>,
 }
 
-impl WasiPipe {
+impl Pipe {
     pub fn new() -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
 
-        WasiPipe {
+        Pipe {
             tx: Arc::new(Mutex::new(tx)),
             rx: Arc::new(Mutex::new(PipeReceiver {
                 chan: rx,
@@ -45,19 +45,19 @@ impl WasiPipe {
         }
     }
 
-    pub fn channel() -> (WasiPipe, WasiPipe) {
-        let pair = WasiBidirectionalPipePair::new();
+    pub fn channel() -> (Pipe, Pipe) {
+        let pair = BidiPipe::new();
         (pair.tx, pair.rx)
     }
 }
 
-impl Default for WasiPipe {
+impl Default for Pipe {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl WasiPipe {
+impl Pipe {
     /// Same as `set_blocking`, but as a builder method
     pub fn with_blocking(mut self, block: bool) -> Self {
         self.set_blocking(block);
@@ -79,13 +79,13 @@ impl WasiPipe {
     }
 }
 
-impl Seek for WasiPipe {
+impl Seek for Pipe {
     fn seek(&mut self, _: SeekFrom) -> io::Result<u64> {
         Ok(0)
     }
 }
 
-impl Read for WasiPipe {
+impl Read for Pipe {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let max_size = buf.len();
 
@@ -127,7 +127,7 @@ impl Read for WasiPipe {
     }
 }
 
-impl std::io::Write for WasiPipe {
+impl std::io::Write for Pipe {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let tx = self.tx.lock().unwrap();
         tx.send(buf.to_vec())
@@ -140,7 +140,7 @@ impl std::io::Write for WasiPipe {
     }
 }
 
-impl AsyncSeek for WasiPipe {
+impl AsyncSeek for Pipe {
     fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
         Ok(())
     }
@@ -149,7 +149,7 @@ impl AsyncSeek for WasiPipe {
     }
 }
 
-impl AsyncWrite for WasiPipe {
+impl AsyncWrite for Pipe {
     fn poll_write(
         self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
@@ -173,7 +173,7 @@ impl AsyncWrite for WasiPipe {
     }
 }
 
-impl AsyncRead for WasiPipe {
+impl AsyncRead for Pipe {
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -211,7 +211,7 @@ impl AsyncRead for WasiPipe {
     }
 }
 
-impl VirtualFile for WasiPipe {
+impl VirtualFile for Pipe {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64 {
         0
@@ -294,14 +294,14 @@ impl VirtualFile for WasiPipe {
     }
 }
 
-/// Pipe pair of (a, b) WasiPipes that are connected together
+/// Pipe pair of (a, b) Pipes that are connected together
 #[derive(Clone, Debug)]
-pub struct WasiBidirectionalPipePair {
-    pub tx: WasiPipe,
-    pub rx: WasiPipe,
+pub struct BidiPipe {
+    pub tx: Pipe,
+    pub rx: Pipe,
 }
 
-impl VirtualFile for WasiBidirectionalPipePair {
+impl VirtualFile for BidiPipe {
     fn last_accessed(&self) -> u64 {
         self.rx.last_accessed()
     }
@@ -330,7 +330,7 @@ impl VirtualFile for WasiBidirectionalPipePair {
     }
 }
 
-impl AsyncSeek for WasiBidirectionalPipePair {
+impl AsyncSeek for BidiPipe {
     fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
         Ok(())
     }
@@ -339,7 +339,7 @@ impl AsyncSeek for WasiBidirectionalPipePair {
     }
 }
 
-impl AsyncWrite for WasiBidirectionalPipePair {
+impl AsyncWrite for BidiPipe {
     fn poll_write(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -369,7 +369,7 @@ impl AsyncWrite for WasiBidirectionalPipePair {
     }
 }
 
-impl AsyncRead for WasiBidirectionalPipePair {
+impl AsyncRead for BidiPipe {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -380,18 +380,18 @@ impl AsyncRead for WasiBidirectionalPipePair {
     }
 }
 
-impl Default for WasiBidirectionalPipePair {
+impl Default for BidiPipe {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl WasiBidirectionalPipePair {
-    pub fn new() -> WasiBidirectionalPipePair {
+impl BidiPipe {
+    pub fn new() -> BidiPipe {
         let (tx1, rx1) = mpsc::unbounded_channel();
         let (tx2, rx2) = mpsc::unbounded_channel();
 
-        let pipe1 = WasiPipe {
+        let pipe1 = Pipe {
             tx: Arc::new(Mutex::new(tx1)),
             rx: Arc::new(Mutex::new(PipeReceiver {
                 chan: rx2,
@@ -400,7 +400,7 @@ impl WasiBidirectionalPipePair {
             block: true,
         };
 
-        let pipe2 = WasiPipe {
+        let pipe2 = Pipe {
             tx: Arc::new(Mutex::new(tx2)),
             rx: Arc::new(Mutex::new(PipeReceiver {
                 chan: rx1,
@@ -409,7 +409,7 @@ impl WasiBidirectionalPipePair {
             block: true,
         };
 
-        WasiBidirectionalPipePair {
+        BidiPipe {
             tx: pipe1,
             rx: pipe2,
         }
@@ -429,6 +429,6 @@ impl WasiBidirectionalPipePair {
     }
 }
 
-/// Shared version of WasiBidirectionalPipePair for situations where you need
+/// Shared version of BidiPipe for situations where you need
 /// to emulate the old behaviour of `Pipe` (both send and recv on one channel).
-pub type WasiBidirectionalSharedPipePair = ArcFile<WasiBidirectionalPipePair>;
+pub type WasiBidirectionalSharedPipePair = ArcFile<BidiPipe>;

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use wasmer::{Module, Store};
 use wasmer_vfs::{AsyncReadExt, AsyncWriteExt};
-use wasmer_wasi::{PluggableRuntimeImplementation, WasiEnv, WasiPipe};
+use wasmer_wasi::{Pipe, PluggableRuntimeImplementation, WasiEnv};
 
 mod sys {
     #[tokio::test]
@@ -74,7 +74,7 @@ async fn test_stdout() {
     "#).unwrap();
 
     // Create the `WasiEnv`.
-    let mut pipe = WasiPipe::new();
+    let mut pipe = Pipe::new();
 
     let rt = PluggableRuntimeImplementation::default();
 
@@ -110,7 +110,7 @@ async fn test_env() {
     let rt = PluggableRuntimeImplementation::default();
 
     // Create the `WasiEnv`.
-    let mut pipe = WasiPipe::default();
+    let mut pipe = Pipe::default();
     let pipe2 = pipe.clone();
 
     std::thread::spawn(move || {
@@ -138,7 +138,7 @@ async fn test_stdin() {
     let module = Module::new(&store, include_bytes!("stdin-hello.wasm")).unwrap();
 
     // Create the `WasiEnv`.
-    let mut pipe = WasiPipe::default();
+    let mut pipe = Pipe::default();
     // FIXME: needed? (method not available)
     // .with_blocking(false);
 

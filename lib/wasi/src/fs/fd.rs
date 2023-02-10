@@ -11,7 +11,7 @@ use std::{
 use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use wasmer_vfs::{VirtualFile, WasiPipe};
+use wasmer_vfs::{Pipe, VirtualFile};
 use wasmer_wasi_types::wasi::{Fd as WasiFd, Fdflags, Filestat, Rights};
 
 use crate::net::socket::InodeSocket;
@@ -100,7 +100,7 @@ pub enum Kind {
     #[cfg_attr(feature = "enable-serde", serde(skip))]
     Pipe {
         /// Reference to the pipe
-        pipe: WasiPipe,
+        pipe: Pipe,
     },
     Dir {
         /// Parent directory

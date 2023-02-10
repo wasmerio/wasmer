@@ -23,7 +23,7 @@ use generational_arena::{Arena, Index as Inode};
 use serde_derive::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
-use wasmer_vfs::{FileSystem, FsError, OpenOptions, VirtualFile, WasiPipe};
+use wasmer_vfs::{FileSystem, FsError, OpenOptions, Pipe, VirtualFile};
 use wasmer_wasi_types::{
     types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     wasi::{
@@ -351,7 +351,7 @@ impl WasiFs {
                                 // It will only work properly on VirtualFile impls
                                 // that close synchronously without ever returning
                                 // Poll::Pending.
-                                // This is enough to make it work for WasiPipe.
+                                // This is enough to make it work for Pipe.
                                 let waker = WasiDummyWaker.into_waker();
                                 let mut ctx = std::task::Context::from_waker(&waker);
                                 let _ = Pin::new(&mut **lock).poll_shutdown(&mut ctx);
@@ -1790,7 +1790,7 @@ impl WasiFs {
                 })
             }
             Kind::Pipe { ref mut pipe } => {
-                let mut swap = WasiPipe::new();
+                let mut swap = Pipe::new();
                 std::mem::swap(pipe, &mut swap);
                 Some(Kind::Pipe { pipe: swap })
             }

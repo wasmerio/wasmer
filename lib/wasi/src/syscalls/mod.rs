@@ -72,7 +72,7 @@ pub(crate) use wasmer::{
     OnCalledAction, Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
 };
 pub(crate) use wasmer_vfs::{
-    AsyncSeekExt, AsyncWriteExt, FileSystem, FsError, VirtualFile, WasiBidirectionalPipePair,
+    AsyncSeekExt, AsyncWriteExt, BidiPipe, FileSystem, FsError, VirtualFile,
 };
 pub(crate) use wasmer_vnet::StreamSecurity;
 pub(crate) use wasmer_wasi_types::{asyncify::__wasi_asyncify_t, wasi::EventUnion};

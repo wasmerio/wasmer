@@ -14,7 +14,7 @@
 use std::io::{Read, Write};
 use wasmer::{Instance, Module, Store};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_wasi::{WasiEnv, WasiPipe};
+use wasmer_wasi::{Pipe, WasiEnv};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_path = concat!(
@@ -36,8 +36,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let msg = "racecar go zoom";
     println!("Writing \"{}\" to the WASI stdin...", msg);
-    let mut input = WasiPipe::new();
-    let mut output = WasiPipe::new();
+    let mut input = Pipe::new();
+    let mut output = Pipe::new();
     // To write to the stdin
     writeln!(input, "{}", msg)?;
 

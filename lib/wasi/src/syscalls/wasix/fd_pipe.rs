@@ -18,7 +18,7 @@ pub fn fd_pipe<M: MemorySize>(
     let env = ctx.data();
     let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
 
-    let pipes = WasiBidirectionalPipePair::new();
+    let pipes = BidiPipe::new();
     let pipe1 = pipes.tx;
     let pipe2 = pipes.rx;
 
