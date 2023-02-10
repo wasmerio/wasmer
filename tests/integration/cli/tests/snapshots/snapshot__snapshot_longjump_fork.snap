@@ -14,7 +14,7 @@ expression: snapshot
   },
   "result": {
     "Success": {
-      "stdout": "Parent has x = 0\nChild has x = 2\n",
+      "stdout": "Parent has x = 0\nChild has x = 2\nChild(2) exited with 5\n",
       "stderr": "",
       "exit_code": 0
     }
