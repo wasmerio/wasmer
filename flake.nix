@@ -40,6 +40,8 @@
             pkgconfig
             openssl
             llvmPackages_14.llvm
+            # Snapshot testing
+            cargo-insta
           ];
           runtimeDependencies = with pkgs; [ ];
 
