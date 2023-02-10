@@ -372,6 +372,10 @@ fn filter_mounts(
     mounts: &[MountPoint],
     mut target: &str,
 ) -> impl Iterator<Item = (String, StrongMountPoint)> {
+    // On Windows, Path might use \ instead of /, wich mill messup the matching of mount points
+    #[cfg(target_os = "windows")]
+    let target = target.replace('\\', "/");
+
     let mut biggest_path = 0usize;
     let mut ret = Vec::new();
     for mount in mounts.iter().rev() {
