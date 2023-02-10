@@ -473,7 +473,7 @@ build-capi-headless-ios:
 
 # test compilers
 test-stage-0-wast:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features)
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) -- --test-threads=1
 
 # test packages
 test-stage-1-test-all:
