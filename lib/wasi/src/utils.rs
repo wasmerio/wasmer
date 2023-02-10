@@ -1,6 +1,4 @@
 use std::collections::BTreeSet;
-#[cfg(not(feature = "js"))]
-use wasmer::vm::VMSharedMemory;
 use wasmer::{AsStoreMut, Imports, Module};
 use wasmer_wasi_types::wasi::Errno;
 
