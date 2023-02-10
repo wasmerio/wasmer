@@ -112,7 +112,7 @@ impl<'a> WasiTest<'a> {
         if let Some(stdin) = &self.stdin {
             let mut wasi_stdin = { wasi_env.data(store).stdin().unwrap().unwrap() };
             // Then we can write to it!
-            let data = format!("{}", stdin.stream);
+            let data = stdin.stream.to_string();
             runtime.block_on(async move { wasi_stdin.write(data.as_bytes()).await })?;
         }
 

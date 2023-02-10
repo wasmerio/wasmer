@@ -108,7 +108,7 @@ impl Wasi {
         let map_commands = self
             .map_commands
             .iter()
-            .map(|map| map.split_once("=").unwrap())
+            .map(|map| map.split_once('=').unwrap())
             .map(|(a, b)| (a.to_string(), b.to_string()))
             .collect::<HashMap<_, _>>();
 
@@ -118,19 +118,19 @@ impl Wasi {
             .args(args)
             .envs(self.env_vars.clone())
             .uses(self.uses.clone())
-            .runtime(runtime.clone())
-            .map_commands(map_commands.clone());
+            .runtime(runtime)
+            .map_commands(map_commands);
 
         let mut builder = if wasmer_wasi::is_wasix_module(module) {
             // If we preopen anything from the host then shallow copy it over
             let root_fs = RootFileSystemBuilder::new()
                 .with_tty(Box::new(SpecialFile::new(__WASI_STDIN_FILENO)))
                 .build();
-            if self.mapped_dirs.len() > 0 {
+            if !self.mapped_dirs.is_empty() {
                 let fs_backing: Arc<dyn FileSystem + Send + Sync> =
                     Arc::new(PassthruFileSystem::new(default_fs_backing()));
                 for (src, dst) in self.mapped_dirs.clone() {
-                    let src = match src.starts_with("/") {
+                    let src = match src.starts_with('/') {
                         true => src,
                         false => format!("/{}", src),
                     };

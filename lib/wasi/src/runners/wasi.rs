@@ -3,11 +3,10 @@
 
 use crate::runners::WapmContainer;
 use crate::{WasiEnv, WasiEnvBuilder};
-use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;
 use std::sync::Arc;
-use wasmer::{Instance, Module, Store};
+use wasmer::{Module, Store};
 use wasmer_vfs::webc_fs::WebcFileSystem;
 use webc::{Command, WebCMmap};
 
@@ -68,12 +67,7 @@ impl crate::runners::Runner for WasiRunner {
         let mut module = Module::new(&self.store, atom_bytes)?;
         module.set_name(&atom_name);
 
-        let builder = prepare_webc_env(
-            &mut self.store,
-            container.webc.clone(),
-            &atom_name,
-            &self.args,
-        )?;
+        let builder = prepare_webc_env(container.webc.clone(), &atom_name, &self.args)?;
 
         let init = builder.build_init()?;
 
@@ -90,7 +84,6 @@ impl crate::runners::Runner for WasiRunner {
 
 // https://github.com/tokera-com/ate/blob/42c4ce5a0c0aef47aeb4420cc6dc788ef6ee8804/term-lib/src/eval/exec.rs#L444
 fn prepare_webc_env(
-    store: &mut Store,
     webc: Arc<WebCMmap>,
     command: &str,
     args: &[String],
@@ -120,26 +113,4 @@ fn prepare_webc_env(
     }
 
     Ok(builder)
-}
-
-pub(crate) fn exec_module(
-    store: &mut Store,
-    module: &Module,
-    mut wasi_env: crate::WasiFunctionEnv,
-) -> Result<(), anyhow::Error> {
-    let import_object = wasi_env.import_object(store, module)?;
-    let instance = Instance::new(store, module, &import_object)?;
-
-    wasi_env.initialize(store, instance.clone())?;
-
-    // If this module exports an _initialize function, run that first.
-    if let Ok(initialize) = instance.exports.get_function("_initialize") {
-        initialize
-            .call(store, &[])
-            .with_context(|| "failed to run _initialize function")?;
-    }
-
-    let _result = instance.exports.get_function("_start")?.call(store, &[])?;
-
-    Ok(())
 }
