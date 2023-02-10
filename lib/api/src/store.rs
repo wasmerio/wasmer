@@ -10,10 +10,10 @@ use wasmer_vm::init_traps;
 pub use wasmer_vm::TrapHandlerFn;
 
 #[cfg(feature = "sys")]
-pub use wasmer_vm::StoreObjects;
+pub use wasmer_vm::{StoreHandle, StoreObjects};
 
 #[cfg(feature = "js")]
-pub use crate::js::store::StoreObjects;
+pub use crate::js::store::{StoreHandle, StoreObjects};
 
 /// Call handler for a store.
 // TODO: better documentation!

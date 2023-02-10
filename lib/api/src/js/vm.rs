@@ -15,6 +15,7 @@ use js_sys::WebAssembly;
 use js_sys::WebAssembly::{Memory, Table};
 use js_sys::WebAssembly::{Memory as JsMemory, Table as JsTable};
 use serde::{Deserialize, Serialize};
+use std::any::Any;
 use std::fmt;
 #[cfg(feature = "tracing")]
 use tracing::trace;
@@ -255,3 +256,30 @@ impl VMExtern {
 }
 
 pub type VMInstance = WebAssembly::Instance;
+
+/// Underlying FunctionEnvironment used by a `VMFunction`.
+#[derive(Debug)]
+pub struct VMFunctionEnvironment {
+    contents: Box<dyn Any + Send + 'static>,
+}
+
+impl VMFunctionEnvironment {
+    /// Wraps the given value to expose it to Wasm code as a function context.
+    pub fn new(val: impl Any + Send + 'static) -> Self {
+        Self {
+            contents: Box::new(val),
+        }
+    }
+
+    #[allow(clippy::should_implement_trait)]
+    /// Returns a reference to the underlying value.
+    pub fn as_ref(&self) -> &(dyn Any + Send + 'static) {
+        &*self.contents
+    }
+
+    #[allow(clippy::should_implement_trait)]
+    /// Returns a mutable reference to the underlying value.
+    pub fn as_mut(&mut self) -> &mut (dyn Any + Send + 'static) {
+        &mut *self.contents
+    }
+}

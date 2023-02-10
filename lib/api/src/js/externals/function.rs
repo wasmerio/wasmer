@@ -1,13 +1,13 @@
 pub use self::inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
+use crate::function_env::{FunctionEnv, FunctionEnvMut};
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
-use crate::js::function_env::FunctionEnvMut;
 use crate::js::types::{param_from_js, AsJs}; /* ValFuncRef */
 use crate::js::vm::VMExtern;
+use crate::js::FunctionType;
 use crate::js::RuntimeError;
 use crate::js::TypedFunction;
 use crate::js::Value;
-use crate::js::{FunctionEnv, FunctionType};
 use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
 use js_sys::{Array, Function as JSFunction};
 use std::iter::FromIterator;
@@ -629,9 +629,9 @@ impl fmt::Debug for Function {
 mod inner {
     use super::RuntimeError;
     use super::VMFunctionBody;
-    use crate::js::function_env::{FunctionEnvMut, VMFunctionEnvironment};
+    use crate::function_env::{FunctionEnv, FunctionEnvMut};
     use crate::js::store::{InternalStoreHandle, StoreHandle};
-    use crate::js::FunctionEnv;
+    use crate::js::vm::VMFunctionEnvironment;
     use crate::js::NativeWasmTypeInto;
     use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
     use std::array::TryFromSliceError;

@@ -2,7 +2,6 @@ pub(crate) mod engine;
 mod exports;
 mod extern_ref;
 mod externals;
-mod function_env;
 mod imports;
 mod instance;
 mod mem_access;
@@ -21,7 +20,6 @@ pub use crate::sys::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryView, Table,
     WasmTypeList,
 };
-pub use crate::sys::function_env::{FunctionEnv, FunctionEnvMut};
 pub use crate::sys::imports::Imports;
 pub use crate::sys::instance::{Instance, InstantiationError};
 pub use crate::sys::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};

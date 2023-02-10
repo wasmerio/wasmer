@@ -27,7 +27,6 @@ pub(crate) mod engine;
 pub(crate) mod error;
 mod exports;
 mod externals;
-mod function_env;
 mod imports;
 mod instance;
 mod mem_access;
@@ -41,7 +40,7 @@ pub(crate) mod store;
 mod trap;
 mod types;
 mod value;
-mod vm;
+pub(crate) mod vm;
 mod wasm_bindgen_polyfill;
 
 pub use crate::js::engine::Engine;
@@ -51,7 +50,6 @@ pub use crate::js::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryError, MemoryView,
     Table, WasmTypeList,
 };
-pub use crate::js::function_env::{FunctionEnv, FunctionEnvMut};
 pub use crate::js::imports::Imports;
 pub use crate::js::instance::Instance;
 pub use crate::js::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};

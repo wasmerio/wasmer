@@ -4,7 +4,7 @@ pub use objects::{StoreHandle, StoreObjects};
 mod objects {
     use wasm_bindgen::JsValue;
 
-    use crate::js::{function_env::VMFunctionEnvironment, vm::VMGlobal};
+    use crate::js::vm::{VMFunctionEnvironment, VMGlobal};
     use std::{fmt, marker::PhantomData, num::NonZeroUsize};
     pub use wasmer_types::StoreId;
 

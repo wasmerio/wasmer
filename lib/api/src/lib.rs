@@ -430,6 +430,7 @@ compile_error!(
 );
 
 mod engine;
+mod function_env;
 mod module;
 mod store;
 
@@ -446,6 +447,7 @@ mod js;
 pub use js::*;
 
 pub use engine::{AsEngineRef, Engine};
+pub use function_env::{FunctionEnv, FunctionEnvMut};
 pub use module::{IoCompileError, Module};
 pub use store::{OnCalledHandler, Store, StoreId};
 #[cfg(feature = "sys")]

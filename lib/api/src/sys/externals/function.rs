@@ -856,7 +856,7 @@ mod inner {
     use std::panic::{self, AssertUnwindSafe};
     use wasmer_vm::{on_host_stack, VMContext, VMTrampoline};
 
-    use crate::sys::function_env::FunctionEnvMut;
+    use crate::function_env::FunctionEnvMut;
     use wasmer_types::{NativeWasmType, RawValue, Type};
     use wasmer_vm::{raise_user_trap, resume_panic, VMFunctionBody};
 

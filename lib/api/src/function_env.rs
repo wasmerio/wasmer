@@ -1,8 +1,11 @@
 use std::{any::Any, marker::PhantomData};
 
-use crate::js::store::{StoreHandle, StoreObjects};
+#[cfg(feature = "js")]
+use crate::js::vm::VMFunctionEnvironment;
+#[cfg(feature = "sys")]
+use wasmer_vm::VMFunctionEnvironment;
 
-use crate::store::{AsStoreMut, AsStoreRef, StoreMut, StoreRef};
+use crate::store::{AsStoreMut, AsStoreRef, StoreHandle, StoreMut, StoreObjects, StoreRef};
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -14,7 +17,7 @@ pub struct FunctionEnv<T> {
 }
 
 impl<T> FunctionEnv<T> {
-    /// Make a new extern reference
+    /// Make a new FunctionEnv
     pub fn new(store: &mut impl AsStoreMut, value: T) -> Self
     where
         T: Any + Send + 'static + Sized,
@@ -24,13 +27,6 @@ impl<T> FunctionEnv<T> {
                 store.as_store_mut().objects_mut(),
                 VMFunctionEnvironment::new(value),
             ),
-            marker: PhantomData,
-        }
-    }
-
-    pub(crate) fn from_handle(handle: StoreHandle<VMFunctionEnvironment>) -> Self {
-        Self {
-            handle,
             marker: PhantomData,
         }
     }
@@ -45,6 +41,14 @@ impl<T> FunctionEnv<T> {
             .as_ref()
             .downcast_ref::<T>()
             .unwrap()
+    }
+
+    #[allow(dead_code)] // This function is only used in js
+    pub(crate) fn from_handle(handle: StoreHandle<VMFunctionEnvironment>) -> Self {
+        Self {
+            handle,
+            marker: PhantomData,
+        }
     }
 
     /// Get the data as mutable
@@ -95,20 +99,20 @@ impl<T> Clone for FunctionEnv<T> {
     }
 }
 
-/// A temporary handle to a [`Context`].
+/// A temporary handle to a [`FunctionEnv`].
 pub struct FunctionEnvMut<'a, T: 'a> {
     pub(crate) store_mut: StoreMut<'a>,
     pub(crate) func_env: FunctionEnv<T>,
 }
 
 impl<T: Send + 'static> FunctionEnvMut<'_, T> {
-    /// Returns a reference to the host state in this context.
+    /// Returns a reference to the host state in this function environement.
     pub fn data(&self) -> &T {
         self.func_env.as_ref(&self.store_mut)
     }
 
-    /// Returns a mutable- reference to the host state in this context.
-    pub fn data_mut<'a>(&'a mut self) -> &'a mut T {
+    /// Returns a mutable- reference to the host state in this function environement.
+    pub fn data_mut(&mut self) -> &mut T {
         self.func_env.as_mut(&mut self.store_mut)
     }
 
@@ -118,7 +122,7 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     }
 
     /// Borrows a new mutable reference
-    pub fn as_mut<'a>(&'a mut self) -> FunctionEnvMut<'a, T> {
+    pub fn as_mut(&mut self) -> FunctionEnvMut<'_, T> {
         FunctionEnvMut {
             store_mut: self.store_mut.as_store_mut(),
             func_env: self.func_env.clone(),
@@ -143,32 +147,5 @@ impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
     #[inline]
     fn objects_mut(&mut self) -> &mut StoreObjects {
         &mut self.store_mut.inner.objects
-    }
-}
-
-/// Underlying FunctionEnvironment used by a `VMFunction`.
-#[derive(Debug)]
-pub struct VMFunctionEnvironment {
-    contents: Box<dyn Any + Send + 'static>,
-}
-
-impl VMFunctionEnvironment {
-    /// Wraps the given value to expose it to Wasm code as a function context.
-    pub fn new(val: impl Any + Send + 'static) -> Self {
-        Self {
-            contents: Box::new(val),
-        }
-    }
-
-    #[allow(clippy::should_implement_trait)]
-    /// Returns a reference to the underlying value.
-    pub fn as_ref(&self) -> &(dyn Any + Send + 'static) {
-        &*self.contents
-    }
-
-    #[allow(clippy::should_implement_trait)]
-    /// Returns a mutable reference to the underlying value.
-    pub fn as_mut(&mut self) -> &mut (dyn Any + Send + 'static) {
-        &mut *self.contents
     }
 }
