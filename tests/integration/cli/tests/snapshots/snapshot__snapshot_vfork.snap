@@ -16,7 +16,7 @@ expression: snapshot
   },
   "result": {
     "Success": {
-      "stdout": "Parent waiting on Child(1)\nChild(1) exited with 10\n",
+      "stdout": "Parent waiting on Child(2)\nChild(2) exited with 10\n",
       "stderr": "",
       "exit_code": 0
     }
