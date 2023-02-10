@@ -72,15 +72,6 @@ impl WasiPipe {
     pub fn close(&self) {
         // TODO: proper close() implementation - Propably want to store the writer in an Option<>
         let (mut null_tx, _) = mpsc::unbounded_channel();
-        let (_, null_rx) = mpsc::unbounded_channel();
-        let mut null_rx = PipeReceiver {
-            chan: null_rx,
-            buffer: None,
-        };
-        {
-            let mut guard = self.rx.lock().unwrap();
-            std::mem::swap(guard.deref_mut(), &mut null_rx);
-        }
         {
             let mut guard = self.tx.lock().unwrap();
             std::mem::swap(guard.deref_mut(), &mut null_tx);
@@ -164,6 +155,7 @@ impl AsyncWrite for WasiPipe {
         _cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
+        dbg!(buf);
         let guard = self.tx.lock().unwrap();
         match guard.send(buf.to_vec()) {
             Ok(()) => Poll::Ready(Ok(buf.len())),
