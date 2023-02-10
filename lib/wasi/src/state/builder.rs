@@ -28,15 +28,15 @@ use super::env::WasiEnvInit;
 ///
 /// Usage:
 /// ```no_run
-/// # use wasmer_wasi::{WasiState, WasiStateCreationError};
+/// # use wasmer_wasi::{WasiEnv, WasiStateCreationError};
 /// # fn main() -> Result<(), WasiStateCreationError> {
-/// let mut state_builder = WasiState::builder("wasi-prog-name");
+/// let mut state_builder = WasiEnv::builder("wasi-prog-name");
 /// state_builder
 ///    .env("ENV_VAR", "ENV_VAL")
 ///    .arg("--verbose")
 ///    .preopen_dir("src")?
 ///    .map_dir("name_wasi_sees", "path/on/host/fs")?
-///    .build();
+///    .build_init()?;
 /// # Ok(())
 /// # }
 /// ```
@@ -342,12 +342,12 @@ impl WasiEnvBuilder {
     /// Usage:
     ///
     /// ```no_run
-    /// # use wasmer_wasi::{WasiState, WasiStateCreationError};
+    /// # use wasmer_wasi::{WasiEnv, WasiStateCreationError};
     /// # fn main() -> Result<(), WasiStateCreationError> {
-    /// WasiState::builder("program_name")
-    ///    .preopen(|p| p.directory("src").read(true).write(true).create(true))?
-    ///    .preopen(|p| p.directory(".").alias("dot").read(true))?
-    ///    .build()?;
+    /// WasiEnv::builder("program_name")
+    ///    .preopen_build(|p| p.directory("src").read(true).write(true).create(true))?
+    ///    .preopen_build(|p| p.directory(".").alias("dot").read(true))?
+    ///    .build_init()?;
     /// # Ok(())
     /// # }
     /// ```
@@ -364,12 +364,12 @@ impl WasiEnvBuilder {
     /// Usage:
     ///
     /// ```no_run
-    /// # use wasmer_wasi::{WasiState, WasiStateCreationError};
+    /// # use wasmer_wasi::{WasiEnv, WasiStateCreationError};
     /// # fn main() -> Result<(), WasiStateCreationError> {
-    /// WasiState::builder("program_name")
-    ///    .preopen(|p| p.directory("src").read(true).write(true).create(true))?
-    ///    .preopen(|p| p.directory(".").alias("dot").read(true))?
-    ///    .build()?;
+    /// WasiEnv::builder("program_name")
+    ///    .preopen_build(|p| p.directory("src").read(true).write(true).create(true))?
+    ///    .preopen_build(|p| p.directory(".").alias("dot").read(true))?
+    ///    .build_init()?;
     /// # Ok(())
     /// # }
     /// ```
@@ -543,7 +543,11 @@ impl WasiEnvBuilder {
     /// can be used to construct a new [`WasiEnv`] with [`WasiEnv::new`].
     ///
     /// Returns the error from `WasiFs::new` if there's an error
-    pub(crate) fn build_init(mut self) -> Result<WasiEnvInit, WasiStateCreationError> {
+    ///
+    /// NOTE: You should prefer to not work directly with [`WasiEnvInit`].
+    /// Use [`WasiEnvBuilder::run`] or [`WasiEnvBuilder::run_with_store`] instead
+    /// to ensure proper invokation of WASI modules.
+    pub fn build_init(mut self) -> Result<WasiEnvInit, WasiStateCreationError> {
         for arg in self.args.iter() {
             for b in arg.as_bytes().iter() {
                 if *b == 0 {
@@ -878,7 +882,7 @@ mod test {
     fn env_var_errors() {
         // `=` in the key is invalid.
         assert!(
-            WasiEnvBuilder::new("test_prog")
+            WasiEnv::builder("test_prog")
                 .env("HOM=E", "/home/home")
                 .build_init()
                 .is_err(),
