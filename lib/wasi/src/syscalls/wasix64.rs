@@ -1,6 +1,6 @@
 #![deny(dead_code)]
 use crate::{WasiEnv, WasiError, WasiState, WasiThread};
-use wasmer::{FunctionEnvMut, Memory, Memory64, MemorySize, StoreMut, WasmPtr, WasmSlice};
+use wasmer::{FunctionEnvMut, Memory, Memory64, MemorySize, WasmPtr, WasmSlice};
 use wasmer_wasi_types::types::*;
 use wasmer_wasi_types::wasi::{
     Addressfamily, Advice, Bid, BusDataFormat, BusErrno, BusHandles, Cid, Clockid, Dircookie,

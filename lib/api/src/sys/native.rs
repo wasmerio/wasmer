@@ -10,12 +10,10 @@
 use std::cell::Cell;
 use std::marker::PhantomData;
 
-use crate::sys::{
-    AsStoreMut, FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError, WasmTypeList,
-};
+use crate::sys::{FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError, WasmTypeList};
 use wasmer_types::RawValue;
 
-use crate::store::OnCalledHandler;
+use crate::store::{AsStoreMut, OnCalledHandler};
 
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).

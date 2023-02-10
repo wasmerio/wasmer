@@ -204,7 +204,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
 
     /// Returns `true` if the number of elements is 0.
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub fn is_empty(self) -> bool {
         self.len == 0
     }
 

@@ -11,8 +11,6 @@ mod ptr;
 mod tunables;
 mod value;
 
-pub use crate::store::{AsStoreMut, AsStoreRef, Store, StoreMut, StoreRef};
-pub use crate::sys::engine::Engine;
 pub use crate::sys::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::sys::extern_ref::ExternRef;
 pub use crate::sys::externals::{
@@ -21,7 +19,6 @@ pub use crate::sys::externals::{
 };
 pub use crate::sys::imports::Imports;
 pub use crate::sys::instance::{Instance, InstantiationError};
-pub use crate::sys::module::Module;
 pub use crate::sys::native::TypedFunction;
 pub use crate::sys::native_type::NativeWasmTypeInto;
 

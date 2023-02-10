@@ -860,8 +860,9 @@ mod inner {
     use wasmer_types::{NativeWasmType, RawValue, Type};
     use wasmer_vm::{raise_user_trap, resume_panic, VMFunctionBody};
 
+    use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
     use crate::sys::NativeWasmTypeInto;
-    use crate::{AsStoreMut, AsStoreRef, ExternRef, FunctionEnv, StoreMut};
+    use crate::{ExternRef, FunctionEnv};
 
     use crate::Function;
 

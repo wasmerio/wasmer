@@ -145,7 +145,7 @@ impl Module {
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
     pub fn from_binary(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
-        Ok(Module(module_imp::Module::from_binary(engine, binary)?))
+        Ok(Self(module_imp::Module::from_binary(engine, binary)?))
     }
 
     /// Creates a new WebAssembly module skipping any kind of validation.
@@ -159,7 +159,7 @@ impl Module {
         engine: &impl AsEngineRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
-        Ok(Module(module_imp::Module::from_binary_unchecked(
+        Ok(Self(module_imp::Module::from_binary_unchecked(
             engine, binary,
         )?))
     }
@@ -239,7 +239,7 @@ impl Module {
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        Ok(Module(module_imp::Module::deserialize(engine, bytes)?))
+        Ok(Self(module_imp::Module::deserialize(engine, bytes)?))
     }
 
     /// Deserializes a a serialized Module located in a `Path` into a `Module`.
@@ -263,7 +263,7 @@ impl Module {
         engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        Ok(Module(module_imp::Module::deserialize_from_file(
+        Ok(Self(module_imp::Module::deserialize_from_file(
             engine, path,
         )?))
     }

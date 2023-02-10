@@ -106,7 +106,7 @@ impl Compile {
             memory_styles,
             table_styles,
         )?;
-        let serialized = artifact.serialize(self.output.as_ref())?;
+        let serialized = artifact.serialize()?;
         fs::write(output_filename, serialized)?;
         eprintln!(
             "✔ File compiled successfully to `{}`.",

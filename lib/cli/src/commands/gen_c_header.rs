@@ -96,7 +96,7 @@ impl GenCHeader {
         let engine_inner = engine.inner();
         let compiler = engine_inner.compiler()?;
         let features = engine_inner.features();
-        let tunables = store.tunables();
+        let tunables = store.engine().tunables();
         let (metadata, _, _) = Artifact::metadata(
             compiler,
             &file,

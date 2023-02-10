@@ -451,7 +451,7 @@ pub use engine::{AsEngineRef, Engine};
 pub use function_env::{FunctionEnv, FunctionEnvMut};
 pub use mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use module::{IoCompileError, Module};
-pub use store::{OnCalledHandler, Store, StoreId};
+pub use store::{AsStoreMut, AsStoreRef, OnCalledHandler, Store, StoreId, StoreMut, StoreRef};
 #[cfg(feature = "sys")]
 pub use store::{TrapHandlerFn, Tunables};
 
