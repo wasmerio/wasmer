@@ -1376,6 +1376,8 @@ impl WasiFs {
         }
     }
 
+    // TODO: remove allow once inodes are refactored (see comments on [`WasiState`])
+    #[allow(clippy::await_holding_lock)]
     pub async fn flush(&self, inodes: &WasiInodes, fd: WasiFd) -> Result<(), Errno> {
         match fd {
             __WASI_STDIN_FILENO => (),
@@ -1396,20 +1398,21 @@ impl WasiFs {
                 if fd.rights.contains(Rights::FD_DATASYNC) {
                     return Err(Errno::Access);
                 }
-
-                let guard = inodes.arena[fd.inode].read();
-                match guard.deref() {
-                    Kind::File {
-                        handle: Some(file), ..
-                    } => {
-                        let mut file = file.write().unwrap();
-                        file.flush().await.map_err(|_| Errno::Io)?
+                {
+                    let guard = inodes.arena[fd.inode].read();
+                    match guard.deref() {
+                        Kind::File {
+                            handle: Some(file), ..
+                        } => {
+                            let mut file = file.write().unwrap();
+                            file.flush().await.map_err(|_| Errno::Io)?
+                        }
+                        // TODO: verify this behavior
+                        Kind::Dir { .. } => return Err(Errno::Isdir),
+                        Kind::Symlink { .. } => unimplemented!("WasiFs::flush Kind::Symlink"),
+                        Kind::Buffer { .. } => (),
+                        _ => return Err(Errno::Io),
                     }
-                    // TODO: verify this behavior
-                    Kind::Dir { .. } => return Err(Errno::Isdir),
-                    Kind::Symlink { .. } => unimplemented!("WasiFs::flush Kind::Symlink"),
-                    Kind::Buffer { .. } => (),
-                    _ => return Err(Errno::Io),
                 }
             }
         }

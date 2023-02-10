@@ -180,7 +180,7 @@ pub(crate) fn run_wasi_func(
     params: &[wasmer::Value],
 ) -> Result<Box<[wasmer::Value]>, WasiRuntimeError> {
     func.call(store, params).map_err(|err| {
-        if let Some(werr) = err.downcast_ref::<WasiError>() {
+        if let Some(_werr) = err.downcast_ref::<WasiError>() {
             let werr = err.downcast::<WasiError>().unwrap();
             WasiRuntimeError::Wasi(werr)
         } else {

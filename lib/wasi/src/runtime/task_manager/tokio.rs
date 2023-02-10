@@ -33,7 +33,7 @@ impl TokioTaskManager {
             once_cell::sync::Lazy::new(|| Arc::new(tokio::runtime::Runtime::new().unwrap()));
 
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            return Self(handle);
+            Self(handle)
         } else {
             Self(GLOBAL_RUNTIME.handle().clone())
         }

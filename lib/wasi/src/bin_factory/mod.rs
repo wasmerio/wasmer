@@ -50,6 +50,9 @@ impl BinFactory {
         cache.insert(name.to_string(), Some(binary));
     }
 
+    // TODO: remove allow once BinFactory is refactored
+    // currently fine because a BinFactory is only used by a single process tree
+    #[allow(clippy::await_holding_lock)]
     pub async fn get_binary(
         &self,
         name: &str,

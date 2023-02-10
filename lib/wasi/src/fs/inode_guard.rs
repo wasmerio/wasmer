@@ -258,7 +258,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         Poll::Ready(Ok(cnt as usize))
                     } else {
                         let counter = counter.clone();
-                        let mut waker = waker.lock().unwrap();
+                        let mut waker = waker.get_mut().unwrap();
                         let mut notifications = Pin::new(waker.deref_mut());
                         notifications.poll_recv(cx).map(|_| {
                             let cnt = counter.load(Ordering::Acquire);
@@ -350,7 +350,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         Poll::Ready(Ok(cnt as usize))
                     } else {
                         let counter = counter.clone();
-                        let mut waker = waker.lock().unwrap();
+                        let mut waker = waker.get_mut().unwrap();
                         let mut notifications = Pin::new(waker.deref_mut());
                         notifications.poll_recv(cx).map(|_| {
                             let cnt = counter.load(Ordering::Acquire);

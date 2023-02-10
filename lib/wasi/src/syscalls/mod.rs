@@ -246,8 +246,11 @@ pub(crate) fn read_bytes<T: Read, M: MemorySize>(
 
 /// Writes data to the stderr
 
+// TODO: remove allow once inodes are refactored (see comments on [`WasiState`])
+#[allow(clippy::await_holding_lock)]
 pub async fn stderr_write(ctx: &FunctionEnvMut<'_, WasiEnv>, buf: &[u8]) -> Result<(), Errno> {
     let env = ctx.data();
+
     let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes_mut(ctx, 0);
 
     let mut stderr = inodes
