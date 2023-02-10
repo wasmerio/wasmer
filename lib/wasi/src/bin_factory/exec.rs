@@ -253,7 +253,7 @@ impl BinFactory {
                 .await
                 .ok_or(VirtualBusError::NotFound);
             if binary.is_err() {
-                env.cleanup(Some(Errno::Noent as ExitCode));
+                env.cleanup_async(Some(Errno::Noent as ExitCode)).await;
             }
             let binary = binary?;
 
