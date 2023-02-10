@@ -249,11 +249,12 @@ impl ModuleCache {
 mod tests {
     use std::time::Duration;
 
+    use lazy_static::__Deref;
     use tracing_subscriber::{
         filter, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
     };
 
-    use crate::{runtime::task_manager::tokio::TokioTaskManager, PluggableRuntimeImplementation};
+    use crate::PluggableRuntimeImplementation;
 
     use super::*;
 
@@ -270,16 +271,16 @@ mod tests {
         let mut cache = ModuleCache::new(None, None, true);
         cache.cache_time = std::time::Duration::from_millis(500);
 
-        let tasks = TokioTaskManager::default();
         let rt = PluggableRuntimeImplementation::default();
+        let tasks = rt.task_manager();
 
         let mut store = Vec::new();
         for _ in 0..2 {
-            let webc = cache.get_webc("sharrattj/dash", &rt, &tasks).unwrap();
+            let webc = cache
+                .get_webc("sharrattj/dash", &rt, tasks.deref())
+                .unwrap();
             store.push(webc);
-            tasks
-                .runtime()
-                .block_on(tasks.sleep_now(Duration::from_secs(1)));
+            tasks.block_on(tasks.sleep_now(Duration::from_secs(1)));
         }
     }
 }

@@ -10,11 +10,10 @@ use wasmer_vfs::{
     host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, AsyncRead, AsyncSeek, AsyncWrite,
     AsyncWriteExt, FileSystem, ReadBuf, RootFileSystemBuilder,
 };
-use wasmer_wasi::runtime::task_manager::tokio::TokioTaskManager;
 use wasmer_wasi::types::wasi::{Filesize, Timestamp};
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, FsError, VirtualFile, VirtualTaskManagerExt,
-    WasiBidirectionalPipePair, WasiEnv, WasiEnvBuilder, WasiVersion,
+    generate_import_object_from_env, get_wasi_version, FsError, PluggableRuntimeImplementation,
+    VirtualFile, WasiBidirectionalPipePair, WasiEnv, WasiEnvBuilder, WasiRuntime, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 
@@ -100,12 +99,16 @@ impl<'a> WasiTest<'a> {
             wasm_module.read_to_end(&mut out)?;
             out
         };
-        let runtime = Arc::new(TokioTaskManager::default());
+
+        let mut rt = PluggableRuntimeImplementation::default();
+        rt.set_engine(Some(store.engine().clone()));
+
+        let tasks = rt.task_manager().runtime().clone();
         let module = Module::new(store, wasm_bytes)?;
         let (builder, _tempdirs, stdout_rx, stderr_rx) =
-            { runtime.block_on(async { self.create_wasi_env(filesystem_kind).await }) }?;
+            { tasks.block_on(async { self.create_wasi_env(filesystem_kind).await }) }?;
 
-        let (instance, wasi_env) = builder.instantiate(module, store)?;
+        let (instance, wasi_env) = builder.runtime(Arc::new(rt)).instantiate(module, store)?;
 
         let start = instance.exports.get_function("_start")?;
 
@@ -113,7 +116,7 @@ impl<'a> WasiTest<'a> {
             let mut wasi_stdin = { wasi_env.data(store).stdin().unwrap().unwrap() };
             // Then we can write to it!
             let data = stdin.stream.to_string();
-            runtime.block_on(async move { wasi_stdin.write(data.as_bytes()).await })?;
+            tasks.block_on(async move { wasi_stdin.write(data.as_bytes()).await })?;
         }
 
         // TODO: handle errors here when the error fix gets shipped

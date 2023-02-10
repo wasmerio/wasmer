@@ -1,11 +1,8 @@
-use std::{pin::Pin, sync::Arc, time::Duration};
+use std::{pin::Pin, time::Duration};
 
 use futures::Future;
 use tokio::runtime::Handle;
-#[cfg(feature = "sys-thread")]
-use tokio::runtime::Runtime;
-use wasmer::vm::VMMemory;
-use wasmer_vm::VMSharedMemory;
+use wasmer::vm::{VMMemory, VMSharedMemory};
 
 use crate::os::task::thread::WasiThreadError;
 
@@ -29,13 +26,21 @@ impl TokioTaskManager {
     /// This exists because a tokio runtime is heavy, and there should not be many
     /// independent ones in a process.
     pub fn shared() -> Self {
-        static GLOBAL_RUNTIME: once_cell::sync::Lazy<Arc<Runtime>> =
-            once_cell::sync::Lazy::new(|| Arc::new(tokio::runtime::Runtime::new().unwrap()));
+        static GLOBAL_RUNTIME: once_cell::sync::Lazy<(Option<tokio::runtime::Runtime>, Handle)> =
+            once_cell::sync::Lazy::new(|| {
+                if let Ok(handle) = tokio::runtime::Handle::try_current() {
+                    (None, handle)
+                } else {
+                    let rt = tokio::runtime::Runtime::new().unwrap();
+                    let handle = rt.handle().clone();
+                    (Some(rt), handle)
+                }
+            });
 
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             Self(handle)
         } else {
-            Self(GLOBAL_RUNTIME.handle().clone())
+            Self(GLOBAL_RUNTIME.1.clone())
         }
     }
 }

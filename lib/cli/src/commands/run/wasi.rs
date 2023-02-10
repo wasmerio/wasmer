@@ -112,13 +112,15 @@ impl Wasi {
             .map(|(a, b)| (a.to_string(), b.to_string()))
             .collect::<HashMap<_, _>>();
 
-        let runtime = Arc::new(PluggableRuntimeImplementation::default());
+        let mut rt = PluggableRuntimeImplementation::default();
+        let engine = store.as_store_mut().engine().clone();
+        rt.set_engine(Some(engine));
 
         let builder = WasiEnv::builder(program_name)
+            .runtime(Arc::new(rt))
             .args(args)
             .envs(self.env_vars.clone())
             .uses(self.uses.clone())
-            .runtime(runtime)
             .map_commands(map_commands);
 
         let mut builder = if wasmer_wasi::is_wasix_module(module) {

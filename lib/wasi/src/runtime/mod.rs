@@ -112,7 +112,10 @@ impl Default for PluggableRuntimeImplementation {
     #[cfg(feature = "sys-thread")]
     fn default() -> Self {
         let rt = task_manager::tokio::TokioTaskManager::shared();
-        Self::new(Arc::new(rt))
+        let mut s = Self::new(Arc::new(rt));
+        let engine = wasmer::Store::default().engine().clone();
+        s.engine = Some(engine);
+        s
     }
 }
 
