@@ -1211,7 +1211,10 @@ mod tests {
         let root_metadata = fs.metadata(Path::new("./test_metadata")).unwrap();
 
         assert!(root_metadata.ft.dir);
+        // it seems created is not evailable on musl, at least on CI testing.
+        #[cfg(not(target_env = "musl"))]
         assert_eq!(root_metadata.accessed, root_metadata.created);
+        #[cfg(not(target_env = "musl"))]
         assert_eq!(root_metadata.modified, root_metadata.created);
         assert!(root_metadata.modified > 0);
 
@@ -1222,7 +1225,9 @@ mod tests {
         let foo_metadata = foo_metadata.unwrap();
 
         assert!(foo_metadata.ft.dir);
+        #[cfg(not(target_env = "musl"))]
         assert_eq!(foo_metadata.accessed, foo_metadata.created);
+        #[cfg(not(target_env = "musl"))]
         assert_eq!(foo_metadata.modified, foo_metadata.created);
         assert!(foo_metadata.modified > 0);
 
