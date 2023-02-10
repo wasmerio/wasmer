@@ -6,7 +6,6 @@ mod imports;
 mod instance;
 pub(crate) mod module;
 mod native;
-mod native_type;
 mod ptr;
 mod tunables;
 mod value;
@@ -19,7 +18,6 @@ pub use crate::sys::externals::{
 pub use crate::sys::imports::Imports;
 pub use crate::sys::instance::{Instance, InstantiationError};
 pub use crate::sys::native::TypedFunction;
-pub use crate::sys::native_type::NativeWasmTypeInto;
 
 pub use crate::sys::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
 pub use crate::sys::tunables::BaseTunables;

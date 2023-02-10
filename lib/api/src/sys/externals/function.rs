@@ -1,8 +1,8 @@
 use wasmer_types::RawValue;
+pub use wasmer_vm::VMFuncRef;
 use wasmer_vm::{
     on_host_stack, raise_user_trap, resume_panic, InternalStoreHandle, StoreHandle, VMContext,
-    VMDynamicFunctionContext, VMExtern, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionKind,
-    VMTrampoline,
+    VMDynamicFunctionContext, VMExtern, VMFunction, VMFunctionBody, VMFunctionKind, VMTrampoline,
 };
 
 use crate::store::{AsStoreMut, AsStoreRef};
@@ -860,8 +860,8 @@ mod inner {
     use wasmer_types::{NativeWasmType, RawValue, Type};
     use wasmer_vm::{raise_user_trap, resume_panic, VMFunctionBody};
 
+    use crate::native_type::NativeWasmTypeInto;
     use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
-    use crate::sys::NativeWasmTypeInto;
     use crate::{ExternRef, FunctionEnv};
 
     use crate::Function;

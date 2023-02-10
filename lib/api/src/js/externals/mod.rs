@@ -1,8 +1,8 @@
 pub(crate) mod function;
-mod global;
+pub(crate) mod global;
 pub(crate) mod memory;
 pub(crate) mod memory_view;
-mod table;
+pub(crate) mod table;
 
 pub use self::function::{FromToNativeWasmType, Function, HostFunction, WasmTypeList};
 pub use self::global::Global;

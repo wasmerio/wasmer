@@ -13,12 +13,32 @@ use js_sys::{Array, Function as JSFunction};
 use std::iter::FromIterator;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use wasmer_types::RawValue;
 
 use crate::js::vm::VMFunction;
 use std::fmt;
 
 #[repr(C)]
 pub struct VMFunctionBody(u8);
+
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct VMFuncRef;
+
+impl VMFuncRef {
+    /// Converts the `VMFuncRef` into a `RawValue`.
+    pub fn into_raw(self) -> RawValue {
+        unimplemented!()
+    }
+
+    /// Extracts a `VMFuncRef` from a `RawValue`.
+    ///
+    /// # Safety
+    /// `raw.funcref` must be a valid pointer.
+    pub unsafe fn from_raw(raw: RawValue) -> Option<Self> {
+        unimplemented!();
+    }
+}
 
 #[inline]
 fn result_to_js(val: &Value) -> JsValue {
@@ -632,8 +652,8 @@ mod inner {
     use crate::function_env::{FunctionEnv, FunctionEnvMut};
     use crate::js::store::{InternalStoreHandle, StoreHandle};
     use crate::js::vm::VMFunctionEnvironment;
-    use crate::js::NativeWasmTypeInto;
     use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
+    use crate::NativeWasmTypeInto;
     use std::array::TryFromSliceError;
     use std::convert::{Infallible, TryInto};
     use std::error::Error;

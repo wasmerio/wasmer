@@ -11,6 +11,7 @@ use std::marker::PhantomData;
 
 use crate::js::externals::Function;
 use crate::js::{FromToNativeWasmType, RuntimeError, WasmTypeList};
+use crate::native_type::NativeWasmTypeInto;
 use crate::store::{AsStoreMut, AsStoreRef};
 // use std::panic::{catch_unwind, AssertUnwindSafe};
 use crate::js::types::param_from_js;
@@ -45,6 +46,12 @@ where
         }
     }
 
+    pub(crate) fn into_function(self) -> Function {
+        Function {
+            handle: self.handle,
+        }
+    }
+
     pub(crate) fn from_handle(f: Function) -> Self {
         Self {
             handle: f.handle,
@@ -64,7 +71,7 @@ macro_rules! impl_native_traits {
             /// Call the typed func and return results.
             #[allow(clippy::too_many_arguments)]
             pub fn call(&self, mut store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
-            $( $x: FromToNativeWasmType + crate::js::NativeWasmTypeInto, )*
+            $( $x: FromToNativeWasmType + NativeWasmTypeInto, )*
             {
                 #[allow(unused_unsafe)]
                 let params_list: Vec<RawValue> = unsafe {

@@ -3,7 +3,14 @@
 
 use wasmer_types::{NativeWasmType, RawValue, Type};
 
-use crate::js::Function;
+#[cfg(feature = "js")]
+use crate::js::extern_ref::VMExternRef;
+#[cfg(feature = "js")]
+use crate::js::externals::function::VMFuncRef;
+#[cfg(feature = "sys")]
+use wasmer_vm::{VMExternRef, VMFuncRef};
+
+use crate::{ExternRef, Function, TypedFunction, WasmTypeList};
 
 use crate::store::AsStoreMut;
 
@@ -136,33 +143,100 @@ impl NativeWasmTypeInto for u128 {
     }
 }
 
+impl NativeWasmType for ExternRef {
+    const WASM_TYPE: Type = Type::ExternRef;
+    type Abi = usize;
+}
+
+impl NativeWasmTypeInto for Option<ExternRef> {
+    #[inline]
+    unsafe fn from_abi(store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {
+        VMExternRef::from_raw(RawValue { externref: abi })
+            .map(|e| ExternRef::from_vm_externref(store, e))
+    }
+
+    #[inline]
+    fn into_abi(self, _store: &mut impl AsStoreMut) -> Self::Abi {
+        self.map_or(0, |e| unsafe { e.vm_externref().into_raw().externref })
+    }
+
+    #[inline]
+    fn into_raw(self, _store: &mut impl AsStoreMut) -> RawValue {
+        self.map_or(RawValue { externref: 0 }, |e| e.vm_externref().into_raw())
+    }
+
+    #[inline]
+    unsafe fn from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self {
+        VMExternRef::from_raw(raw).map(|e| ExternRef::from_vm_externref(store, e))
+    }
+}
+
+impl<Args, Rets> From<TypedFunction<Args, Rets>> for Function
+where
+    Args: WasmTypeList,
+    Rets: WasmTypeList,
+{
+    fn from(other: TypedFunction<Args, Rets>) -> Self {
+        other.into_function()
+    }
+}
+
 impl NativeWasmType for Function {
     const WASM_TYPE: Type = Type::FuncRef;
     type Abi = usize;
 }
 
-/*
+#[cfg(feature = "compiler")]
+impl NativeWasmTypeInto for Option<Function> {
+    #[inline]
+    unsafe fn from_abi(store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {
+        VMFuncRef::from_raw(RawValue { funcref: abi }).map(|f| Function::from_vm_funcref(store, f))
+    }
+
+    #[inline]
+    fn into_abi(self, store: &mut impl AsStoreMut) -> Self::Abi {
+        self.map_or(0, |f| unsafe { f.vm_funcref(store).into_raw().externref })
+    }
+
+    #[inline]
+    fn into_raw(self, store: &mut impl AsStoreMut) -> RawValue {
+        self.map_or(RawValue { externref: 0 }, |e| {
+            e.vm_funcref(store).into_raw()
+        })
+    }
+
+    #[inline]
+    unsafe fn from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self {
+        VMFuncRef::from_raw(raw).map(|f| Function::from_vm_funcref(store, f))
+    }
+}
+
+#[cfg(test)]
 mod test_native_type {
     use super::*;
     use wasmer_types::Type;
 
+    #[test]
     fn test_wasm_types() {
         assert_eq!(i32::WASM_TYPE, Type::I32);
         assert_eq!(i64::WASM_TYPE, Type::I64);
         assert_eq!(f32::WASM_TYPE, Type::F32);
         assert_eq!(f64::WASM_TYPE, Type::F64);
+        assert_eq!(u128::WASM_TYPE, Type::V128);
     }
-
+    /*
+    #[test]
     fn test_roundtrip() {
         unsafe {
             assert_eq!(i32::from_raw(42i32.into_raw()), 42i32);
             assert_eq!(i64::from_raw(42i64.into_raw()), 42i64);
             assert_eq!(f32::from_raw(42f32.into_raw()), 42f32);
             assert_eq!(f64::from_raw(42f64.into_raw()), 42f64);
+            assert_eq!(u128::from_raw(42u128.into_raw()), 42u128);
         }
     }
-}
     */
+}
 
 // pub trait IntegerAtomic
 // where

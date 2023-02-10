@@ -434,6 +434,7 @@ mod extern_ref;
 mod function_env;
 mod mem_access;
 mod module;
+mod native_type;
 mod store;
 
 #[cfg(feature = "sys")]
@@ -453,6 +454,8 @@ pub use extern_ref::ExternRef;
 pub use function_env::{FunctionEnv, FunctionEnvMut};
 pub use mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use module::{IoCompileError, Module};
+pub use native_type::NativeWasmTypeInto;
+
 pub use store::{AsStoreMut, AsStoreRef, OnCalledHandler, Store, StoreId, StoreMut, StoreRef};
 #[cfg(feature = "sys")]
 pub use store::{TrapHandlerFn, Tunables};

@@ -10,9 +10,10 @@
 use std::cell::Cell;
 use std::marker::PhantomData;
 
-use crate::sys::{FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError, WasmTypeList};
+use crate::sys::{FromToNativeWasmType, Function, RuntimeError, WasmTypeList};
 use wasmer_types::RawValue;
 
+use crate::native_type::NativeWasmTypeInto;
 use crate::store::{AsStoreMut, OnCalledHandler};
 
 /// A WebAssembly function that can be called natively
@@ -34,6 +35,10 @@ where
             func,
             _phantom: PhantomData,
         }
+    }
+
+    pub(crate) fn into_function(self) -> Function {
+        self.func
     }
 }
 
