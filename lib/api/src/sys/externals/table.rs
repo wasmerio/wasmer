@@ -46,7 +46,6 @@ fn value_to_table_element(
     })
 }
 
-#[cfg(feature = "compiler")]
 fn value_from_table_element(store: &mut impl AsStoreMut, item: wasmer_vm::TableElement) -> Value {
     match item {
         wasmer_vm::TableElement::FuncRef(funcref) => {
@@ -59,7 +58,6 @@ fn value_from_table_element(store: &mut impl AsStoreMut, item: wasmer_vm::TableE
 }
 
 impl Table {
-    #[cfg(feature = "compiler")]
     /// Creates a new `Table` with the provided [`TableType`] definition.
     ///
     /// All the elements in the table will be set to the `init` value.
@@ -94,7 +92,6 @@ impl Table {
         *self.handle.get(store.as_store_ref().objects()).ty()
     }
 
-    #[cfg(feature = "compiler")]
     /// Retrieves an element of the table at the provided `index`.
     pub fn get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value> {
         let item = self.handle.get(store.as_store_ref().objects()).get(index)?;

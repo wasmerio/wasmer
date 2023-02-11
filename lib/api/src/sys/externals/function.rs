@@ -13,7 +13,6 @@ use crate::{FunctionType, RuntimeError, TypedFunction};
 
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 
-#[cfg(feature = "compiler")]
 use {
     crate::{
         store::{StoreInner, StoreMut},
@@ -59,7 +58,6 @@ impl Function {
     ///
     /// If you know the signature of the host function at compile time,
     /// consider using [`Function::new_typed`] for less runtime overhead.
-    #[cfg(feature = "compiler")]
     pub fn new<FT, F>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
@@ -72,7 +70,6 @@ impl Function {
         Self::new_with_env(store, &env, ty, wrapped_func)
     }
 
-    #[cfg(feature = "compiler")]
     /// Creates a new host `Function` (dynamic) with the provided signature.
     ///
     /// If you know the signature of the host function at compile time,
@@ -193,7 +190,6 @@ impl Function {
         }
     }
 
-    #[cfg(feature = "compiler")]
     #[deprecated(
         since = "3.0.0",
         note = "new_native() has been renamed to new_typed()."
@@ -208,7 +204,6 @@ impl Function {
         Self::new_typed(store, func)
     }
 
-    #[cfg(feature = "compiler")]
     /// Creates a new host `Function` from a native function.
     pub fn new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
@@ -252,7 +247,6 @@ impl Function {
         }
     }
 
-    #[cfg(feature = "compiler")]
     #[deprecated(
         since = "3.0.0",
         note = "new_native_with_env() has been renamed to new_typed_with_env()."
@@ -271,7 +265,6 @@ impl Function {
         Self::new_typed_with_env(store, env, func)
     }
 
-    #[cfg(feature = "compiler")]
     /// Creates a new host `Function` with an environment from a typed function.
     ///
     /// The function signature is automatically retrieved using the
@@ -337,22 +330,6 @@ impl Function {
         }
     }
 
-    #[allow(missing_docs)]
-    #[allow(unused_variables)]
-    #[cfg(not(feature = "compiler"))]
-    pub fn new_typed_with_env<T: Send + 'static, F, Args, Rets>(
-        store: &mut impl AsStoreMut,
-        env: &FunctionEnv<T>,
-        func: F,
-    ) -> Self
-    where
-        F: HostFunction<T, Args, Rets, WithEnv> + 'static + Send + Sync,
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-    {
-        unimplemented!("this platform does not support functions without the 'compiler' feature")
-    }
-
     /// Returns the [`FunctionType`] of the `Function`.
     ///
     /// # Example
@@ -378,7 +355,6 @@ impl Function {
             .clone()
     }
 
-    #[cfg(feature = "compiler")]
     fn call_wasm(
         &self,
         store: &mut impl AsStoreMut,
@@ -433,7 +409,6 @@ impl Function {
         Ok(())
     }
 
-    #[cfg(feature = "compiler")]
     fn call_wasm_raw(
         &self,
         store: &mut impl AsStoreMut,
@@ -532,7 +507,6 @@ impl Function {
         self.ty(store).results().len()
     }
 
-    #[cfg(feature = "compiler")]
     /// Call the `Function` function.
     ///
     /// Depending on where the Function is defined, it will call it.
@@ -584,7 +558,6 @@ impl Function {
 
     #[doc(hidden)]
     #[allow(missing_docs)]
-    #[cfg(feature = "compiler")]
     pub fn call_raw(
         &self,
         store: &mut impl AsStoreMut,
@@ -632,7 +605,6 @@ impl Function {
 
     /// Transform this WebAssembly function into a native function.
     /// See [`TypedFunction`] to learn more.
-    #[cfg(feature = "compiler")]
     #[deprecated(since = "3.0.0", note = "native() has been renamed to typed().")]
     pub fn native<Args, Rets>(
         &self,
@@ -978,7 +950,6 @@ mod inner {
         }
     }
 
-    #[cfg(feature = "compiler")]
     unsafe impl FromToNativeWasmType for Option<Function> {
         type Native = Self;
 

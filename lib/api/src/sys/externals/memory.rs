@@ -35,7 +35,6 @@ pub struct Memory {
 }
 
 impl Memory {
-    #[cfg(feature = "compiler")]
     /// Creates a new host `Memory` from the provided [`MemoryType`].
     ///
     /// This function will construct the `Memory` using the store
@@ -133,7 +132,6 @@ impl Memory {
     }
 
     /// Copies the memory to a new store and returns a memory reference to it
-    #[cfg(feature = "compiler")]
     pub fn copy_to_store(
         &self,
         store: &impl AsStoreRef,
