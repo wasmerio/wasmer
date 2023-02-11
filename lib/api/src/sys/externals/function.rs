@@ -764,7 +764,7 @@ impl Function {
             }
         }
 
-        Ok(TypedFunction::new(self.clone()))
+        Ok(TypedFunction::new(store, self.clone()))
     }
 
     pub(crate) fn from_vm_extern(

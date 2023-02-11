@@ -615,7 +615,7 @@ impl Function {
             }
         }
 
-        Ok(TypedFunction::from_handle(self.clone()))
+        Ok(TypedFunction::new(store, self.clone()))
     }
 
     pub(crate) fn vm_funcref(&self, store: &impl AsStoreRef) -> VMFuncRef {

@@ -7,17 +7,17 @@
 //! let add_one = instance.exports.get_function("function_name")?;
 //! let add_one_native: TypedFunction<i32, i32> = add_one.native().unwrap();
 //! ```
-use std::cell::Cell;
 use std::marker::PhantomData;
 
 use crate::sys::{FromToNativeWasmType, Function, RuntimeError, WasmTypeList};
 use wasmer_types::RawValue;
 
 use crate::native_type::NativeWasmTypeInto;
-use crate::store::{AsStoreMut, OnCalledHandler};
+use crate::store::{AsStoreMut, AsStoreRef};
 
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).
+#[derive(Clone)]
 pub struct TypedFunction<Args, Rets> {
     pub(crate) func: Function,
     _phantom: PhantomData<fn(Args) -> Rets>,
@@ -30,7 +30,8 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    pub(crate) fn new(func: Function) -> Self {
+    #[allow(dead_code)]
+    pub(crate) fn new(_store: &impl AsStoreRef, func: Function) -> Self {
         Self {
             func,
             _phantom: PhantomData,
@@ -40,19 +41,6 @@ where
     pub(crate) fn into_function(self) -> Function {
         self.func
     }
-}
-
-impl<Args: WasmTypeList, Rets: WasmTypeList> Clone for TypedFunction<Args, Rets> {
-    fn clone(&self) -> Self {
-        Self {
-            func: self.func.clone(),
-            _phantom: PhantomData,
-        }
-    }
-}
-
-thread_local! {
-    static ON_CALLED: Cell<Option<OnCalledHandler>> = Cell::new(None);
 }
 
 macro_rules! impl_native_traits {

@@ -16,7 +16,6 @@ use crate::store::{AsStoreMut, AsStoreRef};
 // use std::panic::{catch_unwind, AssertUnwindSafe};
 use crate::js::types::param_from_js;
 use crate::js::types::AsJs;
-use crate::js::vm::VMFunction;
 use js_sys::Array;
 use std::iter::FromIterator;
 use wasm_bindgen::JsValue;
@@ -26,7 +25,7 @@ use wasmer_types::RawValue;
 /// (using the Native ABI).
 #[derive(Clone)]
 pub struct TypedFunction<Args = (), Rets = ()> {
-    pub(crate) handle: VMFunction,
+    pub(crate) func: Function,
     _phantom: PhantomData<(Args, Rets)>,
 }
 
@@ -39,24 +38,15 @@ where
     Rets: WasmTypeList,
 {
     #[allow(dead_code)]
-    pub(crate) fn new<T>(_store: &mut impl AsStoreMut, vm_function: VMFunction) -> Self {
+    pub(crate) fn new(_store: &impl AsStoreRef, func: Function) -> Self {
         Self {
-            handle: vm_function,
+            func,
             _phantom: PhantomData,
         }
     }
 
     pub(crate) fn into_function(self) -> Function {
-        Function {
-            handle: self.handle,
-        }
-    }
-
-    pub(crate) fn from_handle(f: Function) -> Self {
-        Self {
-            handle: f.handle,
-            _phantom: PhantomData,
-        }
+        self.func
     }
 }
 
@@ -85,7 +75,7 @@ macro_rules! impl_native_traits {
                     let mut r;
                     // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
                     loop {
-                        r = self.handle.function.apply(
+                        r = self.func.handle.function.apply(
                             &JsValue::UNDEFINED,
                             &Array::from_iter(params_list.iter())
                         );
