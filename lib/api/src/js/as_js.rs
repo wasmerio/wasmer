@@ -4,26 +4,27 @@
 use crate::imports::Imports;
 use crate::js::externals::Extern;
 use crate::js::vm::VMExtern;
+use crate::js::Instance;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::value::Value;
+use crate::Exports;
 use crate::ValType;
 use std::collections::HashMap;
-use wasm_bindgen::JsValue;
+use wasm_bindgen::{JsError, JsValue};
 use wasmer_types::ExternType;
 
 /// Convert the given type to a [`JsValue`].
-pub trait AsJs {
+pub trait AsJs: Sized {
     /// The inner definition type from this Javascript object
     type DefinitionType;
     /// Convert the given type to a [`JsValue`].
     fn as_jsvalue(&self, store: &impl AsStoreRef) -> JsValue;
     /// Convert the given type to a [`JsValue`].
     fn from_jsvalue(
-        &self,
         store: &mut impl AsStoreMut,
         type_: &Self::DefinitionType,
         value: &JsValue,
-    ) -> Self;
+    ) -> Result<Self, JsError>;
 }
 
 #[inline]
@@ -57,12 +58,11 @@ impl AsJs for Value {
     }
 
     fn from_jsvalue(
-        &self,
         _store: &mut impl AsStoreMut,
         type_: &Self::DefinitionType,
         value: &JsValue,
-    ) -> Self {
-        param_from_js(type_, value)
+    ) -> Result<Self, JsError> {
+        Ok(param_from_js(type_, value))
     }
 }
 
@@ -74,11 +74,10 @@ impl AsJs for wasmer_types::RawValue {
     }
 
     fn from_jsvalue(
-        &self,
         _store: &mut impl AsStoreMut,
         type_: &Self::DefinitionType,
         value: &JsValue,
-    ) -> Self {
+    ) -> Result<Self, JsError> {
         unimplemented!();
     }
 }
@@ -162,11 +161,10 @@ impl AsJs for Imports {
     }
 
     fn from_jsvalue(
-        &self,
         store: &mut impl AsStoreMut,
         module: &Self::DefinitionType,
         value: &JsValue,
-    ) -> Self {
+    ) -> Result<Self, JsError> {
         let module_imports: HashMap<(String, String), ExternType> = module
             .imports()
             .map(|import| {
@@ -196,7 +194,7 @@ impl AsJs for Imports {
             }
         }
 
-        Self { map }
+        Ok(Self { map })
     }
 }
 
@@ -213,11 +211,60 @@ impl AsJs for Extern {
         .clone()
     }
     fn from_jsvalue(
-        &self,
         _store: &mut impl AsStoreMut,
         type_: &Self::DefinitionType,
         value: &JsValue,
-    ) -> Self {
+    ) -> Result<Self, JsError> {
         unimplemented!();
+    }
+}
+
+impl AsJs for Instance {
+    type DefinitionType = crate::module::Module;
+    fn as_jsvalue(&self, store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
+        self.handle.clone().into()
+    }
+
+    fn from_jsvalue(
+        mut store: &mut impl AsStoreMut,
+        module: &Self::DefinitionType,
+        value: &JsValue,
+    ) -> Result<Self, JsError> {
+        let instance: js_sys::WebAssembly::Instance = value.clone().into();
+        let instance_exports = instance.exports();
+
+        let exports = module
+            .exports()
+            .map(|export_type| {
+                let name = export_type.name();
+                let extern_type = export_type.ty().clone();
+                // Annotation is here to prevent spurious IDE warnings.
+                #[allow(unused_unsafe)]
+                let js_export = unsafe {
+                    js_sys::Reflect::get(&instance_exports, &name.into()).map_err(|_e| {
+                        JsError::new(&format!(
+                            "Can't get {0} from the instance exports",
+                            name.to_string()
+                        ))
+                    })?
+                };
+                let export: VMExtern = VMExtern::from_js_value(js_export, &mut store, extern_type)
+                    .map_err(|_e| {
+                        JsError::new(&format!(
+                            "Can't get {0} from the instance exports",
+                            name.to_string()
+                        ))
+                    })?
+                    .into();
+                let extern_ = Extern::from_vm_extern(&mut store, export);
+                Ok((name.to_string(), extern_))
+            })
+            .collect::<Result<Exports, JsError>>()?;
+
+        Ok(Self {
+            handle: instance,
+            module: module.clone(),
+            exports,
+        })
     }
 }

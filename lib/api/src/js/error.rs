@@ -109,7 +109,6 @@ pub enum LinkError {
     #[cfg_attr(feature = "std", error("Error while importing {0:?}.{1:?}: {2}"))]
     Import(String, String, ImportError),
 
-    #[cfg(not(target_arch = "wasm32"))]
     /// A trap ocurred during linking.
     #[cfg_attr(feature = "std", error("RuntimeError occurred during linking: {0}"))]
     Trap(#[source] RuntimeError),
@@ -146,20 +145,6 @@ pub enum InstantiationError {
     /// This error occurs when an import from a different store is used.
     #[cfg_attr(feature = "std", error("cannot mix imports from different stores"))]
     DifferentStores,
-
-    /// A generic error occured while invoking API functions
-    #[cfg_attr(feature = "std", error(transparent))]
-    Wasm(WasmError),
-
-    /// Insufficient resources available for execution.
-    #[cfg_attr(feature = "std", error("Can't get {0} from the instance exports"))]
-    NotInExports(String),
-}
-
-impl From<WasmError> for InstantiationError {
-    fn from(original: WasmError) -> Self {
-        Self::Wasm(original)
-    }
 }
 
 #[cfg(feature = "core")]

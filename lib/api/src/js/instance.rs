@@ -1,10 +1,12 @@
 use crate::exports::Exports;
 use crate::imports::Imports;
+use crate::js::as_js::AsJs;
 use crate::js::error::InstantiationError;
 use crate::js::externals::Extern;
 use crate::js::vm::{VMExtern, VMInstance};
 use crate::module::Module;
 use crate::store::{AsStoreMut, AsStoreRef};
+use crate::{LinkError, RuntimeError};
 use js_sys::WebAssembly;
 use std::fmt;
 
@@ -18,8 +20,8 @@ use std::fmt;
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
 #[derive(Clone)]
 pub struct Instance {
-    handle: VMInstance,
-    module: Module,
+    pub(crate) handle: VMInstance,
+    pub(crate) module: Module,
     /// The exports for an instance.
     pub exports: Exports,
 }
@@ -68,7 +70,11 @@ impl Instance {
             .instantiate(&mut store, imports)
             .map_err(|e| InstantiationError::Start(e))?;
 
-        let self_instance = Self::from_module_and_instance(store, module, instance)?;
+        let self_instance = Self::from_jsvalue(store, &module, &instance).map_err(|e| {
+            let js_err: wasm_bindgen::JsValue = e.into();
+            let err: RuntimeError = js_err.into();
+            InstantiationError::Link(LinkError::Trap(err))
+        })?;
         Ok(self_instance)
     }
 
@@ -94,59 +100,9 @@ impl Instance {
         Self::new(store, module, &imports)
     }
 
-    /// Creates a Wasmer `Instance` from a Wasmer `Module` and a WebAssembly Instance
-    ///
-    /// # Important
-    ///
-    /// Is expected that the function [`Instance::init_envs`] is run manually
-    /// by the user in case the instance has any Wasmer imports, so the function
-    /// environments are properly initiated.
-    ///
-    /// *This method is only available when targeting JS environments*
-    pub fn from_module_and_instance(
-        mut store: &mut impl AsStoreMut,
-        module: &Module,
-        instance: WebAssembly::Instance,
-    ) -> Result<Self, InstantiationError> {
-        let instance_exports = instance.exports();
-
-        let exports = module
-            .exports()
-            .map(|export_type| {
-                let name = export_type.name();
-                let extern_type = export_type.ty().clone();
-                // Annotation is here to prevent spurious IDE warnings.
-                #[allow(unused_unsafe)]
-                let js_export = unsafe {
-                    js_sys::Reflect::get(&instance_exports, &name.into())
-                        .map_err(|_e| InstantiationError::NotInExports(name.to_string()))?
-                };
-                let export: VMExtern =
-                    VMExtern::from_js_value(js_export, &mut store, extern_type)?.into();
-                let extern_ = Extern::from_vm_extern(&mut store, export);
-                Ok((name.to_string(), extern_))
-            })
-            .collect::<Result<Exports, InstantiationError>>()?;
-
-        Ok(Self {
-            handle: instance,
-            module: module.clone(),
-            exports,
-        })
-    }
-
     /// Gets the [`Module`] associated with this instance.
     pub fn module(&self) -> &Module {
         &self.module
-    }
-
-    /// Returns the inner WebAssembly Instance
-    #[doc(hidden)]
-    pub fn raw<'context>(
-        &'context self,
-        _store: &'context impl AsStoreRef,
-    ) -> &'context WebAssembly::Instance {
-        &self.handle
     }
 }
 
