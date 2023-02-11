@@ -1,8 +1,8 @@
 //use crate::js::externals::Function;
 // use crate::store::{Store, StoreObject};
 // use crate::js::RuntimeError;
+use crate::imports::Imports;
 use crate::js::externals::Extern;
-use crate::js::imports::Imports;
 use crate::js::vm::VMExtern;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::value::Value;

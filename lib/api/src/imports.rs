@@ -1,11 +1,7 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
-use crate::exports::Exports;
-use crate::js::error::{LinkError, WasmError};
-use crate::js::module::Module;
-use crate::store::{AsStoreMut, AsStoreRef};
-use crate::Extern;
+use crate::{Exports, Extern, LinkError, Module};
 use std::collections::HashMap;
 use std::fmt;
 use wasmer_types::ImportError;
@@ -19,17 +15,17 @@ use wasmer_types::ImportError;
 ///
 /// # Usage:
 /// ```no_run
-/// use wasmer::{Exports, Module, Store, Instance, imports, Imports, Function};
-/// # fn foo_test(module: Module, store: Store) {
+/// use wasmer::{Store, Exports, Module, Instance, imports, Imports, Function, FunctionEnvMut};
+/// # fn foo_test(mut store: &mut Store, module: Module) {
 ///
-/// let host_fn = Function::new_typed(foo);
+/// let host_fn = Function::new_typed(&mut store, foo);
 /// let import_object: Imports = imports! {
 ///     "env" => {
 ///         "foo" => host_fn,
 ///     },
 /// };
 ///
-/// let instance = Instance::new(&module, &import_object).expect("Could not instantiate module.");
+/// let instance = Instance::new(&mut store, &module, &import_object).expect("Could not instantiate module.");
 ///
 /// fn foo(n: i32) -> i32 {
 ///     n
@@ -48,20 +44,33 @@ impl Imports {
         Default::default()
     }
 
-    /// Gets an export given a ns and a name
+    /// Gets an export given a module and a name
     ///
     /// # Usage
     /// ```no_run
     /// # use wasmer::Imports;
     /// let mut import_object = Imports::new();
-    /// import_object.get_export("ns", "name");
+    /// import_object.get_export("module", "name");
     /// ```
-    pub fn get_export(&self, ns: &str, name: &str) -> Option<Extern> {
-        if self.map.contains_key(&(ns.to_string(), name.to_string())) {
-            let ext = &self.map[&(ns.to_string(), name.to_string())];
+    pub fn get_export(&self, module: &str, name: &str) -> Option<Extern> {
+        if self.exists(module, name) {
+            let ext = &self.map[&(module.to_string(), name.to_string())];
             return Some(ext.clone());
         }
         None
+    }
+
+    /// Returns if an export exist for a given module and name.
+    ///
+    /// # Usage
+    /// ```no_run
+    /// # use wasmer::Imports;
+    /// let mut import_object = Imports::new();
+    /// import_object.exists("module", "name");
+    /// ```
+    pub fn exists(&self, module: &str, name: &str) -> bool {
+        self.map
+            .contains_key(&(module.to_string(), name.to_string()))
     }
 
     /// Returns true if the Imports contains namespace with the provided name.
@@ -75,7 +84,7 @@ impl Imports {
     /// ```no_run
     /// # use wasmer::{Imports, Exports, Memory};
     /// # fn foo_test(memory: Memory) {
-    /// let mut exports = Exports::new()
+    /// let mut exports = Exports::new();
     /// exports.insert("memory", memory);
     ///
     /// let mut import_object = Imports::new();
@@ -97,13 +106,14 @@ impl Imports {
     ///
     /// # Usage
     /// ```no_run
-    /// # let mut store = Default::default();
-    /// use wasmer::{Imports, Function};
+    /// # use wasmer::{FunctionEnv, Store};
+    /// # let mut store: Store = Default::default();
+    /// use wasmer::{StoreMut, Imports, Function, FunctionEnvMut};
     /// fn foo(n: i32) -> i32 {
     ///     n
     /// }
     /// let mut import_object = Imports::new();
-    /// import_object.define("env", "foo", Function::new_typed(&store, foo));
+    /// import_object.define("env", "foo", Function::new_typed(&mut store, foo));
     /// ```
     pub fn define(&mut self, ns: &str, name: &str, val: impl Into<Extern>) {
         self.map
@@ -130,11 +140,7 @@ impl Imports {
     /// Resolve and return a vector of imports in the order they are defined in the `module`'s source code.
     ///
     /// This means the returned `Vec<Extern>` might be a subset of the imports contained in `self`.
-    pub fn imports_for_module(
-        &self,
-        module: &Module,
-        _store: &mut impl AsStoreMut,
-    ) -> Result<Vec<Extern>, LinkError> {
+    pub fn imports_for_module(&self, module: &Module) -> Result<Vec<Extern>, LinkError> {
         let mut ret = vec![];
         for import in module.imports() {
             if let Some(imp) = self
@@ -154,24 +160,8 @@ impl Imports {
     }
 
     /// Iterates through all the imports in this structure
-    pub fn iter<'a>(&'a self) -> ImportsIterator<'a> {
+    pub fn iter(&self) -> ImportsIterator<'_> {
         ImportsIterator::new(self)
-    }
-
-    /// Create a new `Imports` from a JS Object, it receives a reference to a `Module` to
-    /// map and assign the types of each import and the JS Object
-    /// that contains the values of imports.
-    ///
-    /// # Usage
-    /// ```ignore
-    /// let import_object = Imports::new_from_js_object(&mut store, &module, js_object);
-    /// ```
-    pub fn new_from_js_object(
-        store: &mut impl AsStoreMut,
-        module: &Module,
-        object: js_sys::Object,
-    ) -> Result<Self, WasmError> {
-        unimplemented!();
     }
 }
 
@@ -254,13 +244,13 @@ impl fmt::Debug for Imports {
 /// # Usage
 ///
 /// ```
-/// # use wasmer::{Function, Store};
+/// # use wasmer::{StoreMut, Function, FunctionEnvMut, Store};
 /// # let mut store = Store::default();
 /// use wasmer::imports;
 ///
 /// let import_object = imports! {
 ///     "env" => {
-///         "foo" => Function::new_typed(&store, foo)
+///         "foo" => Function::new_typed(&mut store, foo)
 ///     },
 /// };
 ///
@@ -272,6 +262,7 @@ impl fmt::Debug for Imports {
 macro_rules! imports {
     ( $( $ns_name:expr => $ns:tt ),* $(,)? ) => {
         {
+            #[allow(unused_mut)]
             let mut import_object = $crate::Imports::new();
 
             $({
@@ -313,12 +304,85 @@ macro_rules! import_namespace {
 
 #[cfg(test)]
 mod test {
-    use crate::{Global, Store, Value};
+    use crate::store::{AsStoreMut, Store};
+    use crate::value::Value;
+    use crate::Extern;
+    use crate::Global;
+    use wasmer_types::Type;
 
-    // use wasm_bindgen::*;
-    use wasm_bindgen_test::*;
+    #[test]
+    fn namespace() {
+        let mut store = Store::default();
+        let g1 = Global::new(&mut store, Value::I32(0));
+        let namespace = namespace! {
+            "happy" => g1
+        };
+        let imports1 = imports! {
+            "dog" => namespace
+        };
 
-    #[wasm_bindgen_test]
+        let happy_dog_entry = imports1.get_export("dog", "happy").unwrap();
+
+        assert!(if let Extern::Global(happy_dog_global) = happy_dog_entry {
+            happy_dog_global.get(&mut store).ty() == Type::I32
+        } else {
+            false
+        });
+    }
+
+    #[test]
+    fn imports_macro_allows_trailing_comma_and_none() {
+        use crate::Function;
+
+        let mut store: Store = Default::default();
+
+        fn func(arg: i32) -> i32 {
+            arg + 1
+        }
+
+        let _ = imports! {
+            "env" => {
+                "func" => Function::new_typed(&mut store, func),
+            },
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => Function::new_typed(&mut store, func),
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => Function::new_typed(&mut store, func),
+            },
+            "abc" => {
+                "def" => Function::new_typed(&mut store, func),
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => Function::new_typed(&mut store, func)
+            },
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => Function::new_typed(&mut store, func)
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func1" => Function::new_typed(&mut store, func),
+                "func2" => Function::new_typed(&mut store, func)
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func1" => Function::new_typed(&mut store, func),
+                "func2" => Function::new_typed(&mut store, func),
+            }
+        };
+    }
+
+    #[test]
     fn chaining_works() {
         let mut store = Store::default();
 
@@ -348,5 +412,64 @@ mod test {
         let small = imports1.get_export("dog", "small");
         assert!(happy.is_some());
         assert!(small.is_some());
+    }
+
+    #[test]
+    fn extending_conflict_overwrites() {
+        let mut store = Store::default();
+        let g1 = Global::new(&mut store, Value::I32(0));
+        let g2 = Global::new(&mut store, Value::I64(0));
+
+        let mut imports1 = imports! {
+            "dog" => {
+                "happy" => g1,
+            },
+        };
+
+        let imports2 = imports! {
+            "dog" => {
+                "happy" => g2,
+            },
+        };
+
+        imports1.extend(&imports2);
+        let _happy_dog_entry = imports1.get_export("dog", "happy").unwrap();
+        /*
+        assert!(
+            if let Exports::Global(happy_dog_global) = happy_dog_entry.to_vm_extern() {
+                happy_dog_global.from.ty().ty == Type::I64
+            } else {
+                false
+            }
+        );
+        */
+        // now test it in reverse
+        let mut store = Store::default();
+        let g1 = Global::new(&mut store, Value::I32(0));
+        let g2 = Global::new(&mut store, Value::I64(0));
+
+        let imports1 = imports! {
+            "dog" => {
+                "happy" => g1,
+            },
+        };
+
+        let mut imports2 = imports! {
+            "dog" => {
+                "happy" => g2,
+            },
+        };
+
+        imports2.extend(&imports1);
+        let _happy_dog_entry = imports2.get_export("dog", "happy").unwrap();
+        /*
+        assert!(
+            if let Exports::Global(happy_dog_global) = happy_dog_entry.to_vm_extern() {
+                happy_dog_global.from.ty().ty == Type::I32
+            } else {
+                false
+            }
+        );
+        */
     }
 }

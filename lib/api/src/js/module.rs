@@ -1,8 +1,8 @@
+use crate::imports::Imports;
 use crate::js::error::InstantiationError;
 #[cfg(feature = "wat")]
 use crate::js::error::WasmError;
 use crate::js::externals::Extern;
-use crate::js::imports::Imports;
 use crate::js::vm::VMInstance;
 use crate::js::AsJs;
 use crate::js::RuntimeError;

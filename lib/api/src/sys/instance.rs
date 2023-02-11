@@ -5,8 +5,9 @@ use std::fmt;
 use thiserror::Error;
 use wasmer_vm::{StoreHandle, VMInstance};
 
+use crate::imports::Imports;
 use crate::store::AsStoreMut;
-use crate::sys::{externals::Extern, imports::Imports};
+use crate::sys::externals::Extern;
 
 /// A WebAssembly Instance is a stateful, executable
 /// instance of a WebAssembly [`Module`].

@@ -1,7 +1,6 @@
 pub(crate) mod engine;
 pub(crate) mod extern_ref;
 pub(crate) mod externals;
-mod imports;
 mod instance;
 pub(crate) mod module;
 mod tunables;
@@ -11,7 +10,6 @@ pub use crate::sys::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryView, Table,
     WasmTypeList,
 };
-pub use crate::sys::imports::Imports;
 pub use crate::sys::instance::{Instance, InstantiationError};
 
 pub use crate::sys::tunables::BaseTunables;
