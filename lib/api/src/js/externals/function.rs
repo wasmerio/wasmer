@@ -1,8 +1,8 @@
 pub use self::inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 use crate::exports::{ExportError, Exportable};
 use crate::function_env::{FunctionEnv, FunctionEnvMut};
+use crate::js::as_js::{param_from_js, AsJs}; /* ValFuncRef */
 use crate::js::externals::Extern;
-use crate::js::types::{param_from_js, AsJs}; /* ValFuncRef */
 use crate::js::vm::VMExtern;
 use crate::js::FunctionType;
 use crate::js::RuntimeError;

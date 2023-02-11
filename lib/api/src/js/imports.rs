@@ -4,9 +4,6 @@
 use crate::exports::Exports;
 use crate::js::error::{LinkError, WasmError};
 use crate::js::module::Module;
-use crate::js::types::AsJs;
-use crate::js::vm::VMExtern;
-use crate::js::ExternType;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::Extern;
 use std::collections::HashMap;
@@ -42,7 +39,7 @@ use wasmer_types::ImportError;
 /// ```
 #[derive(Clone, Default)]
 pub struct Imports {
-    map: HashMap<(String, String), Extern>,
+    pub(crate) map: HashMap<(String, String), Extern>,
 }
 
 impl Imports {
@@ -156,39 +153,6 @@ impl Imports {
         Ok(ret)
     }
 
-    /// Returns the `Imports` as a Javascript `Object`
-    pub fn as_jsobject(&self, store: &impl AsStoreRef) -> js_sys::Object {
-        let imports = js_sys::Object::new();
-        let namespaces: HashMap<&str, Vec<(&str, &Extern)>> =
-            self.map
-                .iter()
-                .fold(HashMap::default(), |mut acc, ((ns, name), ext)| {
-                    acc.entry(ns.as_str())
-                        .or_default()
-                        .push((name.as_str(), ext));
-                    acc
-                });
-
-        for (ns, exports) in namespaces.into_iter() {
-            let import_namespace = js_sys::Object::new();
-            for (name, ext) in exports {
-                // Annotation is here to prevent spurious IDE warnings.
-                #[allow(unused_unsafe)]
-                unsafe {
-                    js_sys::Reflect::set(&import_namespace, &name.into(), &ext.as_jsvalue(store))
-                        .expect("Error while setting into the js namespace object");
-                }
-            }
-            // Annotation is here to prevent spurious IDE warnings.
-            #[allow(unused_unsafe)]
-            unsafe {
-                js_sys::Reflect::set(&imports, &ns.into(), &import_namespace.into())
-                    .expect("Error while setting into the js imports object");
-            }
-        }
-        imports
-    }
-
     /// Iterates through all the imports in this structure
     pub fn iter<'a>(&'a self) -> ImportsIterator<'a> {
         ImportsIterator::new(self)
@@ -207,79 +171,7 @@ impl Imports {
         module: &Module,
         object: js_sys::Object,
     ) -> Result<Self, WasmError> {
-        let module_imports: HashMap<(String, String), ExternType> = module
-            .imports()
-            .map(|import| {
-                (
-                    (import.module().to_string(), import.name().to_string()),
-                    import.ty().clone(),
-                )
-            })
-            .collect::<HashMap<(String, String), ExternType>>();
-
-        let mut map: HashMap<(String, String), Extern> = HashMap::new();
-
-        for module_entry in js_sys::Object::entries(&object).iter() {
-            let module_entry: js_sys::Array = module_entry.into();
-            let module_name = module_entry.get(0).as_string().unwrap().to_string();
-            let module_import_object: js_sys::Object = module_entry.get(1).into();
-            for import_entry in js_sys::Object::entries(&module_import_object).iter() {
-                let import_entry: js_sys::Array = import_entry.into();
-                let import_name = import_entry.get(0).as_string().unwrap().to_string();
-                let import_js: wasm_bindgen::JsValue = import_entry.get(1);
-                let key = (module_name.clone(), import_name);
-                let extern_type = module_imports.get(&key).unwrap();
-                let export = VMExtern::from_js_value(import_js, store, extern_type.clone())?;
-                let extern_ = Extern::from_vm_extern(store, export);
-                map.insert(key, extern_);
-            }
-        }
-
-        Ok(Self { map })
-    }
-}
-
-impl AsJs for Imports {
-    // Annotation is here to prevent spurious IDE warnings.
-    #[allow(unused_unsafe)]
-    fn as_jsvalue(&self, store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
-        let imports_object = js_sys::Object::new();
-        for (namespace, name, extern_) in self.iter() {
-            let val = unsafe { js_sys::Reflect::get(&imports_object, &namespace.into()).unwrap() };
-            if !val.is_undefined() {
-                // If the namespace is already set
-
-                // Annotation is here to prevent spurious IDE warnings.
-                #[allow(unused_unsafe)]
-                unsafe {
-                    js_sys::Reflect::set(
-                        &val,
-                        &name.into(),
-                        &extern_.as_jsvalue(&store.as_store_ref()),
-                    )
-                    .unwrap();
-                }
-            } else {
-                // If the namespace doesn't exist
-                let import_namespace = js_sys::Object::new();
-                #[allow(unused_unsafe)]
-                unsafe {
-                    js_sys::Reflect::set(
-                        &import_namespace,
-                        &name.into(),
-                        &extern_.as_jsvalue(&store.as_store_ref()),
-                    )
-                    .unwrap();
-                    js_sys::Reflect::set(
-                        &imports_object,
-                        &namespace.into(),
-                        &import_namespace.into(),
-                    )
-                    .unwrap();
-                }
-            }
-        }
-        imports_object.into()
+        unimplemented!();
     }
 }
 

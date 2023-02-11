@@ -11,7 +11,6 @@ pub use self::memory_view::MemoryView;
 pub use self::table::Table;
 
 use crate::exports::{ExportError, Exportable};
-use crate::js::types::AsJs;
 use crate::js::vm::VMExtern;
 use crate::store::{AsStoreMut, AsStoreRef};
 use std::fmt;
@@ -37,7 +36,7 @@ impl Extern {
     /// Return the underlying type of the inner `Extern`.
     pub fn ty(&self, store: &impl AsStoreRef) -> ExternType {
         match self {
-            Self::Function(ft) => ExternType::Function(ft.ty(store).clone()),
+            Self::Function(ft) => ExternType::Function(ft.ty(store)),
             Self::Memory(ft) => ExternType::Memory(ft.ty(store)),
             Self::Table(tt) => ExternType::Table(tt.ty(store)),
             Self::Global(gt) => ExternType::Global(gt.ty(store)),
@@ -72,18 +71,6 @@ impl Extern {
             Self::Global(val) => val.is_from_store(store),
             Self::Table(val) => val.is_from_store(store),
         }
-    }
-}
-
-impl AsJs for Extern {
-    fn as_jsvalue(&self, store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
-        match self {
-            Self::Function(_) => self.to_vm_extern().as_jsvalue(store),
-            Self::Global(_) => self.to_vm_extern().as_jsvalue(store),
-            Self::Table(_) => self.to_vm_extern().as_jsvalue(store),
-            Self::Memory(_) => self.to_vm_extern().as_jsvalue(store),
-        }
-        .clone()
     }
 }
 

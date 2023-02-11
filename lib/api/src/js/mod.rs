@@ -23,6 +23,7 @@ mod lib {
     }
 }
 
+mod as_js;
 pub(crate) mod engine;
 pub(crate) mod error;
 pub(crate) mod extern_ref;
@@ -35,10 +36,10 @@ mod module_info_polyfill;
 pub(crate) mod store;
 mod trap;
 pub(crate) mod typed_function;
-mod types;
 pub(crate) mod vm;
 mod wasm_bindgen_polyfill;
 
+pub use crate::js::as_js::AsJs;
 pub use crate::js::engine::Engine;
 pub use crate::js::error::{DeserializeError, InstantiationError, SerializeError};
 pub use crate::js::externals::{
@@ -50,17 +51,16 @@ pub use crate::js::instance::Instance;
 pub use crate::js::module::{Module, ModuleTypeHints};
 pub use crate::js::store::StoreObjects;
 pub use crate::js::trap::RuntimeError;
-pub use crate::js::types::ValType as Type;
-pub use crate::js::types::{
-    ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
-    TableType, ValType,
-};
 
 pub use wasmer_types::is_wasm;
 // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
 pub use wasmer_types::{
     Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, OnCalledAction, Pages, ValueType,
     WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
+};
+pub use wasmer_types::{
+    ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
+    TableType, Type as ValType, Type,
 };
 
 #[cfg(feature = "wat")]
