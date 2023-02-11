@@ -1,10 +1,10 @@
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
-use crate::sys::value::Value;
 use crate::sys::GlobalType;
 use crate::sys::Mutability;
 use crate::sys::RuntimeError;
+use crate::value::Value;
 use wasmer_vm::{InternalStoreHandle, StoreHandle, VMExtern, VMGlobal};
 
 /// A WebAssembly `global` instance.
@@ -60,9 +60,7 @@ impl Global {
         mutability: Mutability,
     ) -> Result<Self, RuntimeError> {
         if !val.is_from_store(store) {
-            return Err(RuntimeError::new(
-                "cross-`Store` values are not supported",
-            ));
+            return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         let global = VMGlobal::new(GlobalType {
             mutability,
@@ -164,9 +162,7 @@ impl Global {
     /// ```
     pub fn set(&self, store: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
         if !val.is_from_store(store) {
-            return Err(RuntimeError::new(
-                "cross-`Store` values are not supported",
-            ));
+            return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         if self.ty(store).mutability != Mutability::Var {
             return Err(RuntimeError::new("Attempted to set an immutable global"));

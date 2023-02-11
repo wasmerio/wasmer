@@ -1,10 +1,10 @@
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
-use crate::js::value::Value;
 use crate::js::vm::{VMExtern, VMFunction, VMTable};
 use crate::js::RuntimeError;
 use crate::js::{FunctionType, TableType};
 use crate::store::{AsStoreMut, AsStoreRef};
+use crate::value::Value;
 use js_sys::Function;
 
 /// A WebAssembly `table` instance.

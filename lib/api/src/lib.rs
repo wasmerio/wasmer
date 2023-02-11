@@ -437,6 +437,7 @@ mod module;
 mod native_type;
 mod ptr;
 mod store;
+mod value;
 
 #[cfg(feature = "sys")]
 mod sys;
@@ -460,6 +461,7 @@ pub use ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
 pub use store::{AsStoreMut, AsStoreRef, OnCalledHandler, Store, StoreId, StoreMut, StoreRef};
 #[cfg(feature = "sys")]
 pub use store::{TrapHandlerFn, Tunables};
+pub use value::Value;
 
 mod into_bytes;
 pub use into_bytes::IntoBytes;

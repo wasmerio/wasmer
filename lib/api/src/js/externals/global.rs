@@ -1,12 +1,12 @@
 use crate::js::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
-use crate::js::value::Value;
 use crate::js::vm::{VMExtern, VMGlobal};
 use crate::js::wasm_bindgen_polyfill::Global as JSGlobal;
 use crate::js::GlobalType;
 use crate::js::Mutability;
 use crate::js::RuntimeError;
 use crate::store::{AsStoreMut, AsStoreRef};
+use crate::value::Value;
 use wasm_bindgen::JsValue;
 use wasmer_types::{RawValue, Type};
 
@@ -129,7 +129,7 @@ impl Global {
     ///
     /// assert_eq!(g.get(), Value::I32(1));
     /// ```
-    pub fn get(&self, store: &impl AsStoreRef) -> Value {
+    pub fn get(&self, store: &mut impl AsStoreMut) -> Value {
         unsafe {
             let value = self.handle.global.value();
             let ty = self.handle.ty;

@@ -7,8 +7,8 @@ use crate::js::vm::VMExtern;
 use crate::js::FunctionType;
 use crate::js::RuntimeError;
 use crate::js::TypedFunction;
-use crate::js::Value;
 use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
+use crate::value::Value;
 use js_sys::{Array, Function as JSFunction};
 use std::iter::FromIterator;
 use wasm_bindgen::prelude::*;
@@ -616,6 +616,14 @@ impl Function {
         }
 
         Ok(TypedFunction::from_handle(self.clone()))
+    }
+
+    pub(crate) fn vm_funcref(&self, store: &impl AsStoreRef) -> VMFuncRef {
+        unimplemented!();
+    }
+
+    pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
+        unimplemented!();
     }
 
     #[track_caller]

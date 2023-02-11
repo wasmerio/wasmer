@@ -306,7 +306,8 @@ macro_rules! import_namespace {
 #[cfg(test)]
 mod test {
     use crate::store::{AsStoreMut, Store};
-    use crate::sys::{Global, Value};
+    use crate::sys::Global;
+    use crate::value::Value;
     use wasmer_types::Type;
     use wasmer_vm::VMExtern;
 

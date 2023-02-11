@@ -421,8 +421,7 @@ macro_rules! import_namespace {
 
 #[cfg(test)]
 mod test {
-    use crate::js::{Global, Value};
-    use crate::store::Store;
+    use crate::{Global, Store, Value};
 
     // use wasm_bindgen::*;
     use wasm_bindgen_test::*;

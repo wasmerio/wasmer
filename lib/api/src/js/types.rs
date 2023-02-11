@@ -1,8 +1,8 @@
 //use crate::js::externals::Function;
 // use crate::store::{Store, StoreObject};
 // use crate::js::RuntimeError;
-use crate::js::value::Value;
 use crate::store::AsStoreRef;
+use crate::value::Value;
 use wasm_bindgen::JsValue;
 pub use wasmer_types::{
     ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
@@ -46,6 +46,7 @@ impl AsJs for Value {
             Self::V128(f) => JsValue::from_f64(*f as f64),
             Self::FuncRef(Some(func)) => func.handle.function.clone().into(),
             Self::FuncRef(None) => JsValue::null(),
+            Self::ExternRef(_) => unimplemented!(),
         }
     }
 }

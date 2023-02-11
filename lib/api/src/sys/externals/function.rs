@@ -423,9 +423,7 @@ impl Function {
                 )));
             }
             if !arg.is_from_store(store) {
-                return Err(RuntimeError::new(
-                    "cross-`Store` values are not supported",
-                ));
+                return Err(RuntimeError::new("cross-`Store` values are not supported"));
             }
             *slot = arg.as_raw(store);
         }
@@ -613,7 +611,6 @@ impl Function {
         VMFuncRef(vm_function.anyfunc.as_ptr())
     }
 
-    #[cfg(feature = "compiler")]
     pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
         let signature = store
             .as_store_ref()

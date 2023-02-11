@@ -7,7 +7,6 @@ mod instance;
 pub(crate) mod module;
 mod native;
 mod tunables;
-mod value;
 
 pub use crate::sys::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::sys::externals::{
@@ -19,7 +18,6 @@ pub use crate::sys::instance::{Instance, InstantiationError};
 pub use crate::sys::native::TypedFunction;
 
 pub use crate::sys::tunables::BaseTunables;
-pub use crate::sys::value::Value;
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::{

@@ -37,7 +37,6 @@ mod native;
 pub(crate) mod store;
 mod trap;
 mod types;
-mod value;
 pub(crate) mod vm;
 mod wasm_bindgen_polyfill;
 
@@ -59,8 +58,6 @@ pub use crate::js::types::{
     ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
     TableType, ValType,
 };
-pub use crate::js::value::Value;
-pub use crate::js::value::Value as Val;
 
 pub use wasmer_types::is_wasm;
 // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
