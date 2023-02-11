@@ -5,8 +5,8 @@ use wasmer_vm::{
     VMDynamicFunctionContext, VMExtern, VMFunction, VMFunctionBody, VMFunctionKind, VMTrampoline,
 };
 
+use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
-use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
 use crate::sys::{FunctionType, RuntimeError, TypedFunction};
 use crate::FunctionEnv;

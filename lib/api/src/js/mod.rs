@@ -25,7 +25,6 @@ mod lib {
 
 pub(crate) mod engine;
 pub(crate) mod error;
-mod exports;
 pub(crate) mod extern_ref;
 pub(crate) mod externals;
 mod imports;
@@ -42,7 +41,6 @@ mod wasm_bindgen_polyfill;
 
 pub use crate::js::engine::Engine;
 pub use crate::js::error::{DeserializeError, InstantiationError, SerializeError};
-pub use crate::js::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::js::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryError, MemoryView,
     Table, WasmTypeList,

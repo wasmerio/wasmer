@@ -1,7 +1,5 @@
-use crate::js::externals::{Extern, Function, Global, Memory, Table};
-use crate::js::native::TypedFunction;
-use crate::js::WasmTypeList;
 use crate::store::AsStoreRef;
+use crate::{Extern, Function, Global, Memory, Table, TypedFunction, WasmTypeList};
 use indexmap::IndexMap;
 use std::fmt;
 use std::iter::{ExactSizeIterator, FromIterator};
@@ -10,7 +8,7 @@ use thiserror::Error;
 /// The `ExportError` can happen when trying to get a specific
 /// export [`Extern`] from the [`Instance`] exports.
 ///
-/// [`Instance`]: crate::js::Instance
+/// [`Instance`]: crate::Instance
 ///
 /// # Examples
 ///
@@ -25,7 +23,7 @@ use thiserror::Error;
 /// # "#.as_bytes()).unwrap();
 /// # let module = Module::new(&store, wasm_bytes).unwrap();
 /// # let import_object = imports! {};
-/// # let instance = Instance::new(&module, &import_object).unwrap();
+/// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 /// #
 /// // This results with an error: `ExportError::IncompatibleType`.
 /// let export = instance.exports.get_function("glob").unwrap();
@@ -39,7 +37,7 @@ use thiserror::Error;
 /// # let wasm_bytes = wat2wasm("(module)".as_bytes()).unwrap();
 /// # let module = Module::new(&store, wasm_bytes).unwrap();
 /// # let import_object = imports! {};
-/// # let instance = Instance::new(&module, &import_object).unwrap();
+/// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 /// #
 /// // This results with an error: `ExportError::Missing`.
 /// let export = instance.exports.get_function("unknown").unwrap();
@@ -167,11 +165,7 @@ impl Exports {
     }
 
     /// Hack to get this working with nativefunc too
-    pub fn get_with_generics<'a, T, Args, Rets>(
-        &'a self,
-        store: &impl AsStoreRef,
-        name: &str,
-    ) -> Result<T, ExportError>
+    pub fn get_with_generics<'a, T, Args, Rets>(&'a self, name: &str) -> Result<T, ExportError>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
@@ -179,24 +173,8 @@ impl Exports {
     {
         match self.map.get(name) {
             None => Err(ExportError::Missing(name.to_string())),
-            Some(extern_) => T::get_self_from_extern_with_generics(store, extern_),
+            Some(extern_) => T::get_self_from_extern_with_generics(extern_),
         }
-    }
-
-    /// Like `get_with_generics` but with a WeakReference to the `InstanceRef` internally.
-    /// This is useful for passing data into Context data, for example.
-    pub fn get_with_generics_weak<'a, T, Args, Rets>(
-        &'a self,
-        store: &impl AsStoreRef,
-        name: &str,
-    ) -> Result<T, ExportError>
-    where
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-        T: ExportableWithGenerics<'a, Args, Rets>,
-    {
-        let out: T = self.get_with_generics(store, name)?;
-        Ok(out)
     }
 
     /// Get an export as an `Extern`.
@@ -304,7 +282,7 @@ impl IntoIterator for Exports {
     type Item = (String, Extern);
 
     fn into_iter(self) -> Self::IntoIter {
-        self.map.clone().into_iter()
+        self.map.into_iter()
     }
 }
 
@@ -319,12 +297,12 @@ impl<'a> IntoIterator for &'a Exports {
 
 /// This trait is used to mark types as gettable from an [`Instance`].
 ///
-/// [`Instance`]: crate::js::Instance
+/// [`Instance`]: crate::Instance
 pub trait Exportable<'a>: Sized {
     /// Implementation of how to get the export corresponding to the implementing type
     /// from an [`Instance`] by name.
     ///
-    /// [`Instance`]: crate::js::Instance
+    /// [`Instance`]: crate::Instance
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>;
 }
 
@@ -333,19 +311,13 @@ pub trait Exportable<'a>: Sized {
 /// as well.
 pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Sized {
     /// Get an export with the given generics.
-    fn get_self_from_extern_with_generics(
-        store: &impl AsStoreRef,
-        _extern: &'a Extern,
-    ) -> Result<Self, ExportError>;
+    fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError>;
 }
 
 /// We implement it for all concrete [`Exportable`] types (that are `Clone`)
 /// with empty `Args` and `Rets`.
 impl<'a, T: Exportable<'a> + Clone + 'static> ExportableWithGenerics<'a, (), ()> for T {
-    fn get_self_from_extern_with_generics(
-        _store: &impl AsStoreRef,
-        _extern: &'a Extern,
-    ) -> Result<Self, ExportError> {
+    fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError> {
         T::get_self_from_extern(_extern).map(|i| i.clone())
     }
 }

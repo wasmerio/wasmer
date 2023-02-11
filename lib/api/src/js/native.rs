@@ -126,18 +126,6 @@ macro_rules! impl_native_traits {
                 Ok(unsafe { Rets::from_array(store, rets_list_array) })
             }
         }
-
-        #[allow(unused_parens)]
-        impl<'a, $( $x, )* Rets> crate::js::exports::ExportableWithGenerics<'a, ($( $x ),*), Rets> for TypedFunction<( $( $x ),* ), Rets>
-        where
-            $( $x: FromToNativeWasmType, )*
-            Rets: WasmTypeList,
-        {
-            fn get_self_from_extern_with_generics(store: &impl AsStoreRef, _extern: &crate::js::externals::Extern) -> Result<Self, crate::js::exports::ExportError> {
-                use crate::js::exports::Exportable;
-                crate::js::Function::get_self_from_extern(_extern)?.typed(store).map_err(|_| crate::js::exports::ExportError::IncompatibleType)
-            }
-        }
     };
 }
 

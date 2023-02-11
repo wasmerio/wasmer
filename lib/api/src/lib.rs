@@ -430,6 +430,7 @@ compile_error!(
 );
 
 mod engine;
+mod exports;
 mod extern_ref;
 mod function_env;
 mod mem_access;
@@ -452,6 +453,7 @@ mod js;
 pub use js::*;
 
 pub use engine::{AsEngineRef, Engine};
+pub use exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use extern_ref::ExternRef;
 pub use function_env::{FunctionEnv, FunctionEnvMut};
 pub use mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};

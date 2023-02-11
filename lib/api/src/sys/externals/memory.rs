@@ -1,5 +1,5 @@
+use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
-use crate::sys::exports::{ExportError, Exportable};
 use crate::sys::externals::Extern;
 use crate::sys::MemoryType;
 use crate::MemoryAccessError;

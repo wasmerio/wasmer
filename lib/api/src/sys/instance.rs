@@ -1,5 +1,5 @@
+use crate::exports::Exports;
 use crate::module::Module;
-use crate::sys::exports::Exports;
 use crate::sys::{LinkError, RuntimeError};
 use std::fmt;
 use thiserror::Error;

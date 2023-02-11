@@ -1,4 +1,4 @@
-use crate::js::exports::{ExportError, Exportable};
+use crate::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
 use crate::js::vm::{VMExtern, VMGlobal};
 use crate::js::wasm_bindgen_polyfill::Global as JSGlobal;

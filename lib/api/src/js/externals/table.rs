@@ -1,4 +1,4 @@
-use crate::js::exports::{ExportError, Exportable};
+use crate::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
 use crate::js::vm::{VMExtern, VMFunction, VMTable};
 use crate::js::RuntimeError;
