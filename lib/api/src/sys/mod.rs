@@ -4,8 +4,8 @@ pub(crate) mod externals;
 mod imports;
 mod instance;
 pub(crate) mod module;
-mod native;
 mod tunables;
+pub(crate) mod typed_function;
 
 pub use crate::sys::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryView, Table,
@@ -13,7 +13,6 @@ pub use crate::sys::externals::{
 };
 pub use crate::sys::imports::Imports;
 pub use crate::sys::instance::{Instance, InstantiationError};
-pub use crate::sys::native::TypedFunction;
 
 pub use crate::sys::tunables::BaseTunables;
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
@@ -64,10 +63,3 @@ pub use wasmer_compiler::{Artifact, EngineBuilder};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-/// This type is deprecated, it has been replaced by TypedFunction.
-#[deprecated(
-    since = "3.0.0",
-    note = "NativeFunc has been replaced by TypedFunction"
-)]
-pub type NativeFunc<Args = (), Rets = ()> = TypedFunction<Args, Rets>;

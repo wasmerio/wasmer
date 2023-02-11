@@ -12,7 +12,7 @@ use std::marker::PhantomData;
 use crate::js::externals::Function;
 use crate::js::{FromToNativeWasmType, RuntimeError, WasmTypeList};
 use crate::native_type::NativeWasmTypeInto;
-use crate::store::{AsStoreMut, AsStoreRef};
+use crate::{AsStoreMut, AsStoreRef, TypedFunction};
 // use std::panic::{catch_unwind, AssertUnwindSafe};
 use crate::js::types::param_from_js;
 use crate::js::types::AsJs;
@@ -20,35 +20,6 @@ use js_sys::Array;
 use std::iter::FromIterator;
 use wasm_bindgen::JsValue;
 use wasmer_types::RawValue;
-
-/// A WebAssembly function that can be called natively
-/// (using the Native ABI).
-#[derive(Clone)]
-pub struct TypedFunction<Args = (), Rets = ()> {
-    pub(crate) func: Function,
-    _phantom: PhantomData<(Args, Rets)>,
-}
-
-unsafe impl<Args, Rets> Send for TypedFunction<Args, Rets> {}
-unsafe impl<Args, Rets> Sync for TypedFunction<Args, Rets> {}
-
-impl<Args, Rets> TypedFunction<Args, Rets>
-where
-    Args: WasmTypeList,
-    Rets: WasmTypeList,
-{
-    #[allow(dead_code)]
-    pub(crate) fn new(_store: &impl AsStoreRef, func: Function) -> Self {
-        Self {
-            func,
-            _phantom: PhantomData,
-        }
-    }
-
-    pub(crate) fn into_function(self) -> Function {
-        self.func
-    }
-}
 
 macro_rules! impl_native_traits {
     (  $( $x:ident ),* ) => {

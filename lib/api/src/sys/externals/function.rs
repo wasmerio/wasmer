@@ -8,8 +8,8 @@ use wasmer_vm::{
 use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::sys::externals::Extern;
-use crate::sys::{FunctionType, RuntimeError, TypedFunction};
 use crate::FunctionEnv;
+use crate::{FunctionType, RuntimeError, TypedFunction};
 
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 

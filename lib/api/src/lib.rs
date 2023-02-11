@@ -433,11 +433,13 @@ mod engine;
 mod exports;
 mod extern_ref;
 mod function_env;
+mod into_bytes;
 mod mem_access;
 mod module;
 mod native_type;
 mod ptr;
 mod store;
+mod typed_function;
 mod value;
 
 #[cfg(feature = "sys")]
@@ -456,6 +458,7 @@ pub use engine::{AsEngineRef, Engine};
 pub use exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use extern_ref::ExternRef;
 pub use function_env::{FunctionEnv, FunctionEnvMut};
+pub use into_bytes::IntoBytes;
 pub use mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use module::{IoCompileError, Module};
 pub use native_type::NativeWasmTypeInto;
@@ -463,7 +466,12 @@ pub use ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
 pub use store::{AsStoreMut, AsStoreRef, OnCalledHandler, Store, StoreId, StoreMut, StoreRef};
 #[cfg(feature = "sys")]
 pub use store::{TrapHandlerFn, Tunables};
+pub use typed_function::TypedFunction;
 pub use value::Value;
 
-mod into_bytes;
-pub use into_bytes::IntoBytes;
+/// This type is deprecated, it has been replaced by TypedFunction.
+#[deprecated(
+    since = "3.0.0",
+    note = "NativeFunc has been replaced by TypedFunction"
+)]
+pub type NativeFunc<Args = (), Rets = ()> = TypedFunction<Args, Rets>;

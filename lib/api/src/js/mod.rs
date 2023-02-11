@@ -32,9 +32,9 @@ mod instance;
 pub(crate) mod module;
 #[cfg(feature = "wasm-types-polyfill")]
 mod module_info_polyfill;
-mod native;
 pub(crate) mod store;
 mod trap;
+pub(crate) mod typed_function;
 mod types;
 pub(crate) mod vm;
 mod wasm_bindgen_polyfill;
@@ -48,7 +48,6 @@ pub use crate::js::externals::{
 pub use crate::js::imports::Imports;
 pub use crate::js::instance::Instance;
 pub use crate::js::module::{Module, ModuleTypeHints};
-pub use crate::js::native::TypedFunction;
 pub use crate::js::store::StoreObjects;
 pub use crate::js::trap::RuntimeError;
 pub use crate::js::types::ValType as Type;
@@ -72,10 +71,3 @@ pub use wasmparser;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-/// This type is deprecated, it has been replaced by TypedFunction.
-#[deprecated(
-    since = "3.0.0",
-    note = "NativeFunc has been replaced by TypedFunction"
-)]
-pub type NativeFunc<Args = (), Rets = ()> = TypedFunction<Args, Rets>;

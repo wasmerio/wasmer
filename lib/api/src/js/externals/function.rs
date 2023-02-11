@@ -6,9 +6,9 @@ use crate::js::types::{param_from_js, AsJs}; /* ValFuncRef */
 use crate::js::vm::VMExtern;
 use crate::js::FunctionType;
 use crate::js::RuntimeError;
-use crate::js::TypedFunction;
 use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
 use crate::value::Value;
+use crate::TypedFunction;
 use js_sys::{Array, Function as JSFunction};
 use std::iter::FromIterator;
 use wasm_bindgen::prelude::*;
