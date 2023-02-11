@@ -34,7 +34,6 @@ pub(crate) mod module;
 #[cfg(feature = "wasm-types-polyfill")]
 mod module_info_polyfill;
 mod native;
-mod ptr;
 pub(crate) mod store;
 mod trap;
 mod types;
@@ -53,7 +52,6 @@ pub use crate::js::imports::Imports;
 pub use crate::js::instance::Instance;
 pub use crate::js::module::{Module, ModuleTypeHints};
 pub use crate::js::native::TypedFunction;
-pub use crate::js::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
 pub use crate::js::store::StoreObjects;
 pub use crate::js::trap::RuntimeError;
 pub use crate::js::types::ValType as Type;

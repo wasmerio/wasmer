@@ -1,7 +1,5 @@
-use crate::js::{externals::MemoryView, FromToNativeWasmType};
 use crate::mem_access::{MemoryAccessError, WasmRef, WasmSlice};
-use crate::store::AsStoreRef;
-use crate::NativeWasmTypeInto;
+use crate::{AsStoreRef, FromToNativeWasmType, MemoryView, NativeWasmTypeInto};
 use std::convert::TryFrom;
 use std::{fmt, marker::PhantomData, mem};
 pub use wasmer_types::Memory32;
@@ -19,7 +17,9 @@ pub type WasmPtr64<T> = WasmPtr<T, Memory64>;
 /// ```
 /// # use wasmer::Memory;
 /// # use wasmer::WasmPtr;
-/// pub fn host_import(memory: Memory, ptr: WasmPtr<u32>) {
+/// # use wasmer::FunctionEnvMut;
+/// pub fn host_import(mut env: FunctionEnvMut<()>, memory: Memory, ptr: WasmPtr<u32>) {
+///     let memory = memory.view(&env);
 ///     let derefed_ptr = ptr.deref(&memory);
 ///     let inner_val: u32 = derefed_ptr.read().expect("pointer in bounds");
 ///     println!("Got {} from Wasm memory address 0x{:X}", inner_val, ptr.offset());
@@ -34,6 +34,7 @@ pub type WasmPtr64<T> = WasmPtr<T, Memory64>;
 /// # use wasmer::Memory;
 /// # use wasmer::WasmPtr;
 /// # use wasmer::ValueType;
+/// # use wasmer::FunctionEnvMut;
 ///
 /// // This is safe as the 12 bytes represented by this struct
 /// // are valid for all bit combinations.
@@ -45,7 +46,8 @@ pub type WasmPtr64<T> = WasmPtr<T, Memory64>;
 ///     z: f32
 /// }
 ///
-/// fn update_vector_3(memory: Memory, ptr: WasmPtr<V3>) {
+/// fn update_vector_3(mut env: FunctionEnvMut<()>, memory: Memory, ptr: WasmPtr<V3>) {
+///     let memory = memory.view(&env);
 ///     let derefed_ptr = ptr.deref(&memory);
 ///     let mut inner_val: V3 = derefed_ptr.read().expect("pointer in bounds");
 ///     println!("Got {:?} from Wasm memory address 0x{:X}", inner_val, ptr.offset());
@@ -88,7 +90,7 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
     /// Returns a null `UserPtr`.
     #[inline]
     pub fn null() -> Self {
-        WasmPtr::new(M::ZERO)
+        Self::new(M::ZERO)
     }
 
     /// Checks whether the `WasmPtr` is null.
@@ -112,13 +114,13 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
             .checked_add(offset)
             .ok_or(MemoryAccessError::Overflow)?;
         let address = M::Offset::try_from(address).map_err(|_| MemoryAccessError::Overflow)?;
-        Ok(WasmPtr::new(address))
+        Ok(Self::new(address))
     }
 
     /// Calculates an offset from the current pointer address. The argument is
     /// in units of `T`.
     ///
-    /// This method returns an error if an address overflow occurs.
+    /// This method returns an error if an address underflow occurs.
     #[inline]
     pub fn sub_offset(self, offset: M::Offset) -> Result<Self, MemoryAccessError> {
         let base = self.offset.into();
@@ -130,7 +132,7 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
             .checked_sub(offset)
             .ok_or(MemoryAccessError::Overflow)?;
         let address = M::Offset::try_from(address).map_err(|_| MemoryAccessError::Overflow)?;
-        Ok(WasmPtr::new(address))
+        Ok(Self::new(address))
     }
 }
 
@@ -173,9 +175,9 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     ///
     /// This last value is not included in the returned vector.
     #[inline]
-    pub fn read_until<'a>(
+    pub fn read_until(
         self,
-        view: &'a MemoryView,
+        view: &MemoryView,
         mut end: impl FnMut(&T) -> bool,
     ) -> Result<Vec<T>, MemoryAccessError> {
         let mut vec = Vec::new();
@@ -197,9 +199,9 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     /// This method is safe to call even if the memory is being concurrently
     /// modified.
     #[inline]
-    pub fn read_utf8_string<'a>(
+    pub fn read_utf8_string(
         self,
-        view: &'a MemoryView,
+        view: &MemoryView,
         len: M::Offset,
     ) -> Result<String, MemoryAccessError> {
         let vec = self.slice(view, len)?.read_to_vec()?;
@@ -211,10 +213,7 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     /// This method is safe to call even if the memory is being concurrently
     /// modified.
     #[inline]
-    pub fn read_utf8_string_with_nul<'a>(
-        self,
-        view: &'a MemoryView,
-    ) -> Result<String, MemoryAccessError> {
+    pub fn read_utf8_string_with_nul(self, view: &MemoryView) -> Result<String, MemoryAccessError> {
         let vec = self.read_until(view, |&byte| byte == 0)?;
         Ok(String::from_utf8(vec)?)
     }
