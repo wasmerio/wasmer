@@ -156,7 +156,7 @@ impl Table {
     ) -> Result<(), RuntimeError> {
         if dst_table.handle.store_id() != src_table.handle.store_id() {
             return Err(RuntimeError::new(
-                "cross-`Context` table copies are not supported",
+                "cross-`Store` table copies are not supported",
             ));
         }
         let store = store;

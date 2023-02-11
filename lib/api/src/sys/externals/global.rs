@@ -61,7 +61,7 @@ impl Global {
     ) -> Result<Self, RuntimeError> {
         if !val.is_from_store(store) {
             return Err(RuntimeError::new(
-                "cross-`Context` values are not supported",
+                "cross-`Store` values are not supported",
             ));
         }
         let global = VMGlobal::new(GlobalType {
@@ -165,7 +165,7 @@ impl Global {
     pub fn set(&self, store: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
         if !val.is_from_store(store) {
             return Err(RuntimeError::new(
-                "cross-`Context` values are not supported",
+                "cross-`Store` values are not supported",
             ));
         }
         if self.ty(store).mutability != Mutability::Var {

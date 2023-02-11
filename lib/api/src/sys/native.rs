@@ -78,7 +78,7 @@ macro_rules! impl_native_traits {
                 // Ensure all parameters come from the same context.
                 if $(!FromToNativeWasmType::is_from_store(&$x, store) ||)* false {
                     return Err(RuntimeError::new(
-                        "cross-`Context` values are not supported",
+                        "cross-`Store` values are not supported",
                     ));
                 }
                 // TODO: when `const fn` related features mature more, we can declare a single array

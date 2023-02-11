@@ -424,7 +424,7 @@ impl Function {
             }
             if !arg.is_from_store(store) {
                 return Err(RuntimeError::new(
-                    "cross-`Context` values are not supported",
+                    "cross-`Store` values are not supported",
                 ));
             }
             *slot = arg.as_raw(store);
