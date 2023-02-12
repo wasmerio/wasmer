@@ -4,10 +4,10 @@ use crate::function_env::{FunctionEnv, FunctionEnvMut};
 use crate::js::as_js::{param_from_js, AsJs}; /* ValFuncRef */
 use crate::js::externals::Extern;
 use crate::js::vm::VMExtern;
-use crate::js::FunctionType;
 use crate::js::RuntimeError;
 use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
 use crate::value::Value;
+use crate::FunctionType;
 use crate::TypedFunction;
 use js_sys::{Array, Function as JSFunction};
 use std::iter::FromIterator;

@@ -3,13 +3,13 @@
 // use crate::js::RuntimeError;
 use crate::imports::Imports;
 use crate::js::externals::{Extern, Function, Global, Memory, Table};
+use crate::js::instance::Instance;
 use crate::js::vm::{VMExtern, VMFunction, VMGlobal, VMMemory, VMTable};
 use crate::js::wasm_bindgen_polyfill::Global as JsGlobal;
-use crate::js::Instance;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::value::Value;
 use crate::Exports;
-use crate::ValType;
+use crate::Type;
 use js_sys::Function as JsFunction;
 use js_sys::WebAssembly::{Memory as JsMemory, Table as JsTable};
 use std::collections::HashMap;
@@ -32,12 +32,12 @@ pub trait AsJs: Sized {
 }
 
 #[inline]
-pub fn param_from_js(ty: &ValType, js_val: &JsValue) -> Value {
+pub fn param_from_js(ty: &Type, js_val: &JsValue) -> Value {
     match ty {
-        ValType::I32 => Value::I32(js_val.as_f64().unwrap() as _),
-        ValType::I64 => Value::I64(js_val.as_f64().unwrap() as _),
-        ValType::F32 => Value::F32(js_val.as_f64().unwrap() as _),
-        ValType::F64 => Value::F64(js_val.as_f64().unwrap()),
+        Type::I32 => Value::I32(js_val.as_f64().unwrap() as _),
+        Type::I64 => Value::I64(js_val.as_f64().unwrap() as _),
+        Type::F32 => Value::F32(js_val.as_f64().unwrap() as _),
+        Type::F64 => Value::F64(js_val.as_f64().unwrap()),
         t => unimplemented!(
             "The type `{:?}` is not yet supported in the JS Function API",
             t
@@ -46,7 +46,7 @@ pub fn param_from_js(ty: &ValType, js_val: &JsValue) -> Value {
 }
 
 impl AsJs for Value {
-    type DefinitionType = ValType;
+    type DefinitionType = Type;
 
     fn as_jsvalue(&self, _store: &impl AsStoreRef) -> JsValue {
         match self {
@@ -71,7 +71,7 @@ impl AsJs for Value {
 }
 
 impl AsJs for wasmer_types::RawValue {
-    type DefinitionType = ValType;
+    type DefinitionType = Type;
 
     fn as_jsvalue(&self, _store: &impl AsStoreRef) -> JsValue {
         unsafe { JsValue::from_f64(self.into()) }

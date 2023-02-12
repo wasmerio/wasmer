@@ -2,11 +2,11 @@ use crate::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
 use crate::js::vm::{VMExtern, VMGlobal};
 use crate::js::wasm_bindgen_polyfill::Global as JSGlobal;
-use crate::js::GlobalType;
-use crate::js::Mutability;
 use crate::js::RuntimeError;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::value::Value;
+use crate::GlobalType;
+use crate::Mutability;
 use wasm_bindgen::JsValue;
 use wasmer_types::{RawValue, Type};
 

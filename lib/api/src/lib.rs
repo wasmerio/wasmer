@@ -475,9 +475,28 @@ pub use store::{TrapHandlerFn, Tunables};
 pub use typed_function::TypedFunction;
 pub use value::Value;
 
+// Reexport from other modules
+
+pub use wasmer_derive::ValueType;
+// TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+pub use wasmer_types::{
+    is_wasm, Bytes, CompileError, CpuFeature, DeserializeError, ExportIndex, ExportType,
+    ExternType, FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex, MemoryType,
+    MiddlewareError, Mutability, OnCalledAction, Pages, ParseCpuFeatureError, SerializeError,
+    TableType, Target, Type, ValueType, WasmError, WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES,
+    WASM_PAGE_SIZE,
+};
+#[cfg(feature = "wat")]
+pub use wat::parse_bytes as wat2wasm;
+
+// Deprecated types
+
 /// This type is deprecated, it has been replaced by TypedFunction.
 #[deprecated(
     since = "3.0.0",
     note = "NativeFunc has been replaced by TypedFunction"
 )]
 pub type NativeFunc<Args = (), Rets = ()> = TypedFunction<Args, Rets>;
+
+/// Version number of this crate.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");

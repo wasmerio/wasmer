@@ -12,7 +12,7 @@ pub use self::memory_view::MemoryView;
 pub use self::table::Table;
 
 use crate::exports::{ExportError, Exportable};
-use crate::sys::ExternType;
+use crate::ExternType;
 use std::fmt;
 use wasmer_vm::VMExtern;
 

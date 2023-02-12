@@ -1,7 +1,7 @@
 use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::sys::externals::Extern;
-use crate::sys::TableType;
+use crate::TableType;
 use crate::Value;
 use crate::{sys::RuntimeError, ExternRef, Function};
 use wasmer_vm::{InternalStoreHandle, StoreHandle, TableElement, VMExtern, VMTable};

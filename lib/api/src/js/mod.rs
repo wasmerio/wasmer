@@ -39,33 +39,14 @@ pub(crate) mod vm;
 mod wasm_bindgen_polyfill;
 
 pub use crate::js::as_js::AsJs;
-pub use crate::js::engine::Engine;
 pub use crate::js::error::{DeserializeError, LinkError, SerializeError};
 pub use crate::js::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryError, MemoryView,
     Table, WasmTypeList,
 };
-pub use crate::js::instance::Instance;
 pub use crate::js::module::{Module, ModuleTypeHints};
 pub use crate::js::store::StoreObjects;
 pub use crate::js::trap::RuntimeError;
 
-pub use wasmer_types::is_wasm;
-// TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
-pub use wasmer_types::{
-    Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, OnCalledAction, Pages, ValueType,
-    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
-};
-pub use wasmer_types::{
-    ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
-    TableType, Type as ValType, Type,
-};
-
-#[cfg(feature = "wat")]
-pub use wat::parse_bytes as wat2wasm;
-
 #[cfg(feature = "wasm-types-polyfill")]
 pub use wasmparser;
-
-/// Version number of this crate.
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");

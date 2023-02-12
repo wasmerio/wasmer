@@ -1,9 +1,9 @@
 use crate::exports::{ExportError, Exportable};
 use crate::js::externals::Extern;
 use crate::js::vm::{VMExtern, VMMemory};
-use crate::js::MemoryType;
 use crate::mem_access::MemoryAccessError;
 use crate::store::{AsStoreMut, AsStoreRef, StoreObjects};
+use crate::MemoryType;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::slice;

@@ -10,7 +10,6 @@ pub use crate::sys::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryView, Table,
     WasmTypeList,
 };
-pub use crate::sys::instance::Instance;
 
 pub use crate::sys::tunables::BaseTunables;
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
@@ -19,19 +18,6 @@ pub use wasmer_compiler::{
     wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
 };
 pub use wasmer_compiler::{Features, FrameInfo, LinkError, RuntimeError, Tunables};
-pub use wasmer_derive::ValueType;
-pub use wasmer_types::is_wasm;
-// TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
-pub use wasmer_types::{
-    CpuFeature, ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType,
-    Mutability, OnCalledAction, TableType, Target, Type,
-};
-
-pub use wasmer_types::{
-    Bytes, CompileError, DeserializeError, ExportIndex, GlobalInit, LocalFunctionIndex,
-    MiddlewareError, Pages, ParseCpuFeatureError, SerializeError, ValueType, WasmError, WasmResult,
-    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
-};
 
 // TODO: should those be moved into wasmer::vm as well?
 pub use wasmer_vm::{raise_user_trap, MemoryError};
@@ -58,6 +44,3 @@ pub use wasmer_compiler_llvm::{LLVMOptLevel, LLVM};
 
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::{Artifact, EngineBuilder};
-
-/// Version number of this crate.
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
