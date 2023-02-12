@@ -2,7 +2,8 @@
 // use crate::store::{Store, StoreObject};
 // use crate::js::RuntimeError;
 use crate::imports::Imports;
-use crate::js::instance::Instance;
+use crate::instance::Instance;
+use crate::js::instance::Instance as JsInstance;
 use crate::js::vm::{VMExtern, VMFunction, VMGlobal, VMMemory, VMTable};
 use crate::js::wasm_bindgen_polyfill::Global as JsGlobal;
 use crate::store::{AsStoreMut, AsStoreRef};
@@ -288,7 +289,7 @@ impl AsJs for Extern {
 impl AsJs for Instance {
     type DefinitionType = crate::module::Module;
     fn as_jsvalue(&self, store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
-        self._handle.clone().into()
+        self._inner._handle.clone().into()
     }
 
     fn from_jsvalue(
@@ -297,8 +298,12 @@ impl AsJs for Instance {
         value: &JsValue,
     ) -> Result<Self, JsError> {
         let js_instance: js_sys::WebAssembly::Instance = value.clone().into();
-        let (instance, _exports) = Self::from_module_and_instance(store, module, js_instance)
+        let (instance, exports) = JsInstance::from_module_and_instance(store, module, js_instance)
             .map_err(|e| JsError::new(&format!("Can't get the instance: {:?}", e)))?;
-        Ok(instance)
+        Ok(Instance {
+            _inner: instance,
+            module: module.clone(),
+            exports,
+        })
     }
 }
