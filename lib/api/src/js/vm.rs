@@ -5,14 +5,11 @@
 /// once the type reflection is added to the WebAssembly JS API.
 /// https://github.com/WebAssembly/js-types/
 use crate::js::error::WasmError;
-use crate::js::wasm_bindgen_polyfill::Global;
 use crate::js::wasm_bindgen_polyfill::Global as JsGlobal;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::MemoryView;
-use js_sys::Function;
 use js_sys::Function as JsFunction;
 use js_sys::WebAssembly;
-use js_sys::WebAssembly::{Memory, Table};
 use js_sys::WebAssembly::{Memory as JsMemory, Table as JsTable};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
@@ -27,7 +24,7 @@ use wasmer_types::{
 /// Represents linear memory that is managed by the javascript runtime
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMMemory {
-    pub(crate) memory: Memory,
+    pub(crate) memory: JsMemory,
     pub(crate) ty: MemoryType,
 }
 
@@ -42,7 +39,7 @@ struct DummyBuffer {
 
 impl VMMemory {
     /// Creates a new memory directly from a WebAssembly javascript object
-    pub fn new(memory: Memory, ty: MemoryType) -> Self {
+    pub fn new(memory: JsMemory, ty: MemoryType) -> Self {
         Self { memory, ty }
     }
 
@@ -112,12 +109,12 @@ impl VMMemory {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMGlobal {
-    pub(crate) global: Global,
+    pub(crate) global: JsGlobal,
     pub(crate) ty: GlobalType,
 }
 
 impl VMGlobal {
-    pub(crate) fn new(global: Global, ty: GlobalType) -> Self {
+    pub(crate) fn new(global: JsGlobal, ty: GlobalType) -> Self {
         Self { global, ty }
     }
 }
@@ -127,7 +124,7 @@ unsafe impl Sync for VMGlobal {}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMTable {
-    pub(crate) table: Table,
+    pub(crate) table: JsTable,
     pub(crate) ty: TableType,
 }
 
@@ -135,7 +132,7 @@ unsafe impl Send for VMTable {}
 unsafe impl Sync for VMTable {}
 
 impl VMTable {
-    pub(crate) fn new(table: Table, ty: TableType) -> Self {
+    pub(crate) fn new(table: JsTable, ty: TableType) -> Self {
         Self { table, ty }
     }
     pub fn get_runtime_size(&self) -> u32 {
@@ -145,7 +142,7 @@ impl VMTable {
 
 #[derive(Clone)]
 pub struct VMFunction {
-    pub(crate) function: Function,
+    pub(crate) function: JsFunction,
     pub(crate) ty: FunctionType,
 }
 
@@ -153,7 +150,7 @@ unsafe impl Send for VMFunction {}
 unsafe impl Sync for VMFunction {}
 
 impl VMFunction {
-    pub(crate) fn new(function: Function, ty: FunctionType) -> Self {
+    pub(crate) fn new(function: JsFunction, ty: FunctionType) -> Self {
         Self { function, ty }
     }
 }
@@ -185,74 +182,6 @@ pub enum VMExtern {
 
     /// A global export value.
     Global(VMGlobal),
-}
-
-impl VMExtern {
-    /// Return the export as a `JSValue`.
-    pub fn as_jsvalue<'context>(&self, _store: &'context impl AsStoreRef) -> JsValue {
-        match self {
-            Self::Memory(js_wasm_memory) => js_wasm_memory.memory.clone().into(),
-            Self::Function(js_func) => js_func.function.clone().into(),
-            Self::Table(js_wasm_table) => js_wasm_table.table.clone().into(),
-            Self::Global(js_wasm_global) => js_wasm_global.global.clone().into(),
-        }
-    }
-
-    /// Convert a `JsValue` into an `Export` within a given `Context`.
-    pub fn from_js_value(
-        val: JsValue,
-        _store: &mut impl AsStoreMut,
-        extern_type: ExternType,
-    ) -> Result<Self, WasmError> {
-        match extern_type {
-            ExternType::Memory(memory_type) => {
-                if val.is_instance_of::<JsMemory>() {
-                    Ok(Self::Memory(VMMemory::new(
-                        val.unchecked_into::<JsMemory>(),
-                        memory_type,
-                    )))
-                } else {
-                    Err(WasmError::TypeMismatch(
-                        val.js_typeof()
-                            .as_string()
-                            .map(Into::into)
-                            .unwrap_or("unknown".into()),
-                        "Memory".into(),
-                    ))
-                }
-            }
-            ExternType::Global(global_type) => {
-                if val.is_instance_of::<JsGlobal>() {
-                    Ok(Self::Global(VMGlobal::new(
-                        val.unchecked_into::<JsGlobal>(),
-                        global_type,
-                    )))
-                } else {
-                    panic!("Extern type doesn't match js value type");
-                }
-            }
-            ExternType::Function(function_type) => {
-                if val.is_instance_of::<JsFunction>() {
-                    Ok(Self::Function(VMFunction::new(
-                        val.unchecked_into::<JsFunction>(),
-                        function_type,
-                    )))
-                } else {
-                    panic!("Extern type doesn't match js value type");
-                }
-            }
-            ExternType::Table(table_type) => {
-                if val.is_instance_of::<JsTable>() {
-                    Ok(Self::Table(VMTable::new(
-                        val.unchecked_into::<JsTable>(),
-                        table_type,
-                    )))
-                } else {
-                    panic!("Extern type doesn't match js value type");
-                }
-            }
-        }
-    }
 }
 
 pub type VMInstance = WebAssembly::Instance;

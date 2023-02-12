@@ -2,14 +2,18 @@
 // use crate::store::{Store, StoreObject};
 // use crate::js::RuntimeError;
 use crate::imports::Imports;
-use crate::js::externals::Extern;
-use crate::js::vm::VMExtern;
+use crate::js::externals::{Extern, Function, Global, Memory, Table};
+use crate::js::vm::{VMExtern, VMFunction, VMGlobal, VMMemory, VMTable};
+use crate::js::wasm_bindgen_polyfill::Global as JsGlobal;
 use crate::js::Instance;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::value::Value;
 use crate::Exports;
 use crate::ValType;
+use js_sys::Function as JsFunction;
+use js_sys::WebAssembly::{Memory as JsMemory, Table as JsTable};
 use std::collections::HashMap;
+use wasm_bindgen::JsCast;
 use wasm_bindgen::{JsError, JsValue};
 use wasmer_types::ExternType;
 
@@ -187,9 +191,7 @@ impl AsJs for Imports {
                 let import_js: wasm_bindgen::JsValue = import_entry.get(1);
                 let key = (module_name.clone(), import_name);
                 let extern_type = module_imports.get(&key).unwrap();
-                let export =
-                    VMExtern::from_js_value(import_js, store, extern_type.clone()).unwrap();
-                let extern_ = Extern::from_vm_extern(store, export);
+                let extern_ = Extern::from_jsvalue(store, extern_type, &import_js)?;
                 map.insert(key, extern_);
             }
         }
@@ -201,21 +203,85 @@ impl AsJs for Imports {
 impl AsJs for Extern {
     type DefinitionType = ExternType;
 
-    fn as_jsvalue(&self, store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
+    fn as_jsvalue(&self, _store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
         match self {
-            Self::Function(_) => self.to_vm_extern().as_jsvalue(store),
-            Self::Global(_) => self.to_vm_extern().as_jsvalue(store),
-            Self::Table(_) => self.to_vm_extern().as_jsvalue(store),
-            Self::Memory(_) => self.to_vm_extern().as_jsvalue(store),
+            Self::Memory(memory) => memory.handle.memory.clone().into(),
+            Self::Function(function) => function.handle.function.clone().into(),
+            Self::Table(table) => table.handle.table.clone().into(),
+            Self::Global(global) => global.handle.global.clone().into(),
         }
-        .clone()
     }
+
     fn from_jsvalue(
-        _store: &mut impl AsStoreMut,
-        type_: &Self::DefinitionType,
-        value: &JsValue,
+        store: &mut impl AsStoreMut,
+        extern_type: &Self::DefinitionType,
+        val: &JsValue,
     ) -> Result<Self, JsError> {
-        unimplemented!();
+        // Note: this function do a soft check over the type
+        // We only check the "kind" of Extern, but nothing else
+        match extern_type {
+            ExternType::Memory(memory_type) => {
+                if val.is_instance_of::<JsMemory>() {
+                    Ok(Self::Memory(Memory::from_vm_extern(
+                        store,
+                        VMMemory::new(
+                            val.clone().unchecked_into::<JsMemory>(),
+                            memory_type.clone(),
+                        ),
+                    )))
+                } else {
+                    Err(JsError::new(&format!(
+                        "Extern expect to be of type Memory, but received {:?}",
+                        val
+                    )))
+                }
+            }
+            ExternType::Global(global_type) => {
+                if val.is_instance_of::<JsGlobal>() {
+                    Ok(Self::Global(Global::from_vm_extern(
+                        store,
+                        VMGlobal::new(
+                            val.clone().unchecked_into::<JsGlobal>(),
+                            global_type.clone(),
+                        ),
+                    )))
+                } else {
+                    Err(JsError::new(&format!(
+                        "Extern expect to be of type Global, but received {:?}",
+                        val
+                    )))
+                }
+            }
+            ExternType::Function(function_type) => {
+                if val.is_instance_of::<JsFunction>() {
+                    Ok(Self::Function(Function::from_vm_extern(
+                        store,
+                        VMFunction::new(
+                            val.clone().unchecked_into::<JsFunction>(),
+                            function_type.clone(),
+                        ),
+                    )))
+                } else {
+                    Err(JsError::new(&format!(
+                        "Extern expect to be of type Function, but received {:?}",
+                        val
+                    )))
+                }
+            }
+            ExternType::Table(table_type) => {
+                if val.is_instance_of::<JsTable>() {
+                    Ok(Self::Table(Table::from_vm_extern(
+                        store,
+                        VMTable::new(val.clone().unchecked_into::<JsTable>(), table_type.clone()),
+                    )))
+                } else {
+                    Err(JsError::new(&format!(
+                        "Extern expect to be of type Table, but received {:?}",
+                        val
+                    )))
+                }
+            }
+        }
     }
 }
 
@@ -231,40 +297,7 @@ impl AsJs for Instance {
         value: &JsValue,
     ) -> Result<Self, JsError> {
         let instance: js_sys::WebAssembly::Instance = value.clone().into();
-        let instance_exports = instance.exports();
-
-        let exports = module
-            .exports()
-            .map(|export_type| {
-                let name = export_type.name();
-                let extern_type = export_type.ty().clone();
-                // Annotation is here to prevent spurious IDE warnings.
-                #[allow(unused_unsafe)]
-                let js_export = unsafe {
-                    js_sys::Reflect::get(&instance_exports, &name.into()).map_err(|_e| {
-                        JsError::new(&format!(
-                            "Can't get {0} from the instance exports",
-                            name.to_string()
-                        ))
-                    })?
-                };
-                let export: VMExtern = VMExtern::from_js_value(js_export, &mut store, extern_type)
-                    .map_err(|_e| {
-                        JsError::new(&format!(
-                            "Can't get {0} from the instance exports",
-                            name.to_string()
-                        ))
-                    })?
-                    .into();
-                let extern_ = Extern::from_vm_extern(&mut store, export);
-                Ok((name.to_string(), extern_))
-            })
-            .collect::<Result<Exports, JsError>>()?;
-
-        Ok(Self {
-            handle: instance,
-            module: module.clone(),
-            exports,
-        })
+        Self::from_module_and_instance(store, module, instance)
+            .map_err(|e| JsError::new(&format!("Can't get the instance: {:?}", e)))
     }
 }

@@ -100,6 +100,37 @@ impl Instance {
         Self::new(store, module, &imports)
     }
 
+    /// Creates a Wasmer `Instance` from a Wasmer `Module` and a WebAssembly Instance
+    pub fn from_module_and_instance(
+        mut store: &mut impl AsStoreMut,
+        module: &Module,
+        instance: WebAssembly::Instance,
+    ) -> Result<Self, InstantiationError> {
+        let instance_exports = instance.exports();
+
+        let exports = module
+            .exports()
+            .map(|export_type| {
+                let name = export_type.name();
+                let extern_type = export_type.ty();
+                // Annotation is here to prevent spurious IDE warnings.
+                #[allow(unused_unsafe)]
+                let js_export =
+                    unsafe { js_sys::Reflect::get(&instance_exports, &name.into()).unwrap() };
+                let extern_ = Extern::from_jsvalue(&mut store, extern_type, &js_export)
+                    .map_err(|e| wasm_bindgen::JsValue::from(e))
+                    .unwrap();
+                Ok((name.to_string(), extern_))
+            })
+            .collect::<Result<Exports, InstantiationError>>()?;
+
+        Ok(Self {
+            handle: instance,
+            module: module.clone(),
+            exports,
+        })
+    }
+
     /// Gets the [`Module`] associated with this instance.
     pub fn module(&self) -> &Module {
         &self.module

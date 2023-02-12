@@ -128,14 +128,6 @@ impl Instance {
             })
             .collect::<Exports>();
 
-        // If the memory is imported then also export it for backwards compatibility reasons
-        // (many will assume the memory is always exported) - later we can remove this
-        if exports.get_memory("memory").is_err() {
-            if let Some(memory) = externs.iter().find(|a| a.ty(store).memory().is_some()) {
-                exports.insert("memory", memory.clone());
-            }
-        }
-
         let instance = Self {
             _handle: StoreHandle::new(store.objects_mut(), handle),
             module: module.clone(),
