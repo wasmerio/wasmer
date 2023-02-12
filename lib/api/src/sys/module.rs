@@ -9,7 +9,7 @@ use wasmer_types::{
 };
 use wasmer_types::{ExportType, ImportType};
 
-use crate::{sys::InstantiationError, AsStoreMut, AsStoreRef, IntoBytes};
+use crate::{AsStoreMut, AsStoreRef, InstantiationError, IntoBytes};
 use wasmer_vm::VMInstance;
 
 /// A WebAssembly Module contains stateless WebAssembly

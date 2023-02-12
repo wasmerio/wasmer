@@ -10,7 +10,7 @@ pub use crate::sys::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryView, Table,
     WasmTypeList,
 };
-pub use crate::sys::instance::{Instance, InstantiationError};
+pub use crate::sys::instance::Instance;
 
 pub use crate::sys::tunables::BaseTunables;
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};

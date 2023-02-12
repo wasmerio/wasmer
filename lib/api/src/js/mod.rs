@@ -40,7 +40,7 @@ mod wasm_bindgen_polyfill;
 
 pub use crate::js::as_js::AsJs;
 pub use crate::js::engine::Engine;
-pub use crate::js::error::{DeserializeError, InstantiationError, LinkError, SerializeError};
+pub use crate::js::error::{DeserializeError, LinkError, SerializeError};
 pub use crate::js::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryError, MemoryView,
     Table, WasmTypeList,

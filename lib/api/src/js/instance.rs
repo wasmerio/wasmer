@@ -1,7 +1,7 @@
+use crate::errors::InstantiationError;
 use crate::exports::Exports;
 use crate::imports::Imports;
 use crate::js::as_js::AsJs;
-use crate::js::error::InstantiationError;
 use crate::js::externals::Extern;
 use crate::js::vm::{VMExtern, VMInstance};
 use crate::module::Module;
