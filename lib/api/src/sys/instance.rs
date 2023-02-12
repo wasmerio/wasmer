@@ -7,14 +7,6 @@ use crate::imports::Imports;
 use crate::store::AsStoreMut;
 use crate::sys::externals::Extern;
 
-/// A WebAssembly Instance is a stateful, executable
-/// instance of a WebAssembly [`Module`].
-///
-/// Instance objects contain all the exported WebAssembly
-/// functions, memories, tables and globals that allow
-/// interacting with WebAssembly.
-///
-/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
 #[derive(Clone)]
 pub struct Instance {
     _handle: StoreHandle<VMInstance>,

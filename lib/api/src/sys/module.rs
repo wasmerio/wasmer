@@ -12,14 +12,6 @@ use wasmer_types::{ExportType, ImportType};
 use crate::{AsStoreMut, AsStoreRef, InstantiationError, IntoBytes};
 use wasmer_vm::VMInstance;
 
-/// A WebAssembly Module contains stateless WebAssembly
-/// code that has already been compiled and can be instantiated
-/// multiple times.
-///
-/// ## Cloning a module
-///
-/// Cloning a module is cheap: it does a shallow copy of the compiled
-/// contents rather than a deep copy.
 #[derive(Clone)]
 pub struct Module {
     // The field ordering here is actually significant because of the drop

@@ -40,14 +40,6 @@ pub struct ModuleTypeHints {
     pub exports: Vec<ExternType>,
 }
 
-/// A WebAssembly Module contains stateless WebAssembly
-/// code that has already been compiled and can be instantiated
-/// multiple times.
-///
-/// ## Cloning a module
-///
-/// Cloning a module is cheap: it does a shallow copy of the compiled
-/// contents rather than a deep copy.
 #[derive(Clone)]
 pub struct Module {
     module: WebAssembly::Module,
