@@ -4,7 +4,6 @@
 /// This module should not be needed any longer (with the exception of the memory)
 /// once the type reflection is added to the WebAssembly JS API.
 /// https://github.com/WebAssembly/js-types/
-use crate::js::error::WasmError;
 use crate::js::wasm_bindgen_polyfill::Global as JsGlobal;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::MemoryView;

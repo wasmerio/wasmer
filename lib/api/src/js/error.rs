@@ -8,54 +8,17 @@ use std::borrow::Cow;
 use thiserror::Error;
 use wasmer_types::{CompileError, ImportError};
 
-/// A WebAssembly translation error.
-///
-/// When a WebAssembly function can't be translated, one of these error codes will be returned
-/// to describe the failure.
-#[derive(Debug)]
-#[cfg_attr(feature = "std", derive(Error))]
-pub enum WasmError {
-    /// The input WebAssembly code is invalid.
-    ///
-    /// This error code is used by a WebAssembly translator when it encounters invalid WebAssembly
-    /// code. This should never happen for validated WebAssembly code.
-    #[cfg_attr(
-        feature = "std",
-        error("Invalid input WebAssembly code at offset {offset}: {message}")
-    )]
-    InvalidWebAssembly {
-        /// A string describing the validation error.
-        message: String,
-        /// The bytecode offset where the error occurred.
-        offset: usize,
-    },
-
-    /// A feature used by the WebAssembly code is not supported by the embedding environment.
-    ///
-    /// Embedding environments may have their own limitations and feature restrictions.
-    #[cfg_attr(feature = "std", error("Unsupported feature: {0}"))]
-    Unsupported(String),
-
-    /// A Javascript value could not be converted to the requested type.
-    #[cfg_attr(feature = "std", error("{0} doesn't match js value type {1}"))]
-    TypeMismatch(Cow<'static, str>, Cow<'static, str>),
-
-    /// A generic error.
-    #[cfg_attr(feature = "std", error("{0}"))]
-    Generic(String),
-}
-
-impl From<wasm_bindgen::JsValue> for WasmError {
-    fn from(err: wasm_bindgen::JsValue) -> Self {
-        Self::Generic(
-            if err.is_string() && err.as_string().filter(|s| !s.is_empty()).is_some() {
-                err.as_string().unwrap_or_default()
-            } else {
-                format!("Unexpected Javascript error: {:?}", err)
-            },
-        )
-    }
-}
+// impl From<wasm_bindgen::JsValue> for WasmError {
+//     fn from(err: wasm_bindgen::JsValue) -> Self {
+//         Self::Generic(
+//             if err.is_string() && err.as_string().filter(|s| !s.is_empty()).is_some() {
+//                 err.as_string().unwrap_or_default()
+//             } else {
+//                 format!("Unexpected Javascript error: {:?}", err)
+//             },
+//         )
+//     }
+// }
 
 /// The Serialize error can occur when serializing a
 /// compiled Module into a binary.

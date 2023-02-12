@@ -288,7 +288,7 @@ impl AsJs for Extern {
 impl AsJs for Instance {
     type DefinitionType = crate::module::Module;
     fn as_jsvalue(&self, store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
-        self.handle.clone().into()
+        self._handle.clone().into()
     }
 
     fn from_jsvalue(
@@ -296,8 +296,9 @@ impl AsJs for Instance {
         module: &Self::DefinitionType,
         value: &JsValue,
     ) -> Result<Self, JsError> {
-        let instance: js_sys::WebAssembly::Instance = value.clone().into();
-        Self::from_module_and_instance(store, module, instance)
-            .map_err(|e| JsError::new(&format!("Can't get the instance: {:?}", e)))
+        let js_instance: js_sys::WebAssembly::Instance = value.clone().into();
+        let (instance, _exports) = Self::from_module_and_instance(store, module, js_instance)
+            .map_err(|e| JsError::new(&format!("Can't get the instance: {:?}", e)))?;
+        Ok(instance)
     }
 }

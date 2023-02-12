@@ -28,7 +28,7 @@ pub(crate) mod engine;
 pub(crate) mod error;
 pub(crate) mod extern_ref;
 pub(crate) mod externals;
-mod instance;
+pub(crate) mod instance;
 pub(crate) mod module;
 #[cfg(feature = "wasm-types-polyfill")]
 mod module_info_polyfill;

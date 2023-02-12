@@ -1,7 +1,7 @@
 pub(crate) mod engine;
 pub(crate) mod extern_ref;
 pub(crate) mod externals;
-mod instance;
+pub(crate) mod instance;
 pub(crate) mod module;
 mod tunables;
 pub(crate) mod typed_function;

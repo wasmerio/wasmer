@@ -1,7 +1,5 @@
 use crate::errors::InstantiationError;
 use crate::imports::Imports;
-#[cfg(feature = "wat")]
-use crate::js::error::WasmError;
 use crate::js::externals::Extern;
 use crate::js::vm::VMInstance;
 use crate::js::AsJs;
@@ -59,6 +57,8 @@ pub struct Module {
     #[cfg(feature = "js-serializable-module")]
     raw_bytes: Option<Bytes>,
 }
+
+unsafe impl Send for Module {}
 
 impl Module {
     /// Creates a new WebAssembly module from a file path.

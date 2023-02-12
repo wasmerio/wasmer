@@ -1,7 +1,6 @@
 use crate::errors::InstantiationError;
 use crate::exports::Exports;
 use crate::module::Module;
-use std::fmt;
 use wasmer_vm::{StoreHandle, VMInstance};
 
 use crate::imports::Imports;
@@ -19,23 +18,6 @@ use crate::sys::externals::Extern;
 #[derive(Clone)]
 pub struct Instance {
     _handle: StoreHandle<VMInstance>,
-    module: Module,
-    /// The exports for an instance.
-    pub exports: Exports,
-}
-
-#[cfg(test)]
-mod send_test {
-    use super::*;
-
-    fn is_send<T: Send>() -> bool {
-        true
-    }
-
-    #[test]
-    fn instance_is_send() {
-        assert!(is_send::<Instance>());
-    }
 }
 
 impl From<wasmer_compiler::InstantiationError> for InstantiationError {
@@ -49,41 +31,11 @@ impl From<wasmer_compiler::InstantiationError> for InstantiationError {
 }
 
 impl Instance {
-    /// Creates a new `Instance` from a WebAssembly [`Module`] and a
-    /// set of imports using [`Imports`] or the [`imports`] macro helper.
-    ///
-    /// [`imports`]: crate::imports
-    /// [`Imports`]: crate::Imports
-    ///
-    /// ```
-    /// # use wasmer::{imports, Store, Module, Global, Value, Instance};
-    /// # use wasmer::FunctionEnv;
-    /// # fn main() -> anyhow::Result<()> {
-    /// let mut store = Store::default();
-    /// let env = FunctionEnv::new(&mut store, ());
-    /// let module = Module::new(&store, "(module)")?;
-    /// let imports = imports!{
-    ///   "host" => {
-    ///     "var" => Global::new(&mut store, Value::I32(2))
-    ///   }
-    /// };
-    /// let instance = Instance::new(&mut store, &module, &imports)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// ## Errors
-    ///
-    /// The function can return [`InstantiationError`]s.
-    ///
-    /// Those are, as defined by the spec:
-    ///  * Link errors that happen when plugging the imports into the instance
-    ///  * Runtime errors that happen when running the module `start` function.
-    pub fn new(
+    pub(crate) fn new(
         store: &mut impl AsStoreMut,
         module: &Module,
         imports: &Imports,
-    ) -> Result<Self, InstantiationError> {
+    ) -> Result<(Self, Exports), InstantiationError> {
         let externs = imports
             .imports_for_module(module)
             .map_err(InstantiationError::Link)?;
@@ -92,38 +44,24 @@ impl Instance {
 
         let instance = Self {
             _handle: StoreHandle::new(store.objects_mut(), handle),
-            module: module.clone(),
-            exports,
         };
 
-        Ok(instance)
+        Ok((instance, exports))
     }
 
-    /// Creates a new `Instance` from a WebAssembly [`Module`] and a
-    /// vector of imports.
-    ///
-    /// ## Errors
-    ///
-    /// The function can return [`InstantiationError`]s.
-    ///
-    /// Those are, as defined by the spec:
-    ///  * Link errors that happen when plugging the imports into the instance
-    ///  * Runtime errors that happen when running the module `start` function.
-    pub fn new_by_index(
+    pub(crate) fn new_by_index(
         store: &mut impl AsStoreMut,
         module: &Module,
         externs: &[Extern],
-    ) -> Result<Self, InstantiationError> {
+    ) -> Result<(Self, Exports), InstantiationError> {
         let externs = externs.to_vec();
         let mut handle = module.0.instantiate(store, &externs)?;
         let exports = Self::get_exports(store, module, &mut handle);
         let instance = Self {
             _handle: StoreHandle::new(store.objects_mut(), handle),
-            module: module.clone(),
-            exports,
         };
 
-        Ok(instance)
+        Ok((instance, exports))
     }
 
     fn get_exports(
@@ -140,18 +78,5 @@ impl Instance {
                 (name, extern_)
             })
             .collect::<Exports>()
-    }
-
-    /// Gets the [`Module`] associated with this instance.
-    pub fn module(&self) -> &Module {
-        &self.module
-    }
-}
-
-impl fmt::Debug for Instance {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Instance")
-            .field("exports", &self.exports)
-            .finish()
     }
 }
