@@ -102,6 +102,11 @@ impl Module {
         store: &mut impl AsStoreMut,
         imports: &[crate::Extern],
     ) -> Result<VMInstance, InstantiationError> {
+        if !self.artifact.allocated() {
+            // Return an error mentioning that the artifact is compiled for a different
+            // platform.
+            return Err(InstantiationError::DifferentArchOS);
+        }
         // Ensure all imports come from the same context.
         for import in imports {
             if !import.is_from_store(store) {

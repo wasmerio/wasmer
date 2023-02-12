@@ -23,22 +23,20 @@ use wasmer_object::{emit_compilation, emit_data, get_object_for_target, Object};
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use wasmer_types::compilation::symbols::ModuleMetadata;
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
+#[cfg(feature = "static-artifact-create")]
+use wasmer_types::CompileModuleInfo;
 use wasmer_types::MetadataHeader;
 #[cfg(feature = "static-artifact-load")]
 use wasmer_types::SerializableCompilation;
 use wasmer_types::{
     CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
-    MemoryIndex, ModuleInfo, OwnedDataInitializer, SignatureIndex, TableIndex,
+    MemoryIndex, ModuleInfo, OwnedDataInitializer, SignatureIndex, TableIndex, Target,
 };
-#[cfg(feature = "static-artifact-create")]
-use wasmer_types::{CompileModuleInfo, Target};
 use wasmer_types::{SerializableModule, SerializeError};
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
 use wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMExtern, VMInstance};
 
-/// A compiled wasm module, ready to be instantiated.
-pub struct Artifact {
-    artifact: ArtifactBuild,
+pub struct AllocatedArtifact {
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
@@ -46,6 +44,14 @@ pub struct Artifact {
     /// Some(_) only if this is not a deserialized static artifact
     frame_info_registration: Option<Mutex<Option<GlobalFrameInfoRegistration>>>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
+}
+
+/// A compiled wasm module, ready to be instantiated.
+pub struct Artifact {
+    artifact: ArtifactBuild,
+    // The artifact will only be allocated in memory in case we can execute it
+    // (that means, if the target != host then this will be None).
+    allocated: Option<AllocatedArtifact>,
 }
 
 impl Artifact {
@@ -79,7 +85,14 @@ impl Artifact {
             table_styles,
         )?;
 
-        Self::from_parts(&mut inner_engine, artifact)
+        Self::from_parts(&mut inner_engine, artifact, engine.target())
+    }
+
+    /// This indicates if the Artifact is allocated and can be run by the current
+    /// host. In case it can't be run (for example, if the artifact is cross compiled to
+    /// other architecture), it will return false.
+    pub fn allocated(&self) -> bool {
+        self.allocated.is_some()
     }
 
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
@@ -120,14 +133,22 @@ impl Artifact {
         let serializable = SerializableModule::deserialize(metadata_slice)?;
         let artifact = ArtifactBuild::from_serializable(serializable);
         let mut inner_engine = engine.inner_mut();
-        Self::from_parts(&mut inner_engine, artifact).map_err(DeserializeError::Compiler)
+        Self::from_parts(&mut inner_engine, artifact, engine.target())
+            .map_err(DeserializeError::Compiler)
     }
 
     /// Construct a `ArtifactBuild` from component parts.
     pub fn from_parts(
         engine_inner: &mut EngineInner,
         artifact: ArtifactBuild,
+        target: &Target,
     ) -> Result<Self, CompileError> {
+        if !target.is_native() {
+            return Ok(Self {
+                artifact,
+                allocated: None,
+            });
+        }
         let module_info = artifact.create_module_info();
         let (
             finished_functions,
@@ -198,12 +219,14 @@ impl Artifact {
 
         Ok(Self {
             artifact,
-            finished_functions,
-            finished_function_call_trampolines,
-            finished_dynamic_function_trampolines,
-            signatures,
-            frame_info_registration: Some(Mutex::new(None)),
-            finished_function_lengths,
+            allocated: Some(AllocatedArtifact {
+                finished_functions,
+                finished_function_call_trampolines,
+                finished_dynamic_function_trampolines,
+                signatures,
+                frame_info_registration: Some(Mutex::new(None)),
+                finished_function_lengths,
+            }),
         })
     }
 
@@ -248,7 +271,13 @@ impl Artifact {
     ///
     /// This is required to ensure that any traps can be properly symbolicated.
     pub fn register_frame_info(&self) {
-        if let Some(frame_info_registration) = self.frame_info_registration.as_ref() {
+        if let Some(frame_info_registration) = self
+            .allocated
+            .as_ref()
+            .expect("It must be allocated")
+            .frame_info_registration
+            .as_ref()
+        {
             let mut info = frame_info_registration.lock().unwrap();
 
             if info.is_some() {
@@ -256,10 +285,20 @@ impl Artifact {
             }
 
             let finished_function_extents = self
+                .allocated
+                .as_ref()
+                .expect("It must be allocated")
                 .finished_functions
                 .values()
                 .copied()
-                .zip(self.finished_function_lengths.values().copied())
+                .zip(
+                    self.allocated
+                        .as_ref()
+                        .expect("It must be allocated")
+                        .finished_function_lengths
+                        .values()
+                        .copied(),
+                )
                 .map(|(ptr, length)| FunctionExtent { ptr, length })
                 .collect::<PrimaryMap<LocalFunctionIndex, _>>()
                 .into_boxed_slice();
@@ -276,13 +315,21 @@ impl Artifact {
     /// Returns the functions allocated in memory or this `Artifact`
     /// ready to be run.
     pub fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
-        &self.finished_functions
+        &self
+            .allocated
+            .as_ref()
+            .expect("It must be allocated")
+            .finished_functions
     }
 
     /// Returns the function call trampolines allocated in memory of this
     /// `Artifact`, ready to be run.
     pub fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
-        &self.finished_function_call_trampolines
+        &self
+            .allocated
+            .as_ref()
+            .expect("It must be allocated")
+            .finished_function_call_trampolines
     }
 
     /// Returns the dynamic function trampolines allocated in memory
@@ -290,12 +337,20 @@ impl Artifact {
     pub fn finished_dynamic_function_trampolines(
         &self,
     ) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr> {
-        &self.finished_dynamic_function_trampolines
+        &self
+            .allocated
+            .as_ref()
+            .expect("It must be allocated")
+            .finished_dynamic_function_trampolines
     }
 
     /// Returns the associated VM signatures for this `Artifact`.
     pub fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
-        &self.signatures
+        &self
+            .allocated
+            .as_ref()
+            .expect("It must be allocated")
+            .signatures
     }
 
     /// Do preinstantiation logic that is executed before instantiating
@@ -721,14 +776,16 @@ impl Artifact {
 
         Ok(Self {
             artifact,
-            finished_functions: finished_functions.into_boxed_slice(),
-            finished_function_call_trampolines: finished_function_call_trampolines
-                .into_boxed_slice(),
-            finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
-                .into_boxed_slice(),
-            signatures: signatures.into_boxed_slice(),
-            finished_function_lengths,
-            frame_info_registration: None,
+            allocated: Some(AllocatedArtifact {
+                finished_functions: finished_functions.into_boxed_slice(),
+                finished_function_call_trampolines: finished_function_call_trampolines
+                    .into_boxed_slice(),
+                finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
+                    .into_boxed_slice(),
+                signatures: signatures.into_boxed_slice(),
+                finished_function_lengths,
+                frame_info_registration: None,
+            }),
         })
     }
 }

@@ -124,6 +124,11 @@ impl Cranelift {
     pub fn flags(&self) -> settings::Flags {
         let mut flags = settings::builder();
 
+        // Enable probestack
+        flags
+            .enable("enable_probestack")
+            .expect("should be valid flag");
+
         // There are two possible traps for division, and this way
         // we get the proper one if code traps.
         flags

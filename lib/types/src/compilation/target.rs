@@ -192,6 +192,13 @@ impl Target {
     pub fn cpu_features(&self) -> &EnumSet<CpuFeature> {
         &self.cpu_features
     }
+
+    /// Check if target is a native (eq to host) or not
+    pub fn is_native(&self) -> bool {
+        let host = Triple::host();
+        host.operating_system == self.triple.operating_system
+            && host.architecture == self.triple.architecture
+    }
 }
 
 /// The default for the Target will use the HOST as the triple
