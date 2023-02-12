@@ -7,8 +7,7 @@ use std::slice;
 use wasmer_types::Pages;
 use wasmer_vm::LinearMemory;
 
-use super::memory::MemoryBuffer;
-use super::Memory;
+use super::memory::{Memory, MemoryBuffer};
 
 /// A WebAssembly `memory` view.
 ///

@@ -1,6 +1,6 @@
 use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
-use crate::sys::externals::Extern;
+use crate::Extern;
 use crate::MemoryAccessError;
 use crate::MemoryType;
 use std::convert::TryInto;
@@ -13,7 +13,7 @@ use tracing::warn;
 use wasmer_types::Pages;
 use wasmer_vm::{InternalStoreHandle, LinearMemory, MemoryError, StoreHandle, VMExtern, VMMemory};
 
-use super::MemoryView;
+use super::memory_view::MemoryView;
 
 /// A WebAssembly `memory` instance.
 ///

@@ -6,11 +6,6 @@ pub(crate) mod module;
 mod tunables;
 pub(crate) mod typed_function;
 
-pub use crate::sys::externals::{
-    Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryView, Table,
-    WasmTypeList,
-};
-
 pub use crate::sys::tunables::BaseTunables;
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 #[cfg(feature = "compiler")]

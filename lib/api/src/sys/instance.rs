@@ -5,7 +5,7 @@ use wasmer_vm::{StoreHandle, VMInstance};
 
 use crate::imports::Imports;
 use crate::store::AsStoreMut;
-use crate::sys::externals::Extern;
+use crate::Extern;
 
 #[derive(Clone)]
 pub struct Instance {

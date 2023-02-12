@@ -1,8 +1,8 @@
 use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
-use crate::sys::externals::Extern;
 use crate::sys::RuntimeError;
 use crate::value::Value;
+use crate::Extern;
 use crate::GlobalType;
 use crate::Mutability;
 use wasmer_vm::{InternalStoreHandle, StoreHandle, VMExtern, VMGlobal};

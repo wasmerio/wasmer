@@ -9,8 +9,7 @@ use tracing::warn;
 
 use wasmer_types::{Bytes, Pages};
 
-use super::memory::MemoryBuffer;
-use super::Memory;
+use super::memory::{Memory, MemoryBuffer};
 
 /// A WebAssembly `memory` view.
 ///

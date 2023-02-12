@@ -1,8 +1,8 @@
 use crate::exports::{ExportError, Exportable};
-use crate::js::externals::Extern;
 use crate::js::vm::{VMExtern, VMMemory};
 use crate::mem_access::MemoryAccessError;
 use crate::store::{AsStoreMut, AsStoreRef, StoreObjects};
+use crate::Extern;
 use crate::MemoryType;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
@@ -14,7 +14,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use wasmer_types::{Pages, WASM_PAGE_SIZE};
 
-use super::MemoryView;
+use super::memory_view::MemoryView;
 
 pub use wasmer_types::MemoryError;
 

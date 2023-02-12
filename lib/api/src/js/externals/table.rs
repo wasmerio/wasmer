@@ -1,9 +1,9 @@
 use crate::exports::{ExportError, Exportable};
-use crate::js::externals::Extern;
 use crate::js::vm::{VMExtern, VMFunction, VMTable};
 use crate::js::RuntimeError;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::value::Value;
+use crate::Extern;
 use crate::{FunctionType, TableType};
 use js_sys::Function;
 
@@ -83,7 +83,7 @@ impl Table {
         if let Some(func) = self.handle.table.get(index).ok() {
             let ty = FunctionType::new(vec![], vec![]);
             let vm_function = VMFunction::new(func, ty);
-            let function = crate::js::externals::Function::from_vm_extern(store, vm_function);
+            let function = crate::Function::from_vm_extern(store, vm_function);
             Some(Value::FuncRef(Some(function)))
         } else {
             None

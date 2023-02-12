@@ -1,11 +1,11 @@
 use crate::errors::InstantiationError;
 use crate::imports::Imports;
-use crate::js::externals::Extern;
 use crate::js::vm::VMInstance;
 use crate::js::AsJs;
 use crate::js::RuntimeError;
 use crate::module::IoCompileError;
 use crate::store::AsStoreMut;
+use crate::Extern;
 use crate::IntoBytes;
 use crate::{AsEngineRef, ExportType, ImportType};
 use bytes::Bytes;

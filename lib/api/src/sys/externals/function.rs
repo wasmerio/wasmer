@@ -7,7 +7,7 @@ use wasmer_vm::{
 
 use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
-use crate::sys::externals::Extern;
+use crate::Extern;
 use crate::FunctionEnv;
 use crate::{FunctionType, RuntimeError, TypedFunction};
 
