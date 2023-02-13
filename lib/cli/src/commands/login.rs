@@ -1,6 +1,7 @@
 use clap::Parser;
 #[cfg(not(test))]
 use dialoguer::Input;
+use wasmer_registry::WasmerConfig;
 
 /// Subcommand for listing packages
 #[derive(Debug, Clone, Parser)]
@@ -32,7 +33,7 @@ impl Login {
                     registry_tld.suffix.as_deref(),
                 ) {
                     (Some(d), Some(s)) => {
-                        format!("Please paste the login token for https://{d}.{s}/me")
+                        format!("Please paste the login token from https://{d}.{s}/settings/access-tokens")
                     }
                     _ => "Please paste the login token".to_string(),
                 };
@@ -51,7 +52,9 @@ impl Login {
     /// execute [List]
     pub fn execute(&self) -> Result<(), anyhow::Error> {
         let token = self.get_token_or_ask_user()?;
-        match wasmer_registry::login::login_and_save_token(&self.registry, &token)? {
+        let wasmer_dir =
+            WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
+        match wasmer_registry::login::login_and_save_token(&wasmer_dir, &self.registry, &token)? {
             Some(s) => println!("Login for WAPM user {:?} saved", s),
             None => println!(
                 "Error: no user found on registry {:?} with token {:?}. Token saved regardless.",
@@ -71,7 +74,7 @@ fn test_login_2() {
 
     assert_eq!(
         login.get_token_or_ask_user().unwrap(),
-        "Please paste the login token for https://wapm.dev/me"
+        "Please paste the login token from https://wapm.dev/settings/access-tokens"
     );
 
     let login = Login {

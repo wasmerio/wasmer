@@ -2,8 +2,8 @@
 
 use anyhow::{bail, Context};
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use wasmer_integration_tests_cli::{get_repo_root_path, get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
+use std::process::{Command, Stdio};
+use wasmer_integration_tests_cli::{get_libwasmer_path, get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
 
 fn wasi_test_python_path() -> PathBuf {
     Path::new(C_ASSET_PATH).join("python-0.1.0.wasmer")
@@ -21,16 +21,110 @@ fn test_no_start_wat_path() -> PathBuf {
     Path::new(ASSET_PATH).join("no_start.wat")
 }
 
+/// Ignored on Windows because running vendored packages does not work
+/// since Windows does not allow `::` characters in filenames (every other OS does)
+///
+/// The syntax for vendored package atoms has to be reworked for this to be fixed, see
+/// https://github.com/wasmerio/wasmer/issues/3535
+#[cfg_attr(target_os = "windows", ignore)]
+#[test]
+fn test_run_customlambda() -> anyhow::Result<()> {
+    let bindir = String::from_utf8(
+        Command::new(get_wasmer_path())
+            .arg("config")
+            .arg("--bindir")
+            .output()
+            .expect("failed to run wasmer config --bindir")
+            .stdout,
+    )
+    .expect("wasmer config --bindir stdout failed");
+
+    // /Users/fs/.wasmer/bin
+    let checkouts_path = Path::new(&bindir)
+        .parent()
+        .expect("--bindir: no parent")
+        .join("checkouts");
+    println!("checkouts path: {}", checkouts_path.display());
+    let _ = std::fs::remove_dir_all(&checkouts_path);
+
+    let output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg("https://wapm.io/ciuser/customlambda")
+        // TODO: this argument should not be necessary later
+        // see https://github.com/wasmerio/wasmer/issues/3514
+        .arg("customlambda.py")
+        .arg("55")
+        .output()?;
+
+    let stdout_output = std::str::from_utf8(&output.stdout).unwrap();
+    let stderr_output = std::str::from_utf8(&output.stderr).unwrap();
+
+    println!("first run:");
+    println!("stdout: {stdout_output}");
+    println!("stderr: {stderr_output}");
+    assert_eq!(stdout_output, "139583862445\n");
+
+    // Run again to verify the caching
+    let output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg("https://wapm.io/ciuser/customlambda")
+        // TODO: this argument should not be necessary later
+        // see https://github.com/wasmerio/wasmer/issues/3514
+        .arg("customlambda.py")
+        .arg("55")
+        .output()?;
+
+    let stdout_output = std::str::from_utf8(&output.stdout).unwrap();
+    let stderr_output = std::str::from_utf8(&output.stderr).unwrap();
+
+    println!("second run:");
+    println!("stdout: {stdout_output}");
+    println!("stderr: {stderr_output}");
+    assert_eq!(stdout_output, "139583862445\n");
+
+    Ok(())
+}
+
+fn assert_tarball_is_present_local(target: &str) -> Result<PathBuf, anyhow::Error> {
+    let wasmer_dir = std::env::var("WASMER_DIR").expect("no WASMER_DIR set");
+    let directory = match target {
+        "aarch64-darwin" => "wasmer-darwin-arm64.tar.gz",
+        "x86_64-darwin" => "wasmer-darwin-amd64.tar.gz",
+        "x86_64-linux-gnu" => "wasmer-linux-amd64.tar.gz",
+        "aarch64-linux-gnu" => "wasmer-linux-aarch64.tar.gz",
+        "x86_64-windows-gnu" => "wasmer-windows-gnu64.tar.gz",
+        _ => return Err(anyhow::anyhow!("unknown target {target}")),
+    };
+    let libwasmer_cache_path = Path::new(&wasmer_dir).join("cache").join(directory);
+    if !libwasmer_cache_path.exists() {
+        return Err(anyhow::anyhow!(
+            "targz {} does not exist",
+            libwasmer_cache_path.display()
+        ));
+    }
+    println!("using targz {}", libwasmer_cache_path.display());
+    Ok(libwasmer_cache_path)
+}
+
 #[test]
 fn test_cross_compile_python_windows() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;
 
+    #[cfg(not(windows))]
     let targets = &[
         "aarch64-darwin",
         "x86_64-darwin",
         "x86_64-linux-gnu",
         "aarch64-linux-gnu",
         "x86_64-windows-gnu",
+    ];
+
+    #[cfg(windows)]
+    let targets = &[
+        "aarch64-darwin",
+        "x86_64-darwin",
+        "x86_64-linux-gnu",
+        "aarch64-linux-gnu",
     ];
 
     // MUSL has no support for LLVM in C-API
@@ -57,6 +151,10 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
             println!("{t} target {c}");
             let python_wasmer_path = temp_dir.path().join(format!("{t}-python"));
 
+            let tarball = match std::env::var("GITHUB_TOKEN") {
+                Ok(_) => Some(assert_tarball_is_present_local(t)?),
+                Err(_) => None,
+            };
             let mut output = Command::new(get_wasmer_path());
 
             output.arg("create-exe");
@@ -66,11 +164,22 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
             output.arg("-o");
             output.arg(python_wasmer_path.clone());
             output.arg(format!("--{c}"));
+            if std::env::var("GITHUB_TOKEN").is_ok() {
+                output.arg("--debug-dir");
+                output.arg(format!("{t}-{c}"));
+            }
 
             if t.contains("x86_64") && *c == "singlepass" {
                 output.arg("-m");
                 output.arg("avx");
             }
+
+            if let Some(t) = tarball {
+                output.arg("--tarball");
+                output.arg(t);
+            }
+
+            println!("command {:?}", output);
 
             let output = output.output()?;
 
@@ -112,6 +221,10 @@ fn run_whoami_works() -> anyhow::Result<()> {
     }
 
     let ciuser_token = std::env::var("WAPM_DEV_TOKEN").expect("no CIUSER / WAPM_DEV_TOKEN token");
+    // Special case: GitHub secrets aren't visible to outside collaborators
+    if ciuser_token.is_empty() {
+        return Ok(());
+    }
 
     let output = Command::new(get_wasmer_path())
         .arg("login")
@@ -182,51 +295,26 @@ fn run_wasi_works() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "webc_runner")]
-fn package_directory(in_dir: &PathBuf, out: &PathBuf) {
-    use flate2::write::GzEncoder;
-    use flate2::Compression;
-    use std::fs::File;
-    let tar = File::create(out).unwrap();
-    let enc = GzEncoder::new(tar, Compression::none());
-    let mut a = tar::Builder::new(enc);
-    a.append_dir_all("bin", in_dir.join("bin")).unwrap();
-    a.append_dir_all("lib", in_dir.join("lib")).unwrap();
-    a.append_dir_all("include", in_dir.join("include")).unwrap();
-    a.finish().unwrap();
-}
-
 /// TODO: on linux-musl, the packaging of libwasmer.a doesn't work properly
 /// Tracked in https://github.com/wasmerio/wasmer/issues/3271
-#[cfg(not(target_env = "musl"))]
+#[cfg(not(any(target_env = "musl", target_os = "windows")))]
 #[cfg(feature = "webc_runner")]
 #[test]
 fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
+    // let temp_dir = Path::new("debug");
+    // std::fs::create_dir_all(&temp_dir);
+
+    use wasmer_integration_tests_cli::get_repo_root_path;
     let temp_dir = tempfile::TempDir::new()?;
-    let python_wasmer_path = temp_dir.path().join("python.wasmer");
+    let temp_dir = temp_dir.path().to_path_buf();
+    let python_wasmer_path = temp_dir.join("python.wasmer");
     std::fs::copy(wasi_test_python_path(), &python_wasmer_path)?;
-    let python_exe_output_path = temp_dir.path().join("python");
+    let python_exe_output_path = temp_dir.join("python");
 
     let native_target = target_lexicon::HOST;
-    let root_path = get_repo_root_path().unwrap();
-    let package_path = root_path.join("package");
-    if !package_path.exists() {
-        panic!("package path {} does not exist", package_path.display());
-    }
-    let tmp_targz_path = tempfile::TempDir::new()?;
-    let tmp_targz_path = tmp_targz_path.path().join("link.tar.gz");
+    let tmp_targz_path = get_repo_root_path().unwrap().join("link.tar.gz");
+
     println!("compiling to target {native_target}");
-    println!(
-        "packaging /package to .tar.gz: {}",
-        tmp_targz_path.display()
-    );
-    package_directory(&package_path, &tmp_targz_path);
-    println!("packaging done");
-    println!(
-        "tmp tar gz path: {} - exists: {:?}",
-        tmp_targz_path.display(),
-        tmp_targz_path.exists()
-    );
 
     let mut cmd = Command::new(get_wasmer_path());
     cmd.arg("create-exe");
@@ -237,10 +325,17 @@ fn test_wasmer_create_exe_pirita_works() -> anyhow::Result<()> {
     cmd.arg(format!("{native_target}"));
     cmd.arg("-o");
     cmd.arg(&python_exe_output_path);
-
+    // change temp_dir to a local path and run this test again
+    // to output the compilation files into a debug folder
+    //
+    // cmd.arg("--debug-dir");
+    // cmd.arg(&temp_dir);
     println!("running: {cmd:?}");
 
-    let output = cmd.output()?;
+    let output = cmd
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .output()?;
 
     if !output.status.success() {
         let stdout = std::str::from_utf8(&output.stdout)
@@ -352,12 +447,12 @@ fn test_wasmer_run_works_with_dir() -> anyhow::Result<()> {
 
     std::fs::copy(wasi_test_wasm_path(), &qjs_path)?;
     std::fs::copy(
-        format!("{}/{}", C_ASSET_PATH, "qjs-wapm.toml"),
-        temp_dir.path().join("wapm.toml"),
+        format!("{}/{}", C_ASSET_PATH, "qjs-wasmer.toml"),
+        temp_dir.path().join("wasmer.toml"),
     )?;
 
     assert!(temp_dir.path().exists());
-    assert!(temp_dir.path().join("wapm.toml").exists());
+    assert!(temp_dir.path().join("wasmer.toml").exists());
     assert!(temp_dir.path().join("qjs.wasm").exists());
 
     // test with "wasmer qjs.wasm"
@@ -530,7 +625,7 @@ fn run_wasi_works_non_existent() -> anyhow::Result<()> {
 
     assert_eq!(
         stderr_lines,
-        vec!["error: invalid package name, could not find file does/not/exist".to_string()]
+        vec!["error: Could not find local file does/not/exist".to_string()]
     );
 
     Ok(())
@@ -554,7 +649,10 @@ fn run_test_caching_works_for_packages() -> anyhow::Result<()> {
         .output()?;
 
     if output.stdout != b"hello\n".to_vec() {
-        panic!("failed to run https://wapm.io/python/python for the first time");
+        panic!("failed to run https://wapm.io/python/python for the first time: stdout = {}, stderr = {}", 
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
     }
 
     let time = std::time::Instant::now();

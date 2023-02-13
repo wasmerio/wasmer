@@ -51,6 +51,10 @@ impl SinglepassCompiler {
 }
 
 impl Compiler for SinglepassCompiler {
+    fn name(&self) -> &str {
+        "singlepass"
+    }
+
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
         &self.config.middlewares

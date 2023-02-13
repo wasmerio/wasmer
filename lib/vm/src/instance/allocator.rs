@@ -1,5 +1,6 @@
-use super::{Instance, InstanceHandle};
-use crate::vmcontext::{VMMemoryDefinition, VMTableDefinition};
+use super::{Instance, VMInstance};
+use crate::vmcontext::VMTableDefinition;
+use crate::VMMemoryDefinition;
 use std::alloc::{self, Layout};
 use std::convert::TryFrom;
 use std::mem;
@@ -58,15 +59,15 @@ impl Drop for InstanceAllocator {
 }
 
 impl InstanceAllocator {
-    /// Allocates instance data for use with [`InstanceHandle::new`].
+    /// Allocates instance data for use with [`VMInstance::new`].
     ///
     /// Returns a wrapper type around the allocation and 2 vectors of
     /// pointers into the allocated buffer. These lists of pointers
     /// correspond to the location in memory for the local memories and
     /// tables respectively. These pointers should be written to before
-    /// calling [`InstanceHandle::new`].
+    /// calling [`VMInstance::new`].
     ///
-    /// [`InstanceHandle::new`]: super::InstanceHandle::new
+    /// [`VMInstance::new`]: super::VMInstance::new
     pub fn new(
         module: &ModuleInfo,
     ) -> (
@@ -187,7 +188,7 @@ impl InstanceAllocator {
 
     /// Finish preparing by writing the [`Instance`] into memory, and
     /// consume this `InstanceAllocator`.
-    pub(crate) fn write_instance(mut self, instance: Instance) -> InstanceHandle {
+    pub(crate) fn into_vminstance(mut self, instance: Instance) -> VMInstance {
         // Prevent the old state's drop logic from being called as we
         // transition into the new state.
         self.consumed = true;
@@ -195,7 +196,7 @@ impl InstanceAllocator {
         unsafe {
             // `instance` is moved at `Self.instance_ptr`. This
             // pointer has been allocated by `Self::allocate_instance`
-            // (so by `InstanceHandle::allocate_instance`).
+            // (so by `VMInstance::allocate_instance`).
             ptr::write(self.instance_ptr.as_ptr(), instance);
             // Now `instance_ptr` is correctly initialized!
         }
@@ -204,7 +205,7 @@ impl InstanceAllocator {
 
         // This is correct because of the invariants of `Self` and
         // because we write `Instance` to the pointer in this function.
-        InstanceHandle {
+        VMInstance {
             instance,
             instance_layout,
         }

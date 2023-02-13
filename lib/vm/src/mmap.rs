@@ -24,7 +24,8 @@ pub struct Mmap {
     // `unsafe impl`. This type is sendable across threads and shareable since
     // the coordination all happens at the OS layer.
     ptr: usize,
-    len: usize,
+    total_size: usize,
+    accessible_size: usize,
 }
 
 impl Mmap {
@@ -36,7 +37,8 @@ impl Mmap {
         let empty = Vec::<u8>::new();
         Self {
             ptr: empty.as_ptr() as usize,
-            len: 0,
+            total_size: 0,
+            accessible_size: 0,
         }
     }
 
@@ -84,7 +86,8 @@ impl Mmap {
 
             Self {
                 ptr: ptr as usize,
-                len: mapping_size,
+                total_size: mapping_size,
+                accessible_size,
             }
         } else {
             // Reserve the mapping size.
@@ -104,7 +107,8 @@ impl Mmap {
 
             let mut result = Self {
                 ptr: ptr as usize,
-                len: mapping_size,
+                total_size: mapping_size,
+                accessible_size,
             };
 
             if accessible_size != 0 {
@@ -154,7 +158,8 @@ impl Mmap {
 
             Self {
                 ptr: ptr as usize,
-                len: mapping_size,
+                total_size: mapping_size,
+                accessible_size,
             }
         } else {
             // Reserve the mapping size.
@@ -166,7 +171,8 @@ impl Mmap {
 
             let mut result = Self {
                 ptr: ptr as usize,
-                len: mapping_size,
+                total_size: mapping_size,
+                accessible_size,
             };
 
             if accessible_size != 0 {
@@ -186,8 +192,8 @@ impl Mmap {
         let page_size = region::page::size();
         assert_eq!(start & (page_size - 1), 0);
         assert_eq!(len & (page_size - 1), 0);
-        assert_lt!(len, self.len);
-        assert_lt!(start, self.len - len);
+        assert_lt!(len, self.total_size);
+        assert_lt!(start, self.total_size - len);
 
         // Commit the accessible size.
         let ptr = self.ptr as *const u8;
@@ -206,8 +212,8 @@ impl Mmap {
         let page_size = region::page::size();
         assert_eq!(start & (page_size - 1), 0);
         assert_eq!(len & (page_size - 1), 0);
-        assert_lt!(len, self.len);
-        assert_lt!(start, self.len - len);
+        assert_lt!(len, self.len());
+        assert_lt!(start, self.len() - len);
 
         // Commit the accessible size.
         let ptr = self.ptr as *const u8;
@@ -229,12 +235,22 @@ impl Mmap {
 
     /// Return the allocated memory as a slice of u8.
     pub fn as_slice(&self) -> &[u8] {
-        unsafe { slice::from_raw_parts(self.ptr as *const u8, self.len) }
+        unsafe { slice::from_raw_parts(self.ptr as *const u8, self.total_size) }
+    }
+
+    /// Return the allocated memory as a slice of u8.
+    pub fn as_slice_accessible(&self) -> &[u8] {
+        unsafe { slice::from_raw_parts(self.ptr as *const u8, self.accessible_size) }
     }
 
     /// Return the allocated memory as a mutable slice of u8.
     pub fn as_mut_slice(&mut self) -> &mut [u8] {
-        unsafe { slice::from_raw_parts_mut(self.ptr as *mut u8, self.len) }
+        unsafe { slice::from_raw_parts_mut(self.ptr as *mut u8, self.total_size) }
+    }
+
+    /// Return the allocated memory as a mutable slice of u8.
+    pub fn as_mut_slice_accessible(&mut self) -> &mut [u8] {
+        unsafe { slice::from_raw_parts_mut(self.ptr as *mut u8, self.accessible_size) }
     }
 
     /// Return the allocated memory as a pointer to u8.
@@ -249,27 +265,35 @@ impl Mmap {
 
     /// Return the length of the allocated memory.
     pub fn len(&self) -> usize {
-        self.len
+        self.total_size
     }
 
     /// Return whether any memory has been allocated.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Duplicate in a new memory mapping.
+    pub fn duplicate(&mut self, _size_hint: Option<usize>) -> Result<Self, String> {
+        let mut new = Self::accessible_reserved(self.accessible_size, self.total_size)?;
+        new.as_mut_slice_accessible()
+            .copy_from_slice(self.as_slice_accessible());
+        Ok(new)
+    }
 }
 
 impl Drop for Mmap {
     #[cfg(not(target_os = "windows"))]
     fn drop(&mut self) {
-        if self.len != 0 {
-            let r = unsafe { libc::munmap(self.ptr as *mut libc::c_void, self.len) };
+        if self.total_size != 0 {
+            let r = unsafe { libc::munmap(self.ptr as *mut libc::c_void, self.total_size) };
             assert_eq!(r, 0, "munmap failed: {}", io::Error::last_os_error());
         }
     }
 
     #[cfg(target_os = "windows")]
     fn drop(&mut self) {
-        if self.len != 0 {
+        if self.len() != 0 {
             use winapi::ctypes::c_void;
             use winapi::um::memoryapi::VirtualFree;
             use winapi::um::winnt::MEM_RELEASE;

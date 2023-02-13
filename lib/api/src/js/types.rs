@@ -37,20 +37,21 @@ pub fn param_from_js(ty: &ValType, js_val: &JsValue) -> Value {
 }
 
 impl AsJs for Value {
-    fn as_jsvalue(&self, store: &impl AsStoreRef) -> JsValue {
+    fn as_jsvalue(&self, _store: &impl AsStoreRef) -> JsValue {
         match self {
             Self::I32(i) => JsValue::from_f64(*i as f64),
             Self::I64(i) => JsValue::from_f64(*i as f64),
             Self::F32(f) => JsValue::from_f64(*f as f64),
             Self::F64(f) => JsValue::from_f64(*f),
             Self::V128(f) => JsValue::from_f64(*f as f64),
-            Self::FuncRef(Some(func)) => func
-                .handle
-                .get(store.as_store_ref().objects())
-                .function
-                .clone()
-                .into(),
+            Self::FuncRef(Some(func)) => func.handle.function.clone().into(),
             Self::FuncRef(None) => JsValue::null(),
         }
+    }
+}
+
+impl AsJs for wasmer_types::RawValue {
+    fn as_jsvalue(&self, _store: &impl AsStoreRef) -> JsValue {
+        unsafe { JsValue::from_f64(self.f64) }
     }
 }

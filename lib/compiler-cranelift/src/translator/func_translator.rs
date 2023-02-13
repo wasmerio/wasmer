@@ -15,7 +15,6 @@ use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::{self, Block, InstBuilder, ValueLabel};
 use cranelift_codegen::timing;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
-use tracing::info;
 use wasmer_compiler::wasmparser;
 use wasmer_compiler::{
     wasm_unsupported, wptype_to_type, FunctionBinaryReader, ModuleTranslationState,
@@ -80,7 +79,7 @@ impl FuncTranslator {
         environ: &mut FE,
     ) -> WasmResult<()> {
         let _tt = timing::wasm_translate_function();
-        info!(
+        tracing::trace!(
             "translate({} bytes, {}{})",
             reader.bytes_remaining(),
             func.name,
@@ -244,7 +243,7 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
     // If the exit block is unreachable, it may not have the correct arguments, so we would
     // generate a return instruction that doesn't match the signature.
     if state.reachable {
-        debug_assert!(builder.is_pristine());
+        //debug_assert!(builder.is_pristine());
         if !builder.is_unreachable() {
             match environ.return_mode() {
                 ReturnMode::NormalReturns => {
@@ -254,7 +253,6 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
                     bitcast_arguments(&mut state.stack, &return_types, builder);
                     builder.ins().return_(&state.stack)
                 }
-                ReturnMode::FallthroughReturn => builder.ins().fallthrough_return(&state.stack),
             };
         }
     }

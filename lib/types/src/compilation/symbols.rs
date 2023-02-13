@@ -14,21 +14,15 @@ use serde::{Deserialize, Serialize};
 
 /// The kinds of wasmer_types objects that might be found in a native object file.
 #[derive(
-    RkyvSerialize,
-    RkyvDeserialize,
-    Archive,
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    Debug,
+    RkyvSerialize, RkyvDeserialize, Archive, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive(as = "Self")]
 pub enum Symbol {
+    /// A metadata section, indexed by a unique prefix
+    /// (usually the wasm file SHA256 hash)
+    Metadata,
+
     /// A function defined in the wasm.
     LocalFunction(LocalFunctionIndex),
 
@@ -154,6 +148,9 @@ impl ModuleMetadata {
 impl SymbolRegistry for ModuleMetadataSymbolRegistry {
     fn symbol_to_name(&self, symbol: Symbol) -> String {
         match symbol {
+            Symbol::Metadata => {
+                format!("WASMER_METADATA_{}", self.prefix.to_uppercase())
+            }
             Symbol::LocalFunction(index) => {
                 format!("wasmer_function_{}_{}", self.prefix, index.index())
             }
@@ -176,7 +173,10 @@ impl SymbolRegistry for ModuleMetadataSymbolRegistry {
     }
 
     fn name_to_symbol(&self, name: &str) -> Option<Symbol> {
-        if let Some(index) = name.strip_prefix(&format!("wasmer_function_{}_", self.prefix)) {
+        if name == self.symbol_to_name(Symbol::Metadata) {
+            Some(Symbol::Metadata)
+        } else if let Some(index) = name.strip_prefix(&format!("wasmer_function_{}_", self.prefix))
+        {
             index
                 .parse::<u32>()
                 .ok()

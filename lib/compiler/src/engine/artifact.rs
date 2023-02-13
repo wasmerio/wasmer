@@ -23,22 +23,20 @@ use wasmer_object::{emit_compilation, emit_data, get_object_for_target, Object};
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use wasmer_types::compilation::symbols::ModuleMetadata;
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
+#[cfg(feature = "static-artifact-create")]
+use wasmer_types::CompileModuleInfo;
 use wasmer_types::MetadataHeader;
 #[cfg(feature = "static-artifact-load")]
 use wasmer_types::SerializableCompilation;
 use wasmer_types::{
     CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
-    MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializableModule, SerializeError,
-    SignatureIndex, TableIndex,
+    MemoryIndex, ModuleInfo, OwnedDataInitializer, SignatureIndex, TableIndex, Target,
 };
-#[cfg(feature = "static-artifact-create")]
-use wasmer_types::{CompileModuleInfo, Target};
+use wasmer_types::{SerializableModule, SerializeError};
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
-use wasmer_vm::{InstanceAllocator, InstanceHandle, StoreObjects, TrapHandlerFn, VMExtern};
+use wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMExtern, VMInstance};
 
-/// A compiled wasm module, ready to be instantiated.
-pub struct Artifact {
-    artifact: ArtifactBuild,
+pub struct AllocatedArtifact {
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
@@ -48,11 +46,13 @@ pub struct Artifact {
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 }
 
-#[cfg(feature = "static-artifact-create")]
-pub type PrefixerFn = Box<dyn Fn(&[u8]) -> String + Send>;
-
-#[cfg(feature = "static-artifact-create")]
-const WASMER_METADATA_SYMBOL: &[u8] = b"WASMER_METADATA";
+/// A compiled wasm module, ready to be instantiated.
+pub struct Artifact {
+    artifact: ArtifactBuild,
+    // The artifact will only be allocated in memory in case we can execute it
+    // (that means, if the target != host then this will be None).
+    allocated: Option<AllocatedArtifact>,
+}
 
 impl Artifact {
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
@@ -62,8 +62,8 @@ impl Artifact {
         data: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Self, CompileError> {
-        let environ = ModuleEnvironment::new();
         let mut inner_engine = engine.inner_mut();
+        let environ = ModuleEnvironment::new();
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
         let module = translation.module;
         let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = module
@@ -85,7 +85,14 @@ impl Artifact {
             table_styles,
         )?;
 
-        Self::from_parts(&mut inner_engine, artifact)
+        Self::from_parts(&mut inner_engine, artifact, engine.target())
+    }
+
+    /// This indicates if the Artifact is allocated and can be run by the current
+    /// host. In case it can't be run (for example, if the artifact is cross compiled to
+    /// other architecture), it will return false.
+    pub fn allocated(&self) -> bool {
+        self.allocated.is_some()
     }
 
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
@@ -126,14 +133,22 @@ impl Artifact {
         let serializable = SerializableModule::deserialize(metadata_slice)?;
         let artifact = ArtifactBuild::from_serializable(serializable);
         let mut inner_engine = engine.inner_mut();
-        Self::from_parts(&mut inner_engine, artifact).map_err(DeserializeError::Compiler)
+        Self::from_parts(&mut inner_engine, artifact, engine.target())
+            .map_err(DeserializeError::Compiler)
     }
 
     /// Construct a `ArtifactBuild` from component parts.
     pub fn from_parts(
         engine_inner: &mut EngineInner,
         artifact: ArtifactBuild,
+        target: &Target,
     ) -> Result<Self, CompileError> {
+        if !target.is_native() {
+            return Ok(Self {
+                artifact,
+                allocated: None,
+            });
+        }
         let module_info = artifact.create_module_info();
         let (
             finished_functions,
@@ -204,12 +219,14 @@ impl Artifact {
 
         Ok(Self {
             artifact,
-            finished_functions,
-            finished_function_call_trampolines,
-            finished_dynamic_function_trampolines,
-            signatures,
-            frame_info_registration: Some(Mutex::new(None)),
-            finished_function_lengths,
+            allocated: Some(AllocatedArtifact {
+                finished_functions,
+                finished_function_call_trampolines,
+                finished_dynamic_function_trampolines,
+                signatures,
+                frame_info_registration: Some(Mutex::new(None)),
+                finished_function_lengths,
+            }),
         })
     }
 
@@ -254,7 +271,13 @@ impl Artifact {
     ///
     /// This is required to ensure that any traps can be properly symbolicated.
     pub fn register_frame_info(&self) {
-        if let Some(frame_info_registration) = self.frame_info_registration.as_ref() {
+        if let Some(frame_info_registration) = self
+            .allocated
+            .as_ref()
+            .expect("It must be allocated")
+            .frame_info_registration
+            .as_ref()
+        {
             let mut info = frame_info_registration.lock().unwrap();
 
             if info.is_some() {
@@ -262,10 +285,20 @@ impl Artifact {
             }
 
             let finished_function_extents = self
+                .allocated
+                .as_ref()
+                .expect("It must be allocated")
                 .finished_functions
                 .values()
                 .copied()
-                .zip(self.finished_function_lengths.values().copied())
+                .zip(
+                    self.allocated
+                        .as_ref()
+                        .expect("It must be allocated")
+                        .finished_function_lengths
+                        .values()
+                        .copied(),
+                )
                 .map(|(ptr, length)| FunctionExtent { ptr, length })
                 .collect::<PrimaryMap<LocalFunctionIndex, _>>()
                 .into_boxed_slice();
@@ -282,13 +315,21 @@ impl Artifact {
     /// Returns the functions allocated in memory or this `Artifact`
     /// ready to be run.
     pub fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
-        &self.finished_functions
+        &self
+            .allocated
+            .as_ref()
+            .expect("It must be allocated")
+            .finished_functions
     }
 
     /// Returns the function call trampolines allocated in memory of this
     /// `Artifact`, ready to be run.
     pub fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
-        &self.finished_function_call_trampolines
+        &self
+            .allocated
+            .as_ref()
+            .expect("It must be allocated")
+            .finished_function_call_trampolines
     }
 
     /// Returns the dynamic function trampolines allocated in memory
@@ -296,12 +337,20 @@ impl Artifact {
     pub fn finished_dynamic_function_trampolines(
         &self,
     ) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr> {
-        &self.finished_dynamic_function_trampolines
+        &self
+            .allocated
+            .as_ref()
+            .expect("It must be allocated")
+            .finished_dynamic_function_trampolines
     }
 
     /// Returns the associated VM signatures for this `Artifact`.
     pub fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
-        &self.signatures
+        &self
+            .allocated
+            .as_ref()
+            .expect("It must be allocated")
+            .signatures
     }
 
     /// Do preinstantiation logic that is executed before instantiating
@@ -313,13 +362,13 @@ impl Artifact {
     ///
     /// # Safety
     ///
-    /// See [`InstanceHandle::new`].
+    /// See [`VMInstance::new`].
     pub unsafe fn instantiate(
         &self,
         tunables: &dyn Tunables,
         imports: &[VMExtern],
         context: &mut StoreObjects,
-    ) -> Result<InstanceHandle, InstantiationError> {
+    ) -> Result<VMInstance, InstantiationError> {
         // Validate the CPU features this module was compiled with against the
         // host CPU features.
         let host_cpu_features = CpuFeature::for_host();
@@ -373,7 +422,7 @@ impl Artifact {
 
         self.register_frame_info();
 
-        let handle = InstanceHandle::new(
+        let handle = VMInstance::new(
             allocator,
             module,
             context,
@@ -389,15 +438,15 @@ impl Artifact {
         Ok(handle)
     }
 
-    /// Finishes the instantiation of a just created `InstanceHandle`.
+    /// Finishes the instantiation of a just created `VMInstance`.
     ///
     /// # Safety
     ///
-    /// See [`InstanceHandle::finish_instantiation`].
+    /// See [`VMInstance::finish_instantiation`].
     pub unsafe fn finish_instantiation(
         &self,
         trap_handler: Option<*const TrapHandlerFn<'static>>,
-        handle: &mut InstanceHandle,
+        handle: &mut VMInstance,
     ) -> Result<(), InstantiationError> {
         let data_initializers = self
             .data_initializers()
@@ -415,7 +464,7 @@ impl Artifact {
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "static-artifact-create")]
     /// Generate a compilation
-    fn generate_metadata<'data>(
+    pub fn generate_metadata<'data>(
         data: &'data [u8],
         compiler: &dyn Compiler,
         tunables: &dyn Tunables,
@@ -463,16 +512,65 @@ impl Artifact {
         ))
     }
 
+    /// Generate the metadata object for the module
+    #[cfg(feature = "static-artifact-create")]
+    #[allow(clippy::type_complexity)]
+    pub fn metadata<'data, 'a>(
+        compiler: &dyn Compiler,
+        data: &'a [u8],
+        metadata_prefix: Option<&str>,
+        target: &'data Target,
+        tunables: &dyn Tunables,
+        features: &Features,
+    ) -> Result<
+        (
+            ModuleMetadata,
+            Option<ModuleTranslationState>,
+            PrimaryMap<LocalFunctionIndex, FunctionBodyData<'a>>,
+        ),
+        CompileError,
+    > {
+        #[allow(dead_code)]
+        let (compile_info, function_body_inputs, data_initializers, module_translation) =
+            Self::generate_metadata(data, compiler, tunables, features)?;
+
+        let data_initializers = data_initializers
+            .iter()
+            .map(OwnedDataInitializer::new)
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+
+        // TODO: we currently supply all-zero function body lengths.
+        // We don't know the lengths until they're compiled, yet we have to
+        // supply the metadata as an input to the compile.
+        let function_body_lengths = function_body_inputs
+            .keys()
+            .map(|_function_body| 0u64)
+            .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
+
+        let metadata = ModuleMetadata {
+            compile_info,
+            prefix: metadata_prefix.map(|s| s.to_string()).unwrap_or_default(),
+            data_initializers,
+            function_body_lengths,
+            cpu_features: target.cpu_features().as_u64(),
+        };
+
+        Ok((metadata, module_translation, function_body_inputs))
+    }
+
     /// Compile a module into an object file, which can be statically linked against.
     ///
-    /// The `prefixer` returns the a String to prefix each of the
-    /// functions in the static object generated by the
-    /// so we can assure no collisions.
+    /// The `metadata_prefix` is an optional prefix for the object name to make the
+    /// function names in the object file unique. When set, the function names will
+    /// be `wasmer_function_{prefix}_{id}` and the object metadata will be addressable
+    /// using `WASMER_METADATA_{prefix}_LENGTH` and `WASMER_METADATA_{prefix}_DATA`.
+    ///
     #[cfg(feature = "static-artifact-create")]
     pub fn generate_object<'data>(
         compiler: &dyn Compiler,
         data: &[u8],
-        prefixer: Option<PrefixerFn>,
+        metadata_prefix: Option<&str>,
         target: &'data Target,
         tunables: &dyn Tunables,
         features: &Features,
@@ -485,37 +583,16 @@ impl Artifact {
         ),
         CompileError,
     > {
+        use wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, SymbolRegistry};
+
         fn to_compile_error(err: impl std::error::Error) -> CompileError {
             CompileError::Codegen(format!("{}", err))
         }
 
-        #[allow(dead_code)]
-        let (compile_info, function_body_inputs, data_initializers, module_translation) =
-            Self::generate_metadata(data, compiler, tunables, features)?;
-
-        let data_initializers = data_initializers
-            .iter()
-            .map(OwnedDataInitializer::new)
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
-
         let target_triple = target.triple();
-
-        // TODO: we currently supply all-zero function body lengths.
-        // We don't know the lengths until they're compiled, yet we have to
-        // supply the metadata as an input to the compile.
-        let function_body_lengths = function_body_inputs
-            .keys()
-            .map(|_function_body| 0u64)
-            .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
-
-        let mut metadata = ModuleMetadata {
-            compile_info,
-            prefix: prefixer.as_ref().map(|p| p(data)).unwrap_or_default(),
-            data_initializers,
-            function_body_lengths,
-            cpu_features: target.cpu_features().as_u64(),
-        };
+        let (mut metadata, module_translation, function_body_inputs) =
+            Self::metadata(compiler, data, metadata_prefix, target, tunables, features)
+                .map_err(to_compile_error)?;
 
         /*
         In the C file we need:
@@ -550,7 +627,12 @@ impl Artifact {
             )?;
         let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
 
-        emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary, 1)
+        let object_name = ModuleMetadataSymbolRegistry {
+            prefix: metadata_prefix.unwrap_or_default().to_string(),
+        }
+        .symbol_to_name(wasmer_types::Symbol::Metadata);
+
+        emit_data(&mut obj, object_name.as_bytes(), &metadata_binary, 1)
             .map_err(to_compile_error)?;
 
         emit_compilation(&mut obj, compilation, &symbol_registry, target_triple)
@@ -694,14 +776,16 @@ impl Artifact {
 
         Ok(Self {
             artifact,
-            finished_functions: finished_functions.into_boxed_slice(),
-            finished_function_call_trampolines: finished_function_call_trampolines
-                .into_boxed_slice(),
-            finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
-                .into_boxed_slice(),
-            signatures: signatures.into_boxed_slice(),
-            finished_function_lengths,
-            frame_info_registration: None,
+            allocated: Some(AllocatedArtifact {
+                finished_functions: finished_functions.into_boxed_slice(),
+                finished_function_call_trampolines: finished_function_call_trampolines
+                    .into_boxed_slice(),
+                finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
+                    .into_boxed_slice(),
+                signatures: signatures.into_boxed_slice(),
+                finished_function_lengths,
+                frame_info_registration: None,
+            }),
         })
     }
 }

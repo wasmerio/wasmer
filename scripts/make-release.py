@@ -63,7 +63,7 @@ def make_release(version):
         raise Exception("could not clone github repo")
 
     # generate changelog
-    proc = subprocess.Popen(['gh', "search", "prs", "--repo", "wasmerio/wasmer", "--merged", "--limit", "100"], stdout = subprocess.PIPE, cwd = temp_dir.name)
+    proc = subprocess.Popen(['gh', "search", "prs", "--repo", "wasmerio/wasmer", "--merged", "--limit", "100", "--sort", "updated"], stdout = subprocess.PIPE, cwd = temp_dir.name)
     proc.wait()
     if proc.returncode != 0:
         print(proc.stdout)
@@ -120,7 +120,7 @@ def make_release(version):
     for l in changelog:
         print("        " + l)
 
-    proc = subprocess.Popen(['gh','search', "prs", "--repo", "wasmerio/wasmer", "--merged"], stdout = subprocess.PIPE, cwd = temp_dir.name)
+    proc = subprocess.Popen(['gh','search', "prs", "--repo", "wasmerio/wasmer", "--merged", "--sort", "updated"], stdout = subprocess.PIPE, cwd = temp_dir.name)
     proc.wait()
 
     already_released_str = ""
@@ -151,7 +151,7 @@ def make_release(version):
         proc = subprocess.Popen(['git','checkout', "-b", "release-" + RELEASE_VERSION], stdout = subprocess.PIPE, cwd = temp_dir.name)
         proc.wait()
         
-        proc = subprocess.Popen(['git','pull', "origin", "release-" + RELEASE_VERSION], stdout = subprocess.PIPE, cwd = temp_dir.name)
+        proc = subprocess.Popen(['git','pull', "origin", "release-" + RELEASE_VERSION, "--depth", "1"], stdout = subprocess.PIPE, cwd = temp_dir.name)
         proc.wait()
 
         proc = subprocess.Popen(['git','log', "--oneline"], stdout = subprocess.PIPE, cwd = temp_dir.name)
@@ -170,7 +170,7 @@ def make_release(version):
                 print(line.rstrip())
             raise Exception("could not run git checkout -b release-" + RELEASE_VERSION)
 
-        replace(temp_dir.name + "/CHANGELOG.md", "## **Unreleased**", "\r\n".join(changelog))
+        replace(temp_dir.name + "/CHANGELOG.md", "## **Unreleased**", "\n".join(changelog))
 
         proc = subprocess.Popen(['git','commit', "-am", "Update CHANGELOG"], stdout = subprocess.PIPE, cwd = temp_dir.name)
         proc.wait()
@@ -331,14 +331,14 @@ def make_release(version):
     while not(already_released):
 
         print("git pull origin master...")
-        proc = subprocess.Popen(['git','pull', "origin", "master"], stdout = subprocess.PIPE, cwd = temp_dir.name)
+        proc = subprocess.Popen(['git','pull', "origin", "master", "--depth", "1"], stdout = subprocess.PIPE, cwd = temp_dir.name)
         proc.wait()
         if proc.returncode != 0:
             for line in proc.stdout:
                 print(line.rstrip())
             raise Exception("could not pull origin ")
         
-        proc = subprocess.Popen(['gh','search', "prs", "--repo", "wasmerio/wasmer", "--merged"], stdout = subprocess.PIPE, cwd = temp_dir.name)
+        proc = subprocess.Popen(['gh','search', "prs", "--repo", "wasmerio/wasmer", "--merged", "--sort", "updated"], stdout = subprocess.PIPE, cwd = temp_dir.name)
         proc.wait()
 
         github_link_line = ""

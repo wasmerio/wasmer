@@ -12,8 +12,7 @@ use crate::translator::{
     compiled_function_unwind_info, irlibcall_to_libcall, irreloc_to_relocationkind,
     signature_to_cranelift_ir, CraneliftUnwindInfo, FuncTranslator,
 };
-use cranelift_codegen::ir::ExternalName;
-use cranelift_codegen::print_errors::pretty_error;
+use cranelift_codegen::ir::{ExternalName, UserFuncName};
 use cranelift_codegen::{ir, MachReloc};
 use cranelift_codegen::{Context, MachTrap};
 #[cfg(feature = "unwind")]
@@ -52,6 +51,10 @@ impl CraneliftCompiler {
 }
 
 impl Compiler for CraneliftCompiler {
+    fn name(&self) -> &str {
+        "cranelift"
+    }
+
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
         &self.config.middlewares
@@ -123,7 +126,18 @@ impl Compiler for CraneliftCompiler {
                     &memory_styles,
                     &table_styles,
                 );
-                context.func.name = get_function_name(func_index);
+                context.func.name = match get_function_name(func_index) {
+                    ExternalName::User(nameref) => {
+                        if context.func.params.user_named_funcs().is_valid(nameref) {
+                            let name = &context.func.params.user_named_funcs()[nameref];
+                            UserFuncName::User(name.clone())
+                        } else {
+                            UserFuncName::default()
+                        }
+                    }
+                    ExternalName::TestCase(testcase) => UserFuncName::Testcase(testcase),
+                    _ => UserFuncName::default(),
+                };
                 context.func.signature = signatures[module.functions[func_index]].clone();
                 // if generate_debug_info {
                 //     context.func.collect_debug_info();
@@ -147,9 +161,9 @@ impl Compiler for CraneliftCompiler {
                 let mut code_buf: Vec<u8> = Vec::new();
                 context
                     .compile_and_emit(&*isa, &mut code_buf)
-                    .map_err(|error| CompileError::Codegen(pretty_error(&context.func, error)))?;
+                    .map_err(|error| CompileError::Codegen(error.inner.to_string()))?;
 
-                let result = context.mach_compile_result.as_ref().unwrap();
+                let result = context.compiled_code().unwrap();
                 let func_relocs = result
                     .buffer
                     .relocs()
@@ -224,7 +238,18 @@ impl Compiler for CraneliftCompiler {
                     memory_styles,
                     table_styles,
                 );
-                context.func.name = get_function_name(func_index);
+                context.func.name = match get_function_name(func_index) {
+                    ExternalName::User(nameref) => {
+                        if context.func.params.user_named_funcs().is_valid(nameref) {
+                            let name = &context.func.params.user_named_funcs()[nameref];
+                            UserFuncName::User(name.clone())
+                        } else {
+                            UserFuncName::default()
+                        }
+                    }
+                    ExternalName::TestCase(testcase) => UserFuncName::Testcase(testcase),
+                    _ => UserFuncName::default(),
+                };
                 context.func.signature = signatures[module.functions[func_index]].clone();
                 // if generate_debug_info {
                 //     context.func.collect_debug_info();
@@ -248,9 +273,9 @@ impl Compiler for CraneliftCompiler {
                 let mut code_buf: Vec<u8> = Vec::new();
                 context
                     .compile_and_emit(&*isa, &mut code_buf)
-                    .map_err(|error| CompileError::Codegen(pretty_error(&context.func, error)))?;
+                    .map_err(|error| CompileError::Codegen(error.inner.to_string()))?;
 
-                let result = context.mach_compile_result.as_ref().unwrap();
+                let result = context.compiled_code().unwrap();
                 let func_relocs = result
                     .buffer
                     .relocs()
@@ -397,11 +422,11 @@ fn mach_reloc_to_reloc(module: &ModuleInfo, reloc: &MachReloc) -> Relocation {
         ref name,
         addend,
     } = reloc;
-    let reloc_target = if let ExternalName::User { namespace, index } = *name {
-        debug_assert_eq!(namespace, 0);
+    let reloc_target = if let ExternalName::User(extname_ref) = *name {
+        //debug_assert_eq!(namespace, 0);
         RelocationTarget::LocalFunc(
             module
-                .local_func_index(FunctionIndex::from_u32(index))
+                .local_func_index(FunctionIndex::from_u32(extname_ref.as_u32()))
                 .expect("The provided function should be local"),
         )
     } else if let ExternalName::LibCall(libcall) = *name {

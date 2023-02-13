@@ -1,8 +1,4 @@
-use crate::sys::InstantiationError;
-use crate::AsStoreMut;
-use crate::AsStoreRef;
 use bytes::Bytes;
-use std::borrow::Cow;
 use std::fmt;
 use std::io;
 use std::path::Path;
@@ -17,7 +13,11 @@ use wasmer_types::{
     CompileError, DeserializeError, ExportsIterator, ImportsIterator, ModuleInfo, SerializeError,
 };
 use wasmer_types::{ExportType, ImportType};
-use wasmer_vm::InstanceHandle;
+
+#[cfg(feature = "compiler")]
+use crate::{sys::InstantiationError, AsStoreMut, AsStoreRef, IntoBytes};
+#[cfg(feature = "compiler")]
+use wasmer_vm::VMInstance;
 
 /// IO Error on a Module Compilation
 #[derive(Error, Debug)]
@@ -56,46 +56,6 @@ pub struct Module {
     // ownership of the code and its metadata.
     artifact: Arc<Artifact>,
     module_info: Arc<ModuleInfo>,
-}
-
-pub trait IntoBytes {
-    fn into_bytes(self) -> Bytes;
-}
-
-impl IntoBytes for Bytes {
-    fn into_bytes(self) -> Bytes {
-        self
-    }
-}
-
-impl IntoBytes for Vec<u8> {
-    fn into_bytes(self) -> Bytes {
-        Bytes::from(self)
-    }
-}
-
-impl IntoBytes for &[u8] {
-    fn into_bytes(self) -> Bytes {
-        Bytes::from(self.to_vec())
-    }
-}
-
-impl<const N: usize> IntoBytes for &[u8; N] {
-    fn into_bytes(self) -> Bytes {
-        Bytes::from(self.to_vec())
-    }
-}
-
-impl IntoBytes for &str {
-    fn into_bytes(self) -> Bytes {
-        Bytes::from(self.as_bytes().to_vec())
-    }
-}
-
-impl IntoBytes for Cow<'_, [u8]> {
-    fn into_bytes(self) -> Bytes {
-        Bytes::from(self.to_vec())
-    }
 }
 
 impl Module {
@@ -307,11 +267,11 @@ impl Module {
     /// # }
     /// ```
     pub unsafe fn deserialize(
-        store: &impl AsStoreRef,
+        engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
         let bytes = bytes.into_bytes();
-        let artifact = store.as_store_ref().engine().deserialize(&bytes)?;
+        let artifact = engine.as_engine_ref().engine().deserialize(&bytes)?;
         Ok(Self::from_artifact(artifact))
     }
 
@@ -334,11 +294,11 @@ impl Module {
     /// # }
     /// ```
     pub unsafe fn deserialize_from_file(
-        store: &impl AsStoreRef,
+        engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        let artifact = store
-            .as_store_ref()
+        let artifact = engine
+            .as_engine_ref()
             .engine()
             .deserialize_from_file(path.as_ref())?;
         Ok(Self::from_artifact(artifact))
@@ -356,7 +316,12 @@ impl Module {
         &self,
         store: &mut impl AsStoreMut,
         imports: &[crate::Extern],
-    ) -> Result<InstanceHandle, InstantiationError> {
+    ) -> Result<VMInstance, InstantiationError> {
+        if !self.artifact.allocated() {
+            // Return an error mentioning that the artifact is compiled for a different
+            // platform.
+            return Err(InstantiationError::DifferentArchOS);
+        }
         // Ensure all imports come from the same context.
         for import in imports {
             if !import.is_from_store(store) {

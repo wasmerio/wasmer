@@ -2,12 +2,13 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::string::{String, ToString};
 
+use wasmer_types::RawValue;
 use wasmer_types::Type;
 
 //use crate::ExternRef;
 use crate::js::externals::function::Function;
 
-use super::store::{AsStoreMut, AsStoreRef};
+use super::store::AsStoreRef;
 
 /// WebAssembly computations manipulate values of basic value types:
 /// * Integers (32 or 64 bit width)
@@ -86,23 +87,25 @@ impl Value {
     }
 
     /// Converts the `Value` into a `f64`.
-    pub fn as_raw(&self, store: &impl AsStoreRef) -> f64 {
+    pub fn as_raw(&self, _store: &impl AsStoreRef) -> f64 {
         match *self {
             Self::I32(v) => v as f64,
             Self::I64(v) => v as f64,
             Self::F32(v) => v as f64,
             Self::F64(v) => v,
             Self::V128(v) => v as f64,
-            Self::FuncRef(Some(ref f)) => f
-                .handle
-                .get(store.as_store_ref().objects())
-                .function
-                .as_f64()
-                .unwrap_or(0_f64), //TODO is this correct?
+            Self::FuncRef(Some(ref f)) => f.handle.function.as_f64().unwrap_or(0_f64), //TODO is this correct?
 
             Self::FuncRef(None) => 0_f64,
             //Self::ExternRef(Some(ref e)) => unsafe { *e.address().0 } as .into_raw(),
             //Self::ExternRef(None) =>  externref: 0 },
+        }
+    }
+
+    /// Converts the `Value` into a `RawValue`.
+    pub unsafe fn as_raw_value(&self, store: &impl AsStoreRef) -> RawValue {
+        RawValue {
+            f64: self.as_raw(store),
         }
     }
 

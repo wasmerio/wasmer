@@ -6,13 +6,13 @@ use crate::commands::Binfmt;
 use crate::commands::Compile;
 #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
 use crate::commands::CreateExe;
-#[cfg(feature = "static-artifact-create")]
-use crate::commands::CreateObj;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
 use crate::commands::{
-    Add, Cache, Config, Inspect, List, Login, Run, SelfUpdate, Validate, Whoami,
+    Add, Cache, Config, Init, Inspect, List, Login, Publish, Run, SelfUpdate, Validate, Whoami,
 };
+#[cfg(feature = "static-artifact-create")]
+use crate::commands::{CreateObj, GenCHeader};
 use crate::error::PrettyError;
 use clap::{CommandFactory, ErrorKind, Parser};
 
@@ -45,6 +45,10 @@ enum WasmerCLIOptions {
 
     /// Login into a wapm.io-like registry
     Login(Login),
+
+    /// Login into a wapm.io-like registry
+    #[clap(name = "publish")]
+    Publish(Publish),
 
     /// Wasmer cache
     #[clap(subcommand)]
@@ -124,6 +128,10 @@ enum WasmerCLIOptions {
     #[structopt(name = "create-obj", verbatim_doc_comment)]
     CreateObj(CreateObj),
 
+    /// Generate the C static_defs.h header file for the input .wasm module
+    #[cfg(feature = "static-artifact-create")]
+    GenCHeader(GenCHeader),
+
     /// Get various configuration information needed
     /// to compile programs which use Wasmer
     Config(Config),
@@ -134,6 +142,10 @@ enum WasmerCLIOptions {
 
     /// Inspect a WebAssembly file
     Inspect(Inspect),
+
+    /// Initializes a new wasmer.toml file
+    #[clap(name = "init")]
+    Init(Init),
 
     /// Run spec testsuite
     #[cfg(feature = "wast")]
@@ -165,8 +177,12 @@ impl WasmerCLIOptions {
             Self::CreateObj(create_obj) => create_obj.execute(),
             Self::Config(config) => config.execute(),
             Self::Inspect(inspect) => inspect.execute(),
+            Self::Init(init) => init.execute(),
             Self::List(list) => list.execute(),
             Self::Login(login) => login.execute(),
+            Self::Publish(publish) => publish.execute(),
+            #[cfg(feature = "static-artifact-create")]
+            Self::GenCHeader(gen_heder) => gen_heder.execute(),
             #[cfg(feature = "wast")]
             Self::Wast(wast) => wast.execute(),
             #[cfg(target_os = "linux")]
@@ -224,10 +240,9 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
         WasmerCLIOptions::Run(Run::from_binfmt_args())
     } else {
         match command.unwrap_or(&"".to_string()).as_ref() {
-            "add" | "cache" | "compile" | "config" | "create-exe" | "help" | "inspect" | "run"
-            | "self-update" | "validate" | "wast" | "binfmt" | "list" | "login" => {
-                WasmerCLIOptions::parse()
-            }
+            "add" | "cache" | "compile" | "config" | "create-obj" | "create-exe" | "help"
+            | "gen-c-header" | "inspect" | "init" | "run" | "self-update" | "validate" | "wast"
+            | "binfmt" | "list" | "login" | "publish" => WasmerCLIOptions::parse(),
             _ => {
                 WasmerCLIOptions::try_parse_from(args.iter()).unwrap_or_else(|e| {
                     match e.kind() {

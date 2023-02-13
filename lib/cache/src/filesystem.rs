@@ -4,7 +4,7 @@ use crate::hash::Hash;
 use std::fs::{create_dir_all, File};
 use std::io::{self, Write};
 use std::path::PathBuf;
-use wasmer::{DeserializeError, Module, SerializeError, Store};
+use wasmer::{AsEngineRef, DeserializeError, Module, SerializeError};
 
 /// Representation of a directory that contains compiled wasm artifacts.
 ///
@@ -91,14 +91,24 @@ impl Cache for FileSystemCache {
     type DeserializeError = DeserializeError;
     type SerializeError = SerializeError;
 
-    unsafe fn load(&self, store: &Store, key: Hash) -> Result<Module, Self::DeserializeError> {
+    unsafe fn load(
+        &self,
+        engine: &impl AsEngineRef,
+        key: Hash,
+    ) -> Result<Module, Self::DeserializeError> {
         let filename = if let Some(ref ext) = self.ext {
             format!("{}.{}", key.to_string(), ext)
         } else {
             key.to_string()
         };
         let path = self.path.join(filename);
-        Module::deserialize_from_file(store, path)
+        let ret = Module::deserialize_from_file(engine, path.clone());
+        if ret.is_err() {
+            // If an error occurs while deserializing then we can not trust it anymore
+            // so delete the cache file
+            let _ = std::fs::remove_file(path);
+        }
+        ret
     }
 
     fn store(&mut self, key: Hash, module: &Module) -> Result<(), Self::SerializeError> {

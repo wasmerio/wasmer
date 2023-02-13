@@ -33,7 +33,7 @@ pub trait ArtifactCreate: Send + Sync + Upcastable {
     /// Returns the table plans associated with this `Artifact`.
     fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle>;
 
-    /// Returns data initializers to pass to `InstanceHandle::initialize`
+    /// Returns data initializers to pass to `VMInstance::initialize`
     fn data_initializers(&self) -> &[OwnedDataInitializer];
 
     /// Serializes an artifact into bytes
@@ -42,7 +42,7 @@ pub trait ArtifactCreate: Send + Sync + Upcastable {
     /// Serializes an artifact into a file path
     fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
         let serialized = self.serialize()?;
-        fs::write(&path, serialized)?;
+        fs::write(path, serialized)?;
         Ok(())
     }
 }

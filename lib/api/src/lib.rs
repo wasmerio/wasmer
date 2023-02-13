@@ -368,6 +368,9 @@
 //! to compile it with [`wasm-pack`] and [`wasm-bindgen`]:
 //!
 //! ```ignore
+//! use wasm_bindgen::prelude::*;
+//! use wasmer::{imports, Instance, Module, Store, Value};
+//!
 //! #[wasm_bindgen]
 //! pub extern fn do_add_one_in_wasmer() -> i32 {
 //!     let module_wat = r#"
@@ -382,10 +385,10 @@
 //!     let module = Module::new(&store, &module_wat).unwrap();
 //!     // The module doesn't import anything, so we create an empty import object.
 //!     let import_object = imports! {};
-//!     let instance = Instance::new(&module, &import_object).unwrap();
+//!     let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 //!
 //!     let add_one = instance.exports.get_function("add_one").unwrap();
-//!     let result = add_one.call(&[Value::I32(42)]).unwrap();
+//!     let result = add_one.call(&mut store, &[Value::I32(42)]).unwrap();
 //!     assert_eq!(result[0], Value::I32(43));
 //!
 //!     result[0].unwrap_i32()
@@ -437,3 +440,6 @@ mod js;
 
 #[cfg(feature = "js")]
 pub use js::*;
+
+mod into_bytes;
+pub use into_bytes::IntoBytes;

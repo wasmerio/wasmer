@@ -16,7 +16,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.63
+          toolchain: 1.64
       - name: Install LLVM
         shell: bash
         run: |

@@ -246,11 +246,11 @@ fn static_host_function_without_env(config: crate::Config) -> anyhow::Result<()>
     let mut store = config.store();
 
     fn f(a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
-        (d * 4.0, c * 3.0, b * 2, a * 1)
+        (d * 4.0, c * 3.0, b * 2, a)
     }
 
     fn f_ok(a: i32, b: i64, c: f32, d: f64) -> Result<(f64, f32, i64, i32), Infallible> {
-        Ok((d * 4.0, c * 3.0, b * 2, a * 1))
+        Ok((d * 4.0, c * 3.0, b * 2, a))
     }
 
     fn long_f(
@@ -309,11 +309,11 @@ fn static_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
     let mut store = config.store();
 
     fn f(mut env: FunctionEnvMut<Env>, a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
-        let mut guard = env.data_mut().0.lock().unwrap();
+        let mut guard = env.data().0.lock().unwrap();
         assert_eq!(*guard, 100);
         *guard = 101;
 
-        (d * 4.0, c * 3.0, b * 2, a * 1)
+        (d * 4.0, c * 3.0, b * 2, a)
     }
 
     fn f_ok(
@@ -323,11 +323,11 @@ fn static_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
         c: f32,
         d: f64,
     ) -> Result<(f64, f32, i64, i32), Infallible> {
-        let mut guard = env.data_mut().0.lock().unwrap();
+        let mut guard = env.data().0.lock().unwrap();
         assert_eq!(*guard, 100);
         *guard = 101;
 
-        Ok((d * 4.0, c * 3.0, b * 2, a * 1))
+        Ok((d * 4.0, c * 3.0, b * 2, a))
     }
 
     #[derive(Clone)]
@@ -401,7 +401,7 @@ fn dynamic_host_function_without_env(config: crate::Config) -> anyhow::Result<()
                 Value::F64(values[3].unwrap_f64() * 4.0),
                 Value::F32(values[2].unwrap_f32() * 3.0),
                 Value::I64(values[1].unwrap_i64() * 2),
-                Value::I32(values[0].unwrap_i32() * 1),
+                Value::I32(values[0].unwrap_i32()),
             ])
         },
     );
@@ -448,7 +448,7 @@ fn dynamic_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
             ],
         ),
         |mut env, values| {
-            let mut guard = env.data_mut().0.lock().unwrap();
+            let mut guard = env.data().0.lock().unwrap();
             assert_eq!(*guard, 100);
 
             *guard = 101;
@@ -457,7 +457,7 @@ fn dynamic_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
                 Value::F64(values[3].unwrap_f64() * 4.0),
                 Value::F32(values[2].unwrap_f32() * 3.0),
                 Value::I64(values[1].unwrap_i64() * 2),
-                Value::I32(values[0].unwrap_i32() * 1),
+                Value::I32(values[0].unwrap_i32()),
             ])
         },
     );

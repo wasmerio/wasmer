@@ -92,12 +92,12 @@ unsafe impl Sync for InstanceInner {}
 /// simplified version of `std::sync::Arc`.
 ///
 /// Note for the curious reader: [`InstanceAllocator::new`]
-/// and [`InstanceHandle::new`] will respectively allocate a proper
+/// and [`VMInstance::new`] will respectively allocate a proper
 /// `Instance` and will fill it correctly.
 ///
 /// A little bit of background: The initial goal was to be able to
-/// share an [`Instance`] between an [`InstanceHandle`] and the module
-/// exports, so that one can drop a [`InstanceHandle`] but still being
+/// share an [`Instance`] between an [`VMInstance`] and the module
+/// exports, so that one can drop a [`VMInstance`] but still being
 /// able to use the exports properly.
 #[derive(Debug, PartialEq, Clone)]
 pub struct InstanceRef(Arc<InstanceInner>);

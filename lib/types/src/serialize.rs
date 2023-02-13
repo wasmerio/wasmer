@@ -142,7 +142,7 @@ impl SerializableModule {
         EnumSet::from_u64(self.cpu_features)
     }
 
-    /// Returns data initializers to pass to `InstanceHandle::initialize`
+    /// Returns data initializers to pass to `VMInstance::initialize`
     pub fn data_initializers(&self) -> &[OwnedDataInitializer] {
         &self.data_initializers
     }
@@ -160,7 +160,7 @@ impl SerializableModule {
     /// Serializes an artifact into a file path
     pub fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
         let serialized = self.serialize()?;
-        fs::write(&path, serialized)?;
+        fs::write(path, serialized)?;
         Ok(())
     }
 }
@@ -178,7 +178,7 @@ pub struct MetadataHeader {
 impl MetadataHeader {
     /// Current ABI version. Increment this any time breaking changes are made
     /// to the format of the serialized data.
-    const CURRENT_VERSION: u32 = 1;
+    const CURRENT_VERSION: u32 = 2;
 
     /// Magic number to identify wasmer metadata.
     const MAGIC: [u8; 8] = *b"WASMER\0\0";

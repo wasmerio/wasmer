@@ -62,7 +62,7 @@ fn zero_padding(fields: &Fields) -> TokenStream {
         //
         // This also ensures that all fields implement ValueType.
         out.extend(quote! {
-            ::wasmer::ValueType::zero_padding_bytes(&self.#name, &mut _bytes[#start..(#start + #len)]);
+            ::wasmer_types::ValueType::zero_padding_bytes(&self.#name, &mut _bytes[#start..(#start + #len)]);
         });
 
         let padding_end = if i == fields.len() - 1 {
@@ -101,7 +101,7 @@ pub fn impl_value_type(input: &DeriveInput) -> TokenStream {
     let zero_padding = zero_padding(fields);
 
     quote! {
-        unsafe impl #impl_generics ::wasmer::ValueType for #struct_name #ty_generics #where_clause {
+        unsafe impl #impl_generics ::wasmer_types::ValueType for #struct_name #ty_generics #where_clause {
             #[inline]
             fn zero_padding_bytes(&self, _bytes: &mut [::core::mem::MaybeUninit<u8>]) {
                 #zero_padding

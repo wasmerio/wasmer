@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-vfs"
-version = "3.0.2"
+version = "3.2.0-alpha.1"
 description = "Wasmer Virtual FileSystem"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 license = "MIT"
@@ -13,14 +13,14 @@ tracing = { version = "0.1" }
 typetag = { version = "0.1", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 slab = { version = "0.4", optional = true }
-webc = { version = "3.0.1", optional = true }
+webc = { version = "4.0.0", optional = true }
 anyhow = { version = "1.0.66", optional = true }
 
 [features]
 default = ["host-fs", "mem-fs", "webc-fs", "static-fs"]
 host-fs = ["libc"]
 mem-fs = ["slab"]
-webc-fs = ["webc", "anyhow"]
+webc-fs = ["webc", "mem-fs", "anyhow"]
 static-fs = ["webc", "anyhow", "mem-fs"]
 enable-serde = [
     "serde",

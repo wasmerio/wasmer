@@ -21,7 +21,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.63
+          toolchain: 1.64
           target: ${{ matrix.target }}
       - name: Install wasm32-wasi target
         shell: bash
@@ -35,7 +35,7 @@ jobs:
           make build-wasmer-wasm &&
           mkdir target/wasm32-wasi/release/cloudcompiler
           cp target/wasm32-wasi/release/wasmer-compiler.wasm target/wasm32-wasi/release/cloudcompiler/cloudcompiler.wasm &&
-          cat << EOF > target/wasm32-wasi/release/cloudcompiler/wapm.toml
+          cat << EOF > target/wasm32-wasi/release/cloudcompiler/wasmer.toml
           [package]
           name = "${{ secrets.WAPM_DEV_USERNAME }}/cloudcompiler"
           version = "0.1.0"
@@ -55,17 +55,17 @@ jobs:
           name = "cloudcompiler"
           module = "cloudcompiler"
           EOF
-      - name: Fix wapm.toml version
+      - name: Fix wasmer.toml version
         run: |
           echo $(git tag | tail -n1) > ./version.txt
           v=$(git describe --tags --abbrev=0) && \
           echo "version = ${v}" &&
-          sed -i "s/version = \".*\"/version = \"${v}\"/g" target/wasm32-wasi/release/cloudcompiler/wapm.toml \
+          sed -i "s/version = \".*\"/version = \"${v}\"/g" target/wasm32-wasi/release/cloudcompiler/wasmer.toml \
       - name: Build cloudcompiler.wasm
         shell: bash
         run: |
           git tag &&
-          cat target/wasm32-wasi/release/cloudcompiler/wapm.toml &&
+          cat target/wasm32-wasi/release/cloudcompiler/wasmer.toml &&
           echo "ls" && 
           ls target/wasm32-wasi/release/cloudcompiler
       - name: Publish to WAPM

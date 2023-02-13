@@ -1,3 +1,4 @@
+use core::slice::Iter;
 use std::{
     cell::UnsafeCell,
     fmt,
@@ -7,9 +8,9 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
-use crate::VMExternObj;
-
-use crate::{InstanceHandle, VMFunction, VMFunctionEnvironment, VMGlobal, VMMemory, VMTable};
+use crate::{
+    VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal, VMInstance, VMMemory, VMTable,
+};
 
 /// Unique ID to identify a context.
 ///
@@ -53,21 +54,21 @@ impl_context_object! {
     functions => VMFunction,
     tables => VMTable,
     globals => VMGlobal,
-    instances => InstanceHandle,
+    instances => VMInstance,
     memories => VMMemory,
     extern_objs => VMExternObj,
     function_environments => VMFunctionEnvironment,
 }
 
 /// Set of objects managed by a context.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct StoreObjects {
     id: StoreId,
     memories: Vec<VMMemory>,
     tables: Vec<VMTable>,
     globals: Vec<VMGlobal>,
     functions: Vec<VMFunction>,
-    instances: Vec<InstanceHandle>,
+    instances: Vec<VMInstance>,
     extern_objs: Vec<VMExternObj>,
     function_environments: Vec<VMFunctionEnvironment>,
 }
@@ -99,6 +100,21 @@ impl StoreObjects {
         } else {
             let (low, high) = list.split_at_mut(a.index());
             (&mut high[0], &mut low[a.index()])
+        }
+    }
+
+    /// Return an immutable iterator over all globals
+    pub fn iter_globals(&self) -> Iter<VMGlobal> {
+        self.globals.iter()
+    }
+
+    /// Set a global, at index idx. Will panic if idx is out of range
+    /// Safety: the caller should check taht the raw value is compatible
+    /// with destination VMGlobal type
+    pub fn set_global_unchecked(&self, idx: usize, val: u128) {
+        assert!(idx < self.globals.len());
+        unsafe {
+            self.globals[idx].vmglobal().as_mut().val.u128 = val;
         }
     }
 }
@@ -174,6 +190,11 @@ impl<T: StoreObject> StoreHandle<T> {
     /// Returns the ID of the context associated with the handle.
     pub fn store_id(&self) -> StoreId {
         self.id
+    }
+
+    /// Overrides the store id with a new ID
+    pub fn set_store_id(&mut self, id: StoreId) {
+        self.id = id;
     }
 
     /// Constructs a `StoreHandle` from a `StoreId` and an `InternalStoreHandle`.
