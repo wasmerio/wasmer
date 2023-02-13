@@ -147,7 +147,7 @@ impl Memory {
 
     /// Creates a view into the memory that then allows for
     /// read and write
-    pub fn view(&self, store: &impl AsStoreRef) -> MemoryView {
+    pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
         MemoryView::new(self, store)
     }
 
@@ -217,14 +217,13 @@ impl Memory {
         let amount = view.data_size() as usize;
 
         let new_memory = Self::new(new_store, ty)?;
-        let mut new_view = new_memory.view(&new_store);
-        let new_view_size = new_view.data_size() as usize;
+        let new_view_size = new_memory.view(&new_store).data_size() as usize;
         if amount > new_view_size {
             let delta = amount - new_view_size;
             let pages = ((delta - 1) / WASM_PAGE_SIZE) + 1;
             new_memory.grow(new_store, Pages(pages as u32))?;
-            new_view = new_memory.view(&new_store);
         }
+        let new_view = new_memory.view(&new_store);
 
         // Copy the bytes
         view.copy_to_memory(amount as u64, &new_view)
