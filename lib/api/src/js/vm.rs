@@ -211,3 +211,8 @@ impl VMFunctionEnvironment {
         &mut *self.contents
     }
 }
+
+pub(crate) type VMExternTable = VMTable;
+pub(crate) type VMExternMemory = VMMemory;
+pub(crate) type VMExternGlobal = VMGlobal;
+pub(crate) type VMExternFunction = VMFunction;

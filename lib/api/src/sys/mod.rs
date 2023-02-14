@@ -16,13 +16,19 @@ pub use wasmer_compiler::{Features, FrameInfo, LinkError, RuntimeError, Tunables
 
 // TODO: should those be moved into wasmer::vm as well?
 pub use wasmer_vm::{raise_user_trap, MemoryError};
-pub mod vm {
+pub(crate) mod vm {
     //! The `vm` module re-exports wasmer-vm types.
-
-    pub use wasmer_vm::{
-        MemoryError, MemoryStyle, TableStyle, VMExtern, VMMemory, VMMemoryDefinition,
-        VMOwnedMemory, VMSharedMemory, VMTable, VMTableDefinition,
+    use wasmer_vm::InternalStoreHandle;
+    pub(crate) use wasmer_vm::{
+        MemoryError, MemoryStyle, TableStyle, VMExtern, VMFunction, VMFunctionEnvironment,
+        VMGlobal, VMMemory, VMMemoryDefinition, VMOwnedMemory, VMSharedMemory, VMTable,
+        VMTableDefinition,
     };
+
+    pub(crate) type VMExternTable = InternalStoreHandle<VMTable>;
+    pub(crate) type VMExternMemory = InternalStoreHandle<VMMemory>;
+    pub(crate) type VMExternGlobal = InternalStoreHandle<VMGlobal>;
+    pub(crate) type VMExternFunction = InternalStoreHandle<VMFunction>;
 }
 
 #[cfg(feature = "wat")]

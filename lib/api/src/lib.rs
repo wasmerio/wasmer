@@ -445,6 +445,7 @@ mod ptr;
 mod store;
 mod typed_function;
 mod value;
+pub mod vm;
 
 #[cfg(feature = "sys")]
 mod sys;

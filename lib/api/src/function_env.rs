@@ -1,9 +1,6 @@
 use std::{any::Any, marker::PhantomData};
 
-#[cfg(feature = "js")]
-use crate::js::vm::VMFunctionEnvironment;
-#[cfg(feature = "sys")]
-use wasmer_vm::VMFunctionEnvironment;
+use crate::vm::VMFunctionEnvironment;
 
 use crate::store::{AsStoreMut, AsStoreRef, StoreHandle, StoreMut, StoreObjects, StoreRef};
 
