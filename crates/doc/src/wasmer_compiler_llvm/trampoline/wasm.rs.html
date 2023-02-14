@@ -562,9 +562,9 @@
                 .<span class="ident">func_type_to_llvm</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">ctx</span>, <span class="kw-2">&amp;</span><span class="ident">intrinsics</span>, <span class="prelude-val">None</span>, <span class="ident">ty</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">trampoline_ty</span> <span class="op">=</span> <span class="ident">intrinsics</span>.<span class="ident">void_ty</span>.<span class="ident">fn_type</span>(
             <span class="kw-2">&amp;</span>[
-                <span class="ident">intrinsics</span>.<span class="ident">ctx_ptr_ty</span>.<span class="ident">into</span>(),                     <span class="comment">// vmctx ptr</span>
-                <span class="ident">callee_ty</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::Generic</span>).<span class="ident">into</span>(), <span class="comment">// callee function address</span>
-                <span class="ident">intrinsics</span>.<span class="ident">i128_ptr_ty</span>.<span class="ident">into</span>(),                    <span class="comment">// in/out values ptr</span>
+                <span class="ident">intrinsics</span>.<span class="ident">ctx_ptr_ty</span>.<span class="ident">into</span>(),                       <span class="comment">// vmctx ptr</span>
+                <span class="ident">callee_ty</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::default</span>()).<span class="ident">into</span>(), <span class="comment">// callee function address</span>
+                <span class="ident">intrinsics</span>.<span class="ident">i128_ptr_ty</span>.<span class="ident">into</span>(),                      <span class="comment">// in/out values ptr</span>
             ],
             <span class="bool-val">false</span>,
         );
@@ -572,7 +572,7 @@
         <span class="kw">let</span> <span class="ident">trampoline_func</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">add_function</span>(<span class="ident">name</span>, <span class="ident">trampoline_ty</span>, <span class="prelude-val">Some</span>(<span class="ident">Linkage::External</span>));
         <span class="ident">trampoline_func</span>
             .<span class="ident">as_global_value</span>()
-            .<span class="ident">set_section</span>(<span class="ident">FUNCTION_SECTION</span>);
+            .<span class="ident">set_section</span>(<span class="prelude-val">Some</span>(<span class="ident">FUNCTION_SECTION</span>));
         <span class="ident">trampoline_func</span>
             .<span class="ident">as_global_value</span>()
             .<span class="ident">set_linkage</span>(<span class="ident">Linkage::DLLExport</span>);
@@ -692,7 +692,7 @@
         }
         <span class="ident">trampoline_func</span>
             .<span class="ident">as_global_value</span>()
-            .<span class="ident">set_section</span>(<span class="ident">FUNCTION_SECTION</span>);
+            .<span class="ident">set_section</span>(<span class="prelude-val">Some</span>(<span class="ident">FUNCTION_SECTION</span>));
         <span class="ident">trampoline_func</span>
             .<span class="ident">as_global_value</span>()
             .<span class="ident">set_linkage</span>(<span class="ident">Linkage::DLLExport</span>);
@@ -862,7 +862,7 @@
                 )
             };
             <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span>
-                <span class="ident">builder</span>.<span class="ident">build_pointer_cast</span>(<span class="ident">ptr</span>, <span class="ident">v</span>.<span class="ident">get_type</span>().<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::Generic</span>), <span class="string">&quot;&quot;</span>);
+                <span class="ident">builder</span>.<span class="ident">build_pointer_cast</span>(<span class="ident">ptr</span>, <span class="ident">v</span>.<span class="ident">get_type</span>().<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::default</span>()), <span class="string">&quot;&quot;</span>);
             <span class="ident">builder</span>.<span class="ident">build_store</span>(<span class="ident">ptr</span>, <span class="kw-2">*</span><span class="ident">v</span>);
             <span class="kw">if</span> <span class="ident">v</span>.<span class="ident">get_type</span>() <span class="op">==</span> <span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>.<span class="ident">as_basic_type_enum</span>() {
                 <span class="ident">idx</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
@@ -927,12 +927,12 @@
                 ],
                 <span class="bool-val">false</span>,
             )
-            .<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::Generic</span>);
+            .<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::default</span>());
         <span class="kw">let</span> <span class="ident">vmctx</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">abi</span>.<span class="ident">get_vmctx_ptr_param</span>(<span class="kw-2">&amp;</span><span class="ident">trampoline_func</span>);
         <span class="kw">let</span> <span class="ident">callee</span> <span class="op">=</span> <span class="ident">builder</span>
             .<span class="ident">build_load</span>(
                 <span class="ident">builder</span>
-                    .<span class="ident">build_bitcast</span>(<span class="ident">vmctx</span>, <span class="ident">callee_ty</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::Generic</span>), <span class="string">&quot;&quot;</span>)
+                    .<span class="ident">build_bitcast</span>(<span class="ident">vmctx</span>, <span class="ident">callee_ty</span>.<span class="ident">ptr_type</span>(<span class="ident">AddressSpace::default</span>()), <span class="string">&quot;&quot;</span>)
                     .<span class="ident">into_pointer_value</span>(),
                 <span class="string">&quot;&quot;</span>,
             )
