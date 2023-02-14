@@ -1,20 +1,21 @@
 use anyhow::{bail, Context};
+use derivative::Derivative;
 use std::{
+    any::Any,
+    borrow::Cow,
+    collections::HashMap,
     ops::Deref,
     path::{Path, PathBuf},
     sync::Arc,
 };
-use wasmer_vfs::FileSystem;
+use wasmer_vfs::{FileSystem, TmpFileSystem};
 
 use tracing::*;
 #[allow(unused_imports)]
 use tracing::{error, warn};
 use webc::{Annotation, FsEntryType, UrlOrManifest, WebC};
 
-use crate::{
-    bin_factory::{BinaryPackage, BinaryPackageCommand},
-    VirtualTaskManager, WasiRuntime,
-};
+use crate::{bin_factory::BinaryPackageCommand, VirtualTaskManager, WasiRuntime};
 
 #[cfg(feature = "wapm-tar")]
 mod manifest;
@@ -28,7 +29,7 @@ pub(crate) fn fetch_webc_task(
     webc: &str,
     runtime: &dyn WasiRuntime,
     tasks: &dyn VirtualTaskManager,
-) -> Result<BinaryPackage, anyhow::Error> {
+) -> Result<ParsedWebcPackage, anyhow::Error> {
     let client = runtime
         .http_client()
         .context("no http client available")?
@@ -48,7 +49,7 @@ async fn fetch_webc(
     cache_dir: &str,
     webc: &str,
     client: DynHttpClient,
-) -> Result<BinaryPackage, anyhow::Error> {
+) -> Result<ParsedWebcPackage, anyhow::Error> {
     let name = webc.split_once(':').map(|a| a.0).unwrap_or_else(|| webc);
     let (name, version) = match name.split_once('@') {
         Some((name, version)) => (name, Some(version)),
@@ -118,7 +119,7 @@ fn wapm_extract_version(data: &WapmWebQuery) -> Option<PiritaVersionedDownload> 
     }
 }
 
-pub fn parse_static_webc(data: Vec<u8>) -> Result<BinaryPackage, anyhow::Error> {
+pub fn parse_static_webc(data: Vec<u8>) -> Result<ParsedWebcPackage, anyhow::Error> {
     let options = webc::ParseOptions::default();
     match webc::WebCOwned::parse(data, &options) {
         Ok(webc) => unsafe {
@@ -138,7 +139,7 @@ async fn download_webc(
     name: &str,
     pirita_download_url: String,
     client: DynHttpClient,
-) -> Result<BinaryPackage, anyhow::Error> {
+) -> Result<ParsedWebcPackage, anyhow::Error> {
     let mut name_comps = pirita_download_url
         .split('/')
         .collect::<Vec<_>>()
@@ -268,8 +269,94 @@ async fn download_package(
     response.body.context("HTTP response with empty body")
 }
 
+#[derive(Derivative, Clone)]
+#[derivative(Debug)]
+pub struct ParsedWebcPackage {
+    pub package_name: Cow<'static, str>,
+    pub ownership: Option<Arc<dyn Any + Send + Sync + 'static>>,
+    #[derivative(Debug = "ignore")]
+    pub entry: Option<Cow<'static, [u8]>>,
+    pub hash: String,
+    pub wapm: Option<String>,
+    pub base_dir: Option<String>,
+    pub tmp_fs: TmpFileSystem,
+    pub webc_fs: Option<Arc<dyn FileSystem + Send + Sync + 'static>>,
+    pub webc_top_level_dirs: Vec<String>,
+    pub mappings: Vec<String>,
+    pub envs: HashMap<String, String>,
+    pub commands: Vec<ParsedWebcCommand>,
+    pub uses: Vec<String>,
+    pub version: Cow<'static, str>,
+    pub module_memory_footprint: u64,
+    pub file_system_memory_footprint: u64,
+}
+
+#[derive(Derivative, Clone)]
+#[derivative(Debug)]
+pub struct ParsedWebcCommand {
+    pub name: String,
+    #[derivative(Debug = "ignore")]
+    pub atom: Cow<'static, [u8]>,
+    hash: Option<String>,
+    pub ownership: Option<Arc<dyn Any + Send + Sync + 'static>>,
+}
+
+fn webc_split_version<'a>(name: &'a str) -> (&'a str, Option<&'a str>) {
+    match name.split_once('@') {
+        Some((a, b)) => (a, Some(b)),
+        None => (name, None),
+    }
+}
+
+impl ParsedWebcPackage {
+    pub fn new(package_name: &str, entry: Option<Cow<'static, [u8]>>) -> Self {
+        let (package_name, version) = webc_split_version(package_name);
+        let module_memory_footprint = entry.len();
+        let hash = crate::utils::hash_sha256(&entry);
+
+        Self {
+            hash,
+            package_name: package_name.into(),
+            ownership: None,
+            entry,
+            wapm: None,
+            base_dir: None,
+            tmp_fs: TmpFileSystem::new(),
+            webc_fs: None,
+            webc_top_level_dirs: Default::default(),
+            mappings: Vec::new(),
+            envs: HashMap::default(),
+            commands: Vec::new(),
+            uses: Vec::new(),
+            version: version.into(),
+            module_memory_footprint: entry.len() as u64,
+            file_system_memory_footprint: 0,
+        }
+    }
+
+    /// Hold on to some arbitrary data for the lifetime of this binary pacakge.
+    ///
+    /// # Safety
+    ///
+    /// Must ensure that the entry data will be safe to use as long as the provided
+    /// ownership handle stays alive.
+    pub unsafe fn new_with_ownership<'a, T>(
+        package_name: &str,
+        entry: Cow<'a, [u8]>,
+        ownership: Arc<T>,
+    ) -> Self
+    where
+        T: 'static,
+    {
+        let ownership: Arc<dyn Any> = ownership;
+        let mut ret = Self::new(package_name, std::mem::transmute(entry));
+        ret.ownership = Some(std::mem::transmute(ownership));
+        ret
+    }
+}
+
 // TODO: should return Result<_, anyhow::Error>
-unsafe fn parse_webc<'a, T>(webc: webc::WebC<'a>, ownership: Arc<T>) -> Option<BinaryPackage>
+unsafe fn parse_webc<'a, T>(webc: webc::WebC<'a>, ownership: Arc<T>) -> Option<ParsedWebcPackage>
 where
     T: std::fmt::Debug + Send + Sync + 'static,
     T: Deref<Target = WebC<'static>>,
@@ -314,7 +401,7 @@ where
             }
         })
         .map(|atom| {
-            BinaryPackage::new_with_ownership(
+            ParsedWebcPackage::new_with_ownership(
                 package_name.as_str(),
                 Some(atom.into()),
                 ownership.clone(),
@@ -324,7 +411,7 @@ where
 
     // Otherwise add a package without an entry point
     if pck.is_none() {
-        pck = Some(BinaryPackage::new_with_ownership(
+        pck = Some(ParsedWebcPackage::new_with_ownership(
             package_name.as_str(),
             None,
             ownership.clone(),

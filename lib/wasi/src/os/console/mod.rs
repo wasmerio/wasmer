@@ -11,8 +11,13 @@ use std::{
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
-use crate::vbus::{BusSpawnedProcess, VirtualBusError};
+use crate::{
+    state::WasiStateThreading,
+    vbus::{BusSpawnedProcess, VirtualBusError},
+    WasiRuntimeError, WasiStateCreationError,
+};
 use derivative::*;
+use futures::TryFutureExt;
 use linked_hash_set::LinkedHashSet;
 use tokio::sync::{mpsc, RwLock};
 #[allow(unused_imports, dead_code)]
@@ -24,7 +29,7 @@ use wasmer_wasi_types::{types::__WASI_STDIN_FILENO, wasi::BusErrno};
 
 use super::{cconst::ConsoleConst, common::*};
 use crate::{
-    bin_factory::{spawn_exec, BinFactory, ModuleCache},
+    bin_factory::{spawn_exec, BinFactory},
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
     state::Capabilities,
     VirtualTaskManagerExt, WasiEnv, WasiRuntime,
@@ -49,17 +54,12 @@ pub struct Console {
     prompt: String,
     env: HashMap<String, String>,
     runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
-    compiled_modules: Arc<ModuleCache>,
     stdio: BidiPipe,
     capabilities: Capabilities,
 }
 
 impl Console {
-    pub fn new(
-        runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
-        compiled_modules: Arc<ModuleCache>,
-        stdio: BidiPipe,
-    ) -> Self {
+    pub fn new(runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>, stdio: BidiPipe) -> Self {
         let mut uses = DEFAULT_BOOT_USES
             .iter()
             .map(|a| a.to_string())
@@ -81,7 +81,6 @@ impl Console {
             env: HashMap::new(),
             runtime,
             prompt: "wasmer.sh".to_string(),
-            compiled_modules,
             stdio,
             capabilities: Default::default(),
         }
@@ -131,7 +130,7 @@ impl Console {
         self
     }
 
-    pub fn run(&mut self) -> Result<(BusSpawnedProcess, WasiProcess), VirtualBusError> {
+    pub async fn run(&mut self) -> Result<BusSpawnedProcess, WasiRuntimeError> {
         // Extract the program name from the arguments
         let empty_args: Vec<&[u8]> = Vec::new();
         let (webc, prog, args) = match self.boot_cmd.split_once(' ') {
@@ -169,12 +168,9 @@ impl Console {
             .unwrap()
             .stdout(Box::new(self.stdio.clone()))
             .stderr(Box::new(self.stdio.clone()))
-            .compiled_modules(self.compiled_modules.clone())
             .runtime(self.runtime.clone())
             .capabilities(self.capabilities.clone())
-            .build_init()
-            // TODO: propagate better error
-            .map_err(|_e| VirtualBusError::InternalError)?;
+            .build_init()?;
 
         // TODO: no unwrap!
         let env = WasiEnv::from_init(env_init).unwrap();
@@ -186,47 +182,35 @@ impl Console {
             tasks.block_on(self.draw_welcome());
         }
 
-        let binary = if let Some(binary) =
-            self.compiled_modules
-                .get_webc(webc, self.runtime.deref(), tasks.deref())
-        {
-            binary
-        } else {
-            tasks.block_on(async {
-                self.stdio
-                    .clone()
-                    .write_all(format!("package not found [{}]\r\n", webc).as_bytes())
-                    .await
-                    .ok();
-            });
-            tracing::debug!("failed to get webc dependency - {}", webc);
-            return Err(crate::vbus::VirtualBusError::NotFound);
-        };
-
-        let wasi_process = env.process.clone();
-
         // TODO: fetching dependencies should be moved to the builder!
-        // if let Err(err) = env.uses(self.uses.clone()) {
-        //     tasks.block_on(async {
-        //         let _ = self.runtime.stderr(format!("{}\r\n", err).as_bytes()).await;
-        //     });
-        //     tracing::debug!("failed to load used dependency - {}", err);
-        //     return Err(crate::vbus::VirtualBusError::BadRequest);
-        // }
+        if let Err(err) = env.uses(self.uses.clone()).await {
+            self.stdio
+                .write_all(format!("{}\r\n", err).as_bytes())
+                .await
+                .ok();
+            tracing::debug!("failed to load used dependency - {}", err);
+            return Err(err.into());
+        }
+
+        let pkg = env
+            .bin_factory
+            .resolve_binary(webc, None)
+            .await
+            .map_err(|err| {
+                // TODO: more appropriate error
+                WasiStateCreationError::DependencyNotFound(format!(
+                    "Could not load dependency '{webc}': {err}"
+                ))
+            })?
+            .ok_or_else(|| {
+                WasiStateCreationError::DependencyNotFound(format!("pacakge not found: '{webc}'"))
+            })?;
 
         // Build the config
         // Run the binary
-        let process = spawn_exec(
-            binary,
-            prog,
-            store,
-            env,
-            &self.runtime,
-            self.compiled_modules.as_ref(),
-        )?;
+        let process = spawn_exec(pkg, store, env)?;
 
-        // Return the process
-        Ok((process, wasi_process))
+        Ok(process)
     }
 
     pub async fn draw_welcome(&self) {

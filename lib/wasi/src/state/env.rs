@@ -6,9 +6,8 @@ use std::{
 };
 
 use crate::{
-    bin_factory::ModuleCache, fs::WasiFsRoot, import_object_for_all_wasi_versions,
-    runtime::SpawnType, SpawnedMemory, WasiControlPlane, WasiEnvBuilder, WasiFunctionEnv,
-    WasiRuntimeError,
+    fs::WasiFsRoot, import_object_for_all_wasi_versions, runtime::SpawnType, SpawnedMemory,
+    WasiControlPlane, WasiEnvBuilder, WasiFunctionEnv, WasiRuntimeError,
 };
 use derivative::Derivative;
 use rand::Rng;
@@ -27,13 +26,10 @@ use wasmer_wasi_types::{
 use crate::{
     bin_factory::BinFactory,
     fs::WasiInodes,
-    os::{
-        command::builtins::cmd_wasmer::CmdWasmer,
-        task::{
-            control_plane::ControlPlaneError,
-            process::{WasiProcess, WasiProcessId},
-            thread::{WasiThread, WasiThreadHandle, WasiThreadId},
-        },
+    os::task::{
+        control_plane::ControlPlaneError,
+        process::{WasiProcess, WasiProcessId},
+        thread::{WasiThread, WasiThreadHandle, WasiThreadId},
     },
     syscalls::platform_clock_time_get,
     VirtualTaskManager, WasiError, WasiRuntime, WasiStateCreationError, WasiVFork,
@@ -208,7 +204,6 @@ unsafe impl Sync for WasiInstanceHandles {}
 pub struct WasiEnvInit {
     pub(crate) state: WasiState,
     pub runtime: Arc<dyn WasiRuntime + Send + Sync>,
-    pub module_cache: Arc<ModuleCache>,
     pub webc_dependencies: Vec<String>,
     pub mapped_commands: HashMap<String, PathBuf>,
     pub bin_factory: BinFactory,
@@ -254,7 +249,6 @@ impl WasiEnvInit {
                 preopen: self.state.preopen.clone(),
             },
             runtime: self.runtime.clone(),
-            module_cache: self.module_cache.clone(),
             webc_dependencies: self.webc_dependencies.clone(),
             mapped_commands: self.mapped_commands.clone(),
             bin_factory: self.bin_factory.clone(),
@@ -293,7 +287,6 @@ pub struct WasiEnv {
     pub owned_handles: Vec<WasiThreadHandle>,
     /// Implementation of the WASI runtime.
     pub runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
-    pub module_cache: Arc<ModuleCache>,
 
     pub capabilities: Capabilities,
 }
@@ -331,7 +324,6 @@ impl WasiEnv {
             inner: self.inner.clone(),
             owned_handles: self.owned_handles.clone(),
             runtime: self.runtime.clone(),
-            module_cache: self.module_cache.clone(),
             capabilities: self.capabilities.clone(),
         }
     }
@@ -360,7 +352,6 @@ impl WasiEnv {
             owned_handles: Vec::new(),
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
-            module_cache: self.module_cache.clone(),
         };
         Ok((new_env, handle))
     }
@@ -396,13 +387,9 @@ impl WasiEnv {
             owned_handles: Vec::new(),
             runtime: init.runtime,
             bin_factory: init.bin_factory,
-            module_cache: init.module_cache.clone(),
             capabilities: init.capabilities,
         };
         env.owned_handles.push(thread);
-
-        // TODO: should not be here - should be callers responsibility!
-        env.uses(init.webc_dependencies)?;
 
         #[cfg(feature = "sys")]
         env.map_commands(init.mapped_commands.clone())?;
@@ -763,7 +750,7 @@ impl WasiEnv {
         (memory, state, inodes)
     }
 
-    pub fn uses<I>(&self, uses: I) -> Result<(), WasiStateCreationError>
+    pub async fn uses<I>(&self, uses: I) -> Result<(), WasiRuntimeError>
     where
         I: IntoIterator<Item = String>,
     {
@@ -779,78 +766,67 @@ impl WasiEnv {
 
         let mut use_packages = uses.into_iter().collect::<VecDeque<_>>();
 
-        let cmd_wasmer = self
-            .bin_factory
-            .commands
-            .get("/bin/wasmer")
-            .and_then(|cmd| cmd.as_any().downcast_ref::<CmdWasmer>());
+        while let Some(name) = use_packages.pop_back() {
+            let package = self.bin_factory.must_resolve_binary(&name, None).await?;
 
-        while let Some(use_package) = use_packages.pop_back() {
-            if let Some(package) = cmd_wasmer
-                .as_ref()
-                .and_then(|cmd| cmd.get_package(use_package.clone(), self.tasks().deref()))
-            {
-                // If its already been added make sure the version is correct
-                let package_name = package.package_name.to_string();
-                if let Some(version) = already.get(&package_name) {
-                    if version.as_ref() != package.version.as_ref() {
-                        return Err(WasiStateCreationError::WasiInheritError(format!(
-                            "webc package version conflict for {} - {} vs {}",
-                            use_package, version, package.version
-                        )));
-                    }
-                    continue;
+            // If its already been added make sure the version is correct
+            let package_name = package.package_name.to_string();
+            if let Some(existing_version) = already.get(&package_name) {
+                if existing_version.as_ref() != package.version.as_ref() {
+                    return Err(WasiStateCreationError::WasiInheritError(format!(
+                        "webc package version conflict for {} - {} vs {}",
+                        package_name, existing_version, package.version
+                    ))
+                    .into());
                 }
-                already.insert(package_name, package.version.clone());
+                continue;
+            }
+            already.insert(package_name.clone(), package.version.clone());
 
-                // Add the additional dependencies
-                for dependency in package.uses.clone() {
-                    use_packages.push_back(dependency);
+            // Add the additional dependencies
+            for dependency in package.uses.clone() {
+                use_packages.push_back(dependency);
+            }
+
+            if let WasiFsRoot::Sandbox(root_fs) = &self.state.fs.root_fs {
+                // We first need to copy any files in the package over to the temporary file system
+                if let Some(fs) = package.webc_fs.as_ref() {
+                    root_fs.union(fs);
                 }
 
-                if let WasiFsRoot::Sandbox(root_fs) = &self.state.fs.root_fs {
-                    // We first need to copy any files in the package over to the temporary file system
-                    if let Some(fs) = package.webc_fs.as_ref() {
-                        root_fs.union(fs);
-                    }
-
-                    // Add all the commands as binaries in the bin folder
-                    let commands = package.commands.read().unwrap();
-                    if !commands.is_empty() {
-                        let _ = root_fs.create_dir(Path::new("/bin"));
-                        for command in commands.iter() {
-                            let path = format!("/bin/{}", command.name);
-                            let path = Path::new(path.as_str());
-                            if let Err(err) = root_fs
-                                .new_open_options_ext()
-                                .insert_ro_file(path, command.atom.clone())
-                            {
-                                tracing::debug!(
-                                    "failed to add package [{}] command [{}] - {}",
-                                    use_package,
-                                    command.name,
-                                    err
-                                );
-                                continue;
-                            }
-
-                            // Add the binary package to the bin factory (zero copy the atom)
-                            let mut package = package.clone();
-                            package.entry = Some(command.atom.clone());
-                            self.bin_factory
-                                .set_binary(path.as_os_str().to_string_lossy().as_ref(), package);
+                // Add all the commands as binaries in the bin folder
+                let commands = package.commands.read().unwrap();
+                if !commands.is_empty() {
+                    let _ = root_fs.create_dir(Path::new("/bin"));
+                    for command in commands.iter() {
+                        let path = format!("/bin/{}", command.name);
+                        let path = Path::new(path.as_str());
+                        if let Err(err) = root_fs
+                            .new_open_options_ext()
+                            .insert_ro_file(path, command.atom.clone())
+                        {
+                            tracing::debug!(
+                                "failed to add package [{}] command [{}] - {}",
+                                package_name,
+                                command.name,
+                                err
+                            );
+                            continue;
                         }
+
+                        // Add the binary package to the bin factory (zero copy the atom)
+                        let package = package.clone();
+                        // FIXME: handle!
+                        // package.entry = Some(command.atom.clone());
+                        self.bin_factory
+                            .set_binary(path.as_os_str().to_string_lossy().as_ref(), package);
                     }
-                } else {
-                    return Err(WasiStateCreationError::WasiInheritError(
-                        "failed to add package as the file system is not sandboxed".to_string(),
-                    ));
                 }
             } else {
-                return Err(WasiStateCreationError::WasiInheritError(format!(
-                    "failed to fetch webc package for {}",
-                    use_package
-                )));
+                return Err(WasiStateCreationError::WasiInheritError(
+                    "failed to add package as the file system is not sandboxed".to_string(),
+                )
+                .into());
             }
         }
         Ok(())

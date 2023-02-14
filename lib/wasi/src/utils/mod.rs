@@ -2,14 +2,21 @@ pub mod store;
 mod thread_parker;
 
 mod dummy_waker;
+
 pub use self::dummy_waker::WasiDummyWaker;
 
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet};
 
 use wasmer::Module;
 use wasmer_wasi_types::wasi::Errno;
 
 pub use self::thread_parker::WasiParkingLot;
+
+pub fn hash_sha256(data: impl AsRef<[u8]>) -> String {
+    use sha2::Digest;
+    let hash = sha2::Sha256::digest(data);
+    format!("{:x}", hash)
+}
 
 /// Check if a provided module is compiled for some version of WASI.
 /// Use [`get_wasi_version`] to find out which version of WASI the module is.

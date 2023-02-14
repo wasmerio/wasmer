@@ -1,7 +1,7 @@
 use wasmer_vm::VMMemory;
 
 use super::*;
-use crate::syscalls::*;
+use crate::{bin_factory::SpawnedInstance, syscalls::*};
 
 /// ### `proc_fork()`
 /// Forks the current process into a new subprocess. If the function
@@ -181,7 +181,7 @@ pub fn proc_fork<M: MemorySize>(
 
         // Spawn a new process with this current execution environment
         let signaler = Box::new(child_env.process.clone());
-        let (exit_code_tx, exit_code_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (exit_code_tx, exit_code_rx) = SpawnedInstance::new();
         {
             let store_data = store_data.clone();
             let runtime = runtime.clone();
@@ -290,7 +290,7 @@ pub fn proc_fork<M: MemorySize>(
                 ctx.cleanup((&mut store), Some(ret as ExitCode));
 
                 // Send the result
-                let _ = exit_code_tx.send(ret as u32);
+                let _ = exit_code_tx.on_exit(ret as u32);
                 drop(exit_code_tx);
                 drop(child_handle);
             };
@@ -311,10 +311,7 @@ pub fn proc_fork<M: MemorySize>(
 
         // Add the process to the environment state
         let process = BusSpawnedProcess {
-            inst: Box::new(crate::bin_factory::SpawnedProcess {
-                exit_code: Mutex::new(None),
-                exit_code_rx: Mutex::new(exit_code_rx),
-            }),
+            inst: exit_code_rx,
             stdin: None,
             stdout: None,
             stderr: None,

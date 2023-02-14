@@ -13,9 +13,10 @@ use wasmer::{AsStoreMut, Instance, Module};
 use wasmer_vfs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
 
 use crate::{
-    bin_factory::{BinFactory, ModuleCache},
+    bin_factory::BinFactory,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneError, WasiControlPlane},
+    runtime::ModuleResolver,
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     Capabilities, PluggableRuntimeImplementation, WasiEnv, WasiFunctionEnv, WasiRuntime,
@@ -50,7 +51,7 @@ pub struct WasiEnvBuilder {
     pub(super) preopens: Vec<PreopenedDir>,
     /// Pre-opened virtual directories that will be accessible from WASI.
     vfs_preopens: Vec<String>,
-    pub(super) compiled_modules: Option<Arc<ModuleCache>>,
+    pub(super) module_resolver: Option<Arc<dyn ModuleResolver>>,
     #[allow(clippy::type_complexity)]
     pub(super) setup_fs_fn:
         Option<Box<dyn Fn(&mut WasiInodes, &mut WasiFs) -> Result<(), String> + Send>>,
@@ -110,6 +111,8 @@ pub enum WasiStateCreationError {
     WasiInheritError(String),
     #[error("control plane error")]
     ControlPlane(#[from] ControlPlaneError),
+    #[error("dependency not found")]
+    DependencyNotFound(String),
 }
 
 fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> {
@@ -519,13 +522,6 @@ impl WasiEnvBuilder {
         self.runtime = Some(runtime);
     }
 
-    /// Sets the compiled modules to use with this builder (sharing the
-    /// cached modules is better for performance and memory consumption)
-    pub fn compiled_modules(mut self, compiled_modules: Arc<ModuleCache>) -> Self {
-        self.compiled_modules = Some(compiled_modules);
-        self
-    }
-
     pub fn capabilities(mut self, capabilities: Capabilities) -> Self {
         self.set_capabilities(capabilities);
         self
@@ -684,7 +680,6 @@ impl WasiEnvBuilder {
         };
 
         // TODO: this method should not exist - must have unified construction flow!
-        let module_cache = self.compiled_modules.unwrap_or_default();
         let runtime = self
             .runtime
             .unwrap_or_else(|| Arc::new(PluggableRuntimeImplementation::default()));
@@ -692,7 +687,7 @@ impl WasiEnvBuilder {
         let uses = self.uses;
         let map_commands = self.map_commands;
 
-        let bin_factory = BinFactory::new(module_cache.clone(), runtime.clone());
+        let bin_factory = BinFactory::new(runtime.clone());
 
         let capabilities = self.capabilites;
 
@@ -701,7 +696,6 @@ impl WasiEnvBuilder {
         let init = WasiEnvInit {
             state,
             runtime,
-            module_cache,
             webc_dependencies: uses,
             mapped_commands: map_commands,
             control_plane,

@@ -225,37 +225,29 @@ pub fn proc_spawn_internal(
     let bin_factory = Box::new(ctx.data().bin_factory.clone());
     let child_pid = child_env.pid();
 
-    let mut new_store = Some(new_store);
-    let mut builder = Some(child_env);
-
     // First we try the built in commands
-    let mut process =
-        match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut new_store, &mut builder) {
-            Ok(a) => a,
-            Err(err) => {
-                if err != VirtualBusError::NotFound {
-                    error!(
-                        "wasi[{}:{}]::proc_spawn - builtin failed - {}",
-                        ctx.data().pid(),
-                        ctx.data().tid(),
-                        err
-                    );
-                }
-                // Now we actually spawn the process
-                let child_work =
-                    bin_factory.spawn(name, new_store.take().unwrap(), builder.take().unwrap());
 
-                match __asyncify(&mut ctx, None, async move {
-                    Ok(child_work.await.map_err(vbus_error_into_bus_errno))
-                })?
-                .map_err(|err| BusErrno::Unknown)
-                {
-                    Ok(Ok(a)) => a,
-                    Ok(Err(err)) => return Ok(Err(err)),
-                    Err(err) => return Ok(Err(err)),
-                }
+    let process = if bin_factory.has_command(&name) {
+        match bin_factory.try_built_in(name.clone(), Some(&ctx), new_store, child_env) {
+            Ok(p) => p,
+            Err(err) => {
+                tracing::warn!(command=%name, "could not execuote builtin command: {err}");
+                return Ok(Err(BusErrno::Unknown));
             }
-        };
+        }
+    } else {
+        let child_work = bin_factory.spawn_name(&name, new_store, child_env);
+
+        match __asyncify(&mut ctx, None, async move {
+            Ok(child_work.await.map_err(|err| err.as_buserrno()))
+        })?
+        .map_err(|err| BusErrno::Unknown)
+        {
+            Ok(Ok(a)) => a,
+            Ok(Err(err)) => return Ok(Err(err)),
+            Err(err) => return Ok(Err(err)),
+        }
+    };
 
     // Add the process to the environment state
     {

@@ -10,6 +10,8 @@ pub use wasmer_vfs::StdioMode;
 use wasmer_vfs::VirtualFile;
 use wasmer_wasi_types::wasi::{BusDataFormat, ExitCode};
 
+use crate::bin_factory::SpawnedInstance;
+
 enum BusSpawnedProcessJoinResult {
     Active(Box<dyn VirtualBusProcess + Sync + Unpin>),
     Finished(Option<ExitCode>),
@@ -75,7 +77,7 @@ where
 #[derive(Debug)]
 pub struct BusSpawnedProcess {
     /// Reference to the spawned instance
-    pub inst: Box<dyn VirtualBusProcess + Sync + Unpin>,
+    pub inst: SpawnedInstance,
     /// Virtual file used for stdin
     pub stdin: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     /// Virtual file used for stdout

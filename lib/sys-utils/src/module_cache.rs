@@ -1,11 +1,12 @@
 use std::{cell::RefCell, collections::HashMap, ops::DerefMut, path::PathBuf, sync::RwLock};
 
 use bytes::Bytes;
-use wasmer::{AsEngineRef, Module};
+use wasmer::Module;
 use wasmer_wasi_types::wasi::Snapshot0Clockid;
 
-use super::BinaryPackage;
-use crate::{syscalls::platform_clock_time_get, VirtualTaskManager, WasiRuntime};
+use wasmer_wasi::{
+    bin_factory::BinaryPackage, syscalls::platform_clock_time_get, VirtualTaskManager, WasiRuntime,
+};
 
 pub const DEFAULT_COMPILED_PATH: &str = "~/.wasmer/compiled";
 pub const DEFAULT_WEBC_PATH: &str = "~/.wasmer/webc";
@@ -21,14 +22,6 @@ pub struct ModuleCache {
 
     pub(crate) cache_time: std::time::Duration,
 }
-
-// FIXME: remove impls!
-// Added as a stopgap to get the crate to compile again with the "js" feature.
-// wasmer::Module holds a JsValue, which makes it non-sync.
-#[cfg(feature = "js")]
-unsafe impl Send for ModuleCache {}
-#[cfg(feature = "js")]
-unsafe impl Sync for ModuleCache {}
 
 impl Default for ModuleCache {
     fn default() -> Self {
@@ -245,7 +238,6 @@ impl ModuleCache {
 }
 
 #[cfg(test)]
-#[cfg(feature = "sys")]
 mod tests {
     use std::time::Duration;
 

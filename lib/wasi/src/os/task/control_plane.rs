@@ -159,6 +159,9 @@ pub enum ControlPlaneError {
         /// The maximum number of tasks.
         max: usize,
     },
+    /// A task was aborted without registeringn the exit result.
+    #[error("Task was aborted without registering the exit result")]
+    TaskAborted,
 }
 
 #[cfg(test)]

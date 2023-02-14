@@ -1,5 +1,5 @@
 use super::*;
-use crate::syscalls::*;
+use crate::{syscalls::*, WasiRuntimeError};
 
 /// Replaces the current process with a new process
 ///
@@ -93,56 +93,59 @@ pub fn proc_exec<M: MemorySize>(
         // Spawn a new process with this current execution environment
         let mut err_exit_code = -2i32 as u32;
 
-        let mut process = {
-            let bin_factory = Box::new(ctx.data().bin_factory.clone());
+        let (process, ctx) = {
+            let bin_factory = ctx.data().bin_factory.clone();
             let tasks = wasi_env.tasks().clone();
 
-            let mut new_store = Some(new_store);
-            let mut config = Some(wasi_env);
-
-            match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut new_store, &mut config) {
-                Ok(a) => Some(a),
-                Err(err) => {
-                    if err != VirtualBusError::NotFound {
+            let mut new_store = new_store;
+            if bin_factory.has_command(&name) {
+                match bin_factory.try_built_in(name.clone(), Some(&ctx), new_store, wasi_env) {
+                    Ok(p) => (Some(p), ctx),
+                    Err(err) => {
                         error!(
                             "wasi[{}:{}]::proc_exec - builtin failed - {}",
                             ctx.data().pid(),
                             ctx.data().tid(),
                             err
                         );
+                        let ctx = tasks.block_on(async move {
+                            stderr_write(
+                                &ctx,
+                                format!("wasm execute failed [{}] - {}\n", name.as_str(), err)
+                                    .as_bytes(),
+                            )
+                            .await
+                            .ok();
+                            ctx
+                        });
+                        (None, ctx)
                     }
-
-                    let new_store = new_store.take().unwrap();
-                    let env = config.take().unwrap();
-
-                    let (process, c) = tasks.block_on(async move {
-                        let name_inner = name.clone();
-                        let ret = bin_factory.spawn(
-                                name_inner,
-                                new_store,
-                                env,
+                }
+            } else {
+                tasks.block_on(async move {
+                    let name_inner = name.clone();
+                    let ret = bin_factory
+                        .spawn_name(&name_inner, new_store, wasi_env)
+                        .await;
+                    match ret {
+                        Ok(ret) => (Some(ret), ctx),
+                        Err(err) => {
+                            // TODO: better error mapping.
+                            err_exit_code = err.as_exit_code();
+                            warn!(
+                                "failed to execve as the process could not be spawned (vfork) - {}",
+                                err
+                            );
+                            let _ = stderr_write(
+                                &ctx,
+                                format!("wasm execute failed [{}] - {}\n", name.as_str(), err)
+                                    .as_bytes(),
                             )
                             .await;
-                        match ret {
-                            Ok(ret) => (Some(ret), ctx),
-                            Err(err) => {
-                                err_exit_code = conv_bus_err_to_exit_code(err);
-                                warn!(
-                                    "failed to execve as the process could not be spawned (vfork) - {}",
-                                    err
-                                );
-                                let _ = stderr_write(
-                                    &ctx,
-                                    format!("wasm execute failed [{}] - {}\n", name.as_str(), err)
-                                        .as_bytes(),
-                                ).await;
-                                (None, ctx)
-                            }
+                            (None, ctx)
                         }
-                    });
-                    ctx = c;
-                    process
-                }
+                    }
+                })
             }
         };
 
@@ -234,42 +237,37 @@ pub fn proc_exec<M: MemorySize>(
             // Create the process and drop the context
             let bin_factory = Box::new(ctx.data().bin_factory.clone());
 
-            let mut new_store = Some(new_store);
-            let mut builder = Some(wasi_env);
-
-            let process = match bin_factory.try_built_in(
-                name.clone(),
-                Some(&ctx),
-                &mut new_store,
-                &mut builder,
-            ) {
-                Ok(a) => Ok(Ok(a)),
-                Err(err) => {
-                    if err != VirtualBusError::NotFound {
+            let res: Result<BusSpawnedProcess, WasiRuntimeError> = if bin_factory.has_command(&name)
+            {
+                match bin_factory.try_built_in(name.clone(), Some(&ctx), new_store, wasi_env) {
+                    Ok(a) => Ok(a),
+                    Err(err) => {
                         error!(
                             "wasi[{}:{}]::proc_exec - builtin failed - {}",
                             ctx.data().pid(),
                             ctx.data().tid(),
                             err
                         );
+                        Err(WasiRuntimeError::Init(
+                            crate::WasiStateCreationError::ControlPlane(
+                                crate::os::task::control_plane::ControlPlaneError::TaskAborted,
+                            ),
+                        ))
                     }
-
-                    let new_store = new_store.take().unwrap();
-                    let env = builder.take().unwrap();
-
-                    // Spawn a new process with this current execution environment
-                    //let pid = wasi_env.process.pid();
-                    let (tx, rx) = std::sync::mpsc::channel();
-                    tasks.block_on(Box::pin(async move {
-                        let ret = bin_factory.spawn(name, new_store, env).await;
-                        tx.send(ret);
-                    }));
-                    rx.recv()
                 }
+            } else {
+                // Spawn a new process with this current execution environment
+                //let pid = wasi_env.process.pid();
+                let (tx, rx) = std::sync::mpsc::channel();
+                tasks.runtime().block_on(Box::pin(async move {
+                    let ret = bin_factory.spawn_name(&name, new_store, wasi_env).await;
+                    tx.send(ret);
+                }));
+                rx.recv().expect("channel failed")
             };
 
-            match process {
-                Ok(Ok(mut process)) => {
+            match res {
+                Ok(mut process) => {
                     // Wait for the sub-process to exit itself - then we will exit
                     let (tx, rx) = std::sync::mpsc::channel();
                     let tasks_inner = tasks.clone();
@@ -284,13 +282,6 @@ pub fn proc_exec<M: MemorySize>(
                     }));
                     let exit_code = rx.recv().unwrap();
                     OnCalledAction::Trap(Box::new(WasiError::Exit(exit_code as ExitCode)))
-                }
-                Ok(Err(err)) => {
-                    warn!(
-                        "failed to execve as the process could not be spawned (fork)[0] - {}",
-                        err
-                    );
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Noexec as ExitCode)))
                 }
                 Err(err) => {
                     warn!(

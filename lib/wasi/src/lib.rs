@@ -155,6 +155,7 @@ pub const DEFAULT_STACK_SIZE: u64 = 1_048_576u64;
 pub const DEFAULT_STACK_BASE: u64 = DEFAULT_STACK_SIZE;
 
 #[derive(thiserror::Error, Debug)]
+#[non_exhaustive]
 pub enum WasiRuntimeError {
     #[error("WASI state setup failed")]
     Init(#[from] WasiStateCreationError),
@@ -170,6 +171,41 @@ pub enum WasiRuntimeError {
     Runtime(#[from] RuntimeError),
     #[error("Memory access error")]
     Thread(#[from] WasiThreadError),
+}
+
+impl WasiRuntimeError {
+    pub(crate) fn as_exit_code(&self) -> ExitCode {
+        // TODO: better error mapping
+        match self {
+            WasiRuntimeError::Init(err) => match err {
+                WasiStateCreationError::DependencyNotFound(_) => Errno::Noent as ExitCode,
+                _ => Errno::Inval as ExitCode,
+            },
+            _ => Errno::Inval as ExitCode,
+        }
+    }
+
+    pub(crate) fn as_errno(&self) -> Errno {
+        // TODO: better error mapping
+        match self {
+            WasiRuntimeError::Init(err) => match err {
+                WasiStateCreationError::DependencyNotFound(_) => Errno::Noent,
+                _ => Errno::Inval,
+            },
+            _ => Errno::Inval,
+        }
+    }
+
+    pub(crate) fn as_buserrno(&self) -> BusErrno {
+        // TODO: better error mapping
+        match self {
+            WasiRuntimeError::Init(err) => match err {
+                WasiStateCreationError::DependencyNotFound(_) => BusErrno::Badrequest,
+                _ => BusErrno::Unknown,
+            },
+            _ => BusErrno::Unknown,
+        }
+    }
 }
 
 pub(crate) fn run_wasi_func(

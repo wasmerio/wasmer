@@ -2,11 +2,14 @@ pub mod builtins;
 
 use std::{collections::HashMap, sync::Arc};
 
-use crate::vbus::{BusSpawnedProcess, VirtualBusError};
+use crate::{
+    vbus::{BusSpawnedProcess, VirtualBusError},
+    WasiRuntimeError,
+};
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_wasi_types::wasi::Errno;
 
-use crate::{bin_factory::ModuleCache, syscalls::stderr_write, WasiEnv, WasiRuntime};
+use crate::{syscalls::stderr_write, WasiEnv};
 
 /// A command available to an OS environment.
 pub trait VirtualCommand
@@ -24,9 +27,9 @@ where
         &self,
         parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
         path: &str,
-        store: &mut Option<Store>,
-        config: &mut Option<WasiEnv>,
-    ) -> Result<BusSpawnedProcess, VirtualBusError>;
+        store: Store,
+        config: WasiEnv,
+    ) -> Result<BusSpawnedProcess, WasiRuntimeError>;
 }
 
 #[derive(Debug, Clone)]
@@ -35,22 +38,10 @@ pub struct Commands {
 }
 
 impl Commands {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             commands: HashMap::new(),
         }
-    }
-
-    // TODO: this method should be somewhere on the runtime, not here.
-    pub fn new_with_builtins(
-        runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
-        compiled_modules: Arc<ModuleCache>,
-    ) -> Self {
-        let mut cmd = Self::new();
-        let cmd_wasmer = builtins::cmd_wasmer::CmdWasmer::new(runtime.clone(), compiled_modules);
-        cmd.register_command(cmd_wasmer);
-
-        cmd
     }
 
     /// Register a command.
@@ -86,9 +77,9 @@ impl Commands {
         &self,
         parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
         path: &str,
-        store: &mut Option<Store>,
-        builder: &mut Option<WasiEnv>,
-    ) -> Result<BusSpawnedProcess, VirtualBusError> {
+        store: Store,
+        builder: WasiEnv,
+    ) -> Result<BusSpawnedProcess, WasiRuntimeError> {
         let path = path.to_string();
         if let Some(cmd) = self.commands.get(&path) {
             cmd.exec(parent_ctx, path.as_str(), store, builder)

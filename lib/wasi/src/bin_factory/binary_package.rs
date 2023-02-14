@@ -2,15 +2,14 @@ use std::{
     any::Any,
     borrow::Cow,
     collections::HashMap,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, RwLock},
 };
 
 use derivative::*;
 use wasmer_vfs::{FileSystem, TmpFileSystem};
 use wasmer_wasi_types::wasi::Snapshot0Clockid;
 
-use super::hash_of_binary;
-use crate::syscalls::platform_clock_time_get;
+use crate::{syscalls::platform_clock_time_get, utils::hash_sha256};
 
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
@@ -54,7 +53,7 @@ impl BinaryPackageCommand {
 
     pub fn hash(&mut self) -> &str {
         if self.hash.is_none() {
-            self.hash = Some(hash_of_binary(self.atom.as_ref()));
+            self.hash = Some(hash_sha256(self.atom.as_ref()));
         }
         let hash = self.hash.as_ref().unwrap();
         hash.as_str()
@@ -64,12 +63,14 @@ impl BinaryPackageCommand {
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub struct BinaryPackage {
+    pub module: wasmer::Module,
+
     pub package_name: Cow<'static, str>,
     pub when_cached: Option<u128>,
     pub ownership: Option<Arc<dyn Any + Send + Sync + 'static>>,
     #[derivative(Debug = "ignore")]
-    pub entry: Option<Cow<'static, [u8]>>,
-    pub hash: Arc<Mutex<Option<String>>>,
+    pub entry: Cow<'static, [u8]>,
+    pub hash: String,
     pub wapm: Option<String>,
     pub base_dir: Option<String>,
     pub tmp_fs: TmpFileSystem,
@@ -85,19 +86,22 @@ pub struct BinaryPackage {
 }
 
 impl BinaryPackage {
-    pub fn new(package_name: &str, entry: Option<Cow<'static, [u8]>>) -> Self {
+    pub fn new(package_name: &str, entry: Cow<'static, [u8]>, module: wasmer::Module) -> Self {
         let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
         let (package_name, version) = match package_name.split_once('@') {
             Some((a, b)) => (a.to_string(), b.to_string()),
             None => (package_name.to_string(), "1.0.0".to_string()),
         };
-        let module_memory_footprint = entry.as_ref().map(|a| a.len()).unwrap_or_default() as u64;
+        let module_memory_footprint = entry.len();
+        let hash = crate::utils::hash_sha256(&entry);
+
         Self {
+            module,
+            hash,
             package_name: package_name.into(),
             when_cached: Some(now),
             ownership: None,
             entry,
-            hash: Arc::new(Mutex::new(None)),
             wapm: None,
             base_dir: None,
             tmp_fs: TmpFileSystem::new(),
@@ -108,7 +112,7 @@ impl BinaryPackage {
             commands: Arc::new(RwLock::new(Vec::new())),
             uses: Vec::new(),
             version: version.into(),
-            module_memory_footprint,
+            module_memory_footprint: entry.len() as u64,
             file_system_memory_footprint: 0,
         }
     }
@@ -121,27 +125,54 @@ impl BinaryPackage {
     /// ownership handle stays alive.
     pub unsafe fn new_with_ownership<'a, T>(
         package_name: &str,
-        entry: Option<Cow<'a, [u8]>>,
+        entry: Cow<'a, [u8]>,
+        module: wasmer::Module,
         ownership: Arc<T>,
     ) -> Self
     where
         T: 'static,
     {
         let ownership: Arc<dyn Any> = ownership;
-        let mut ret = Self::new(package_name, entry.map(|a| std::mem::transmute(a)));
+        let mut ret = Self::new(package_name, std::mem::transmute(entry), module);
         ret.ownership = Some(std::mem::transmute(ownership));
         ret
     }
-
-    pub fn hash(&self) -> String {
-        let mut hash = self.hash.lock().unwrap();
-        if hash.is_none() {
-            if let Some(entry) = self.entry.as_ref() {
-                hash.replace(hash_of_binary(entry.as_ref()));
-            } else {
-                hash.replace(hash_of_binary(self.package_name.as_ref()));
-            }
-        }
-        hash.as_ref().unwrap().clone()
-    }
 }
+
+// #[derive(Clone, Debug)]
+// pub struct BinaryPackageConfigWebc {
+//     pub uses: Vec<String>,
+// }
+
+// #[derive(Clone, Debug)]
+// pub struct BinaryPackageConfig {
+//     pub envs: HashMap<String, String>,
+//     pub webc: Option<BinaryPackageConfigWebc>,
+// }
+
+// #[derive(Clone, Debug)]
+// pub struct BinaryPackage {
+//     // TODO: use custom Sha256 hash type to save memory / increase perf
+//     pub module_hash: String,
+//     pub module_size_bytes: u64,
+//     pub module: wasmer::Module,
+
+//     pub dependencies: Vec<String>,
+
+//     pub commands: Arc<Vec<BinaryPackageCommand>>,
+
+//     pub webc: Option<BinaryPackageWebc>,
+// }
+
+// #[derive(Clone, Debug)]
+// pub struct BinaryPackageWebc {
+//     // TODO: use custom Sha256 hash type to save memory / increase perf
+//     pub hash: String,
+//     pub name: Option<String>,
+//     pub version: Option<String>,
+//     pub uri: Option<String>,
+//     pub atom: String,
+//     pub fs_size_bytes: u64,
+//     pub filesystem: Option<Arc<dyn FileSystem + Send + Sync + 'static>>,
+//     pub webc: Arc<webc::WebCMmap>,
+// }

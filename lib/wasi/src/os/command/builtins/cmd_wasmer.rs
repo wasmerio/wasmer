@@ -1,13 +1,10 @@
-use std::{any::Any, ops::Deref, sync::Arc};
+use std::{any::Any, sync::Arc};
 
-use crate::vbus::{BusSpawnedProcess, VirtualBusError};
+use crate::{vbus::BusSpawnedProcess, WasiRuntimeError};
 use wasmer::{FunctionEnvMut, Store};
-use wasmer_wasi_types::wasi::Errno;
 
 use crate::{
-    bin_factory::{spawn_exec, BinaryPackage, ModuleCache},
-    syscalls::stderr_write,
-    VirtualTaskManager, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
+    syscalls::stderr_write, VirtualTaskManager, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
 };
 
 const HELP: &str = r#"USAGE:
@@ -33,20 +30,13 @@ use crate::os::command::VirtualCommand;
 #[derive(Debug, Clone)]
 pub struct CmdWasmer {
     runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
-    cache: Arc<ModuleCache>,
 }
 
 impl CmdWasmer {
     const NAME: &str = "wasmer";
 
-    pub fn new(
-        runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
-        compiled_modules: Arc<ModuleCache>,
-    ) -> Self {
-        Self {
-            runtime,
-            cache: compiled_modules,
-        }
+    pub fn new(runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>) -> Self {
+        Self { runtime }
     }
 }
 
@@ -55,51 +45,30 @@ impl CmdWasmer {
         &self,
         parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
         name: &str,
-        store: &mut Option<Store>,
-        config: &mut Option<WasiEnv>,
+        store: Store,
+        mut env: WasiEnv,
         what: Option<String>,
         mut args: Vec<String>,
-    ) -> Result<BusSpawnedProcess, VirtualBusError> {
+    ) -> Result<BusSpawnedProcess, WasiRuntimeError> {
         if let Some(what) = what {
-            let store = store.take().ok_or(VirtualBusError::UnknownError)?;
-            let mut env = config.take().ok_or(VirtualBusError::UnknownError)?;
-
             // Set the arguments of the environment by replacing the state
+            // TODO: why the fork here?
             let mut state = env.state.fork(true);
             args.insert(0, what.clone());
             state.args = args;
             env.state = Arc::new(state);
 
-            // Get the binary
-            let tasks = parent_ctx.data().tasks();
-            if let Some(binary) = self.get_package(what.clone(), tasks.deref()) {
-                // Now run the module
-                spawn_exec(binary, name, store, env, &self.runtime, &self.cache)
-            } else {
-                parent_ctx.data().tasks().block_on(async move {
-                    let _ = stderr_write(
-                        parent_ctx,
-                        format!("package not found - {}\r\n", what).as_bytes(),
-                    )
-                    .await;
-                });
-                Ok(BusSpawnedProcess::exited_process(Errno::Noent as u32))
-            }
+            // TODO: is this okay?
+            env.runtime
+                .task_manager()
+                .runtime()
+                .block_on(crate::bin_factory::spawn_exec_command(name, store, env))
         } else {
             parent_ctx.data().tasks().block_on(async move {
                 let _ = stderr_write(parent_ctx, HELP_RUN.as_bytes()).await;
             });
             Ok(BusSpawnedProcess::exited_process(0))
         }
-    }
-
-    pub fn get_package(
-        &self,
-        name: String,
-        tasks: &dyn VirtualTaskManager,
-    ) -> Option<BinaryPackage> {
-        self.cache
-            .get_webc(name.as_str(), self.runtime.deref(), tasks)
     }
 }
 
@@ -116,12 +85,10 @@ impl VirtualCommand for CmdWasmer {
         &self,
         parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
         name: &str,
-        store: &mut Option<Store>,
-        env: &mut Option<WasiEnv>,
-    ) -> Result<BusSpawnedProcess, VirtualBusError> {
-        // Read the command we want to run
-        let env_inner = env.as_ref().ok_or(VirtualBusError::UnknownError)?;
-        let mut args = env_inner.state.args.iter().map(|a| a.as_str());
+        store: Store,
+        env: WasiEnv,
+    ) -> Result<BusSpawnedProcess, WasiRuntimeError> {
+        let mut args = env.state.args.iter().map(|a| a.as_str());
         let _alias = args.next();
         let cmd = args.next();
 

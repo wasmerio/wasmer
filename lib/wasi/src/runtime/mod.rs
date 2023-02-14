@@ -4,9 +4,10 @@ pub use self::task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager};
 
 use std::{fmt, sync::Arc};
 
+use futures::future::BoxFuture;
 use wasmer_vnet::{DynVirtualNetworking, VirtualNetworking};
 
-use crate::{http::DynHttpClient, os::DynTtyBridge};
+use crate::{bin_factory::BinaryPackage, http::DynHttpClient, os::DynTtyBridge};
 
 #[cfg(feature = "sys")]
 pub type ArcTunables = std::sync::Arc<dyn wasmer::Tunables + Send + Sync>;
@@ -25,11 +26,14 @@ where
     /// Retrieve the active [`VirtualTaskManager`].
     fn task_manager(&self) -> &Arc<dyn VirtualTaskManager>;
 
-    /// Get a [`wasmer::Engine`] for module compilation.
+    /// Get the [`wasmer::Engine`] to be used for module compilation.
+    // TODO: remove this in favor of just support [`ModuleResolver::build_module`].
     #[cfg(feature = "sys")]
     fn engine(&self) -> Option<wasmer::Engine> {
         None
     }
+
+    fn module_resolver(&self) -> Option<&Arc<dyn ModuleResolver>>;
 
     /// Create a new [`wasmer::Store`].
     fn new_store(&self) -> wasmer::Store {
@@ -57,6 +61,65 @@ where
     }
 }
 
+/// Loads webc packages and builds WASM modules.
+///
+/// Implementors should use a cache to prevent lookups from being too expensive.
+pub trait ModuleResolver: Send + Sync + std::fmt::Debug + 'static {
+    /// Build (parse and compile) some WASM code into a [`wasmer::Module`].
+    fn build_module(&self, wasm: &[u8]) -> Result<wasmer::Module, anyhow::Error>;
+
+    /// Load a (remote) webc package form the given URI.
+    ///
+    /// The URI can be a full URL, but also just a "namespace/package" or
+    /// "namespace/package@version", in which case it shouuld use a default
+    /// webc registry.
+    fn resolve_webc(
+        &self,
+        uri: &str,
+    ) -> BoxFuture<'static, Result<Arc<webc::WebCMmap>, anyhow::Error>>;
+
+    /// Load a bundles [`BinaryPackage`] from a given webc URI.
+    ///
+    /// See [`Self::resolve_webc`] for details about the URI.
+    fn resolve_binpackage(
+        &self,
+        uri: &str,
+    ) -> BoxFuture<'static, Result<Option<Arc<BinaryPackage>>, anyhow::Error>>;
+}
+
+#[cfg(feature = "sys")]
+#[derive(Clone, Debug)]
+pub struct LocalModuleResolver {
+    pub engine: wasmer::Engine,
+}
+
+#[cfg(feature = "sys")]
+impl ModuleResolver for LocalModuleResolver {
+    fn build_module(&self, wasm: &[u8]) -> Result<wasmer::Module, anyhow::Error> {
+        wasmer::Module::new(&self.engine, wasm).map_err(anyhow::Error::from)
+    }
+
+    fn resolve_webc(
+        &self,
+        uri: &str,
+    ) -> BoxFuture<'static, Result<Arc<webc::WebCMmap>, anyhow::Error>> {
+        let res = Err(anyhow::anyhow!(
+            "Loading webc packages is not supported on this platform"
+        ));
+        Box::pin(std::future::ready(res))
+    }
+
+    fn resolve_binpackage(
+        &self,
+        uri: &str,
+    ) -> BoxFuture<'static, Result<Option<Arc<BinaryPackage>>, anyhow::Error>> {
+        let res = Err(anyhow::anyhow!(
+            "Loading webc packages is not supported on this platform"
+        ));
+        Box::pin(std::future::ready(res))
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct PluggableRuntimeImplementation {
     pub rt: Arc<dyn VirtualTaskManager>,
@@ -64,6 +127,8 @@ pub struct PluggableRuntimeImplementation {
     pub http_client: Option<DynHttpClient>,
     #[cfg(feature = "sys")]
     pub engine: Option<wasmer::Engine>,
+
+    pub module_resolver: Option<Arc<dyn ModuleResolver>>,
 }
 
 impl PluggableRuntimeImplementation {
@@ -98,12 +163,20 @@ impl PluggableRuntimeImplementation {
             }
         }
 
+        #[cfg(feature = "sys")]
+        let module_resolver = Some(Arc::new(LocalModuleResolver {
+            engine: wasmer::Store::default().engine().clone(),
+        }) as Arc<dyn ModuleResolver>);
+        #[cfg(not(feature = "sys"))]
+        let module_resolver = None;
+
         Self {
             rt,
             networking,
             http_client,
             #[cfg(feature = "sys")]
             engine: None,
+            module_resolver,
         }
     }
 }
@@ -128,12 +201,11 @@ impl WasiRuntime for PluggableRuntimeImplementation {
         self.http_client.as_ref()
     }
 
-    #[cfg(feature = "sys")]
-    fn engine(&self) -> Option<wasmer::Engine> {
-        self.engine.clone()
-    }
-
     fn task_manager(&self) -> &Arc<dyn VirtualTaskManager> {
         &self.rt
+    }
+
+    fn module_resolver(&self) -> Option<&Arc<dyn ModuleResolver>> {
+        self.module_resolver.as_ref()
     }
 }
