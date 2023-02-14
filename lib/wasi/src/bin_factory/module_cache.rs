@@ -1,7 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, ops::DerefMut, path::PathBuf, sync::RwLock};
 
-use bytes::Bytes;
-use wasmer::{AsEngineRef, Module};
+use wasmer::Module;
 use wasmer_wasi_types::wasi::Snapshot0Clockid;
 
 use super::BinaryPackage;
@@ -157,7 +156,7 @@ impl ModuleCache {
 
     pub fn get_compiled_module(
         &self,
-        engine: &impl AsEngineRef,
+        #[cfg(feature = "sys")] engine: &impl wasmer::AsEngineRef,
         data_hash: &str,
         compiler: &str,
     ) -> Option<Module> {
@@ -186,27 +185,30 @@ impl ModuleCache {
             }
         }
 
-        // slow path
-        let path = std::path::Path::new(self.cache_compile_dir.as_str())
-            .join(format!("{}.bin", key).as_str());
-        if let Ok(data) = std::fs::read(path) {
-            let mut decoder = weezl::decode::Decoder::new(weezl::BitOrder::Msb, 8);
-            if let Ok(data) = decoder.decode(&data[..]) {
-                let module_bytes = Bytes::from(data);
+        #[cfg(feature = "sys")]
+        {
+            // slow path
+            let path = std::path::Path::new(self.cache_compile_dir.as_str())
+                .join(format!("{}.bin", key).as_str());
+            if let Ok(data) = std::fs::read(path) {
+                let mut decoder = weezl::decode::Decoder::new(weezl::BitOrder::Msb, 8);
+                if let Ok(data) = decoder.decode(&data[..]) {
+                    let module_bytes = bytes::Bytes::from(data);
 
-                // Load the module
-                let module = unsafe { Module::deserialize(engine, &module_bytes[..]).unwrap() };
+                    // Load the module
+                    let module = unsafe { Module::deserialize(engine, &module_bytes[..]).unwrap() };
 
-                if let Some(cache) = &self.cached_modules {
-                    let mut cache = cache.write().unwrap();
-                    cache.insert(key.clone(), module.clone());
+                    if let Some(cache) = &self.cached_modules {
+                        let mut cache = cache.write().unwrap();
+                        cache.insert(key.clone(), module.clone());
+                    }
+
+                    THREAD_LOCAL_CACHED_MODULES.with(|cache| {
+                        let mut cache = cache.borrow_mut();
+                        cache.insert(key.clone(), module.clone());
+                    });
+                    return Some(module);
                 }
-
-                THREAD_LOCAL_CACHED_MODULES.with(|cache| {
-                    let mut cache = cache.borrow_mut();
-                    cache.insert(key.clone(), module.clone());
-                });
-                return Some(module);
             }
         }
 

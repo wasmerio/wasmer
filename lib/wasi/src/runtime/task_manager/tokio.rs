@@ -31,9 +31,18 @@ impl TokioTaskManager {
                 if let Ok(handle) = tokio::runtime::Handle::try_current() {
                     (None, handle)
                 } else {
-                    let rt = tokio::runtime::Runtime::new().unwrap();
-                    let handle = rt.handle().clone();
-                    (Some(rt), handle)
+                    #[cfg(feature = "sys")]
+                    {
+                        let rt = tokio::runtime::Runtime::new().unwrap();
+                        let handle = rt.handle().clone();
+                        (Some(rt), handle)
+                    }
+                    #[cfg(not(feature = "sys"))]
+                    {
+                        let rt = tokio::runtime::Runtime::new().unwrap();
+                        let handle = rt.handle().clone();
+                        (Some(rt), handle)
+                    }
                 }
             });
 

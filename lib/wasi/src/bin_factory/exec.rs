@@ -33,7 +33,12 @@ pub fn spawn_exec(
     let compiler = store.engine().name();
     #[cfg(not(feature = "sys"))]
     let compiler = "generic";
+
+    #[cfg(feature = "sys")]
     let module = compiled_modules.get_compiled_module(&store, binary.hash().as_str(), compiler);
+    #[cfg(not(feature = "sys"))]
+    let module = compiled_modules.get_compiled_module(binary.hash().as_str(), compiler);
+
     let module = match (module, binary.entry.as_ref()) {
         (Some(a), _) => a,
         (None, Some(entry)) => {
@@ -215,6 +220,24 @@ pub fn spawn_exec_module(
                 // Send the result
                 let _ = exit_code_tx.send(ret);
                 drop(exit_code_tx);
+            }
+        };
+
+        // TODO: handle this better - required because of Module not being Send.
+        #[cfg(feature = "js")]
+        let task = {
+            struct UnsafeWrapper {
+                inner: Box<dyn FnOnce() + 'static>,
+            }
+
+            unsafe impl Send for UnsafeWrapper {}
+
+            let inner = UnsafeWrapper {
+                inner: Box::new(task),
+            };
+
+            move || {
+                (inner.inner)();
             }
         };
 

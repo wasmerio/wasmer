@@ -64,7 +64,6 @@ pub struct WasiEnvBuilder {
     pub(super) uses: Vec<String>,
 
     /// List of host commands to map into the WASI instance.
-    #[cfg(feature = "sys")]
     pub(super) map_commands: HashMap<String, PathBuf>,
 
     pub(super) capabilites: Capabilities,

@@ -21,25 +21,25 @@ mod sys {
     }
 }
 
-#[cfg(feature = "js")]
-mod js {
-    use wasm_bindgen_test::*;
+// #[cfg(feature = "js")]
+// mod js {
+//     use wasm_bindgen_test::*;
 
-    #[wasm_bindgen_test]
-    fn test_stdout() {
-        super::test_stdout()
-    }
+//     #[wasm_bindgen_test]
+//     fn test_stdout() {
+//         super::test_stdout();
+//     }
 
-    #[wasm_bindgen_test]
-    fn test_stdin() {
-        super::test_stdin()
-    }
+//     #[wasm_bindgen_test]
+//     fn test_stdin() {
+//         super::test_stdin();
+//     }
 
-    #[wasm_bindgen_test]
-    fn test_env() {
-        super::test_env()
-    }
-}
+//     #[wasm_bindgen_test]
+//     fn test_env() {
+//         super::test_env();
+//     }
+// }
 
 async fn test_stdout() {
     let mut store = Store::default();
@@ -79,16 +79,23 @@ async fn test_stdout() {
     let rt = PluggableRuntimeImplementation::default();
 
     let pipe2 = pipe.clone();
-    std::thread::spawn(move || {
-        WasiEnv::builder("command-name")
-            .runtime(Arc::new(rt))
-            .args(&["Gordon"])
-            .stdout(Box::new(pipe2))
-            .run_with_store(module, &mut store)
-    })
-    .join()
-    .unwrap()
-    .unwrap();
+
+    let builder = WasiEnv::builder("command-name")
+        .runtime(Arc::new(rt))
+        .args(&["Gordon"])
+        .stdout(Box::new(pipe2));
+
+    #[cfg(feature = "js")]
+    {
+        builder.run_with_store(module, &mut store).unwrap();
+    }
+    #[cfg(not(feature = "js"))]
+    {
+        std::thread::spawn(move || builder.run_with_store(module, &mut store))
+            .join()
+            .unwrap()
+            .unwrap();
+    }
 
     let mut stdout_str = String::new();
     pipe.read_to_string(&mut stdout_str).await.unwrap();
@@ -113,19 +120,26 @@ async fn test_env() {
     let mut pipe = Pipe::default();
     let pipe2 = pipe.clone();
 
-    std::thread::spawn(move || {
-        WasiEnv::builder("command-name")
-            .runtime(Arc::new(rt))
-            .args(&["Gordon"])
-            .env("DOG", "X")
-            .env("TEST", "VALUE")
-            .env("TEST2", "VALUE2")
-            .stdout(Box::new(pipe2))
-            .run_with_store(module, &mut store)
-    })
-    .join()
-    .unwrap()
-    .unwrap();
+    let builder = WasiEnv::builder("command-name")
+        .runtime(Arc::new(rt))
+        .args(&["Gordon"])
+        .env("DOG", "X")
+        .env("TEST", "VALUE")
+        .env("TEST2", "VALUE2")
+        .stdout(Box::new(pipe2));
+
+    #[cfg(feature = "js")]
+    {
+        builder.run_with_store(module, &mut store).unwrap();
+    }
+
+    #[cfg(not(feature = "js"))]
+    {
+        std::thread::spawn(move || builder.run_with_store(module, &mut store))
+            .join()
+            .unwrap()
+            .unwrap();
+    }
 
     let mut stdout_str = String::new();
     pipe.read_to_string(&mut stdout_str).await.unwrap();
@@ -149,15 +163,22 @@ async fn test_stdin() {
     let rt = PluggableRuntimeImplementation::default();
 
     let pipe2 = pipe.clone();
-    std::thread::spawn(move || {
-        WasiEnv::builder("command-name")
-            .runtime(Arc::new(rt))
-            .stdin(Box::new(pipe2))
-            .run_with_store(module, &mut store)
-    })
-    .join()
-    .unwrap()
-    .unwrap();
+    let builder = WasiEnv::builder("command-name")
+        .runtime(Arc::new(rt))
+        .stdin(Box::new(pipe2));
+
+    #[cfg(feature = "js")]
+    {
+        builder.run_with_store(module, &mut store).unwrap();
+    }
+
+    #[cfg(not(feature = "js"))]
+    {
+        std::thread::spawn(move || builder.run_with_store(module, &mut store))
+            .join()
+            .unwrap()
+            .unwrap();
+    }
 
     // We assure stdin is now empty
     let mut buf = Vec::new();

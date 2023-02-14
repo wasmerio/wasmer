@@ -7,9 +7,15 @@ use std::{pin::Pin, time::Duration};
 use ::tokio::runtime::Handle;
 
 use futures::Future;
-use wasmer::{vm::VMMemory, MemoryType};
+use wasmer::MemoryType;
+
 #[cfg(feature = "sys")]
 use wasmer_types::MemoryStyle;
+
+#[cfg(feature = "sys")]
+use wasmer::vm::VMMemory;
+#[cfg(feature = "js")]
+use wasmer::VMMemory;
 
 use crate::os::task::thread::WasiThreadError;
 

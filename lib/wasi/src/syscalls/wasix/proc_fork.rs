@@ -1,7 +1,10 @@
-use wasmer_vm::VMMemory;
-
 use super::*;
 use crate::syscalls::*;
+
+#[cfg(feature = "sys")]
+use wasmer::vm::VMMemory;
+#[cfg(feature = "js")]
+use wasmer::VMMemory;
 
 /// ### `proc_fork()`
 /// Forks the current process into a new subprocess. If the function
@@ -293,6 +296,24 @@ pub fn proc_fork<M: MemorySize>(
                 let _ = exit_code_tx.send(ret as u32);
                 drop(exit_code_tx);
                 drop(child_handle);
+            };
+
+            // TODO: handle this better - required because of Module not being Send.
+            #[cfg(feature = "js")]
+            let task = {
+                struct UnsafeWrapper {
+                    inner: Box<dyn FnOnce() + 'static>,
+                }
+
+                unsafe impl Send for UnsafeWrapper {}
+
+                let inner = UnsafeWrapper {
+                    inner: Box::new(task),
+                };
+
+                move || {
+                    (inner.inner)();
+                }
             };
 
             tasks_outer

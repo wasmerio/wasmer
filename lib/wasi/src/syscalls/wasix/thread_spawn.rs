@@ -1,7 +1,10 @@
-use wasmer_vm::VMMemory;
-
 use super::*;
 use crate::syscalls::*;
+
+#[cfg(feature = "sys")]
+use wasmer::vm::VMMemory;
+#[cfg(feature = "js")]
+use wasmer::VMMemory;
 
 /// ### `thread_spawn()`
 /// Creates a new thread by spawning that shares the same
@@ -258,13 +261,34 @@ pub fn thread_spawn<M: MemorySize>(
             trace!("threading: spawning background thread");
             let thread_module = env.inner().instance.module().clone();
             let tasks2 = tasks.clone();
+
+            let task = move || {
+                // FIXME: should not use unwrap() here! (initializiation refactor)
+                let mut thread_memory = tasks2.build_memory(spawn_type).unwrap();
+                let mut store = Some(store);
+                execute_module(&mut store, thread_module, &mut thread_memory);
+            };
+
+            // TODO: handle this better - required because of Module not being Send.
+            #[cfg(feature = "js")]
+            let task = {
+                struct UnsafeWrapper {
+                    inner: Box<dyn FnOnce() + 'static>,
+                }
+
+                unsafe impl Send for UnsafeWrapper {}
+
+                let inner = UnsafeWrapper {
+                    inner: Box::new(task),
+                };
+
+                move || {
+                    (inner.inner)();
+                }
+            };
+
             wasi_try!(tasks
-                .task_wasm(Box::new(move || {
-                    // FIXME: should not use unwrap() here! (initializiation refactor)
-                    let mut thread_memory = tasks2.build_memory(spawn_type).unwrap();
-                    let mut store = Some(store);
-                    execute_module(&mut store, thread_module, &mut thread_memory);
-                }),)
+                .task_wasm(Box::new(task),)
                 .map_err(|err| { Into::<Errno>::into(err) }));
         }
         _ => {

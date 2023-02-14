@@ -218,6 +218,16 @@ impl RuntimeError {
         }
     }
 
+    /// Attempts to downcast the `RuntimeError` to a concrete type.
+    pub fn downcast_ref<T: Error + 'static>(&self) -> Option<&T> {
+        match self.inner.as_ref() {
+            // We only try to downcast user errors
+            #[cfg(feature = "std")]
+            RuntimeErrorSource::User(err) => err.downcast_ref::<T>(),
+            _ => None,
+        }
+    }
+
     /// Returns true if the `RuntimeError` is the same as T
     pub fn is<T: Error + 'static>(&self) -> bool {
         match self.inner.as_ref() {

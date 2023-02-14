@@ -117,6 +117,11 @@ impl Default for PluggableRuntimeImplementation {
         s.engine = Some(engine);
         s
     }
+
+    #[cfg(not(feature = "sys-thread"))]
+    fn default() -> Self {
+        unimplemented!("Default WasiRuntime is not implemented on this target")
+    }
 }
 
 impl WasiRuntime for PluggableRuntimeImplementation {
