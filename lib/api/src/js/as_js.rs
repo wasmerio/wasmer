@@ -208,7 +208,7 @@ impl AsJs for Extern {
         match self {
             Self::Memory(memory) => memory.handle.memory.clone().into(),
             Self::Function(function) => function.handle.function.clone().into(),
-            Self::Table(table) => table.handle.table.clone().into(),
+            Self::Table(table) => table.0.handle.table.clone().into(),
             Self::Global(global) => global.handle.global.clone().into(),
         }
     }

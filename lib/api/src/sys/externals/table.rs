@@ -1,20 +1,9 @@
-use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
-use crate::Extern;
 use crate::TableType;
 use crate::Value;
-use crate::{sys::RuntimeError, ExternRef, Function};
-use wasmer_vm::{InternalStoreHandle, StoreHandle, TableElement, VMExtern, VMTable};
+use crate::{vm::VMExternTable, ExternRef, Function, RuntimeError};
+use wasmer_vm::{StoreHandle, TableElement, VMExtern, VMTable};
 
-/// A WebAssembly `table` instance.
-///
-/// The `Table` struct is an array-like structure representing a WebAssembly Table,
-/// which stores function references.
-///
-/// A table created by the host or in WebAssembly code will be accessible and
-/// mutable from both host and WebAssembly.
-///
-/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
 #[derive(Debug, Clone)]
 pub struct Table {
     handle: StoreHandle<VMTable>,
@@ -58,12 +47,6 @@ fn value_from_table_element(store: &mut impl AsStoreMut, item: wasmer_vm::TableE
 }
 
 impl Table {
-    /// Creates a new `Table` with the provided [`TableType`] definition.
-    ///
-    /// All the elements in the table will be set to the `init` value.
-    ///
-    /// This function will construct the `Table` using the store
-    /// [`BaseTunables`][crate::sys::BaseTunables].
     pub fn new(
         mut store: &mut impl AsStoreMut,
         ty: TableType,
@@ -87,18 +70,15 @@ impl Table {
         })
     }
 
-    /// Returns the [`TableType`] of the `Table`.
     pub fn ty(&self, store: &impl AsStoreRef) -> TableType {
         *self.handle.get(store.as_store_ref().objects()).ty()
     }
 
-    /// Retrieves an element of the table at the provided `index`.
     pub fn get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value> {
         let item = self.handle.get(store.as_store_ref().objects()).get(index)?;
         Some(value_from_table_element(store, item))
     }
 
-    /// Sets an element `val` in the Table at the provided `index`.
     pub fn set(
         &self,
         store: &mut impl AsStoreMut,
@@ -109,20 +89,10 @@ impl Table {
         set_table_item(self.handle.get_mut(store.objects_mut()), index, item)
     }
 
-    /// Retrieves the size of the `Table` (in elements)
     pub fn size(&self, store: &impl AsStoreRef) -> u32 {
         self.handle.get(store.as_store_ref().objects()).size()
     }
 
-    /// Grows the size of the `Table` by `delta`, initializating
-    /// the elements with the provided `init` value.
-    ///
-    /// It returns the previous size of the `Table` in case is able
-    /// to grow the Table successfully.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the `delta` is out of bounds for the table.
     pub fn grow(
         &self,
         store: &mut impl AsStoreMut,
@@ -136,13 +106,6 @@ impl Table {
             .ok_or_else(|| RuntimeError::new(format!("failed to grow table by `{}`", delta)))
     }
 
-    /// Copies the `len` elements of `src_table` starting at `src_index`
-    /// to the destination table `dst_table` at index `dst_index`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the range is out of bounds of either the source or
-    /// destination tables.
     pub fn copy(
         store: &mut impl AsStoreMut,
         dst_table: &Self,
@@ -171,13 +134,10 @@ impl Table {
         Ok(())
     }
 
-    pub(crate) fn from_vm_extern(
-        store: &mut impl AsStoreMut,
-        internal: InternalStoreHandle<VMTable>,
-    ) -> Self {
+    pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternTable) -> Self {
         Self {
             handle: unsafe {
-                StoreHandle::from_internal(store.as_store_ref().objects().id(), internal)
+                StoreHandle::from_internal(store.as_store_ref().objects().id(), vm_extern)
             },
         }
     }
@@ -199,31 +159,3 @@ impl std::cmp::PartialEq for Table {
 }
 
 impl std::cmp::Eq for Table {}
-
-impl<'a> Exportable<'a> for Table {
-    fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
-        match _extern {
-            Extern::Table(table) => Ok(table),
-            _ => Err(ExportError::IncompatibleType),
-        }
-    }
-}
-
-/// Check the example from <https://github.com/wasmerio/wasmer/issues/3197>.
-#[test]
-fn test_table_grow_issue_3197() {
-    use crate::{imports, Instance, Module, Store, Table, TableType, Type, Value};
-
-    const WAT: &str = r#"(module (table (import "env" "table") 100 funcref))"#;
-
-    // Tests that the table type of `table` is compatible with the export in the WAT
-    // This tests that `wasmer_types::types::is_table_compatible` works as expected.
-    let mut store = Store::default();
-    let module = Module::new(&store, WAT).unwrap();
-    let ty = TableType::new(Type::FuncRef, 0, None);
-    let table = Table::new(&mut store, ty, Value::FuncRef(None)).unwrap();
-    table.grow(&mut store, 100, Value::FuncRef(None)).unwrap();
-    assert_eq!(table.ty(&store).minimum, 0);
-    let imports = imports! {"env" => {"table" => table}};
-    let _instance = Instance::new(&mut store, &module, &imports).unwrap();
-}
