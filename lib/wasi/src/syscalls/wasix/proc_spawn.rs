@@ -117,7 +117,7 @@ pub fn proc_spawn_internal(
         }
     };
     if let Some(args) = args {
-        let mut child_state = env.state.fork(true);
+        let mut child_state = env.state.fork();
         child_state.args = args;
         child_env.state = Arc::new(child_state);
     }
@@ -148,8 +148,8 @@ pub fn proc_spawn_internal(
 
     // Replace the STDIO
     let (stdin, stdout, stderr) = {
-        let (_, child_state, mut child_inodes) =
-            child_env.get_memory_and_wasi_state_and_inodes_mut(&new_store, 0);
+        let (_, child_state, child_inodes) =
+            child_env.get_memory_and_wasi_state_and_inodes(&new_store, 0);
         let mut conv_stdio_mode = |mode: WasiStdioMode, fd: WasiFd| -> Result<OptionFd, BusErrno> {
             match mode {
                 WasiStdioMode::Piped => {
@@ -157,13 +157,13 @@ pub fn proc_spawn_internal(
                     let pipe1 = pipes.rx;
                     let pipe2 = pipes.tx;
                     let inode1 = child_state.fs.create_inode_with_default_stat(
-                        child_inodes.deref_mut(),
+                        child_inodes,
                         Kind::Pipe { pipe: pipe1 },
                         false,
                         "pipe".into(),
                     );
                     let inode2 = child_state.fs.create_inode_with_default_stat(
-                        child_inodes.deref_mut(),
+                        child_inodes,
                         Kind::Pipe { pipe: pipe2 },
                         false,
                         "pipe".into(),
@@ -198,7 +198,7 @@ pub fn proc_spawn_internal(
                     fd: u32::MAX,
                 }),
                 _ => {
-                    child_state.fs.close_fd(child_inodes.deref(), fd);
+                    child_state.fs.close_fd(fd);
                     Ok(OptionFd {
                         tag: OptionTag::None,
                         fd: u32::MAX,

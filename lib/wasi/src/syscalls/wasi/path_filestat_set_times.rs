@@ -34,7 +34,7 @@ pub fn path_filestat_set_times<M: MemorySize>(
         ctx.data().tid()
     );
     let env = ctx.data();
-    let (memory, mut state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
+    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
     let fd_entry = wasi_try!(state.fs.get_fd(fd));
     let fd_inode = fd_entry.inode;
     if !fd_entry.rights.contains(Rights::PATH_FILESTAT_SET_TIMES) {
@@ -61,17 +61,15 @@ pub fn path_filestat_set_times<M: MemorySize>(
     }
 
     let file_inode = wasi_try!(state.fs.get_inode_at_path(
-        inodes.deref_mut(),
+        inodes,
         fd,
         &path_string,
         flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     ));
     let stat = {
-        let guard = inodes.arena[file_inode].read();
-        wasi_try!(state.fs.get_stat_for_kind(inodes.deref(), guard.deref()))
+        let guard = file_inode.read();
+        wasi_try!(state.fs.get_stat_for_kind(guard.deref()))
     };
-
-    let inode = &inodes.arena[fd_inode];
 
     if fst_flags.contains(Fstflags::SET_ATIM) || fst_flags.contains(Fstflags::SET_ATIM_NOW) {
         let time_to_set = if fst_flags.contains(Fstflags::SET_ATIM) {
@@ -79,7 +77,7 @@ pub fn path_filestat_set_times<M: MemorySize>(
         } else {
             wasi_try!(get_current_time_in_nanos())
         };
-        inode.stat.write().unwrap().st_atim = time_to_set;
+        fd_inode.stat.write().unwrap().st_atim = time_to_set;
     }
     if fst_flags.contains(Fstflags::SET_MTIM) || fst_flags.contains(Fstflags::SET_MTIM_NOW) {
         let time_to_set = if fst_flags.contains(Fstflags::SET_MTIM) {
@@ -87,7 +85,7 @@ pub fn path_filestat_set_times<M: MemorySize>(
         } else {
             wasi_try!(get_current_time_in_nanos())
         };
-        inode.stat.write().unwrap().st_mtim = time_to_set;
+        fd_inode.stat.write().unwrap().st_mtim = time_to_set;
     }
 
     Errno::Success

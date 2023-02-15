@@ -144,13 +144,35 @@ pub fn thread_spawn<M: MemorySize>(
 
         let mut ret = Errno::Success;
         if let Err(err) = spawn.call(store, user_data_low as i32, user_data_high as i32) {
-            debug!(
-                "wasi[{}:{}]::thread_spawn - thread failed - start: {}",
-                ctx.data(&store).pid(),
-                ctx.data(&store).tid(),
-                err
-            );
-            ret = Errno::Noexec;
+            match err.downcast::<WasiError>() {
+                Ok(WasiError::Exit(0)) => ret = Errno::Success,
+                Ok(WasiError::Exit(code)) => {
+                    debug!(
+                        %code,
+                        "wasi[{}:{}]::thread_spawn - thread exited",
+                        ctx.data(&store).pid(),
+                        ctx.data(&store).tid(),
+                    );
+                    ret = Errno::Noexec;
+                }
+                Ok(WasiError::UnknownWasiVersion) => {
+                    debug!(
+                        "wasi[{}:{}]::thread_spawn - thread failed as wasi version is unknown",
+                        ctx.data(&store).pid(),
+                        ctx.data(&store).tid(),
+                    );
+                    ret = Errno::Noexec;
+                }
+                Err(err) => {
+                    debug!(
+                        "wasi[{}:{}]::thread_spawn - thread failed with runtime error: {}",
+                        ctx.data(&store).pid(),
+                        ctx.data(&store).tid(),
+                        err
+                    );
+                    ret = Errno::Noexec;
+                }
+            }
         }
         trace!(
             "wasi[{}:{}]::thread_spawn - thread callback finished (reactor={:?}, ret={})",

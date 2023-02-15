@@ -1,3 +1,5 @@
+use std::f32::consts::E;
+
 use wasmer_wasi_types::wasi::SubscriptionClock;
 
 use super::*;
@@ -5,6 +7,7 @@ use crate::{
     fs::{InodeValFilePollGuard, InodeValFilePollGuardJoin},
     state::PollEventSet,
     syscalls::*,
+    WasiInodes,
 };
 
 /// ### `poll_oneoff()`
@@ -28,12 +31,15 @@ pub fn poll_oneoff<M: MemorySize>(
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
+    ctx.data_mut().poll_seed += 1;
     let mut env = ctx.data();
     let mut memory = env.memory_view(&ctx);
 
     let subscription_array = wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions));
     let mut subscriptions = Vec::with_capacity(subscription_array.len() as usize);
-    for sub in subscription_array.iter() {
+    for n in 0..subscription_array.len() {
+        let n = (n + env.poll_seed) % subscription_array.len();
+        let sub = subscription_array.index(n);
         let s = wasi_try_mem_ok!(sub.read());
         subscriptions.push((None, PollEventSet::default(), s));
     }
@@ -97,17 +103,18 @@ impl<'a> Future for PollBatch<'a> {
             let mut guard = Pin::new(join);
             match guard.poll(cx) {
                 Poll::Pending => {}
-                Poll::Ready(evt) => {
-                    tracing::trace!(
-                        "wasi[{}:{}]::poll_oneoff triggered_fd (fd={}, userdata={}, type={:?})",
-                        pid,
-                        tid,
-                        fd,
-                        evt.userdata,
-                        evt.type_,
-                    );
-                    evts.push(evt);
-                    done = true;
+                Poll::Ready(e) => {
+                    for evt in e {
+                        tracing::trace!(
+                            "wasi[{}:{}]::poll_oneoff triggered_fd (fd={}, userdata={}, type={:?})",
+                            pid,
+                            tid,
+                            fd,
+                            evt.userdata,
+                            evt.type_,
+                        );
+                        evts.push(evt);
+                    }
                 }
             }
         }
@@ -247,8 +254,6 @@ pub(crate) fn poll_oneoff_internal(
         let mut guards = {
             // We start by building a list of files we are going to poll
             // and open a read lock on them all
-            let inodes = state.inodes.clone();
-            let inodes = inodes.read().unwrap();
             let mut fd_guards = Vec::with_capacity(subs.len());
 
             #[allow(clippy::significant_drop_in_scrutinee)]
@@ -256,20 +261,17 @@ pub(crate) fn poll_oneoff_internal(
                 if let Some(fd) = fd {
                     let wasi_file_ref = match fd {
                         __WASI_STDERR_FILENO => {
-                            wasi_try_ok_ok!(inodes
-                                .stderr(&state.fs.fd_map)
+                            wasi_try_ok_ok!(WasiInodes::stderr(&state.fs.fd_map)
                                 .map(|g| g.into_poll_guard(fd, peb, s))
                                 .map_err(fs_error_into_wasi_err))
                         }
                         __WASI_STDIN_FILENO => {
-                            wasi_try_ok_ok!(inodes
-                                .stdin(&state.fs.fd_map)
+                            wasi_try_ok_ok!(WasiInodes::stdin(&state.fs.fd_map)
                                 .map(|g| g.into_poll_guard(fd, peb, s))
                                 .map_err(fs_error_into_wasi_err))
                         }
                         __WASI_STDOUT_FILENO => {
-                            wasi_try_ok_ok!(inodes
-                                .stdout(&state.fs.fd_map)
+                            wasi_try_ok_ok!(WasiInodes::stdout(&state.fs.fd_map)
                                 .map(|g| g.into_poll_guard(fd, peb, s))
                                 .map_err(fs_error_into_wasi_err))
                         }
@@ -281,7 +283,7 @@ pub(crate) fn poll_oneoff_internal(
                             let inode = fd_entry.inode;
 
                             {
-                                let guard = inodes.arena[inode].read();
+                                let guard = inode.read();
                                 if let Some(guard) =
                                     crate::fs::InodeValFilePollGuard::new(fd, peb, s, guard.deref())
                                 {
@@ -307,12 +309,16 @@ pub(crate) fn poll_oneoff_internal(
         };
 
         if let Some(time_to_sleep) = time_to_sleep.as_ref() {
-            tracing::trace!(
-                "wasi[{}:{}]::poll_oneoff wait_for_timeout={}",
-                pid,
-                tid,
-                time_to_sleep.as_millis()
-            );
+            if *time_to_sleep == Duration::ZERO {
+                tracing::trace!("wasi[{}:{}]::poll_oneoff non_blocking", pid, tid,);
+            } else {
+                tracing::trace!(
+                    "wasi[{}:{}]::poll_oneoff wait_for_timeout={}",
+                    pid,
+                    tid,
+                    time_to_sleep.as_millis()
+                );
+            }
         } else {
             tracing::trace!("wasi[{}:{}]::poll_oneoff wait_for_infinite", pid, tid,);
         }

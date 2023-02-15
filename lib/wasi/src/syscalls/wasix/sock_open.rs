@@ -30,7 +30,7 @@ pub fn sock_open<M: MemorySize>(
     debug!("wasi[{}:{}]::sock_open", ctx.data().pid(), ctx.data().tid());
 
     let env = ctx.data();
-    let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
+    let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
     let kind = match ty {
         Socktype::Stream | Socktype::Dgram => Kind::Socket {
@@ -53,12 +53,10 @@ pub fn sock_open<M: MemorySize>(
         _ => return Errno::Notsup,
     };
 
-    let inode = state.fs.create_inode_with_default_stat(
-        inodes.deref_mut(),
-        kind,
-        false,
-        "socket".to_string().into(),
-    );
+    let inode =
+        state
+            .fs
+            .create_inode_with_default_stat(inodes, kind, false, "socket".to_string().into());
     let rights = Rights::all_socket();
     let fd = wasi_try!(state
         .fs

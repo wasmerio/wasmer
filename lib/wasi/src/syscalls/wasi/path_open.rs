@@ -42,7 +42,7 @@ pub fn path_open<M: MemorySize>(
         debug!("  - will follow symlinks when opening path");
     }
     let env = ctx.data();
-    let (memory, mut state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
+    let (memory, mut state, mut inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
     /* TODO: find actual upper bound on name size (also this is a path, not a name :think-fish:) */
     let path_len64: u64 = path_len.into();
     if path_len64 > 1024u64 * 1024u64 {
@@ -81,7 +81,7 @@ pub fn path_open<M: MemorySize>(
 
     let path_arg = std::path::PathBuf::from(&path_string);
     let maybe_inode = state.fs.get_inode_at_path(
-        inodes.deref_mut(),
+        inodes,
         dirfd,
         &path_string,
         dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
@@ -148,7 +148,9 @@ pub fn path_open<M: MemorySize>(
 
     let inode = if let Ok(inode) = maybe_inode {
         // Happy path, we found the file we're trying to open
-        let mut guard = inodes.arena[inode].write();
+        let processing_inode = inode.clone();
+        let mut guard = processing_inode.write();
+
         let deref_mut = guard.deref_mut();
         match deref_mut {
             Kind::File {
@@ -244,13 +246,13 @@ pub fn path_open<M: MemorySize>(
             // strip end file name
 
             let (parent_inode, new_entity_name) = wasi_try!(state.fs.get_parent_inode_at_path(
-                inodes.deref_mut(),
+                inodes,
                 dirfd,
                 &path_arg,
                 dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0
             ));
             let new_file_host_path = {
-                let guard = inodes.arena[parent_inode].read();
+                let guard = parent_inode.read();
                 match guard.deref() {
                     Kind::Dir { path, .. } => {
                         let mut new_path = path.clone();
@@ -301,21 +303,18 @@ pub fn path_open<M: MemorySize>(
                     path: new_file_host_path,
                     fd: None,
                 };
-                wasi_try!(state.fs.create_inode(
-                    inodes.deref_mut(),
-                    kind,
-                    false,
-                    new_entity_name.clone()
-                ))
+                wasi_try!(state
+                    .fs
+                    .create_inode(inodes, kind, false, new_entity_name.clone()))
             };
 
             {
-                let mut guard = inodes.arena[parent_inode].write();
+                let mut guard = parent_inode.write();
                 if let Kind::Dir {
                     ref mut entries, ..
                 } = guard.deref_mut()
                 {
-                    entries.insert(new_entity_name, new_inode);
+                    entries.insert(new_entity_name, new_inode.clone());
                 }
             }
 

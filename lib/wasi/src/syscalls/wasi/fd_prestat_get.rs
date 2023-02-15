@@ -21,16 +21,14 @@ pub fn fd_prestat_get<M: MemorySize>(
         fd
     );
     let env = ctx.data();
-    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
 
     let prestat_ptr = buf.deref(&memory);
     wasi_try_mem!(
-        prestat_ptr.write(wasi_try!(state.fs.prestat_fd(inodes.deref(), fd).map_err(
-            |code| {
-                debug!("fd_prestat_get failed (fd={}) - errno={}", fd, code);
-                code
-            }
-        )))
+        prestat_ptr.write(wasi_try!(state.fs.prestat_fd(fd).map_err(|code| {
+            debug!("fd_prestat_get failed (fd={}) - errno={}", fd, code);
+            code
+        })))
     );
 
     Errno::Success

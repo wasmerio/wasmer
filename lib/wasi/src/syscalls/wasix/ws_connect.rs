@@ -35,16 +35,15 @@ pub fn ws_connect<M: MemorySize>(
     })?);
     env = ctx.data();
 
-    let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
+    let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
     let kind = Kind::Socket {
         socket: InodeSocket::new(InodeSocketKind::WebSocket(socket)),
     };
 
-    let inode =
-        state
-            .fs
-            .create_inode_with_default_stat(inodes.deref_mut(), kind, false, "socket".into());
+    let inode = state
+        .fs
+        .create_inode_with_default_stat(inodes, kind, false, "socket".into());
     let rights = Rights::all_socket();
     let fd = wasi_try_ok!(state
         .fs

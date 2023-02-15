@@ -1,5 +1,5 @@
 use super::*;
-use crate::syscalls::*;
+use crate::{fs::NotificationInner, syscalls::*};
 
 /// ### `fd_event()`
 /// Creates a file handle for event notifications
@@ -12,17 +12,17 @@ pub fn fd_event<M: MemorySize>(
     debug!("wasi[{}:{}]::fd_event", ctx.data().pid(), ctx.data().tid());
 
     let env = ctx.data();
-    let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
+    let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
-    let kind = Kind::EventNotifications {
-        counter: Arc::new(AtomicU64::new(initial_val)),
+    let kind = Kind::EventNotifications(Arc::new(NotificationInner {
+        counter: AtomicU64::new(initial_val),
+        last_poll: AtomicU64::new(0),
         is_semaphore: flags & EVENT_FD_FLAGS_SEMAPHORE != 0,
         wakers: Default::default(),
-        immediate: Arc::new(AtomicBool::new(false)),
-    };
+    }));
 
     let inode = state.fs.create_inode_with_default_stat(
-        inodes.deref_mut(),
+        inodes.deref(),
         kind,
         false,
         "event".to_string().into(),

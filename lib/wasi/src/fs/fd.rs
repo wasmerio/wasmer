@@ -2,13 +2,10 @@ use std::{
     borrow::Cow,
     collections::{HashMap, VecDeque},
     path::PathBuf,
-    sync::{
-        atomic::{AtomicBool, AtomicU32, AtomicU64},
-        Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard,
-    },
+    sync::{atomic::AtomicU64, Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    task::Waker,
 };
 
-use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
 use wasmer_vfs::{VirtualFile, WasiPipe};
@@ -16,12 +13,11 @@ use wasmer_wasi_types::wasi::{Fd as WasiFd, Fdflags, Filestat, Rights};
 
 use crate::net::socket::InodeSocket;
 
+use super::{InodeGuard, InodeWeakGuard};
+
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Fd {
-    /// The reference count is only increased when the FD is
-    /// duplicates - fd_close will not kill the inode until this reaches zero
-    pub ref_cnt: Arc<AtomicU32>,
     pub rights: Rights,
     pub rights_inheriting: Rights,
     pub flags: Fdflags,
@@ -30,7 +26,7 @@ pub struct Fd {
     ///
     /// Used when reopening a [`VirtualFile`] during [`WasiState`] deserialization.
     pub open_flags: u16,
-    pub inode: Inode,
+    pub inode: InodeGuard,
     pub is_stdio: bool,
 }
 
@@ -74,6 +70,21 @@ impl InodeVal {
     }
 }
 
+#[derive(Debug)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub struct NotificationInner {
+    /// Used for event notifications by the user application or operating system
+    /// (positive number means there are events waiting to be processed)
+    pub counter: AtomicU64,
+    /// Counter used to prevent duplicate notification events
+    pub last_poll: AtomicU64,
+    /// Flag that indicates if this is operating
+    pub is_semaphore: bool,
+    /// Receiver that wakes sleeping threads
+    #[cfg_attr(feature = "enable-serde", serde(skip))]
+    pub wakers: Mutex<VecDeque<Waker>>,
+}
+
 /// The core of the filesystem abstraction.  Includes directories,
 /// files, and symlinks.
 #[derive(Debug)]
@@ -104,19 +115,19 @@ pub enum Kind {
     },
     Dir {
         /// Parent directory
-        parent: Option<Inode>,
+        parent: InodeWeakGuard,
         /// The path on the host system where the directory is located
         // TODO: wrap it like VirtualFile
         path: PathBuf,
         /// The entries of a directory are lazily filled.
-        entries: HashMap<String, Inode>,
+        entries: HashMap<String, InodeGuard>,
     },
     /// The same as Dir but without the irrelevant bits
     /// The root is immutable after creation; generally the Kind::Root
     /// branch of whatever code you're writing will be a simpler version of
     /// your Kind::Dir logic
     Root {
-        entries: HashMap<String, Inode>,
+        entries: HashMap<String, InodeGuard>,
     },
     /// The first two fields are data _about_ the symlink
     /// the last field is the data _inside_ the symlink
@@ -135,16 +146,5 @@ pub enum Kind {
     Buffer {
         buffer: Vec<u8>,
     },
-    EventNotifications {
-        /// Used for event notifications by the user application or operating system
-        /// (positive number means there are events waiting to be processed)
-        counter: Arc<AtomicU64>,
-        /// Flag that indicates if this is operating
-        is_semaphore: bool,
-        /// Receiver that wakes sleeping threads
-        #[cfg_attr(feature = "enable-serde", serde(skip))]
-        wakers: Arc<Mutex<VecDeque<tokio::sync::mpsc::UnboundedSender<()>>>>,
-        /// Immediate waker
-        immediate: Arc<AtomicBool>,
-    },
+    EventNotifications(Arc<NotificationInner>),
 }

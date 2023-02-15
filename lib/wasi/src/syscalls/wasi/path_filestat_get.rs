@@ -24,7 +24,7 @@ pub fn path_filestat_get<M: MemorySize>(
     buf: WasmPtr<Filestat, M>,
 ) -> Errno {
     let env = ctx.data();
-    let (memory, mut state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
+    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
     let mut path_string = unsafe { get_input_str!(&memory, path, path_len) };
     debug!(
@@ -49,7 +49,7 @@ pub fn path_filestat_get<M: MemorySize>(
     let stat = wasi_try!(path_filestat_get_internal(
         &memory,
         state,
-        inodes.deref_mut(),
+        inodes,
         fd,
         flags,
         &path_string
@@ -77,7 +77,7 @@ pub fn path_filestat_get<M: MemorySize>(
 pub fn path_filestat_get_internal(
     memory: &MemoryView,
     state: &WasiState,
-    inodes: &mut crate::WasiInodes,
+    inodes: &crate::WasiInodes,
     fd: WasiFd,
     flags: LookupFlags,
     path_string: &str,
@@ -95,10 +95,10 @@ pub fn path_filestat_get_internal(
         path_string,
         flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     )?;
-    if inodes.arena[file_inode].is_preopened {
-        Ok(*inodes.arena[file_inode].stat.read().unwrap().deref())
+    if file_inode.is_preopened {
+        Ok(file_inode.stat.read().unwrap().deref().clone())
     } else {
-        let guard = inodes.arena[file_inode].read();
-        state.fs.get_stat_for_kind(inodes.deref(), guard.deref())
+        let guard = file_inode.read();
+        state.fs.get_stat_for_kind(guard.deref())
     }
 }

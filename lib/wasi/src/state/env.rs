@@ -1,7 +1,4 @@
-use std::{
-    ops::Deref,
-    sync::{Arc, RwLockReadGuard, RwLockWriteGuard},
-};
+use std::{ops::Deref, sync::Arc};
 
 use derivative::Derivative;
 use tracing::{trace, warn};
@@ -200,6 +197,8 @@ pub struct WasiEnv {
     pub stack_base: u64,
     /// Start of the stack memory that is allocated for this thread
     pub stack_start: u64,
+    /// Seed used to rotate around the events returned by `poll_oneoff`
+    pub poll_seed: u64,
     /// Shared state of the WASI system. Manages all the data that the
     /// executing WASI program can see.
     pub state: Arc<WasiState>,
@@ -234,7 +233,7 @@ impl WasiEnv {
         let thread = handle.as_thread();
         thread.copy_stack_from(&self.thread);
 
-        let state = Arc::new(self.state.fork(true));
+        let state = Arc::new(self.state.fork());
 
         let bin_factory = {
             let mut bin_factory = self.bin_factory.clone();
@@ -246,6 +245,7 @@ impl WasiEnv {
             process,
             thread,
             vfork: None,
+            poll_seed: 0,
             stack_base: self.stack_base,
             stack_start: self.stack_start,
             bin_factory,
@@ -293,6 +293,7 @@ impl WasiEnv {
             process,
             thread: thread.as_thread(),
             vfork: None,
+            poll_seed: 0,
             stack_base: DEFAULT_STACK_SIZE,
             stack_start: 0,
             state,
@@ -529,21 +530,10 @@ impl WasiEnv {
         &'a self,
         store: &'a impl AsStoreRef,
         _mem_index: u32,
-    ) -> (MemoryView<'a>, &WasiState, RwLockReadGuard<WasiInodes>) {
+    ) -> (MemoryView<'a>, &WasiState, &WasiInodes) {
         let memory = self.memory_view(store);
         let state = self.state.deref();
-        let inodes = state.inodes.read().unwrap();
-        (memory, state, inodes)
-    }
-
-    pub(crate) fn get_memory_and_wasi_state_and_inodes_mut<'a>(
-        &'a self,
-        store: &'a impl AsStoreRef,
-        _mem_index: u32,
-    ) -> (MemoryView<'a>, &WasiState, RwLockWriteGuard<WasiInodes>) {
-        let memory = self.memory_view(store);
-        let state = self.state.deref();
-        let inodes = state.inodes.write().unwrap();
+        let inodes = &state.inodes;
         (memory, state, inodes)
     }
 
@@ -693,9 +683,7 @@ impl WasiEnv {
         // If this is the main thread then also close all the files
         if self.thread.is_main() {
             trace!("wasi[{}]:: cleaning up open file handles", self.pid());
-
-            let inodes = self.state.inodes.read().unwrap();
-            self.state.fs.close_all(inodes.deref());
+            self.state.fs.close_all();
 
             // Now send a signal that the thread is terminated
             self.process.signal_process(Signal::Sigquit);

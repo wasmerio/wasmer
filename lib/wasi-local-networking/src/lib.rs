@@ -140,6 +140,12 @@ impl VirtualTcpListener for LocalTcpListener {
         &mut self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>> {
+        {
+            let backlog = self.backlog.lock().unwrap();
+            if backlog.len() > 10 {
+                return Poll::Ready(Ok(backlog.len()));
+            }
+        }
         self.stream
             .poll_accept(cx)
             .map_err(io_err_into_net_error)

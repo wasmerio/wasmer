@@ -22,7 +22,7 @@ pub fn fd_allocate(
         ctx.data().tid()
     );
     let env = ctx.data();
-    let (_, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (_, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
     let fd_entry = wasi_try!(state.fs.get_fd(fd));
     let inode = fd_entry.inode;
 
@@ -31,7 +31,7 @@ pub fn fd_allocate(
     }
     let new_size = wasi_try!(offset.checked_add(len).ok_or(Errno::Inval));
     {
-        let mut guard = inodes.arena[inode].write();
+        let mut guard = inode.write();
         match guard.deref_mut() {
             Kind::File { handle, .. } => {
                 if let Some(handle) = handle {
@@ -51,7 +51,7 @@ pub fn fd_allocate(
             Kind::Dir { .. } | Kind::Root { .. } => return Errno::Isdir,
         }
     }
-    inodes.arena[inode].stat.write().unwrap().st_size = new_size;
+    inode.stat.write().unwrap().st_size = new_size;
     debug!("New file size: {}", new_size);
 
     Errno::Success

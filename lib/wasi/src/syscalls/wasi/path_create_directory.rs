@@ -26,11 +26,11 @@ pub fn path_create_directory<M: MemorySize>(
         ctx.data().tid()
     );
     let env = ctx.data();
-    let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
+    let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
     let working_dir = wasi_try!(state.fs.get_fd(fd));
     {
-        let guard = inodes.arena[working_dir.inode].read();
+        let guard = working_dir.inode.read();
         if let Kind::Root { .. } = guard.deref() {
             return Errno::Access;
         }
@@ -71,7 +71,9 @@ pub fn path_create_directory<M: MemorySize>(
     let mut cur_dir_inode = working_dir.inode;
     for comp in &path_vec {
         debug!("Creating dir {}", comp);
-        let mut guard = inodes.arena[cur_dir_inode].write();
+
+        let processing_cur_dir_inode = cur_dir_inode.clone();
+        let mut guard = processing_cur_dir_inode.write();
         match guard.deref_mut() {
             Kind::Dir {
                 ref mut entries,
@@ -80,8 +82,8 @@ pub fn path_create_directory<M: MemorySize>(
             } => {
                 match comp.borrow() {
                     ".." => {
-                        if let Some(p) = parent {
-                            cur_dir_inode = *p;
+                        if let Some(p) = parent.upgrade() {
+                            cur_dir_inode = p;
                             continue;
                         }
                     }
@@ -89,7 +91,7 @@ pub fn path_create_directory<M: MemorySize>(
                     _ => (),
                 }
                 if let Some(child) = entries.get(comp) {
-                    cur_dir_inode = *child;
+                    cur_dir_inode = child.clone();
                 } else {
                     let mut adjusted_path = path.clone();
                     drop(guard);
@@ -99,7 +101,7 @@ pub fn path_create_directory<M: MemorySize>(
                     if let Ok(adjusted_path_stat) = path_filestat_get_internal(
                         &memory,
                         state,
-                        inodes.deref_mut(),
+                        inodes,
                         fd,
                         0,
                         &adjusted_path.to_string_lossy(),
@@ -111,25 +113,21 @@ pub fn path_create_directory<M: MemorySize>(
                         wasi_try!(state.fs_create_dir(&adjusted_path));
                     }
                     let kind = Kind::Dir {
-                        parent: Some(cur_dir_inode),
+                        parent: cur_dir_inode.downgrade(),
                         path: adjusted_path,
                         entries: Default::default(),
                     };
-                    let new_inode = wasi_try!(state.fs.create_inode(
-                        inodes.deref_mut(),
-                        kind,
-                        false,
-                        comp.to_string()
-                    ));
+                    let new_inode =
+                        wasi_try!(state.fs.create_inode(inodes, kind, false, comp.to_string()));
 
                     // reborrow to insert
                     {
-                        let mut guard = inodes.arena[cur_dir_inode].write();
+                        let mut guard = cur_dir_inode.write();
                         if let Kind::Dir {
                             ref mut entries, ..
                         } = guard.deref_mut()
                         {
-                            entries.insert(comp.to_string(), new_inode);
+                            entries.insert(comp.to_string(), new_inode.clone());
                         }
                     }
                     cur_dir_inode = new_inode;

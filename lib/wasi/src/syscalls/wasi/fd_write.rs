@@ -113,18 +113,15 @@ fn fd_write_internal<M: MemorySize>(
         }
 
         let fd_flags = fd_entry.flags;
-        let inode_idx = fd_entry.inode;
 
         let (bytes_written, can_update_cursor) = {
-            let (mut memory, _, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
-            let inode = &inodes.arena[inode_idx];
-            let mut guard = inode.write();
+            let (mut memory, _) = env.get_memory_and_wasi_state(&ctx, 0);
+            let mut guard = fd_entry.inode.write();
             match guard.deref_mut() {
                 Kind::File { handle, .. } => {
                     if let Some(handle) = handle {
                         let handle = handle.clone();
                         drop(guard);
-                        drop(inodes);
 
                         let buf_len: M::Offset = iovs_arr
                             .iter()
@@ -168,7 +165,6 @@ fn fd_write_internal<M: MemorySize>(
                 Kind::Socket { socket } => {
                     let socket = socket.clone();
                     drop(guard);
-                    drop(inodes);
 
                     let buf_len: M::Offset = iovs_arr
                         .iter()
@@ -203,12 +199,7 @@ fn fd_write_internal<M: MemorySize>(
                     // TODO: verify
                     return Ok(Errno::Isdir);
                 }
-                Kind::EventNotifications {
-                    counter,
-                    wakers,
-                    immediate,
-                    ..
-                } => {
+                Kind::EventNotifications(inner) => {
                     let mut val: [MaybeUninit<u8>; 8] =
                         unsafe { MaybeUninit::uninit().assume_init() };
                     let written = wasi_try_ok!(copy_to_slice(&memory, iovs_arr, &mut val[..]));
@@ -217,12 +208,12 @@ fn fd_write_internal<M: MemorySize>(
                     }
                     let val = u64::from_ne_bytes(unsafe { std::mem::transmute(val) });
 
-                    counter.fetch_add(val, Ordering::AcqRel);
+                    inner.counter.fetch_add(val, Ordering::AcqRel);
+                    inner.last_poll.store(u64::MAX, Ordering::Release);
                     {
-                        let mut guard = wakers.lock().unwrap();
-                        immediate.store(true, Ordering::Release);
+                        let mut guard = inner.wakers.lock().unwrap();
                         while let Some(wake) = guard.pop_back() {
-                            let _ = wake.send(());
+                            wake.wake();
                         }
                     }
 
@@ -252,9 +243,8 @@ fn fd_write_internal<M: MemorySize>(
             // we set the size but we don't return any errors if it fails as
             // pipes and sockets will not do anything with this
             let (mut memory, _, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
-            let inode = &inodes.arena[inode_idx];
             // Cast is valid because we don't support 128 bit systems...
-            inode.stat.write().unwrap().st_size += bytes_written as u64;
+            fd_entry.inode.stat.write().unwrap().st_size += bytes_written as u64;
         }
         bytes_written
     };

@@ -13,7 +13,6 @@ edition = "2018"
 [dependencies]
 cfg-if = "1.0"
 thiserror = "1"
-generational-arena = { version = "0.2" }
 tracing = "0.1"
 getrandom = "0.2"
 wasmer-wasi-types = { path = "../wasi-types", version = "=3.2.0-alpha.1" }
@@ -61,6 +60,7 @@ wasmer-compiler-singlepass = { version = "=3.2.0-alpha.1", path = "../compiler-s
 wasmer-compiler = { version = "=3.2.0-alpha.1", path = "../compiler", features = [ "translator" ], optional = true }
 http = "0.2.8"
 wai-bindgen-wasmer = { path = "../wai-bindgen-wasmer", version = "0.2.3", features = ["tracing"] }
+heapless = "0.7.16"
 
 [dependencies.reqwest]
 version = "0.11"
@@ -125,6 +125,5 @@ disable-all-logging = [
 enable-serde = [
     "typetag",
     "wasmer-vfs/enable-serde",
-    "generational-arena/serde",
     "wasmer-wasi-types/enable-serde",
 ]

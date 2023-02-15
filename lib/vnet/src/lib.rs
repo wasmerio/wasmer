@@ -554,6 +554,9 @@ pub enum NetworkError {
     /// A call to write returned 0
     #[error("write returned 0")]
     WriteZero,
+    /// OS error
+    #[error("operating system error({0})")]
+    OsError(i32),
     /// The operation is not supported.
     #[error("unsupported")]
     Unsupported,
@@ -563,6 +566,7 @@ pub enum NetworkError {
 }
 
 pub fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
+    use std::io::Error;
     use std::io::ErrorKind;
     match net_error {
         NetworkError::InvalidFd => ErrorKind::BrokenPipe.into(),
@@ -585,6 +589,7 @@ pub fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
         NetworkError::UnexpectedEof => ErrorKind::UnexpectedEof.into(),
         NetworkError::WouldBlock => ErrorKind::WouldBlock.into(),
         NetworkError::WriteZero => ErrorKind::WriteZero.into(),
+        NetworkError::OsError(code) => Error::from_raw_os_error(code),
         NetworkError::Unsupported => ErrorKind::Unsupported.into(),
         NetworkError::UnknownError => ErrorKind::BrokenPipe.into(),
     }
@@ -610,6 +615,12 @@ pub fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
         ErrorKind::WouldBlock => NetworkError::WouldBlock,
         ErrorKind::WriteZero => NetworkError::WriteZero,
         ErrorKind::Unsupported => NetworkError::Unsupported,
-        _ => NetworkError::UnknownError,
+        _ => {
+            if let Some(code) = net_error.raw_os_error() {
+                NetworkError::OsError(code)
+            } else {
+                NetworkError::UnknownError
+            }
+        }
     }
 }

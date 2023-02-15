@@ -75,11 +75,9 @@ pub fn bus_poll<M: MemorySize>(
             // Function that turns a buffer into a readable file handle
             let buf_to_fd = {
                 let state = env.state.clone();
-                let inodes = state.inodes.clone();
                 move |data: Vec<u8>| -> Result<WasiFd, BusErrno> {
-                    let mut inodes = inodes.write().unwrap();
                     let inode = state.fs.create_inode_with_default_stat(
-                        inodes.deref_mut(),
+                        &state.inodes,
                         Kind::Buffer { buffer: data },
                         false,
                         "bus".into(),

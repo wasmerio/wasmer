@@ -30,7 +30,7 @@ pub fn fd_readdir<M: MemorySize>(
         ctx.data().tid()
     );
     let env = ctx.data();
-    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
     // TODO: figure out how this is supposed to work;
     // is it supposed to pack the buffer full every time until it can't? or do one at a time?
 
@@ -41,7 +41,7 @@ pub fn fd_readdir<M: MemorySize>(
     let mut buf_idx = 0usize;
 
     let entries: Vec<(String, Filetype, u64)> = {
-        let guard = inodes.arena[working_dir.inode].read();
+        let guard = working_dir.inode.read();
         match guard.deref() {
             Kind::Dir { path, entries, .. } => {
                 debug!("Reading dir {:?}", path);
@@ -65,16 +65,12 @@ pub fn fd_readdir<M: MemorySize>(
                         ))
                     })
                     .collect::<Result<Vec<(String, Filetype, u64)>, _>>());
-                entry_vec.extend(
-                    entries
-                        .iter()
-                        .filter(|(_, inode)| inodes.arena[**inode].is_preopened)
-                        .map(|(name, inode)| {
-                            let entry = &inodes.arena[*inode];
-                            let stat = entry.stat.read().unwrap();
-                            (entry.name.to_string(), stat.st_filetype, stat.st_ino)
-                        }),
-                );
+                entry_vec.extend(entries.iter().filter(|(_, inode)| inode.is_preopened).map(
+                    |(name, inode)| {
+                        let stat = inode.stat.read().unwrap();
+                        (inode.name.to_string(), stat.st_filetype, stat.st_ino)
+                    },
+                ));
                 // adding . and .. special folders
                 // TODO: inode
                 entry_vec.push((".".to_string(), Filetype::Directory, 0));
@@ -85,17 +81,18 @@ pub fn fd_readdir<M: MemorySize>(
             Kind::Root { entries } => {
                 debug!("Reading root");
                 let sorted_entries = {
-                    let mut entry_vec: Vec<(String, Inode)> =
-                        entries.iter().map(|(a, b)| (a.clone(), *b)).collect();
+                    let mut entry_vec: Vec<(String, InodeGuard)> = entries
+                        .iter()
+                        .map(|(a, b)| (a.clone(), b.clone()))
+                        .collect();
                     entry_vec.sort_by(|a, b| a.0.cmp(&b.0));
                     entry_vec
                 };
                 sorted_entries
                     .into_iter()
                     .map(|(name, inode)| {
-                        let entry = &inodes.arena[inode];
-                        let stat = entry.stat.read().unwrap();
-                        (format!("/{}", entry.name), stat.st_filetype, stat.st_ino)
+                        let stat = inode.stat.read().unwrap();
+                        (format!("/{}", inode.name), stat.st_filetype, stat.st_ino)
                     })
                     .collect()
             }

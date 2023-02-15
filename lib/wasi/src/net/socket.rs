@@ -66,7 +66,6 @@ pub enum InodeSocketKind {
         socket: Box<dyn VirtualUdpSocket + Sync>,
         peer: Option<SocketAddr>,
     },
-    Closed,
 }
 
 pub enum WasiSocketOption {
@@ -154,20 +153,39 @@ pub enum TimeType {
 
 #[derive(Debug)]
 //#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub(crate) struct InodeSocketInner {
+pub(crate) struct InodeSocketProtected {
     pub kind: InodeSocketKind,
+    pub notifications: InodeSocketNotifications,
+}
+
+#[derive(Debug, Default)]
+//#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub(crate) struct InodeSocketNotifications {
+    pub closed: bool,
+    pub failed: bool,
+}
+
+#[derive(Debug)]
+//#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub(crate) struct InodeSocketInner {
+    pub protected: RwLock<InodeSocketProtected>,
 }
 
 #[derive(Debug, Clone)]
 //#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct InodeSocket {
-    pub(crate) inner: Arc<RwLock<InodeSocketInner>>,
+    pub(crate) inner: Arc<InodeSocketInner>,
 }
 
 impl InodeSocket {
     pub fn new(kind: InodeSocketKind) -> Self {
         Self {
-            inner: Arc::new(RwLock::new(InodeSocketInner { kind })),
+            inner: Arc::new(InodeSocketInner {
+                protected: RwLock::new(InodeSocketProtected {
+                    kind,
+                    notifications: Default::default(),
+                }),
+            }),
         }
     }
 
@@ -184,7 +202,7 @@ impl InodeSocket {
             .unwrap_or(Duration::from_secs(30));
 
         let socket = {
-            let mut inner = self.inner.write().unwrap();
+            let mut inner = self.inner.protected.write().unwrap();
             match &mut inner.kind {
                 InodeSocketKind::PreSocket {
                     family,
@@ -255,7 +273,7 @@ impl InodeSocket {
             .unwrap_or(Duration::from_secs(30));
 
         let socket = {
-            let inner = self.inner.read().unwrap();
+            let inner = self.inner.protected.read().unwrap();
             match &inner.kind {
                 InodeSocketKind::PreSocket {
                     ty,
@@ -283,10 +301,6 @@ impl InodeSocket {
                         return Err(Errno::Notsup);
                     }
                 },
-                InodeSocketKind::Closed => {
-                    tracing::warn!("wasi[?]::sock_listen - failed - socket closed");
-                    return Err(Errno::Io);
-                }
                 _ => {
                     tracing::warn!("wasi[?]::sock_listen - failed - not supported(2)");
                     return Err(Errno::Notsup);
@@ -328,7 +342,7 @@ impl InodeSocket {
                 self: Pin<&mut Self>,
                 cx: &mut std::task::Context<'_>,
             ) -> std::task::Poll<Self::Output> {
-                let mut inner = self.sock.inner.write().unwrap();
+                let mut inner = self.sock.inner.protected.write().unwrap();
                 match &mut inner.kind {
                     InodeSocketKind::TcpListener { socket, .. } => {
                         if self.nonblocking {
@@ -342,7 +356,6 @@ impl InodeSocket {
                         }
                     }
                     InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
-                    InodeSocketKind::Closed => Poll::Ready(Err(Errno::Io)),
                     _ => Poll::Ready(Err(Errno::Notsup)),
                 }
             }
@@ -355,7 +368,7 @@ impl InodeSocket {
     }
 
     pub fn close(&self) -> Result<(), Errno> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::TcpListener { .. } => {}
             InodeSocketKind::TcpStream { socket, .. } => {
@@ -366,7 +379,6 @@ impl InodeSocket {
             InodeSocketKind::WebSocket(_) => {}
             InodeSocketKind::Raw(_) => {}
             InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
-            InodeSocketKind::Closed => return Err(Errno::Notconn),
         };
         Ok(())
     }
@@ -380,12 +392,12 @@ impl InodeSocket {
 
         #[derive(Debug)]
         struct SocketFlusher<'a> {
-            sock: &'a RwLock<InodeSocketInner>,
+            inner: &'a InodeSocketInner,
         }
         impl<'a> Future for SocketFlusher<'a> {
             type Output = Result<(), Errno>;
             fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
-                let mut inner = self.sock.write().unwrap();
+                let mut inner = self.inner.protected.write().unwrap();
                 match &mut inner.kind {
                     InodeSocketKind::TcpListener { .. } => Poll::Ready(Ok(())),
                     InodeSocketKind::TcpStream { socket, .. } => {
@@ -396,13 +408,12 @@ impl InodeSocket {
                     InodeSocketKind::WebSocket(_) => Poll::Ready(Ok(())),
                     InodeSocketKind::Raw(_) => Poll::Ready(Ok(())),
                     InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
-                    InodeSocketKind::Closed => Poll::Ready(Err(Errno::Notconn)),
                 }
             }
         }
 
         tokio::select! {
-            res = SocketFlusher { sock: &self.inner } => res,
+            res = SocketFlusher { inner: &self.inner } => res,
             _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
         }
     }
@@ -420,7 +431,7 @@ impl InodeSocket {
         let timeout = timeout.unwrap_or(Duration::from_secs(30));
 
         let connect = {
-            let mut inner = self.inner.write().unwrap();
+            let mut inner = self.inner.protected.write().unwrap();
             match &mut inner.kind {
                 InodeSocketKind::PreSocket {
                     ty,
@@ -455,7 +466,6 @@ impl InodeSocket {
                     target_peer.replace(peer);
                     return Ok(None);
                 }
-                InodeSocketKind::Closed => return Err(Errno::Io),
                 _ => return Err(Errno::Notsup),
             }
         };
@@ -472,20 +482,19 @@ impl InodeSocket {
     }
 
     pub fn status(&self) -> Result<WasiSocketStatus, Errno> {
-        let inner = self.inner.read().unwrap();
+        let inner = self.inner.protected.read().unwrap();
         Ok(match &inner.kind {
             InodeSocketKind::PreSocket { .. } => WasiSocketStatus::Opening,
             InodeSocketKind::WebSocket(_) => WasiSocketStatus::Opened,
             InodeSocketKind::TcpListener { .. } => WasiSocketStatus::Opened,
             InodeSocketKind::TcpStream { .. } => WasiSocketStatus::Opened,
             InodeSocketKind::UdpSocket { .. } => WasiSocketStatus::Opened,
-            InodeSocketKind::Closed => WasiSocketStatus::Closed,
             _ => WasiSocketStatus::Failed,
         })
     }
 
     pub fn addr_local(&self) -> Result<SocketAddr, Errno> {
-        let inner = self.inner.read().unwrap();
+        let inner = self.inner.protected.read().unwrap();
         Ok(match &inner.kind {
             InodeSocketKind::PreSocket { family, addr, .. } => {
                 if let Some(addr) = addr {
@@ -511,13 +520,12 @@ impl InodeSocket {
             InodeSocketKind::UdpSocket { socket, .. } => {
                 socket.addr_local().map_err(net_error_into_wasi_err)?
             }
-            InodeSocketKind::Closed => return Err(Errno::Io),
             _ => return Err(Errno::Notsup),
         })
     }
 
     pub fn addr_peer(&self) -> Result<SocketAddr, Errno> {
-        let inner = self.inner.read().unwrap();
+        let inner = self.inner.protected.read().unwrap();
         Ok(match &inner.kind {
             InodeSocketKind::PreSocket { family, .. } => SocketAddr::new(
                 match *family {
@@ -548,13 +556,12 @@ impl InodeSocket {
                             )
                         })
                 })?,
-            InodeSocketKind::Closed => return Err(Errno::Io),
             _ => return Err(Errno::Notsup),
         })
     }
 
     pub fn set_opt_flag(&mut self, option: WasiSocketOption, val: bool) -> Result<(), Errno> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::PreSocket {
                 only_v6,
@@ -593,14 +600,13 @@ impl InodeSocket {
                     .map_err(net_error_into_wasi_err)?,
                 _ => return Err(Errno::Inval),
             },
-            InodeSocketKind::Closed => return Err(Errno::Io),
             _ => return Err(Errno::Notsup),
         }
         Ok(())
     }
 
     pub fn get_opt_flag(&self, option: WasiSocketOption) -> Result<bool, Errno> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.protected.write().unwrap();
         Ok(match &mut inner.kind {
             InodeSocketKind::PreSocket {
                 only_v6,
@@ -635,13 +641,12 @@ impl InodeSocket {
                     .map_err(net_error_into_wasi_err)?,
                 _ => return Err(Errno::Inval),
             },
-            InodeSocketKind::Closed => return Err(Errno::Io),
             _ => return Err(Errno::Notsup),
         })
     }
 
     pub fn set_send_buf_size(&mut self, size: usize) -> Result<(), Errno> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::PreSocket { send_buf_size, .. } => {
                 *send_buf_size = Some(size);
@@ -651,14 +656,13 @@ impl InodeSocket {
                     .set_send_buf_size(size)
                     .map_err(net_error_into_wasi_err)?;
             }
-            InodeSocketKind::Closed => return Err(Errno::Io),
             _ => return Err(Errno::Notsup),
         }
         Ok(())
     }
 
     pub fn send_buf_size(&self) -> Result<usize, Errno> {
-        let inner = self.inner.read().unwrap();
+        let inner = self.inner.protected.read().unwrap();
         match &inner.kind {
             InodeSocketKind::PreSocket { send_buf_size, .. } => {
                 Ok((*send_buf_size).unwrap_or_default())
@@ -666,13 +670,12 @@ impl InodeSocket {
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.send_buf_size().map_err(net_error_into_wasi_err)
             }
-            InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
 
     pub fn set_recv_buf_size(&mut self, size: usize) -> Result<(), Errno> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::PreSocket { recv_buf_size, .. } => {
                 *recv_buf_size = Some(size);
@@ -682,14 +685,13 @@ impl InodeSocket {
                     .set_recv_buf_size(size)
                     .map_err(net_error_into_wasi_err)?;
             }
-            InodeSocketKind::Closed => return Err(Errno::Io),
             _ => return Err(Errno::Notsup),
         }
         Ok(())
     }
 
     pub fn recv_buf_size(&self) -> Result<usize, Errno> {
-        let inner = self.inner.read().unwrap();
+        let inner = self.inner.protected.read().unwrap();
         match &inner.kind {
             InodeSocketKind::PreSocket { recv_buf_size, .. } => {
                 Ok((*recv_buf_size).unwrap_or_default())
@@ -697,31 +699,28 @@ impl InodeSocket {
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.recv_buf_size().map_err(net_error_into_wasi_err)
             }
-            InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
 
     pub fn set_linger(&mut self, linger: Option<std::time::Duration>) -> Result<(), Errno> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.set_linger(linger).map_err(net_error_into_wasi_err)
             }
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
-            InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
 
     pub fn linger(&self) -> Result<Option<std::time::Duration>, Errno> {
-        let inner = self.inner.read().unwrap();
+        let inner = self.inner.protected.read().unwrap();
         match &inner.kind {
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.linger().map_err(net_error_into_wasi_err)
             }
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
-            InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
@@ -731,7 +730,7 @@ impl InodeSocket {
         ty: TimeType,
         timeout: Option<std::time::Duration>,
     ) -> Result<(), Errno> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::TcpStream {
                 write_timeout,
@@ -768,13 +767,12 @@ impl InodeSocket {
                 }
                 Ok(())
             }
-            InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
 
     pub fn opt_time(&self, ty: TimeType) -> Result<Option<std::time::Duration>, Errno> {
-        let inner = self.inner.read().unwrap();
+        let inner = self.inner.protected.read().unwrap();
         match &inner.kind {
             InodeSocketKind::TcpStream {
                 read_timeout,
@@ -802,13 +800,12 @@ impl InodeSocket {
                 TimeType::WriteTimeout => Ok(*write_timeout),
                 _ => Err(Errno::Inval),
             },
-            InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
 
     pub fn set_ttl(&self, ttl: u32) -> Result<(), Errno> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.set_ttl(ttl).map_err(net_error_into_wasi_err)
@@ -817,13 +814,12 @@ impl InodeSocket {
                 socket.set_ttl(ttl).map_err(net_error_into_wasi_err)
             }
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
-            InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
 
     pub fn ttl(&self) -> Result<u32, Errno> {
-        let inner = self.inner.read().unwrap();
+        let inner = self.inner.protected.read().unwrap();
         match &inner.kind {
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.ttl().map_err(net_error_into_wasi_err)
@@ -832,79 +828,72 @@ impl InodeSocket {
                 socket.ttl().map_err(net_error_into_wasi_err)
             }
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
-            InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
 
     pub fn set_multicast_ttl_v4(&self, ttl: u32) -> Result<(), Errno> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::UdpSocket { socket, .. } => socket
                 .set_multicast_ttl_v4(ttl)
                 .map_err(net_error_into_wasi_err),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
-            InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
 
     pub fn multicast_ttl_v4(&self) -> Result<u32, Errno> {
-        let inner = self.inner.read().unwrap();
+        let inner = self.inner.protected.read().unwrap();
         match &inner.kind {
             InodeSocketKind::UdpSocket { socket, .. } => {
                 socket.multicast_ttl_v4().map_err(net_error_into_wasi_err)
             }
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
-            InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
 
     pub fn join_multicast_v4(&self, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<(), Errno> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::UdpSocket { socket, .. } => socket
                 .join_multicast_v4(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
-            InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
 
     pub fn leave_multicast_v4(&self, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<(), Errno> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::UdpSocket { socket, .. } => socket
                 .leave_multicast_v4(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
-            InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
 
     pub fn join_multicast_v6(&self, multiaddr: Ipv6Addr, iface: u32) -> Result<(), Errno> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::UdpSocket { socket, .. } => socket
                 .join_multicast_v6(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
-            InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
 
     pub fn leave_multicast_v6(&mut self, multiaddr: Ipv6Addr, iface: u32) -> Result<(), Errno> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::UdpSocket { socket, .. } => socket
                 .leave_multicast_v6(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
-            InodeSocketKind::Closed => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
     }
@@ -924,14 +913,14 @@ impl InodeSocket {
 
         #[derive(Debug)]
         struct SocketSender<'a, 'b> {
-            sock: &'a RwLock<InodeSocketInner>,
+            inner: &'a InodeSocketInner,
             data: &'b [u8],
             nonblocking: bool,
         }
         impl<'a, 'b> Future for SocketSender<'a, 'b> {
             type Output = Result<usize, Errno>;
             fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
-                let mut inner = self.sock.write().unwrap();
+                let mut inner = self.inner.protected.write().unwrap();
                 match &mut inner.kind {
                     InodeSocketKind::WebSocket(sock) => sock
                         .poll_send(cx, self.data)
@@ -976,14 +965,13 @@ impl InodeSocket {
                         }
                     }
                     InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
-                    InodeSocketKind::Closed => Poll::Ready(Err(Errno::Io)),
                     _ => Poll::Ready(Err(Errno::Notsup)),
                 }
             }
         }
 
         tokio::select! {
-            res = SocketSender { sock: &self.inner, data: buf, nonblocking } => res,
+            res = SocketSender { inner: &self.inner, data: buf, nonblocking } => res,
             _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
         }
     }
@@ -1004,7 +992,7 @@ impl InodeSocket {
 
         #[derive(Debug)]
         struct SocketSender<'a, 'b> {
-            sock: &'a RwLock<InodeSocketInner>,
+            inner: &'a InodeSocketInner,
             data: &'b [u8],
             addr: SocketAddr,
             nonblocking: bool,
@@ -1012,7 +1000,7 @@ impl InodeSocket {
         impl<'a, 'b> Future for SocketSender<'a, 'b> {
             type Output = Result<usize, Errno>;
             fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
-                let mut inner = self.sock.write().unwrap();
+                let mut inner = self.inner.protected.write().unwrap();
                 match &mut inner.kind {
                     InodeSocketKind::Icmp(sock) => {
                         if self.nonblocking {
@@ -1038,14 +1026,13 @@ impl InodeSocket {
                         }
                     }
                     InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
-                    InodeSocketKind::Closed => Poll::Ready(Err(Errno::Io)),
                     _ => Poll::Ready(Err(Errno::Notsup)),
                 }
             }
         }
 
         tokio::select! {
-            res = SocketSender { sock: &self.inner, data: buf, addr, nonblocking } => res,
+            res = SocketSender { inner: &self.inner, data: buf, addr, nonblocking } => res,
             _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
         }
     }
@@ -1065,7 +1052,7 @@ impl InodeSocket {
 
         #[derive(Debug)]
         struct SocketReceiver<'a, 'b> {
-            sock: &'a RwLock<InodeSocketInner>,
+            inner: &'a InodeSocketInner,
             data: &'b mut [MaybeUninit<u8>],
             nonblocking: bool,
         }
@@ -1075,7 +1062,7 @@ impl InodeSocket {
                 mut self: Pin<&mut Self>,
                 cx: &mut std::task::Context<'_>,
             ) -> Poll<Self::Output> {
-                let mut inner = self.sock.write().unwrap();
+                let mut inner = self.inner.protected.write().unwrap();
                 match &mut inner.kind {
                     InodeSocketKind::WebSocket(sock) => sock
                         .poll_recv(cx, self.data)
@@ -1132,14 +1119,13 @@ impl InodeSocket {
                         }
                     }
                     InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
-                    InodeSocketKind::Closed => Poll::Ready(Err(Errno::Io)),
                     _ => Poll::Ready(Err(Errno::Notsup)),
                 }
             }
         }
 
         tokio::select! {
-            res = SocketReceiver { sock: &self.inner, data: buf, nonblocking } => res,
+            res = SocketReceiver { inner: &self.inner, data: buf, nonblocking } => res,
             _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
         }
     }
@@ -1159,7 +1145,7 @@ impl InodeSocket {
 
         #[derive(Debug)]
         struct SocketReceiver<'a, 'b> {
-            sock: &'a RwLock<InodeSocketInner>,
+            inner: &'a InodeSocketInner,
             data: &'b mut [MaybeUninit<u8>],
             nonblocking: bool,
         }
@@ -1169,7 +1155,7 @@ impl InodeSocket {
                 mut self: Pin<&mut Self>,
                 cx: &mut std::task::Context<'_>,
             ) -> Poll<Self::Output> {
-                let mut inner = self.sock.write().unwrap();
+                let mut inner = self.inner.protected.write().unwrap();
                 match &mut inner.kind {
                     InodeSocketKind::Icmp(sock) => {
                         if self.nonblocking {
@@ -1195,33 +1181,31 @@ impl InodeSocket {
                         }
                     }
                     InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
-                    InodeSocketKind::Closed => Poll::Ready(Err(Errno::Io)),
                     _ => Poll::Ready(Err(Errno::Notsup)),
                 }
             }
         }
 
         tokio::select! {
-            res = SocketReceiver { sock: &self.inner, data: buf, nonblocking } => res,
+            res = SocketReceiver { inner: &self.inner, data: buf, nonblocking } => res,
             _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
         }
     }
 
     pub fn shutdown(&mut self, how: std::net::Shutdown) -> Result<(), Errno> {
-        let mut inner = self.inner.write().unwrap();
+        let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.shutdown(how).map_err(net_error_into_wasi_err)?;
             }
             InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
-            InodeSocketKind::Closed => return Err(Errno::Io),
             _ => return Err(Errno::Notsup),
         }
         Ok(())
     }
 
     pub async fn can_write(&self) -> bool {
-        if let Ok(mut guard) = self.inner.try_write() {
+        if let Ok(mut guard) = self.inner.protected.try_write() {
             #[allow(clippy::match_like_matches_macro)]
             match &mut guard.kind {
                 InodeSocketKind::TcpStream { .. }
@@ -1236,7 +1220,7 @@ impl InodeSocket {
     }
 }
 
-impl InodeSocketInner {
+impl InodeSocketProtected {
     pub fn poll_read_ready(
         &mut self,
         cx: &mut std::task::Context<'_>,
@@ -1250,9 +1234,6 @@ impl InodeSocketInner {
             InodeSocketKind::Icmp(socket) => socket.poll_read_ready(cx),
             InodeSocketKind::PreSocket { .. } => {
                 std::task::Poll::Ready(Err(wasmer_vnet::NetworkError::IOError))
-            }
-            InodeSocketKind::Closed => {
-                std::task::Poll::Ready(Err(wasmer_vnet::NetworkError::ConnectionAborted))
             }
         }
     }
@@ -1270,9 +1251,6 @@ impl InodeSocketInner {
             InodeSocketKind::Icmp(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::PreSocket { .. } => {
                 std::task::Poll::Ready(Err(wasmer_vnet::NetworkError::IOError))
-            }
-            InodeSocketKind::Closed => {
-                std::task::Poll::Ready(Err(wasmer_vnet::NetworkError::ConnectionAborted))
             }
         }
     }

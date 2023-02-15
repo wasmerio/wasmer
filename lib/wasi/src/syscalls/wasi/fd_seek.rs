@@ -33,7 +33,7 @@ pub fn fd_seek<M: MemorySize>(
 
     let env = ctx.data();
     let state = env.state.clone();
-    let (memory, _, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (memory, _) = env.get_memory_and_wasi_state(&ctx, 0);
     let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
 
     if !fd_entry.rights.contains(Rights::FD_SEEK) {
@@ -60,15 +60,13 @@ pub fn fd_seek<M: MemorySize>(
         }
         Whence::End => {
             use std::io::SeekFrom;
-            let inode_idx = fd_entry.inode;
-            let mut guard = inodes.arena[inode_idx].write();
+            let mut guard = fd_entry.inode.write();
             let deref_mut = guard.deref_mut();
             match deref_mut {
                 Kind::File { ref mut handle, .. } => {
                     if let Some(handle) = handle {
                         let handle = handle.clone();
                         drop(guard);
-                        drop(inodes);
 
                         wasi_try_ok!(__asyncify(&mut ctx, None, async move {
                             let mut handle = handle.write().unwrap();

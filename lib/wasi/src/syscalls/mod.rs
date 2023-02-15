@@ -105,8 +105,9 @@ pub(crate) use crate::{
     },
     runtime::{task_manager::VirtualTaskManagerExt, SpawnType},
     state::{
-        self, bus_errno_into_vbus_error, iterate_poll_events, vbus_error_into_bus_errno, Inode,
-        PollEvent, PollEventBuilder, WasiBusCall, WasiFutex, WasiState, WasiThreadContext,
+        self, bus_errno_into_vbus_error, iterate_poll_events, vbus_error_into_bus_errno,
+        InodeGuard, InodeWeakGuard, PollEvent, PollEventBuilder, WasiBusCall, WasiFutex, WasiState,
+        WasiThreadContext,
     },
     utils::{self, map_io_err},
     VirtualTaskManager, WasiEnv, WasiEnvInner, WasiError, WasiFunctionEnv,
@@ -118,6 +119,7 @@ use crate::{
         MAX_SYMLINKS,
     },
     utils::store::InstanceSnapshot,
+    WasiInodes,
 };
 pub(crate) use crate::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 
@@ -248,11 +250,9 @@ pub(crate) fn read_bytes<T: Read, M: MemorySize>(
 
 pub async fn stderr_write(ctx: &FunctionEnvMut<'_, WasiEnv>, buf: &[u8]) -> Result<(), Errno> {
     let env = ctx.data();
-    let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes_mut(ctx, 0);
+    let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(ctx, 0);
 
-    let mut stderr = inodes
-        .stderr_mut(&state.fs.fd_map)
-        .map_err(fs_error_into_wasi_err)?;
+    let mut stderr = WasiInodes::stderr_mut(&state.fs.fd_map).map_err(fs_error_into_wasi_err)?;
 
     stderr.write_all(buf).await.map_err(map_io_err)
 }
@@ -465,19 +465,13 @@ where
     F: FnOnce(crate::net::socket::InodeSocket, Fd) -> Fut,
     Fut: std::future::Future<Output = Result<T, Errno>>,
 {
-    let state = env.state.clone();
-    let inodes = state.inodes.clone();
-
-    let fd_entry = state.fs.get_fd(sock)?;
+    let fd_entry = env.state.fs.get_fd(sock)?;
     if !rights.is_empty() && !fd_entry.rights.contains(rights) {
         return Err(Errno::Access);
     }
 
     let work = {
-        let inodes_guard = inodes.read().unwrap();
-        let inode_idx = fd_entry.inode;
-        let inode = &inodes_guard.arena[inode_idx];
-
+        let inode = fd_entry.inode.clone();
         let tasks = env.tasks.clone();
         let mut guard = inode.read();
         match guard.deref() {
@@ -514,24 +508,18 @@ where
     let env = ctx.data();
     let tasks = env.tasks.clone();
 
-    let state = env.state.clone();
-    let inodes = state.inodes.clone();
-
-    let fd_entry = state.fs.get_fd(sock)?;
+    let fd_entry = env.state.fs.get_fd(sock)?;
     if !rights.is_empty() && !fd_entry.rights.contains(rights) {
         return Err(Errno::Access);
     }
 
-    let inode_idx = fd_entry.inode;
-    let inodes_guard = inodes.read().unwrap();
-    let inode = &inodes_guard.arena[inode_idx];
+    let inode = fd_entry.inode.clone();
     let mut guard = inode.write();
     match guard.deref_mut() {
         Kind::Socket { socket } => {
             // Clone the socket and release the lock
             let socket = socket.clone();
             drop(guard);
-            drop(inodes_guard);
 
             // Start the work using the socket
             let work = actor(socket, fd_entry);
@@ -558,17 +546,12 @@ where
     let env = ctx.data();
     let tasks = env.tasks.clone();
 
-    let state = env.state.clone();
-    let inodes = state.inodes.clone();
-
-    let fd_entry = state.fs.get_fd(sock)?;
+    let fd_entry = env.state.fs.get_fd(sock)?;
     if !rights.is_empty() && !fd_entry.rights.contains(rights) {
         return Err(Errno::Access);
     }
 
-    let inodes_guard = inodes.read().unwrap();
-    let inode_idx = fd_entry.inode;
-    let inode = &inodes_guard.arena[inode_idx];
+    let inode = fd_entry.inode.clone();
 
     let tasks = env.tasks.clone();
     let mut guard = inode.read();
@@ -602,24 +585,18 @@ where
     let env = ctx.data();
     let tasks = env.tasks.clone();
 
-    let state = env.state.clone();
-    let inodes = state.inodes.clone();
-
-    let fd_entry = state.fs.get_fd(sock)?;
+    let fd_entry = env.state.fs.get_fd(sock)?;
     if !rights.is_empty() && !fd_entry.rights.contains(rights) {
         return Err(Errno::Access);
     }
 
-    let inode_idx = fd_entry.inode;
-    let inodes_guard = inodes.read().unwrap();
-    let inode = &inodes_guard.arena[inode_idx];
+    let inode = fd_entry.inode.clone();
     let mut guard = inode.write();
     match guard.deref_mut() {
         Kind::Socket { socket } => {
             // Clone the socket and release the lock
             let socket = socket.clone();
             drop(guard);
-            drop(inodes_guard);
 
             // Start the work using the socket
             actor(socket, fd_entry)
@@ -642,10 +619,7 @@ where
     Fut: std::future::Future<Output = Result<Option<crate::net::socket::InodeSocket>, Errno>> + 'a,
 {
     let env = ctx.data();
-    let state = env.state.clone();
-    let inodes = state.inodes.clone();
-
-    let fd_entry = state.fs.get_fd(sock)?;
+    let fd_entry = env.state.fs.get_fd(sock)?;
     if !rights.is_empty() && !fd_entry.rights.contains(rights) {
         tracing::warn!(
             "wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - no access rights to upgrade",
@@ -659,15 +633,12 @@ where
 
     let tasks = env.tasks.clone();
     {
-        let inode_idx = fd_entry.inode;
-        let inodes_guard = inodes.read().unwrap();
-        let inode = &inodes_guard.arena[inode_idx];
+        let inode = fd_entry.inode.clone();
         let mut guard = inode.write();
         match guard.deref_mut() {
             Kind::Socket { socket } => {
                 let socket = socket.clone();
                 drop(guard);
-                drop(inodes_guard);
 
                 // Start the work using the socket
                 let work = actor(socket);
@@ -681,8 +652,6 @@ where
                 let new_socket = rx.recv().unwrap()?;
 
                 if let Some(mut new_socket) = new_socket {
-                    let inodes_guard = inodes.read().unwrap();
-                    let inode = &inodes_guard.arena[inode_idx];
                     let mut guard = inode.write();
                     match guard.deref_mut() {
                         Kind::Socket { socket } => {
@@ -1096,7 +1065,7 @@ pub(crate) fn handle_rewind<M: MemorySize>(ctx: &mut FunctionEnvMut<'_, WasiEnv>
 pub(crate) fn _prepare_wasi(wasi_env: &mut WasiEnv, args: Option<Vec<String>>) {
     // Swap out the arguments with the new ones
     if let Some(args) = args {
-        let mut wasi_state = wasi_env.state.fork(false);
+        let mut wasi_state = wasi_env.state.fork();
         wasi_state.args = args;
         wasi_env.state = Arc::new(wasi_state);
     }
@@ -1120,8 +1089,7 @@ pub(crate) fn _prepare_wasi(wasi_env: &mut WasiEnv, args: Option<Vec<String>>) {
 
     // Now close all these files
     for fd in close_fds {
-        let inodes = wasi_env.state.inodes.read().unwrap();
-        let _ = wasi_env.state.fs.close_fd(inodes.deref(), fd);
+        let _ = wasi_env.state.fs.close_fd(fd);
     }
 }
 
