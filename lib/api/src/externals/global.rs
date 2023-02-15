@@ -1,12 +1,12 @@
 use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
-use crate::sys::RuntimeError;
+use crate::RuntimeError;
 use crate::value::Value;
 use crate::vm::VMExternGlobal;
 use crate::Extern;
 use crate::GlobalType;
 use crate::Mutability;
-use wasmer_vm::{StoreHandle, VMExtern, VMGlobal};
+use crate::vm::VMExtern;
 
 #[cfg(feature = "js")]
 use crate::js::externals::global as global_impl;
