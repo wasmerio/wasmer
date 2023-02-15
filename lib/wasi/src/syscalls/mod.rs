@@ -182,7 +182,7 @@ pub(crate) fn copy_to_slice<M: MemorySize>(
                     return Err(Errno::Fault);
                 }
             } else {
-                if amt != bytes.copy_to_slice(left).map_err(mem_error_to_wasi)? {
+                if amt != bytes.read_to_slice(left).map_err(mem_error_to_wasi)? {
                     return Err(Errno::Fault);
                 }
             }
