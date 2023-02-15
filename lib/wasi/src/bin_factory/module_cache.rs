@@ -278,7 +278,7 @@ mod tests {
         let mut store = Vec::new();
         for _ in 0..2 {
             let webc = cache
-                .get_webc("sharrattj/dash", &rt, tasks.deref())
+                .get_webc("sharrattj/dash", &rt, std::ops::Deref::deref(tasks))
                 .unwrap();
             store.push(webc);
             tasks

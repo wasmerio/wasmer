@@ -477,6 +477,9 @@ pub enum NetworkError {
     /// A pipe was closed
     #[error("broken pipe (was closed)")]
     BrokenPipe,
+    /// Insufficient memory
+    #[error("Insufficient memory")]
+    InsufficientMemory,
     /// The connection was aborted
     #[error("connection aborted")]
     ConnectionAborted,
@@ -516,9 +519,9 @@ pub enum NetworkError {
     /// A call to write returned 0
     #[error("write returned 0")]
     WriteZero,
-    /// OS error
-    #[error("operating system error({0})")]
-    OsError(i32),
+    /// Too many open files
+    #[error("too many open files")]
+    TooManyOpenFiles,
     /// The operation is not supported.
     #[error("unsupported")]
     Unsupported,
@@ -551,7 +554,8 @@ pub fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
         NetworkError::UnexpectedEof => ErrorKind::UnexpectedEof.into(),
         NetworkError::WouldBlock => ErrorKind::WouldBlock.into(),
         NetworkError::WriteZero => ErrorKind::WriteZero.into(),
-        NetworkError::OsError(code) => Error::from_raw_os_error(code),
+        NetworkError::TooManyOpenFiles => Error::from_raw_os_error(libc::EMFILE),
+        NetworkError::InsufficientMemory => Error::from_raw_os_error(libc::ENOMEM),
         NetworkError::Unsupported => ErrorKind::Unsupported.into(),
         NetworkError::UnknownError => ErrorKind::BrokenPipe.into(),
     }
@@ -579,7 +583,25 @@ pub fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
         ErrorKind::Unsupported => NetworkError::Unsupported,
         _ => {
             if let Some(code) = net_error.raw_os_error() {
-                NetworkError::OsError(code)
+                match code {
+                    libc::EPERM => NetworkError::PermissionDenied,
+                    libc::EBADF => NetworkError::InvalidFd,
+                    libc::ECHILD => NetworkError::InvalidFd,
+                    libc::EMFILE => NetworkError::TooManyOpenFiles,
+                    libc::EINTR => NetworkError::Interrupted,
+                    libc::EIO => NetworkError::IOError,
+                    libc::ENXIO => NetworkError::IOError,
+                    libc::EAGAIN => NetworkError::WouldBlock,
+                    libc::ENOMEM => NetworkError::InsufficientMemory,
+                    libc::EACCES => NetworkError::PermissionDenied,
+                    libc::ENODEV => NetworkError::NoDevice,
+                    libc::EINVAL => NetworkError::InvalidInput,
+                    libc::EPIPE => NetworkError::BrokenPipe,
+                    err => {
+                        tracing::trace!("unknown os error {}", err);
+                        NetworkError::UnknownError
+                    }
+                }
             } else {
                 NetworkError::UnknownError
             }
