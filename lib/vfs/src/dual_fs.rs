@@ -90,8 +90,8 @@ impl crate::FileSystem for DualFilesystem {
 
     fn new_open_options(&self) -> OpenOptions {
         OpenOptions::new(Box::new(DualFsFileOpener {
-            readonly: self.readonly.iter().cloned().collect(),
-            readwrite: self.readwrite.iter().cloned().collect(),
+            readonly: self.readonly.to_vec(),
+            readwrite: self.readwrite.to_vec(),
         }))
     }
 }

@@ -113,8 +113,8 @@ impl FileSystem {
                         converted_alias = HostFsAlias::Root;
                     } else if alias.starts_with("./") {
                         converted_alias = HostFsAlias::Path(alias.strip_prefix("./")?.to_string());
-                    } else if alias.starts_with("/") {
-                        converted_alias = HostFsAlias::Path(alias.strip_prefix("/")?.to_string());
+                    } else if alias.starts_with('/') {
+                        converted_alias = HostFsAlias::Path(alias.strip_prefix('/')?.to_string());
                     } else {
                         converted_alias = HostFsAlias::Path(alias);
                     }
@@ -134,17 +134,17 @@ fn get_normalized_host_path(
     for (alias, mapped_path) in mapped_dirs.iter() {
         match alias {
             HostFsAlias::Root => {
-                if let Ok(_) = fs::metadata(&mapped_path.join(requested_path)) {
+                if fs::metadata(&mapped_path.join(requested_path)).is_ok() {
                     return Some(mapped_path.join(requested_path));
                 }
             }
             HostFsAlias::Path(p) => {
                 let requested_path = requested_path.strip_prefix("/").unwrap_or(requested_path);
                 let requested_path = requested_path.strip_prefix("./").unwrap_or(requested_path);
-                if requested_path.starts_with(p) {
-                    if let Ok(_) = fs::metadata(&mapped_path.join(requested_path)) {
-                        return Some(mapped_path.join(requested_path));
-                    }
+                if requested_path.starts_with(p)
+                    && fs::metadata(&mapped_path.join(requested_path)).is_ok()
+                {
+                    return Some(mapped_path.join(requested_path));
                 }
             }
         }
