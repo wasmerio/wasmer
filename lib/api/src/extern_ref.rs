@@ -6,6 +6,7 @@ use crate::store::{AsStoreMut, AsStoreRef};
 use crate::js::extern_ref as extern_ref_imp;
 #[cfg(feature = "sys")]
 use crate::sys::extern_ref as extern_ref_imp;
+use crate::vm::VMExternRef;
 
 #[derive(Debug, Clone)]
 #[repr(transparent)]
@@ -29,13 +30,13 @@ impl ExternRef {
         self.0.downcast(store)
     }
 
-    pub(crate) fn vm_externref(&self) -> extern_ref_imp::VMExternRef {
+    pub(crate) fn vm_externref(&self) -> VMExternRef {
         self.0.vm_externref()
     }
 
     pub(crate) unsafe fn from_vm_externref(
         store: &mut impl AsStoreMut,
-        vm_externref: extern_ref_imp::VMExternRef,
+        vm_externref: VMExternRef,
     ) -> Self {
         ExternRef(extern_ref_imp::ExternRef::from_vm_externref(
             store,

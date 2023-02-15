@@ -1,24 +1,8 @@
 use std::any::Any;
 
+use crate::js::vm::VMExternRef;
 use crate::store::{AsStoreMut, AsStoreRef};
 use wasmer_types::RawValue;
-
-pub(crate) struct VMExternRef;
-
-impl VMExternRef {
-    /// Converts the `VMExternRef` into a `RawValue`.
-    pub fn into_raw(self) -> RawValue {
-        unimplemented!();
-    }
-
-    /// Extracts a `VMExternRef` from a `RawValue`.
-    ///
-    /// # Safety
-    /// `raw` must be a valid `VMExternRef` instance.
-    pub unsafe fn from_raw(raw: RawValue) -> Option<Self> {
-        unimplemented!();
-    }
-}
 
 #[derive(Debug, Clone)]
 #[repr(transparent)]

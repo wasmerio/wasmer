@@ -16,6 +16,7 @@ use std::fmt;
 #[cfg(feature = "tracing")]
 use tracing::trace;
 use wasm_bindgen::{JsCast, JsValue};
+use wasmer_types::RawValue;
 use wasmer_types::{
     ExternType, FunctionType, GlobalType, MemoryError, MemoryType, Pages, TableType, WASM_PAGE_SIZE,
 };
@@ -209,6 +210,45 @@ impl VMFunctionEnvironment {
     /// Returns a mutable reference to the underlying value.
     pub fn as_mut(&mut self) -> &mut (dyn Any + Send + 'static) {
         &mut *self.contents
+    }
+}
+
+pub(crate) struct VMExternRef;
+
+impl VMExternRef {
+    /// Converts the `VMExternRef` into a `RawValue`.
+    pub fn into_raw(self) -> RawValue {
+        unimplemented!();
+    }
+
+    /// Extracts a `VMExternRef` from a `RawValue`.
+    ///
+    /// # Safety
+    /// `raw` must be a valid `VMExternRef` instance.
+    pub unsafe fn from_raw(raw: RawValue) -> Option<Self> {
+        unimplemented!();
+    }
+}
+
+#[repr(C)]
+pub struct VMFunctionBody(u8);
+
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct VMFuncRef;
+
+impl VMFuncRef {
+    /// Converts the `VMFuncRef` into a `RawValue`.
+    pub fn into_raw(self) -> RawValue {
+        unimplemented!()
+    }
+
+    /// Extracts a `VMFuncRef` from a `RawValue`.
+    ///
+    /// # Safety
+    /// `raw.funcref` must be a valid pointer.
+    pub unsafe fn from_raw(raw: RawValue) -> Option<Self> {
+        unimplemented!();
     }
 }
 

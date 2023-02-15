@@ -4,12 +4,7 @@ use std::string::{String, ToString};
 
 use wasmer_types::Type;
 
-#[cfg(feature = "js")]
-use crate::js::extern_ref::VMExternRef;
-#[cfg(feature = "js")]
-use crate::js::externals::function::VMFuncRef;
-#[cfg(feature = "sys")]
-use wasmer_vm::{VMExternRef, VMFuncRef};
+use crate::vm::{VMExternRef, VMFuncRef};
 
 use crate::ExternRef;
 use crate::Function;

@@ -1,6 +1,5 @@
 use std::any::Any;
-
-pub use wasmer_vm::VMExternRef;
+use wasmer_vm::VMExternRef;
 use wasmer_vm::{StoreHandle, VMExternObj};
 
 use crate::store::{AsStoreMut, AsStoreRef};

@@ -13,32 +13,9 @@ use js_sys::{Array, Function as JSFunction};
 use std::iter::FromIterator;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use wasmer_types::RawValue;
 
-use crate::js::vm::VMFunction;
+use crate::js::vm::{VMFuncRef, VMFunction, VMFunctionBody};
 use std::fmt;
-
-#[repr(C)]
-pub struct VMFunctionBody(u8);
-
-#[repr(transparent)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(crate) struct VMFuncRef;
-
-impl VMFuncRef {
-    /// Converts the `VMFuncRef` into a `RawValue`.
-    pub fn into_raw(self) -> RawValue {
-        unimplemented!()
-    }
-
-    /// Extracts a `VMFuncRef` from a `RawValue`.
-    ///
-    /// # Safety
-    /// `raw.funcref` must be a valid pointer.
-    pub unsafe fn from_raw(raw: RawValue) -> Option<Self> {
-        unimplemented!();
-    }
-}
 
 #[inline]
 fn result_to_js(val: &Value) -> JsValue {
@@ -860,7 +837,7 @@ mod inner {
         /// Writes the contents of a C struct to an array of `f64`.
         ///
         /// # Safety
-        unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, ptr: *mut f64);
+        unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, ptr: *mut RawValue);
 
         /// Get the Wasm types for the tuple (list) of currently
         /// represented values.
@@ -1122,7 +1099,7 @@ mod inner {
 
                     (
                         $(
-                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(_store, $x.into()))
+                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(_store, $x))
                         ),*
                     )
                 }
@@ -1142,7 +1119,7 @@ mod inner {
                 }
 
                 #[allow(non_snake_case)]
-                unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, _ptr: *mut f64) {
+                unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, _ptr: *mut RawValue) {
                     // Unpack items of the tuple.
                     let $c_struct_name( $( $x ),* ) = c_struct;
 
@@ -1349,7 +1326,7 @@ mod inner {
             self
         }
 
-        unsafe fn write_c_struct_to_ptr(_: Self::CStruct, _: *mut f64) {}
+        unsafe fn write_c_struct_to_ptr(_: Self::CStruct, _: *mut RawValue) {}
 
         fn wasm_types() -> &'static [Type] {
             &[]

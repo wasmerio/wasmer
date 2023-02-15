@@ -20,7 +20,8 @@ pub(crate) mod vm {
     //! The `vm` module re-exports wasmer-vm types.
     use wasmer_vm::InternalStoreHandle;
     pub(crate) use wasmer_vm::{
-        VMExtern, VMFunction, VMFunctionEnvironment, VMGlobal, VMMemory, VMTable,
+        VMExtern, VMExternRef, VMFuncRef, VMFunction, VMFunctionEnvironment, VMGlobal, VMMemory,
+        VMTable,
     };
 
     pub(crate) type VMExternTable = InternalStoreHandle<VMTable>;
