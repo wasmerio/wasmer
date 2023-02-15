@@ -11,7 +11,3 @@ thiserror = "1"
 wasmer-vfs = { path = "../vfs", version = "=3.2.0-alpha.1", default-features = false }
 bytes = "1"
 async-trait = { version = "^0.1" }
-
-[features]
-default = []
-host_fs = ["wasmer-vfs/host-fs"]

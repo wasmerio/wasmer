@@ -14,7 +14,7 @@ edition = "2018"
 maintenance = { status = "experimental" }
 
 [dependencies]
-wasmer-vnet = { version = "=3.2.0-alpha.1", path = "../vnet", default-features = false }
+wasmer-vnet = { version = "=3.2.0-alpha.1", path = "../vnet" }
 wasmer-vfs = { path = "../vfs", version = "=3.2.0-alpha.1", default-features = false }
 tracing = "0.1"
 bytes = "1.1"
@@ -23,4 +23,4 @@ async-trait = { version = "^0.1" }
 
 [features]
 default = ["host_fs"]
-host_fs = ["wasmer-vnet/host_fs", "wasmer-vfs/host-fs"]
+host_fs = ["wasmer-vfs/host-fs"]
