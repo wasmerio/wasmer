@@ -19,9 +19,8 @@ use wasmer_wasi_types::{
 use super::{fd::NotificationInner, InodeGuard, Kind};
 use crate::{
     net::socket::{InodeSocketInner, InodeSocketKind},
-    state::{iterate_poll_events, PollEvent, PollEventSet},
+    state::{iterate_poll_events, PollEvent, PollEventSet, WasiState},
     syscalls::map_io_err,
-    WasiState,
 };
 
 pub(crate) enum InodeValFilePollGuardMode {
@@ -88,7 +87,6 @@ impl std::fmt::Debug for InodeValFilePollGuard {
                     }
                     InodeSocketKind::UdpSocket { .. } => write!(f, "guard-udp-socket"),
                     InodeSocketKind::Raw(..) => write!(f, "guard-raw-socket"),
-                    InodeSocketKind::WebSocket(..) => write!(f, "guard-web-socket"),
                     _ => write!(f, "guard-socket"),
                 }
             }
@@ -415,7 +413,6 @@ pub(crate) struct InodeValFileReadGuard {
     guard: RwLockReadGuard<'static, Box<dyn VirtualFile + Send + Sync + 'static>>,
     // we must keep a reference as the lifetime of the guard becomes owned using unsafe code
     // (warning!! The fields of a struct are dropped in declaration order thus this must be at the end)
-    // (https://doc.rust-lang.org/reference/destructors.html#:~:text=The%20fields%20of%20a%20struct,first%20element%20to%20the%20last.)
     _file: Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>,
 }
 

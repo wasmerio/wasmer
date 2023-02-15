@@ -1,6 +1,8 @@
 use std::string::FromUtf8Error;
+use std::sync::Arc;
 
 use crate::bindings::wasix_http_client_v1 as sys;
+use crate::{Capabilities, WasiRuntime};
 
 use crate::{
     http::{DynHttpClient, HttpClientCapabilityV1},
@@ -26,12 +28,18 @@ impl std::fmt::Display for sys::Method<'_> {
 }
 
 pub struct WasixHttpClientImpl {
-    env: WasiEnv,
+    cap: Capabilities,
+    runtime: Arc<dyn WasiRuntime + Send + Sync>,
 }
 
 impl WasixHttpClientImpl {
-    pub fn new(env: WasiEnv) -> Self {
-        Self { env }
+    pub fn new(env: &WasiEnv) -> Self {
+        Self {
+            // TODO: Should be a shared reference
+            // Currently this client would not adapt to changes in the capabilities.
+            cap: env.capabilities.clone(),
+            runtime: env.runtime.clone(),
+        }
     }
 }
 
@@ -45,16 +53,15 @@ impl sys::WasixHttpClientV1 for WasixHttpClientImpl {
     type Client = ClientImpl;
 
     fn client_new(&mut self) -> Result<Self::Client, String> {
-        let capabilities = if self.env.capabilities.insecure_allow_all {
+        let capabilities = if self.cap.insecure_allow_all {
             HttpClientCapabilityV1::new_allow_all()
-        } else if !self.env.capabilities.http_client.is_deny_all() {
-            self.env.capabilities.http_client.clone()
+        } else if !self.cap.http_client.is_deny_all() {
+            self.cap.http_client.clone()
         } else {
             return Err("Permission denied - http client not enabled".to_string());
         };
 
         let client = self
-            .env
             .runtime
             .http_client()
             .ok_or_else(|| "No http client available".to_string())?
@@ -113,7 +120,11 @@ impl sys::WasixHttpClientV1 for WasixHttpClientImpl {
         };
         let f = self_.client.request(req);
 
-        let res = self.env.tasks.block_on(f).map_err(|e| e.to_string())?;
+        let res = self
+            .runtime
+            .task_manager()
+            .block_on(f)
+            .map_err(|e| e.to_string())?;
 
         let res_headers = res
             .headers

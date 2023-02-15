@@ -3,7 +3,7 @@
 use anyhow::{bail, Context};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use wasmer_integration_tests_cli::{get_libwasmer_path, get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
+use wasmer_integration_tests_cli::{get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
 
 fn wasi_test_python_path() -> PathBuf {
     Path::new(C_ASSET_PATH).join("python-0.1.0.wasmer")

@@ -88,14 +88,13 @@ pub fn proc_exec<M: MemorySize>(
 
         // Spawn a new process with this current execution environment
         let mut err_exit_code = -2i32 as u32;
-        let bus = ctx.data().bus();
 
         let mut process = {
             let bin_factory = Box::new(ctx.data().bin_factory.clone());
-            let tasks = wasi_env.tasks.clone();
+            let tasks = wasi_env.tasks().clone();
 
             let mut new_store = Some(new_store);
-            let mut config = Some(bus.spawn(wasi_env));
+            let mut config = Some(wasi_env);
 
             match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut new_store, &mut config) {
                 Ok(a) => Some(a),
@@ -110,15 +109,14 @@ pub fn proc_exec<M: MemorySize>(
                     }
 
                     let new_store = new_store.take().unwrap();
-                    let config = config.take().unwrap();
+                    let env = config.take().unwrap();
 
                     let (process, c) = tasks.block_on(async move {
                         let name_inner = name.clone();
-                        let ret = config
-                            .spawn(
+                        let ret = bin_factory.spawn(
                                 name_inner,
                                 new_store,
-                                bin_factory,
+                                env,
                             )
                             .await;
                         match ret {
@@ -221,22 +219,19 @@ pub fn proc_exec<M: MemorySize>(
     else {
         // We need to unwind out of this process and launch a new process in its place
         unwind::<M, _>(ctx, move |mut ctx, _, _| {
-            // Grab a reference to the bus
-            let bus = ctx.data().bus().clone();
-
             // Prepare the environment
-            let mut wasi_env = ctx.data_mut().clone();
+            let mut wasi_env = ctx.data_mut().duplicate();
             _prepare_wasi(&mut wasi_env, Some(args));
 
             // Get a reference to the runtime
             let bin_factory = ctx.data().bin_factory.clone();
-            let tasks = wasi_env.tasks.clone();
+            let tasks = wasi_env.tasks().clone();
 
             // Create the process and drop the context
             let bin_factory = Box::new(ctx.data().bin_factory.clone());
 
             let mut new_store = Some(new_store);
-            let mut builder = Some(bus.spawn(wasi_env));
+            let mut builder = Some(wasi_env);
 
             let process = match bin_factory.try_built_in(
                 name.clone(),
@@ -256,13 +251,13 @@ pub fn proc_exec<M: MemorySize>(
                     }
 
                     let new_store = new_store.take().unwrap();
-                    let builder = builder.take().unwrap();
+                    let env = builder.take().unwrap();
 
                     // Spawn a new process with this current execution environment
                     //let pid = wasi_env.process.pid();
                     let (tx, rx) = std::sync::mpsc::channel();
                     tasks.block_on(Box::pin(async move {
-                        let ret = builder.spawn(name, new_store, bin_factory).await;
+                        let ret = bin_factory.spawn(name, new_store, env).await;
                         tx.send(ret);
                     }));
                     rx.recv()

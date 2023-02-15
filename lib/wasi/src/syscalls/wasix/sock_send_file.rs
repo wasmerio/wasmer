@@ -35,7 +35,7 @@ pub fn sock_send_file<M: MemorySize>(
 
     let mut env = ctx.data();
     let net = env.net();
-    let tasks = env.tasks.clone();
+    let tasks = env.tasks().clone();
     let state = env.state.clone();
 
     let ret = wasi_try_ok!({
@@ -182,7 +182,7 @@ pub fn sock_send_file<M: MemorySize>(
             };
 
             // Write it down to the socket
-            let tasks = ctx.data().tasks.clone();
+            let tasks = ctx.data().tasks().clone();
             let bytes_written = wasi_try_ok!(__sock_asyncify_mut(
                 &mut ctx,
                 sock,

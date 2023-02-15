@@ -15,7 +15,7 @@ pub fn thread_parallelism<M: MemorySize>(
     );
 
     let env = ctx.data();
-    let parallelism = wasi_try!(env.tasks.thread_parallelism().map_err(|err| {
+    let parallelism = wasi_try!(env.tasks().thread_parallelism().map_err(|err| {
         let err: Errno = err.into();
         err
     }));

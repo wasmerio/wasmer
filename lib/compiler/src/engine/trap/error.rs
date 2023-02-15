@@ -222,6 +222,18 @@ impl RuntimeError {
         }
     }
 
+    /// Attempts to downcast the `RuntimeError` to a concrete type.
+    pub fn downcast_ref<T: Error + 'static>(&self) -> Option<&T> {
+        match self.inner.as_ref() {
+            // We only try to downcast user errors
+            RuntimeErrorInner {
+                source: RuntimeErrorSource::User(err),
+                ..
+            } if err.is::<T>() => err.downcast_ref::<T>(),
+            _ => None,
+        }
+    }
+
     /// Returns trap code, if it's a Trap
     pub fn to_trap(self) -> Option<TrapCode> {
         if let RuntimeErrorSource::Trap(trap_code) = self.inner.source {

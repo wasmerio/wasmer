@@ -10,7 +10,14 @@ pub fn tty_get<M: MemorySize>(
     debug!("wasi[{}:{}]::tty_get", ctx.data().pid(), ctx.data().tid());
     let env = ctx.data();
 
-    let state = env.runtime.tty_get();
+    let env = ctx.data();
+    let bridge = if let Some(t) = env.runtime.tty() {
+        t
+    } else {
+        return Errno::Notsup;
+    };
+
+    let state = bridge.tty_get();
     let state = Tty {
         cols: state.cols,
         rows: state.rows,

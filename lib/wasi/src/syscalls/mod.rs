@@ -62,17 +62,17 @@ pub use unix::*;
 #[cfg(any(target_family = "wasm"))]
 pub use wasm::*;
 
+pub(crate) use crate::vbus::{
+    BusInvocationEvent, BusSpawnedProcess, SignalHandlerAbi, StdioMode, VirtualBusError,
+    VirtualBusInvokedWait,
+};
 pub(crate) use wasmer::{
     AsStoreMut, AsStoreRef, Extern, Function, FunctionEnv, FunctionEnvMut, Global, Instance,
     Memory, Memory32, Memory64, MemoryAccessError, MemoryError, MemorySize, MemoryView, Module,
     OnCalledAction, Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
 };
-pub(crate) use wasmer_vbus::{
-    BusInvocationEvent, BusSpawnedProcess, SignalHandlerAbi, SpawnOptionsConfig, StdioMode,
-    VirtualBusError, VirtualBusInvokedWait,
-};
 pub(crate) use wasmer_vfs::{
-    AsyncSeekExt, AsyncWriteExt, FileSystem, FsError, VirtualFile, WasiBidirectionalPipePair,
+    AsyncSeekExt, AsyncWriteExt, BidiPipe, FileSystem, FsError, VirtualFile,
 };
 pub(crate) use wasmer_vnet::StreamSecurity;
 pub(crate) use wasmer_wasi_types::{asyncify::__wasi_asyncify_t, wasi::EventUnion};
@@ -110,8 +110,8 @@ pub(crate) use crate::{
         WasiThreadContext,
     },
     utils::{self, map_io_err},
-    VirtualTaskManager, WasiEnv, WasiEnvInner, WasiError, WasiFunctionEnv,
-    WasiRuntimeImplementation, WasiVFork, DEFAULT_STACK_SIZE,
+    VirtualTaskManager, WasiEnv, WasiError, WasiFunctionEnv, WasiInstanceHandles, WasiRuntime,
+    WasiVFork, DEFAULT_STACK_SIZE,
 };
 use crate::{
     fs::{
@@ -248,6 +248,8 @@ pub(crate) fn read_bytes<T: Read, M: MemorySize>(
 
 /// Writes data to the stderr
 
+// TODO: remove allow once inodes are refactored (see comments on [`WasiState`])
+#[allow(clippy::await_holding_lock)]
 pub async fn stderr_write(ctx: &FunctionEnvMut<'_, WasiEnv>, buf: &[u8]) -> Result<(), Errno> {
     let env = ctx.data();
     let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(ctx, 0);
@@ -283,7 +285,7 @@ where
         nonblocking = true;
     }
     let timeout = {
-        let tasks_inner = env.tasks.clone();
+        let tasks_inner = env.tasks().clone();
         async move {
             if let Some(timeout) = timeout {
                 if !nonblocking {
@@ -328,7 +330,7 @@ where
     }
 
     // Define the work function
-    let tasks = env.tasks.clone();
+    let tasks = env.tasks().clone();
     let mut pinned_work = Box::pin(work);
     let work = async {
         Ok(tokio::select! {
@@ -377,7 +379,7 @@ where
         async {
             if let Some(timeout) = timeout {
                 if !nonblocking {
-                    env.tasks.sleep_now(timeout).await
+                    env.tasks().sleep_now(timeout).await
                 } else {
                     InfiniteSleep::default().await
                 }
@@ -429,7 +431,7 @@ where
     if nonblocking {
         let waker = WasiDummyWaker.into_waker();
         let mut cx = Context::from_waker(&waker);
-        let _guard = env.tasks.runtime_enter();
+        let _guard = env.tasks().runtime_enter();
         let mut pinned_work = Box::pin(work);
         if let Poll::Ready(res) = pinned_work.as_mut().poll(&mut cx) {
             return res;
@@ -438,7 +440,7 @@ where
     }
 
     // Slow path, block on the work and process process
-    env.tasks.block_on(work)
+    env.tasks().block_on(work)
 }
 
 // This should be compiled away, it will simply wait forever however its never
@@ -472,7 +474,7 @@ where
 
     let work = {
         let inode = fd_entry.inode.clone();
-        let tasks = env.tasks.clone();
+        let tasks = env.tasks().clone();
         let mut guard = inode.read();
         match guard.deref() {
             Kind::Socket { socket } => {
@@ -490,7 +492,7 @@ where
     };
 
     // Block on the work and process it
-    env.tasks.block_on(work)
+    env.tasks().block_on(work)
 }
 
 /// Performs mutable work on a socket under an asynchronous runtime with
@@ -506,7 +508,7 @@ where
     Fut: std::future::Future<Output = Result<T, Errno>>,
 {
     let env = ctx.data();
-    let tasks = env.tasks.clone();
+    let tasks = env.tasks().clone();
 
     let fd_entry = env.state.fs.get_fd(sock)?;
     if !rights.is_empty() && !fd_entry.rights.contains(rights) {
@@ -544,7 +546,7 @@ where
     F: FnOnce(crate::net::socket::InodeSocket, Fd) -> Result<T, Errno>,
 {
     let env = ctx.data();
-    let tasks = env.tasks.clone();
+    let tasks = env.tasks().clone();
 
     let fd_entry = env.state.fs.get_fd(sock)?;
     if !rights.is_empty() && !fd_entry.rights.contains(rights) {
@@ -553,7 +555,7 @@ where
 
     let inode = fd_entry.inode.clone();
 
-    let tasks = env.tasks.clone();
+    let tasks = env.tasks().clone();
     let mut guard = inode.read();
     match guard.deref() {
         Kind::Socket { socket } => {
@@ -583,7 +585,7 @@ where
     F: FnOnce(crate::net::socket::InodeSocket, Fd) -> Result<T, Errno>,
 {
     let env = ctx.data();
-    let tasks = env.tasks.clone();
+    let tasks = env.tasks().clone();
 
     let fd_entry = env.state.fs.get_fd(sock)?;
     if !rights.is_empty() && !fd_entry.rights.contains(rights) {
@@ -631,7 +633,7 @@ where
         return Err(Errno::Access);
     }
 
-    let tasks = env.tasks.clone();
+    let tasks = env.tasks().clone();
     {
         let inode = fd_entry.inode.clone();
         let mut guard = inode.write();

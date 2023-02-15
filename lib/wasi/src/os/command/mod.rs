@@ -2,11 +2,11 @@ pub mod builtins;
 
 use std::{collections::HashMap, sync::Arc};
 
+use crate::vbus::{BusSpawnedProcess, VirtualBusError};
 use wasmer::{FunctionEnvMut, Store};
-use wasmer_vbus::{BusSpawnedProcess, SpawnOptions};
 use wasmer_wasi_types::wasi::Errno;
 
-use crate::{bin_factory::ModuleCache, syscalls::stderr_write, WasiEnv, WasiRuntimeImplementation};
+use crate::{bin_factory::ModuleCache, syscalls::stderr_write, WasiEnv, WasiRuntime};
 
 /// A command available to an OS environment.
 pub trait VirtualCommand
@@ -25,8 +25,8 @@ where
         parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
         path: &str,
         store: &mut Option<Store>,
-        config: &mut Option<SpawnOptions<WasiEnv>>,
-    ) -> wasmer_vbus::Result<BusSpawnedProcess>;
+        config: &mut Option<WasiEnv>,
+    ) -> Result<BusSpawnedProcess, VirtualBusError>;
 }
 
 #[derive(Debug, Clone)]
@@ -43,7 +43,7 @@ impl Commands {
 
     // TODO: this method should be somewhere on the runtime, not here.
     pub fn new_with_builtins(
-        runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync + 'static>,
+        runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
         compiled_modules: Arc<ModuleCache>,
     ) -> Self {
         let mut cmd = Self::new();
@@ -87,8 +87,8 @@ impl Commands {
         parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
         path: &str,
         store: &mut Option<Store>,
-        builder: &mut Option<SpawnOptions<WasiEnv>>,
-    ) -> wasmer_vbus::Result<BusSpawnedProcess> {
+        builder: &mut Option<WasiEnv>,
+    ) -> Result<BusSpawnedProcess, VirtualBusError> {
         let path = path.to_string();
         if let Some(cmd) = self.commands.get(&path) {
             cmd.exec(parent_ctx, path.as_str(), store, builder)

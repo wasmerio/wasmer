@@ -10,11 +10,10 @@ use wasmer_vfs::{
     host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, AsyncRead, AsyncSeek, AsyncWrite,
     AsyncWriteExt, FileSystem, ReadBuf, RootFileSystemBuilder,
 };
-use wasmer_wasi::runtime::task_manager::tokio::TokioTaskManager;
 use wasmer_wasi::types::wasi::{Filesize, Timestamp};
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, FsError, VirtualFile, VirtualTaskManagerExt,
-    WasiBidirectionalPipePair, WasiEnv, WasiFunctionEnv, WasiState, WasiVersion,
+    generate_import_object_from_env, get_wasi_version, BidiPipe, FsError,
+    PluggableRuntimeImplementation, VirtualFile, WasiEnv, WasiEnvBuilder, WasiRuntime, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 
@@ -100,23 +99,24 @@ impl<'a> WasiTest<'a> {
             wasm_module.read_to_end(&mut out)?;
             out
         };
-        let runtime = Arc::new(TokioTaskManager::default());
+
+        let mut rt = PluggableRuntimeImplementation::default();
+        rt.set_engine(Some(store.engine().clone()));
+
+        let tasks = rt.task_manager().runtime().clone();
         let module = Module::new(store, wasm_bytes)?;
-        let (mut env, _tempdirs, stdout_rx, stderr_rx) =
-            { runtime.block_on(async { self.create_wasi_env(store, filesystem_kind).await }) }?;
+        let (builder, _tempdirs, stdout_rx, stderr_rx) =
+            { tasks.block_on(async { self.create_wasi_env(filesystem_kind).await }) }?;
 
-        let instance = wasmer_wasi::build_wasi_instance(&module, &mut env, &mut store)?;
-
-        let wasi_env = env.data(&store);
+        let (instance, wasi_env) = builder.runtime(Arc::new(rt)).instantiate(module, store)?;
 
         let start = instance.exports.get_function("_start")?;
 
         if let Some(stdin) = &self.stdin {
-            let state = wasi_env.state();
-            let mut wasi_stdin = state.stdin().unwrap().unwrap();
+            let mut wasi_stdin = { wasi_env.data(store).stdin().unwrap().unwrap() };
             // Then we can write to it!
-            let data = format!("{}", stdin.stream);
-            runtime.block_on(async move { wasi_stdin.write(data.as_bytes()).await })?;
+            let data = stdin.stream.to_string();
+            tasks.block_on(async move { wasi_stdin.write(data.as_bytes()).await })?;
         }
 
         // TODO: handle errors here when the error fix gets shipped
@@ -152,21 +152,20 @@ impl<'a> WasiTest<'a> {
     #[allow(clippy::type_complexity)]
     async fn create_wasi_env(
         &self,
-        mut store: &mut Store,
         filesystem_kind: WasiFileSystemKind,
     ) -> anyhow::Result<(
-        WasiFunctionEnv,
+        WasiEnvBuilder,
         Vec<tempfile::TempDir>,
         mpsc::Receiver<Vec<u8>>,
         mpsc::Receiver<Vec<u8>>,
     )> {
-        let mut builder = WasiState::builder(self.wasm_path);
+        let mut builder = WasiEnv::builder(self.wasm_path);
 
-        let stdin_pipe = WasiBidirectionalPipePair::new().with_blocking(false);
-        builder.stdin(Box::new(stdin_pipe));
+        let stdin_pipe = BidiPipe::new().with_blocking(false);
+        builder.set_stdin(Box::new(stdin_pipe));
 
         for (name, value) in &self.envs {
-            builder.env(name, value);
+            builder.add_env(name, value);
         }
 
         let mut host_temp_dirs_to_not_drop = vec![];
@@ -178,19 +177,19 @@ impl<'a> WasiTest<'a> {
                 for (alias, real_dir) in &self.mapped_dirs {
                     let mut dir = PathBuf::from(BASE_TEST_DIR);
                     dir.push(real_dir);
-                    builder.map_dir(alias, dir)?;
+                    builder.add_map_dir(alias, dir)?;
                 }
 
                 // due to the structure of our code, all preopen dirs must be mapped now
                 for dir in &self.dirs {
                     let mut new_dir = PathBuf::from(BASE_TEST_DIR);
                     new_dir.push(dir);
-                    builder.map_dir(dir, new_dir)?;
+                    builder.add_map_dir(dir, new_dir)?;
                 }
 
                 for alias in &self.temp_dirs {
                     let temp_dir = tempfile::tempdir()?;
-                    builder.map_dir(alias, temp_dir.path())?;
+                    builder.add_map_dir(alias, temp_dir.path())?;
                     host_temp_dirs_to_not_drop.push(temp_dir);
                 }
 
@@ -242,21 +241,21 @@ impl<'a> WasiTest<'a> {
                 for (alias, real_dir) in &self.mapped_dirs {
                     let mut path = root.clone();
                     path.push(real_dir);
-                    builder.map_dir(alias, path)?;
+                    builder.add_map_dir(alias, path)?;
                 }
 
                 for dir in &self.dirs {
                     let mut new_dir = PathBuf::from("/");
                     new_dir.push(dir);
 
-                    builder.map_dir(dir, new_dir)?;
+                    builder.add_map_dir(dir, new_dir)?;
                 }
 
                 for alias in &self.temp_dirs {
                     let temp_dir_name =
                         PathBuf::from(format!("/.tmp_wasmer_wast_{}", temp_dir_index));
                     fs.create_dir(temp_dir_name.as_path())?;
-                    builder.map_dir(alias, temp_dir_name)?;
+                    builder.add_map_dir(alias, temp_dir_name)?;
                     temp_dir_index += 1;
                 }
 
@@ -266,15 +265,14 @@ impl<'a> WasiTest<'a> {
 
         let (stdout, stdout_rx) = OutputCapturerer::new();
         let (stderr, stderr_rx) = OutputCapturerer::new();
-        let out = builder
+        let builder = builder
             .args(&self.args)
             // adding this causes some tests to fail. TODO: investigate this
             //.env("RUST_BACKTRACE", "1")
             .stdout(Box::new(stdout))
-            .stderr(Box::new(stderr))
-            .finalize(&mut store)?;
+            .stderr(Box::new(stderr));
 
-        Ok((out, host_temp_dirs_to_not_drop, stdout_rx, stderr_rx))
+        Ok((builder, host_temp_dirs_to_not_drop, stdout_rx, stderr_rx))
     }
 
     /// Get the correct [`WasiVersion`] from the Wasm [`Module`].

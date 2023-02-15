@@ -5,7 +5,7 @@ use cfg_if::cfg_if;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
-use wasmer_vbus::VirtualBusError;
+use crate::vbus::VirtualBusError;
 use wasmer_wasi_types::wasi::{BusErrno, Rights};
 
 cfg_if! {
@@ -167,12 +167,6 @@ impl PollEventBuilder {
 }
 
 pub trait WasiPath {}
-
-#[deprecated(
-    since = "3.0.0-beta.2",
-    note = "Moved to `wasmer_wasi::pipe::WasiBidirectionalSharedPipePair`, `Pipe` is only a transitional reexport"
-)]
-pub use wasmer_vfs::WasiBidirectionalSharedPipePair as Pipe;
 
 /*
 TODO: Think about using this

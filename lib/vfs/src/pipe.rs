@@ -15,7 +15,7 @@ use tokio::sync::{mpsc, mpsc::error::TryRecvError};
 use crate::{ArcFile, FsError, VirtualFile};
 
 #[derive(Debug, Clone)]
-pub struct WasiPipe {
+pub struct Pipe {
     /// Sends bytes down the pipe
     tx: Arc<Mutex<mpsc::UnboundedSender<Vec<u8>>>>,
     /// Receives bytes from the pipe
@@ -31,153 +31,33 @@ struct PipeReceiver {
     buffer: Option<Bytes>,
 }
 
-impl WasiPipe {
-    pub fn channel() -> (WasiPipe, WasiPipe) {
-        let pair = WasiBidirectionalPipePair::new();
+impl Pipe {
+    pub fn new() -> Self {
+        let (tx, rx) = mpsc::unbounded_channel();
+
+        Pipe {
+            tx: Arc::new(Mutex::new(tx)),
+            rx: Arc::new(Mutex::new(PipeReceiver {
+                chan: rx,
+                buffer: None,
+            })),
+            block: true,
+        }
+    }
+
+    pub fn channel() -> (Pipe, Pipe) {
+        let pair = BidiPipe::new();
         (pair.tx, pair.rx)
     }
 }
 
-/// Pipe pair of (a, b) WasiPipes that are connected together
-#[derive(Clone, Debug)]
-pub struct WasiBidirectionalPipePair {
-    pub tx: WasiPipe,
-    pub rx: WasiPipe,
-}
-
-impl VirtualFile for WasiBidirectionalPipePair {
-    fn last_accessed(&self) -> u64 {
-        self.rx.last_accessed()
-    }
-    fn last_modified(&self) -> u64 {
-        self.rx.last_modified()
-    }
-    fn created_time(&self) -> u64 {
-        self.rx.created_time()
-    }
-    fn size(&self) -> u64 {
-        self.rx.size()
-    }
-    fn set_len(&mut self, i: u64) -> Result<(), FsError> {
-        self.rx.set_len(i)
-    }
-    fn unlink(&mut self) -> Result<(), FsError> {
-        self.rx.unlink()
-    }
-    fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
-        let rx = Pin::new(&mut self.rx);
-        rx.poll_read_ready(cx)
-    }
-    fn poll_write_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
-        let tx = Pin::new(&mut self.tx);
-        tx.poll_write_ready(cx)
-    }
-}
-
-impl AsyncSeek for WasiBidirectionalPipePair {
-    fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
-        Ok(())
-    }
-    fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
-        Poll::Ready(Ok(0))
-    }
-}
-
-impl AsyncWrite for WasiBidirectionalPipePair {
-    fn poll_write(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<io::Result<usize>> {
-        let file = Pin::new(&mut self.tx);
-        file.poll_write(cx, buf)
-    }
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let file = Pin::new(&mut self.tx);
-        file.poll_flush(cx)
-    }
-    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let file = Pin::new(&mut self.tx);
-        file.poll_shutdown(cx)
-    }
-    fn poll_write_vectored(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        bufs: &[IoSlice<'_>],
-    ) -> Poll<io::Result<usize>> {
-        let file = Pin::new(&mut self.tx);
-        file.poll_write_vectored(cx, bufs)
-    }
-    fn is_write_vectored(&self) -> bool {
-        false
-    }
-}
-
-impl AsyncRead for WasiBidirectionalPipePair {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut tokio::io::ReadBuf<'_>,
-    ) -> Poll<io::Result<()>> {
-        let file = Pin::new(&mut self.rx);
-        file.poll_read(cx, buf)
-    }
-}
-
-impl Default for WasiBidirectionalPipePair {
+impl Default for Pipe {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl WasiBidirectionalPipePair {
-    pub fn new() -> WasiBidirectionalPipePair {
-        let (tx1, rx1) = mpsc::unbounded_channel();
-        let (tx2, rx2) = mpsc::unbounded_channel();
-
-        let pipe1 = WasiPipe {
-            tx: Arc::new(Mutex::new(tx1)),
-            rx: Arc::new(Mutex::new(PipeReceiver {
-                chan: rx2,
-                buffer: None,
-            })),
-            block: true,
-        };
-
-        let pipe2 = WasiPipe {
-            tx: Arc::new(Mutex::new(tx2)),
-            rx: Arc::new(Mutex::new(PipeReceiver {
-                chan: rx1,
-                buffer: None,
-            })),
-            block: true,
-        };
-
-        WasiBidirectionalPipePair {
-            tx: pipe1,
-            rx: pipe2,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn with_blocking(mut self, block: bool) -> Self {
-        self.set_blocking(block);
-        self
-    }
-
-    /// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`
-    #[allow(dead_code)]
-    pub fn set_blocking(&mut self, block: bool) {
-        self.tx.set_blocking(block);
-        self.rx.set_blocking(block);
-    }
-}
-
-/// Shared version of WasiBidirectionalPipePair for situations where you need
-/// to emulate the old behaviour of `Pipe` (both send and recv on one channel).
-pub type WasiBidirectionalSharedPipePair = ArcFile<WasiBidirectionalPipePair>;
-
-impl WasiPipe {
+impl Pipe {
     /// Same as `set_blocking`, but as a builder method
     pub fn with_blocking(mut self, block: bool) -> Self {
         self.set_blocking(block);
@@ -190,16 +70,8 @@ impl WasiPipe {
     }
 
     pub fn close(&self) {
+        // TODO: proper close() implementation - Propably want to store the writer in an Option<>
         let (mut null_tx, _) = mpsc::unbounded_channel();
-        let (_, null_rx) = mpsc::unbounded_channel();
-        let mut null_rx = PipeReceiver {
-            chan: null_rx,
-            buffer: None,
-        };
-        {
-            let mut guard = self.rx.lock().unwrap();
-            std::mem::swap(guard.deref_mut(), &mut null_rx);
-        }
         {
             let mut guard = self.tx.lock().unwrap();
             std::mem::swap(guard.deref_mut(), &mut null_tx);
@@ -207,13 +79,13 @@ impl WasiPipe {
     }
 }
 
-impl Seek for WasiPipe {
+impl Seek for Pipe {
     fn seek(&mut self, _: SeekFrom) -> io::Result<u64> {
         Ok(0)
     }
 }
 
-impl Read for WasiPipe {
+impl Read for Pipe {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let max_size = buf.len();
 
@@ -255,7 +127,7 @@ impl Read for WasiPipe {
     }
 }
 
-impl std::io::Write for WasiPipe {
+impl std::io::Write for Pipe {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let tx = self.tx.lock().unwrap();
         tx.send(buf.to_vec())
@@ -268,7 +140,7 @@ impl std::io::Write for WasiPipe {
     }
 }
 
-impl AsyncSeek for WasiPipe {
+impl AsyncSeek for Pipe {
     fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
         Ok(())
     }
@@ -277,12 +149,13 @@ impl AsyncSeek for WasiPipe {
     }
 }
 
-impl AsyncWrite for WasiPipe {
+impl AsyncWrite for Pipe {
     fn poll_write(
         self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
+        dbg!(buf);
         let guard = self.tx.lock().unwrap();
         match guard.send(buf.to_vec()) {
             Ok(()) => Poll::Ready(Ok(buf.len())),
@@ -295,11 +168,12 @@ impl AsyncWrite for WasiPipe {
         Poll::Ready(Ok(()))
     }
     fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        self.close();
         Poll::Ready(Ok(()))
     }
 }
 
-impl AsyncRead for WasiPipe {
+impl AsyncRead for Pipe {
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -337,7 +211,7 @@ impl AsyncRead for WasiPipe {
     }
 }
 
-impl VirtualFile for WasiPipe {
+impl VirtualFile for Pipe {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64 {
         0
@@ -419,3 +293,142 @@ impl VirtualFile for WasiPipe {
         }
     }
 }
+
+/// Pipe pair of (a, b) Pipes that are connected together
+#[derive(Clone, Debug)]
+pub struct BidiPipe {
+    pub tx: Pipe,
+    pub rx: Pipe,
+}
+
+impl VirtualFile for BidiPipe {
+    fn last_accessed(&self) -> u64 {
+        self.rx.last_accessed()
+    }
+    fn last_modified(&self) -> u64 {
+        self.rx.last_modified()
+    }
+    fn created_time(&self) -> u64 {
+        self.rx.created_time()
+    }
+    fn size(&self) -> u64 {
+        self.rx.size()
+    }
+    fn set_len(&mut self, i: u64) -> Result<(), FsError> {
+        self.rx.set_len(i)
+    }
+    fn unlink(&mut self) -> Result<(), FsError> {
+        self.rx.unlink()
+    }
+    fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        let rx = Pin::new(&mut self.rx);
+        rx.poll_read_ready(cx)
+    }
+    fn poll_write_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        let tx = Pin::new(&mut self.tx);
+        tx.poll_write_ready(cx)
+    }
+}
+
+impl AsyncSeek for BidiPipe {
+    fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
+        Ok(())
+    }
+    fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+        Poll::Ready(Ok(0))
+    }
+}
+
+impl AsyncWrite for BidiPipe {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        let file = Pin::new(&mut self.tx);
+        file.poll_write(cx, buf)
+    }
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let file = Pin::new(&mut self.tx);
+        file.poll_flush(cx)
+    }
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let file = Pin::new(&mut self.tx);
+        file.poll_shutdown(cx)
+    }
+    fn poll_write_vectored(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        bufs: &[IoSlice<'_>],
+    ) -> Poll<io::Result<usize>> {
+        let file = Pin::new(&mut self.tx);
+        file.poll_write_vectored(cx, bufs)
+    }
+    fn is_write_vectored(&self) -> bool {
+        false
+    }
+}
+
+impl AsyncRead for BidiPipe {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        let file = Pin::new(&mut self.rx);
+        file.poll_read(cx, buf)
+    }
+}
+
+impl Default for BidiPipe {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl BidiPipe {
+    pub fn new() -> BidiPipe {
+        let (tx1, rx1) = mpsc::unbounded_channel();
+        let (tx2, rx2) = mpsc::unbounded_channel();
+
+        let pipe1 = Pipe {
+            tx: Arc::new(Mutex::new(tx1)),
+            rx: Arc::new(Mutex::new(PipeReceiver {
+                chan: rx2,
+                buffer: None,
+            })),
+            block: true,
+        };
+
+        let pipe2 = Pipe {
+            tx: Arc::new(Mutex::new(tx2)),
+            rx: Arc::new(Mutex::new(PipeReceiver {
+                chan: rx1,
+                buffer: None,
+            })),
+            block: true,
+        };
+
+        BidiPipe {
+            tx: pipe1,
+            rx: pipe2,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn with_blocking(mut self, block: bool) -> Self {
+        self.set_blocking(block);
+        self
+    }
+
+    /// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`
+    #[allow(dead_code)]
+    pub fn set_blocking(&mut self, block: bool) {
+        self.tx.set_blocking(block);
+        self.rx.set_blocking(block);
+    }
+}
+
+/// Shared version of BidiPipe for situations where you need
+/// to emulate the old behaviour of `Pipe` (both send and recv on one channel).
+pub type WasiBidirectionalSharedPipePair = ArcFile<BidiPipe>;

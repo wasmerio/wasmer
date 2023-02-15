@@ -10,6 +10,12 @@ pub fn tty_set<M: MemorySize>(
     debug!("wasi::tty_set");
 
     let env = ctx.data();
+    let bridge = if let Some(t) = env.runtime.tty() {
+        t
+    } else {
+        return Errno::Notsup;
+    };
+
     let memory = env.memory_view(&ctx);
     let state = wasi_try_mem!(tty_state.read(&memory));
     let echo = state.echo;
@@ -37,7 +43,7 @@ pub fn tty_set<M: MemorySize>(
         line_feeds,
     };
 
-    env.runtime.tty_set(state);
+    bridge.tty_set(state);
 
     Errno::Success
 }

@@ -14,24 +14,11 @@ use crate::syscalls::*;
 ///
 /// Returns a bus process id that can be used to invoke calls
 pub fn bus_open_local<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
-    name: WasmPtr<u8, M>,
-    name_len: M::Offset,
-    reuse: Bool,
-    ret_bid: WasmPtr<Bid, M>,
+    _ctx: FunctionEnvMut<'_, WasiEnv>,
+    _name: WasmPtr<u8, M>,
+    _name_len: M::Offset,
+    _reuse: Bool,
+    _ret_bid: WasmPtr<Bid, M>,
 ) -> Result<BusErrno, WasiError> {
-    let env = ctx.data();
-    let bus = env.runtime.bus();
-    let memory = env.memory_view(&ctx);
-    let name = unsafe { get_input_str_bus_ok!(&memory, name, name_len) };
-    let reuse = reuse == Bool::True;
-    debug!(
-        "wasi[{}:{}]::bus_open_local (name={}, reuse={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        name,
-        reuse
-    );
-
-    bus_open_internal(ctx, name, reuse, None, None, ret_bid)
+    Ok(BusErrno::Unsupported)
 }

@@ -250,7 +250,7 @@ fn fd_read_internal<M: MemorySize>(
 
                     drop(guard);
 
-                    let tasks = env.tasks.clone();
+                    let tasks = env.tasks().clone();
                     let res = __asyncify(
                         ctx,
                         if fd_flags.contains(Fdflags::NONBLOCK) {
@@ -405,7 +405,7 @@ fn fd_read_internal<M: MemorySize>(
                     }
 
                     // Yield until the notifications are triggered
-                    let tasks_inner = env.tasks.clone();
+                    let tasks_inner = env.tasks().clone();
                     let val = wasi_try_ok_ok!(__asyncify(ctx, None, async { poller.await })?
                         .map_err(|err| match err {
                             Errno::Timedout => Errno::Again,

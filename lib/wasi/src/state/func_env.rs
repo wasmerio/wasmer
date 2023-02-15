@@ -1,9 +1,9 @@
 use tracing::trace;
-use wasmer::{AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Module, Store};
+use wasmer::{AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Module};
 use wasmer_wasi_types::wasi::ExitCode;
 
 use crate::{
-    state::WasiEnvInner,
+    state::WasiInstanceHandles,
     utils::{get_wasi_version, get_wasi_versions},
     WasiEnv, WasiError, DEFAULT_STACK_SIZE,
 };
@@ -50,7 +50,7 @@ impl WasiFunctionEnv {
     pub fn initialize(
         &mut self,
         store: &mut impl AsStoreMut,
-        instance: &Instance,
+        instance: Instance,
     ) -> Result<(), ExportError> {
         // List all the exports and imports
         for ns in instance.module().exports() {
@@ -61,66 +61,17 @@ impl WasiFunctionEnv {
             trace!("module::import - {}::{}", ns.module(), ns.name());
         }
 
+        let is_wasix_module = crate::utils::is_wasix_module(instance.module());
+
         // First we get the malloc function which if it exists will be used to
         // create the pthread_self structure
         let memory = instance.exports.get_memory("memory")?.clone();
-        let new_inner = WasiEnvInner {
-            memory,
-            module: instance.module().clone(),
-            exports: instance.exports.clone(),
-            stack_pointer: instance
-                .exports
-                .get_global("__stack_pointer")
-                .map(|a| a.clone())
-                .ok(),
-            start: instance.exports.get_typed_function(store, "_start").ok(),
-            initialize: instance
-                .exports
-                .get_typed_function(store, "_initialize")
-                .ok(),
-            thread_spawn: instance
-                .exports
-                .get_typed_function(store, "_start_thread")
-                .ok(),
-            react: instance.exports.get_typed_function(store, "_react").ok(),
-            signal: instance
-                .exports
-                .get_typed_function(&store, "__wasm_signal")
-                .ok(),
-            signal_set: false,
-            asyncify_start_unwind: instance
-                .exports
-                .get_typed_function(store, "asyncify_start_unwind")
-                .ok(),
-            asyncify_stop_unwind: instance
-                .exports
-                .get_typed_function(store, "asyncify_stop_unwind")
-                .ok(),
-            asyncify_start_rewind: instance
-                .exports
-                .get_typed_function(store, "asyncify_start_rewind")
-                .ok(),
-            asyncify_stop_rewind: instance
-                .exports
-                .get_typed_function(store, "asyncify_stop_rewind")
-                .ok(),
-            asyncify_get_state: instance
-                .exports
-                .get_typed_function(store, "asyncify_get_state")
-                .ok(),
-            thread_local_destroy: instance
-                .exports
-                .get_typed_function(store, "_thread_local_destroy")
-                .ok(),
-        };
+        let new_inner = WasiInstanceHandles::new(memory, store, instance);
 
         let env = self.data_mut(store);
         env.inner.replace(new_inner);
 
-        env.state.fs.is_wasix.store(
-            crate::utils::is_wasix_module(instance.module()),
-            std::sync::atomic::Ordering::Release,
-        );
+        env.state.fs.set_is_wasix(is_wasix_module);
 
         // Set the base stack
         let stack_base = if let Some(stack_pointer) = env.inner().stack_pointer.clone() {
@@ -159,7 +110,7 @@ impl WasiFunctionEnv {
         Ok(resolver)
     }
 
-    pub fn cleanup(&self, store: &mut Store, exit_code: Option<ExitCode>) {
+    pub fn cleanup(&self, store: &mut impl AsStoreMut, exit_code: Option<ExitCode>) {
         trace!(
             "wasi[{}:{}]::cleanup - destroying local thread variables",
             self.data(store).pid(),

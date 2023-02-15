@@ -1,7 +1,10 @@
-use wasmer_vm::VMMemory;
-
 use super::*;
 use crate::syscalls::*;
+
+#[cfg(feature = "sys")]
+use wasmer::vm::VMMemory;
+#[cfg(feature = "js")]
+use wasmer::VMMemory;
 
 /// ### `thread_spawn()`
 /// Creates a new thread by spawning that shares the same
@@ -43,7 +46,7 @@ pub fn thread_spawn<M: MemorySize>(
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
     let runtime = env.runtime.clone();
-    let tasks = env.tasks.clone();
+    let tasks = env.tasks().clone();
 
     // Create the handle that represents this thread
     let mut thread_handle = match env.process.new_thread() {
@@ -78,7 +81,7 @@ pub fn thread_spawn<M: MemorySize>(
     // can be used to call back into the process
     let create_ctx = {
         let state = env.state.clone();
-        let wasi_env = env.clone();
+        let wasi_env = env.duplicate();
         let thread = thread_handle.as_thread();
         move |mut store: Store, module: Module, memory: VMMemory| {
             // We need to reconstruct some things
@@ -86,7 +89,7 @@ pub fn thread_spawn<M: MemorySize>(
             let memory = Memory::new_from_existing(&mut store, memory);
 
             // Build the context object and import the memory
-            let mut ctx = WasiFunctionEnv::new(&mut store, wasi_env.clone());
+            let mut ctx = WasiFunctionEnv::new(&mut store, wasi_env.duplicate());
             {
                 let env = ctx.data_mut(&mut store);
                 env.thread = thread.clone();
@@ -110,7 +113,7 @@ pub fn thread_spawn<M: MemorySize>(
 
             // Set the current thread ID
             ctx.data_mut(&mut store).inner =
-                Some(WasiEnvInner::new(module, memory, &store, &instance));
+                Some(WasiInstanceHandles::new(memory, &store, instance));
             trace!(
                 "threading: new context created for thread_id = {}",
                 thread.tid().raw()
@@ -274,20 +277,40 @@ pub fn thread_spawn<M: MemorySize>(
                 return Errno::Notcapable;
             }
 
+            let spawn_type = crate::runtime::SpawnType::NewThread(thread_memory);
+
             // Now spawn a thread
             trace!("threading: spawning background thread");
-            let thread_module = env.inner().module.clone();
+            let thread_module = env.inner().instance.module().clone();
+            let tasks2 = tasks.clone();
+
+            let task = move || {
+                // FIXME: should not use unwrap() here! (initializiation refactor)
+                let mut thread_memory = tasks2.build_memory(spawn_type).unwrap();
+                let mut store = Some(store);
+                execute_module(&mut store, thread_module, &mut thread_memory);
+            };
+
+            // TODO: handle this better - required because of Module not being Send.
+            #[cfg(feature = "js")]
+            let task = {
+                struct UnsafeWrapper {
+                    inner: Box<dyn FnOnce() + 'static>,
+                }
+
+                unsafe impl Send for UnsafeWrapper {}
+
+                let inner = UnsafeWrapper {
+                    inner: Box::new(task),
+                };
+
+                move || {
+                    (inner.inner)();
+                }
+            };
+
             wasi_try!(tasks
-                .task_wasm(
-                    Box::new(move |store, module, thread_memory| {
-                        let mut thread_memory = thread_memory;
-                        let mut store = Some(store);
-                        execute_module(&mut store, module, &mut thread_memory);
-                    }),
-                    store,
-                    thread_module,
-                    crate::runtime::SpawnType::NewThread(thread_memory)
-                )
+                .task_wasm(Box::new(task),)
                 .map_err(|err| { Into::<Errno>::into(err) }));
         }
         _ => {

@@ -14,7 +14,7 @@
 use std::io::{Read, Write};
 use wasmer::{Instance, Module, Store};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_wasi::{Pipe, WasiState};
+use wasmer_wasi::{Pipe, WasiEnv};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_path = concat!(
@@ -34,36 +34,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's compile the Wasm module.
     let module = Module::new(&store, wasm_bytes)?;
 
-    println!("Creating `WasiEnv`...");
-    // First, we create the `WasiEnv` with the stdio pipes
-    let mut input = Pipe::new();
-    let mut output = Pipe::new();
-    let wasi_env = WasiState::builder("hello")
-        .stdin(Box::new(input.clone()))
-        .stdout(Box::new(output.clone()))
-        .finalize(&mut store)?;
-
-    println!("Instantiating module with WASI imports...");
-    // Then, we get the import object related to our WASI
-    // and attach it to the Wasm instance.
-    let import_object = wasi_env.import_object(&mut store, &module)?;
-    let instance = Instance::new(&mut store, &module, &import_object)?;
-
-    println!("Initializing WASI environment...");
-    // Initialize the WASI environment (which will attach memory)
-    wasi_env.initialize(&mut store, &instance).unwrap();
-
     let msg = "racecar go zoom";
     println!("Writing \"{}\" to the WASI stdin...", msg);
+    let mut input = Pipe::new();
+    let mut output = Pipe::new();
     // To write to the stdin
     writeln!(input, "{}", msg)?;
 
-    println!("Call WASI `_start` function...");
-    // And we just call the `_start` function!
-    let start = instance.exports.get_function("_start")?;
-    start.call(&mut store, &[])?;
-
-    println!("Reading from the WASI stdout...");
+    println!("Runninig module...");
+    // First, we create the `WasiEnv` with the stdio pipes
+    WasiEnv::builder("hello")
+        .stdin(Box::new(input))
+        .stdout(Box::new(output.clone()))
+        .run_with_store(module, &mut store)?;
 
     // To read from the stdout
     let mut buf = String::new();

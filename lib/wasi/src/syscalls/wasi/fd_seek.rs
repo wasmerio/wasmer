@@ -64,6 +64,8 @@ pub fn fd_seek<M: MemorySize>(
             let deref_mut = guard.deref_mut();
             match deref_mut {
                 Kind::File { ref mut handle, .. } => {
+                    // TODO: remove allow once inodes are refactored (see comments on [`WasiState`])
+                    #[allow(clippy::await_holding_lock)]
                     if let Some(handle) = handle {
                         let handle = handle.clone();
                         drop(guard);

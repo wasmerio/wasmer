@@ -36,7 +36,7 @@ pub(crate) fn thread_sleep_internal(
 
     if duration > 0 {
         let duration = Duration::from_nanos(duration as u64);
-        let tasks = env.tasks.clone();
+        let tasks = env.tasks().clone();
         wasi_try_ok!(__asyncify(&mut ctx, Some(duration), async move {
             // using an infinite async sleep here means we don't have to write the same event
             // handling loop code for signals and timeouts

@@ -8,10 +8,9 @@ use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, RuntimeError, Value};
 use wasmer_vfs::FileSystem;
 use wasmer_vfs::{PassthruFileSystem, RootFileSystemBuilder, SpecialFile};
 use wasmer_wasi::types::__WASI_STDIN_FILENO;
-use wasmer_wasi::TtyFile;
 use wasmer_wasi::{
     default_fs_backing, get_wasi_versions, PluggableRuntimeImplementation, WasiEnv, WasiError,
-    WasiState, WasiVersion,
+    WasiVersion,
 };
 
 use clap::Parser;
@@ -109,33 +108,31 @@ impl Wasi {
         let map_commands = self
             .map_commands
             .iter()
-            .map(|map| map.split_once("=").unwrap())
+            .map(|map| map.split_once('=').unwrap())
             .map(|(a, b)| (a.to_string(), b.to_string()))
             .collect::<HashMap<_, _>>();
 
-        let runtime = Arc::new(PluggableRuntimeImplementation::default());
+        let mut rt = PluggableRuntimeImplementation::default();
+        let engine = store.as_store_mut().engine().clone();
+        rt.set_engine(Some(engine));
 
-        let mut wasi_state_builder = WasiState::builder(program_name);
-        wasi_state_builder
+        let builder = WasiEnv::builder(program_name)
+            .runtime(Arc::new(rt))
             .args(args)
             .envs(self.env_vars.clone())
             .uses(self.uses.clone())
-            .runtime(&runtime)
-            .map_commands(map_commands.clone());
+            .map_commands(map_commands);
 
-        if wasmer_wasi::is_wasix_module(module) {
+        let mut builder = if wasmer_wasi::is_wasix_module(module) {
             // If we preopen anything from the host then shallow copy it over
             let root_fs = RootFileSystemBuilder::new()
-                .with_tty(Box::new(TtyFile::new(
-                    runtime.clone(),
-                    Box::new(SpecialFile::new(__WASI_STDIN_FILENO)),
-                )))
+                .with_tty(Box::new(SpecialFile::new(__WASI_STDIN_FILENO)))
                 .build();
-            if self.mapped_dirs.len() > 0 {
+            if !self.mapped_dirs.is_empty() {
                 let fs_backing: Arc<dyn FileSystem + Send + Sync> =
                     Arc::new(PassthruFileSystem::new(default_fs_backing()));
                 for (src, dst) in self.mapped_dirs.clone() {
-                    let src = match src.starts_with("/") {
+                    let src = match src.starts_with('/') {
                         true => src,
                         false => format!("/{}", src),
                     };
@@ -144,16 +141,21 @@ impl Wasi {
             }
 
             // Open the root of the new filesystem
-            wasi_state_builder
-                .set_sandbox_fs(root_fs)
+            builder
+                .sandbox_fs(root_fs)
                 .preopen_dir(Path::new("/"))
                 .unwrap()
-                .map_dir(".", "/")?;
+                .map_dir(".", "/")?
         } else {
-            wasi_state_builder
-                .set_fs(default_fs_backing())
+            builder
+                .fs(default_fs_backing())
                 .preopen_dirs(self.pre_opened_directories.clone())?
-                .map_dirs(self.mapped_dirs.clone())?;
+                .map_dirs(self.mapped_dirs.clone())?
+        };
+
+        if self.http_client {
+            let caps = wasmer_wasi::http::HttpClientCapabilityV1::new_allow_all();
+            builder.capabilities_mut().http_client = caps;
         }
 
         #[cfg(feature = "experimental-io-devices")]
@@ -164,14 +166,7 @@ impl Wasi {
             }
         }
 
-        let mut wasi_env = wasi_state_builder.finalize(store)?;
-
-        if self.http_client {
-            let caps = wasmer_wasi::http::HttpClientCapabilityV1::new_allow_all();
-            wasi_env.data_mut(store).capabilities.http_client = caps;
-        }
-
-        let instance = wasmer_wasi::build_wasi_instance(module, &mut wasi_env, store)?;
+        let (instance, wasi_env) = builder.instantiate(module.clone(), store)?;
         Ok((wasi_env.env, instance))
     }
 

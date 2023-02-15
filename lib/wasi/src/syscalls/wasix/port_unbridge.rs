@@ -10,7 +10,7 @@ pub fn port_unbridge(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, Wasi
         ctx.data().tid()
     );
     let env = ctx.data();
-    let net = env.net();
+    let net = env.net().clone();
     wasi_try_ok!(__asyncify(&mut ctx, None, async move {
         net.unbridge().await.map_err(net_error_into_wasi_err)
     })?);

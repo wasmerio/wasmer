@@ -72,7 +72,6 @@
   (func (import "wasix_32v1" "call_reply") (param i64 i32 i32 i32) (result i32))
   (func (import "wasix_32v1" "call_fault") (param i64 i32)
   (func (import "wasix_32v1" "call_close") (param i64)
-  (func (import "wasix_32v1" "ws_connect") (param i32 i32 i32) (result i32))
   (func (import "wasix_32v1" "http_request") (param i32 i32 i32 i32 i32 i32 i32 i32) (result i32))
   (func (import "wasix_32v1" "http_status") (param i32 i32)
   (func (import "wasix_32v1" "port_bridge") (param i32 i32 i32 i32 i32) (result i32))

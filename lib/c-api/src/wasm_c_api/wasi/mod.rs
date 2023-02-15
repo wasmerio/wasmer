@@ -11,6 +11,7 @@ use super::{
     types::wasm_byte_vec_t,
 };
 use crate::error::update_last_error;
+use lazy_static::__Deref;
 use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -18,8 +19,8 @@ use std::slice;
 #[cfg(feature = "webc_runner")]
 use wasmer_api::{AsStoreMut, Imports, Module};
 use wasmer_wasi::{
-    get_wasi_version, wasmer_vfs::AsyncReadExt, WasiBidirectionalPipePair, WasiEnv, WasiFile,
-    WasiFunctionEnv, WasiState, WasiStateBuilder, WasiVersion,
+    get_wasi_version, wasmer_vfs::AsyncReadExt, BidiPipe, VirtualTaskManager, WasiEnv,
+    WasiEnvBuilder, WasiFile, WasiFunctionEnv, WasiVersion,
 };
 
 #[derive(Debug)]
@@ -28,7 +29,7 @@ pub struct wasi_config_t {
     inherit_stdout: bool,
     inherit_stderr: bool,
     inherit_stdin: bool,
-    state_builder: WasiStateBuilder,
+    builder: WasiEnvBuilder,
 }
 
 #[no_mangle]
@@ -44,7 +45,7 @@ pub unsafe extern "C" fn wasi_config_new(
         inherit_stdout: true,
         inherit_stderr: true,
         inherit_stdin: true,
-        state_builder: WasiState::builder(prog_name),
+        builder: WasiEnv::builder(prog_name),
     }))
 }
 
@@ -62,7 +63,7 @@ pub unsafe extern "C" fn wasi_config_env(
     let value_cstr = CStr::from_ptr(value);
     let value_bytes = value_cstr.to_bytes();
 
-    config.state_builder.env(key_bytes, value_bytes);
+    config.builder.add_env(key_bytes, value_bytes);
 }
 
 #[no_mangle]
@@ -72,7 +73,7 @@ pub unsafe extern "C" fn wasi_config_arg(config: &mut wasi_config_t, arg: *const
     let arg_cstr = CStr::from_ptr(arg);
     let arg_bytes = arg_cstr.to_bytes();
 
-    config.state_builder.arg(arg_bytes);
+    config.builder.add_arg(arg_bytes);
 }
 
 #[no_mangle]
@@ -90,7 +91,7 @@ pub unsafe extern "C" fn wasi_config_preopen_dir(
         }
     };
 
-    if let Err(e) = config.state_builder.preopen_dir(dir_str) {
+    if let Err(e) = config.builder.add_preopen_dir(dir_str) {
         update_last_error(e);
         return false;
     }
@@ -124,7 +125,7 @@ pub unsafe extern "C" fn wasi_config_mapdir(
         }
     };
 
-    if let Err(e) = config.state_builder.map_dir(alias_str, dir_str) {
+    if let Err(e) = config.builder.add_map_dir(alias_str, dir_str) {
         update_last_error(e);
         return false;
     }
@@ -268,24 +269,25 @@ fn prepare_webc_env(
         .collect::<Vec<_>>();
 
     let filesystem = Box::new(StaticFileSystem::init(slice, &package_name)?);
-    let mut wasi_env = config.state_builder;
+    let mut builder = config.builder;
 
     if !config.inherit_stdout {
-        wasi_env.stdout(Box::new(WasiBidirectionalPipePair::new()));
+        builder.set_stdout(Box::new(BidiPipe::new()));
     }
 
     if !config.inherit_stderr {
-        wasi_env.stderr(Box::new(WasiBidirectionalPipePair::new()));
+        builder.set_stderr(Box::new(BidiPipe::new()));
     }
 
-    wasi_env.set_fs(filesystem);
+    builder.set_fs(filesystem);
 
     for f_name in top_level_dirs.iter() {
-        wasi_env
-            .preopen(|p| p.directory(f_name).read(true).write(true).create(true))
+        builder
+            .add_preopen_build(|p| p.directory(f_name).read(true).write(true).create(true))
             .ok()?;
     }
-    let env = wasi_env.finalize(store).ok()?;
+    let env = builder.finalize(store).ok()?;
+
     let import_object = env.import_object(store, &module).ok()?;
     Some((env, import_object))
 }
@@ -308,23 +310,19 @@ pub unsafe extern "C" fn wasi_env_new(
     let store = &mut store?.inner;
     let mut store_mut = store.store_mut();
     if !config.inherit_stdout {
-        config
-            .state_builder
-            .stdout(Box::new(WasiBidirectionalPipePair::new()));
+        config.builder.set_stdout(Box::new(BidiPipe::new()));
     }
 
     if !config.inherit_stderr {
-        config
-            .state_builder
-            .stderr(Box::new(WasiBidirectionalPipePair::new()));
+        config.builder.set_stderr(Box::new(BidiPipe::new()));
     }
 
     // TODO: impl capturer for stdin
 
-    let wasi_state = c_try!(config.state_builder.finalize(&mut store_mut));
+    let env = c_try!(config.builder.finalize(&mut store_mut));
 
     Some(Box::new(wasi_env_t {
-        inner: wasi_state,
+        inner: env,
         store: store.clone(),
     }))
 }
@@ -341,12 +339,15 @@ pub unsafe extern "C" fn wasi_env_read_stdout(
 ) -> isize {
     let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
     let store = env.store.store();
-    let state = env.inner.data(&store).state();
 
-    if let Ok(mut stdout) = state.stdout() {
+    let (stdout, tasks) = {
+        let data = env.inner.data(&store);
+        (data.stdout(), data.tasks().clone())
+    };
+
+    if let Ok(mut stdout) = stdout {
         if let Some(stdout) = stdout.as_mut() {
-            let env = env.inner.data(&env.store.store()).clone();
-            read_inner(&env, stdout, inner_buffer)
+            read_inner(tasks.deref(), stdout, inner_buffer)
         } else {
             update_last_error("could not find a file handle for `stdout`");
             -1
@@ -364,12 +365,14 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
     buffer_len: usize,
 ) -> isize {
     let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
-    let mut store_mut = env.store.store_mut();
-    let state = env.inner.data_mut(&mut store_mut).state();
-    if let Ok(mut stderr) = state.stderr() {
+    let store = env.store.store();
+    let (stderr, tasks) = {
+        let data = env.inner.data(&store);
+        (data.stderr(), data.tasks().clone())
+    };
+    if let Ok(mut stderr) = stderr {
         if let Some(stderr) = stderr.as_mut() {
-            let env = env.inner.data(&env.store.store()).clone();
-            read_inner(&env, stderr, inner_buffer)
+            read_inner(tasks.deref(), stderr, inner_buffer)
         } else {
             update_last_error("could not find a file handle for `stderr`");
             -1
@@ -381,11 +384,11 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
 }
 
 fn read_inner(
-    env: &WasiEnv,
+    tasks: &dyn VirtualTaskManager,
     wasi_file: &mut Box<dyn WasiFile + Send + Sync + 'static>,
     inner_buffer: &mut [u8],
 ) -> isize {
-    env.tasks().block_on(async {
+    tasks.block_on(async {
         match wasi_file.read(inner_buffer).await {
             Ok(a) => a as isize,
             Err(err) => {
@@ -527,7 +530,7 @@ pub unsafe extern "C" fn wasi_env_initialize_instance(
 ) -> bool {
     wasi_env
         .inner
-        .initialize(&mut store.inner.store_mut(), &instance.inner)
+        .initialize(&mut store.inner.store_mut(), instance.inner.clone())
         .unwrap();
     true
 }

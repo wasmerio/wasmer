@@ -13,7 +13,7 @@ use webc::{Annotation, FsEntryType, UrlOrManifest, WebC};
 
 use crate::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},
-    VirtualTaskManager, WasiRuntimeImplementation,
+    VirtualTaskManager, WasiRuntime,
 };
 
 #[cfg(feature = "wapm-tar")]
@@ -26,7 +26,7 @@ use pirita::*;
 pub(crate) fn fetch_webc_task(
     cache_dir: &str,
     webc: &str,
-    runtime: &dyn WasiRuntimeImplementation,
+    runtime: &dyn WasiRuntime,
     tasks: &dyn VirtualTaskManager,
 ) -> Result<BinaryPackage, anyhow::Error> {
     let client = runtime

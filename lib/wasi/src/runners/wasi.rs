@@ -2,12 +2,11 @@
 //! WebC container support for running WASI modules
 
 use crate::runners::WapmContainer;
-use crate::{WasiFunctionEnv, WasiState};
-use anyhow::Context;
+use crate::{WasiEnv, WasiEnvBuilder};
 use serde::{Deserialize, Serialize};
 use std::error::Error as StdError;
 use std::sync::Arc;
-use wasmer::{Instance, Module, Store};
+use wasmer::{Module, Store};
 use wasmer_vfs::webc_fs::WebcFileSystem;
 use webc::{Command, WebCMmap};
 
@@ -68,14 +67,16 @@ impl crate::runners::Runner for WasiRunner {
         let mut module = Module::new(&self.store, atom_bytes)?;
         module.set_name(&atom_name);
 
-        let env = prepare_webc_env(
-            &mut self.store,
-            container.webc.clone(),
-            &atom_name,
-            &self.args,
-        )?;
+        let builder = prepare_webc_env(container.webc.clone(), &atom_name, &self.args)?;
 
-        exec_module(&mut self.store, &module, env)?;
+        let init = builder.build_init()?;
+
+        let (instance, env) = WasiEnv::instantiate(init, module, &mut self.store)?;
+
+        let _result = instance
+            .exports
+            .get_function("_start")?
+            .call(&mut self.store, &[])?;
 
         Ok(())
     }
@@ -83,11 +84,10 @@ impl crate::runners::Runner for WasiRunner {
 
 // https://github.com/tokera-com/ate/blob/42c4ce5a0c0aef47aeb4420cc6dc788ef6ee8804/term-lib/src/eval/exec.rs#L444
 fn prepare_webc_env(
-    store: &mut Store,
     webc: Arc<WebCMmap>,
     command: &str,
     args: &[String],
-) -> Result<WasiFunctionEnv, anyhow::Error> {
+) -> Result<WasiEnvBuilder, anyhow::Error> {
     use webc::FsEntryType;
 
     let package_name = webc.get_package_name();
@@ -107,34 +107,10 @@ fn prepare_webc_env(
         .collect::<Vec<_>>();
 
     let filesystem = Box::new(WebcFileSystem::init(webc, &package_name));
-    let mut wasi_env = WasiState::builder(command);
-    wasi_env.set_fs(filesystem);
-    wasi_env.args(args);
+    let mut builder = WasiEnv::builder(command).fs(filesystem).args(args);
     for f_name in top_level_dirs.iter() {
-        wasi_env.preopen(|p| p.directory(f_name).read(true).write(true).create(true))?;
+        builder.add_preopen_build(|p| p.directory(f_name).read(true).write(true).create(true))?;
     }
 
-    Ok(wasi_env.finalize(store)?)
-}
-
-pub(crate) fn exec_module(
-    store: &mut Store,
-    module: &Module,
-    mut wasi_env: crate::WasiFunctionEnv,
-) -> Result<(), anyhow::Error> {
-    let import_object = wasi_env.import_object(store, module)?;
-    let instance = Instance::new(store, module, &import_object)?;
-
-    wasi_env.initialize(store, &instance)?;
-
-    // If this module exports an _initialize function, run that first.
-    if let Ok(initialize) = instance.exports.get_function("_initialize") {
-        initialize
-            .call(store, &[])
-            .with_context(|| "failed to run _initialize function")?;
-    }
-
-    let _result = instance.exports.get_function("_start")?.call(store, &[])?;
-
-    Ok(())
+    Ok(builder)
 }

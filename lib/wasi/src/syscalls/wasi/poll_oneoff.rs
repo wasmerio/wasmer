@@ -81,7 +81,7 @@ struct PollBatch<'a> {
     joins: Vec<InodeValFilePollGuardJoin<'a>>,
 }
 impl<'a> PollBatch<'a> {
-    fn new(pid: WasiProcessId, tid: WasiThreadId, fds: &'a mut Vec<InodeValFilePollGuard>) -> Self {
+    fn new(pid: WasiProcessId, tid: WasiThreadId, fds: &'a mut [InodeValFilePollGuard]) -> Self {
         Self {
             pid,
             tid,
@@ -250,7 +250,7 @@ pub(crate) fn poll_oneoff_internal(
     let ret = {
         // Build the batch of things we are going to poll
         let state = ctx.data().state.clone();
-        let tasks = ctx.data().tasks.clone();
+        let tasks = ctx.data().tasks().clone();
         let mut guards = {
             // We start by building a list of files we are going to poll
             // and open a read lock on them all
@@ -262,11 +262,6 @@ pub(crate) fn poll_oneoff_internal(
                     let wasi_file_ref = match fd {
                         __WASI_STDERR_FILENO => {
                             wasi_try_ok_ok!(WasiInodes::stderr(&state.fs.fd_map)
-                                .map(|g| g.into_poll_guard(fd, peb, s))
-                                .map_err(fs_error_into_wasi_err))
-                        }
-                        __WASI_STDIN_FILENO => {
-                            wasi_try_ok_ok!(WasiInodes::stdin(&state.fs.fd_map)
                                 .map(|g| g.into_poll_guard(fd, peb, s))
                                 .map_err(fs_error_into_wasi_err))
                         }

@@ -30,7 +30,7 @@ pub fn sock_accept<M: MemorySize>(
 
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
-    let tasks = ctx.data().tasks.clone();
+    let tasks = ctx.data().tasks().clone();
     let (child, addr, fd_flags) = wasi_try_ok!(__sock_asyncify(
         ctx.data(),
         sock,
@@ -59,6 +59,11 @@ pub fn sock_accept<M: MemorySize>(
     let inode = state
         .fs
         .create_inode_with_default_stat(inodes, kind, false, "socket".into());
+
+    let mut new_flags = Fdflags::empty();
+    if fd_flags.contains(Fdflags::NONBLOCK) {
+        new_flags.set(Fdflags::NONBLOCK, true);
+    }
 
     let mut new_flags = Fdflags::empty();
     if fd_flags.contains(Fdflags::NONBLOCK) {

@@ -1,6 +1,7 @@
 use super::*;
 use crate::syscalls::*;
 
+// FIXME: remove , since it's no longer used.
 /// ### `callback_reactor()`
 /// Sets the callback to invoke for reactors
 ///
@@ -22,7 +23,12 @@ pub fn callback_reactor<M: MemorySize>(
         name
     );
 
-    let funct = env.inner().exports.get_typed_function(&ctx, &name).ok();
+    let funct = env
+        .inner()
+        .instance
+        .exports
+        .get_typed_function(&ctx, &name)
+        .ok();
 
     ctx.data_mut().inner_mut().react = funct;
     Ok(())

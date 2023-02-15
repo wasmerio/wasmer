@@ -29,7 +29,7 @@ pub fn port_route_list<M: MemorySize>(
     let ref_routes =
         wasi_try_mem_ok!(routes_ptr.slice(&memory, wasi_try_ok!(to_offset::<M>(max_routes))));
 
-    let net = env.net();
+    let net = env.net().clone();
     let routes = wasi_try_ok!(__asyncify(&mut ctx, None, async {
         net.route_list().map_err(net_error_into_wasi_err)
     })?);

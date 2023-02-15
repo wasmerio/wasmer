@@ -63,7 +63,7 @@ pub fn sock_send_to<M: MemorySize>(
                 Rights::SOCK_SEND,
                 |socket, fd| async move {
                     socket
-                        .send_to::<M>(env.tasks.deref(), reader, addr, fd.flags)
+                        .send_to::<M>(env.tasks().deref(), reader, addr, fd.flags)
                         .await
                 },
             ))
@@ -78,7 +78,7 @@ pub fn sock_send_to<M: MemorySize>(
                 Rights::SOCK_SEND_TO,
                 |socket, fd| async move {
                     socket
-                        .send_to::<M>(env.tasks.deref(), reader, addr, fd.flags)
+                        .send_to::<M>(env.tasks().deref(), reader, addr, fd.flags)
                         .await
                 },
             ))

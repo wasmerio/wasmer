@@ -48,7 +48,7 @@ pub fn sock_send<M: MemorySize>(
             let reader: &[u8] = unsafe { std::mem::transmute(reader) };
 
             __sock_asyncify(env, sock, Rights::SOCK_SEND, |socket, fd| async move {
-                socket.send(env.tasks.deref(), reader, fd.flags).await
+                socket.send(env.tasks().deref(), reader, fd.flags).await
             })
         } else {
             let mut buf = Vec::with_capacity(buf_len);
@@ -56,7 +56,7 @@ pub fn sock_send<M: MemorySize>(
 
             let reader = &buf;
             __sock_asyncify(env, sock, Rights::SOCK_SEND, |socket, fd| async move {
-                socket.send(env.tasks.deref(), reader, fd.flags).await
+                socket.send(env.tasks().deref(), reader, fd.flags).await
             })
         }
     };

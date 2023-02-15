@@ -11,7 +11,7 @@ pub fn port_mac<M: MemorySize>(
     let mut env = ctx.data();
     let mut memory = env.memory_view(&ctx);
 
-    let net = env.net();
+    let net = env.net().clone();
     let mac = wasi_try_ok!(__asyncify(&mut ctx, None, async {
         net.mac().map_err(net_error_into_wasi_err)
     })?);

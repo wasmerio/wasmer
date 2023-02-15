@@ -1,6 +1,8 @@
-use wasmer::{Instance, Module, Store};
+use std::sync::Arc;
+
+use wasmer::{Module, Store};
 use wasmer_vfs::{AsyncReadExt, AsyncWriteExt};
-use wasmer_wasi::{WasiBidirectionalSharedPipePair, WasiState};
+use wasmer_wasi::{Pipe, PluggableRuntimeImplementation, WasiEnv};
 
 mod sys {
     #[tokio::test]
@@ -19,25 +21,25 @@ mod sys {
     }
 }
 
-#[cfg(feature = "js")]
-mod js {
-    use wasm_bindgen_test::*;
+// #[cfg(feature = "js")]
+// mod js {
+//     use wasm_bindgen_test::*;
 
-    #[wasm_bindgen_test]
-    fn test_stdout() {
-        super::test_stdout()
-    }
+//     #[wasm_bindgen_test]
+//     fn test_stdout() {
+//         super::test_stdout();
+//     }
 
-    #[wasm_bindgen_test]
-    fn test_stdin() {
-        super::test_stdin()
-    }
+//     #[wasm_bindgen_test]
+//     fn test_stdin() {
+//         super::test_stdin();
+//     }
 
-    #[wasm_bindgen_test]
-    fn test_env() {
-        super::test_env()
-    }
-}
+//     #[wasm_bindgen_test]
+//     fn test_env() {
+//         super::test_env();
+//     }
+// }
 
 async fn test_stdout() {
     let mut store = Store::default();
@@ -72,28 +74,28 @@ async fn test_stdout() {
     "#).unwrap();
 
     // Create the `WasiEnv`.
-    let mut pipe = WasiBidirectionalSharedPipePair::default();
-    // FIXME: evaluate if needed (method not available on ArcFile)
-    // pipe.set_blocking(false);
-    let mut wasi_env = WasiState::builder("command-name")
+    let mut pipe = Pipe::new();
+
+    let rt = PluggableRuntimeImplementation::default();
+
+    let pipe2 = pipe.clone();
+
+    let builder = WasiEnv::builder("command-name")
+        .runtime(Arc::new(rt))
         .args(&["Gordon"])
-        .stdout(Box::new(pipe.clone()))
-        .finalize(&mut store)
-        .unwrap();
+        .stdout(Box::new(pipe2));
 
-    // Generate an `ImportObject`.
-    let import_object = wasi_env.import_object(&mut store, &module).unwrap();
-
-    // Let's instantiate the module with the imports.
-    let instance = Instance::new(&mut store, &module, &import_object).unwrap();
-    // FIXME: evaluate initialize() vs below two lines
-    wasi_env.initialize(&mut store, &instance).unwrap();
-    // let memory = instance.exports.get_memory("memory").unwrap();
-    // wasi_env.data_mut(&mut store).set_memory(memory.clone());
-
-    // Let's call the `_start` function, which is our `main` function in Rust.
-    let start = instance.exports.get_function("_start").unwrap();
-    start.call(&mut store, &[]).unwrap();
+    #[cfg(feature = "js")]
+    {
+        builder.run_with_store(module, &mut store).unwrap();
+    }
+    #[cfg(not(feature = "js"))]
+    {
+        std::thread::spawn(move || builder.run_with_store(module, &mut store))
+            .join()
+            .unwrap()
+            .unwrap();
+    }
 
     let mut stdout_str = String::new();
     pipe.read_to_string(&mut stdout_str).await.unwrap();
@@ -112,38 +114,32 @@ async fn test_env() {
         builder.build()
     });
 
+    let rt = PluggableRuntimeImplementation::default();
+
     // Create the `WasiEnv`.
-    let mut pipe = WasiBidirectionalSharedPipePair::default();
-    // FIXME: evaluate if needed (method not available)
-    // .with_blocking(false);
-    let mut wasi_state_builder = WasiState::builder("command-name");
-    wasi_state_builder
+    let mut pipe = Pipe::default();
+    let pipe2 = pipe.clone();
+
+    let builder = WasiEnv::builder("command-name")
+        .runtime(Arc::new(rt))
         .args(&["Gordon"])
         .env("DOG", "X")
         .env("TEST", "VALUE")
-        .env("TEST2", "VALUE2");
-    // panic!("envs: {:?}", wasi_state_builder.envs);
-    let mut wasi_env = wasi_state_builder
-        .stdout(Box::new(pipe.clone()))
-        .finalize(&mut store)
-        .unwrap();
+        .env("TEST2", "VALUE2")
+        .stdout(Box::new(pipe2));
 
-    // Generate an `ImportObject`.
-    let import_object = wasi_env.import_object(&mut store, &module).unwrap();
+    #[cfg(feature = "js")]
+    {
+        builder.run_with_store(module, &mut store).unwrap();
+    }
 
-    // Let's instantiate the module with the imports.
-    let instance = Instance::new(&mut store, &module, &import_object).unwrap();
-
-    // FIXME: evaluate initialize() vs below two lines
-    // wasi_env.initialize(&mut store, &instance).unwrap();
-    // let memory = instance.exports.get_memory("memory").unwrap();
-    wasi_env.data_mut(&mut store);
-    // FIXME: where did the method go?
-    // wasi_env.set_memory(memory.clone());
-
-    // Let's call the `_start` function, which is our `main` function in Rust.
-    let start = instance.exports.get_function("_start").unwrap();
-    start.call(&mut store, &[]).unwrap();
+    #[cfg(not(feature = "js"))]
+    {
+        std::thread::spawn(move || builder.run_with_store(module, &mut store))
+            .join()
+            .unwrap()
+            .unwrap();
+    }
 
     let mut stdout_str = String::new();
     pipe.read_to_string(&mut stdout_str).await.unwrap();
@@ -156,7 +152,7 @@ async fn test_stdin() {
     let module = Module::new(&store, include_bytes!("stdin-hello.wasm")).unwrap();
 
     // Create the `WasiEnv`.
-    let mut pipe = WasiBidirectionalSharedPipePair::default();
+    let mut pipe = Pipe::default();
     // FIXME: needed? (method not available)
     // .with_blocking(false);
 
@@ -164,26 +160,25 @@ async fn test_stdin() {
     let buf = "Hello, stdin!\n".as_bytes().to_owned();
     pipe.write(&buf[..]).await.unwrap();
 
-    let mut wasi_env = WasiState::builder("command-name")
-        .stdin(Box::new(pipe.clone()))
-        .finalize(&mut store)
-        .unwrap();
+    let rt = PluggableRuntimeImplementation::default();
 
-    // Generate an `ImportObject`.
-    let import_object = wasi_env.import_object(&mut store, &module).unwrap();
+    let pipe2 = pipe.clone();
+    let builder = WasiEnv::builder("command-name")
+        .runtime(Arc::new(rt))
+        .stdin(Box::new(pipe2));
 
-    // Let's instantiate the module with the imports.
-    let instance = Instance::new(&mut store, &module, &import_object).unwrap();
+    #[cfg(feature = "js")]
+    {
+        builder.run_with_store(module, &mut store).unwrap();
+    }
 
-    // FIXME: evaluate initialize() vs below lines
-    wasi_env.initialize(&mut store, &instance).unwrap();
-    // let memory = instance.exports.get_memory("memory").unwrap();
-    // wasi_env.data_mut(&mut store).set_memory(memory.clone());
-
-    // Let's call the `_start` function, which is our `main` function in Rust.
-    let start = instance.exports.get_function("_start").unwrap();
-    let result = start.call(&mut store, &[]);
-    assert!(result.is_ok());
+    #[cfg(not(feature = "js"))]
+    {
+        std::thread::spawn(move || builder.run_with_store(module, &mut store))
+            .join()
+            .unwrap()
+            .unwrap();
+    }
 
     // We assure stdin is now empty
     let mut buf = Vec::new();

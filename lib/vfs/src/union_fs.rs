@@ -273,6 +273,8 @@ impl FileSystem for UnionFileSystem {
         let mut ret_error = FsError::EntryNotFound;
         let from = from.to_string_lossy();
         let to = to.to_string_lossy();
+        #[cfg(target_os = "windows")]
+        let to = to.replace('\\', "/");
         for (path, mount) in filter_mounts(&self.mounts, from.as_ref()) {
             let mut to = if to.starts_with(mount.path.as_str()) {
                 (to[mount.path.len()..]).to_string()
@@ -372,6 +374,10 @@ fn filter_mounts(
     mounts: &[MountPoint],
     mut target: &str,
 ) -> impl Iterator<Item = (String, StrongMountPoint)> {
+    // On Windows, Path might use \ instead of /, wich mill messup the matching of mount points
+    #[cfg(target_os = "windows")]
+    let target = target.replace('\\', "/");
+
     let mut biggest_path = 0usize;
     let mut ret = Vec::new();
     for mount in mounts.iter().rev() {
@@ -501,7 +507,7 @@ mod tests {
             .create_new(true)
             .open(Path::new("/test_new_filesystem/foo2.txt"))
             .unwrap();
-        file_write.write(b"hello").await.unwrap();
+        file_write.write_all(b"hello").await.unwrap();
         let _ = std::fs::remove_file("/test_new_filesystem/foo2.txt");
     }
 

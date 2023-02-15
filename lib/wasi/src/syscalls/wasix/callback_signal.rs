@@ -1,6 +1,7 @@
 use super::*;
 use crate::syscalls::*;
 
+// FIXME: remove , since it's no longer used.
 /// ### `callback_signal()`
 /// Sets the callback to invoke signals
 ///
@@ -27,7 +28,12 @@ pub fn callback_signal<M: MemorySize>(
         }
     };
 
-    let funct = env.inner().exports.get_typed_function(&ctx, &name).ok();
+    let funct = env
+        .inner()
+        .instance
+        .exports
+        .get_typed_function(&ctx, &name)
+        .ok();
     trace!(
         "wasi[{}:{}]::callback_signal (name={}, found={})",
         ctx.data().pid(),

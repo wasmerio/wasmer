@@ -1,7 +1,10 @@
-use wasmer_vm::VMMemory;
-
 use super::*;
 use crate::syscalls::*;
+
+#[cfg(feature = "sys")]
+use wasmer::vm::VMMemory;
+#[cfg(feature = "js")]
+use wasmer::VMMemory;
 
 /// ### `proc_fork()`
 /// Forks the current process into a new subprocess. If the function
@@ -169,13 +172,13 @@ pub fn proc_fork<M: MemorySize>(
                 return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)));
             }
         };
-        let fork_module = env.inner().module.clone();
+        let fork_module = env.inner().instance.module().clone();
 
         let mut fork_store = ctx.data().runtime.new_store();
 
         // Now we use the environment and memory references
         let runtime = child_env.runtime.clone();
-        let tasks = child_env.tasks.clone();
+        let tasks = child_env.tasks().clone();
         let child_memory_stack = memory_stack.clone();
         let child_rewind_stack = rewind_stack.clone();
 
@@ -187,76 +190,141 @@ pub fn proc_fork<M: MemorySize>(
             let runtime = runtime.clone();
             let tasks = tasks.clone();
             let tasks_outer = tasks.clone();
-            tasks_outer.task_wasm(Box::new(move |mut store, module, memory|
-                {
-                    // Create the WasiFunctionEnv
-                    let pid = child_env.pid();
-                    let tid = child_env.tid();
-                    child_env.runtime = runtime.clone();
-                    child_env.tasks = tasks.clone();
-                    let mut ctx = WasiFunctionEnv::new(&mut store, child_env);
 
-                    // Let's instantiate the module with the imports.
-                    let (mut import_object, init) = import_object_for_all_wasi_versions(&module, &mut store, &ctx.env);
-                    let memory = if let Some(memory) = memory {
-                        let memory = Memory::new_from_existing(&mut store, memory);
-                        import_object.define("env", "memory", memory.clone());
-                        memory
-                    } else {
-                        error!("wasi[{}:{}]::wasm instantiate failed - no memory supplied", pid, tid);
+            let mut store = fork_store;
+            let module = fork_module;
+
+            let task = move || {
+                // Create the WasiFunctionEnv
+                let pid = child_env.pid();
+                let tid = child_env.tid();
+                child_env.runtime = runtime.clone();
+                let mut ctx = WasiFunctionEnv::new(&mut store, child_env);
+                // fork_store, fork_module,
+
+                let spawn_type = SpawnType::NewThread(fork_memory);
+
+                let memory = match tasks.build_memory(spawn_type) {
+                    Ok(m) => m,
+                    Err(err) => {
+                        error!(
+                            "wasi[{}:{}]::{} failed - could not build instance memory - {}",
+                            pid, tid, fork_op, err
+                        );
+                        ctx.data(&store).cleanup(Some(Errno::Noexec as ExitCode));
                         return;
-                    };
-                    let instance = match Instance::new(&mut store, &module, &import_object) {
-                        Ok(a) => a,
-                        Err(err) => {
-                            error!("wasi[{}:{}]::wasm instantiate error ({})", pid, tid, err);
+                    }
+                };
+
+                // Let's instantiate the module with the imports.
+                let (mut import_object, init) =
+                    import_object_for_all_wasi_versions(&module, &mut store, &ctx.env);
+                let memory = if let Some(memory) = memory {
+                    let memory = Memory::new_from_existing(&mut store, memory);
+                    import_object.define("env", "memory", memory.clone());
+                    memory
+                } else {
+                    error!(
+                        "wasi[{}:{}]::wasm instantiate failed - no memory supplied",
+                        pid, tid
+                    );
+                    return;
+                };
+                let instance = match Instance::new(&mut store, &module, &import_object) {
+                    Ok(a) => a,
+                    Err(err) => {
+                        error!("wasi[{}:{}]::wasm instantiate error ({})", pid, tid, err);
+                        return;
+                    }
+                };
+
+                init(&instance, &store).unwrap();
+
+                // Set the current thread ID
+                ctx.data_mut(&mut store).inner =
+                    Some(WasiInstanceHandles::new(memory, &store, instance));
+
+                // Rewind the stack and carry on
+                {
+                    trace!(
+                        "wasi[{}:{}]::{}: rewinding child",
+                        ctx.data(&store).pid(),
+                        ctx.data(&store).tid(),
+                        fork_op
+                    );
+                    let ctx = ctx.env.clone().into_mut(&mut store);
+                    match rewind::<M>(
+                        ctx,
+                        child_memory_stack.freeze(),
+                        child_rewind_stack.freeze(),
+                        store_data.clone(),
+                    ) {
+                        Errno::Success => OnCalledAction::InvokeAgain,
+                        err => {
+                            warn!("wasi[{}:{}]::wasm rewind failed - could not rewind the stack - errno={}", pid, tid, err);
                             return;
                         }
                     };
-
-                    init(&instance, &store).unwrap();
-
-                    // Set the current thread ID
-                    ctx.data_mut(&mut store).inner = Some(
-                        WasiEnvInner::new(module, memory, &store, &instance)
-                    );
-
-                    // Rewind the stack and carry on
-                    {
-                        trace!("wasi[{}:{}]::{}: rewinding child", ctx.data(&store).pid(), ctx.data(&store).tid(), fork_op);
-                        let ctx = ctx.env.clone().into_mut(&mut store);
-                        match rewind::<M>(ctx, child_memory_stack.freeze(), child_rewind_stack.freeze(), store_data.clone()) {
-                            Errno::Success => OnCalledAction::InvokeAgain,
-                            err => {
-                                warn!("wasi[{}:{}]::wasm rewind failed - could not rewind the stack - errno={}", pid, tid, err);
-                                return;
-                            }
-                        };
-                    }
-
-                    // Invoke the start function
-                    let mut ret = Errno::Success;
-                    if ctx.data(&store).thread.is_main() {
-                        trace!("wasi[{}:{}]::{}: re-invoking main", ctx.data(&store).pid(), ctx.data(&store).tid(), fork_op);
-                        let start = ctx.data(&store).inner().start.clone().unwrap();
-                        start.call(&mut store);
-                    } else {
-                        trace!("wasi[{}:{}]::{}: re-invoking thread_spawn", ctx.data(&store).pid(), ctx.data(&store).tid(), fork_op);
-                        let start = ctx.data(&store).inner().thread_spawn.clone().unwrap();
-                        start.call(&mut store, 0, 0);
-                    }
-
-                    // Clean up the environment
-                    ctx.cleanup((&mut store), Some(ret as ExitCode));
-
-                    // Send the result
-                    let _ = exit_code_tx.send(ret as u32);
-                    drop(exit_code_tx);
-                    drop(child_handle);
                 }
-            ), fork_store, fork_module, SpawnType::NewThread(fork_memory))
+
+                // Invoke the start function
+                let mut ret = Errno::Success;
+                if ctx.data(&store).thread.is_main() {
+                    trace!(
+                        "wasi[{}:{}]::{}: re-invoking main",
+                        ctx.data(&store).pid(),
+                        ctx.data(&store).tid(),
+                        fork_op
+                    );
+                    let start = ctx.data(&store).inner().start.clone().unwrap();
+                    start.call(&mut store);
+                } else {
+                    trace!(
+                        "wasi[{}:{}]::{}: re-invoking thread_spawn",
+                        ctx.data(&store).pid(),
+                        ctx.data(&store).tid(),
+                        fork_op
+                    );
+                    let start = ctx.data(&store).inner().thread_spawn.clone().unwrap();
+                    start.call(&mut store, 0, 0);
+                }
+
+                // Clean up the environment
+                ctx.cleanup((&mut store), Some(ret as ExitCode));
+
+                // Send the result
+                let _ = exit_code_tx.send(ret as u32);
+                drop(exit_code_tx);
+                drop(child_handle);
+            };
+
+            // TODO: handle this better - required because of Module not being Send.
+            #[cfg(feature = "js")]
+            let task = {
+                struct UnsafeWrapper {
+                    inner: Box<dyn FnOnce() + 'static>,
+                }
+
+                unsafe impl Send for UnsafeWrapper {}
+
+                let inner = UnsafeWrapper {
+                    inner: Box::new(task),
+                };
+
+                move || {
+                    (inner.inner)();
+                }
+            };
+
+            tasks_outer
+                .task_wasm(Box::new(task))
                 .map_err(|err| {
-                    warn!("wasi[{}:{}]::failed to fork as the process could not be spawned - {}", ctx.data().pid(), ctx.data().tid(), err);
+                    warn!(
+                        "wasi[{}:{}]::failed to fork as the process could not be spawned - {}",
+                        ctx.data().pid(),
+                        ctx.data().tid(),
+                        err
+                    );
                     err
                 })
                 .ok()

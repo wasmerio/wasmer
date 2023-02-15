@@ -5,7 +5,7 @@
 // use wasmer_vm::VMMemory;
 // use wasmer_wasi::{
 //     bin_factory::spawn_exec_module, wasmer_vfs::host_fs::File, BusSpawnedProcessJoin,
-//     PluggableRuntimeImplementation, WasiControlPlane, WasiEnv, WasiRuntimeImplementation,
+//     PluggableRuntimeImplementation, WasiControlPlane, WasiEnv, WasiRuntime,
 //     WasiState,
 // };
 
@@ -110,7 +110,7 @@
 //         access_token: None,
 //     };
 
-//     let rt2: Arc<dyn WasiRuntimeImplementation + Send + Sync> = rt.clone();
+//     let rt2: Arc<dyn WasiRuntime + Send + Sync> = rt.clone();
 //     let bus = spawn_exec_module(module, store, config, &rt2).unwrap();
 
 //     dbg!("spawned, sleeping!");

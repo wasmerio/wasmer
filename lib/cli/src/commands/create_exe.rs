@@ -1956,7 +1956,7 @@ pub(super) mod utils {
             "/test/wasmer-windows.exe",
         ];
 
-        let paths = test_paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
+        let paths = test_paths.iter().map(Path::new).collect::<Vec<_>>();
         assert_eq!(
             paths
                 .iter()
@@ -1968,7 +1968,7 @@ pub(super) mod utils {
             vec![&Path::new("/test/wasmer-windows-gnu64.tar.gz")],
         );
 
-        let paths = test_paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
+        let paths = test_paths.iter().map(Path::new).collect::<Vec<_>>();
         assert_eq!(
             paths
                 .iter()
@@ -1980,7 +1980,7 @@ pub(super) mod utils {
             vec![&Path::new("/test/wasmer-windows-gnu64.tar.gz")],
         );
 
-        let paths = test_paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
+        let paths = test_paths.iter().map(Path::new).collect::<Vec<_>>();
         assert_eq!(
             paths
                 .iter()

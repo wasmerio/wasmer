@@ -30,8 +30,12 @@ pub fn fd_sync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errno
                     let handle = handle.clone();
                     drop(guard);
 
+                    // TODO: remove allow once inodes are refactored (see comments on [`WasiState`])
+                    #[allow(clippy::await_holding_lock)]
                     let size = {
                         wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+                            // TODO: remove allow once inodes are refactored (see comments on [`WasiState`])
+                            #[allow(clippy::await_holding_lock)]
                             let mut handle = handle.write().unwrap();
                             handle.flush().await.map_err(map_io_err)?;
                             Ok(handle.size())

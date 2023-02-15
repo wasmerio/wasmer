@@ -143,17 +143,7 @@ impl WasiInodes {
         }
     }
 
-    /// gets either a normal inode or an orphaned inode
-    pub fn get_inodeval(&self, ino: Inode) -> Result<InodeGuard, Errno> {
-        let guard = self.protected.read().unwrap();
-        if let Some(inner) = guard.lookup.get(&ino).and_then(Weak::upgrade) {
-            Ok(InodeGuard { ino, inner })
-        } else {
-            Err(Errno::Badf)
-        }
-    }
-
-    /// aads another value to the inodes
+    /// adds another value to the inodes
     pub fn add_inode_val(&self, val: InodeVal) -> InodeGuard {
         let val = Arc::new(val);
 
@@ -203,6 +193,8 @@ impl WasiInodes {
     }
 
     /// Get the `VirtualFile` object at stdin
+    /// TODO: Review why this is dead
+    #[allow(dead_code)]
     pub(crate) fn stdin(
         fd_map: &RwLock<HashMap<u32, Fd>>,
     ) -> Result<InodeValFileReadGuard, FsError> {
@@ -260,6 +252,12 @@ impl WasiInodes {
             // this should only trigger if we made a mistake in this crate
             Err(FsError::NoDevice)
         }
+    }
+}
+
+impl Default for WasiInodes {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -331,14 +329,29 @@ pub struct WasiFs {
     pub fd_map: Arc<RwLock<HashMap<WasiFd, Fd>>>,
     pub next_fd: AtomicU32,
     pub current_dir: Mutex<String>,
-    pub is_wasix: AtomicBool,
     #[cfg_attr(feature = "enable-serde", serde(skip, default))]
     pub root_fs: WasiFsRoot,
     pub root_inode: InodeGuard,
     pub has_unioned: Arc<Mutex<HashSet<String>>>,
+
+    // TODO: remove
+    // using an atomic is a hack to enable customization after construction,
+    // but it shouldn't be necessary
+    // It should not be necessary at all.
+    is_wasix: AtomicBool,
 }
 
 impl WasiFs {
+    pub fn is_wasix(&self) -> bool {
+        // NOTE: this will only be set once very early in the instance lifetime,
+        // so Relaxed should be okay.
+        self.is_wasix.load(Ordering::Relaxed)
+    }
+
+    pub fn set_is_wasix(&self, is_wasix: bool) {
+        self.is_wasix.store(is_wasix, Ordering::SeqCst);
+    }
+
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Self {
         let fd_map = self.fd_map.read().unwrap().clone();
@@ -356,6 +369,7 @@ impl WasiFs {
     }
 
     /// Closes all the file handles
+    #[allow(clippy::await_holding_lock)]
     pub fn close_all(&self) {
         let mut guard = self.fd_map.write().unwrap();
         guard.clear();
@@ -1432,7 +1446,6 @@ impl WasiFs {
                     }
                     // TODO: verify this behavior
                     Kind::Dir { .. } => return Err(Errno::Isdir),
-                    Kind::Symlink { .. } => unimplemented!("WasiFs::flush Kind::Symlink"),
                     Kind::Buffer { .. } => (),
                     _ => return Err(Errno::Io),
                 }
@@ -1740,7 +1753,7 @@ pub struct FallbackFileSystem;
 
 impl FallbackFileSystem {
     fn fail() -> ! {
-        panic!("No filesystem set for wasmer-wasi, please enable either the `host-fs` or `mem-fs` feature or set your custom filesystem with `WasiStateBuilder::set_fs`");
+        panic!("No filesystem set for wasmer-wasi, please enable either the `host-fs` or `mem-fs` feature or set your custom filesystem with `WasiEnvBuilder::set_fs`");
     }
 }
 

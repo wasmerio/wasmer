@@ -13,7 +13,7 @@ use serde_derive::{Deserialize, Serialize};
 use wasmer_types::MemorySize;
 use wasmer_vnet::{
     VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener, VirtualTcpSocket,
-    VirtualUdpSocket, VirtualWebSocket,
+    VirtualUdpSocket,
 };
 use wasmer_wasi_types::wasi::{
     Addressfamily, Errno, Fdflags, Rights, SockProto, Sockoption, Socktype,
@@ -50,7 +50,6 @@ pub enum InodeSocketKind {
         accept_timeout: Option<Duration>,
         connect_timeout: Option<Duration>,
     },
-    WebSocket(Box<dyn VirtualWebSocket + Sync>),
     Icmp(Box<dyn VirtualIcmpSocket + Sync>),
     Raw(Box<dyn VirtualRawSocket + Sync>),
     TcpListener {
@@ -376,7 +375,6 @@ impl InodeSocket {
             }
             InodeSocketKind::Icmp(_) => {}
             InodeSocketKind::UdpSocket { .. } => {}
-            InodeSocketKind::WebSocket(_) => {}
             InodeSocketKind::Raw(_) => {}
             InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
         };
@@ -405,7 +403,6 @@ impl InodeSocket {
                     }
                     InodeSocketKind::Icmp(_) => Poll::Ready(Ok(())),
                     InodeSocketKind::UdpSocket { .. } => Poll::Ready(Ok(())),
-                    InodeSocketKind::WebSocket(_) => Poll::Ready(Ok(())),
                     InodeSocketKind::Raw(_) => Poll::Ready(Ok(())),
                     InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
                 }
@@ -485,7 +482,6 @@ impl InodeSocket {
         let inner = self.inner.protected.read().unwrap();
         Ok(match &inner.kind {
             InodeSocketKind::PreSocket { .. } => WasiSocketStatus::Opening,
-            InodeSocketKind::WebSocket(_) => WasiSocketStatus::Opened,
             InodeSocketKind::TcpListener { .. } => WasiSocketStatus::Opened,
             InodeSocketKind::TcpStream { .. } => WasiSocketStatus::Opened,
             InodeSocketKind::UdpSocket { .. } => WasiSocketStatus::Opened,
@@ -922,9 +918,6 @@ impl InodeSocket {
             fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
                 let mut inner = self.inner.protected.write().unwrap();
                 match &mut inner.kind {
-                    InodeSocketKind::WebSocket(sock) => sock
-                        .poll_send(cx, self.data)
-                        .map_err(net_error_into_wasi_err),
                     InodeSocketKind::Raw(sock) => {
                         if self.nonblocking {
                             match sock.try_send(self.data) {
@@ -1064,9 +1057,6 @@ impl InodeSocket {
             ) -> Poll<Self::Output> {
                 let mut inner = self.inner.protected.write().unwrap();
                 match &mut inner.kind {
-                    InodeSocketKind::WebSocket(sock) => sock
-                        .poll_recv(cx, self.data)
-                        .map_err(net_error_into_wasi_err),
                     InodeSocketKind::Raw(sock) => {
                         if self.nonblocking {
                             match sock.try_recv(self.data) {
@@ -1210,8 +1200,7 @@ impl InodeSocket {
             match &mut guard.kind {
                 InodeSocketKind::TcpStream { .. }
                 | InodeSocketKind::UdpSocket { .. }
-                | InodeSocketKind::Raw(..)
-                | InodeSocketKind::WebSocket(..) => true,
+                | InodeSocketKind::Raw(..) => true,
                 _ => false,
             }
         } else {
@@ -1230,7 +1219,6 @@ impl InodeSocketProtected {
             InodeSocketKind::TcpStream { socket, .. } => socket.poll_read_ready(cx),
             InodeSocketKind::UdpSocket { socket, .. } => socket.poll_read_ready(cx),
             InodeSocketKind::Raw(socket) => socket.poll_read_ready(cx),
-            InodeSocketKind::WebSocket(socket) => socket.poll_read_ready(cx),
             InodeSocketKind::Icmp(socket) => socket.poll_read_ready(cx),
             InodeSocketKind::PreSocket { .. } => {
                 std::task::Poll::Ready(Err(wasmer_vnet::NetworkError::IOError))
@@ -1247,7 +1235,6 @@ impl InodeSocketProtected {
             InodeSocketKind::TcpStream { socket, .. } => socket.poll_write_ready(cx),
             InodeSocketKind::UdpSocket { socket, .. } => socket.poll_write_ready(cx),
             InodeSocketKind::Raw(socket) => socket.poll_write_ready(cx),
-            InodeSocketKind::WebSocket(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::Icmp(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::PreSocket { .. } => {
                 std::task::Poll::Ready(Err(wasmer_vnet::NetworkError::IOError))

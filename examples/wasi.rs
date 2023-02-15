@@ -17,7 +17,7 @@
 
 use wasmer::{Instance, Module, Store};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_wasi::WasiState;
+use wasmer_wasi::WasiEnv;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_path = concat!(
@@ -37,27 +37,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's compile the Wasm module.
     let module = Module::new(&store, wasm_bytes)?;
 
-    println!("Creating `WasiEnv`...");
-    // First, we create the `WasiEnv`
-    let mut wasi_env = WasiState::builder("hello")
+    // Run the module.
+    let mut wasi_env = WasiEnv::builder("hello")
         // .args(&["world"])
         // .env("KEY", "Value")
-        .finalize(&mut store)?;
-
-    println!("Instantiating module with WASI imports...");
-    // Then, we get the import object related to our WASI
-    // and attach it to the Wasm instance.
-    let import_object = wasi_env.import_object(&mut store, &module)?;
-    let instance = Instance::new(&mut store, &module, &import_object)?;
-
-    println!("Initializing WASI environment...");
-    // Initialize the WASI environment (which will attach memory)
-    wasi_env.initialize(&mut store, &instance).unwrap();
-
-    println!("Call WASI `_start` function...");
-    // And we just call the `_start` function!
-    let start = instance.exports.get_function("_start")?;
-    start.call(&mut store, &[])?;
+        .run_with_store(module, &mut store)?;
 
     Ok(())
 }

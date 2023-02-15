@@ -57,7 +57,11 @@ pub fn sock_recv_from<M: MemorySize>(
                 env,
                 sock,
                 Rights::SOCK_RECV,
-                |socket, fd| async move { socket.recv_from(env.tasks.deref(), writer, fd.flags).await },
+                |socket, fd| async move {
+                    socket
+                        .recv_from(env.tasks().deref(), writer, fd.flags)
+                        .await
+                },
             ));
 
             if amt > 0 {
@@ -78,7 +82,7 @@ pub fn sock_recv_from<M: MemorySize>(
                         buf.set_len(max_size);
                     }
                     socket
-                        .recv_from(env.tasks.deref(), &mut buf, fd.flags)
+                        .recv_from(env.tasks().deref(), &mut buf, fd.flags)
                         .await
                         .map(|(amt, addr)| {
                             unsafe {

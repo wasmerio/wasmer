@@ -123,7 +123,7 @@ fn sock_recv_internal<M: MemorySize>(
                 env,
                 sock,
                 Rights::SOCK_RECV,
-                |socket, fd| async move { socket.recv(env.tasks.deref(), writer, fd.flags).await },
+                |socket, fd| async move { socket.recv(env.tasks().deref(), writer, fd.flags).await },
             ));
 
             if amt > 0 {
@@ -144,7 +144,7 @@ fn sock_recv_internal<M: MemorySize>(
                         buf.set_len(max_size);
                     }
                     socket
-                        .recv(env.tasks.deref(), &mut buf, fd.flags)
+                        .recv(env.tasks().deref(), &mut buf, fd.flags)
                         .await
                         .map(|amt| {
                             unsafe {

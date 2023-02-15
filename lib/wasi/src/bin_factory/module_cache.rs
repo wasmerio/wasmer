@@ -1,11 +1,10 @@
 use std::{cell::RefCell, collections::HashMap, ops::DerefMut, path::PathBuf, sync::RwLock};
 
-use bytes::Bytes;
-use wasmer::{AsEngineRef, Module};
+use wasmer::Module;
 use wasmer_wasi_types::wasi::Snapshot0Clockid;
 
 use super::BinaryPackage;
-use crate::{syscalls::platform_clock_time_get, VirtualTaskManager, WasiRuntimeImplementation};
+use crate::{syscalls::platform_clock_time_get, VirtualTaskManager, WasiRuntime};
 
 pub const DEFAULT_COMPILED_PATH: &str = "~/.wasmer/compiled";
 pub const DEFAULT_WEBC_PATH: &str = "~/.wasmer/webc";
@@ -87,7 +86,7 @@ impl ModuleCache {
     pub fn get_webc(
         &self,
         webc: &str,
-        runtime: &dyn WasiRuntimeImplementation,
+        runtime: &dyn WasiRuntime,
         tasks: &dyn VirtualTaskManager,
     ) -> Option<BinaryPackage> {
         let name = webc.to_string();
@@ -157,7 +156,7 @@ impl ModuleCache {
 
     pub fn get_compiled_module(
         &self,
-        engine: &impl AsEngineRef,
+        #[cfg(feature = "sys")] engine: &impl wasmer::AsEngineRef,
         data_hash: &str,
         compiler: &str,
     ) -> Option<Module> {
@@ -186,27 +185,30 @@ impl ModuleCache {
             }
         }
 
-        // slow path
-        let path = std::path::Path::new(self.cache_compile_dir.as_str())
-            .join(format!("{}.bin", key).as_str());
-        if let Ok(data) = std::fs::read(path) {
-            let mut decoder = weezl::decode::Decoder::new(weezl::BitOrder::Msb, 8);
-            if let Ok(data) = decoder.decode(&data[..]) {
-                let module_bytes = Bytes::from(data);
+        #[cfg(feature = "sys")]
+        {
+            // slow path
+            let path = std::path::Path::new(self.cache_compile_dir.as_str())
+                .join(format!("{}.bin", key).as_str());
+            if let Ok(data) = std::fs::read(path) {
+                let mut decoder = weezl::decode::Decoder::new(weezl::BitOrder::Msb, 8);
+                if let Ok(data) = decoder.decode(&data[..]) {
+                    let module_bytes = bytes::Bytes::from(data);
 
-                // Load the module
-                let module = unsafe { Module::deserialize(engine, &module_bytes[..]).unwrap() };
+                    // Load the module
+                    let module = unsafe { Module::deserialize(engine, &module_bytes[..]).unwrap() };
 
-                if let Some(cache) = &self.cached_modules {
-                    let mut cache = cache.write().unwrap();
-                    cache.insert(key.clone(), module.clone());
+                    if let Some(cache) = &self.cached_modules {
+                        let mut cache = cache.write().unwrap();
+                        cache.insert(key.clone(), module.clone());
+                    }
+
+                    THREAD_LOCAL_CACHED_MODULES.with(|cache| {
+                        let mut cache = cache.borrow_mut();
+                        cache.insert(key.clone(), module.clone());
+                    });
+                    return Some(module);
                 }
-
-                THREAD_LOCAL_CACHED_MODULES.with(|cache| {
-                    let mut cache = cache.borrow_mut();
-                    cache.insert(key.clone(), module.clone());
-                });
-                return Some(module);
             }
         }
 
@@ -253,7 +255,7 @@ mod tests {
         filter, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
     };
 
-    use crate::{runtime::task_manager::tokio::TokioTaskManager, PluggableRuntimeImplementation};
+    use crate::PluggableRuntimeImplementation;
 
     use super::*;
 
@@ -270,12 +272,14 @@ mod tests {
         let mut cache = ModuleCache::new(None, None, true);
         cache.cache_time = std::time::Duration::from_millis(500);
 
-        let tasks = TokioTaskManager::default();
         let rt = PluggableRuntimeImplementation::default();
+        let tasks = rt.task_manager();
 
         let mut store = Vec::new();
         for _ in 0..2 {
-            let webc = cache.get_webc("sharrattj/dash", &rt, &tasks).unwrap();
+            let webc = cache
+                .get_webc("sharrattj/dash", &rt, tasks.deref())
+                .unwrap();
             store.push(webc);
             tasks
                 .runtime()

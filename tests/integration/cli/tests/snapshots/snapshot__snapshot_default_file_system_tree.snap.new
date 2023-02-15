@@ -1,0 +1,25 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 273
+expression: snapshot
+---
+{
+  "spec": {
+    "name": null,
+    "wasm_hash": "a14ec977d28125d9a8a24e5597553a19",
+    "use_packages": [],
+    "cli_args": [
+      "ls"
+    ],
+    "stdin": null,
+    "debug_output": false,
+    "enable_threads": true
+  },
+  "result": {
+    "Success": {
+      "stdout": "",
+      "stderr": "error: failed to run `/tmp/wasmer-snapshot-tests/a14ec977d28125d9a8a24e5597553a19.wasm`\n│   1: module instantiation failed (compiler: cranelift)\n╰─▶ 2: WebAssembly translation error: Error when converting wat: expected at least one module field\n            --> <anon>:1:1\n             |\n           1 | \n             | ^\n",
+      "exit_code": 1
+    }
+  }
+}

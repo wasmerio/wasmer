@@ -25,23 +25,23 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     path::Path,
-    sync::{Arc, Mutex, MutexGuard, RwLock},
+    sync::{Arc, Mutex, RwLock},
     task::Waker,
     time::Duration,
 };
 
+use crate::vbus::VirtualBusInvocation;
 use derivative::Derivative;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasmer::Store;
-use wasmer_vbus::{VirtualBusCalled, VirtualBusInvocation};
 use wasmer_vfs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
-use wasmer_wasi_types::wasi::{Cid, Errno, Fd as WasiFd, Rights, Snapshot0Clockid};
+use wasmer_wasi_types::wasi::{Errno, Fd as WasiFd, Rights, Snapshot0Clockid};
 
 pub use self::{
     builder::*,
     capabilities::Capabilities,
-    env::{WasiEnv, WasiEnvInner},
+    env::{WasiEnv, WasiEnvInit, WasiInstanceHandles},
     func_env::WasiFunctionEnv,
     types::*,
 };
@@ -51,60 +51,11 @@ use crate::{
     os::task::process::WasiProcessId,
     syscalls::types::*,
     utils::WasiParkingLot,
-    WasiCallingId, WasiRuntimeImplementation,
+    WasiCallingId,
 };
 
 /// all the rights enabled
 pub const ALL_RIGHTS: Rights = Rights::all();
-
-// Implementations of direct to FS calls so that we can easily change their implementation
-impl WasiState {
-    pub(crate) fn fs_read_dir<P: AsRef<Path>>(
-        &self,
-        path: P,
-    ) -> Result<wasmer_vfs::ReadDir, Errno> {
-        self.fs
-            .root_fs
-            .read_dir(path.as_ref())
-            .map_err(fs_error_into_wasi_err)
-    }
-
-    pub(crate) fn fs_create_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
-        self.fs
-            .root_fs
-            .create_dir(path.as_ref())
-            .map_err(fs_error_into_wasi_err)
-    }
-
-    pub(crate) fn fs_remove_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
-        self.fs
-            .root_fs
-            .remove_dir(path.as_ref())
-            .map_err(fs_error_into_wasi_err)
-    }
-
-    pub(crate) fn fs_rename<P: AsRef<Path>, Q: AsRef<Path>>(
-        &self,
-        from: P,
-        to: Q,
-    ) -> Result<(), Errno> {
-        self.fs
-            .root_fs
-            .rename(from.as_ref(), to.as_ref())
-            .map_err(fs_error_into_wasi_err)
-    }
-
-    pub(crate) fn fs_remove_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
-        self.fs
-            .root_fs
-            .remove_file(path.as_ref())
-            .map_err(fs_error_into_wasi_err)
-    }
-
-    pub(crate) fn fs_new_open_options(&self) -> OpenOptions {
-        self.fs.root_fs.new_open_options()
-    }
-}
 
 struct WasiStateOpener {
     root_fs: WasiFsRoot,
@@ -162,20 +113,11 @@ pub struct WasiBusCall {
     pub invocation: Box<dyn VirtualBusInvocation + Sync>,
 }
 
-/// Protected area of the BUS state
-#[derive(Debug, Default)]
-pub struct WasiBusProtectedState {
-    pub call_seed: u64,
-    pub called: HashMap<Cid, Box<dyn VirtualBusCalled + Sync + Unpin>>,
-    pub calls: HashMap<Cid, WasiBusCall>,
-}
-
 /// Structure that holds the state of BUS calls to this process and from
 /// this process. BUS calls are the equivalent of RPC's with support
 /// for all the major serializers
 #[derive(Debug, Default)]
 pub struct WasiBusState {
-    protected: Mutex<WasiBusProtectedState>,
     poll_waker: WasiParkingLot,
 }
 
@@ -202,12 +144,6 @@ impl WasiBusState {
     pub fn poll_wait(&self, timeout: Duration) -> bool {
         self.poll_waker.wait(timeout)
     }
-
-    /// Locks the protected area of the BUS and returns a guard that
-    /// can be used to access it
-    pub fn protected(&self) -> MutexGuard<'_, WasiBusProtectedState> {
-        self.protected.lock().unwrap()
-    }
 }
 
 /// Top level data type containing all* the state with which WASI can
@@ -216,59 +152,85 @@ impl WasiBusState {
 /// * The contents of files are not stored and may be modified by
 /// other, concurrently running programs.  Data such as the contents
 /// of directories are lazily loaded.
-///
-/// Usage:
-///
-/// ```no_run
-/// # use wasmer_wasi::{WasiState, WasiStateCreationError};
-/// # fn main() -> Result<(), WasiStateCreationError> {
-/// WasiState::builder("program_name")
-///    .env(b"HOME", "/home/home".to_string())
-///    .arg("--help")
-///    .envs({
-///        let mut hm = std::collections::HashMap::new();
-///        hm.insert("COLOR_OUTPUT", "TRUE");
-///        hm.insert("PATH", "/usr/bin");
-///        hm
-///    })
-///    .args(&["--verbose", "list"])
-///    .preopen(|p| p.directory("src").read(true).write(true).create(true))?
-///    .preopen(|p| p.directory(".").alias("dot").read(true))?
-///    .build()?;
-/// # Ok(())
-/// # }
-/// ```
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct WasiState {
-    pub fs: WasiFs,
+pub(crate) struct WasiState {
     pub secret: [u8; 32],
+
+    pub fs: WasiFs,
     pub inodes: WasiInodes,
-    // TODO: review allow...
-    #[allow(dead_code)]
-    pub(crate) threading: RwLock<WasiStateThreading>,
-    pub(crate) futexs: Mutex<HashMap<u64, WasiFutex>>,
-    pub(crate) clock_offset: Mutex<HashMap<Snapshot0Clockid, i64>>,
-    pub(crate) bus: WasiBusState,
+    pub threading: RwLock<WasiStateThreading>,
+    pub futexs: Mutex<HashMap<u64, WasiFutex>>,
+    pub clock_offset: Mutex<HashMap<Snapshot0Clockid, i64>>,
     pub args: Vec<String>,
     pub envs: Vec<Vec<u8>>,
+    // TODO: should not be here, since this requires active work to resolve.
+    // State should only hold active runtime state that can be reproducibly re-created.
     pub preopen: Vec<String>,
-    pub(crate) runtime: Arc<dyn WasiRuntimeImplementation + Send + Sync>,
 }
 
 impl WasiState {
-    /// Create a [`WasiStateBuilder`] to construct a validated instance of
-    /// [`WasiState`].
-    #[allow(clippy::new_ret_no_self)]
-    #[deprecated(note = "Use WasiState::builder() instead", since = "3.2.0")]
-    pub fn new(program_name: impl AsRef<str>) -> WasiStateBuilder {
-        WasiState::builder(program_name)
+    // fn new(fs: WasiFs, inodes: Arc<RwLock<WasiInodes>>) -> Self {
+    //     WasiState {
+    //         fs,
+    //         secret: rand::thread_rng().gen::<[u8; 32]>(),
+    //         inodes,
+    //         args: Vec::new(),
+    //         preopen: Vec::new(),
+    //         threading: Default::default(),
+    //         futexs: Default::default(),
+    //         clock_offset: Default::default(),
+    //         envs: Vec::new(),
+    //     }
+    // }
+}
+
+// Implementations of direct to FS calls so that we can easily change their implementation
+impl WasiState {
+    pub(crate) fn fs_read_dir<P: AsRef<Path>>(
+        &self,
+        path: P,
+    ) -> Result<wasmer_vfs::ReadDir, Errno> {
+        self.fs
+            .root_fs
+            .read_dir(path.as_ref())
+            .map_err(fs_error_into_wasi_err)
     }
 
-    /// Create a [`WasiStateBuilder`] to construct a validated instance of
-    /// [`WasiState`].
-    pub fn builder(program_name: impl AsRef<str>) -> WasiStateBuilder {
-        WasiStateBuilder::new(program_name.as_ref())
+    pub(crate) fn fs_create_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
+        self.fs
+            .root_fs
+            .create_dir(path.as_ref())
+            .map_err(fs_error_into_wasi_err)
+    }
+
+    pub(crate) fn fs_remove_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
+        self.fs
+            .root_fs
+            .remove_dir(path.as_ref())
+            .map_err(fs_error_into_wasi_err)
+    }
+
+    pub(crate) fn fs_rename<P: AsRef<Path>, Q: AsRef<Path>>(
+        &self,
+        from: P,
+        to: Q,
+    ) -> Result<(), Errno> {
+        self.fs
+            .root_fs
+            .rename(from.as_ref(), to.as_ref())
+            .map_err(fs_error_into_wasi_err)
+    }
+
+    pub(crate) fn fs_remove_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
+        self.fs
+            .root_fs
+            .remove_file(path.as_ref())
+            .map_err(fs_error_into_wasi_err)
+    }
+
+    pub(crate) fn fs_new_open_options(&self) -> OpenOptions {
+        self.fs.root_fs.new_open_options()
     }
 
     /// Turn the WasiState into bytes
@@ -288,44 +250,14 @@ impl WasiState {
         self.std_dev_get(__WASI_STDOUT_FILENO)
     }
 
-    #[deprecated(
-        since = "3.0.0",
-        note = "stdout_mut() is no longer needed - just use stdout() instead"
-    )]
-    pub fn stdout_mut(
-        &self,
-    ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
-        self.stdout()
-    }
-
     /// Get the `VirtualFile` object at stderr
     pub fn stderr(&self) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
         self.std_dev_get(__WASI_STDERR_FILENO)
     }
 
-    #[deprecated(
-        since = "3.0.0",
-        note = "stderr_mut() is no longer needed - just use stderr() instead"
-    )]
-    pub fn stderr_mut(
-        &self,
-    ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
-        self.stderr()
-    }
-
     /// Get the `VirtualFile` object at stdin
     pub fn stdin(&self) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
         self.std_dev_get(__WASI_STDIN_FILENO)
-    }
-
-    #[deprecated(
-        since = "3.0.0",
-        note = "stdin_mut() is no longer needed - just use stdin() instead"
-    )]
-    pub fn stdin_mut(
-        &self,
-    ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
-        self.stdin()
     }
 
     /// Internal helper function to get a standard device handle.
@@ -351,11 +283,9 @@ impl WasiState {
             threading: Default::default(),
             futexs: Default::default(),
             clock_offset: Mutex::new(self.clock_offset.lock().unwrap().clone()),
-            bus: Default::default(),
             args: self.args.clone(),
             envs: self.envs.clone(),
             preopen: self.preopen.clone(),
-            runtime: self.runtime.clone(),
         }
     }
 }

@@ -36,13 +36,6 @@ pub struct IpRoute {
 #[async_trait::async_trait]
 #[allow(unused_variables)]
 pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
-    /// Establishes a web socket connection
-    /// (note: this does not use the virtual sockets and is standalone
-    ///        functionality that works without the network being connected)
-    async fn ws_connect(&self, url: &str) -> Result<Box<dyn VirtualWebSocket + Sync>> {
-        Err(NetworkError::Unsupported)
-    }
-
     /// Bridges this local network with a remote network, which is required in
     /// order to make lower level networking calls (such as UDP/TCP)
     async fn bridge(
@@ -245,37 +238,6 @@ pub enum StreamSecurity {
     AnyEncyption,
     ClassicEncryption,
     DoubleEncryption,
-}
-
-/// Interface used for sending and receiving data from a web socket
-pub trait VirtualWebSocket: fmt::Debug + Send + Sync + 'static {
-    /// Sends out a datagram or stream of bytes on this socket
-    fn poll_send(&mut self, cx: &mut Context<'_>, data: &[u8]) -> Poll<Result<usize>>;
-
-    /// FLushes all the datagrams
-    fn flush(&mut self) -> Result<()>;
-
-    /// Recv a packet from the socket
-    fn poll_recv<'a>(
-        &mut self,
-        cx: &mut Context<'_>,
-        buf: &'a mut [MaybeUninit<u8>],
-    ) -> Poll<Result<usize>>;
-
-    /// Recv a packet from the socket
-    fn try_recv<'a>(&mut self, buf: &'a mut [MaybeUninit<u8>]) -> Result<usize>;
-
-    /// Polls the socket for when there is data to be received
-    fn poll_read_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<usize>>;
-
-    /// Polls the socket for when the backpressure allows for writing to the socket
-    fn poll_write_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<usize>>;
 }
 
 /// Connected sockets have a persistent connection to a remote peer

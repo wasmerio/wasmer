@@ -4,11 +4,13 @@ pub mod tokio;
 
 use std::{pin::Pin, time::Duration};
 
-use ::tokio::runtime::Runtime;
+use ::tokio::runtime::Handle;
 use futures::Future;
-use wasmer::{vm::VMMemory, MemoryType, Module, Store};
+use wasmer::MemoryType;
+
 #[cfg(feature = "sys")]
 use wasmer_types::MemoryStyle;
+use wasmer_vm::VMMemory;
 
 use crate::os::task::thread::WasiThreadError;
 
@@ -31,6 +33,11 @@ pub enum SpawnType {
 #[async_trait::async_trait]
 #[allow(unused_variables)]
 pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
+    /// Build a new Webassembly memory.
+    ///
+    /// May return `None` if the memory can just be auto-constructed.
+    fn build_memory(&self, spawn_type: SpawnType) -> Result<Option<VMMemory>, WasiThreadError>;
+
     /// Invokes whenever a WASM thread goes idle. In some runtimes (like singlethreaded
     /// execution environments) they will need to do asynchronous work whenever the main
     /// thread goes idle and this is the place to hook for that.
@@ -46,7 +53,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     ) -> Result<(), WasiThreadError>;
 
     /// Returns a runtime that can be used for asynchronous tasks
-    fn runtime(&self) -> &Runtime;
+    fn runtime(&self) -> &Handle;
 
     /// Enters a runtime context
     #[allow(dyn_drop)]
@@ -55,13 +62,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     /// Starts an asynchronous task will will run on a dedicated thread
     /// pulled from the worker pool that has a stateful thread local variable
     /// It is ok for this task to block execution and any async futures within its scope
-    fn task_wasm(
-        &self,
-        task: Box<dyn FnOnce(Store, Module, Option<VMMemory>) + Send + 'static>,
-        store: Store,
-        module: Module,
-        spawn_type: SpawnType,
-    ) -> Result<(), WasiThreadError>;
+    fn task_wasm(&self, task: Box<dyn FnOnce() + Send + 'static>) -> Result<(), WasiThreadError>;
 
     /// Starts an asynchronous task will will run on a dedicated thread
     /// pulled from the worker pool. It is ok for this task to block execution
@@ -81,6 +82,10 @@ pub struct StubTaskManager;
 
 #[async_trait::async_trait]
 impl VirtualTaskManager for StubTaskManager {
+    fn build_memory(&self, _spawn_type: SpawnType) -> Result<Option<VMMemory>, WasiThreadError> {
+        Err(WasiThreadError::Unsupported)
+    }
+
     #[allow(unused_variables)]
     async fn sleep_now(&self, time: Duration) {
         if time == Duration::ZERO {
@@ -100,7 +105,7 @@ impl VirtualTaskManager for StubTaskManager {
         Err(WasiThreadError::Unsupported)
     }
 
-    fn runtime(&self) -> &Runtime {
+    fn runtime(&self) -> &Handle {
         unimplemented!("asynchronous operations are not supported on this task manager");
     }
 
@@ -111,13 +116,7 @@ impl VirtualTaskManager for StubTaskManager {
     }
 
     #[allow(unused_variables)]
-    fn task_wasm(
-        &self,
-        task: Box<dyn FnOnce(Store, Module, Option<VMMemory>) + Send + 'static>,
-        store: Store,
-        module: Module,
-        spawn_type: SpawnType,
-    ) -> Result<(), WasiThreadError> {
+    fn task_wasm(&self, task: Box<dyn FnOnce() + Send + 'static>) -> Result<(), WasiThreadError> {
         Err(WasiThreadError::Unsupported)
     }
 
