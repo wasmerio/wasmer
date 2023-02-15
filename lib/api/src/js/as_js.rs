@@ -209,7 +209,7 @@ impl AsJs for Extern {
             Self::Memory(memory) => memory.0.handle.memory.clone().into(),
             Self::Function(function) => function.handle.function.clone().into(),
             Self::Table(table) => table.0.handle.table.clone().into(),
-            Self::Global(global) => global.handle.global.clone().into(),
+            Self::Global(global) => global.0.handle.global.clone().into(),
         }
     }
 
