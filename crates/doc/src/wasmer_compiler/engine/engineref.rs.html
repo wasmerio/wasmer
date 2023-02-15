@@ -37,7 +37,21 @@
 <span id="37">37</span>
 <span id="38">38</span>
 <span id="39">39</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::Engine</span>;
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">core::ops::Deref</span>;
+
+<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::Engine</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Tunables</span>;
 
 <span class="doccomment">/// A temporary handle to an [`Engine`]</span>
@@ -74,6 +88,16 @@
 <span class="kw">impl</span> <span class="ident">AsEngineRef</span> <span class="kw">for</span> <span class="ident">EngineRef</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">as_engine_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">EngineRef</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
         <span class="ident">EngineRef</span> { <span class="ident">inner</span>: <span class="self">self</span>.<span class="ident">inner</span> }
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span> <span class="ident">AsEngineRef</span> <span class="kw">for</span> <span class="ident">P</span>
+<span class="kw">where</span>
+    <span class="ident">P</span>: <span class="ident">Deref</span>,
+    <span class="ident">P::Target</span>: <span class="ident">AsEngineRef</span>,
+{
+    <span class="kw">fn</span> <span class="ident">as_engine_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">EngineRef</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
+        (<span class="kw-2">*</span><span class="kw-2">*</span><span class="self">self</span>).<span class="ident">as_engine_ref</span>()
     }
 }
 </code></pre></div>

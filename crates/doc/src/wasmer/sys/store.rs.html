@@ -394,9 +394,13 @@
 <span id="392">392</span>
 <span id="393">393</span>
 <span id="394">394</span>
+<span id="395">395</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::tunables::BaseTunables</span>;
 <span class="kw">use</span> <span class="ident">derivative::Derivative</span>;
-<span class="kw">use</span> <span class="ident">std::fmt</span>;
+<span class="kw">use</span> <span class="ident">std</span>::{
+    <span class="ident">fmt</span>,
+    <span class="ident">ops</span>::{<span class="ident">Deref</span>, <span class="ident">DerefMut</span>},
+};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">AsEngineRef</span>, <span class="ident">Engine</span>, <span class="ident">EngineBuilder</span>, <span class="ident">EngineRef</span>, <span class="ident">Tunables</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::OnCalledAction</span>;
@@ -617,13 +621,6 @@
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-<span class="kw">impl</span> <span class="ident">AsEngineRef</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="ident">Store</span> {
-    <span class="kw">fn</span> <span class="ident">as_engine_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">EngineRef</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
-        <span class="ident">EngineRef::new</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">engine</span>)
-    }
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">impl</span> <span class="ident">AsEngineRef</span> <span class="kw">for</span> <span class="ident">StoreRef</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">as_engine_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">EngineRef</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
         <span class="ident">EngineRef::new</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">engine</span>)
@@ -770,22 +767,27 @@
     }
 }
 
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">AsStoreRef</span><span class="op">&gt;</span> <span class="ident">AsStoreRef</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="ident">T</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span> <span class="ident">AsStoreRef</span> <span class="kw">for</span> <span class="ident">P</span>
+<span class="kw">where</span>
+    <span class="ident">P</span>: <span class="ident">Deref</span>,
+    <span class="ident">P::Target</span>: <span class="ident">AsStoreRef</span>,
+{
     <span class="kw">fn</span> <span class="ident">as_store_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">StoreRef</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
-        <span class="ident">T::as_store_ref</span>(<span class="kw-2">*</span><span class="self">self</span>)
+        (<span class="kw-2">*</span><span class="kw-2">*</span><span class="self">self</span>).<span class="ident">as_store_ref</span>()
     }
 }
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">AsStoreRef</span><span class="op">&gt;</span> <span class="ident">AsStoreRef</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="kw-2">mut</span> <span class="ident">T</span> {
-    <span class="kw">fn</span> <span class="ident">as_store_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">StoreRef</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
-        <span class="ident">T::as_store_ref</span>(<span class="kw-2">*</span><span class="self">self</span>)
-    }
-}
-<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">AsStoreMut</span><span class="op">&gt;</span> <span class="ident">AsStoreMut</span> <span class="kw">for</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> <span class="kw-2">mut</span> <span class="ident">T</span> {
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">P</span><span class="op">&gt;</span> <span class="ident">AsStoreMut</span> <span class="kw">for</span> <span class="ident">P</span>
+<span class="kw">where</span>
+    <span class="ident">P</span>: <span class="ident">DerefMut</span>,
+    <span class="ident">P::Target</span>: <span class="ident">AsStoreMut</span>,
+{
     <span class="kw">fn</span> <span class="ident">as_store_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">StoreMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span> {
-        <span class="ident">T::as_store_mut</span>(<span class="kw-2">*</span><span class="self">self</span>)
+        (<span class="kw-2">*</span><span class="kw-2">*</span><span class="self">self</span>).<span class="ident">as_store_mut</span>()
     }
+
     <span class="kw">fn</span> <span class="ident">objects_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut</span> <span class="ident">StoreObjects</span> {
-        <span class="ident">T::objects_mut</span>(<span class="kw-2">*</span><span class="self">self</span>)
+        (<span class="kw-2">*</span><span class="kw-2">*</span><span class="self">self</span>).<span class="ident">objects_mut</span>()
     }
 }
 </code></pre></div>
