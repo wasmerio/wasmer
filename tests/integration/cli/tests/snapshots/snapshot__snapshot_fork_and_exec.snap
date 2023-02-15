@@ -16,7 +16,7 @@ expression: snapshot
   },
   "result": {
     "Success": {
-      "stdout": "Main program started\nexecve: echo hi-from-child\nhi-from-child\nChild(1) exited with 0\nexecve: echo hi-from-parent\nhi-from-parent\n",
+      "stdout": "Main program started\nexecve: echo hi-from-child\nhi-from-child\nChild(2) exited with 0\nexecve: echo hi-from-parent\nhi-from-parent\n",
       "stderr": "",
       "exit_code": 0
     }

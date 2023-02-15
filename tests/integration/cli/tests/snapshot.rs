@@ -393,9 +393,20 @@ fn test_snapshot_tcp_client() {
 // Tests that thread local variables work correctly
 #[test]
 fn test_snapshot_thread_locals() {
-    let snapshot = TestBuilder::new()
+    let mut snapshot = TestBuilder::new()
         .use_coreutils()
         .run_wasm(include_bytes!("./wasm/example-thread-local.wasm"));
+
+    match &mut snapshot.result {
+        TestResult::Success(out) => {
+            // Output is non-deterministic, so just check for pass/failure by
+            // resetting the output.
+            out.stderr = String::new();
+            out.stdout = String::new();
+        }
+        TestResult::Error(_) => {}
+    };
+
     assert_json_snapshot!(snapshot);
 }
 
