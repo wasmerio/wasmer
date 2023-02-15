@@ -17,8 +17,24 @@ use wasmer_vnet::{
     VirtualRawSocket, VirtualSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
 };
 
-#[derive(Debug, Default)]
-pub struct LocalNetworking {}
+#[derive(Debug)]
+pub struct LocalNetworking {
+    // Make struct internals private.
+    // Can be removed once some fields are added (like permissions).
+    _private: (),
+}
+
+impl LocalNetworking {
+    pub fn new() -> Self {
+        Self { _private: () }
+    }
+}
+
+impl Default for LocalNetworking {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[async_trait::async_trait]
 #[allow(unused_variables)]
