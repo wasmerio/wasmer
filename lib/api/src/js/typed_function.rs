@@ -45,7 +45,7 @@ macro_rules! impl_native_traits {
                     let mut r;
                     // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
                     loop {
-                        r = self.func.handle.function.apply(
+                        r = self.func.0.handle.function.apply(
                             &JsValue::UNDEFINED,
                             &Array::from_iter(params_list.iter())
                         );

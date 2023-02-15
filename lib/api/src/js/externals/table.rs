@@ -21,7 +21,7 @@ fn get_function(store: &mut impl AsStoreMut, val: Value) -> Result<Function, Run
         return Err(RuntimeError::new("cannot pass Value across contexts"));
     }
     match val {
-        Value::FuncRef(Some(ref func)) => Ok(func.handle.function.clone().into()),
+        Value::FuncRef(Some(ref func)) => Ok(func.0.handle.function.clone().into()),
         // Only funcrefs is supported by the spec atm
         _ => unimplemented!(),
     }

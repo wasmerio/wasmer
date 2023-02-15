@@ -3,13 +3,14 @@
 #[cfg(feature = "js")]
 pub(crate) use crate::js::vm::{
     VMExtern, VMExternFunction, VMExternGlobal, VMExternMemory, VMExternRef, VMExternTable,
-    VMFuncRef, VMFunction, VMFunctionEnvironment, VMGlobal, VMMemory, VMTable,
+    VMFuncRef, VMFunction, VMFunctionBody, VMFunctionEnvironment, VMGlobal, VMMemory, VMTable,
+    VMTrampoline,
 };
 
 #[cfg(feature = "sys")]
 pub(crate) use crate::sys::vm::{
     VMExtern, VMExternFunction, VMExternGlobal, VMExternMemory, VMExternRef, VMExternTable,
-    VMFuncRef, VMFunctionEnvironment,
+    VMFuncRef, VMFunctionBody, VMFunctionEnvironment, VMTrampoline,
 };
 
 // Needed for tunables customization

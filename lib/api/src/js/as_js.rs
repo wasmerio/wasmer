@@ -56,7 +56,7 @@ impl AsJs for Value {
             Self::F32(f) => JsValue::from_f64(*f as f64),
             Self::F64(f) => JsValue::from_f64(*f),
             Self::V128(f) => JsValue::from_f64(*f as f64),
-            Self::FuncRef(Some(func)) => func.handle.function.clone().into(),
+            Self::FuncRef(Some(func)) => func.0.handle.function.clone().into(),
             Self::FuncRef(None) => JsValue::null(),
             Self::ExternRef(_) => unimplemented!(),
         }
@@ -207,7 +207,7 @@ impl AsJs for Extern {
     fn as_jsvalue(&self, _store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
         match self {
             Self::Memory(memory) => memory.0.handle.memory.clone().into(),
-            Self::Function(function) => function.handle.function.clone().into(),
+            Self::Function(function) => function.0.handle.function.clone().into(),
             Self::Table(table) => table.0.handle.table.clone().into(),
             Self::Global(global) => global.0.handle.global.clone().into(),
         }

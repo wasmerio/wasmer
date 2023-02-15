@@ -1,10 +1,10 @@
-mod function;
+pub(crate) mod function;
 mod global;
 mod memory;
 mod memory_view;
 mod table;
 
-pub use self::function::{FromToNativeWasmType, Function, HostFunction, WasmTypeList};
+pub use self::function::{Function, HostFunction};
 pub use self::global::Global;
 pub use self::memory::Memory;
 pub use self::memory_view::MemoryView;

@@ -17,7 +17,7 @@ macro_rules! impl_native_traits {
             #[allow(clippy::too_many_arguments)]
             pub fn call(&self, store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 let anyfunc = unsafe {
-                    *self.func
+                    *self.func.0
                         .handle
                         .get(store.as_store_ref().objects())
                         .anyfunc
@@ -103,7 +103,7 @@ macro_rules! impl_native_traits {
             #[allow(clippy::too_many_arguments)]
             pub fn call_raw(&self, store: &mut impl AsStoreMut, mut params_list: Vec<RawValue> ) -> Result<Rets, RuntimeError> {
                 let anyfunc = unsafe {
-                    *self.func
+                    *self.func.0
                         .handle
                         .get(store.as_store_ref().objects())
                         .anyfunc

@@ -3,9 +3,13 @@
 
 use wasmer_types::{NativeWasmType, RawValue, Type};
 
+use crate::store::AsStoreRef;
 use crate::vm::{VMExternRef, VMFuncRef};
 
-use crate::{ExternRef, Function, TypedFunction, WasmTypeList};
+use crate::{ExternRef, Function, TypedFunction};
+use std::array::TryFromSliceError;
+use std::convert::Infallible;
+use std::error::Error;
 
 use crate::store::AsStoreMut;
 
@@ -204,6 +208,508 @@ impl NativeWasmTypeInto for Option<Function> {
         VMFuncRef::from_raw(raw).map(|f| Function::from_vm_funcref(store, f))
     }
 }
+
+/// A trait to convert a Rust value to a `WasmNativeType` value,
+/// or to convert `WasmNativeType` value to a Rust value.
+///
+/// This trait should ideally be split into two traits:
+/// `FromNativeWasmType` and `ToNativeWasmType` but it creates a
+/// non-negligible complexity in the `WasmTypeList`
+/// implementation.
+///
+/// # Safety
+/// This trait is unsafe given the nature of how values are written and read from the native
+/// stack
+pub unsafe trait FromToNativeWasmType
+where
+    Self: Sized,
+{
+    /// Native Wasm type.
+    type Native: NativeWasmTypeInto;
+
+    /// Convert a value of kind `Self::Native` to `Self`.
+    ///
+    /// # Panics
+    ///
+    /// This method panics if `native` cannot fit in the `Self`
+    /// type`.
+    fn from_native(native: Self::Native) -> Self;
+
+    /// Convert self to `Self::Native`.
+    ///
+    /// # Panics
+    ///
+    /// This method panics if `self` cannot fit in the
+    /// `Self::Native` type.
+    fn to_native(self) -> Self::Native;
+
+    /// Returns whether the given value is from the given store.
+    ///
+    /// This always returns true for primitive types that can be used with
+    /// any context.
+    fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
+        true
+    }
+}
+
+macro_rules! from_to_native_wasm_type {
+    ( $( $type:ty => $native_type:ty ),* ) => {
+        $(
+            #[allow(clippy::use_self)]
+            unsafe impl FromToNativeWasmType for $type {
+                type Native = $native_type;
+
+                #[inline]
+                fn from_native(native: Self::Native) -> Self {
+                    native as Self
+                }
+
+                #[inline]
+                fn to_native(self) -> Self::Native {
+                    self as Self::Native
+                }
+            }
+        )*
+    };
+}
+
+macro_rules! from_to_native_wasm_type_same_size {
+    ( $( $type:ty => $native_type:ty ),* ) => {
+        $(
+            #[allow(clippy::use_self)]
+            unsafe impl FromToNativeWasmType for $type {
+                type Native = $native_type;
+
+                #[inline]
+                fn from_native(native: Self::Native) -> Self {
+                    Self::from_ne_bytes(Self::Native::to_ne_bytes(native))
+                }
+
+                #[inline]
+                fn to_native(self) -> Self::Native {
+                    Self::Native::from_ne_bytes(Self::to_ne_bytes(self))
+                }
+            }
+        )*
+    };
+}
+
+from_to_native_wasm_type!(
+    i8 => i32,
+    u8 => i32,
+    i16 => i32,
+    u16 => i32
+);
+
+from_to_native_wasm_type_same_size!(
+    i32 => i32,
+    u32 => i32,
+    i64 => i64,
+    u64 => i64,
+    f32 => f32,
+    f64 => f64
+);
+
+unsafe impl FromToNativeWasmType for Option<ExternRef> {
+    type Native = Self;
+
+    fn to_native(self) -> Self::Native {
+        self
+    }
+    fn from_native(n: Self::Native) -> Self {
+        n
+    }
+    fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        self.as_ref().map_or(true, |e| e.is_from_store(store))
+    }
+}
+
+unsafe impl FromToNativeWasmType for Option<Function> {
+    type Native = Self;
+
+    fn to_native(self) -> Self::Native {
+        self
+    }
+    fn from_native(n: Self::Native) -> Self {
+        n
+    }
+    fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        self.as_ref().map_or(true, |f| f.is_from_store(store))
+    }
+}
+
+#[cfg(test)]
+mod test_from_to_native_wasm_type {
+    use super::*;
+
+    #[test]
+    fn test_to_native() {
+        assert_eq!(7i8.to_native(), 7i32);
+        assert_eq!(7u8.to_native(), 7i32);
+        assert_eq!(7i16.to_native(), 7i32);
+        assert_eq!(7u16.to_native(), 7i32);
+        assert_eq!(u32::MAX.to_native(), -1);
+    }
+
+    #[test]
+    fn test_to_native_same_size() {
+        assert_eq!(7i32.to_native(), 7i32);
+        assert_eq!(7u32.to_native(), 7i32);
+        assert_eq!(7i64.to_native(), 7i64);
+        assert_eq!(7u64.to_native(), 7i64);
+        assert_eq!(7f32.to_native(), 7f32);
+        assert_eq!(7f64.to_native(), 7f64);
+    }
+}
+
+/// The `WasmTypeList` trait represents a tuple (list) of Wasm
+/// typed values. It is used to get low-level representation of
+/// such a tuple.
+pub trait WasmTypeList
+where
+    Self: Sized,
+{
+    /// The C type (a struct) that can hold/represent all the
+    /// represented values.
+    type CStruct;
+
+    /// The array type that can hold all the represented values.
+    ///
+    /// Note that all values are stored in their binary form.
+    type Array: AsMut<[RawValue]>;
+
+    /// The size of the array
+    fn size() -> u32;
+
+    /// Constructs `Self` based on an array of values.
+    ///
+    /// # Safety
+    unsafe fn from_array(store: &mut impl AsStoreMut, array: Self::Array) -> Self;
+
+    /// Constructs `Self` based on a slice of values.
+    ///
+    /// `from_slice` returns a `Result` because it is possible
+    /// that the slice doesn't have the same size than
+    /// `Self::Array`, in which circumstance an error of kind
+    /// `TryFromSliceError` will be returned.
+    ///
+    /// # Safety
+    unsafe fn from_slice(
+        store: &mut impl AsStoreMut,
+        slice: &[RawValue],
+    ) -> Result<Self, TryFromSliceError>;
+
+    /// Builds and returns an array of type `Array` from a tuple
+    /// (list) of values.
+    ///
+    /// # Safety
+    unsafe fn into_array(self, store: &mut impl AsStoreMut) -> Self::Array;
+
+    /// Allocates and return an empty array of type `Array` that
+    /// will hold a tuple (list) of values, usually to hold the
+    /// returned values of a WebAssembly function call.
+    fn empty_array() -> Self::Array;
+
+    /// Builds a tuple (list) of values from a C struct of type
+    /// `CStruct`.
+    ///
+    /// # Safety
+    unsafe fn from_c_struct(store: &mut impl AsStoreMut, c_struct: Self::CStruct) -> Self;
+
+    /// Builds and returns a C struct of type `CStruct` from a
+    /// tuple (list) of values.
+    ///
+    /// # Safety
+    unsafe fn into_c_struct(self, store: &mut impl AsStoreMut) -> Self::CStruct;
+
+    /// Writes the contents of a C struct to an array of `RawValue`.
+    ///
+    /// # Safety
+    unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, ptr: *mut RawValue);
+
+    /// Get the Wasm types for the tuple (list) of currently
+    /// represented values.
+    fn wasm_types() -> &'static [Type];
+}
+
+/// The `IntoResult` trait turns a `WasmTypeList` into a
+/// `Result<WasmTypeList, Self::Error>`.
+///
+/// It is mostly used to turn result values of a Wasm function
+/// call into a `Result`.
+pub trait IntoResult<T>
+where
+    T: WasmTypeList,
+{
+    /// The error type for this trait.
+    type Error: Error + Sync + Send + 'static;
+
+    /// Transforms `Self` into a `Result`.
+    fn into_result(self) -> Result<T, Self::Error>;
+}
+
+impl<T> IntoResult<T> for T
+where
+    T: WasmTypeList,
+{
+    // `T` is not a `Result`, it's already a value, so no error
+    // can be built.
+    type Error = Infallible;
+
+    fn into_result(self) -> Result<Self, Infallible> {
+        Ok(self)
+    }
+}
+
+impl<T, E> IntoResult<T> for Result<T, E>
+where
+    T: WasmTypeList,
+    E: Error + Sync + Send + 'static,
+{
+    type Error = E;
+
+    fn into_result(self) -> Self {
+        self
+    }
+}
+
+#[cfg(test)]
+mod test_into_result {
+    use super::*;
+    use std::convert::Infallible;
+
+    #[test]
+    fn test_into_result_over_t() {
+        let x: i32 = 42;
+        let result_of_x: Result<i32, Infallible> = x.into_result();
+
+        assert_eq!(result_of_x.unwrap(), x);
+    }
+
+    #[test]
+    fn test_into_result_over_result() {
+        {
+            let x: Result<i32, Infallible> = Ok(42);
+            let result_of_x: Result<i32, Infallible> = x.into_result();
+
+            assert_eq!(result_of_x, x);
+        }
+
+        {
+            use std::{error, fmt};
+
+            #[derive(Debug, PartialEq)]
+            struct E;
+
+            impl fmt::Display for E {
+                fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    write!(formatter, "E")
+                }
+            }
+
+            impl error::Error for E {}
+
+            let x: Result<Infallible, E> = Err(E);
+            let result_of_x: Result<Infallible, E> = x.into_result();
+
+            assert_eq!(result_of_x.unwrap_err(), E);
+        }
+    }
+}
+
+// Implement `WasmTypeList` on `Infallible`, which means that
+// `Infallible` can be used as a returned type of a host function
+// to express that it doesn't return, or to express that it cannot
+// fail (with `Result<_, Infallible>`).
+impl WasmTypeList for Infallible {
+    type CStruct = Self;
+    type Array = [RawValue; 0];
+
+    fn size() -> u32 {
+        0
+    }
+
+    unsafe fn from_array(_: &mut impl AsStoreMut, _: Self::Array) -> Self {
+        unreachable!()
+    }
+
+    unsafe fn from_slice(
+        _: &mut impl AsStoreMut,
+        _: &[RawValue],
+    ) -> Result<Self, TryFromSliceError> {
+        unreachable!()
+    }
+
+    unsafe fn into_array(self, _: &mut impl AsStoreMut) -> Self::Array {
+        []
+    }
+
+    fn empty_array() -> Self::Array {
+        []
+    }
+
+    unsafe fn from_c_struct(_: &mut impl AsStoreMut, self_: Self::CStruct) -> Self {
+        self_
+    }
+
+    unsafe fn into_c_struct(self, _: &mut impl AsStoreMut) -> Self::CStruct {
+        self
+    }
+
+    unsafe fn write_c_struct_to_ptr(_: Self::CStruct, _: *mut RawValue) {}
+
+    fn wasm_types() -> &'static [Type] {
+        &[]
+    }
+}
+
+#[cfg(test)]
+mod test_wasm_type_list {
+    use super::*;
+    use wasmer_types::Type;
+    /*
+    #[test]
+    fn test_from_array() {
+        let mut store = Store::default();
+        let env = FunctionEnv::new(&mut store, ());
+        assert_eq!(<()>::from_array(&mut env, []), ());
+        assert_eq!(<i32>::from_array(&mut env, [RawValue{i32: 1}]), (1i32));
+        assert_eq!(<(i32, i64)>::from_array(&mut env, [RawValue{i32:1}, RawValue{i64:2}]), (1i32, 2i64));
+        assert_eq!(
+            <(i32, i64, f32, f64)>::from_array(&mut env, [
+                RawValue{i32:1},
+                RawValue{i64:2},
+                RawValue{f32: 3.1f32},
+                RawValue{f64: 4.2f64}
+            ]),
+            (1, 2, 3.1f32, 4.2f64)
+        );
+    }
+
+    #[test]
+    fn test_into_array() {
+        let mut store = Store::default();
+        let env = FunctionEnv::new(&mut store, ());
+        assert_eq!(().into_array(&mut store), [0i128; 0]);
+        assert_eq!((1i32).into_array(&mut store), [1i32]);
+        assert_eq!((1i32, 2i64).into_array(&mut store), [RawValue{i32: 1}, RawValue{i64: 2}]);
+        assert_eq!(
+            (1i32, 2i32, 3.1f32, 4.2f64).into_array(&mut store),
+            [RawValue{i32: 1}, RawValue{i32: 2}, RawValue{ f32: 3.1f32}, RawValue{f64: 4.2f64}]
+        );
+    }
+    */
+    #[test]
+    fn test_empty_array() {
+        assert_eq!(<()>::empty_array().len(), 0);
+        assert_eq!(<i32>::empty_array().len(), 1);
+        assert_eq!(<(i32, i64)>::empty_array().len(), 2);
+    }
+    /*
+    #[test]
+    fn test_from_c_struct() {
+        let mut store = Store::default();
+        let env = FunctionEnv::new(&mut store, ());
+        assert_eq!(<()>::from_c_struct(&mut store, S0()), ());
+        assert_eq!(<i32>::from_c_struct(&mut store, S1(1)), (1i32));
+        assert_eq!(<(i32, i64)>::from_c_struct(&mut store, S2(1, 2)), (1i32, 2i64));
+        assert_eq!(
+            <(i32, i64, f32, f64)>::from_c_struct(&mut store, S4(1, 2, 3.1, 4.2)),
+            (1i32, 2i64, 3.1f32, 4.2f64)
+        );
+    }
+    */
+    #[test]
+    fn test_wasm_types_for_uni_values() {
+        assert_eq!(<i32>::wasm_types(), [Type::I32]);
+        assert_eq!(<i64>::wasm_types(), [Type::I64]);
+        assert_eq!(<f32>::wasm_types(), [Type::F32]);
+        assert_eq!(<f64>::wasm_types(), [Type::F64]);
+    }
+
+    #[test]
+    fn test_wasm_types_for_multi_values() {
+        assert_eq!(<(i32, i32)>::wasm_types(), [Type::I32, Type::I32]);
+        assert_eq!(<(i64, i64)>::wasm_types(), [Type::I64, Type::I64]);
+        assert_eq!(<(f32, f32)>::wasm_types(), [Type::F32, Type::F32]);
+        assert_eq!(<(f64, f64)>::wasm_types(), [Type::F64, Type::F64]);
+
+        assert_eq!(
+            <(i32, i64, f32, f64)>::wasm_types(),
+            [Type::I32, Type::I64, Type::F32, Type::F64]
+        );
+    }
+}
+/*
+    #[allow(non_snake_case)]
+    #[cfg(test)]
+    mod test_function {
+        use super::*;
+        use crate::Store;
+        use crate::FunctionEnv;
+        use wasmer_types::Type;
+
+        fn func() {}
+        fn func__i32() -> i32 {
+            0
+        }
+        fn func_i32( _a: i32) {}
+        fn func_i32__i32( a: i32) -> i32 {
+            a * 2
+        }
+        fn func_i32_i32__i32( a: i32, b: i32) -> i32 {
+            a + b
+        }
+        fn func_i32_i32__i32_i32( a: i32, b: i32) -> (i32, i32) {
+            (a, b)
+        }
+        fn func_f32_i32__i32_f32( a: f32, b: i32) -> (i32, f32) {
+            (b, a)
+        }
+
+        #[test]
+        fn test_function_types() {
+            let mut store = Store::default();
+            let env = FunctionEnv::new(&mut store, ());
+            use wasmer_types::FunctionType;
+            assert_eq!(
+                StaticFunction::new(func).ty(&mut store),
+                FunctionType::new(vec![], vec![])
+            );
+            assert_eq!(
+                StaticFunction::new(func__i32).ty(&mut store),
+                FunctionType::new(vec![], vec![Type::I32])
+            );
+            assert_eq!(
+                StaticFunction::new(func_i32).ty(),
+                FunctionType::new(vec![Type::I32], vec![])
+            );
+            assert_eq!(
+                StaticFunction::new(func_i32__i32).ty(),
+                FunctionType::new(vec![Type::I32], vec![Type::I32])
+            );
+            assert_eq!(
+                StaticFunction::new(func_i32_i32__i32).ty(),
+                FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32])
+            );
+            assert_eq!(
+                StaticFunction::new(func_i32_i32__i32_i32).ty(),
+                FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32, Type::I32])
+            );
+            assert_eq!(
+                StaticFunction::new(func_f32_i32__i32_f32).ty(),
+                FunctionType::new(vec![Type::F32, Type::I32], vec![Type::I32, Type::F32])
+            );
+        }
+
+        #[test]
+        fn test_function_pointer() {
+            let f = StaticFunction::new(func_i32__i32);
+            let function = unsafe { std::mem::transmute::<_, fn(usize, i32) -> i32>(f.address) };
+            assert_eq!(function(0, 3), 6);
+        }
+    }
+*/
 
 #[cfg(test)]
 mod test_native_type {

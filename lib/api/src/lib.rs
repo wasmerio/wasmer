@@ -459,10 +459,7 @@ mod js;
 #[cfg(feature = "js")]
 pub use js::*;
 
-pub use crate::externals::{
-    Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryView, Table,
-    WasmTypeList,
-};
+pub use crate::externals::{Extern, Function, Global, HostFunction, Memory, MemoryView, Table};
 pub use engine::{AsEngineRef, Engine};
 pub use errors::InstantiationError;
 pub use exports::{ExportError, Exportable, Exports, ExportsIterator};
@@ -473,7 +470,7 @@ pub use instance::Instance;
 pub use into_bytes::IntoBytes;
 pub use mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use module::{IoCompileError, Module};
-pub use native_type::NativeWasmTypeInto;
+pub use native_type::{FromToNativeWasmType, NativeWasmTypeInto, WasmTypeList};
 pub use ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
 pub use store::{AsStoreMut, AsStoreRef, OnCalledHandler, Store, StoreId, StoreMut, StoreRef};
 #[cfg(feature = "sys")]
