@@ -1,68 +1,25 @@
-use crate::exports::{ExportError, Exportable};
 use crate::js::vm::{VMExtern, VMGlobal};
 use crate::js::wasm_bindgen_polyfill::Global as JSGlobal;
 use crate::js::RuntimeError;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::value::Value;
-use crate::Extern;
 use crate::GlobalType;
 use crate::Mutability;
 use wasm_bindgen::JsValue;
 use wasmer_types::{RawValue, Type};
 
-/// A WebAssembly `global` instance.
-///
-/// A global instance is the runtime representation of a global variable.
-/// It consists of an individual value and a flag indicating whether it is mutable.
-///
-/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#global-instances>
 #[derive(Debug, Clone, PartialEq)]
 pub struct Global {
     pub(crate) handle: VMGlobal,
 }
 
 impl Global {
-    /// Create a new `Global` with the initial value [`Value`].
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Global, Mutability, Store, Value};
-    /// # let mut store = Store::default();
-    /// #
-    /// let g = Global::new(&store, Value::I32(1));
-    ///
-    /// assert_eq!(g.get(), Value::I32(1));
-    /// assert_eq!(g.ty().mutability, Mutability::Const);
-    /// ```
-    pub fn new(store: &mut impl AsStoreMut, val: Value) -> Self {
-        Self::from_value(store, val, Mutability::Const).unwrap()
-    }
-
-    /// Create a mutable `Global` with the initial value [`Value`].
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Global, Mutability, Store, Value};
-    /// # let mut store = Store::default();
-    /// #
-    /// let g = Global::new_mut(&store, Value::I32(1));
-    ///
-    /// assert_eq!(g.get(), Value::I32(1));
-    /// assert_eq!(g.ty().mutability, Mutability::Var);
-    /// ```
-    pub fn new_mut(store: &mut impl AsStoreMut, val: Value) -> Self {
-        Self::from_value(store, val, Mutability::Var).unwrap()
-    }
-
-    /// To `VMExtern`.
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         VMExtern::Global(self.handle.clone())
     }
 
     /// Create a `Global` with the initial value [`Value`] and the provided [`Mutability`].
-    fn from_value(
+    pub(crate) fn from_value(
         store: &mut impl AsStoreMut,
         val: Value,
         mutability: Mutability,
@@ -99,36 +56,10 @@ impl Global {
         Ok(Self::from_vm_extern(store, vm_global))
     }
 
-    /// Returns the [`GlobalType`] of the `Global`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Global, Mutability, Store, Type, Value, GlobalType};
-    /// # let mut store = Store::default();
-    /// #
-    /// let c = Global::new(&store, Value::I32(1));
-    /// let v = Global::new_mut(&store, Value::I64(1));
-    ///
-    /// assert_eq!(c.ty(), &GlobalType::new(Type::I32, Mutability::Const));
-    /// assert_eq!(v.ty(), &GlobalType::new(Type::I64, Mutability::Var));
-    /// ```
     pub fn ty(&self, _store: &impl AsStoreRef) -> GlobalType {
         self.handle.ty
     }
 
-    /// Retrieves the current value [`Value`] that the Global has.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Global, Store, Value};
-    /// # let mut store = Store::default();
-    /// #
-    /// let g = Global::new(&store, Value::I32(1));
-    ///
-    /// assert_eq!(g.get(), Value::I32(1));
-    /// ```
     pub fn get(&self, store: &mut impl AsStoreMut) -> Value {
         unsafe {
             let value = self.handle.global.value();
@@ -164,47 +95,6 @@ impl Global {
         }
     }
 
-    /// Sets a custom value [`Value`] to the runtime Global.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Global, Store, Value};
-    /// # let mut store = Store::default();
-    /// #
-    /// let g = Global::new_mut(&store, Value::I32(1));
-    ///
-    /// assert_eq!(g.get(), Value::I32(1));
-    ///
-    /// g.set(Value::I32(2));
-    ///
-    /// assert_eq!(g.get(), Value::I32(2));
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// Trying to mutate a immutable global will raise an error:
-    ///
-    /// ```should_panic
-    /// # use wasmer::{Global, Store, Value};
-    /// # let mut store = Store::default();
-    /// #
-    /// let g = Global::new(&store, Value::I32(1));
-    ///
-    /// g.set(Value::I32(2)).unwrap();
-    /// ```
-    ///
-    /// Trying to set a value of a incompatible type will raise an error:
-    ///
-    /// ```should_panic
-    /// # use wasmer::{Global, Store, Value};
-    /// # let mut store = Store::default();
-    /// #
-    /// let g = Global::new(&store, Value::I32(1));
-    ///
-    /// // This results in an error: `RuntimeError`.
-    /// g.set(Value::I64(2)).unwrap();
-    /// ```
     pub fn set(&self, store: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
         if !val.is_from_store(store) {
             return Err(RuntimeError::new(
@@ -239,17 +129,7 @@ impl Global {
         Self { handle: vm_global }
     }
 
-    /// Checks whether this `Global` can be used with the given store.
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
-    }
-}
-
-impl<'a> Exportable<'a> for Global {
-    fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
-        match _extern {
-            Extern::Global(global) => Ok(global),
-            _ => Err(ExportError::IncompatibleType),
-        }
     }
 }
