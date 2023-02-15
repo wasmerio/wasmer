@@ -61,7 +61,7 @@ impl VMMemory {
 
     /// Copies this memory to a new memory
     pub fn duplicate(&self) -> Result<VMMemory, wasmer_types::MemoryError> {
-        let new_memory = crate::Memory::new_internal(self.ty.clone())?;
+        let new_memory = crate::js::externals::memory::Memory::js_memory_from_type(&self.ty)?;
 
         #[cfg(feature = "tracing")]
         trace!("memory copy started");

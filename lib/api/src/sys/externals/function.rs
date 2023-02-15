@@ -1,12 +1,13 @@
 use wasmer_types::RawValue;
 pub use wasmer_vm::VMFuncRef;
 use wasmer_vm::{
-    on_host_stack, raise_user_trap, resume_panic, InternalStoreHandle, StoreHandle, VMContext,
-    VMDynamicFunctionContext, VMExtern, VMFunction, VMFunctionBody, VMFunctionKind, VMTrampoline,
+    on_host_stack, raise_user_trap, resume_panic, StoreHandle, VMContext, VMDynamicFunctionContext,
+    VMExtern, VMFunction, VMFunctionBody, VMFunctionKind, VMTrampoline,
 };
 
 use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
+use crate::vm::VMExternFunction;
 use crate::Extern;
 use crate::FunctionEnv;
 use crate::{FunctionType, RuntimeError, TypedFunction};
@@ -739,13 +740,10 @@ impl Function {
         Ok(TypedFunction::new(store, self.clone()))
     }
 
-    pub(crate) fn from_vm_extern(
-        store: &mut impl AsStoreMut,
-        internal: InternalStoreHandle<VMFunction>,
-    ) -> Self {
+    pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternFunction) -> Self {
         Self {
             handle: unsafe {
-                StoreHandle::from_internal(store.as_store_ref().objects().id(), internal)
+                StoreHandle::from_internal(store.as_store_ref().objects().id(), vm_extern)
             },
         }
     }

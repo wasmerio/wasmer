@@ -206,7 +206,7 @@ impl AsJs for Extern {
 
     fn as_jsvalue(&self, _store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
         match self {
-            Self::Memory(memory) => memory.handle.memory.clone().into(),
+            Self::Memory(memory) => memory.0.handle.memory.clone().into(),
             Self::Function(function) => function.handle.function.clone().into(),
             Self::Table(table) => table.0.handle.table.clone().into(),
             Self::Global(global) => global.handle.global.clone().into(),

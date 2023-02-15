@@ -15,7 +15,14 @@ pub(crate) use crate::sys::vm::{
 // Needed for tunables customization
 #[cfg(feature = "sys")]
 pub use wasmer_vm::{
-    VMFunction, VMGlobal, VMMemory, VMMemoryDefinition, VMTable, VMTableDefinition,
+    // An extra one for VMMemory implementors
+    LinearMemory,
+    VMFunction,
+    VMGlobal,
+    VMMemory,
+    VMMemoryDefinition,
+    VMTable,
+    VMTableDefinition,
 };
 
 // Deprecated exports

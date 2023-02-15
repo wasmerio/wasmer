@@ -2,10 +2,11 @@ use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::sys::RuntimeError;
 use crate::value::Value;
+use crate::vm::VMExternGlobal;
 use crate::Extern;
 use crate::GlobalType;
 use crate::Mutability;
-use wasmer_vm::{InternalStoreHandle, StoreHandle, VMExtern, VMGlobal};
+use wasmer_vm::{StoreHandle, VMExtern, VMGlobal};
 
 /// A WebAssembly `global` instance.
 ///
@@ -183,13 +184,10 @@ impl Global {
         Ok(())
     }
 
-    pub(crate) fn from_vm_extern(
-        store: &mut impl AsStoreMut,
-        internal: InternalStoreHandle<VMGlobal>,
-    ) -> Self {
+    pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternGlobal) -> Self {
         Self {
             handle: unsafe {
-                StoreHandle::from_internal(store.as_store_ref().objects().id(), internal)
+                StoreHandle::from_internal(store.as_store_ref().objects().id(), vm_extern)
             },
         }
     }

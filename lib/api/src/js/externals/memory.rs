@@ -50,20 +50,6 @@ extern "C" {
     pub fn grow(this: &JSMemory, pages: u32) -> Result<u32, JsValue>;
 }
 
-/// A WebAssembly `memory` instance.
-///
-/// A memory instance is the runtime representation of a linear memory.
-/// It consists of a vector of bytes and an optional maximum size.
-///
-/// The length of the vector always is a multiple of the WebAssembly
-/// page size, which is defined to be the constant 65536 – abbreviated 64Ki.
-/// Like in a memory type, the maximum size in a memory instance is
-/// given in units of this page size.
-///
-/// A memory created by the host or in WebAssembly code will be accessible and
-/// mutable from both host and WebAssembly.
-///
-/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
 #[derive(Debug, Clone)]
 pub struct Memory {
     pub(crate) handle: VMMemory,
@@ -73,25 +59,14 @@ unsafe impl Send for Memory {}
 unsafe impl Sync for Memory {}
 
 impl Memory {
-    /// Creates a new host `Memory` from the provided [`MemoryType`].
-    ///
-    /// This function will construct the `Memory` using the store
-    /// [`BaseTunables`][crate::js::tunables::BaseTunables].
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
-    /// # let mut store = Store::default();
-    /// #
-    /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
-    /// ```
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
-        let vm_memory = VMMemory::new(Self::new_internal(ty.clone())?, ty);
+        let vm_memory = VMMemory::new(Self::js_memory_from_type(&ty)?, ty);
         Ok(Self::from_vm_extern(store, vm_memory))
     }
 
-    pub(crate) fn new_internal(ty: MemoryType) -> Result<js_sys::WebAssembly::Memory, MemoryError> {
+    pub(crate) fn js_memory_from_type(
+        ty: &MemoryType,
+    ) -> Result<js_sys::WebAssembly::Memory, MemoryError> {
         let descriptor = js_sys::Object::new();
         // Annotation is here to prevent spurious IDE warnings.
         #[allow(unused_unsafe)]
@@ -109,7 +84,6 @@ impl Memory {
         Ok(js_memory)
     }
 
-    /// Creates a new host `Memory` from provided JavaScript memory.
     pub fn new_raw(
         store: &mut impl AsStoreMut,
         js_memory: js_sys::WebAssembly::Memory,
@@ -119,69 +93,22 @@ impl Memory {
         Ok(Self::from_vm_extern(store, vm_memory))
     }
 
-    /// Create a memory object from an existing memory and attaches it to the store
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
         Self::from_vm_extern(new_store, memory)
     }
 
-    /// To `VMExtern`.
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         VMExtern::Memory(self.handle.clone())
     }
 
-    /// Returns the [`MemoryType`] of the `Memory`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
-    /// # let mut store = Store::default();
-    /// #
-    /// let mt = MemoryType::new(1, None, false);
-    /// let m = Memory::new(&store, mt).unwrap();
-    ///
-    /// assert_eq!(m.ty(), mt);
-    /// ```
     pub fn ty(&self, _store: &impl AsStoreRef) -> MemoryType {
         self.handle.ty
     }
 
-    /// Creates a view into the memory that then allows for
-    /// read and write
     pub fn view(&self, store: &impl AsStoreRef) -> MemoryView {
         MemoryView::new(self, store)
     }
 
-    /// Grow memory by the specified amount of WebAssembly [`Pages`] and return
-    /// the previous memory size.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
-    /// # let mut store = Store::default();
-    /// #
-    /// let m = Memory::new(&store, MemoryType::new(1, Some(3), false)).unwrap();
-    /// let p = m.grow(2).unwrap();
-    ///
-    /// assert_eq!(p, Pages(1));
-    /// assert_eq!(m.size(), Pages(3));
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if memory can't be grown by the specified amount
-    /// of pages.
-    ///
-    /// ```should_panic
-    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
-    /// # let mut store = Store::default();
-    /// #
-    /// let m = Memory::new(&store, MemoryType::new(1, Some(1), false)).unwrap();
-    ///
-    /// // This results in an error: `MemoryError::CouldNotGrow`.
-    /// let s = m.grow(1).unwrap();
-    /// ```
     pub fn grow<IntoPages>(
         &self,
         store: &mut impl AsStoreMut,
@@ -206,7 +133,6 @@ impl Memory {
         Ok(Pages(new_pages))
     }
 
-    /// Copies the memory to a new store and returns a memory reference to it
     pub fn copy_to_store(
         &self,
         store: &impl AsStoreRef,
@@ -239,17 +165,14 @@ impl Memory {
         Self { handle: internal }
     }
 
-    /// Attempts to clone this memory (if its clonable)
     pub fn try_clone(&self, _store: &impl AsStoreRef) -> Option<VMMemory> {
         self.handle.try_clone()
     }
 
-    /// Checks whether this `Global` can be used with the given context.
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
     }
 
-    /// Copies this memory to a new memory
     pub fn duplicate(&mut self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         self.handle.duplicate()
     }
@@ -261,17 +184,8 @@ impl std::cmp::PartialEq for Memory {
     }
 }
 
-impl<'a> Exportable<'a> for Memory {
-    fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
-        match _extern {
-            Extern::Memory(memory) => Ok(memory),
-            _ => Err(ExportError::IncompatibleType),
-        }
-    }
-}
-
 /// Underlying buffer for a memory.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub(crate) struct MemoryBuffer<'a> {
     pub(crate) base: *mut js_sys::Uint8Array,
     pub(crate) marker: PhantomData<(&'a Memory, &'a StoreObjects)>,
