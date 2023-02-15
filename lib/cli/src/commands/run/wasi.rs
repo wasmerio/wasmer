@@ -54,6 +54,12 @@ pub struct Wasi {
     )]
     enable_experimental_io_devices: bool,
 
+    /// Enable networking with the host network.
+    ///
+    /// Allows WASI modules to open TCP and UDP connections, create sockets, ...
+    #[clap(long = "net")]
+    pub networking: bool,
+
     /// Allow instances to send http requests.
     ///
     /// Access to domains is granted by default.
@@ -113,6 +119,15 @@ impl Wasi {
             .collect::<HashMap<_, _>>();
 
         let mut rt = PluggableRuntimeImplementation::default();
+
+        if self.networking {
+            rt.set_networking_implementation(
+                wasmer_wasi_local_networking::LocalNetworking::default(),
+            );
+        } else {
+            rt.set_networking_implementation(wasmer_vnet::UnsupportedVirtualNetworking::default());
+        }
+
         let engine = store.as_store_mut().engine().clone();
         rt.set_engine(Some(engine));
 
