@@ -245,10 +245,9 @@ int main(int argc, char *argv[]) {
 
 #ifdef WASI_PIRITA
   wasi_filesystem_delete(filesystem);
-#endif
-#ifdef WASI
+#else
   wasi_env_delete(wasi_env);
-  wasm_extern_vec_delete(&exports);
+  wasm_extern_vec_delete(&imports);
 #endif
   wasm_instance_delete(instance);
   wasm_module_delete(module);
