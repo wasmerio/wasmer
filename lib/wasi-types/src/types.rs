@@ -10,94 +10,12 @@
 extern crate wasmer_types as wasmer;
 
 pub use crate::types::time::*;
-pub use bus::*;
 pub use directory::*;
 pub use file::*;
 pub use io::*;
 pub use net::*;
 pub use signal::*;
 pub use subscription::*;
-
-pub mod bus {
-    use crate::wasi::{
-        Bid, BusDataFormat, BusErrno, BusEventType, Cid, ExitCode, Fd, OptionCid, WasiHash,
-    };
-    use wasmer_derive::ValueType;
-
-    // Not sure how to port these types to .wit with generics ...
-
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
-    #[repr(C)]
-    pub struct __wasi_busevent_exit_t {
-        pub bid: Bid,
-        pub rval: ExitCode,
-    }
-
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
-    #[repr(C)]
-    pub struct __wasi_busevent_call_t {
-        pub parent: OptionCid,
-        pub cid: Cid,
-        pub format: BusDataFormat,
-        pub topic_hash: WasiHash,
-        pub fd: Fd,
-    }
-
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
-    #[repr(C)]
-    pub struct __wasi_busevent_result_t {
-        pub format: BusDataFormat,
-        pub cid: Cid,
-        pub fd: Fd,
-    }
-
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
-    #[repr(C)]
-    pub struct __wasi_busevent_fault_t {
-        pub cid: Cid,
-        pub err: BusErrno,
-    }
-
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
-    #[repr(C)]
-    pub struct __wasi_busevent_close_t {
-        pub cid: Cid,
-    }
-
-    #[derive(Copy, Clone)]
-    #[repr(C)]
-    pub union __wasi_busevent_u {
-        pub noop: u8,
-        pub exit: __wasi_busevent_exit_t,
-        pub call: __wasi_busevent_call_t,
-        pub result: __wasi_busevent_result_t,
-        pub fault: __wasi_busevent_fault_t,
-        pub close: __wasi_busevent_close_t,
-    }
-
-    #[derive(Copy, Clone, ValueType)]
-    #[repr(C)]
-    pub struct __wasi_busevent_t {
-        pub tag: BusEventType,
-        pub padding: [u8; Self::PADDING],
-        // NOTE: You MUST update Self::PADDING if you add any additional fields here.
-    }
-
-    impl __wasi_busevent_t {
-        // Calculate the required amount of padding.
-        // This is required because of different alignment requirements (and thus)
-        // struct sizes) between different architectures.
-        const PADDING: usize =
-            std::mem::size_of::<__wasi_busevent_t2>() - std::mem::size_of::<BusEventType>();
-    }
-
-    #[derive(Copy, Clone)]
-    #[repr(C)]
-    pub struct __wasi_busevent_t2 {
-        pub tag: BusEventType,
-        pub u: __wasi_busevent_u,
-    }
-}
 
 pub mod file {
     use crate::wasi::{Fd, Rights};

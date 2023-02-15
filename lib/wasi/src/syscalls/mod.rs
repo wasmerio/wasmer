@@ -86,7 +86,7 @@ pub(crate) use self::types::{
         Fdflags, Fdstat, Filesize, Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd,
         Pid, Prestat, Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype, StackSnapshot,
         StdioMode as WasiStdioMode, Streamsecurity, Subscription, SubscriptionFsReadwrite, Tid,
-        Timestamp, TlKey, TlUser, TlVal, Tty, WasiHash, Whence,
+        Timestamp, TlKey, TlUser, TlVal, Tty, Whence,
     },
     *,
 };

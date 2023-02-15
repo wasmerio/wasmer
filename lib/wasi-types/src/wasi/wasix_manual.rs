@@ -7,9 +7,6 @@ use super::{
     SubscriptionFsReadwrite, Userdata,
 };
 
-pub type WasiHash = u128;
-pub type WasiSmallHash = u64;
-
 /// Thread local key
 pub type TlKey = u32;
 /// Thread local value

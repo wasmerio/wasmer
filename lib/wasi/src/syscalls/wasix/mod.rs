@@ -1,12 +1,3 @@
-mod bus_call;
-mod bus_close;
-mod bus_open_local;
-mod bus_open_remote;
-mod bus_poll;
-mod bus_subcall;
-mod call_close;
-mod call_fault;
-mod call_reply;
 mod callback_reactor;
 mod callback_signal;
 mod callback_thread;
@@ -79,15 +70,6 @@ mod thread_spawn;
 mod tty_get;
 mod tty_set;
 
-pub use bus_call::*;
-pub use bus_close::*;
-pub use bus_open_local::*;
-pub use bus_open_remote::*;
-pub use bus_poll::*;
-pub use bus_subcall::*;
-pub use call_close::*;
-pub use call_fault::*;
-pub use call_reply::*;
 pub use callback_reactor::*;
 pub use callback_signal::*;
 pub use callback_thread::*;
