@@ -1,3 +1,5 @@
+// use core::ops::Deref;
+
 #[cfg(feature = "sys")]
 use crate::sys::engine as engine_imp;
 #[cfg(feature = "sys")]
@@ -49,3 +51,14 @@ impl AsEngineRef for EngineRef<'_> {
         EngineRef { inner: self.inner }
     }
 }
+
+// impl<P> AsEngineRef for P
+// where
+//     P: Deref,
+//     P::Target: AsEngineRef,
+// {
+//     fn as_engine_ref(&self) -> EngineRef<'_> {
+//         EngineRef { inner: **self }
+//         (**self).as_engine_ref()
+//     }
+// }

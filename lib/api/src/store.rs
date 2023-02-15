@@ -1,6 +1,9 @@
 use crate::engine::{default_engine, AsEngineRef, Engine, EngineRef};
 use derivative::Derivative;
-use std::fmt;
+use std::{
+    fmt,
+    ops::{Deref, DerefMut},
+};
 #[cfg(feature = "sys")]
 pub use wasmer_compiler::Tunables;
 pub use wasmer_types::{OnCalledAction, StoreId};
@@ -166,12 +169,6 @@ impl AsEngineRef for Store {
     }
 }
 
-impl AsEngineRef for &Store {
-    fn as_engine_ref(&self) -> EngineRef<'_> {
-        EngineRef::new(&self.inner.engine)
-    }
-}
-
 impl AsEngineRef for StoreRef<'_> {
     fn as_engine_ref(&self) -> EngineRef<'_> {
         EngineRef::new(&self.inner.engine)
@@ -319,21 +316,26 @@ impl AsStoreMut for StoreMut<'_> {
     }
 }
 
-impl<T: AsStoreRef> AsStoreRef for &'_ T {
+impl<P> AsStoreRef for P
+where
+    P: Deref,
+    P::Target: AsStoreRef,
+{
     fn as_store_ref(&self) -> StoreRef<'_> {
-        T::as_store_ref(*self)
+        (**self).as_store_ref()
     }
 }
-impl<T: AsStoreRef> AsStoreRef for &'_ mut T {
-    fn as_store_ref(&self) -> StoreRef<'_> {
-        T::as_store_ref(*self)
-    }
-}
-impl<T: AsStoreMut> AsStoreMut for &'_ mut T {
+
+impl<P> AsStoreMut for P
+where
+    P: DerefMut,
+    P::Target: AsStoreMut,
+{
     fn as_store_mut(&mut self) -> StoreMut<'_> {
-        T::as_store_mut(*self)
+        (**self).as_store_mut()
     }
+
     fn objects_mut(&mut self) -> &mut StoreObjects {
-        T::objects_mut(*self)
+        (**self).objects_mut()
     }
 }
