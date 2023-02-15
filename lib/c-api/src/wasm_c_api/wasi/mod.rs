@@ -331,6 +331,16 @@ pub unsafe extern "C" fn wasi_env_new(
 #[no_mangle]
 pub extern "C" fn wasi_env_delete(_state: Option<Box<wasi_env_t>>) {}
 
+/// Set the memory on a [`wasi_env_t`].
+// NOTE: Only here to not break the C API.
+// This was previosly supported, but is no longer possible due to WASIX changes.
+// Customizing memories should be done through the builder or the runtime.
+#[no_mangle]
+#[deprecated(since = "4.0.0")]
+pub unsafe extern "C" fn wasi_env_set_memory(env: &mut wasi_env_t, memory: &wasm_memory_t) {
+    panic!("wasmer_env_set_memory() is not supported");
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn wasi_env_read_stdout(
     env: &mut wasi_env_t,
