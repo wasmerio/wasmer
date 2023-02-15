@@ -263,7 +263,7 @@ impl Abi for X86_64SystemV {
                     .collect::<Result<_, _>>()?;
 
                 let sret = context.struct_type(&basic_types, false);
-                let sret_ptr = sret.ptr_type(AddressSpace::Generic);
+                let sret_ptr = sret.ptr_type(AddressSpace::default());
 
                 let param_types =
                     std::iter::once(Ok(sret_ptr.as_basic_type_enum())).chain(param_types);
