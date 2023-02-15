@@ -19,6 +19,7 @@ tempfile = "3"
 target-lexicon = "0.12.5"
 tar = "0.4.38"
 flate2 = "1.0.24"
+dirs = "4.0.0"
 
 [features]
 default = ["webc_runner"]

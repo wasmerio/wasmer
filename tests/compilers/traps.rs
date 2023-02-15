@@ -273,6 +273,7 @@ fn trap_start_function_import(config: crate::Config) -> Result<()> {
     match err {
         InstantiationError::Link(_)
         | InstantiationError::DifferentStores
+        | InstantiationError::DifferentArchOS
         | InstantiationError::CpuFeature(_) => {
             panic!("It should be a start error")
         }
