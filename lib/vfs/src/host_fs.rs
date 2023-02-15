@@ -4,6 +4,7 @@ use crate::{
 };
 #[cfg(feature = "enable-serde")]
 use serde::{de, Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::convert::TryInto;
 use std::fs;
 use std::io::{self, Read, Seek, Write};
@@ -11,7 +12,7 @@ use std::io::{self, Read, Seek, Write};
 use std::os::unix::io::{AsRawFd, RawFd};
 #[cfg(windows)]
 use std::os::windows::io::{AsRawHandle, RawHandle};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::debug;
 
@@ -67,13 +68,96 @@ impl TryInto<RawHandle> for FileDescriptor {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
+pub struct HostFileSystemDescriptor {
+    pub path: PathBuf,
+    pub alias: Option<String>,
+    pub read: bool,
+    pub write: bool,
+    pub create: bool,
+}
+
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct FileSystem;
+pub struct FileSystem {
+    /// Host-mapped file system paths
+    pub mapped_dirs: BTreeMap<HostFsAlias, PathBuf>,
+}
+
+#[derive(Debug, Ord, Eq, PartialOrd, PartialEq, Clone)]
+pub enum HostFsAlias {
+    Root,
+    Path(String),
+}
+
+impl Default for FileSystem {
+    fn default() -> FileSystem {
+        FileSystem {
+            mapped_dirs: vec![(HostFsAlias::Root, std::env::current_exe().unwrap())]
+                .into_iter()
+                .collect(),
+        }
+    }
+}
+
+impl FileSystem {
+    pub fn new(preopens: &[HostFileSystemDescriptor]) -> Self {
+        Self {
+            mapped_dirs: preopens
+                .iter()
+                .filter_map(|h| {
+                    // TODO: incorporate file system rights from preopens
+                    let alias = h.alias.clone()?;
+                    let converted_alias;
+                    if alias == "." || alias == "/" {
+                        converted_alias = HostFsAlias::Root;
+                    } else if alias.starts_with("./") {
+                        converted_alias = HostFsAlias::Path(alias.strip_prefix("./")?.to_string());
+                    } else if alias.starts_with("/") {
+                        converted_alias = HostFsAlias::Path(alias.strip_prefix("/")?.to_string());
+                    } else {
+                        converted_alias = HostFsAlias::Path(alias);
+                    }
+                    let alias = converted_alias;
+                    let path = h.path.clone();
+                    Some((alias, path))
+                })
+                .collect(),
+        }
+    }
+}
+
+fn get_normalized_host_path(
+    requested_path: &Path,
+    mapped_dirs: &BTreeMap<HostFsAlias, PathBuf>,
+) -> Option<PathBuf> {
+    for (alias, mapped_path) in mapped_dirs.iter() {
+        match alias {
+            HostFsAlias::Root => {
+                if let Ok(_) = fs::metadata(&mapped_path.join(requested_path)) {
+                    return Some(mapped_path.join(requested_path));
+                }
+            }
+            HostFsAlias::Path(p) => {
+                let requested_path = requested_path.strip_prefix("/").unwrap_or(requested_path);
+                let requested_path = requested_path.strip_prefix("./").unwrap_or(requested_path);
+                if requested_path.starts_with(p) {
+                    if let Ok(_) = fs::metadata(&mapped_path.join(requested_path)) {
+                        return Some(mapped_path.join(requested_path));
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
 
 impl crate::FileSystem for FileSystem {
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
-        let read_dir = fs::read_dir(path)?;
+        let normalized_path =
+            get_normalized_host_path(path, &self.mapped_dirs).ok_or(FsError::EntityNotFound)?;
+        let read_dir = fs::read_dir(&normalized_path)?;
         let data = read_dir
             .map(|entry| {
                 let entry = entry?;
@@ -89,27 +173,68 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn create_dir(&self, path: &Path) -> Result<()> {
+        // Try to get the parent of the requested path and see which mapped path matches
+        let mut nonexisting_dir = path
+            .components()
+            .filter_map(|c| match c {
+                Component::RootDir => None,
+                Component::CurDir => None,
+                Component::ParentDir => Some("..".to_string()),
+                Component::Prefix(_) => None,
+                Component::Normal(n) => Some(n.to_string_lossy().to_string()),
+            })
+            .collect::<Vec<_>>();
+        nonexisting_dir.pop();
+        let nonexisting_dir_parent = nonexisting_dir.into_iter().collect::<PathBuf>();
+        let nonexisting_normalized =
+            get_normalized_host_path(&nonexisting_dir_parent, &self.mapped_dirs)
+                .ok_or(FsError::EntityNotFound)?;
+        let path = nonexisting_normalized.join(path.file_name().ok_or(FsError::EntityNotFound)?);
         fs::create_dir(path).map_err(Into::into)
     }
 
     fn remove_dir(&self, path: &Path) -> Result<()> {
-        fs::remove_dir(path).map_err(Into::into)
+        let normalized_path =
+            get_normalized_host_path(path, &self.mapped_dirs).ok_or(FsError::EntityNotFound)?;
+        fs::remove_dir(&normalized_path).map_err(Into::into)
     }
 
     fn rename(&self, from: &Path, to: &Path) -> Result<()> {
-        fs::rename(from, to).map_err(Into::into)
+        let from_normalized =
+            get_normalized_host_path(from, &self.mapped_dirs).ok_or(FsError::EntityNotFound)?;
+        let mut to_components = to
+            .components()
+            .filter_map(|c| match c {
+                Component::RootDir => None,
+                Component::CurDir => None,
+                Component::ParentDir => Some("..".to_string()),
+                Component::Prefix(_) => None,
+                Component::Normal(n) => Some(n.to_string_lossy().to_string()),
+            })
+            .collect::<Vec<_>>();
+        to_components.pop();
+        let to_parent = to_components.into_iter().collect::<PathBuf>();
+        let to_normalized = get_normalized_host_path(&to_parent, &self.mapped_dirs)
+            .ok_or(FsError::EntityNotFound)?;
+        fs::rename(&from_normalized, &to_normalized).map_err(Into::into)
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {
-        fs::remove_file(path).map_err(Into::into)
+        let normalized_path =
+            get_normalized_host_path(path, &self.mapped_dirs).ok_or(FsError::EntityNotFound)?;
+        fs::remove_file(&normalized_path).map_err(Into::into)
     }
 
     fn new_open_options(&self) -> OpenOptions {
-        OpenOptions::new(Box::new(FileOpener))
+        OpenOptions::new(Box::new(FileOpener {
+            mapped_dirs: self.mapped_dirs.clone(),
+        }))
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
-        fs::metadata(path)
+        let normalized_path =
+            get_normalized_host_path(path, &self.mapped_dirs).ok_or(FsError::EntityNotFound)?;
+        fs::metadata(&normalized_path)
             .and_then(TryInto::try_into)
             .map_err(Into::into)
     }
@@ -174,7 +299,10 @@ impl TryInto<Metadata> for fs::Metadata {
 }
 
 #[derive(Debug, Clone)]
-pub struct FileOpener;
+pub struct FileOpener {
+    /// Host-mapped file system paths
+    pub mapped_dirs: BTreeMap<HostFsAlias, PathBuf>,
+}
 
 impl crate::FileOpener for FileOpener {
     fn open(
@@ -182,7 +310,14 @@ impl crate::FileOpener for FileOpener {
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
-        println!("vfs::host_fs::FileOpener {:?} {:#?}", path.display(), conf);
+        let normalized_path =
+            get_normalized_host_path(path, &self.mapped_dirs).ok_or(FsError::EntityNotFound)?;
+        println!(
+            "vfs::host_fs::FileOpener {:?}, normalized = {:?} {:#?}",
+            path.display(),
+            normalized_path.display(),
+            conf
+        );
         // TODO: handle create implying write, etc.
         let read = conf.read();
         let write = conf.write();
@@ -194,7 +329,7 @@ impl crate::FileOpener for FileOpener {
             .create(conf.create())
             .append(conf.append())
             .truncate(conf.truncate())
-            .open(path)
+            .open(&normalized_path)
             .map_err(Into::into)
             .map(|file| {
                 Box::new(File::new(file, path.to_owned(), read, write, append))

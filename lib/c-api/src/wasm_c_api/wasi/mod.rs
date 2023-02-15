@@ -250,6 +250,10 @@ fn prepare_webc_env(
     len: usize,
     package_name: &str,
 ) -> Option<(WasiFunctionEnv, Imports)> {
+    use std::sync::{Arc, Mutex};
+    use wasmer_vfs::dual_fs::DualFilesystem;
+    use wasmer_vfs::host_fs::{FileSystem as HostFileSystem, HostFileSystemDescriptor};
+    use wasmer_vfs::mem_fs::FileSystem as MemFileSystem;
     use wasmer_vfs::static_fs::StaticFileSystem;
     use webc::FsEntryType;
 
@@ -270,7 +274,26 @@ fn prepare_webc_env(
         })
         .collect::<Vec<_>>();
 
-    let filesystem = Box::new(StaticFileSystem::init(slice, &package_name)?);
+    let filesystem = Box::new(DualFilesystem {
+        readonly: vec![
+            Arc::new(StaticFileSystem::init(slice, &package_name)?),
+            Arc::new(HostFileSystem::new(
+                &config
+                    .state_builder
+                    .get_preopens()
+                    .into_iter()
+                    .map(|s| HostFileSystemDescriptor {
+                        path: s.path.clone(),
+                        alias: s.alias.clone(),
+                        read: s.read.clone(),
+                        write: s.write.clone(),
+                        create: s.create.clone(),
+                    })
+                    .collect::<Vec<_>>(),
+            )),
+        ],
+        readwrite: vec![Arc::new(Mutex::new(Box::new(MemFileSystem::default())))],
+    });
     let mut wasi_env = config.state_builder;
 
     if !config.inherit_stdout {

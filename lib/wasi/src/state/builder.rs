@@ -188,6 +188,11 @@ impl WasiStateBuilder {
         Ok(self)
     }
 
+    /// Returns a copy of the currently configured `PreopenedDir`s
+    pub fn get_preopens(&self) -> Vec<PreopenedDir> {
+        self.preopens.clone()
+    }
+
     /// Preopen a directory and configure it.
     ///
     /// Usage:
@@ -519,13 +524,18 @@ pub struct PreopenDirBuilder {
 }
 
 /// The built version of `PreopenDirBuilder`
-#[derive(Debug, Default)]
-pub(crate) struct PreopenedDir {
-    pub(crate) path: PathBuf,
-    pub(crate) alias: Option<String>,
-    pub(crate) read: bool,
-    pub(crate) write: bool,
-    pub(crate) create: bool,
+#[derive(Debug, Default, Clone)]
+pub struct PreopenedDir {
+    /// Mapped path on disk for the preopened directory
+    pub path: PathBuf,
+    /// Alias of the preopened directory
+    pub alias: Option<String>,
+    /// Calling read() inside the preopened directory is allowed
+    pub read: bool,
+    /// Calling write() inside the preopened directory is allowed
+    pub write: bool,
+    /// Calling create() inside the preopened directory is allowed
+    pub create: bool,
 }
 
 impl PreopenDirBuilder {
