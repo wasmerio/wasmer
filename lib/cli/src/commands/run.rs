@@ -518,9 +518,6 @@ impl RunWithPathBuf {
                             name,
                             suggestion
                         ),
-                        ExportError::SerializationFailed(err) => {
-                            anyhow!("Failed to serialize the module - {}", err)
-                        }
                     }
                 }
             })?

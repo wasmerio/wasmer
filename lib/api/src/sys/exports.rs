@@ -57,9 +57,6 @@ pub enum ExportError {
     /// This error arises when an export is missing
     #[error("Missing export {0}")]
     Missing(String),
-    /// This error arises when an export is missing
-    #[error("Serialization failed {0}")]
-    SerializationFailed(String),
 }
 
 /// Exports is a special kind of map that allows easily unwrapping
