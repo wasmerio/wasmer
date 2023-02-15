@@ -834,7 +834,7 @@ mod inner {
         /// # Safety
         unsafe fn into_c_struct(self, store: &mut impl AsStoreMut) -> Self::CStruct;
 
-        /// Writes the contents of a C struct to an array of `f64`.
+        /// Writes the contents of a C struct to an array of `RawValue`.
         ///
         /// # Safety
         unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, ptr: *mut RawValue);
@@ -1059,7 +1059,7 @@ mod inner {
                     // Build the tuple.
                     (
                         $(
-                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_raw(_store, $x.into()))
+                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_raw(_store, $x))
                         ),*
                     )
                 }

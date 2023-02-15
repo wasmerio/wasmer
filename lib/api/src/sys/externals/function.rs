@@ -1002,6 +1002,9 @@ mod inner {
         /// Note that all values are stored in their binary form.
         type Array: AsMut<[RawValue]>;
 
+        /// The size of the array
+        fn size() -> u32;
+
         /// Constructs `Self` based on an array of values.
         ///
         /// # Safety
@@ -1219,6 +1222,10 @@ mod inner {
                 type CStruct = $c_struct_name< $( $x ),* >;
 
                 type Array = [RawValue; count_idents!( $( $x ),* )];
+
+                fn size() -> u32 {
+                    count_idents!( $( $x ),* ) as _
+                }
 
                 #[allow(unused_mut)]
                 #[allow(clippy::unused_unit)]
@@ -1524,6 +1531,10 @@ mod inner {
     impl WasmTypeList for Infallible {
         type CStruct = Self;
         type Array = [RawValue; 0];
+
+        fn size() -> u32 {
+            0
+        }
 
         unsafe fn from_array(_: &mut impl AsStoreMut, _: Self::Array) -> Self {
             unreachable!()
