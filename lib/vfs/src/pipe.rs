@@ -44,11 +44,6 @@ impl Pipe {
             block: true,
         }
     }
-
-    pub fn channel() -> (Pipe, Pipe) {
-        let pair = BidiPipe::new();
-        (pair.tx, pair.rx)
-    }
 }
 
 impl Default for Pipe {
