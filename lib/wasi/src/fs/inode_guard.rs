@@ -707,14 +707,13 @@ fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
         NetworkError::UnknownError => ErrorKind::BrokenPipe.into(),
         NetworkError::InsufficientMemory => ErrorKind::OutOfMemory.into(),
         NetworkError::TooManyOpenFiles => {
-            #[cfg(target_family = "wasm")]
-            {
-                ErrorKind::Other.into()
-            }
-
-            #[cfg(not(target_family = "wasm"))]
+            #[cfg(target_family = "unix")]
             {
                 std::io::Error::from_raw_os_error(libc::EMFILE)
+            }
+            #[cfg(not(target_family = "unix"))]
+            {
+                ErrorKind::Other.into()
             }
         }
     }

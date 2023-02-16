@@ -641,7 +641,7 @@ fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
         ErrorKind::WriteZero => NetworkError::WriteZero,
         ErrorKind::Unsupported => NetworkError::Unsupported,
 
-        #[cfg(not(target_family = "wasm"))]
+        #[cfg(target_family = "unix")]
         _ => {
             if let Some(code) = net_error.raw_os_error() {
                 match code {
@@ -667,7 +667,7 @@ fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
                 NetworkError::UnknownError
             }
         }
-        #[cfg(target_family = "wasm")]
+        #[cfg(not(target_family = "unix"))]
         _ => NetworkError::UnknownError,
     }
 }
