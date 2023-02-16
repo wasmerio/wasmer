@@ -1,3 +1,5 @@
+use core::ops::Deref;
+
 use super::Engine;
 use crate::Tunables;
 
@@ -35,5 +37,15 @@ pub trait AsEngineRef {
 impl AsEngineRef for EngineRef<'_> {
     fn as_engine_ref(&self) -> EngineRef<'_> {
         EngineRef { inner: self.inner }
+    }
+}
+
+impl<P> AsEngineRef for P
+where
+    P: Deref,
+    P::Target: AsEngineRef,
+{
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        (**self).as_engine_ref()
     }
 }
