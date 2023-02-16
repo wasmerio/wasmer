@@ -40,7 +40,7 @@ impl Memory {
     }
 
     pub fn view<'a>(&'a self, store: &impl AsStoreRef) -> MemoryView<'a> {
-        MemoryView::new(&self, store)
+        MemoryView::new(self, store)
     }
 
     pub fn grow<IntoPages>(
