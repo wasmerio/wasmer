@@ -8,9 +8,9 @@ use ::tokio::runtime::Handle;
 use futures::Future;
 use wasmer::MemoryType;
 
+use wasmer::VMMemory;
 #[cfg(feature = "sys")]
 use wasmer_types::MemoryStyle;
-use wasmer_vm::VMMemory;
 
 use crate::os::task::thread::WasiThreadError;
 
