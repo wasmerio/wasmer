@@ -67,9 +67,9 @@ impl VMMemory {
         #[cfg(feature = "tracing")]
         trace!("memory copy started");
 
-        let src = MemoryView::new_raw(&self.memory);
+        let src = crate::js::externals::memory_view::MemoryView::new_raw(&self.memory);
         let amount = src.data_size() as usize;
-        let mut dst = MemoryView::new_raw(&new_memory);
+        let mut dst = crate::js::externals::memory_view::MemoryView::new_raw(&new_memory);
         let dst_size = dst.data_size() as usize;
 
         if amount > dst_size {
@@ -90,7 +90,7 @@ impl VMMemory {
                 }
             })?;
 
-            dst = MemoryView::new_raw(&new_memory);
+            dst = crate::js::externals::memory_view::MemoryView::new_raw(&new_memory);
         }
 
         src.copy_to_memory(amount as u64, &dst).map_err(|err| {

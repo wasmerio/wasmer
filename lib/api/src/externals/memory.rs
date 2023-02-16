@@ -73,7 +73,7 @@ impl Memory {
     /// Creates a view into the memory that then allows for
     /// read and write
     pub fn view<'a>(&'a self, store: &impl AsStoreRef) -> MemoryView<'a> {
-        MemoryView::new(&self.0, store)
+        MemoryView::new(&self, store)
     }
 
     /// Grow memory by the specified amount of WebAssembly [`Pages`] and return

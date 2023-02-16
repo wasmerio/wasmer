@@ -160,6 +160,7 @@ impl<'a> MemoryView<'a> {
         Ok(())
     }
 
+    #[allow(unused)]
     /// Copies the memory and returns it as a vector of bytes
     pub fn copy_to_vec(&self) -> Result<Vec<u8>, MemoryAccessError> {
         let mut new_memory = Vec::new();
@@ -175,6 +176,7 @@ impl<'a> MemoryView<'a> {
         Ok(new_memory)
     }
 
+    #[allow(unused)]
     /// Copies the memory to another new memory object
     pub fn copy_to_memory(&self, amount: u64, new_memory: &Self) -> Result<(), MemoryAccessError> {
         let mut offset = 0;

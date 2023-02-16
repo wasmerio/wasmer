@@ -168,11 +168,11 @@ impl<'a> MemoryView<'a> {
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
-    pub fn read_uninit(
+    pub fn read_uninit<'b>(
         &self,
         offset: u64,
-        buf: &'a mut [MaybeUninit<u8>],
-    ) -> Result<&'a mut [u8], MemoryAccessError> {
+        buf: &'b mut [MaybeUninit<u8>],
+    ) -> Result<&'b mut [u8], MemoryAccessError> {
         let view = &self.view;
         let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
         let len: u32 = buf

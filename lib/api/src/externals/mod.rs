@@ -1,6 +1,6 @@
 pub(crate) mod function;
 mod global;
-mod memory;
+pub(crate) mod memory;
 mod memory_view;
 mod table;
 
