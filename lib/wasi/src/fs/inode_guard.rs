@@ -4,7 +4,7 @@ use std::{
     mem::replace,
     ops::{Deref, DerefMut},
     pin::Pin,
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{Arc, RwLock},
     task::{Context, Poll},
 };
 
@@ -22,6 +22,7 @@ use crate::{
     net::socket::{InodeSocketInner, InodeSocketKind},
     state::{iterate_poll_events, PollEvent, PollEventSet, WasiState},
     syscalls::map_io_err,
+    utils::{OwnedRwLockReadGuard, OwnedRwLockWriteGuard},
 };
 
 pub(crate) enum InodeValFilePollGuardMode {
@@ -389,18 +390,13 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
 
 #[derive(Debug)]
 pub(crate) struct InodeValFileReadGuard {
-    guard: RwLockReadGuard<'static, Box<dyn VirtualFile + Send + Sync + 'static>>,
-    // we must keep a reference as the lifetime of the guard becomes owned using unsafe code
-    // (warning!! The fields of a struct are dropped in declaration order thus this must be at the end)
-    _file: Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>,
+    guard: OwnedRwLockReadGuard<Box<dyn VirtualFile + Send + Sync + 'static>>,
 }
 
 impl InodeValFileReadGuard {
     pub(crate) fn new(file: &Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>) -> Self {
-        let guard = file.read().unwrap();
         Self {
-            _file: file.clone(),
-            guard: unsafe { std::mem::transmute(guard) },
+            guard: crate::utils::read_owned(file).unwrap(),
         }
     }
 }
@@ -416,7 +412,7 @@ impl InodeValFileReadGuard {
             fd,
             peb,
             subscription,
-            mode: InodeValFilePollGuardMode::File(self._file),
+            mode: InodeValFilePollGuardMode::File(self.guard.into_inner()),
         }
     }
 }
@@ -430,19 +426,13 @@ impl Deref for InodeValFileReadGuard {
 
 #[derive(Debug)]
 pub struct InodeValFileWriteGuard {
-    guard: RwLockWriteGuard<'static, Box<dyn VirtualFile + Send + Sync + 'static>>,
-    // we must keep a reference as the lifetime of the guard becomes owned using unsafe code
-    // (warning!! The fields of a struct are dropped in declaration order thus this must be at the end)
-    // (https://doc.rust-lang.org/reference/destructors.html#:~:text=The%20fields%20of%20a%20struct,first%20element%20to%20the%20last.)
-    _file: Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>,
+    guard: OwnedRwLockWriteGuard<Box<dyn VirtualFile + Send + Sync + 'static>>,
 }
 
 impl InodeValFileWriteGuard {
     pub(crate) fn new(file: &Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>) -> Self {
-        let guard = file.write().unwrap();
         Self {
-            _file: file.clone(),
-            guard: unsafe { std::mem::transmute(guard) },
+            guard: crate::utils::write_owned(file).unwrap(),
         }
     }
     pub(crate) fn swap(
