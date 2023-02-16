@@ -751,10 +751,14 @@ impl WasiEnvBuilder {
 
         let res = crate::run_wasi_func_start(start, store);
 
-        let exit_code = if res.is_ok() { 0 } else { 1 };
+        let exit_code = match &res {
+            Ok(_) => 0,
+            Err(err) => err.as_exit_code().unwrap_or(1),
+        };
+
         env.cleanup(store, Some(exit_code));
 
-        Ok(())
+        res
     }
 }
 

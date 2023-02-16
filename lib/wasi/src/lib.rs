@@ -172,6 +172,19 @@ pub enum WasiRuntimeError {
     Thread(#[from] WasiThreadError),
 }
 
+impl WasiRuntimeError {
+    /// Retrieve the concrete exit code returned by an instance.
+    ///
+    /// Returns [`None`] if a general execution error ocurred.
+    pub fn as_exit_code(&self) -> Option<ExitCode> {
+        if let WasiRuntimeError::Wasi(WasiError::Exit(code)) = self {
+            Some(*code)
+        } else {
+            None
+        }
+    }
+}
+
 pub(crate) fn run_wasi_func(
     func: &wasmer::Function,
     store: &mut impl AsStoreMut,
