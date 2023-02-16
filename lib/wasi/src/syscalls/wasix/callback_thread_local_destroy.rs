@@ -1,7 +1,6 @@
 use super::*;
 use crate::syscalls::*;
 
-// FIXME: remove , since it's no longer used.
 /// ### `callback_thread_local_destroy()`
 /// Sets the callback to invoke for the destruction of thread local variables
 ///
