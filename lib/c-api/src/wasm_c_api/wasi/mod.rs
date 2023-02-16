@@ -4,7 +4,7 @@
 
 pub use super::unstable::wasi::wasi_get_unordered_imports;
 use super::{
-    externals::{wasm_extern_t, wasm_extern_vec_t, wasm_func_t},
+    externals::{wasm_extern_t, wasm_extern_vec_t, wasm_func_t, wasm_memory_t},
     instance::wasm_instance_t,
     module::wasm_module_t,
     store::{wasm_store_t, StoreRef},
@@ -337,7 +337,7 @@ pub extern "C" fn wasi_env_delete(_state: Option<Box<wasi_env_t>>) {}
 // Customizing memories should be done through the builder or the runtime.
 #[no_mangle]
 #[deprecated(since = "4.0.0")]
-pub unsafe extern "C" fn wasi_env_set_memory(env: &mut wasi_env_t, memory: &wasm_memory_t) {
+pub unsafe extern "C" fn wasi_env_set_memory(_env: &mut wasi_env_t, _memory: &wasm_memory_t) {
     panic!("wasmer_env_set_memory() is not supported");
 }
 
