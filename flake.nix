@@ -42,6 +42,8 @@
             llvmPackages_14.llvm
             # Snapshot testing
             cargo-insta
+            wabt
+            binaryen
           ];
           runtimeDependencies = with pkgs; [ ];
 
