@@ -81,64 +81,6 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     fn thread_parallelism(&self) -> Result<usize, WasiThreadError>;
 }
 
-/// A no-op taskmanager that does not support any spawning operations.
-#[derive(Clone, Debug)]
-pub struct StubTaskManager;
-
-#[async_trait::async_trait]
-impl VirtualTaskManager for StubTaskManager {
-    fn build_memory(&self, _spawn_type: SpawnType) -> Result<Option<VMMemory>, WasiThreadError> {
-        Err(WasiThreadError::Unsupported)
-    }
-
-    #[allow(unused_variables)]
-    async fn sleep_now(&self, time: Duration) {
-        if time == Duration::ZERO {
-            std::thread::yield_now();
-        } else {
-            std::thread::sleep(time);
-        }
-    }
-
-    #[allow(unused_variables)]
-    fn task_shared(
-        &self,
-        task: Box<
-            dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + Send + 'static>> + Send + 'static,
-        >,
-    ) -> Result<(), WasiThreadError> {
-        Err(WasiThreadError::Unsupported)
-    }
-
-    fn runtime(&self) -> &Handle {
-        unimplemented!("asynchronous operations are not supported on this task manager");
-    }
-
-    #[allow(dyn_drop)]
-    #[allow(unused_variables)]
-    fn runtime_enter<'g>(&'g self) -> Box<dyn std::ops::Drop + 'g> {
-        unimplemented!("asynchronous operations are not supported on this task manager");
-    }
-
-    #[allow(unused_variables)]
-    fn task_wasm(&self, task: Box<dyn FnOnce() + Send + 'static>) -> Result<(), WasiThreadError> {
-        Err(WasiThreadError::Unsupported)
-    }
-
-    #[allow(unused_variables)]
-    fn task_dedicated(
-        &self,
-        task: Box<dyn FnOnce() + Send + 'static>,
-    ) -> Result<(), WasiThreadError> {
-        Err(WasiThreadError::Unsupported)
-    }
-
-    #[allow(unused_variables)]
-    fn thread_parallelism(&self) -> Result<usize, WasiThreadError> {
-        Err(WasiThreadError::Unsupported)
-    }
-}
-
 impl dyn VirtualTaskManager {
     /// Execute a future and return the output.
     /// This method blocks until the future is complete.
