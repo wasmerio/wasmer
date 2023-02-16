@@ -492,6 +492,9 @@ pub use wasmer_types::{
 #[cfg(feature = "wat")]
 pub use wat::parse_bytes as wat2wasm;
 
+#[cfg(feature = "wasmparser")]
+pub use wasmparser;
+
 // Deprecated types
 
 /// This type is deprecated, it has been replaced by TypedFunction.

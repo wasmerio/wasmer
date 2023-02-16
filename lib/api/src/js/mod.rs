@@ -39,10 +39,7 @@ pub(crate) mod vm;
 mod wasm_bindgen_polyfill;
 
 pub use crate::js::as_js::AsJs;
-pub use crate::js::error::{DeserializeError, LinkError, SerializeError};
+pub use crate::js::error::{LinkError};
 pub use crate::js::module::{Module, ModuleTypeHints};
 pub use crate::js::store::StoreObjects;
 pub use crate::js::trap::RuntimeError;
-
-#[cfg(feature = "wasm-types-polyfill")]
-pub use wasmparser;
