@@ -8,9 +8,10 @@ use std::{
     task::{Context, Poll},
 };
 
+use cfg_if::cfg_if;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use wasmer_vfs::{FsError, VirtualFile};
-use wasmer_vnet::{net_error_into_io_err, NetworkError};
+use wasmer_vnet::NetworkError;
 use wasmer_wasi_types::{
     types::Eventtype,
     wasi,
@@ -679,3 +680,96 @@ fn is_err_closed(err: &std::io::Error) -> bool {
         || err.kind() == std::io::ErrorKind::NotConnected
         || err.kind() == std::io::ErrorKind::UnexpectedEof
 }
+
+fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
+    use std::io::ErrorKind;
+    match net_error {
+        NetworkError::InvalidFd => ErrorKind::BrokenPipe.into(),
+        NetworkError::AlreadyExists => ErrorKind::AlreadyExists.into(),
+        NetworkError::Lock => ErrorKind::BrokenPipe.into(),
+        NetworkError::IOError => ErrorKind::BrokenPipe.into(),
+        NetworkError::AddressInUse => ErrorKind::AddrInUse.into(),
+        NetworkError::AddressNotAvailable => ErrorKind::AddrNotAvailable.into(),
+        NetworkError::BrokenPipe => ErrorKind::BrokenPipe.into(),
+        NetworkError::ConnectionAborted => ErrorKind::ConnectionAborted.into(),
+        NetworkError::ConnectionRefused => ErrorKind::ConnectionRefused.into(),
+        NetworkError::ConnectionReset => ErrorKind::ConnectionReset.into(),
+        NetworkError::Interrupted => ErrorKind::Interrupted.into(),
+        NetworkError::InvalidData => ErrorKind::InvalidData.into(),
+        NetworkError::InvalidInput => ErrorKind::InvalidInput.into(),
+        NetworkError::NotConnected => ErrorKind::NotConnected.into(),
+        NetworkError::NoDevice => ErrorKind::BrokenPipe.into(),
+        NetworkError::PermissionDenied => ErrorKind::PermissionDenied.into(),
+        NetworkError::TimedOut => ErrorKind::TimedOut.into(),
+        NetworkError::UnexpectedEof => ErrorKind::UnexpectedEof.into(),
+        NetworkError::WouldBlock => ErrorKind::WouldBlock.into(),
+        NetworkError::WriteZero => ErrorKind::WriteZero.into(),
+        NetworkError::Unsupported => ErrorKind::Unsupported.into(),
+        NetworkError::UnknownError => ErrorKind::BrokenPipe.into(),
+        NetworkError::InsufficientMemory => ErrorKind::OutOfMemory.into(),
+        NetworkError::TooManyOpenFiles => {
+            let e;
+            cfg_if!(
+                if #[cfg(target_family = "wasm")] {
+                    e = ErrorKind::Other.into();
+                } else {
+                    e = Error::from_raw_os_error(libc::EMFILE);
+                }
+            );
+            e
+        }
+    }
+}
+
+// NOTE: Currently not used, but useful to have
+// fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
+//     use std::io::ErrorKind;
+//     match net_error.kind() {
+//         ErrorKind::BrokenPipe => NetworkError::BrokenPipe,
+//         ErrorKind::AlreadyExists => NetworkError::AlreadyExists,
+//         ErrorKind::AddrInUse => NetworkError::AddressInUse,
+//         ErrorKind::AddrNotAvailable => NetworkError::AddressNotAvailable,
+//         ErrorKind::ConnectionAborted => NetworkError::ConnectionAborted,
+//         ErrorKind::ConnectionRefused => NetworkError::ConnectionRefused,
+//         ErrorKind::ConnectionReset => NetworkError::ConnectionReset,
+//         ErrorKind::Interrupted => NetworkError::Interrupted,
+//         ErrorKind::InvalidData => NetworkError::InvalidData,
+//         ErrorKind::InvalidInput => NetworkError::InvalidInput,
+//         ErrorKind::NotConnected => NetworkError::NotConnected,
+//         ErrorKind::PermissionDenied => NetworkError::PermissionDenied,
+//         ErrorKind::TimedOut => NetworkError::TimedOut,
+//         ErrorKind::UnexpectedEof => NetworkError::UnexpectedEof,
+//         ErrorKind::WouldBlock => NetworkError::WouldBlock,
+//         ErrorKind::WriteZero => NetworkError::WriteZero,
+//         ErrorKind::Unsupported => NetworkError::Unsupported,
+
+//         #[cfg(not(target_family = "wasm"))]
+//         _ => {
+//             if let Some(code) = net_error.raw_os_error() {
+//                 match code {
+//                     libc::EPERM => NetworkError::PermissionDenied,
+//                     libc::EBADF => NetworkError::InvalidFd,
+//                     libc::ECHILD => NetworkError::InvalidFd,
+//                     libc::EMFILE => NetworkError::TooManyOpenFiles,
+//                     libc::EINTR => NetworkError::Interrupted,
+//                     libc::EIO => NetworkError::IOError,
+//                     libc::ENXIO => NetworkError::IOError,
+//                     libc::EAGAIN => NetworkError::WouldBlock,
+//                     libc::ENOMEM => NetworkError::InsufficientMemory,
+//                     libc::EACCES => NetworkError::PermissionDenied,
+//                     libc::ENODEV => NetworkError::NoDevice,
+//                     libc::EINVAL => NetworkError::InvalidInput,
+//                     libc::EPIPE => NetworkError::BrokenPipe,
+//                     err => {
+//                         tracing::trace!("unknown os error {}", err);
+//                         NetworkError::UnknownError
+//                     }
+//                 }
+//             } else {
+//                 NetworkError::UnknownError
+//             }
+//         }
+//         #[cfg(target_family = "wasm")]
+//         _ => NetworkError::UnknownError,
+//     }
+// }
