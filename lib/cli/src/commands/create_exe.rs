@@ -2282,7 +2282,6 @@ mod http_fetch {
                 .map_err(|e| anyhow::anyhow!("{e}"))
                 .with_context(|| anyhow::anyhow!("{}", target.display()))?;
 
-            println!("unpacking tarball {}", tarball.display());
             let _ = std::fs::remove_dir(target);
             wasmer_registry::try_unpack_targz(tarball, target, false)?;
         }

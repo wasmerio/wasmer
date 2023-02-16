@@ -123,10 +123,7 @@ pub unsafe extern "C" fn wasi_config_mapdir(
         }
     };
 
-    println!("wasi config mapdir: {alias_str} -> {dir_str}");
-
     if let Err(e) = _config.state_builder.map_dir(alias_str, dir_str) {
-        println!("ERROR: {e}");
         update_last_error(e);
         return false;
     }
@@ -223,7 +220,6 @@ unsafe fn wasi_env_with_filesystem_inner(
     let module = &module.as_ref()?.inner;
     let imports = imports?;
 
-    println!("wasi_env_with_filesystem_inner!!");
     let (wasi_env, import_object) = prepare_webc_env(
         config,
         &mut store.store_mut(),
