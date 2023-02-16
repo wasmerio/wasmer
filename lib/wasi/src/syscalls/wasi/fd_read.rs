@@ -355,51 +355,10 @@ fn fd_read_internal<M: MemorySize>(
                     impl Future for NotifyPoller {
                         type Output = Result<u64, Errno>;
                         fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-                            if !self.non_blocking {
-                                let waker = cx.waker();
-                                let mut guard = self.inner.wakers.lock().unwrap();
-                                if guard.iter().any(|w| w.will_wake(waker)) == false {
-                                    guard.push_front(waker.clone());
-                                }
-                            }
-
-                            let wake_all = || {
-                                self.inner.last_poll.store(u64::MAX, Ordering::Release);
-                                let mut guard = self.inner.wakers.lock().unwrap();
-                                while let Some(waker) = guard.pop_front() {
-                                    waker.wake();
-                                }
-                            };
-
-                            loop {
-                                let val = self.inner.counter.load(Ordering::Acquire);
-                                if val > 0 {
-                                    let new_val = if self.inner.is_semaphore { val - 1 } else { 0 };
-                                    if self
-                                        .inner
-                                        .counter
-                                        .compare_exchange(
-                                            val,
-                                            new_val,
-                                            Ordering::AcqRel,
-                                            Ordering::Acquire,
-                                        )
-                                        .is_ok()
-                                    {
-                                        wake_all();
-                                        return Poll::Ready(Ok(val));
-                                    } else {
-                                        continue;
-                                    }
-                                }
-
-                                // If its none blocking then exit
-                                if self.non_blocking {
-                                    wake_all();
-                                    return Poll::Ready(Err(Errno::Again));
-                                }
-
-                                return Poll::Pending;
+                            if self.non_blocking {
+                                Poll::Ready(self.inner.try_read().ok_or(Errno::Again))
+                            } else {
+                                self.inner.read(cx.waker()).map(|a| Ok(a))
                             }
                         }
                     }

@@ -208,14 +208,7 @@ fn fd_write_internal<M: MemorySize>(
                     }
                     let val = u64::from_ne_bytes(unsafe { std::mem::transmute(val) });
 
-                    inner.counter.fetch_add(val, Ordering::AcqRel);
-                    inner.last_poll.store(u64::MAX, Ordering::Release);
-                    {
-                        let mut guard = inner.wakers.lock().unwrap();
-                        while let Some(wake) = guard.pop_back() {
-                            wake.wake();
-                        }
-                    }
+                    inner.write(val);
 
                     (written, false)
                 }

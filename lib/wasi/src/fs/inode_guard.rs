@@ -3,7 +3,7 @@ use std::{
     io::{IoSlice, SeekFrom},
     ops::{Deref, DerefMut},
     pin::Pin,
-    sync::{atomic::Ordering, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
     task::{Context, Poll},
 };
 
@@ -16,7 +16,7 @@ use wasmer_wasi_types::{
     wasi::{Errno, Event, EventFdReadwrite, EventUnion, Eventrwflags, Subscription},
 };
 
-use super::{fd::NotificationInner, InodeGuard, Kind};
+use super::{notification::NotificationInner, InodeGuard, Kind};
 use crate::{
     net::socket::{InodeSocketInner, InodeSocketKind},
     state::{iterate_poll_events, PollEvent, PollEventSet, WasiState},
@@ -210,18 +210,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                     file.poll_read_ready(cx)
                 }
                 InodeValFilePollGuardMode::EventNotifications(inner) => {
-                    {
-                        let mut guard = inner.wakers.lock().unwrap();
-                        if guard.iter().any(|a| a.will_wake(waker)) == false {
-                            guard.push_front(waker.clone());
-                        }
-                    }
-                    let val = inner.counter.load(Ordering::Acquire);
-                    if inner.last_poll.swap(val, Ordering::AcqRel) != val {
-                        Poll::Ready(Ok(val as usize))
-                    } else {
-                        Poll::Pending
-                    }
+                    inner.poll(waker).map(|a| Ok(a))
                 }
                 InodeValFilePollGuardMode::Socket { ref inner } => {
                     let mut guard = inner.protected.write().unwrap();
@@ -309,18 +298,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                     file.poll_write_ready(cx)
                 }
                 InodeValFilePollGuardMode::EventNotifications(inner) => {
-                    {
-                        let mut guard = inner.wakers.lock().unwrap();
-                        if guard.iter().any(|a| a.will_wake(waker)) == false {
-                            guard.push_front(waker.clone());
-                        }
-                    }
-                    let val = inner.counter.load(Ordering::Acquire);
-                    if inner.last_poll.swap(val, Ordering::AcqRel) != val {
-                        Poll::Ready(Ok(val as usize))
-                    } else {
-                        Poll::Pending
-                    }
+                    inner.poll(waker).map(|a| Ok(a))
                 }
                 InodeValFilePollGuardMode::Socket { ref inner } => {
                     let mut guard = inner.protected.write().unwrap();

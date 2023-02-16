@@ -14,12 +14,9 @@ pub fn fd_event<M: MemorySize>(
     let env = ctx.data();
     let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
-    let kind = Kind::EventNotifications(Arc::new(NotificationInner {
-        counter: AtomicU64::new(initial_val),
-        last_poll: AtomicU64::new(0),
-        is_semaphore: flags & EVENT_FD_FLAGS_SEMAPHORE != 0,
-        wakers: Default::default(),
-    }));
+    let is_semaphore = flags & EVENT_FD_FLAGS_SEMAPHORE != 0;
+    let kind =
+        Kind::EventNotifications(Arc::new(NotificationInner::new(initial_val, is_semaphore)));
 
     let inode = state.fs.create_inode_with_default_stat(
         inodes.deref(),

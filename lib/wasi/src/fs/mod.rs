@@ -1,5 +1,6 @@
 mod fd;
 mod inode_guard;
+mod notification;
 
 use std::{
     borrow::{Borrow, Cow},
@@ -26,11 +27,12 @@ use wasmer_wasi_types::{
     },
 };
 
-pub use self::fd::{Fd, InodeVal, Kind, NotificationInner};
+pub use self::fd::{Fd, InodeVal, Kind};
 pub(crate) use self::inode_guard::{
     InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFileReadGuard,
     InodeValFileWriteGuard, WasiStateFileGuard,
 };
+pub use self::notification::NotificationInner;
 use crate::syscalls::map_io_err;
 use crate::{bin_factory::BinaryPackage, state::PreopenedDir, ALL_RIGHTS};
 

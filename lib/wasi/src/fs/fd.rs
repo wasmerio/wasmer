@@ -1,9 +1,8 @@
 use std::{
     borrow::Cow,
-    collections::{HashMap, VecDeque},
+    collections::HashMap,
     path::PathBuf,
-    sync::{atomic::AtomicU64, Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
-    task::Waker,
+    sync::{atomic::AtomicU64, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 #[cfg(feature = "enable-serde")]
@@ -13,7 +12,7 @@ use wasmer_wasi_types::wasi::{Fd as WasiFd, Fdflags, Filestat, Rights};
 
 use crate::net::socket::InodeSocket;
 
-use super::{InodeGuard, InodeWeakGuard};
+use super::{InodeGuard, InodeWeakGuard, NotificationInner};
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -68,21 +67,6 @@ impl InodeVal {
     pub fn write(&self) -> RwLockWriteGuard<Kind> {
         self.kind.write().unwrap()
     }
-}
-
-#[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct NotificationInner {
-    /// Used for event notifications by the user application or operating system
-    /// (positive number means there are events waiting to be processed)
-    pub counter: AtomicU64,
-    /// Counter used to prevent duplicate notification events
-    pub last_poll: AtomicU64,
-    /// Flag that indicates if this is operating
-    pub is_semaphore: bool,
-    /// Receiver that wakes sleeping threads
-    #[cfg_attr(feature = "enable-serde", serde(skip))]
-    pub wakers: Mutex<VecDeque<Waker>>,
 }
 
 /// The core of the filesystem abstraction.  Includes directories,
