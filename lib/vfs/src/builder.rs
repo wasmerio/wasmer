@@ -1,7 +1,6 @@
 use crate::{FileSystem, VirtualFile};
 use std::path::{Path, PathBuf};
 use tracing::*;
-use wasmer_wasi_types::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 
 use super::ZeroFile;
 use super::{NullFile, SpecialFile};
@@ -85,17 +84,17 @@ impl RootFileSystemBuilder {
             let _ = tmp.new_open_options_ext().insert_custom_file(
                 PathBuf::from("/dev/stdin"),
                 self.stdin
-                    .unwrap_or_else(|| Box::new(SpecialFile::new(__WASI_STDIN_FILENO))),
+                    .unwrap_or_else(|| Box::new(SpecialFile::new(SpecialFile::STDIN))),
             );
             let _ = tmp.new_open_options_ext().insert_custom_file(
                 PathBuf::from("/dev/stdout"),
                 self.stdout
-                    .unwrap_or_else(|| Box::new(SpecialFile::new(__WASI_STDOUT_FILENO))),
+                    .unwrap_or_else(|| Box::new(SpecialFile::new(SpecialFile::STDOUT))),
             );
             let _ = tmp.new_open_options_ext().insert_custom_file(
                 PathBuf::from("/dev/stderr"),
                 self.stderr
-                    .unwrap_or_else(|| Box::new(SpecialFile::new(__WASI_STDERR_FILENO))),
+                    .unwrap_or_else(|| Box::new(SpecialFile::new(SpecialFile::STDERR))),
             );
             let _ = tmp.new_open_options_ext().insert_custom_file(
                 PathBuf::from("/dev/tty"),

@@ -7,7 +7,8 @@ use std::task::{Context, Poll};
 
 use crate::VirtualFile;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
-use wasmer_wasi_types::wasi::Fd;
+
+pub type Fd = u32;
 
 /// A "special" file is a file that is locked
 /// to one file descriptor (i.e. stdout => 0, stdin => 1), etc.
@@ -17,6 +18,10 @@ pub struct SpecialFile {
 }
 
 impl SpecialFile {
+    pub const STDIN: Fd = 0;
+    pub const STDOUT: Fd = 1;
+    pub const STDERR: Fd = 2;
+
     pub fn new(fd: Fd) -> Self {
         Self { fd }
     }

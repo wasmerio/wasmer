@@ -5166,8 +5166,6 @@ dependencies = [
  "tokio",
  "tracing",
  "typetag",
- "wasmer-types",
- "wasmer-wasi-types",
  "webc",
 ]
 

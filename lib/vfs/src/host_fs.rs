@@ -474,8 +474,7 @@ impl AsyncSeek for File {
     }
 }
 
-/// A wrapper type around Stdout that implements `VirtualFile` and
-/// `Serialize` + `Deserialize`.
+/// A wrapper type around Stdout that implements `VirtualFile`.
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stdout {
@@ -600,8 +599,7 @@ impl AsyncSeek for Stdout {
     }
 }
 
-/// A wrapper type around Stderr that implements `VirtualFile` and
-/// `Serialize` + `Deserialize`.
+/// A wrapper type around Stderr that implements `VirtualFile`.
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stderr {
@@ -716,8 +714,7 @@ impl VirtualFile for Stderr {
     }
 }
 
-/// A wrapper type around Stdin that implements `VirtualFile` and
-/// `Serialize` + `Deserialize`.
+/// A wrapper type around Stdin that implements `VirtualFile`.
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stdin {

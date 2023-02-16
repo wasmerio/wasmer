@@ -7,9 +7,6 @@ license = "MIT"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../types", version = "=3.2.0-alpha.1", default_features = false }
-wasmer-wasi-types = { path = "../wasi-types", version = "=3.2.0-alpha.1", default_features = false }
-
 libc = { version = "^0.2", default-features = false, optional = true }
 thiserror = "1"
 tracing = { version = "0.1" }
@@ -31,7 +28,7 @@ pin-project-lite = "0.2.9"
 tokio = { version = "1", features = [ "io-util", "rt" ], default_features = false }
 
 [features]
-default = ["std", "sys", "host-fs", "webc-fs", "static-fs"]
+default = ["host-fs", "webc-fs", "static-fs"]
 host-fs = ["libc", "fs_extra", "filetime", "tokio/fs", "tokio/io-std"]
 webc-fs = ["webc", "anyhow"]
 static-fs = ["webc", "anyhow"]
@@ -40,7 +37,3 @@ enable-serde = [
     "typetag"
 ]
 no-time = []
-std = [ "wasmer-types/std" ]
-core = [ "wasmer-types/core" ]
-sys = [ "wasmer-wasi-types/sys" ]
-js = [ "wasmer-wasi-types/js" ]
