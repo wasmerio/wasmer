@@ -12,4 +12,3 @@ wasmer-vfs = { path = "../vfs", version = "=3.2.0-alpha.1", default-features = f
 bytes = "1"
 async-trait = { version = "^0.1" }
 tracing = "0.1"
-libc = { version = "^0.2", default-features = false }
