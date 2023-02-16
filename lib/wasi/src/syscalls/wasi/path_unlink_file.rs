@@ -22,7 +22,7 @@ pub fn path_unlink_file<M: MemorySize>(
         ctx.data().tid()
     );
     let env = ctx.data();
-    let (memory, mut state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
+    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
     let base_dir = wasi_try!(state.fs.get_fd(fd));
     if !base_dir.rights.contains(Rights::PATH_UNLINK_FILE) {
@@ -42,26 +42,24 @@ pub fn path_unlink_file<M: MemorySize>(
         );
     }
 
-    let inode = wasi_try!(state
-        .fs
-        .get_inode_at_path(inodes.deref_mut(), fd, &path_str, false));
+    let inode = wasi_try!(state.fs.get_inode_at_path(inodes, fd, &path_str, false));
     let (parent_inode, childs_name) = wasi_try!(state.fs.get_parent_inode_at_path(
-        inodes.deref_mut(),
+        inodes,
         fd,
         std::path::Path::new(&path_str),
         false
     ));
 
     let removed_inode = {
-        let mut guard = inodes.arena[parent_inode].write();
+        let mut guard = parent_inode.write();
         match guard.deref_mut() {
             Kind::Dir {
                 ref mut entries, ..
             } => {
                 let removed_inode = wasi_try!(entries.remove(&childs_name).ok_or(Errno::Inval));
                 // TODO: make this a debug assert in the future
-                assert!(inode == removed_inode);
-                debug_assert!(inodes.arena[inode].stat.read().unwrap().st_nlink > 0);
+                assert!(inode.ino() == removed_inode.ino());
+                debug_assert!(inode.stat.read().unwrap().st_nlink > 0);
                 removed_inode
             }
             Kind::Root { .. } => return Errno::Access,
@@ -72,13 +70,13 @@ pub fn path_unlink_file<M: MemorySize>(
     };
 
     let st_nlink = {
-        let mut guard = inodes.arena[removed_inode].stat.write().unwrap();
+        let mut guard = removed_inode.stat.write().unwrap();
         guard.st_nlink -= 1;
         guard.st_nlink
     };
     if st_nlink == 0 {
         {
-            let mut guard = inodes.arena[removed_inode].read();
+            let mut guard = removed_inode.read();
             match guard.deref() {
                 Kind::File { handle, path, .. } => {
                     if let Some(h) = handle {
@@ -99,27 +97,6 @@ pub fn path_unlink_file<M: MemorySize>(
                 }
                 _ => unimplemented!("wasi::path_unlink_file for Buffer"),
             }
-        }
-        // TODO: test this on Windows and actually make it portable
-        // make the file an orphan fd if the fd is still open
-        let fd_is_orphaned = {
-            let guard = inodes.arena[removed_inode].read();
-            if let Kind::File { handle, .. } = guard.deref() {
-                handle.is_some()
-            } else {
-                false
-            }
-        };
-        let removed_inode_val = unsafe { state.fs.remove_inode(inodes.deref_mut(), removed_inode) };
-        assert!(
-            removed_inode_val.is_some(),
-            "Inode could not be removed because it doesn't exist"
-        );
-
-        if fd_is_orphaned {
-            inodes
-                .orphan_fds
-                .insert(removed_inode, removed_inode_val.unwrap());
         }
     }
 

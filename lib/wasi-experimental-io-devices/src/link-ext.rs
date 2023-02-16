@@ -430,7 +430,7 @@ impl VirtualFile for FrameBuffer {
     }
 }
 
-pub fn initialize(inodes: &mut WasiInodes, fs: &mut WasiFs) -> Result<(), String> {
+pub fn initialize(inodes: &WasiInodes, fs: &mut WasiFs) -> Result<(), String> {
     let frame_buffer_file = Box::new(FrameBuffer {
         fb_type: FrameBufferFileType::Buffer,
         cursor: 0,

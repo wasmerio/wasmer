@@ -65,7 +65,7 @@ impl CmdWasmer {
             let mut env = config.take().ok_or(VirtualBusError::UnknownError)?;
 
             // Set the arguments of the environment by replacing the state
-            let mut state = env.state.fork(true);
+            let mut state = env.state.fork();
             args.insert(0, what.clone());
             state.args = args;
             env.state = Arc::new(state);

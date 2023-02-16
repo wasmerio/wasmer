@@ -28,7 +28,7 @@ pub fn path_symlink<M: MemorySize>(
         ctx.data().tid()
     );
     let env = ctx.data();
-    let (memory, mut state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
+    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
     let mut old_path_str = unsafe { get_input_str!(&memory, old_path, old_path_len) };
     let mut new_path_str = unsafe { get_input_str!(&memory, new_path, new_path_len) };
     old_path_str = ctx.data().state.fs.relative_path_to_absolute(old_path_str);
@@ -43,10 +43,8 @@ pub fn path_symlink<M: MemorySize>(
     let (source_inode, _) =
         wasi_try!(state
             .fs
-            .get_parent_inode_at_path(inodes.deref_mut(), fd, old_path_path, true));
-    let depth = state
-        .fs
-        .path_depth_from_fd(inodes.deref(), fd, source_inode);
+            .get_parent_inode_at_path(inodes, fd, old_path_path, true));
+    let depth = state.fs.path_depth_from_fd(fd, source_inode);
 
     // depth == -1 means folder is not relative. See issue #3233.
     let depth = match depth {
@@ -58,11 +56,11 @@ pub fn path_symlink<M: MemorySize>(
     let (target_parent_inode, entry_name) =
         wasi_try!(state
             .fs
-            .get_parent_inode_at_path(inodes.deref_mut(), fd, new_path_path, true));
+            .get_parent_inode_at_path(inodes, fd, new_path_path, true));
 
     // short circuit if anything is wrong, before we create an inode
     {
-        let guard = inodes.arena[target_parent_inode].read();
+        let guard = target_parent_inode.read();
         match guard.deref() {
             Kind::Dir { entries, .. } => {
                 if entries.contains_key(&entry_name) {
@@ -96,15 +94,13 @@ pub fn path_symlink<M: MemorySize>(
         path_to_symlink: std::path::PathBuf::from(new_path_str),
         relative_path,
     };
-    let new_inode = state.fs.create_inode_with_default_stat(
-        inodes.deref_mut(),
-        kind,
-        false,
-        entry_name.clone().into(),
-    );
+    let new_inode =
+        state
+            .fs
+            .create_inode_with_default_stat(inodes, kind, false, entry_name.clone().into());
 
     {
-        let mut guard = inodes.arena[target_parent_inode].write();
+        let mut guard = target_parent_inode.write();
         if let Kind::Dir {
             ref mut entries, ..
         } = guard.deref_mut()

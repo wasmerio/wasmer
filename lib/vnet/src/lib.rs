@@ -273,7 +273,7 @@ pub trait VirtualConnectedSocket: VirtualSocket + fmt::Debug + Send + Sync + 'st
     ) -> Poll<Result<usize>>;
 
     /// Recv a packet from the socket
-    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize>;
+    fn try_recv<'a>(&mut self, buf: &'a mut [MaybeUninit<u8>]) -> Result<usize>;
 }
 
 /// Connectionless sockets are able to send and receive datagrams and stream
@@ -300,7 +300,7 @@ pub trait VirtualConnectionlessSocket: VirtualSocket + fmt::Debug + Send + Sync 
     ) -> Poll<Result<(usize, SocketAddr)>>;
 
     /// Recv a packet from the socket
-    fn try_recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)>;
+    fn try_recv_from<'a>(&mut self, buf: &'a mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)>;
 }
 
 /// ICMP sockets are low level devices bound to a specific address
@@ -333,7 +333,7 @@ pub trait VirtualRawSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
     ) -> Poll<Result<usize>>;
 
     /// Recv a packet from the socket
-    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize>;
+    fn try_recv<'a>(&mut self, buf: &'a mut [MaybeUninit<u8>]) -> Result<usize>;
 
     /// Tells the raw socket and its backing switch that all packets
     /// should be received by this socket even if they are not
@@ -477,6 +477,9 @@ pub enum NetworkError {
     /// A pipe was closed
     #[error("broken pipe (was closed)")]
     BrokenPipe,
+    /// Insufficient memory
+    #[error("Insufficient memory")]
+    InsufficientMemory,
     /// The connection was aborted
     #[error("connection aborted")]
     ConnectionAborted,
@@ -516,6 +519,9 @@ pub enum NetworkError {
     /// A call to write returned 0
     #[error("write returned 0")]
     WriteZero,
+    /// Too many open files
+    #[error("too many open files")]
+    TooManyOpenFiles,
     /// The operation is not supported.
     #[error("unsupported")]
     Unsupported,
@@ -525,6 +531,7 @@ pub enum NetworkError {
 }
 
 pub fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
+    use std::io::Error;
     use std::io::ErrorKind;
     match net_error {
         NetworkError::InvalidFd => ErrorKind::BrokenPipe.into(),
@@ -547,6 +554,8 @@ pub fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
         NetworkError::UnexpectedEof => ErrorKind::UnexpectedEof.into(),
         NetworkError::WouldBlock => ErrorKind::WouldBlock.into(),
         NetworkError::WriteZero => ErrorKind::WriteZero.into(),
+        NetworkError::TooManyOpenFiles => Error::from_raw_os_error(libc::EMFILE),
+        NetworkError::InsufficientMemory => Error::from_raw_os_error(libc::ENOMEM),
         NetworkError::Unsupported => ErrorKind::Unsupported.into(),
         NetworkError::UnknownError => ErrorKind::BrokenPipe.into(),
     }
@@ -572,6 +581,30 @@ pub fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
         ErrorKind::WouldBlock => NetworkError::WouldBlock,
         ErrorKind::WriteZero => NetworkError::WriteZero,
         ErrorKind::Unsupported => NetworkError::Unsupported,
-        _ => NetworkError::UnknownError,
+        _ => {
+            if let Some(code) = net_error.raw_os_error() {
+                match code {
+                    libc::EPERM => NetworkError::PermissionDenied,
+                    libc::EBADF => NetworkError::InvalidFd,
+                    libc::ECHILD => NetworkError::InvalidFd,
+                    libc::EMFILE => NetworkError::TooManyOpenFiles,
+                    libc::EINTR => NetworkError::Interrupted,
+                    libc::EIO => NetworkError::IOError,
+                    libc::ENXIO => NetworkError::IOError,
+                    libc::EAGAIN => NetworkError::WouldBlock,
+                    libc::ENOMEM => NetworkError::InsufficientMemory,
+                    libc::EACCES => NetworkError::PermissionDenied,
+                    libc::ENODEV => NetworkError::NoDevice,
+                    libc::EINVAL => NetworkError::InvalidInput,
+                    libc::EPIPE => NetworkError::BrokenPipe,
+                    err => {
+                        tracing::trace!("unknown os error {}", err);
+                        NetworkError::UnknownError
+                    }
+                }
+            } else {
+                NetworkError::UnknownError
+            }
+        }
     }
 }

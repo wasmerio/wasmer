@@ -2,9 +2,8 @@
 
 use std::{
     collections::HashMap,
-    ops::{Deref, DerefMut},
     path::{Path, PathBuf},
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
 
 use rand::Rng;
@@ -53,7 +52,7 @@ pub struct WasiEnvBuilder {
     pub(super) compiled_modules: Option<Arc<ModuleCache>>,
     #[allow(clippy::type_complexity)]
     pub(super) setup_fs_fn:
-        Option<Box<dyn Fn(&mut WasiInodes, &mut WasiFs) -> Result<(), String> + Send>>,
+        Option<Box<dyn Fn(&WasiInodes, &mut WasiFs) -> Result<(), String> + Send>>,
     pub(super) stdout: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     pub(super) stderr: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     pub(super) stdin: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
@@ -121,7 +120,7 @@ fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> 
     Ok(())
 }
 
-pub type SetupFsFn = Box<dyn Fn(&mut WasiInodes, &mut WasiFs) -> Result<(), String> + Send>;
+pub type SetupFsFn = Box<dyn Fn(&WasiInodes, &mut WasiFs) -> Result<(), String> + Send>;
 
 // TODO add other WasiFS APIs here like swapping out stdout, for example (though we need to
 // return stdout somehow, it's unclear what that API should look like)
@@ -619,43 +618,35 @@ impl WasiEnvBuilder {
             .unwrap_or_else(|| WasiFsRoot::Sandbox(Arc::new(TmpFileSystem::new())));
 
         // self.preopens are checked in [`PreopenDirBuilder::build`]
-        let inodes = RwLock::new(crate::state::WasiInodes::new());
+        let inodes = crate::state::WasiInodes::new();
         let wasi_fs = {
-            let mut inodes = inodes.write().unwrap();
-
             // self.preopens are checked in [`PreopenDirBuilder::build`]
-            let mut wasi_fs = WasiFs::new_with_preopen(
-                inodes.deref_mut(),
-                &self.preopens,
-                &self.vfs_preopens,
-                fs_backing,
-            )
-            .map_err(WasiStateCreationError::WasiFsCreationError)?;
+            let mut wasi_fs =
+                WasiFs::new_with_preopen(&inodes, &self.preopens, &self.vfs_preopens, fs_backing)
+                    .map_err(WasiStateCreationError::WasiFsCreationError)?;
 
             // set up the file system, overriding base files and calling the setup function
             wasi_fs
-                .swap_file(inodes.deref(), __WASI_STDIN_FILENO, stdin)
+                .swap_file(__WASI_STDIN_FILENO, stdin)
                 .map_err(WasiStateCreationError::FileSystemError)?;
 
             if let Some(stdout_override) = self.stdout.take() {
                 wasi_fs
-                    .swap_file(inodes.deref(), __WASI_STDOUT_FILENO, stdout_override)
+                    .swap_file(__WASI_STDOUT_FILENO, stdout_override)
                     .map_err(WasiStateCreationError::FileSystemError)?;
             }
 
             if let Some(stderr_override) = self.stderr.take() {
                 wasi_fs
-                    .swap_file(inodes.deref(), __WASI_STDERR_FILENO, stderr_override)
+                    .swap_file(__WASI_STDERR_FILENO, stderr_override)
                     .map_err(WasiStateCreationError::FileSystemError)?;
             }
 
             if let Some(f) = &self.setup_fs_fn {
-                f(inodes.deref_mut(), &mut wasi_fs)
-                    .map_err(WasiStateCreationError::WasiFsSetupError)?;
+                f(&inodes, &mut wasi_fs).map_err(WasiStateCreationError::WasiFsSetupError)?;
             }
             wasi_fs
         };
-        let inodes = Arc::new(inodes);
 
         let envs = self
             .envs

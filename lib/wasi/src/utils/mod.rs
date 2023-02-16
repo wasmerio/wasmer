@@ -1,3 +1,4 @@
+mod owned_mutex_guard;
 pub mod store;
 mod thread_parker;
 
@@ -10,6 +11,9 @@ use wasmer::Module;
 use wasmer_wasi_types::wasi::Errno;
 
 pub use self::thread_parker::WasiParkingLot;
+pub(crate) use owned_mutex_guard::{
+    read_owned, write_owned, OwnedRwLockReadGuard, OwnedRwLockWriteGuard,
+};
 
 /// Check if a provided module is compiled for some version of WASI.
 /// Use [`get_wasi_version`] to find out which version of WASI the module is.

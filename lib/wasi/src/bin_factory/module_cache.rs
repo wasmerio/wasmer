@@ -251,7 +251,6 @@ impl ModuleCache {
 mod tests {
     use std::time::Duration;
 
-    use lazy_static::__Deref;
     use tracing_subscriber::{
         filter, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
     };
@@ -279,10 +278,12 @@ mod tests {
         let mut store = Vec::new();
         for _ in 0..2 {
             let webc = cache
-                .get_webc("sharrattj/dash", &rt, tasks.deref())
+                .get_webc("sharrattj/dash", &rt, std::ops::Deref::deref(tasks))
                 .unwrap();
             store.push(webc);
-            tasks.block_on(tasks.sleep_now(Duration::from_secs(1)));
+            tasks
+                .runtime()
+                .block_on(tasks.sleep_now(Duration::from_secs(1)));
         }
     }
 }

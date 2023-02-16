@@ -386,6 +386,8 @@ pub fn net_error_into_wasi_err(net_error: NetworkError) -> Errno {
         NetworkError::UnexpectedEof => Errno::Proto,
         NetworkError::WouldBlock => Errno::Again,
         NetworkError::WriteZero => Errno::Nospc,
+        NetworkError::TooManyOpenFiles => Errno::Mfile,
+        NetworkError::InsufficientMemory => Errno::Nomem,
         NetworkError::Unsupported => Errno::Notsup,
         NetworkError::UnknownError => Errno::Io,
     }

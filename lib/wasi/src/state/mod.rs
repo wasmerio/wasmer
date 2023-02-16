@@ -32,7 +32,6 @@ use std::{
 
 use crate::vbus::VirtualBusInvocation;
 use derivative::Derivative;
-pub use generational_arena::Index as Inode;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasmer::Store;
@@ -46,6 +45,7 @@ pub use self::{
     func_env::WasiFunctionEnv,
     types::*,
 };
+pub use crate::fs::{InodeGuard, InodeWeakGuard};
 use crate::{
     fs::{fs_error_into_wasi_err, WasiFs, WasiFsRoot, WasiInodes, WasiStateFileGuard},
     os::task::process::WasiProcessId,
@@ -158,7 +158,7 @@ pub(crate) struct WasiState {
     pub secret: [u8; 32],
 
     pub fs: WasiFs,
-    pub inodes: Arc<RwLock<WasiInodes>>,
+    pub inodes: WasiInodes,
     pub threading: RwLock<WasiStateThreading>,
     pub futexs: Mutex<HashMap<u64, WasiFutex>>,
     pub clock_offset: Mutex<HashMap<Snapshot0Clockid, i64>>,
@@ -275,9 +275,9 @@ impl WasiState {
     }
 
     /// Forking the WasiState is used when either fork or vfork is called
-    pub fn fork(&self, inc_refs: bool) -> Self {
+    pub fn fork(&self) -> Self {
         WasiState {
-            fs: self.fs.fork(inc_refs),
+            fs: self.fs.fork(),
             secret: self.secret,
             inodes: self.inodes.clone(),
             threading: Default::default(),

@@ -246,6 +246,8 @@ pub enum Errno {
     Xdev,
     #[doc = " Extension: Capabilities insufficient."]
     Notcapable,
+    #[doc = " Cannot send after socket shutdown."]
+    Shutdown,
 }
 impl Errno {
     pub fn name(&self) -> &'static str {
@@ -327,6 +329,7 @@ impl Errno {
             Errno::Txtbsy => "txtbsy",
             Errno::Xdev => "xdev",
             Errno::Notcapable => "notcapable",
+            Errno::Shutdown => "shutdown",
         }
     }
     pub fn message(&self) -> &'static str {
@@ -408,6 +411,7 @@ impl Errno {
             Errno::Txtbsy => "Text file busy.",
             Errno::Xdev => "Cross-device link.",
             Errno::Notcapable => "Extension: Capabilities insufficient.",
+            Errno::Shutdown => "Cannot send after socket shutdown.",
         }
     }
 }

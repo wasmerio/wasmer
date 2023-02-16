@@ -30,7 +30,7 @@ pub fn path_rename<M: MemorySize>(
         old_fd, new_fd
     );
     let env = ctx.data();
-    let (memory, mut state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
+    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
     let mut source_str = unsafe { get_input_str!(&memory, old_path, old_path_len) };
     source_str = ctx.data().state.fs.relative_path_to_absolute(source_str);
     let source_path = std::path::Path::new(&source_str);
@@ -52,29 +52,27 @@ pub fn path_rename<M: MemorySize>(
 
     // this is to be sure the source file is fetch from filesystem if needed
     wasi_try!(state.fs.get_inode_at_path(
-        inodes.deref_mut(),
+        inodes,
         old_fd,
         source_path.to_str().as_ref().unwrap(),
         true
     ));
     // Create the destination inode if the file exists.
-    let _ = state.fs.get_inode_at_path(
-        inodes.deref_mut(),
-        new_fd,
-        target_path.to_str().as_ref().unwrap(),
-        true,
-    );
+    let _ =
+        state
+            .fs
+            .get_inode_at_path(inodes, new_fd, target_path.to_str().as_ref().unwrap(), true);
     let (source_parent_inode, source_entry_name) =
         wasi_try!(state
             .fs
-            .get_parent_inode_at_path(inodes.deref_mut(), old_fd, source_path, true));
+            .get_parent_inode_at_path(inodes, old_fd, source_path, true));
     let (target_parent_inode, target_entry_name) =
         wasi_try!(state
             .fs
-            .get_parent_inode_at_path(inodes.deref_mut(), new_fd, target_path, true));
+            .get_parent_inode_at_path(inodes, new_fd, target_path, true));
     let mut need_create = true;
     let host_adjusted_target_path = {
-        let guard = inodes.arena[target_parent_inode].read();
+        let guard = target_parent_inode.read();
         match guard.deref() {
             Kind::Dir { entries, path, .. } => {
                 if entries.contains_key(&target_entry_name) {
@@ -96,7 +94,7 @@ pub fn path_rename<M: MemorySize>(
     };
 
     let source_entry = {
-        let mut guard = inodes.arena[source_parent_inode].write();
+        let mut guard = source_parent_inode.write();
         match guard.deref_mut() {
             Kind::Dir { entries, .. } => {
                 wasi_try!(entries.remove(&source_entry_name).ok_or(Errno::Noent))
@@ -113,7 +111,7 @@ pub fn path_rename<M: MemorySize>(
     };
 
     {
-        let mut guard = inodes.arena[source_entry].write();
+        let mut guard = source_entry.write();
         match guard.deref_mut() {
             Kind::File {
                 handle, ref path, ..
@@ -131,7 +129,7 @@ pub fn path_rename<M: MemorySize>(
                     drop(guard);
                     let out = state.fs_rename(&path_clone, &host_adjusted_target_path);
                     {
-                        let mut guard = inodes.arena[source_entry].write();
+                        let mut guard = source_entry.write();
                         if let Kind::File { ref mut path, .. } = guard.deref_mut() {
                             *path = host_adjusted_target_path;
                         } else {
@@ -142,7 +140,7 @@ pub fn path_rename<M: MemorySize>(
                 };
                 // if the above operation failed we have to revert the previous change and then fail
                 if let Err(e) = result {
-                    let mut guard = inodes.arena[source_parent_inode].write();
+                    let mut guard = source_parent_inode.write();
                     if let Kind::Dir { entries, .. } = guard.deref_mut() {
                         entries.insert(source_entry_name, source_entry);
                         return e;
@@ -156,7 +154,7 @@ pub fn path_rename<M: MemorySize>(
                 }
                 {
                     drop(guard);
-                    let mut guard = inodes.arena[source_entry].write();
+                    let mut guard = source_entry.write();
                     if let Kind::Dir { path, .. } = guard.deref_mut() {
                         *path = host_adjusted_target_path;
                     }
@@ -172,7 +170,7 @@ pub fn path_rename<M: MemorySize>(
     }
 
     if need_create {
-        let mut guard = inodes.arena[target_parent_inode].write();
+        let mut guard = target_parent_inode.write();
         if let Kind::Dir { entries, .. } = guard.deref_mut() {
             let result = entries.insert(target_entry_name, source_entry);
             assert!(

@@ -47,7 +47,7 @@ pub fn sock_accept<M: MemorySize>(
     ));
 
     let env = ctx.data();
-    let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
+    let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
     let kind = Kind::Socket {
         socket: InodeSocket::new(InodeSocketKind::TcpStream {
@@ -56,10 +56,14 @@ pub fn sock_accept<M: MemorySize>(
             read_timeout: None,
         }),
     };
-    let inode =
-        state
-            .fs
-            .create_inode_with_default_stat(inodes.deref_mut(), kind, false, "socket".into());
+    let inode = state
+        .fs
+        .create_inode_with_default_stat(inodes, kind, false, "socket".into());
+
+    let mut new_flags = Fdflags::empty();
+    if fd_flags.contains(Fdflags::NONBLOCK) {
+        new_flags.set(Fdflags::NONBLOCK, true);
+    }
 
     let mut new_flags = Fdflags::empty();
     if fd_flags.contains(Fdflags::NONBLOCK) {

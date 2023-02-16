@@ -1,15 +1,5 @@
-use std::{
-    collections::HashMap,
-    ops::Deref,
-    path::PathBuf,
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
-};
+use std::{collections::HashMap, ops::Deref, path::PathBuf, sync::Arc};
 
-use crate::{
-    bin_factory::ModuleCache, fs::WasiFsRoot, import_object_for_all_wasi_versions,
-    runtime::SpawnType, SpawnedMemory, WasiControlPlane, WasiEnvBuilder, WasiFunctionEnv,
-    WasiRuntimeError,
-};
 use derivative::Derivative;
 use rand::Rng;
 use tracing::{trace, warn};
@@ -21,12 +11,13 @@ use wasmer_vfs::{FsError, VirtualFile};
 use wasmer_vnet::DynVirtualNetworking;
 use wasmer_wasi_types::{
     types::Signal,
-    wasi::{Errno, ExitCode, Fd as WasiFd, Snapshot0Clockid},
+    wasi::{Errno, ExitCode, Snapshot0Clockid},
 };
 
 use crate::{
-    bin_factory::BinFactory,
-    fs::WasiInodes,
+    bin_factory::{BinFactory, ModuleCache},
+    fs::{WasiFsRoot, WasiInodes},
+    import_object_for_all_wasi_versions,
     os::{
         command::builtins::cmd_wasmer::CmdWasmer,
         task::{
@@ -35,8 +26,10 @@ use crate::{
             thread::{WasiThread, WasiThreadHandle, WasiThreadId},
         },
     },
+    runtime::SpawnType,
     syscalls::platform_clock_time_get,
-    VirtualTaskManager, WasiError, WasiRuntime, WasiStateCreationError, WasiVFork,
+    SpawnedMemory, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError,
+    WasiFunctionEnv, WasiRuntime, WasiRuntimeError, WasiStateCreationError, WasiVFork,
     DEFAULT_STACK_SIZE,
 };
 
@@ -242,7 +235,7 @@ impl WasiEnvInit {
         Self {
             state: WasiState {
                 secret: rand::thread_rng().gen::<[u8; 32]>(),
-                inodes: Arc::new(RwLock::new(inodes)),
+                inodes,
                 fs,
                 threading: Default::default(),
                 futexs: Default::default(),
@@ -281,6 +274,8 @@ pub struct WasiEnv {
     pub stack_base: u64,
     /// Start of the stack memory that is allocated for this thread
     pub stack_start: u64,
+    /// Seed used to rotate around the events returned by `poll_oneoff`
+    pub poll_seed: u64,
     /// Shared state of the WASI system. Manages all the data that the
     /// executing WASI program can see.
     pub(crate) state: Arc<WasiState>,
@@ -322,6 +317,7 @@ impl WasiEnv {
     pub(crate) fn duplicate(&self) -> Self {
         Self {
             process: self.process.clone(),
+            poll_seed: self.poll_seed,
             thread: self.thread.clone(),
             vfork: self.vfork.as_ref().map(|v| v.duplicate()),
             stack_base: self.stack_base,
@@ -344,7 +340,7 @@ impl WasiEnv {
         let thread = handle.as_thread();
         thread.copy_stack_from(&self.thread);
 
-        let state = Arc::new(self.state.fork(true));
+        let state = Arc::new(self.state.fork());
 
         let bin_factory = self.bin_factory.clone();
 
@@ -352,6 +348,7 @@ impl WasiEnv {
             process,
             thread,
             vfork: None,
+            poll_seed: 0,
             stack_base: self.stack_base,
             stack_start: self.stack_start,
             bin_factory,
@@ -389,6 +386,7 @@ impl WasiEnv {
             process,
             thread: thread.as_thread(),
             vfork: None,
+            poll_seed: 0,
             stack_base: DEFAULT_STACK_SIZE,
             stack_start: 0,
             state: Arc::new(init.state),
@@ -726,7 +724,7 @@ impl WasiEnv {
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
     pub fn std_dev_get(
         &self,
-        fd: WasiFd,
+        fd: crate::syscalls::WasiFd,
     ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
         self.state.std_dev_get(fd)
     }
@@ -745,21 +743,10 @@ impl WasiEnv {
         &'a self,
         store: &'a impl AsStoreRef,
         _mem_index: u32,
-    ) -> (MemoryView<'a>, &WasiState, RwLockReadGuard<WasiInodes>) {
+    ) -> (MemoryView<'a>, &WasiState, &WasiInodes) {
         let memory = self.memory_view(store);
         let state = self.state.deref();
-        let inodes = state.inodes.read().unwrap();
-        (memory, state, inodes)
-    }
-
-    pub(crate) fn get_memory_and_wasi_state_and_inodes_mut<'a>(
-        &'a self,
-        store: &'a impl AsStoreRef,
-        _mem_index: u32,
-    ) -> (MemoryView<'a>, &WasiState, RwLockWriteGuard<WasiInodes>) {
-        let memory = self.memory_view(store);
-        let state = self.state.deref();
-        let inodes = state.inodes.write().unwrap();
+        let inodes = &state.inodes;
         (memory, state, inodes)
     }
 
@@ -903,9 +890,7 @@ impl WasiEnv {
         // If this is the main thread then also close all the files
         if self.thread.is_main() {
             trace!("wasi[{}]:: cleaning up open file handles", self.pid());
-
-            let inodes = self.state.inodes.read().unwrap();
-            self.state.fs.close_all(inodes.deref());
+            self.state.fs.close_all();
 
             // Now send a signal that the thread is terminated
             self.process.signal_process(Signal::Sigquit);

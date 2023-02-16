@@ -12,11 +12,9 @@ pub fn getcwd<M: MemorySize>(
 ) -> Errno {
     debug!("wasi[{}:{}]::getcwd", ctx.data().pid(), ctx.data().tid());
     let env = ctx.data();
-    let (memory, mut state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
+    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
-    let (_, cur_dir) = wasi_try!(state
-        .fs
-        .get_current_dir(inodes.deref_mut(), crate::VIRTUAL_ROOT_FD,));
+    let (_, cur_dir) = wasi_try!(state.fs.get_current_dir(inodes, crate::VIRTUAL_ROOT_FD,));
     trace!(
         "wasi[{}:{}]::getcwd(current_dir={})",
         ctx.data().pid(),

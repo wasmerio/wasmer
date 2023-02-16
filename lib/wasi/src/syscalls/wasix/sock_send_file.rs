@@ -1,7 +1,7 @@
 use wasmer_vfs::AsyncReadExt;
 
 use super::*;
-use crate::syscalls::*;
+use crate::{syscalls::*, WasiInodes};
 
 /// ### `sock_send_file()`
 /// Sends the entire contents of a file down a socket
@@ -56,13 +56,11 @@ pub fn sock_send_file<M: MemorySize>(
             let fd_flags = fd_entry.flags;
 
             let data = {
-                let inodes = env.state.inodes.clone();
                 match in_fd {
                     __WASI_STDIN_FILENO => {
-                        let inodes = inodes.read().unwrap();
-                        let mut stdin = wasi_try_ok!(inodes
-                            .stdin_mut(&state.fs.fd_map)
-                            .map_err(fs_error_into_wasi_err));
+                        let mut stdin =
+                            wasi_try_ok!(WasiInodes::stdin_mut(&state.fs.fd_map)
+                                .map_err(fs_error_into_wasi_err));
                         let data = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
                             // TODO: optimize with MaybeUninit
                             let mut buf = vec![0u8; sub_count as usize];
@@ -81,10 +79,7 @@ pub fn sock_send_file<M: MemorySize>(
                         }
 
                         let offset = fd_entry.offset.load(Ordering::Acquire) as usize;
-                        let inode_idx = fd_entry.inode;
-                        let inodes = inodes.read().unwrap();
-                        let inode = &inodes.arena[inode_idx];
-
+                        let inode = fd_entry.inode;
                         let data = {
                             let mut guard = inode.write();
                             match guard.deref_mut() {
@@ -116,7 +111,6 @@ pub fn sock_send_file<M: MemorySize>(
                                     let socket = socket.clone();
                                     let tasks = tasks.clone();
                                     drop(guard);
-                                    drop(inodes);
 
                                     let data = wasi_try_ok!(__asyncify(&mut ctx, None, async {
                                         let mut buf = Vec::with_capacity(sub_count as usize);

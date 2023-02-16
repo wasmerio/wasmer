@@ -11,6 +11,6 @@ use wasmer_wasi::fs::WasiFs;
 use wasmer_wasi::fs::WasiInodes;
 
 #[cfg(not(feature = "link_external_libs"))]
-pub fn initialize(_: &mut WasiInodes, _: &mut WasiFs) -> Result<(), String> {
+pub fn initialize(_: &WasiInodes, _: &mut WasiFs) -> Result<(), String> {
     Err("wasi-experimental-io-devices has to be compiled with --features=\"link_external_libs\" (not enabled by default) for graphics I/O to work".to_string())
 }

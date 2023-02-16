@@ -57,12 +57,8 @@ pub fn proc_exec<M: MemorySize>(
 
     // Get the current working directory
     let (_, cur_dir) = {
-        let (memory, state, mut inodes) =
-            ctx.data().get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
-        match state
-            .fs
-            .get_current_dir(inodes.deref_mut(), crate::VIRTUAL_ROOT_FD)
-        {
+        let (memory, state, inodes) = ctx.data().get_memory_and_wasi_state_and_inodes(&ctx, 0);
+        match state.fs.get_current_dir(inodes, crate::VIRTUAL_ROOT_FD) {
             Ok(a) => a,
             Err(err) => {
                 warn!("failed to create subprocess for fork - {}", err);

@@ -32,7 +32,7 @@ pub fn path_readlink<M: MemorySize>(
         ctx.data().tid()
     );
     let env = ctx.data();
-    let (memory, mut state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
+    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
     let base_dir = wasi_try!(state.fs.get_fd(dir_fd));
     if !base_dir.rights.contains(Rights::PATH_READLINK) {
@@ -51,12 +51,10 @@ pub fn path_readlink<M: MemorySize>(
         );
     }
 
-    let inode = wasi_try!(state
-        .fs
-        .get_inode_at_path(inodes.deref_mut(), dir_fd, &path_str, false));
+    let inode = wasi_try!(state.fs.get_inode_at_path(inodes, dir_fd, &path_str, false));
 
     {
-        let guard = inodes.arena[inode].read();
+        let guard = inode.read();
         if let Kind::Symlink { relative_path, .. } = guard.deref() {
             let rel_path_str = relative_path.to_string_lossy();
             debug!("Result => {:?}", rel_path_str);

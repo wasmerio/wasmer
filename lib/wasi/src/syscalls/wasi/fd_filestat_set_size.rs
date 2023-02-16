@@ -19,7 +19,7 @@ pub fn fd_filestat_set_size(
         ctx.data().tid()
     );
     let env = ctx.data();
-    let (_, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (_, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
     let fd_entry = wasi_try!(state.fs.get_fd(fd));
     let inode = fd_entry.inode;
 
@@ -28,7 +28,7 @@ pub fn fd_filestat_set_size(
     }
 
     {
-        let mut guard = inodes.arena[inode].write();
+        let mut guard = inode.write();
         match guard.deref_mut() {
             Kind::File { handle, .. } => {
                 if let Some(handle) = handle {
@@ -48,7 +48,7 @@ pub fn fd_filestat_set_size(
             Kind::Dir { .. } | Kind::Root { .. } => return Errno::Isdir,
         }
     }
-    inodes.arena[inode].stat.write().unwrap().st_size = st_size;
+    inode.stat.write().unwrap().st_size = st_size;
 
     Errno::Success
 }

@@ -5,17 +5,12 @@ pub mod tokio;
 use std::{pin::Pin, time::Duration};
 
 use ::tokio::runtime::Handle;
-
 use futures::Future;
 use wasmer::MemoryType;
 
 #[cfg(feature = "sys")]
 use wasmer_types::MemoryStyle;
-
-#[cfg(feature = "sys")]
-use wasmer::vm::VMMemory;
-#[cfg(feature = "js")]
-use wasmer::VMMemory;
+use wasmer_vm::VMMemory;
 
 use crate::os::task::thread::WasiThreadError;
 

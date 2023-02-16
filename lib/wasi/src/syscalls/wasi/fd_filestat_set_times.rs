@@ -23,7 +23,7 @@ pub fn fd_filestat_set_times(
         ctx.data().tid()
     );
     let env = ctx.data();
-    let (_, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (_, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
     let fd_entry = wasi_try!(state.fs.get_fd(fd));
 
     if !fd_entry.rights.contains(Rights::FD_FILESTAT_SET_TIMES) {
@@ -36,8 +36,7 @@ pub fn fd_filestat_set_times(
         return Errno::Inval;
     }
 
-    let inode_idx = fd_entry.inode;
-    let inode = &inodes.arena[inode_idx];
+    let inode = fd_entry.inode;
 
     if fst_flags.contains(Fstflags::SET_ATIM) || fst_flags.contains(Fstflags::SET_ATIM_NOW) {
         let time_to_set = if fst_flags.contains(Fstflags::SET_ATIM) {

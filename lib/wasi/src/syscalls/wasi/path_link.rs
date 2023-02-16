@@ -33,7 +33,7 @@ pub fn path_link<M: MemorySize>(
         debug!("  - will follow symlinks when opening path");
     }
     let env = ctx.data();
-    let (memory, mut state, mut inodes) = env.get_memory_and_wasi_state_and_inodes_mut(&ctx, 0);
+    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
     let mut old_path_str = unsafe { get_input_str!(&memory, old_path, old_path_len) };
     let mut new_path_str = unsafe { get_input_str!(&memory, new_path, new_path_len) };
     let source_fd = wasi_try!(state.fs.get_fd(old_fd));
@@ -54,30 +54,28 @@ pub fn path_link<M: MemorySize>(
     new_path_str = ctx.data().state.fs.relative_path_to_absolute(new_path_str);
 
     let source_inode = wasi_try!(state.fs.get_inode_at_path(
-        inodes.deref_mut(),
+        inodes,
         old_fd,
         &old_path_str,
         old_flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     ));
     let target_path_arg = std::path::PathBuf::from(&new_path_str);
-    let (target_parent_inode, new_entry_name) = wasi_try!(state.fs.get_parent_inode_at_path(
-        inodes.deref_mut(),
-        new_fd,
-        &target_path_arg,
-        false
-    ));
+    let (target_parent_inode, new_entry_name) =
+        wasi_try!(state
+            .fs
+            .get_parent_inode_at_path(inodes, new_fd, &target_path_arg, false));
 
-    if inodes.arena[source_inode].stat.write().unwrap().st_nlink == Linkcount::max_value() {
+    if source_inode.stat.write().unwrap().st_nlink == Linkcount::max_value() {
         return Errno::Mlink;
     }
     {
-        let mut guard = inodes.arena[target_parent_inode].write();
+        let mut guard = target_parent_inode.write();
         match guard.deref_mut() {
             Kind::Dir { entries, .. } => {
                 if entries.contains_key(&new_entry_name) {
                     return Errno::Exist;
                 }
-                entries.insert(new_entry_name, source_inode);
+                entries.insert(new_entry_name, source_inode.clone());
             }
             Kind::Root { .. } => return Errno::Inval,
             Kind::File { .. }
@@ -88,7 +86,7 @@ pub fn path_link<M: MemorySize>(
             | Kind::EventNotifications { .. } => return Errno::Notdir,
         }
     }
-    inodes.arena[source_inode].stat.write().unwrap().st_nlink += 1;
+    source_inode.stat.write().unwrap().st_nlink += 1;
 
     Errno::Success
 }

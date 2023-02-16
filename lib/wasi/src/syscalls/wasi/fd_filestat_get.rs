@@ -42,7 +42,7 @@ pub(crate) fn fd_filestat_get_internal<M: MemorySize>(
         return Errno::Access;
     }
 
-    let stat = wasi_try!(state.fs.filestat_fd(inodes.deref(), fd));
+    let stat = wasi_try!(state.fs.filestat_fd(fd));
 
     let buf = buf.deref(&memory);
     wasi_try_mem!(buf.write(stat));

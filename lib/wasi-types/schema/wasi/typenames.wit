@@ -245,6 +245,8 @@ enum errno {
     xdev,
     /// Extension: Capabilities insufficient.
     notcapable,
+    /// Cannot send after socket shutdown.
+    shutdown,
 }
 
 enum bus-errno {

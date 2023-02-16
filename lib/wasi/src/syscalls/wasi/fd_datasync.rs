@@ -19,17 +19,8 @@ pub fn fd_datasync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<E
         return Ok(Errno::Access);
     }
 
-    // TODO: remove allow once inodes are refactored (see comments on [`WasiState`])
     #[allow(clippy::await_holding_lock)]
-    {
-        let inodes = state.inodes.clone();
-        Ok(wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-            let inodes = inodes.read().unwrap();
-            state
-                .fs
-                .flush(inodes.deref(), fd)
-                .await
-                .map(|_| Errno::Success)
-        })?))
-    }
+    Ok(wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+        state.fs.flush(fd).await.map(|_| Errno::Success)
+    })?))
 }
