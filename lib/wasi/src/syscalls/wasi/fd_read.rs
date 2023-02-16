@@ -358,7 +358,7 @@ fn fd_read_internal<M: MemorySize>(
                             if self.non_blocking {
                                 Poll::Ready(self.inner.try_read().ok_or(Errno::Again))
                             } else {
-                                self.inner.read(cx.waker()).map(|a| Ok(a))
+                                self.inner.read(cx.waker()).map(Ok)
                             }
                         }
                     }

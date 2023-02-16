@@ -111,14 +111,10 @@ impl InodeWeakGuard {
         self.ino
     }
     pub fn upgrade(&self) -> Option<InodeGuard> {
-        if let Some(inner) = Weak::upgrade(&self.inner) {
-            Some(InodeGuard {
+        Weak::upgrade(&self.inner).map(|inner| InodeGuard {
                 ino: self.ino,
                 inner,
             })
-        } else {
-            None
-        }
     }
 }
 
@@ -1337,7 +1333,7 @@ impl WasiFs {
     pub fn filestat_fd(&self, fd: WasiFd) -> Result<Filestat, Errno> {
         let inode = self.get_fd_inode(fd)?;
         let guard = inode.stat.read().unwrap();
-        Ok(guard.deref().clone())
+        Ok(*guard.deref())
     }
 
     pub fn fdstat(&self, fd: WasiFd) -> Result<Fdstat, Errno> {

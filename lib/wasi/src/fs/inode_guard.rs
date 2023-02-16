@@ -176,7 +176,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         }
                     };
                     if is_closed {
-                        replace(&mut guard.notifications.closed, true) == false
+                        !replace(&mut guard.notifications.closed, true)
                     } else {
                         false
                     }
@@ -212,7 +212,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                     file.poll_read_ready(cx)
                 }
                 InodeValFilePollGuardMode::EventNotifications(inner) => {
-                    inner.poll(waker).map(|a| Ok(a))
+                    inner.poll(waker).map(Ok)
                 }
                 InodeValFilePollGuardMode::Socket { ref inner } => {
                     let mut guard = inner.protected.write().unwrap();
@@ -220,7 +220,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                     match res {
                         Poll::Ready(Err(err)) if is_err_closed(&err) => {
                             tracing::trace!("socket read ready error (fd={}) - {}", fd, err);
-                            if replace(&mut guard.notifications.closed, true) == false {
+                            if !replace(&mut guard.notifications.closed, true) {
                                 Poll::Ready(Ok(0))
                             } else {
                                 Poll::Pending
@@ -228,7 +228,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         }
                         Poll::Ready(Err(err)) => {
                             tracing::debug!("poll socket error - {}", err);
-                            if replace(&mut guard.notifications.failed, true) == false {
+                            if !replace(&mut guard.notifications.failed, true) {
                                 Poll::Ready(Ok(0))
                             } else {
                                 Poll::Pending
@@ -300,7 +300,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                     file.poll_write_ready(cx)
                 }
                 InodeValFilePollGuardMode::EventNotifications(inner) => {
-                    inner.poll(waker).map(|a| Ok(a))
+                    inner.poll(waker).map(Ok)
                 }
                 InodeValFilePollGuardMode::Socket { ref inner } => {
                     let mut guard = inner.protected.write().unwrap();
@@ -308,7 +308,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                     match res {
                         Poll::Ready(Err(err)) if is_err_closed(&err) => {
                             tracing::trace!("socket write ready error (fd={}) - {}", fd, err);
-                            if replace(&mut guard.notifications.closed, true) == false {
+                            if !replace(&mut guard.notifications.closed, true) {
                                 Poll::Ready(Ok(0))
                             } else {
                                 Poll::Pending
@@ -316,7 +316,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         }
                         Poll::Ready(Err(err)) => {
                             tracing::debug!("poll socket error - {}", err);
-                            if replace(&mut guard.notifications.failed, true) == false {
+                            if !replace(&mut guard.notifications.failed, true) {
                                 Poll::Ready(Ok(0))
                             } else {
                                 Poll::Pending
@@ -381,7 +381,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
             };
         }
 
-        if ret.len() > 0 {
+        if !ret.is_empty() {
             return Poll::Ready(ret);
         }
         Poll::Pending

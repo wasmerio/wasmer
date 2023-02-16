@@ -34,7 +34,7 @@ impl NotificationState {
     }
 
     fn inc(&mut self, val: u64) {
-        self.counter = self.counter + val;
+        self.counter += val;
         self.wake_all();
     }
 
@@ -42,7 +42,7 @@ impl NotificationState {
         let val = self.counter;
         if self.is_semaphore {
             if self.counter > 0 {
-                self.counter = self.counter - 1;
+                self.counter -= 1;
                 if self.counter > 0 {
                     self.wake_all();
                 }

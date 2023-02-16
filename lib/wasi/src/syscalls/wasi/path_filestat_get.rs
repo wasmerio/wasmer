@@ -96,7 +96,7 @@ pub(crate) fn path_filestat_get_internal(
         flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     )?;
     if file_inode.is_preopened {
-        Ok(file_inode.stat.read().unwrap().deref().clone())
+        Ok(*file_inode.stat.read().unwrap().deref())
     } else {
         let guard = file_inode.read();
         state.fs.get_stat_for_kind(guard.deref())

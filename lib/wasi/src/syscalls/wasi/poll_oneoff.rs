@@ -185,7 +185,7 @@ pub(crate) fn poll_oneoff_internal(
                     }
                 }
                 *fd = Some(file_descriptor);
-                *peb = *peb | (PollEvent::PollIn as PollEventSet);
+                *peb |= (PollEvent::PollIn as PollEventSet);
                 file_descriptor
             }
             Eventtype::FdWrite => {
@@ -203,7 +203,7 @@ pub(crate) fn poll_oneoff_internal(
                     }
                 }
                 *fd = Some(file_descriptor);
-                *peb = *peb | (PollEvent::PollOut as PollEventSet);
+                *peb |= (PollEvent::PollOut as PollEventSet);
                 file_descriptor
             }
             Eventtype::Clock => {

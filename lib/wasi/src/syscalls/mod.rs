@@ -567,7 +567,7 @@ where
             actor(socket, fd_entry)
         }
         _ => {
-            return Err(Errno::Notsock);
+            Err(Errno::Notsock)
         }
     }
 }
@@ -635,7 +635,7 @@ where
 
     let tasks = env.tasks().clone();
     {
-        let inode = fd_entry.inode.clone();
+        let inode = fd_entry.inode;
         let mut guard = inode.write();
         match guard.deref_mut() {
             Kind::Socket { socket } => {

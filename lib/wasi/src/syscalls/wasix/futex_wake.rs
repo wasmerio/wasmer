@@ -23,7 +23,7 @@ pub fn futex_wake<M: MemorySize>(
     let woken = {
         let mut guard = state.futexs.lock().unwrap();
         if let Some(futex) = guard.get_mut(&pointer) {
-            futex.wakers.pop().map(|w| w.wake());
+            if let Some(w) = futex.wakers.pop() { w.wake() }
             if futex.wakers.is_empty() {
                 guard.remove(&pointer);
             }
