@@ -221,16 +221,12 @@ pub struct WasiEnvInit {
 
 impl WasiEnvInit {
     pub fn duplicate(&self) -> Self {
-        let mut inodes = WasiInodes::new();
+        let inodes = WasiInodes::new();
 
         // TODO: preserve preopens?
-        let fs = crate::fs::WasiFs::new_with_preopen(
-            &mut inodes,
-            &[],
-            &[],
-            self.state.fs.root_fs.clone(),
-        )
-        .unwrap();
+        let fs =
+            crate::fs::WasiFs::new_with_preopen(&inodes, &[], &[], self.state.fs.root_fs.clone())
+                .unwrap();
 
         Self {
             state: WasiState {

@@ -112,9 +112,9 @@ impl InodeWeakGuard {
     }
     pub fn upgrade(&self) -> Option<InodeGuard> {
         Weak::upgrade(&self.inner).map(|inner| InodeGuard {
-                ino: self.ino,
-                inner,
-            })
+            ino: self.ino,
+            inner,
+        })
     }
 }
 
@@ -1415,6 +1415,7 @@ impl WasiFs {
         }
     }
 
+    #[allow(clippy::await_holding_lock)]
     pub async fn flush(&self, fd: WasiFd) -> Result<(), Errno> {
         match fd {
             __WASI_STDIN_FILENO => (),

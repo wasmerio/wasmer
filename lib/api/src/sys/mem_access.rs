@@ -315,10 +315,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
 
     /// Reads this `WasmSlice` into a `slice`.
     #[inline]
-    pub fn read_to_slice<'b>(
-        self,
-        buf: &'b mut [MaybeUninit<u8>],
-    ) -> Result<usize, MemoryAccessError> {
+    pub fn read_to_slice(self, buf: &mut [MaybeUninit<u8>]) -> Result<usize, MemoryAccessError> {
         let len = self.len.try_into().expect("WasmSlice length overflow");
         self.buffer.read_uninit(self.offset, buf)?;
         Ok(len)

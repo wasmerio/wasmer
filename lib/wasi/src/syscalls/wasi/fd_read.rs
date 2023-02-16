@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, task::Waker};
 
-use wasmer_vfs::AsyncReadExt;
+use wasmer_vfs::{AsyncReadExt, ReadBuf};
 
 use super::*;
 use crate::{fs::NotificationInner, syscalls::*};
@@ -212,9 +212,9 @@ fn fd_read_internal<M: MemorySize>(
                                         .map_err(map_io_err)?;
                                 }
 
-                                let mut data = Vec::with_capacity(max_size);
-                                unsafe { data.set_len(max_size) };
-                                let amt = handle.read(&mut data[..]).await.map_err(|err| {
+                                let mut buf = Vec::with_capacity(max_size);
+
+                                let amt = handle.read_buf(&mut buf).await.map_err(|err| {
                                     let err = From::<std::io::Error>::from(err);
                                     match err {
                                         Errno::Again => {
@@ -227,8 +227,7 @@ fn fd_read_internal<M: MemorySize>(
                                         a => a,
                                     }
                                 })?;
-                                data.truncate(amt);
-                                Ok(data)
+                                Ok(buf)
                             }
                         )?
                         .map_err(|err| match err {

@@ -315,7 +315,7 @@ impl VirtualConnectedSocket for LocalTcpStream {
         }
     }
 
-    fn try_recv<'a>(&mut self, buf: &'a mut [MaybeUninit<u8>]) -> Result<usize> {
+    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize> {
         let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
         self.stream.try_read(buf).map_err(io_err_into_net_error)
     }
@@ -513,10 +513,10 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
             .map_err(io_err_into_net_error)
     }
 
-    fn poll_recv_from<'a>(
+    fn poll_recv_from(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &'a mut [MaybeUninit<u8>],
+        buf: &mut [MaybeUninit<u8>],
     ) -> Poll<Result<(usize, SocketAddr)>> {
         let mut read_buf = tokio::io::ReadBuf::uninit(buf);
         let res = self
@@ -534,7 +534,7 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
         }
     }
 
-    fn try_recv_from<'a>(&mut self, buf: &'a mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)> {
+    fn try_recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)> {
         let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
         self.socket
             .try_recv_from(buf)

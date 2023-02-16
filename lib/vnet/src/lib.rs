@@ -273,7 +273,7 @@ pub trait VirtualConnectedSocket: VirtualSocket + fmt::Debug + Send + Sync + 'st
     ) -> Poll<Result<usize>>;
 
     /// Recv a packet from the socket
-    fn try_recv<'a>(&mut self, buf: &'a mut [MaybeUninit<u8>]) -> Result<usize>;
+    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize>;
 }
 
 /// Connectionless sockets are able to send and receive datagrams and stream
@@ -300,7 +300,7 @@ pub trait VirtualConnectionlessSocket: VirtualSocket + fmt::Debug + Send + Sync 
     ) -> Poll<Result<(usize, SocketAddr)>>;
 
     /// Recv a packet from the socket
-    fn try_recv_from<'a>(&mut self, buf: &'a mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)>;
+    fn try_recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)>;
 }
 
 /// ICMP sockets are low level devices bound to a specific address
@@ -333,7 +333,7 @@ pub trait VirtualRawSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
     ) -> Poll<Result<usize>>;
 
     /// Recv a packet from the socket
-    fn try_recv<'a>(&mut self, buf: &'a mut [MaybeUninit<u8>]) -> Result<usize>;
+    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize>;
 
     /// Tells the raw socket and its backing switch that all packets
     /// should be received by this socket even if they are not

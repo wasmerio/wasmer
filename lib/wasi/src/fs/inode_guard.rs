@@ -211,9 +211,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                     let file = Pin::new(guard.as_mut());
                     file.poll_read_ready(cx)
                 }
-                InodeValFilePollGuardMode::EventNotifications(inner) => {
-                    inner.poll(waker).map(Ok)
-                }
+                InodeValFilePollGuardMode::EventNotifications(inner) => inner.poll(waker).map(Ok),
                 InodeValFilePollGuardMode::Socket { ref inner } => {
                     let mut guard = inner.protected.write().unwrap();
                     let res = guard.poll_read_ready(cx).map_err(net_error_into_io_err);
@@ -299,9 +297,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                     let file = Pin::new(guard.as_mut());
                     file.poll_write_ready(cx)
                 }
-                InodeValFilePollGuardMode::EventNotifications(inner) => {
-                    inner.poll(waker).map(Ok)
-                }
+                InodeValFilePollGuardMode::EventNotifications(inner) => inner.poll(waker).map(Ok),
                 InodeValFilePollGuardMode::Socket { ref inner } => {
                     let mut guard = inner.protected.write().unwrap();
                     let res = guard.poll_write_ready(cx).map_err(net_error_into_io_err);
