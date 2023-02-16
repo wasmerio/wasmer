@@ -15,6 +15,7 @@ serde = { version = "1.0", default-features = false, features = ["derive"], opti
 slab = { version = "0.4", optional = true }
 webc = { version = "4.0.0", optional = true }
 anyhow = { version = "1.0.66", optional = true }
+tempfile = "3.1"
 
 [features]
 default = ["host-fs", "mem-fs", "webc-fs", "static-fs"]

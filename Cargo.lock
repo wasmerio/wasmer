@@ -4686,6 +4686,7 @@ dependencies = [
  "libc",
  "serde",
  "slab",
+ "tempfile",
  "thiserror",
  "tracing",
  "typetag",

@@ -12,7 +12,7 @@ use std::io::{self, Read, Seek, Write};
 use std::os::unix::io::{AsRawFd, RawFd};
 #[cfg(windows)]
 use std::os::windows::io::{AsRawHandle, RawHandle};
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::debug;
 
@@ -93,7 +93,8 @@ pub enum HostFsAlias {
 impl Default for FileSystem {
     fn default() -> FileSystem {
         FileSystem {
-            mapped_dirs: vec![(HostFsAlias::Root, std::env::current_exe().unwrap())]
+            // mapped_dirs: vec![(HostFsAlias::Root, std::env::current_dir().unwrap())]
+            mapped_dirs: vec![(HostFsAlias::Root, Path::new("/").to_path_buf())]
                 .into_iter()
                 .collect(),
         }
@@ -130,17 +131,29 @@ impl FileSystem {
 fn get_normalized_host_path(
     requested_path: &Path,
     mapped_dirs: &BTreeMap<HostFsAlias, PathBuf>,
+    expect_file_to_exist_already: bool,
 ) -> Option<PathBuf> {
     for (alias, mapped_path) in mapped_dirs.iter() {
+        let mapped_path = match mapped_path.canonicalize() {
+            Ok(o) => o,
+            Err(_) => continue, // TODO: wrong mapped path = error?
+        };
+        let requested_path = requested_path
+            .strip_prefix(&mapped_path)
+            .unwrap_or(requested_path);
+        let requested_path = requested_path.strip_prefix("/").unwrap_or(requested_path);
+        let requested_path = requested_path.strip_prefix("./").unwrap_or(requested_path);
         match alias {
             HostFsAlias::Root => {
-                if fs::metadata(&mapped_path.join(requested_path)).is_ok() {
+                if !expect_file_to_exist_already
+                    || fs::metadata(&mapped_path.join(requested_path)).is_ok()
+                {
+                    // Path is not absolute, but may not exist yet
+                    // TODO: -root mapping overwhadows everything else
                     return Some(mapped_path.join(requested_path));
                 }
             }
             HostFsAlias::Path(p) => {
-                let requested_path = requested_path.strip_prefix("/").unwrap_or(requested_path);
-                let requested_path = requested_path.strip_prefix("./").unwrap_or(requested_path);
                 if requested_path.starts_with(p)
                     && fs::metadata(&mapped_path.join(requested_path)).is_ok()
                 {
@@ -153,10 +166,28 @@ fn get_normalized_host_path(
     None
 }
 
+#[test]
+fn test_host_filesystem_sanity() {
+    use crate::FileSystem;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path();
+    std::fs::write(path.join("hello.txt"), &[]).unwrap();
+    let filesystem = crate::host_fs::FileSystem {
+        mapped_dirs: vec![(HostFsAlias::Root, path.to_path_buf())]
+            .into_iter()
+            .collect(),
+    };
+    let read_dir_root = filesystem.read_dir(&Path::new("/")).unwrap();
+    let files = read_dir_root
+        .filter_map(|r| Some(r.ok()?.file_name().to_string_lossy().to_string()))
+        .collect::<Vec<_>>();
+    assert_eq!(files, vec!["hello.txt".to_string()]);
+}
+
 impl crate::FileSystem for FileSystem {
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
-        let normalized_path =
-            get_normalized_host_path(path, &self.mapped_dirs).ok_or(FsError::EntityNotFound)?;
+        let normalized_path = get_normalized_host_path(path, &self.mapped_dirs, true)
+            .ok_or(FsError::EntityNotFound)?;
         let read_dir = fs::read_dir(&normalized_path)?;
         let data = read_dir
             .map(|entry| {
@@ -176,52 +207,45 @@ impl crate::FileSystem for FileSystem {
         // Try to get the parent of the requested path and see which mapped path matches
         let mut nonexisting_dir = path
             .components()
-            .filter_map(|c| match c {
-                Component::RootDir => None,
-                Component::CurDir => None,
-                Component::ParentDir => Some("..".to_string()),
-                Component::Prefix(_) => None,
-                Component::Normal(n) => Some(n.to_string_lossy().to_string()),
-            })
+            .map(|c| c.as_os_str().to_string_lossy().to_string())
             .collect::<Vec<_>>();
         nonexisting_dir.pop();
         let nonexisting_dir_parent = nonexisting_dir.into_iter().collect::<PathBuf>();
         let nonexisting_normalized =
-            get_normalized_host_path(&nonexisting_dir_parent, &self.mapped_dirs)
+            get_normalized_host_path(&nonexisting_dir_parent, &self.mapped_dirs, true)
                 .ok_or(FsError::EntityNotFound)?;
         let path = nonexisting_normalized.join(path.file_name().ok_or(FsError::EntityNotFound)?);
         fs::create_dir(path).map_err(Into::into)
     }
 
     fn remove_dir(&self, path: &Path) -> Result<()> {
-        let normalized_path =
-            get_normalized_host_path(path, &self.mapped_dirs).ok_or(FsError::EntityNotFound)?;
+        let normalized_path = get_normalized_host_path(path, &self.mapped_dirs, true)
+            .ok_or(FsError::EntityNotFound)?;
         fs::remove_dir(&normalized_path).map_err(Into::into)
     }
 
     fn rename(&self, from: &Path, to: &Path) -> Result<()> {
-        let from_normalized =
-            get_normalized_host_path(from, &self.mapped_dirs).ok_or(FsError::EntityNotFound)?;
+        let from_normalized = get_normalized_host_path(from, &self.mapped_dirs, true)
+            .ok_or(FsError::EntityNotFound)?;
         let mut to_components = to
             .components()
-            .filter_map(|c| match c {
-                Component::RootDir => None,
-                Component::CurDir => None,
-                Component::ParentDir => Some("..".to_string()),
-                Component::Prefix(_) => None,
-                Component::Normal(n) => Some(n.to_string_lossy().to_string()),
-            })
+            .map(|c| c.as_os_str().to_string_lossy().to_string())
             .collect::<Vec<_>>();
-        to_components.pop();
+        let last_component = to_components.pop();
         let to_parent = to_components.into_iter().collect::<PathBuf>();
-        let to_normalized = get_normalized_host_path(&to_parent, &self.mapped_dirs)
+        // expect that the parent of the "to" path already exists
+        let to_normalized = get_normalized_host_path(&to_parent, &self.mapped_dirs, true)
             .ok_or(FsError::EntityNotFound)?;
-        fs::rename(&from_normalized, &to_normalized).map_err(Into::into)
+        let to_normalized_final = match last_component {
+            Some(s) => to_normalized.join(s),
+            None => to_normalized,
+        };
+        fs::rename(&from_normalized, &to_normalized_final).map_err(Into::into)
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {
-        let normalized_path =
-            get_normalized_host_path(path, &self.mapped_dirs).ok_or(FsError::EntityNotFound)?;
+        let normalized_path = get_normalized_host_path(path, &self.mapped_dirs, true)
+            .ok_or(FsError::EntityNotFound)?;
         fs::remove_file(&normalized_path).map_err(Into::into)
     }
 
@@ -232,8 +256,8 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
-        let normalized_path =
-            get_normalized_host_path(path, &self.mapped_dirs).ok_or(FsError::EntityNotFound)?;
+        let normalized_path = get_normalized_host_path(path, &self.mapped_dirs, true)
+            .ok_or(FsError::EntityNotFound)?;
         fs::metadata(&normalized_path)
             .and_then(TryInto::try_into)
             .map_err(Into::into)
@@ -310,14 +334,10 @@ impl crate::FileOpener for FileOpener {
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
+        let file_may_not_exist = conf.create() || conf.create_new();
         let normalized_path =
-            get_normalized_host_path(path, &self.mapped_dirs).ok_or(FsError::EntityNotFound)?;
-        println!(
-            "vfs::host_fs::FileOpener {:?}, normalized = {:?} {:#?}",
-            path.display(),
-            normalized_path.display(),
-            conf
-        );
+            get_normalized_host_path(path, &self.mapped_dirs, !file_may_not_exist)
+                .ok_or(FsError::EntityNotFound)?;
         // TODO: handle create implying write, etc.
         let read = conf.read();
         let write = conf.write();
