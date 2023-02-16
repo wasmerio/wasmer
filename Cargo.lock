@@ -5202,7 +5202,6 @@ dependencies = [
  "bytes",
  "thiserror",
  "tracing",
- "wasmer-vfs",
 ]
 
 [[package]]
