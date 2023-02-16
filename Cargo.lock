@@ -5284,9 +5284,9 @@ version = "3.2.0-alpha.1"
 dependencies = [
  "async-trait",
  "bytes",
+ "libc",
  "tokio",
  "tracing",
- "wasmer-vfs",
  "wasmer-vnet",
 ]
 

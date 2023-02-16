@@ -8,7 +8,12 @@ use ::tokio::runtime::Handle;
 use futures::Future;
 use wasmer::MemoryType;
 
-use wasmer::VMMemory;
+#[cfg(feature = "js")]
+use wasmer::js::VMMemory;
+
+#[cfg(not(target_family = "wasm"))]
+use wasmer::vm::VMMemory;
+
 #[cfg(feature = "sys")]
 use wasmer_types::MemoryStyle;
 

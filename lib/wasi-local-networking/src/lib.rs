@@ -12,9 +12,9 @@ use tokio::sync::mpsc;
 use tracing::{debug, error, info, trace, warn};
 #[allow(unused_imports)]
 use wasmer_vnet::{
-    io_err_into_net_error, IpCidr, IpRoute, NetworkError, Result, SocketStatus, StreamSecurity,
-    VirtualConnectedSocket, VirtualConnectionlessSocket, VirtualIcmpSocket, VirtualNetworking,
-    VirtualRawSocket, VirtualSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
+    IpCidr, IpRoute, NetworkError, Result, SocketStatus, StreamSecurity, VirtualConnectedSocket,
+    VirtualConnectionlessSocket, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
+    VirtualSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
 };
 
 #[derive(Debug)]
@@ -619,3 +619,55 @@ unsafe fn noop_clone(_data: *const ()) -> RawWaker {
     RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE)
 }
 unsafe fn noop(_data: *const ()) {}
+
+fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
+    use std::io::ErrorKind;
+    match net_error.kind() {
+        ErrorKind::BrokenPipe => NetworkError::BrokenPipe,
+        ErrorKind::AlreadyExists => NetworkError::AlreadyExists,
+        ErrorKind::AddrInUse => NetworkError::AddressInUse,
+        ErrorKind::AddrNotAvailable => NetworkError::AddressNotAvailable,
+        ErrorKind::ConnectionAborted => NetworkError::ConnectionAborted,
+        ErrorKind::ConnectionRefused => NetworkError::ConnectionRefused,
+        ErrorKind::ConnectionReset => NetworkError::ConnectionReset,
+        ErrorKind::Interrupted => NetworkError::Interrupted,
+        ErrorKind::InvalidData => NetworkError::InvalidData,
+        ErrorKind::InvalidInput => NetworkError::InvalidInput,
+        ErrorKind::NotConnected => NetworkError::NotConnected,
+        ErrorKind::PermissionDenied => NetworkError::PermissionDenied,
+        ErrorKind::TimedOut => NetworkError::TimedOut,
+        ErrorKind::UnexpectedEof => NetworkError::UnexpectedEof,
+        ErrorKind::WouldBlock => NetworkError::WouldBlock,
+        ErrorKind::WriteZero => NetworkError::WriteZero,
+        ErrorKind::Unsupported => NetworkError::Unsupported,
+
+        #[cfg(not(target_family = "wasm"))]
+        _ => {
+            if let Some(code) = net_error.raw_os_error() {
+                match code {
+                    libc::EPERM => NetworkError::PermissionDenied,
+                    libc::EBADF => NetworkError::InvalidFd,
+                    libc::ECHILD => NetworkError::InvalidFd,
+                    libc::EMFILE => NetworkError::TooManyOpenFiles,
+                    libc::EINTR => NetworkError::Interrupted,
+                    libc::EIO => NetworkError::IOError,
+                    libc::ENXIO => NetworkError::IOError,
+                    libc::EAGAIN => NetworkError::WouldBlock,
+                    libc::ENOMEM => NetworkError::InsufficientMemory,
+                    libc::EACCES => NetworkError::PermissionDenied,
+                    libc::ENODEV => NetworkError::NoDevice,
+                    libc::EINVAL => NetworkError::InvalidInput,
+                    libc::EPIPE => NetworkError::BrokenPipe,
+                    err => {
+                        tracing::trace!("unknown os error {}", err);
+                        NetworkError::UnknownError
+                    }
+                }
+            } else {
+                NetworkError::UnknownError
+            }
+        }
+        #[cfg(target_family = "wasm")]
+        _ => NetworkError::UnknownError,
+    }
+}

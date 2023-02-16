@@ -15,12 +15,8 @@ maintenance = { status = "experimental" }
 
 [dependencies]
 wasmer-vnet = { version = "=3.2.0-alpha.1", path = "../vnet" }
-wasmer-vfs = { path = "../vfs", version = "=3.2.0-alpha.1", default-features = false }
 tracing = "0.1"
 bytes = "1.1"
 tokio = { version = "1", features = [ "sync", "macros", "io-util", "signal" ], default_features = false }
 async-trait = { version = "^0.1" }
-
-[features]
-default = ["host_fs"]
-host_fs = ["wasmer-vfs/host-fs"]
+libc = "0.2.139"
