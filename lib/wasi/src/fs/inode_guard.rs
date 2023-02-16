@@ -1,6 +1,7 @@
 use std::{
     future::Future,
     io::{IoSlice, SeekFrom},
+    mem::replace,
     ops::{Deref, DerefMut},
     pin::Pin,
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
@@ -174,7 +175,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         }
                     };
                     if is_closed {
-                        std::mem::replace(&mut guard.notifications.closed, true) == false
+                        replace(&mut guard.notifications.closed, true) == false
                     } else {
                         false
                     }
@@ -218,7 +219,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                     match res {
                         Poll::Ready(Err(err)) if is_err_closed(&err) => {
                             tracing::trace!("socket read ready error (fd={}) - {}", fd, err);
-                            if std::mem::replace(&mut guard.notifications.closed, true) == false {
+                            if replace(&mut guard.notifications.closed, true) == false {
                                 Poll::Ready(Ok(0))
                             } else {
                                 Poll::Pending
@@ -226,7 +227,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         }
                         Poll::Ready(Err(err)) => {
                             tracing::debug!("poll socket error - {}", err);
-                            if std::mem::replace(&mut guard.notifications.failed, true) == false {
+                            if replace(&mut guard.notifications.failed, true) == false {
                                 Poll::Ready(Ok(0))
                             } else {
                                 Poll::Pending
@@ -306,7 +307,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                     match res {
                         Poll::Ready(Err(err)) if is_err_closed(&err) => {
                             tracing::trace!("socket write ready error (fd={}) - {}", fd, err);
-                            if std::mem::replace(&mut guard.notifications.closed, true) == false {
+                            if replace(&mut guard.notifications.closed, true) == false {
                                 Poll::Ready(Ok(0))
                             } else {
                                 Poll::Pending
@@ -314,7 +315,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                         }
                         Poll::Ready(Err(err)) => {
                             tracing::debug!("poll socket error - {}", err);
-                            if std::mem::replace(&mut guard.notifications.failed, true) == false {
+                            if replace(&mut guard.notifications.failed, true) == false {
                                 Poll::Ready(Ok(0))
                             } else {
                                 Poll::Pending
