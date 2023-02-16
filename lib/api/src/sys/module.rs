@@ -9,8 +9,8 @@ use wasmer_types::{
 };
 use wasmer_types::{ExportType, ImportType};
 
+use crate::vm::VMInstance;
 use crate::{AsStoreMut, AsStoreRef, InstantiationError, IntoBytes};
-use wasmer_vm::VMInstance;
 
 #[derive(Clone)]
 pub struct Module {

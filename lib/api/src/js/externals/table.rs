@@ -1,8 +1,8 @@
-use crate::js::vm::{VMExtern, VMFunction, VMTable};
-use crate::js::RuntimeError;
+use crate::errors::RuntimeError;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::value::Value;
 use crate::vm::VMExternTable;
+use crate::vm::{VMExtern, VMFunction, VMTable};
 use crate::Extern;
 use crate::{FunctionType, TableType};
 use js_sys::Function;

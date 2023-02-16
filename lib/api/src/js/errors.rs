@@ -1,7 +1,7 @@
 #[cfg(feature = "core")]
 use crate::alloc::borrow::Cow;
 use crate::js::lib::std::string::String;
-use crate::js::trap::RuntimeError;
+pub use crate::js::trap::RuntimeError;
 #[cfg(feature = "std")]
 use std::borrow::Cow;
 #[cfg(feature = "std")]

@@ -1,5 +1,5 @@
+use crate::errors::RuntimeError;
 use crate::externals::memory::MemoryBuffer;
-use crate::RuntimeError;
 #[allow(unused_imports)]
 use crate::{Memory, Memory32, Memory64, MemorySize, MemoryView, WasmPtr};
 use std::{

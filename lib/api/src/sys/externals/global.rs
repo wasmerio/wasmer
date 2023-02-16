@@ -1,5 +1,5 @@
+use crate::errors::RuntimeError;
 use crate::store::{AsStoreMut, AsStoreRef};
-use crate::sys::RuntimeError;
 use crate::value::Value;
 use crate::vm::VMExternGlobal;
 use crate::GlobalType;

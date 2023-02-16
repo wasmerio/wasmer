@@ -1,10 +1,10 @@
+use crate::errors::RuntimeError;
 use crate::exports::{ExportError, Exportable};
 use crate::externals::function::{HostFunction, HostFunctionKind, WithEnv, WithoutEnv};
 use crate::function_env::{FunctionEnv, FunctionEnvMut};
 use crate::js::as_js::{param_from_js, AsJs}; /* ValFuncRef */
 use crate::js::store::{InternalStoreHandle, StoreHandle};
 use crate::js::vm::{VMExtern, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionEnvironment};
-use crate::js::RuntimeError;
 use crate::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
 use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
 use crate::value::Value;

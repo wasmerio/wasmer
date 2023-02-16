@@ -25,7 +25,7 @@ mod lib {
 
 mod as_js;
 pub(crate) mod engine;
-pub(crate) mod error;
+pub(crate) mod errors;
 pub(crate) mod extern_ref;
 pub(crate) mod externals;
 pub(crate) mod instance;
@@ -39,7 +39,4 @@ pub(crate) mod vm;
 mod wasm_bindgen_polyfill;
 
 pub use crate::js::as_js::AsJs;
-pub use crate::js::error::LinkError;
 pub use crate::js::module::ModuleTypeHints;
-pub use crate::js::store::StoreObjects;
-pub use crate::js::trap::RuntimeError;

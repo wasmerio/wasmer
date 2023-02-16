@@ -1,5 +1,8 @@
-use crate::{LinkError, RuntimeError};
+#[cfg(feature = "js")]
+pub use crate::js::errors::{LinkError, RuntimeError};
 use thiserror::Error;
+#[cfg(feature = "sys")]
+pub use wasmer_compiler::{LinkError, RuntimeError};
 
 // /// An error while instantiating a module.
 // ///

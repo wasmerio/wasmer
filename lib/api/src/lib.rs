@@ -461,7 +461,7 @@ pub use js::*;
 
 pub use crate::externals::{Extern, Function, Global, HostFunction, Memory, MemoryView, Table};
 pub use engine::{AsEngineRef, Engine};
-pub use errors::InstantiationError;
+pub use errors::{InstantiationError, LinkError, RuntimeError};
 pub use exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use extern_ref::ExternRef;
 pub use function_env::{FunctionEnv, FunctionEnvMut};

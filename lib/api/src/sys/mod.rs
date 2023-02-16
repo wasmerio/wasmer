@@ -12,20 +12,20 @@ pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Tripl
 pub use wasmer_compiler::{
     wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
 };
-pub use wasmer_compiler::{Features, FrameInfo, LinkError, RuntimeError, Tunables, Artifact, EngineBuilder};
-#[cfg(feature = "singlepass")]
-pub use wasmer_compiler_singlepass::Singlepass;
+pub use wasmer_compiler::{Artifact, EngineBuilder, Features, FrameInfo, Tunables};
 #[cfg(feature = "cranelift")]
 pub use wasmer_compiler_cranelift::{Cranelift, CraneliftOptLevel};
 #[cfg(feature = "llvm")]
 pub use wasmer_compiler_llvm::{LLVMOptLevel, LLVM};
+#[cfg(feature = "singlepass")]
+pub use wasmer_compiler_singlepass::Singlepass;
 
 pub(crate) mod vm {
     //! The `vm` module re-exports wasmer-vm types.
     use wasmer_vm::InternalStoreHandle;
     pub(crate) use wasmer_vm::{
         VMExtern, VMExternRef, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionEnvironment,
-        VMGlobal, VMMemory, VMTable, VMTrampoline,
+        VMGlobal, VMInstance, VMMemory, VMTable, VMTrampoline,
     };
 
     pub(crate) type VMExternTable = InternalStoreHandle<VMTable>;
