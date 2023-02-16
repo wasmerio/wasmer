@@ -19,7 +19,7 @@ use std::slice;
 #[cfg(feature = "webc_runner")]
 use wasmer_api::{AsStoreMut, Imports, Module};
 use wasmer_wasi::{
-    get_wasi_version, wasmer_vfs::AsyncReadExt, BidiPipe, VirtualTaskManager, WasiEnv,
+    get_wasi_version, wasmer_vfs::AsyncReadExt, DuplexPipe, VirtualTaskManager, WasiEnv,
     WasiEnvBuilder, WasiFile, WasiFunctionEnv, WasiVersion,
 };
 
@@ -272,11 +272,11 @@ fn prepare_webc_env(
     let mut builder = config.builder;
 
     if !config.inherit_stdout {
-        builder.set_stdout(Box::new(BidiPipe::new()));
+        builder.set_stdout(Box::new(DuplexPipe::new()));
     }
 
     if !config.inherit_stderr {
-        builder.set_stderr(Box::new(BidiPipe::new()));
+        builder.set_stderr(Box::new(DuplexPipe::new()));
     }
 
     builder.set_fs(filesystem);
@@ -310,11 +310,11 @@ pub unsafe extern "C" fn wasi_env_new(
     let store = &mut store?.inner;
     let mut store_mut = store.store_mut();
     if !config.inherit_stdout {
-        config.builder.set_stdout(Box::new(BidiPipe::new()));
+        config.builder.set_stdout(Box::new(DuplexPipe::new()));
     }
 
     if !config.inherit_stderr {
-        config.builder.set_stderr(Box::new(BidiPipe::new()));
+        config.builder.set_stderr(Box::new(DuplexPipe::new()));
     }
 
     // TODO: impl capturer for stdin

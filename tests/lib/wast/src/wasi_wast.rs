@@ -12,7 +12,7 @@ use wasmer_vfs::{
 };
 use wasmer_wasi::types::wasi::{Filesize, Timestamp};
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, BidiPipe, FsError,
+    generate_import_object_from_env, get_wasi_version, DuplexPipe, FsError,
     PluggableRuntimeImplementation, VirtualFile, WasiEnv, WasiEnvBuilder, WasiRuntime, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
@@ -161,7 +161,7 @@ impl<'a> WasiTest<'a> {
     )> {
         let mut builder = WasiEnv::builder(self.wasm_path);
 
-        let stdin_pipe = BidiPipe::new().with_blocking(false);
+        let stdin_pipe = DuplexPipe::new().with_blocking(false);
         builder.set_stdin(Box::new(stdin_pipe));
 
         for (name, value) in &self.envs {

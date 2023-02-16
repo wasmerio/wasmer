@@ -76,7 +76,7 @@ pub use wasmer_vfs;
 pub use wasmer_vfs::FsError as WasiFsError;
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::VirtualFile`")]
 pub use wasmer_vfs::VirtualFile as WasiFile;
-pub use wasmer_vfs::{BidiPipe, FsError, Pipe, VirtualFile, WasiBidirectionalSharedPipePair};
+pub use wasmer_vfs::{DuplexPipe, FsError, Pipe, VirtualFile, WasiBidirectionalSharedPipePair};
 pub use wasmer_vnet;
 pub use wasmer_vnet::{UnsupportedVirtualNetworking, VirtualNetworking};
 

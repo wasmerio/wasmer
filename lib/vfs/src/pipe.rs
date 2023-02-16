@@ -289,14 +289,31 @@ impl VirtualFile for Pipe {
     }
 }
 
-/// Pipe pair of (a, b) Pipes that are connected together
+/// A pair of pipes that are connected together.
 #[derive(Clone, Debug)]
-pub struct BidiPipe {
-    pub tx: Pipe,
-    pub rx: Pipe,
+pub struct DuplexPipe {
+    tx: Pipe,
+    rx: Pipe,
 }
 
-impl VirtualFile for BidiPipe {
+impl DuplexPipe {
+    /// Get the sender pipe.
+    pub fn sender(&self) -> &Pipe {
+        &self.tx
+    }
+
+    /// Get the receiver pipe.
+    pub fn rx(&self) -> &Pipe {
+        &self.rx
+    }
+
+    /// Split into a sender and receiver pipe.
+    pub fn split(self) -> (Pipe, Pipe) {
+        (self.tx, self.rx)
+    }
+}
+
+impl VirtualFile for DuplexPipe {
     fn last_accessed(&self) -> u64 {
         self.rx.last_accessed()
     }
@@ -325,7 +342,7 @@ impl VirtualFile for BidiPipe {
     }
 }
 
-impl AsyncSeek for BidiPipe {
+impl AsyncSeek for DuplexPipe {
     fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
         Ok(())
     }
@@ -334,7 +351,7 @@ impl AsyncSeek for BidiPipe {
     }
 }
 
-impl AsyncWrite for BidiPipe {
+impl AsyncWrite for DuplexPipe {
     fn poll_write(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -364,7 +381,7 @@ impl AsyncWrite for BidiPipe {
     }
 }
 
-impl AsyncRead for BidiPipe {
+impl AsyncRead for DuplexPipe {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -375,14 +392,14 @@ impl AsyncRead for BidiPipe {
     }
 }
 
-impl Default for BidiPipe {
+impl Default for DuplexPipe {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl BidiPipe {
-    pub fn new() -> BidiPipe {
+impl DuplexPipe {
+    pub fn new() -> DuplexPipe {
         let (tx1, rx1) = mpsc::unbounded_channel();
         let (tx2, rx2) = mpsc::unbounded_channel();
 
@@ -404,7 +421,7 @@ impl BidiPipe {
             block: true,
         };
 
-        BidiPipe {
+        DuplexPipe {
             tx: pipe1,
             rx: pipe2,
         }
@@ -426,4 +443,4 @@ impl BidiPipe {
 
 /// Shared version of BidiPipe for situations where you need
 /// to emulate the old behaviour of `Pipe` (both send and recv on one channel).
-pub type WasiBidirectionalSharedPipePair = ArcFile<BidiPipe>;
+pub type WasiBidirectionalSharedPipePair = ArcFile<DuplexPipe>;

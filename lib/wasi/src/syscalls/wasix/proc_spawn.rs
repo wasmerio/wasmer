@@ -153,9 +153,7 @@ pub fn proc_spawn_internal(
         let mut conv_stdio_mode = |mode: WasiStdioMode, fd: WasiFd| -> Result<OptionFd, BusErrno> {
             match mode {
                 WasiStdioMode::Piped => {
-                    let pipes = BidiPipe::default();
-                    let pipe1 = pipes.rx;
-                    let pipe2 = pipes.tx;
+                    let (pipe1, pipe2) = DuplexPipe::new().split();
                     let inode1 = child_state.fs.create_inode_with_default_stat(
                         child_inodes,
                         Kind::Pipe { pipe: pipe1 },
