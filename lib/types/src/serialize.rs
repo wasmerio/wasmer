@@ -128,7 +128,12 @@ impl SerializableModule {
 
     /// Create a `ModuleInfo` for instantiation
     pub fn create_module_info(&self) -> ModuleInfo {
-        self.compile_info.module.clone()
+        self.compile_info.module.as_ref().clone()
+    }
+
+    /// Returns the `ModuleInfo` for instantiation
+    pub fn module_info(&self) -> &ModuleInfo {
+        &self.compile_info.module
     }
 
     /// Returns the features for this Artifact

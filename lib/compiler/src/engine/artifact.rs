@@ -149,7 +149,7 @@ impl Artifact {
                 allocated: None,
             });
         }
-        let module_info = artifact.create_module_info();
+        let module_info = artifact.module_info();
         let (
             finished_functions,
             finished_function_call_trampolines,
@@ -237,8 +237,16 @@ impl Artifact {
 }
 
 impl ArtifactCreate for Artifact {
-    fn create_module_info(&self) -> ModuleInfo {
+    fn set_module_info_name(&mut self, name: String) -> bool {
+        self.artifact.set_module_info_name(name)
+    }
+
+    fn create_module_info(&self) -> Arc<ModuleInfo> {
         self.artifact.create_module_info()
+    }
+
+    fn module_info(&self) -> &ModuleInfo {
+        self.artifact.module_info()
     }
 
     fn features(&self) -> &Features {
@@ -381,7 +389,7 @@ impl Artifact {
 
         self.preinstantiate()?;
 
-        let module = Arc::new(self.create_module_info());
+        let module = self.create_module_info();
         let imports = resolve_imports(
             &module,
             imports,
@@ -499,7 +507,7 @@ impl Artifact {
             .collect();
 
         let compile_info = CompileModuleInfo {
-            module,
+            module: Arc::new(module),
             features: features.clone(),
             memory_styles,
             table_styles,
@@ -576,7 +584,7 @@ impl Artifact {
         features: &Features,
     ) -> Result<
         (
-            ModuleInfo,
+            Arc<ModuleInfo>,
             Object<'data>,
             usize,
             Box<dyn wasmer_types::SymbolRegistry>,

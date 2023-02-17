@@ -3,6 +3,7 @@
 use crate::Features;
 use enumset::EnumSet;
 use std::any::Any;
+use std::sync::Arc;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::SerializeError;
 use wasmer_types::{
@@ -17,7 +18,13 @@ use wasmer_types::{
 /// module at runtime, such as [`ModuleInfo`] and [`Features`].
 pub trait ArtifactCreate: Send + Sync + Upcastable {
     /// Create a `ModuleInfo` for instantiation
-    fn create_module_info(&self) -> ModuleInfo;
+    fn create_module_info(&self) -> Arc<ModuleInfo>;
+
+    /// Sets the `ModuleInfo` name
+    fn set_module_info_name(&mut self, name: String) -> bool;
+
+    /// Returns the `ModuleInfo` for instantiation
+    fn module_info(&self) -> &ModuleInfo;
 
     /// Returns the features for this Artifact
     fn features(&self) -> &Features;

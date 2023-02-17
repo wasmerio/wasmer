@@ -293,8 +293,8 @@ impl Module {
     /// This is normally useful for stacktraces and debugging.
     ///
     /// It will return `true` if the module name was changed successfully,
-    /// and return `false` otherwise (in case the module is already
-    /// instantiated).
+    /// and return `false` otherwise (in case the module is cloned or
+    /// already instantiated).
     ///
     /// # Example
     ///

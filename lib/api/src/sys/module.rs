@@ -29,7 +29,6 @@ pub struct Module {
     // In the future, this code should be refactored to properly describe the
     // ownership of the code and its metadata.
     artifact: Arc<Artifact>,
-    module_info: Arc<ModuleInfo>,
 }
 
 impl Module {
@@ -91,10 +90,7 @@ impl Module {
     }
 
     fn from_artifact(artifact: Arc<Artifact>) -> Self {
-        Self {
-            module_info: Arc::new(artifact.create_module_info()),
-            artifact,
-        }
+        Self { artifact }
     }
 
     pub(crate) fn instantiate(
@@ -140,32 +136,31 @@ impl Module {
     }
 
     pub(crate) fn name(&self) -> Option<&str> {
-        self.module_info.name.as_deref()
+        self.info().name.as_deref()
     }
 
     pub(crate) fn set_name(&mut self, name: &str) -> bool {
-        Arc::get_mut(&mut self.module_info).map_or(false, |mut module_info| {
-            module_info.name = Some(name.to_string());
-            true
+        Arc::get_mut(&mut self.artifact).map_or(false, |artifact| {
+            artifact.set_module_info_name(name.to_string())
         })
     }
 
     pub(crate) fn imports(&self) -> ImportsIterator<impl Iterator<Item = ImportType> + '_> {
-        self.module_info.imports()
+        self.info().imports()
     }
 
     pub(crate) fn exports(&self) -> ExportsIterator<impl Iterator<Item = ExportType> + '_> {
-        self.module_info.exports()
+        self.info().exports()
     }
 
     pub(crate) fn custom_sections<'a>(
         &'a self,
         name: &'a str,
     ) -> impl Iterator<Item = Box<[u8]>> + 'a {
-        self.module_info.custom_sections(name)
+        self.info().custom_sections(name)
     }
 
     pub(crate) fn info(&self) -> &ModuleInfo {
-        &self.module_info
+        self.artifact.module_info()
     }
 }
