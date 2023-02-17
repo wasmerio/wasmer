@@ -9,7 +9,7 @@ use crate::Extern;
 use crate::{LinkError, RuntimeError};
 use js_sys::WebAssembly;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Instance {
     pub(crate) _handle: VMInstance,
 }

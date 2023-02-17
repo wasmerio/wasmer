@@ -16,6 +16,7 @@ use crate::{Engine, EngineInner};
 use enumset::EnumSet;
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use std::mem;
+use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 use std::sync::Mutex;
 #[cfg(feature = "static-artifact-create")]
@@ -46,8 +47,38 @@ pub struct AllocatedArtifact {
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 }
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(transparent)]
+/// A unique identifier for an Artifact.
+pub struct ArtifactId {
+    id: usize,
+}
+
+impl ArtifactId {
+    /// Format this identifier as a string.
+    pub fn id(&self) -> String {
+        format!("{}", &self.id)
+    }
+}
+
+impl Clone for ArtifactId {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+impl Default for ArtifactId {
+    fn default() -> Self {
+        static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
+        Self {
+            id: NEXT_ID.fetch_add(1, SeqCst),
+        }
+    }
+}
+
 /// A compiled wasm module, ready to be instantiated.
 pub struct Artifact {
+    id: ArtifactId,
     artifact: ArtifactBuild,
     // The artifact will only be allocated in memory in case we can execute it
     // (that means, if the target != host then this will be None).
@@ -93,6 +124,15 @@ impl Artifact {
     /// other architecture), it will return false.
     pub fn allocated(&self) -> bool {
         self.allocated.is_some()
+    }
+
+    /// A unique identifier for this object.
+    ///
+    /// This exists to allow us to compare two Artifacts for equality. Otherwise,
+    /// comparing two trait objects unsafely relies on implementation details
+    /// of trait representation.
+    pub fn id(&self) -> &ArtifactId {
+        &self.id
     }
 
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
@@ -145,6 +185,7 @@ impl Artifact {
     ) -> Result<Self, CompileError> {
         if !target.is_native() {
             return Ok(Self {
+                id: Default::default(),
                 artifact,
                 allocated: None,
             });
@@ -218,6 +259,7 @@ impl Artifact {
         let signatures = signatures.into_boxed_slice();
 
         Ok(Self {
+            id: Default::default(),
             artifact,
             allocated: Some(AllocatedArtifact {
                 finished_functions,
@@ -233,6 +275,22 @@ impl Artifact {
     /// Check if the provided bytes look like a serialized `ArtifactBuild`.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
         ArtifactBuild::is_deserializable(bytes)
+    }
+}
+
+impl PartialEq for Artifact {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+impl Eq for Artifact {}
+
+impl std::fmt::Debug for Artifact {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Artifact")
+            .field("artifact_id", &self.id)
+            .field("module_info", &self.module_info())
+            .finish()
     }
 }
 
@@ -783,6 +841,7 @@ impl Artifact {
             .into_boxed_slice();
 
         Ok(Self {
+            id: Default::default(),
             artifact,
             allocated: Some(AllocatedArtifact {
                 finished_functions: finished_functions.into_boxed_slice(),

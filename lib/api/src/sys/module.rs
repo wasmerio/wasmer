@@ -12,7 +12,7 @@ use wasmer_types::{ExportType, ImportType};
 use crate::vm::VMInstance;
 use crate::{AsStoreMut, AsStoreRef, InstantiationError, IntoBytes};
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Module {
     // The field ordering here is actually significant because of the drop
     // order: we want to drop the artifact before dropping the engine.

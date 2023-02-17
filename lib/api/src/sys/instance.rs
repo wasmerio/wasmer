@@ -7,7 +7,7 @@ use crate::imports::Imports;
 use crate::store::AsStoreMut;
 use crate::Extern;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Instance {
     _handle: StoreHandle<VMInstance>,
 }

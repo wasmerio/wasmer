@@ -19,7 +19,7 @@ use crate::sys::instance as instance_imp;
 /// interacting with WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Instance {
     pub(crate) _inner: instance_imp::Instance,
     pub(crate) module: Module,

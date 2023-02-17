@@ -57,7 +57,7 @@ pub enum ExportError {
 /// the types of instances.
 ///
 /// TODO: add examples of using exports
-#[derive(Clone, Default)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct Exports {
     map: IndexMap<String, Extern>,
 }

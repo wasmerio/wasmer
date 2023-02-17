@@ -32,7 +32,7 @@ use wasmer_types::{
 ///
 /// Until that happens, we annotate the module with the expected
 /// types so we can built on top of them at runtime.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct ModuleTypeHints {
     /// The type hints for the imported types
     pub imports: Vec<ExternType>,
@@ -40,7 +40,7 @@ pub struct ModuleTypeHints {
     pub exports: Vec<ExternType>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Module {
     module: WebAssembly::Module,
     name: Option<String>,
