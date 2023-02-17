@@ -156,7 +156,7 @@ impl Artifact {
             finished_dynamic_function_trampolines,
             custom_sections,
         ) = engine_inner.allocate(
-            &module_info,
+            module_info,
             artifact.get_function_bodies_ref(),
             artifact.get_function_call_trampolines_ref(),
             artifact.get_dynamic_function_trampolines_ref(),
@@ -164,7 +164,7 @@ impl Artifact {
         )?;
 
         link_module(
-            &module_info,
+            module_info,
             &finished_functions,
             artifact.get_function_relocations(),
             &custom_sections,
@@ -584,7 +584,7 @@ impl Artifact {
         features: &Features,
     ) -> Result<
         (
-            Arc<ModuleInfo>,
+            ModuleInfo,
             Object<'data>,
             usize,
             Box<dyn wasmer_types::SymbolRegistry>,
@@ -646,7 +646,7 @@ impl Artifact {
         emit_compilation(&mut obj, compilation, &symbol_registry, target_triple)
             .map_err(to_compile_error)?;
         Ok((
-            metadata.compile_info.module,
+            Arc::try_unwrap(metadata.compile_info.module).unwrap(),
             obj,
             metadata_binary.len(),
             Box::new(symbol_registry),
