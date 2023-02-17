@@ -304,7 +304,7 @@ macro_rules! import_namespace {
 
 #[cfg(test)]
 mod test {
-    use crate::store::{AsStoreMut, Store};
+    use crate::store::Store;
     use crate::value::Value;
     use crate::Extern;
     use crate::Global;

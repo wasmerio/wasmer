@@ -25,7 +25,7 @@ use crate::store::{AsStoreMut, AsStoreRef};
 /// can be imported or exported.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#external-values>
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum Extern {
     /// A external [`Function`].
     Function(Function),

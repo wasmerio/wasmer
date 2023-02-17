@@ -19,7 +19,7 @@ use crate::sys::externals::global as global_impl;
 /// It consists of an individual value and a flag indicating whether it is mutable.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#global-instances>
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Global(pub(crate) global_impl::Global);
 
 impl Global {
@@ -158,12 +158,6 @@ impl Global {
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         self.0.to_vm_extern()
-    }
-}
-
-impl std::cmp::PartialEq for Global {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
     }
 }
 

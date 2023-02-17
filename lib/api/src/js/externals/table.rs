@@ -23,7 +23,7 @@ fn get_function(store: &mut impl AsStoreMut, val: Value) -> Result<Function, Run
     match val {
         Value::FuncRef(Some(ref func)) => Ok(func.0.handle.function.clone().into()),
         // Only funcrefs is supported by the spec atm
-        _ => unimplemented!(),
+        _ => unimplemented!("The {val:?} is not yet supported"),
     }
 }
 

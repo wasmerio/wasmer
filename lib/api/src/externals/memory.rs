@@ -27,7 +27,7 @@ use wasmer_types::{MemoryError, Pages};
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Memory(pub(crate) memory_impl::Memory);
 
 impl Memory {
@@ -145,12 +145,6 @@ impl Memory {
     /// To `VMExtern`.
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         self.0.to_vm_extern()
-    }
-}
-
-impl std::cmp::PartialEq for Memory {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
     }
 }
 

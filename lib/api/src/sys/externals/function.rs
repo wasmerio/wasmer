@@ -14,7 +14,7 @@ use wasmer_vm::{
     VMFunction, VMFunctionBody, VMFunctionContext, VMFunctionKind, VMTrampoline,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Function {
     pub(crate) handle: StoreHandle<VMFunction>,
 }

@@ -81,7 +81,7 @@ mod private {
 ///   with native functions. Attempting to create a native `Function` with one will
 ///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Function(pub(crate) function_impl::Function);
 
 impl Function {
@@ -499,6 +499,8 @@ impl Function {
         self.0.to_vm_extern()
     }
 }
+
+impl std::cmp::Eq for Function {}
 
 impl<'a> Exportable<'a> for Function {
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {

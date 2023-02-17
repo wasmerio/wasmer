@@ -20,7 +20,7 @@ use crate::Value;
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Table(pub(crate) table_impl::Table);
 
 impl Table {
@@ -110,12 +110,6 @@ impl Table {
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         self.0.to_vm_extern()
-    }
-}
-
-impl std::cmp::PartialEq for Table {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
     }
 }
 
