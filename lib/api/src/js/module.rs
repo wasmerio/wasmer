@@ -444,3 +444,9 @@ impl From<WebAssembly::Module> for Module {
         }
     }
 }
+
+impl From<WebAssembly::Module> for crate::module::Module {
+    fn from(module: WebAssembly::Module) -> crate::module::Module {
+        crate::module::Module(module.into())
+    }
+}

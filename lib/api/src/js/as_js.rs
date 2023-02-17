@@ -4,11 +4,10 @@
 use crate::imports::Imports;
 use crate::instance::Instance;
 use crate::js::instance::Instance as JsInstance;
-use crate::js::vm::{VMExtern, VMFunction, VMGlobal, VMMemory, VMTable};
+use crate::js::vm::{VMFunction, VMGlobal, VMMemory, VMTable};
 use crate::js::wasm_bindgen_polyfill::Global as JsGlobal;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::value::Value;
-use crate::Exports;
 use crate::Type;
 use crate::{Extern, Function, Global, Memory, Table};
 use js_sys::Function as JsFunction;
@@ -88,7 +87,7 @@ impl AsJs for wasmer_types::RawValue {
 }
 
 impl AsJs for Imports {
-    type DefinitionType = crate::js::module::Module;
+    type DefinitionType = crate::module::Module;
 
     // Annotation is here to prevent spurious IDE warnings.
     #[allow(unused_unsafe)]
