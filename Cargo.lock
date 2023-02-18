@@ -4861,6 +4861,7 @@ dependencies = [
  "tracing",
  "typetag",
  "wasmer-wasi",
+ "wasmer-wasi-types",
 ]
 
 [[package]]

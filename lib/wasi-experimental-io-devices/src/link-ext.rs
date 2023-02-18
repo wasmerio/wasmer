@@ -10,6 +10,7 @@ use wasmer_wasi::{
     WasiInodes,
 };
 use wasmer_wasi::{Fd, VirtualFile, WasiFs, WasiFsError, ALL_RIGHTS, VIRTUAL_ROOT_FD};
+use wasmer_wasi_types::wasi::Fdflags;
 
 use minifb::{Key, KeyRepeat, MouseButton, Scale, Window, WindowOptions};
 
@@ -96,7 +97,7 @@ impl FrameBufferState {
             return None;
         }
         self.x_size = x;
-        self.y_size = x;
+        self.y_size = y;
 
         self.data_1.resize((x * y) as usize, 0);
         self.data_2.resize((x * y) as usize, 0);
@@ -126,7 +127,7 @@ impl FrameBufferState {
                 self.push_input_event(InputEvent::KeyRelease(key))?;
             }
         }
-        let keys = self.window.get_keys_pressed(KeyRepeat::No)?;
+        let keys = self.window.get_keys_pressed(KeyRepeat::No);
         for key in keys {
             self.keys_pressed.insert(key);
             self.push_input_event(InputEvent::KeyPress(key))?;
@@ -456,7 +457,7 @@ pub fn initialize(inodes: &mut WasiInodes, fs: &mut WasiFs) -> Result<(), String
             "_wasmer/dev/fb0".to_string(),
             ALL_RIGHTS,
             ALL_RIGHTS,
-            0,
+            Fdflags::empty(),
         )
         .map_err(|e| format!("fb: Failed to create dev folder {:?}", e))?
     };
@@ -470,7 +471,7 @@ pub fn initialize(inodes: &mut WasiInodes, fs: &mut WasiFs) -> Result<(), String
             "input".to_string(),
             ALL_RIGHTS,
             ALL_RIGHTS,
-            0,
+            Fdflags::empty(),
         )
         .map_err(|e| format!("fb: Failed to init framebuffer {:?}", e))?;
 
@@ -485,7 +486,7 @@ pub fn initialize(inodes: &mut WasiInodes, fs: &mut WasiFs) -> Result<(), String
             "fb".to_string(),
             ALL_RIGHTS,
             ALL_RIGHTS,
-            0,
+            Fdflags::empty(),
         )
         .map_err(|e| format!("fb: Failed to init framebuffer {:?}", e))?;
 
@@ -500,7 +501,7 @@ pub fn initialize(inodes: &mut WasiInodes, fs: &mut WasiFs) -> Result<(), String
             "virtual_size".to_string(),
             ALL_RIGHTS,
             ALL_RIGHTS,
-            0,
+            Fdflags::empty(),
         )
         .map_err(|e| format!("fb_resolution: Failed to init framebuffer {:?}", e))?;
 
@@ -515,7 +516,7 @@ pub fn initialize(inodes: &mut WasiInodes, fs: &mut WasiFs) -> Result<(), String
             "draw".to_string(),
             ALL_RIGHTS,
             ALL_RIGHTS,
-            0,
+            Fdflags::empty(),
         )
         .map_err(|e| format!("fb_index_display: Failed to init framebuffer {:?}", e))?;
 
