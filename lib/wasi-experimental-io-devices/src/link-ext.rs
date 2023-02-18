@@ -50,7 +50,7 @@ pub(crate) struct FrameBufferState {
 
     pub last_mouse_pos: (u32, u32),
     pub inputs: VecDeque<InputEvent>,
-    pub keys_pressed: BTreeSet<minifb::Key>,
+    pub keys: Vec<minifb::Key>,
 }
 
 impl FrameBufferState {
@@ -74,7 +74,7 @@ impl FrameBufferState {
             window,
             last_mouse_pos: (0, 0),
             inputs: VecDeque::with_capacity(Self::MAX_INPUTS),
-            keys_pressed: BTreeSet::new(),
+            keys: Vec::new(),
         }
     }
 
@@ -117,21 +117,26 @@ impl FrameBufferState {
     }
 
     pub fn fill_input_buffer(&mut self) -> Option<()> {
-        let keys_pressed = self.keys_pressed.iter().cloned().collect::<Vec<Key>>();
         if !self.window.is_open() {
             self.push_input_event(InputEvent::WindowClosed)?;
         }
-        for key in keys_pressed {
-            if self.window.is_key_released(key) {
-                self.keys_pressed.remove(&key);
-                self.push_input_event(InputEvent::KeyRelease(key))?;
+
+        let keys = self.keys.iter().cloned().collect::<Vec<Key>>();
+        let new_keys = self.window.get_keys();
+
+        for key in &keys {
+            if !new_keys.contains(&key) {
+                self.push_input_event(InputEvent::KeyRelease(*key))?;
             }
         }
-        let keys = self.window.get_keys_pressed(KeyRepeat::No);
-        for key in keys {
-            self.keys_pressed.insert(key);
-            self.push_input_event(InputEvent::KeyPress(key))?;
+
+        for key in &new_keys {
+            if !keys.contains(&key) {
+                self.push_input_event(InputEvent::KeyPress(*key))?;
+            }
         }
+
+        self.keys = new_keys;
 
         let mouse_position = self.window.get_mouse_pos(minifb::MouseMode::Clamp)?;
         if mouse_position.0 as u32 != self.last_mouse_pos.0
