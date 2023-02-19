@@ -6,7 +6,7 @@ use std::{fmt, sync::Arc};
 
 use wasmer_vnet::{DynVirtualNetworking, VirtualNetworking};
 
-use crate::{http::DynHttpClient, os::DynTtyBridge};
+use crate::{http::DynHttpClient, os::TtyBridge};
 
 #[cfg(feature = "sys")]
 pub type ArcTunables = std::sync::Arc<dyn wasmer::Tunables + Send + Sync>;
@@ -52,7 +52,7 @@ where
     }
 
     /// Get access to the TTY used by the environment.
-    fn tty(&self) -> Option<&DynTtyBridge> {
+    fn tty(&self) -> Option<&dyn TtyBridge> {
         None
     }
 }

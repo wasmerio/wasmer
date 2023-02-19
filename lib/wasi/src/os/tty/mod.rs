@@ -451,5 +451,3 @@ pub trait TtyBridge {
     /// Set the TTY state.
     fn tty_set(&self, _tty_state: WasiTtyState);
 }
-
-pub type DynTtyBridge = Arc<dyn TtyBridge>;
