@@ -620,7 +620,7 @@ unsafe fn noop_clone(_data: *const ()) -> RawWaker {
 }
 unsafe fn noop(_data: *const ()) {}
 
-fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
+pub fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
     use std::io::ErrorKind;
     match net_error.kind() {
         ErrorKind::BrokenPipe => NetworkError::BrokenPipe,
