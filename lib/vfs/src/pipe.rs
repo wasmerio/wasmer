@@ -16,8 +16,22 @@ use crate::{ArcFile, FsError, VirtualFile};
 
 #[derive(Debug, Clone)]
 pub struct Pipe {
+    /// Transmit side of the pipe
+    send: PipeTx,
+    /// Receive side of the pipe
+    recv: PipeRx,
+}
+
+#[derive(Debug, Clone)]
+pub struct PipeTx {
     /// Sends bytes down the pipe
     tx: Arc<Mutex<mpsc::UnboundedSender<Vec<u8>>>>,
+    /// Whether the pipe should block or not block to wait for stdin reads
+    block: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct PipeRx {
     /// Receives bytes from the pipe
     /// Also, buffers the last read message from the pipe while its being consumed
     rx: Arc<Mutex<PipeReceiver>>,
@@ -36,12 +50,28 @@ impl Pipe {
         let (tx, rx) = mpsc::unbounded_channel();
 
         Pipe {
-            tx: Arc::new(Mutex::new(tx)),
-            rx: Arc::new(Mutex::new(PipeReceiver {
-                chan: rx,
-                buffer: None,
-            })),
-            block: true,
+            send: PipeTx {
+                tx: Arc::new(Mutex::new(tx)),
+                block: true
+            },
+            recv: PipeRx {
+                rx: Arc::new(Mutex::new(PipeReceiver {
+                    chan: rx,
+                    buffer: None,
+                })),
+                block: true
+            }
+        }
+    }
+
+    pub fn split(self) -> (PipeTx, PipeRx) {
+        (self.send, self.recv)
+    }
+
+    pub fn combine(tx: PipeTx, rx: PipeRx) -> Self {
+        Self {
+            send: tx,
+            recv: rx
         }
     }
 }
@@ -61,9 +91,16 @@ impl Pipe {
 
     /// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`
     pub fn set_blocking(&mut self, block: bool) {
-        self.block = block;
+        self.send.block = block;
+        self.recv.block = block;
     }
 
+    pub fn close(&self) {
+        self.send.close();
+    }
+}
+
+impl PipeTx {
     pub fn close(&self) {
         // TODO: proper close() implementation - Propably want to store the writer in an Option<>
         let (mut null_tx, _) = mpsc::unbounded_channel();
@@ -75,12 +112,24 @@ impl Pipe {
 }
 
 impl Seek for Pipe {
+    fn seek(&mut self, from: SeekFrom) -> io::Result<u64> {
+        self.recv.seek(from)
+    }
+}
+
+impl Read for Pipe {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.recv.read(buf)
+    }
+}
+
+impl Seek for PipeRx {
     fn seek(&mut self, _: SeekFrom) -> io::Result<u64> {
         Ok(0)
     }
 }
 
-impl Read for Pipe {
+impl Read for PipeRx {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         let max_size = buf.len();
 
@@ -124,6 +173,28 @@ impl Read for Pipe {
 
 impl std::io::Write for Pipe {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.send.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.send.flush()
+    }
+
+    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+        self.send.write_all(buf)
+    }
+
+    fn write_fmt(&mut self, fmt: std::fmt::Arguments<'_>) -> io::Result<()> {
+        self.send.write_fmt(fmt)
+    }
+
+    fn write_vectored(&mut self, bufs: &[IoSlice<'_>]) -> io::Result<usize> {
+        self.send.write_vectored(bufs)
+    }
+}
+
+impl std::io::Write for PipeTx {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let tx = self.tx.lock().unwrap();
         tx.send(buf.to_vec())
             .map_err(|_| Into::<std::io::Error>::into(std::io::ErrorKind::BrokenPipe))?;
@@ -136,6 +207,18 @@ impl std::io::Write for Pipe {
 }
 
 impl AsyncSeek for Pipe {
+    fn start_seek(mut self: Pin<&mut Self>, position: SeekFrom) -> io::Result<()> {
+        let this = Pin::new(&mut self.recv);
+        this.start_seek(position)
+    }
+
+    fn poll_complete(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+        let this = Pin::new(&mut self.recv);
+        this.poll_complete(cx)
+    }
+}
+
+impl AsyncSeek for PipeRx {
     fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
         Ok(())
     }
@@ -145,6 +228,36 @@ impl AsyncSeek for Pipe {
 }
 
 impl AsyncWrite for Pipe {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        let this = Pin::new(&mut self.send);
+        this.poll_write(cx, buf)
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        let this = Pin::new(&mut self.send);
+        this.poll_flush(cx)
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        let this = Pin::new(&mut self.send);
+        this.poll_shutdown(cx)
+    }
+
+    fn poll_write_vectored(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        bufs: &[IoSlice<'_>],
+    ) -> Poll<Result<usize, io::Error>> {
+        let this = Pin::new(&mut self.send);
+        this.poll_write_vectored(cx, bufs)
+    }
+}
+
+impl AsyncWrite for PipeTx {
     fn poll_write(
         self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
@@ -169,6 +282,17 @@ impl AsyncWrite for Pipe {
 }
 
 impl AsyncRead for Pipe {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        let this = Pin::new(&mut self.recv);
+        this.poll_read(cx, buf)
+    }
+}
+
+impl AsyncRead for PipeRx {
     fn poll_read(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -241,7 +365,8 @@ impl VirtualFile for Pipe {
     /// Indicates if the file is opened or closed. This function must not block
     /// Defaults to a status of being constantly open
     fn is_open(&self) -> bool {
-        self.tx
+        self.send
+            .tx
             .try_lock()
             .map(|a| !a.is_closed())
             .unwrap_or_else(|_| true)
@@ -249,7 +374,7 @@ impl VirtualFile for Pipe {
 
     /// Polls the file for when there is data to be read
     fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
-        let mut rx = self.rx.lock().unwrap();
+        let mut rx = self.recv.rx.lock().unwrap();
         loop {
             {
                 if let Some(inner_buf) = rx.buffer.as_mut() {
@@ -265,7 +390,7 @@ impl VirtualFile for Pipe {
                 Poll::Ready(Some(a)) => a,
                 Poll::Ready(None) => return Poll::Ready(Ok(0)),
                 Poll::Pending => {
-                    return match self.block {
+                    return match self.recv.block {
                         true => Poll::Pending,
                         false => {
                             Poll::Ready(Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock)))
@@ -280,7 +405,7 @@ impl VirtualFile for Pipe {
 
     /// Polls the file for when it is available for writing
     fn poll_write_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
-        let tx = self.tx.lock().unwrap();
+        let tx = self.send.tx.lock().unwrap();
         if tx.is_closed() {
             Poll::Ready(Ok(0))
         } else {
@@ -400,26 +525,8 @@ impl Default for DuplexPipe {
 
 impl DuplexPipe {
     pub fn new() -> DuplexPipe {
-        let (tx1, rx1) = mpsc::unbounded_channel();
-        let (tx2, rx2) = mpsc::unbounded_channel();
-
-        let pipe1 = Pipe {
-            tx: Arc::new(Mutex::new(tx1)),
-            rx: Arc::new(Mutex::new(PipeReceiver {
-                chan: rx2,
-                buffer: None,
-            })),
-            block: true,
-        };
-
-        let pipe2 = Pipe {
-            tx: Arc::new(Mutex::new(tx2)),
-            rx: Arc::new(Mutex::new(PipeReceiver {
-                chan: rx1,
-                buffer: None,
-            })),
-            block: true,
-        };
+        let pipe1 = Pipe::new();
+        let pipe2 = Pipe::new();
 
         DuplexPipe {
             tx: pipe1,
