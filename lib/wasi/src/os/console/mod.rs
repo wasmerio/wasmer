@@ -19,7 +19,9 @@ use tokio::sync::{mpsc, RwLock};
 use tracing::{debug, error, info, trace, warn};
 #[cfg(feature = "sys")]
 use wasmer::Engine;
-use wasmer_vfs::{AsyncWriteExt, DuplexPipe, FileSystem, Pipe, RootFileSystemBuilder, SpecialFile};
+use wasmer_vfs::{
+    AsyncWriteExt, DuplexPipe, FileSystem, Pipe, PipeRx, PipeTx, RootFileSystemBuilder, SpecialFile,
+};
 use wasmer_wasi_types::{types::__WASI_STDIN_FILENO, wasi::BusErrno};
 
 use super::{cconst::ConsoleConst, common::*};
@@ -50,7 +52,9 @@ pub struct Console {
     env: HashMap<String, String>,
     runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
     compiled_modules: Arc<ModuleCache>,
-    stdio: DuplexPipe,
+    stdin: PipeRx,
+    stdout: PipeTx,
+    stderr: PipeTx,
     capabilities: Capabilities,
 }
 
@@ -58,7 +62,9 @@ impl Console {
     pub fn new(
         runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
         compiled_modules: Arc<ModuleCache>,
-        stdio: DuplexPipe,
+        stdin: PipeRx,
+        stdout: PipeTx,
+        stderr: PipeTx,
     ) -> Self {
         let mut uses = DEFAULT_BOOT_USES
             .iter()
@@ -82,7 +88,9 @@ impl Console {
             runtime,
             prompt: "wasmer.sh".to_string(),
             compiled_modules,
-            stdio,
+            stdin,
+            stdout,
+            stderr,
             capabilities: Default::default(),
         }
     }
@@ -154,12 +162,11 @@ impl Console {
         // Build a new store that will be passed to the thread
         let store = self.runtime.new_store();
 
-        let root_fs = RootFileSystemBuilder::new()
-            .with_tty(Box::new(self.stdio.clone()))
-            .build();
+        let tty = Pipe::combine(self.stdout.clone(), self.stdin.clone());
+        let root_fs = RootFileSystemBuilder::new().with_tty(Box::new(tty)).build();
 
         let env_init = WasiEnv::builder(prog)
-            .stdin(Box::new(self.stdio.clone()))
+            .stdin(Box::new(self.stdin.clone()))
             .args(args.iter())
             .envs(envs.iter())
             .sandbox_fs(root_fs)
@@ -167,8 +174,8 @@ impl Console {
             .unwrap()
             .map_dir(".", "/")
             .unwrap()
-            .stdout(Box::new(self.stdio.clone()))
-            .stderr(Box::new(self.stdio.clone()))
+            .stdout(Box::new(self.stdout.clone()))
+            .stderr(Box::new(self.stderr.clone()))
             .compiled_modules(self.compiled_modules.clone())
             .runtime(self.runtime.clone())
             .capabilities(self.capabilities.clone())
@@ -192,12 +199,14 @@ impl Console {
         {
             binary
         } else {
+            let mut stderr = self.stderr.clone();
             tasks.block_on(async {
-                self.stdio
-                    .clone()
-                    .write_all(format!("package not found [{}]\r\n", webc).as_bytes())
-                    .await
-                    .ok();
+                wasmer_vfs::AsyncWriteExt::write_all(
+                    &mut stderr,
+                    format!("package not found [{}]\r\n", webc).as_bytes(),
+                )
+                .await
+                .ok();
             });
             tracing::debug!("failed to get webc dependency - {}", webc);
             return Err(crate::vbus::VirtualBusError::NotFound);
@@ -241,9 +250,8 @@ impl Console {
             .replace("\\n", "\n");
         data.insert_str(0, ConsoleConst::TERM_NO_WRAPAROUND);
 
-        self.stdio
-            .clone()
-            .write_all(data.as_str().as_bytes())
+        let mut stderr = self.stderr.clone();
+        wasmer_vfs::AsyncWriteExt::write_all(&mut stderr, data.as_str().as_bytes())
             .await
             .ok();
     }

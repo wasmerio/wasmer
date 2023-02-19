@@ -52,15 +52,15 @@ impl Pipe {
         Pipe {
             send: PipeTx {
                 tx: Arc::new(Mutex::new(tx)),
-                block: true
+                block: true,
             },
             recv: PipeRx {
                 rx: Arc::new(Mutex::new(PipeReceiver {
                     chan: rx,
                     buffer: None,
                 })),
-                block: true
-            }
+                block: true,
+            },
         }
     }
 
@@ -69,10 +69,7 @@ impl Pipe {
     }
 
     pub fn combine(tx: PipeTx, rx: PipeRx) -> Self {
-        Self {
-            send: tx,
-            recv: rx
-        }
+        Self { send: tx, recv: rx }
     }
 }
 
@@ -117,15 +114,21 @@ impl Seek for Pipe {
     }
 }
 
-impl Read for Pipe {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        self.recv.read(buf)
-    }
-}
-
 impl Seek for PipeRx {
     fn seek(&mut self, _: SeekFrom) -> io::Result<u64> {
         Ok(0)
+    }
+}
+
+impl Seek for PipeTx {
+    fn seek(&mut self, _: SeekFrom) -> io::Result<u64> {
+        Ok(0)
+    }
+}
+
+impl Read for Pipe {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.recv.read(buf)
     }
 }
 
@@ -227,6 +230,15 @@ impl AsyncSeek for PipeRx {
     }
 }
 
+impl AsyncSeek for PipeTx {
+    fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
+        Ok(())
+    }
+    fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+        Poll::Ready(Ok(0))
+    }
+}
+
 impl AsyncWrite for Pipe {
     fn poll_write(
         mut self: Pin<&mut Self>,
@@ -242,7 +254,10 @@ impl AsyncWrite for Pipe {
         this.poll_flush(cx)
     }
 
-    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+    fn poll_shutdown(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<(), io::Error>> {
         let this = Pin::new(&mut self.send);
         this.poll_shutdown(cx)
     }
@@ -417,103 +432,44 @@ impl VirtualFile for Pipe {
 /// A pair of pipes that are connected together.
 #[derive(Clone, Debug)]
 pub struct DuplexPipe {
-    tx: Pipe,
-    rx: Pipe,
+    front: Pipe,
+    back: Pipe,
 }
 
 impl DuplexPipe {
     /// Get the sender pipe.
-    pub fn sender(&self) -> &Pipe {
-        &self.tx
+    pub fn front(&self) -> &Pipe {
+        &self.front
     }
 
     /// Get the receiver pipe.
-    pub fn rx(&self) -> &Pipe {
-        &self.rx
+    pub fn back(&self) -> &Pipe {
+        &self.back
     }
 
-    /// Split into a sender and receiver pipe.
+    /// Get the mutable sender pipe.
+    pub fn front_mut(&mut self) -> &mut Pipe {
+        &mut self.front
+    }
+
+    /// Get the receiver pipe.
+    pub fn back_mut(&mut self) -> &mut Pipe {
+        &mut self.back
+    }
+
+    /// Split into two pipes that are connected to each other
     pub fn split(self) -> (Pipe, Pipe) {
-        (self.tx, self.rx)
+        (self.front, self.back)
     }
-}
 
-impl VirtualFile for DuplexPipe {
-    fn last_accessed(&self) -> u64 {
-        self.rx.last_accessed()
+    /// Combines two ends of a duplex pipe back together again
+    pub fn combine(front: Pipe, back: Pipe) -> Self {
+        Self { front, back }
     }
-    fn last_modified(&self) -> u64 {
-        self.rx.last_modified()
-    }
-    fn created_time(&self) -> u64 {
-        self.rx.created_time()
-    }
-    fn size(&self) -> u64 {
-        self.rx.size()
-    }
-    fn set_len(&mut self, i: u64) -> Result<(), FsError> {
-        self.rx.set_len(i)
-    }
-    fn unlink(&mut self) -> Result<(), FsError> {
-        self.rx.unlink()
-    }
-    fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
-        let rx = Pin::new(&mut self.rx);
-        rx.poll_read_ready(cx)
-    }
-    fn poll_write_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
-        let tx = Pin::new(&mut self.tx);
-        tx.poll_write_ready(cx)
-    }
-}
 
-impl AsyncSeek for DuplexPipe {
-    fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
-        Ok(())
-    }
-    fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
-        Poll::Ready(Ok(0))
-    }
-}
-
-impl AsyncWrite for DuplexPipe {
-    fn poll_write(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<io::Result<usize>> {
-        let file = Pin::new(&mut self.tx);
-        file.poll_write(cx, buf)
-    }
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let file = Pin::new(&mut self.tx);
-        file.poll_flush(cx)
-    }
-    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let file = Pin::new(&mut self.tx);
-        file.poll_shutdown(cx)
-    }
-    fn poll_write_vectored(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        bufs: &[IoSlice<'_>],
-    ) -> Poll<io::Result<usize>> {
-        let file = Pin::new(&mut self.tx);
-        file.poll_write_vectored(cx, bufs)
-    }
-    fn is_write_vectored(&self) -> bool {
-        false
-    }
-}
-
-impl AsyncRead for DuplexPipe {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut tokio::io::ReadBuf<'_>,
-    ) -> Poll<io::Result<()>> {
-        let file = Pin::new(&mut self.rx);
-        file.poll_read(cx, buf)
+    pub fn reverse(self) -> Self {
+        let (front, back) = self.split();
+        Self::combine(back, front)
     }
 }
 
@@ -525,26 +481,27 @@ impl Default for DuplexPipe {
 
 impl DuplexPipe {
     pub fn new() -> DuplexPipe {
-        let pipe1 = Pipe::new();
-        let pipe2 = Pipe::new();
+        let (tx1, rx1) = Pipe::new().split();
+        let (tx2, rx2) = Pipe::new().split();
 
-        DuplexPipe {
-            tx: pipe1,
-            rx: pipe2,
+        let end1 = Pipe::combine(tx1, rx2);
+        let end2 = Pipe::combine(tx2, rx1);
+
+        Self {
+            front: end1,
+            back: end2,
         }
     }
 
-    #[allow(dead_code)]
     pub fn with_blocking(mut self, block: bool) -> Self {
         self.set_blocking(block);
         self
     }
 
     /// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`
-    #[allow(dead_code)]
     pub fn set_blocking(&mut self, block: bool) {
-        self.tx.set_blocking(block);
-        self.rx.set_blocking(block);
+        self.front.set_blocking(block);
+        self.back.set_blocking(block);
     }
 }
 

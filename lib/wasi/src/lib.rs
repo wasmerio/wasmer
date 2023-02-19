@@ -82,7 +82,7 @@ pub use wasmer_vnet::{UnsupportedVirtualNetworking, VirtualNetworking};
 
 #[cfg(feature = "host-vnet")]
 pub use wasmer_wasi_local_networking::{
-    LocalNetworking, LocalTcpListener, LocalTcpStream, LocalUdpSocket, io_err_into_net_error
+    io_err_into_net_error, LocalNetworking, LocalTcpListener, LocalTcpStream, LocalUdpSocket,
 };
 use wasmer_wasi_types::wasi::{BusErrno, Errno, ExitCode};
 
