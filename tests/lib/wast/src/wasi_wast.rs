@@ -8,11 +8,11 @@ use std::task::{Context, Poll};
 use wasmer::{FunctionEnv, Imports, Module, Store};
 use wasmer_vfs::{
     host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, AsyncRead, AsyncSeek, AsyncWrite,
-    AsyncWriteExt, FileSystem, ReadBuf, RootFileSystemBuilder,
+    AsyncWriteExt, FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
 };
 use wasmer_wasi::types::wasi::{Filesize, Timestamp};
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, DuplexPipe, FsError,
+    generate_import_object_from_env, get_wasi_version, FsError,
     PluggableRuntimeImplementation, VirtualFile, WasiEnv, WasiEnvBuilder, WasiRuntime, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
@@ -105,18 +105,25 @@ impl<'a> WasiTest<'a> {
 
         let tasks = rt.task_manager().runtime().clone();
         let module = Module::new(store, wasm_bytes)?;
-        let (builder, _tempdirs, stdout_rx, stderr_rx) =
+        let (builder, _tempdirs, mut stdin_tx, stdout_rx, stderr_rx) =
             { tasks.block_on(async { self.create_wasi_env(filesystem_kind).await }) }?;
 
-        let (instance, wasi_env) = builder.runtime(Arc::new(rt)).instantiate(module, store)?;
+        let (instance, _wasi_env) = builder.runtime(Arc::new(rt)).instantiate(module, store)?;
 
         let start = instance.exports.get_function("_start")?;
 
         if let Some(stdin) = &self.stdin {
-            let mut wasi_stdin = { wasi_env.data(store).stdin().unwrap().unwrap() };
+            // let mut wasi_stdin = { wasi_env.data(store).stdin().unwrap().unwrap() };
             // Then we can write to it!
             let data = stdin.stream.to_string();
-            tasks.block_on(async move { wasi_stdin.write(data.as_bytes()).await })?;
+            tasks.block_on(async move {
+                stdin_tx.write_all(data.as_bytes()).await?;
+                stdin_tx.shutdown().await?;
+
+                Ok::<_, anyhow::Error>(())
+            })?;
+        } else {
+            std::mem::drop(stdin_tx);
         }
 
         // TODO: handle errors here when the error fix gets shipped
@@ -137,6 +144,7 @@ impl<'a> WasiTest<'a> {
 
         if let Some(expected_stdout) = &self.assert_stdout {
             let stdout_str = get_stdio_output(&stdout_rx)?;
+            dbg!(&expected_stdout, &stdout_str);
             assert_eq!(stdout_str, expected_stdout.expected);
         }
 
@@ -156,13 +164,14 @@ impl<'a> WasiTest<'a> {
     ) -> anyhow::Result<(
         WasiEnvBuilder,
         Vec<tempfile::TempDir>,
+        Pipe,
         mpsc::Receiver<Vec<u8>>,
         mpsc::Receiver<Vec<u8>>,
     )> {
         let mut builder = WasiEnv::builder(self.wasm_path);
 
-        let stdin_pipe = DuplexPipe::new().with_blocking(false).split().0;
-        builder.set_stdin(Box::new(stdin_pipe));
+        let (stdin_tx, stdin_rx) = Pipe::channel();
+        builder.set_stdin(Box::new(stdin_rx));
 
         for (name, value) in &self.envs {
             builder.add_env(name, value);
@@ -272,7 +281,13 @@ impl<'a> WasiTest<'a> {
             .stdout(Box::new(stdout))
             .stderr(Box::new(stderr));
 
-        Ok((builder, host_temp_dirs_to_not_drop, stdout_rx, stderr_rx))
+        Ok((
+            builder,
+            host_temp_dirs_to_not_drop,
+            stdin_tx,
+            stdout_rx,
+            stderr_rx,
+        ))
     }
 
     /// Get the correct [`WasiVersion`] from the Wasm [`Module`].
