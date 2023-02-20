@@ -4,15 +4,18 @@ use super::*;
 
 use crate::VirtualFile;
 
+/// Wraps a [`VirtualFile`], and also invokes a provided function for each write.
+///
+/// Useful for debugging.
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct DuelWriteFile {
+pub struct DualWriteFile {
     inner: Box<dyn VirtualFile + Send + Sync + 'static>,
     #[derivative(Debug = "ignore")]
     extra_write: Box<dyn FnMut(&[u8]) + Send + Sync + 'static>,
 }
 
-impl DuelWriteFile {
+impl DualWriteFile {
     pub fn new(
         inner: Box<dyn VirtualFile + Send + Sync + 'static>,
         funct: impl FnMut(&[u8]) + Send + Sync + 'static,
@@ -24,7 +27,7 @@ impl DuelWriteFile {
     }
 }
 
-impl VirtualFile for DuelWriteFile {
+impl VirtualFile for DualWriteFile {
     fn last_accessed(&self) -> u64 {
         self.inner.last_accessed()
     }
@@ -58,7 +61,7 @@ impl VirtualFile for DuelWriteFile {
     }
 }
 
-impl AsyncWrite for DuelWriteFile {
+impl AsyncWrite for DualWriteFile {
     fn poll_write(
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -84,7 +87,7 @@ impl AsyncWrite for DuelWriteFile {
     }
 }
 
-impl AsyncRead for DuelWriteFile {
+impl AsyncRead for DualWriteFile {
     fn poll_read(
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -94,7 +97,7 @@ impl AsyncRead for DuelWriteFile {
     }
 }
 
-impl AsyncSeek for DuelWriteFile {
+impl AsyncSeek for DualWriteFile {
     fn start_seek(mut self: Pin<&mut Self>, position: io::SeekFrom) -> io::Result<()> {
         Pin::new(&mut self.inner).start_seek(position)
     }

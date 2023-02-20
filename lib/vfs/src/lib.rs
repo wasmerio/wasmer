@@ -13,7 +13,7 @@ pub mod arc_file;
 pub mod arc_fs;
 pub mod builder;
 pub mod combine_file;
-pub mod duel_write_file;
+pub mod dual_write_file;
 pub mod empty_fs;
 #[cfg(feature = "host-fs")]
 pub mod host_fs;
@@ -36,7 +36,7 @@ pub use arc_file::*;
 pub use arc_fs::*;
 pub use builder::*;
 pub use combine_file::*;
-pub use duel_write_file::*;
+pub use dual_write_file::*;
 pub use empty_fs::*;
 pub use null_file::*;
 pub use passthru_fs::*;
