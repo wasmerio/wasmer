@@ -82,6 +82,18 @@ impl Pipe {
     }
 }
 
+impl Into<PipeTx> for Pipe {
+    fn into(self) -> PipeTx {
+        self.send
+    }
+}
+
+impl Into<PipeRx> for Pipe {
+    fn into(self) -> PipeRx {
+        self.recv
+    }
+}
+
 impl Default for Pipe {
     fn default() -> Self {
         Self::new()
