@@ -52,9 +52,9 @@ pub struct Console {
     env: HashMap<String, String>,
     runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
     compiled_modules: Arc<ModuleCache>,
-    stdin: PipeRx,
-    stdout: PipeTx,
-    stderr: PipeTx,
+    stdin: Pipe,
+    stdout: Pipe,
+    stderr: Pipe,
     capabilities: Capabilities,
 }
 
@@ -62,9 +62,9 @@ impl Console {
     pub fn new(
         runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
         compiled_modules: Arc<ModuleCache>,
-        stdin: PipeRx,
-        stdout: PipeTx,
-        stderr: PipeTx,
+        stdin: Pipe,
+        stdout: Pipe,
+        stderr: Pipe,
     ) -> Self {
         let mut uses = DEFAULT_BOOT_USES
             .iter()
@@ -162,7 +162,7 @@ impl Console {
         // Build a new store that will be passed to the thread
         let store = self.runtime.new_store();
 
-        let tty = Pipe::combine(self.stdout.clone(), self.stdin.clone());
+        let tty = Pipe::combine(self.stdout.clone().into(), self.stdin.clone().into());
         let root_fs = RootFileSystemBuilder::new().with_tty(Box::new(tty)).build();
 
         let env_init = WasiEnv::builder(prog)

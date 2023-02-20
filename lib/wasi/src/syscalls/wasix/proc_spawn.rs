@@ -1,3 +1,5 @@
+use wasmer_vfs::Pipe;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -153,7 +155,7 @@ pub fn proc_spawn_internal(
         let mut conv_stdio_mode = |mode: WasiStdioMode, fd: WasiFd| -> Result<OptionFd, BusErrno> {
             match mode {
                 WasiStdioMode::Piped => {
-                    let (pipe1, pipe2) = DuplexPipe::new().split();
+                    let (pipe1, pipe2) = Pipe::channel();
                     let inode1 = child_state.fs.create_inode_with_default_stat(
                         child_inodes,
                         Kind::Pipe { pipe: pipe1 },

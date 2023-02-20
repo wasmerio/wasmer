@@ -161,7 +161,7 @@ impl<'a> WasiTest<'a> {
     )> {
         let mut builder = WasiEnv::builder(self.wasm_path);
 
-        let stdin_pipe = DuplexPipe::new().with_blocking(false);
+        let stdin_pipe = DuplexPipe::new().with_blocking(false).split().0;
         builder.set_stdin(Box::new(stdin_pipe));
 
         for (name, value) in &self.envs {

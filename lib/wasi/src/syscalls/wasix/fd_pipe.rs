@@ -1,3 +1,5 @@
+use wasmer_vfs::Pipe;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -18,7 +20,7 @@ pub fn fd_pipe<M: MemorySize>(
     let env = ctx.data();
     let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
-    let (pipe1, pipe2) = DuplexPipe::new().split();
+    let (pipe1, pipe2) = Pipe::channel();
 
     let inode1 = state.fs.create_inode_with_default_stat(
         inodes,
