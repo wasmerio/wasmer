@@ -9,7 +9,7 @@ use futures::Future;
 use wasmer::MemoryType;
 
 #[cfg(feature = "js")]
-use wasmer::js::VMMemory;
+use wasmer::VMMemory;
 
 #[cfg(not(target_family = "wasm"))]
 use wasmer::vm::VMMemory;
