@@ -82,15 +82,15 @@ impl Pipe {
     }
 }
 
-impl Into<PipeTx> for Pipe {
-    fn into(self) -> PipeTx {
-        self.send
+impl From<Pipe> for PipeTx {
+    fn from(val: Pipe) -> Self {
+        val.send
     }
 }
 
-impl Into<PipeRx> for Pipe {
-    fn into(self) -> PipeRx {
-        self.recv
+impl From<Pipe> for PipeRx {
+    fn from(val: Pipe) -> Self {
+        val.recv
     }
 }
 

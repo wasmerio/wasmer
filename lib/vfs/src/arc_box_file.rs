@@ -132,8 +132,8 @@ impl VirtualFile for ArcBoxFile {
     }
 }
 
-impl Into<ArcBoxFile> for Box<dyn VirtualFile + Send + Sync + 'static> {
-    fn into(self) -> ArcBoxFile {
-        ArcBoxFile::new(self)
+impl From<Box<dyn VirtualFile + Send + Sync + 'static>> for ArcBoxFile {
+    fn from(val: Box<dyn VirtualFile + Send + Sync + 'static>) -> Self {
+        ArcBoxFile::new(val)
     }
 }

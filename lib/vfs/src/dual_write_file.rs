@@ -12,6 +12,7 @@ use crate::VirtualFile;
 pub struct DualWriteFile {
     inner: Box<dyn VirtualFile + Send + Sync + 'static>,
     #[derivative(Debug = "ignore")]
+    #[allow(clippy::type_complexity)]
     extra_write: Box<dyn FnMut(&[u8]) + Send + Sync + 'static>,
 }
 
