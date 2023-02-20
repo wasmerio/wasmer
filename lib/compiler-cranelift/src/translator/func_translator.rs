@@ -7,7 +7,7 @@
 //! function to Cranelift IR guided by a `FuncEnvironment` which provides information about the
 //! WebAssembly module and the runtime environment.
 
-use super::code_translator::{bitcast_arguments, translate_operator, wasm_param_types};
+use super::code_translator::{bitcast_wasm_returns, translate_operator};
 use super::func_environ::{FuncEnvironment, ReturnMode};
 use super::func_state::FuncTranslationState;
 use super::translation_utils::get_vmctx_value_label;
@@ -247,11 +247,8 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
         if !builder.is_unreachable() {
             match environ.return_mode() {
                 ReturnMode::NormalReturns => {
-                    let return_types = wasm_param_types(&builder.func.signature.returns, |i| {
-                        environ.is_wasm_return(&builder.func.signature, i)
-                    });
-                    bitcast_arguments(&mut state.stack, &return_types, builder);
-                    builder.ins().return_(&state.stack)
+                    bitcast_wasm_returns(environ, &mut state.stack, builder);
+                    builder.ins().return_(&state.stack);
                 }
             };
         }

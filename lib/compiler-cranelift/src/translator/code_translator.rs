@@ -523,16 +523,12 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 let return_count = frame.num_return_values();
                 (return_count, frame.br_destination())
             };
-            {
-                let return_args = state.peekn_mut(return_count);
-                // TODO(reftypes): maybe ref count here?
-                let return_types = wasm_param_types(&builder.func.signature.returns, |i| {
-                    environ.is_wasm_return(&builder.func.signature, i)
-                });
-                bitcast_arguments(return_args, &return_types, builder);
-                match environ.return_mode() {
-                    ReturnMode::NormalReturns => builder.ins().return_(return_args),
-                };
+            match environ.return_mode() {
+                ReturnMode::NormalReturns => {
+                    let return_args = state.peekn_mut(return_count);
+                    bitcast_wasm_returns(environ, return_args, builder);
+                    builder.ins().return_(return_args);
+                }
             }
             state.popn(return_count);
             state.reachable = false;
@@ -557,15 +553,15 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::Call { function_index } => {
             let (fref, num_args) = state.get_direct_func(builder.func, *function_index, environ)?;
 
-            let args = state.peekn_mut(num_args);
-
             // Bitcast any vector arguments to their default type, I8X16, before calling.
-            let callee_signature =
-                &builder.func.dfg.signatures[builder.func.dfg.ext_funcs[fref].signature];
-            let types = wasm_param_types(&callee_signature.params, |i| {
-                environ.is_wasm_parameter(callee_signature, i)
-            });
-            bitcast_arguments(args, &types, builder);
+            let args = state.peekn_mut(num_args);
+            bitcast_wasm_params(
+                environ,
+                builder.func.dfg.ext_funcs[fref].signature,
+                args,
+                builder,
+            );
+
             let func_index = FunctionIndex::from_u32(*function_index);
 
             let call = environ.translate_call(builder.cursor(), func_index, fref, args)?;
@@ -588,14 +584,9 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let callee = state.pop1();
 
             // Bitcast any vector arguments to their default type, I8X16, before calling.
-            let callee_signature = &builder.func.dfg.signatures[sigref];
             let args = state.peekn_mut(num_args);
-            let types = wasm_param_types(&callee_signature.params, |i| {
-                environ.is_wasm_parameter(callee_signature, i)
-            });
-            bitcast_arguments(args, &types, builder);
+            bitcast_wasm_params(environ, sigref, args, builder);
 
-            let args = state.peekn(num_args);
             let sig_idx = SignatureIndex::from_u32(*index);
 
             let call = environ.translate_call_indirect(
@@ -3010,40 +3001,79 @@ fn pop2_with_bitcast(
     (bitcast_a, bitcast_b)
 }
 
-/// A helper for bitcasting a sequence of values (e.g. function arguments). If a value is a
-/// vector type that does not match its expected type, this will modify the value in place to point
-/// to the result of a `raw_bitcast`. This conversion is necessary to translate Wasm code that
-/// uses `V128` as function parameters (or implicitly in block parameters) and still use specific
-/// CLIF types (e.g. `I32X4`) in the function body.
-pub fn bitcast_arguments(
+fn bitcast_arguments<'a>(
+    builder: &FunctionBuilder,
+    arguments: &'a mut [Value],
+    params: &[ir::AbiParam],
+    param_predicate: impl Fn(usize) -> bool,
+) -> Vec<(Type, &'a mut Value)> {
+    let filtered_param_types = params
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| param_predicate(*i))
+        .map(|(_, param)| param.value_type);
+
+    // TODO: shoudl be zip_eq, from the itertools::Itertools trait, is like Iterator::zip but panics if one
+    // iterator ends before the other. The `param_predicate` is required to select exactly as many
+    // elements of `params` as there are elements in `arguments`.
+    let pairs = filtered_param_types.zip(arguments.iter_mut());
+
+    // The arguments which need to be bitcasted are those which have some vector type but the type
+    // expected by the parameter is not the same vector type as that of the provided argument.
+    pairs
+        .filter(|(param_type, _)| param_type.is_vector())
+        .filter(|(param_type, arg)| {
+            let arg_type = builder.func.dfg.value_type(**arg);
+            assert!(
+                arg_type.is_vector(),
+                "unexpected type mismatch: expected {}, argument {} was actually of type {}",
+                param_type,
+                *arg,
+                arg_type
+            );
+
+            // This is the same check that would be done by `optionally_bitcast_vector`, except we
+            // can't take a mutable borrow of the FunctionBuilder here, so we defer inserting the
+            // bitcast instruction to the caller.
+            arg_type != *param_type
+        })
+        .collect()
+}
+
+/// A helper for bitcasting a sequence of return values for the function currently being built. If
+/// a value is a vector type that does not match its expected type, this will modify the value in
+/// place to point to the result of a `bitcast`. This conversion is necessary to translate Wasm
+/// code that uses `V128` as function parameters (or implicitly in block parameters) and still use
+/// specific CLIF types (e.g. `I32X4`) in the function body.
+pub fn bitcast_wasm_returns<FE: FuncEnvironment + ?Sized>(
+    environ: &mut FE,
     arguments: &mut [Value],
-    expected_types: &[Type],
     builder: &mut FunctionBuilder,
 ) {
-    assert_eq!(arguments.len(), expected_types.len());
-    for (i, t) in expected_types.iter().enumerate() {
-        if t.is_vector() {
-            assert!(
-                builder.func.dfg.value_type(arguments[i]).is_vector(),
-                "unexpected type mismatch: expected {}, argument {} was actually of type {}",
-                t,
-                arguments[i],
-                builder.func.dfg.value_type(arguments[i])
-            );
-            arguments[i] = optionally_bitcast_vector(arguments[i], *t, builder)
-        }
+    let changes = bitcast_arguments(builder, arguments, &builder.func.signature.returns, |i| {
+        environ.is_wasm_return(&builder.func.signature, i)
+    });
+    for (t, arg) in changes {
+        let mut flags = MemFlags::new();
+        flags.set_endianness(ir::Endianness::Little);
+        *arg = builder.ins().bitcast(t, flags, *arg);
     }
 }
 
-/// A helper to extract all the `Type` listings of each variable in `params`
-/// for only parameters the return true for `is_wasm`, typically paired with
-/// `is_wasm_return` or `is_wasm_parameter`.
-pub fn wasm_param_types(params: &[ir::AbiParam], is_wasm: impl Fn(usize) -> bool) -> Vec<Type> {
-    let mut ret = Vec::with_capacity(params.len());
-    for (i, param) in params.iter().enumerate() {
-        if is_wasm(i) {
-            ret.push(param.value_type);
-        }
+/// Like `bitcast_wasm_returns`, but for the parameters being passed to a specified callee.
+fn bitcast_wasm_params<FE: FuncEnvironment + ?Sized>(
+    environ: &mut FE,
+    callee_signature: ir::SigRef,
+    arguments: &mut [Value],
+    builder: &mut FunctionBuilder,
+) {
+    let callee_signature = &builder.func.dfg.signatures[callee_signature];
+    let changes = bitcast_arguments(builder, arguments, &callee_signature.params, |i| {
+        environ.is_wasm_parameter(callee_signature, i)
+    });
+    for (t, arg) in changes {
+        let mut flags = MemFlags::new();
+        flags.set_endianness(ir::Endianness::Little);
+        *arg = builder.ins().bitcast(t, flags, *arg);
     }
-    ret
 }
