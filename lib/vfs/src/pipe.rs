@@ -64,6 +64,15 @@ impl Pipe {
         }
     }
 
+    pub fn channel() -> (Pipe, Pipe) {
+        let (tx1, rx1) = Pipe::new().split();
+        let (tx2, rx2) = Pipe::new().split();
+
+        let end1 = Pipe::combine(tx1, rx2);
+        let end2 = Pipe::combine(tx2, rx1);
+        (end1, end2)
+    }
+
     pub fn split(self) -> (PipeTx, PipeRx) {
         (self.send, self.recv)
     }
@@ -481,12 +490,7 @@ impl Default for DuplexPipe {
 
 impl DuplexPipe {
     pub fn new() -> DuplexPipe {
-        let (tx1, rx1) = Pipe::new().split();
-        let (tx2, rx2) = Pipe::new().split();
-
-        let end1 = Pipe::combine(tx1, rx2);
-        let end2 = Pipe::combine(tx2, rx1);
-
+        let (end1, end2) = Pipe::channel();
         Self {
             front: end1,
             back: end2,
