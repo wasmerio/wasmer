@@ -36,8 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let msg = "racecar go zoom";
     println!("Writing \"{}\" to the WASI stdin...", msg);
-    let mut input = Pipe::new();
-    let mut output = Pipe::new();
+    let (mut input, mut output) = Pipe::channel();
     // To write to the stdin
     writeln!(input, "{}", msg)?;
 
