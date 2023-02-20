@@ -94,12 +94,6 @@ impl From<Pipe> for PipeRx {
     }
 }
 
-impl Default for Pipe {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Pipe {
     /// Same as `set_blocking`, but as a builder method
     pub fn with_blocking(mut self, block: bool) -> Self {
