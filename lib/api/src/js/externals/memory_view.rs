@@ -6,6 +6,7 @@ use std::mem::MaybeUninit;
 use std::slice;
 #[cfg(feature = "tracing")]
 use tracing::warn;
+use wasm_bindgen::JsCast;
 
 use wasmer_types::{Bytes, Pages};
 
@@ -33,10 +34,11 @@ impl<'a> MemoryView<'a> {
     pub(crate) fn new_raw(memory: &js_sys::WebAssembly::Memory) -> Self {
         let buffer = memory.buffer();
 
-        let size = js_sys::Reflect::get(&buffer, &"byteLength".into())
-            .unwrap()
-            .as_f64()
-            .unwrap() as u64;
+        // This also works for SharedArrayBuffer.
+        let size = buffer
+            .unchecked_ref::<js_sys::ArrayBuffer>()
+            .byte_length()
+            .into();
 
         let view = js_sys::Uint8Array::new(&buffer);
 
