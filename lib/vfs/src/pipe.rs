@@ -46,7 +46,7 @@ struct PipeReceiver {
 }
 
 impl Pipe {
-    pub fn new() -> Self {
+    fn new() -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
 
         Pipe {

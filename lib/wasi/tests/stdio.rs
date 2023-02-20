@@ -74,16 +74,14 @@ async fn test_stdout() {
     "#).unwrap();
 
     // Create the `WasiEnv`.
-    let mut pipe = Pipe::new();
+    let (stdout_tx, mut stdout_rx) = Pipe::channel();
 
     let rt = PluggableRuntimeImplementation::default();
-
-    let pipe2 = pipe.clone();
 
     let builder = WasiEnv::builder("command-name")
         .runtime(Arc::new(rt))
         .args(&["Gordon"])
-        .stdout(Box::new(pipe2));
+        .stdout(Box::new(stdout_tx));
 
     #[cfg(feature = "js")]
     {
@@ -98,7 +96,7 @@ async fn test_stdout() {
     }
 
     let mut stdout_str = String::new();
-    pipe.read_to_string(&mut stdout_str).await.unwrap();
+    stdout_rx.read_to_string(&mut stdout_str).await.unwrap();
     let stdout_as_str = stdout_str.as_str();
     assert_eq!(stdout_as_str, "hello world\n");
 }
