@@ -19,8 +19,8 @@ use std::slice;
 #[cfg(feature = "webc_runner")]
 use wasmer_api::{AsStoreMut, Imports, Module};
 use wasmer_wasi::{
-    get_wasi_version, wasmer_vfs::AsyncReadExt, Pipe, VirtualTaskManager, WasiEnv,
-    WasiEnvBuilder, WasiFile, WasiFunctionEnv, WasiVersion,
+    get_wasi_version, wasmer_vfs::AsyncReadExt, Pipe, VirtualTaskManager, WasiEnv, WasiEnvBuilder,
+    WasiFile, WasiFunctionEnv, WasiVersion,
 };
 
 #[derive(Debug)]

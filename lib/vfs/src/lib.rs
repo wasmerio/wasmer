@@ -11,6 +11,7 @@ use thiserror::Error;
 pub mod arc_file;
 pub mod arc_fs;
 pub mod builder;
+pub mod duel_write_file;
 pub mod empty_fs;
 #[cfg(feature = "host-fs")]
 pub mod host_fs;
@@ -31,6 +32,7 @@ pub mod webc_fs;
 pub use arc_file::*;
 pub use arc_fs::*;
 pub use builder::*;
+pub use duel_write_file::*;
 pub use empty_fs::*;
 pub use null_file::*;
 pub use passthru_fs::*;
@@ -209,7 +211,6 @@ impl<'a> OpenOptions<'a> {
 
 /// This trait relies on your file closing when it goes out of scope via `Drop`
 //#[cfg_attr(feature = "enable-serde", typetag::serde)]
-#[async_trait::async_trait]
 pub trait VirtualFile:
     fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable
 {
