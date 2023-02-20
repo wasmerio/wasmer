@@ -299,7 +299,6 @@ impl AsyncWrite for PipeTx {
         _cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        dbg!(buf);
         let guard = self.tx.lock().unwrap();
         match guard.send(buf.to_vec()) {
             Ok(()) => Poll::Ready(Ok(buf.len())),
