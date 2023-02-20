@@ -20,7 +20,8 @@ use tracing::{debug, error, info, trace, warn};
 #[cfg(feature = "sys")]
 use wasmer::Engine;
 use wasmer_vfs::{
-    AsyncWriteExt, DuplexPipe, FileSystem, Pipe, PipeRx, PipeTx, RootFileSystemBuilder, SpecialFile,
+    ArcBoxFile, ArcFile, AsyncWriteExt, CombineFile, DuplexPipe, FileSystem, Pipe, PipeRx, PipeTx,
+    RootFileSystemBuilder, SpecialFile, VirtualFile,
 };
 use wasmer_wasi_types::{types::__WASI_STDIN_FILENO, wasi::BusErrno};
 
@@ -52,9 +53,9 @@ pub struct Console {
     env: HashMap<String, String>,
     runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
     compiled_modules: Arc<ModuleCache>,
-    stdin: Pipe,
-    stdout: Pipe,
-    stderr: Pipe,
+    stdin: ArcBoxFile,
+    stdout: ArcBoxFile,
+    stderr: ArcBoxFile,
     capabilities: Capabilities,
 }
 
@@ -62,9 +63,6 @@ impl Console {
     pub fn new(
         runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
         compiled_modules: Arc<ModuleCache>,
-        stdin: Pipe,
-        stdout: Pipe,
-        stderr: Pipe,
     ) -> Self {
         let mut uses = DEFAULT_BOOT_USES
             .iter()
@@ -88,9 +86,9 @@ impl Console {
             runtime,
             prompt: "wasmer.sh".to_string(),
             compiled_modules,
-            stdin,
-            stdout,
-            stderr,
+            stdin: ArcBoxFile::new(Box::new(Pipe::channel().0)),
+            stdout: ArcBoxFile::new(Box::new(Pipe::channel().0)),
+            stderr: ArcBoxFile::new(Box::new(Pipe::channel().0)),
             capabilities: Default::default(),
         }
     }
@@ -139,6 +137,21 @@ impl Console {
         self
     }
 
+    pub fn with_stdin(mut self, stdin: Box<dyn VirtualFile + Send + Sync + 'static>) -> Self {
+        self.stdin = ArcBoxFile::new(stdin);
+        self
+    }
+
+    pub fn with_stdout(mut self, stdout: Box<dyn VirtualFile + Send + Sync + 'static>) -> Self {
+        self.stdout = ArcBoxFile::new(stdout);
+        self
+    }
+
+    pub fn with_stderr(mut self, stderr: Box<dyn VirtualFile + Send + Sync + 'static>) -> Self {
+        self.stderr = ArcBoxFile::new(stderr);
+        self
+    }
+
     pub fn run(&mut self) -> Result<(BusSpawnedProcess, WasiProcess), VirtualBusError> {
         // Extract the program name from the arguments
         let empty_args: Vec<&[u8]> = Vec::new();
@@ -162,8 +175,12 @@ impl Console {
         // Build a new store that will be passed to the thread
         let store = self.runtime.new_store();
 
-        let tty = Pipe::combine(self.stdout.clone().into(), self.stdin.clone().into());
-        let root_fs = RootFileSystemBuilder::new().with_tty(Box::new(tty)).build();
+        let root_fs = RootFileSystemBuilder::new()
+            .with_tty(Box::new(CombineFile::new(
+                Box::new(self.stdout.clone()),
+                Box::new(self.stdin.clone()),
+            )))
+            .build();
 
         let env_init = WasiEnv::builder(prog)
             .stdin(Box::new(self.stdin.clone()))

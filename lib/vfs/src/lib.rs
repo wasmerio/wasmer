@@ -8,9 +8,11 @@ use std::task::Context;
 use std::task::Poll;
 use thiserror::Error;
 
+pub mod arc_box_file;
 pub mod arc_file;
 pub mod arc_fs;
 pub mod builder;
+pub mod combine_file;
 pub mod duel_write_file;
 pub mod empty_fs;
 #[cfg(feature = "host-fs")]
@@ -29,9 +31,11 @@ pub mod static_fs;
 #[cfg(feature = "webc-fs")]
 pub mod webc_fs;
 
+pub use arc_box_file::*;
 pub use arc_file::*;
 pub use arc_fs::*;
 pub use builder::*;
+pub use combine_file::*;
 pub use duel_write_file::*;
 pub use empty_fs::*;
 pub use null_file::*;
