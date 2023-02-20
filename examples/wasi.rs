@@ -15,9 +15,11 @@
 //!
 //! Ready?
 
-use wasmer::{Instance, Module, Store};
+use std::io::Read;
+
+use wasmer::{Module, Store};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_wasi::WasiEnv;
+use wasmer_wasi::{Pipe, WasiEnv};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_path = concat!(
@@ -37,11 +39,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's compile the Wasm module.
     let module = Module::new(&store, wasm_bytes)?;
 
+    let (stdout_tx, mut stdout_rx) = Pipe::channel();
+
     // Run the module.
-    let mut wasi_env = WasiEnv::builder("hello")
+    WasiEnv::builder("hello")
         // .args(&["world"])
         // .env("KEY", "Value")
+        .stdout(Box::new(stdout_tx))
         .run_with_store(module, &mut store)?;
+
+    let mut buf = String::new();
+    stdout_rx.read_to_string(&mut buf).unwrap();
 
     Ok(())
 }
