@@ -46,7 +46,7 @@ exists to cache the output of the `wasm -> obj` compilation
 
 ```sh
 # Requires wasmer >= 3.2.0-alpha.1
-wasmer create-obj myfile.wasm-llvm -o myfile.o
+wasmer create-obj myfile.wasm -llvm -o myfile.o
 # Run create-exe with the cached object file
 wasmer create-exe myfile.wasm --precompiled-atom=myfile:myfile.o -o myfile.exe
 ```
