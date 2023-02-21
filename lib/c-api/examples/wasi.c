@@ -64,14 +64,6 @@ int main(int argc, const char* argv[]) {
 
   wasm_byte_vec_delete(&binary);
 
-  printf("Setting up WASI...\n");
-  config = wasi_config_new("example_program");
-  // TODO: error checking
-  js_string = "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));";
-  wasi_config_arg(config, "--eval");
-  wasi_config_arg(config, js_string);
-  wasi_config_capture_stdout(config);
-
   wasi_env_t* wasi_env = wasi_env_new(store, config);
 
   if (!wasi_env) {
