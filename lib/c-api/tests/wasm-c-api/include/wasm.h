@@ -479,7 +479,7 @@ WASM_API_EXTERN own wasm_memory_t* wasm_memory_new(wasm_store_t*, const wasm_mem
 
 WASM_API_EXTERN own wasm_memorytype_t* wasm_memory_type(const wasm_memory_t*);
 
-WASM_API_EXTERN byte_t* wasm_memory_data(wasm_memory_t*);
+WASM_API_EXTERN unsigned char* wasm_memory_data(wasm_memory_t*);
 WASM_API_EXTERN size_t wasm_memory_data_size(const wasm_memory_t*);
 
 WASM_API_EXTERN wasm_memory_pages_t wasm_memory_size(const wasm_memory_t*);
