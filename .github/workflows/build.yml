@@ -101,7 +101,7 @@ jobs:
         with:
           toolchain: nightly
           target: ${{ matrix.metadata.target }}
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
         if: matrix.use_sccache != true
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.os == 'macos-11.0' && !matrix.llvm_url
@@ -253,7 +253,7 @@ jobs:
           TARGET: aarch64-apple-darwin
           TARGET_DIR: target/aarch64-apple-darwin/release
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.artifact_name }}
           path: dist
@@ -264,7 +264,7 @@ jobs:
     name: Windows GNU
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install Windows-GNU linker
         shell: bash
         run: |
@@ -325,7 +325,7 @@ jobs:
           CARGO_TARGET: x86_64-pc-windows-gnu
           TARGET_DIR: target/x86_64-pc-windows-gnu/release
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: 'wasmer-windows-gnu64'
           path: dist
@@ -336,7 +336,7 @@ jobs:
     name: Linux aarch64
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: aarch64-unknown-linux-gnu
@@ -390,7 +390,7 @@ jobs:
           TARGET: aarch64-unknown-linux-gnu
           TARGET_DIR: target/aarch64-unknown-linux-gnu/release
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: wasmer-linux-aarch64
           path: dist
