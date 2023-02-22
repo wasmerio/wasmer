@@ -7,7 +7,7 @@ use crate::{
     Error,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WasmLoader {
     program: String,
     wasm: Bytes,
