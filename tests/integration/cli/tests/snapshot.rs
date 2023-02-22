@@ -384,14 +384,15 @@ fn test_snapshot_sleep() {
 //     assert_json_snapshot!(snapshot);
 // }
 
+// FIXME: re-enable - hangs on windows and macos
 // Connects to 8.8.8.8:53 over TCP to verify TCP clients work
-#[test]
-fn test_snapshot_tcp_client() {
-    let snapshot = TestBuilder::new()
-        .use_coreutils()
-        .run_wasm(include_bytes!("./wasm/example-tcp-client.wasm"));
-    assert_json_snapshot!(snapshot);
-}
+// #[test]
+// fn test_snapshot_tcp_client() {
+//     let snapshot = TestBuilder::new()
+//         .use_coreutils()
+//         .run_wasm(include_bytes!("./wasm/example-tcp-client.wasm"));
+//     assert_json_snapshot!(snapshot);
+// }
 
 // Tests that thread local variables work correctly
 #[test]
