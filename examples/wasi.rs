@@ -1,11 +1,10 @@
 //! Running a WASI compiled WebAssembly module with Wasmer.
 //!
 //! This example illustrates how to run WASI modules with
-//! Wasmer. To run WASI we have to have to do mainly 3 steps:
+//! Wasmer.
 //!
-//!   1. Create a `WasiEnv` instance
-//!   2. Attach the imports from the `WasiEnv` to a new instance
-//!   3. Run the `WASI` module.
+//! If you need more manual control over the instantiation, including custom
+//! imports, then check out the ./wasi_manual_setup.rs example.
 //!
 //! You can run the example directly by executing in Wasmer root:
 //!

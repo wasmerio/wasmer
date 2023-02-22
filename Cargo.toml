@@ -217,6 +217,11 @@ path = "examples/wasi.rs"
 required-features = ["cranelift", "wasi"]
 
 [[example]]
+name = "wasi-manual-setup"
+path = "examples/wasi_manual_setup.rs"
+required-features = ["cranelift", "wasi"]
+
+[[example]]
 name = "wasi-pipes"
 path = "examples/wasi_pipes.rs"
 required-features = ["cranelift", "wasi"]

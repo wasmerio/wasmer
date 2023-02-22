@@ -706,6 +706,11 @@ impl WasiEnvBuilder {
         Ok(init)
     }
 
+    pub fn build(self) -> Result<WasiEnv, WasiRuntimeError> {
+        let init = self.build_init()?;
+        WasiEnv::from_init(init)
+    }
+
     /// Construct a [`WasiFunctionEnv`].
     ///
     /// NOTE: you still must call [`WasiFunctionEnv::initialize`] to make an
