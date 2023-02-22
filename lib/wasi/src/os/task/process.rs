@@ -196,11 +196,7 @@ impl WasiProcess {
         inner.threads.insert(id, ctrl.clone());
         inner.thread_count += 1;
 
-        Ok(WasiThreadHandle {
-            id: Arc::new(id),
-            thread: ctrl,
-            inner: self.inner.clone(),
-        })
+        Ok(WasiThreadHandle::new(ctrl, &self.inner))
     }
 
     /// Gets a reference to a particular thread
