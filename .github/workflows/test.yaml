@@ -27,9 +27,9 @@ jobs:
         shell: bash
         run: |
           VERSION=${GITHUB_REF/refs\/tags\//}
-          echo "VERSION::${VERSION}" >> $GITHUB_OUTPUT
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           DOING_RELEASE=$(echo $VERSION | grep -c '^[0-9]\+\.[0-9]\+\.[0-9]\+\(-\([a-zA-Z]\+\)\?[0-9]*\)\?$' || true)
-          echo "DOING_RELEASE::${DOING_RELEASE}" >> $GITHUB_OUTPUT
+          echo "DOING_RELEASE=${DOING_RELEASE}" >> $GITHUB_OUTPUT
           echo $VERSION
           echo $DOING_RELEASE
 
