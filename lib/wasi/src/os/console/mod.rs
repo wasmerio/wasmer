@@ -20,8 +20,8 @@ use tracing::{debug, error, info, trace, warn};
 #[cfg(feature = "sys")]
 use wasmer::Engine;
 use wasmer_vfs::{
-    ArcBoxFile, ArcFile, AsyncWriteExt, CombineFile, DuplexPipe, FileSystem, Pipe, PipeRx, PipeTx,
-    RootFileSystemBuilder, SpecialFile, VirtualFile,
+    ArcBoxFile, ArcFile, AsyncWriteExt, CombineFile, DeviceFile, DuplexPipe, FileSystem, Pipe,
+    PipeRx, PipeTx, RootFileSystemBuilder, VirtualFile,
 };
 use wasmer_wasi_types::{types::__WASI_STDIN_FILENO, wasi::BusErrno};
 

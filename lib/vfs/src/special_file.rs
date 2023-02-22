@@ -13,11 +13,11 @@ pub type Fd = u32;
 /// A "special" file is a file that is locked
 /// to one file descriptor (i.e. stdout => 0, stdin => 1), etc.
 #[derive(Debug)]
-pub struct SpecialFile {
+pub struct DeviceFile {
     fd: Fd,
 }
 
-impl SpecialFile {
+impl DeviceFile {
     pub const STDIN: Fd = 0;
     pub const STDOUT: Fd = 1;
     pub const STDERR: Fd = 2;
@@ -27,7 +27,7 @@ impl SpecialFile {
     }
 }
 
-impl AsyncSeek for SpecialFile {
+impl AsyncSeek for DeviceFile {
     fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
         Ok(())
     }
@@ -36,7 +36,7 @@ impl AsyncSeek for SpecialFile {
     }
 }
 
-impl AsyncWrite for SpecialFile {
+impl AsyncWrite for DeviceFile {
     fn poll_write(
         self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
@@ -62,7 +62,7 @@ impl AsyncWrite for SpecialFile {
     }
 }
 
-impl AsyncRead for SpecialFile {
+impl AsyncRead for DeviceFile {
     fn poll_read(
         self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
@@ -72,7 +72,7 @@ impl AsyncRead for SpecialFile {
     }
 }
 
-impl VirtualFile for SpecialFile {
+impl VirtualFile for DeviceFile {
     fn last_accessed(&self) -> u64 {
         0
     }
