@@ -11,7 +11,9 @@ autoexamples = false
 
 [dependencies]
 wasmer = { version = "=3.2.0-alpha.1", path = "lib/api", default-features = false }
-wasmer-compiler = { version = "=3.2.0-alpha.1", path = "lib/compiler", features = ["compiler"] }
+wasmer-compiler = { version = "=3.2.0-alpha.1", path = "lib/compiler", features = [
+    "compiler",
+] }
 wasmer-compiler-cranelift = { version = "=3.2.0-alpha.1", path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "=3.2.0-alpha.1", path = "lib/compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "=3.2.0-alpha.1", path = "lib/compiler-llvm", optional = true }
@@ -50,6 +52,7 @@ members = [
     "lib/wasi-local-networking",
     "lib/wasix/wasix-http-client",
     "lib/wasm-interface",
+    "lib/wcgi-runner",
     "lib/c-api/tests/wasmer-c-api-test-runner",
     "lib/c-api/examples/wasmer-capi-examples-runner",
     "lib/types",
@@ -71,7 +74,9 @@ glob = "0.3"
 rustc_version = "0.4"
 
 [dev-dependencies]
-wasmer = { version = "=3.2.0-alpha.1", path = "lib/api", default-features = false, features = ["cranelift"] }
+wasmer = { version = "=3.2.0-alpha.1", path = "lib/api", default-features = false, features = [
+    "cranelift",
+] }
 anyhow = "1.0"
 criterion = "0.3"
 lazy_static = "1.4"
@@ -105,10 +110,7 @@ wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
 emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
-compiler = [
-    "wasmer/compiler",
-    "wasmer-compiler/translator",
-]
+compiler = ["wasmer/compiler", "wasmer-compiler/translator"]
 singlepass = ["wasmer-compiler-singlepass", "compiler"]
 cranelift = ["wasmer-compiler-cranelift", "compiler"]
 llvm = ["wasmer-compiler-llvm", "compiler"]
@@ -123,9 +125,7 @@ test-singlepass = ["singlepass"]
 test-cranelift = ["cranelift"]
 test-llvm = ["llvm"]
 
-test-universal = [
-    "test-generator/test-universal",
-]
+test-universal = ["test-generator/test-universal"]
 
 # Specifies that we're running in coverage testing mode. This disables tests
 # that raise signals because that interferes with tarpaulin.
