@@ -47,8 +47,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .stdout(Box::new(stdout_tx))
         .run_with_store(module, &mut store)?;
 
+    eprintln!("Run complete - reading output");
+
     let mut buf = String::new();
     stdout_rx.read_to_string(&mut buf).unwrap();
+
+    eprintln!("Output: {buf}");
 
     Ok(())
 }
