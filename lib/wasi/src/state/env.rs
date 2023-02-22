@@ -890,7 +890,7 @@ impl WasiEnv {
             let state = self.state.clone();
             let tasks = self.tasks().clone();
 
-            let (tx, rx) = tokio::sync::oneshot::channel();
+            let (tx, rx) = std::sync::mpsc::channel();
             self.tasks()
                 .task_dedicated(Box::new(move || {
                     tasks.runtime().block_on(async {
@@ -899,7 +899,7 @@ impl WasiEnv {
                     tx.send(()).ok();
                 }))
                 .ok();
-            rx.blocking_recv().ok();
+            rx.recv().ok();
 
             // Now send a signal that the thread is terminated
             self.process.signal_process(Signal::Sigquit);
