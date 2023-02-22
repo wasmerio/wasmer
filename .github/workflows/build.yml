@@ -42,7 +42,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-18.04
+            os: ubuntu-20.04
             artifact_name: 'wasmer-linux-amd64'
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-linux-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
@@ -87,12 +87,6 @@ jobs:
       TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@v3
-      - name: Set up libstdc++ on Linux
-        if: matrix.build == 'linux-x64'
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
-          sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
@@ -268,7 +262,7 @@ jobs:
 
   windows_gnu:
     name: Windows GNU
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: Install Windows-GNU linker
