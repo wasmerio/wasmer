@@ -329,7 +329,12 @@ pub unsafe extern "C" fn wasi_env_new(
 
 /// Delete a [`wasi_env_t`].
 #[no_mangle]
-pub extern "C" fn wasi_env_delete(_state: Option<Box<wasi_env_t>>) {}
+pub extern "C" fn wasi_env_delete(state: Option<Box<wasi_env_t>>) {
+    if let Some(mut env) = state {
+        env.inner
+            .cleanup(unsafe { &mut env.store.store_mut() }, None);
+    }
+}
 
 /// Set the memory on a [`wasi_env_t`].
 // NOTE: Only here to not break the C API.
