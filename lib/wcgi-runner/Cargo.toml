@@ -11,37 +11,30 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = { version = "1", features = ["backtrace"] }
 async-trait = "0.1.64"
 bytes = "1.4.0"
-clap = { version = "4", features = ["derive", "env"] }
 futures = "0.3.25"
 http = "0.2.8"
-hyper = { version = "0.14.23", features = ["server", "stream"] }
-md5 = "0.7.0"
-serde = { version = "1.0.152", features = ["derive"] }
-serde_cbor = "0.11.2"
-thiserror = "1.0.38"
-tiny_http = "0.12.0"
+hyper = { version = "0.14", features = ["server", "stream"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_cbor = "0.11"
+thiserror = "1.0"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 tower-service = "0.3"
 tracing = "0.1.37"
-tracing-subscriber = { version = "0.3.16", features = ["fmt", "env-filter"] }
-wasmer = { version = "3.2.0-alpha.1", path = "../api", default-features = false, features = [
-    "sys",
-    "cranelift",
-    "singlepass",
-] }
-wasmer-wasi = { version = "3.2.0-alpha.1", path = "../wasi", features = [
-    "sys-default",
-], default-features = false }
+wasmer = { version = "3.2.0-alpha.1", path = "../api", default-features = false }
 wasmer-vfs = { version = "3.2.0-alpha.1", path = "../vfs", default-features = false }
+wasmer-wasi = { version = "3.2.0-alpha.1", path = "../wasi", default-features = false, features = ["sys-default"] }
 wcgi = { version = "0.1.1" }
 wcgi-host = { version = "0.1.0" }
 webc = { version = "5.0.0-rc.1", default-features = false }
 
 [dev-dependencies]
-reqwest = { version = "0.11.0", default-features = false, features = [
-    "rustls-tls",
-] }
+anyhow = { version = "1", features = ["backtrace"] }
+clap = { version = "4", features = ["derive", "env"] }
+tempfile = "3.3.0"
+tracing-subscriber = { version = "0.3.16", features = ["fmt", "env-filter"] }
 ureq = "2.6.2"
+
+[features]
+default = ["wasmer/sys", "wasmer/singlepass"]

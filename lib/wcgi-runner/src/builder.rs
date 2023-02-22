@@ -25,7 +25,7 @@ use crate::{
 /// ```rust,no_run
 /// use wcgi_runner::Runner;
 /// # #[tokio::main]
-/// # async fn main() -> Result<(), Box<dyn std::io::Error>> {
+/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let webc = std::fs::read("path/to/server.webc")?;
 /// let runner = Runner::builder().build_webc(webc)?;
 /// # Ok(())

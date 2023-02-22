@@ -1,15 +1,15 @@
-use std::{
-    path::{Path, PathBuf},
-    process::{Command, Output, Stdio},
-};
+use std::path::Path;
 
 use bytes::Bytes;
 use http::{Request, StatusCode};
 use hyper::{body::HttpBody, Body};
+use tempfile::TempDir;
 use wcgi_host::CgiDialect;
 use wcgi_runner::Builder;
 
 const FERRIS_SAYS: &str = "https://registry-cdn.wapm.dev/packages/wasmer-examples/ferris-says/ferris-says-0.2.0-2f5dfb76-77a9-11ed-a646-d2c429a5b858.webc";
+const STATICSERVER: &str =
+    "https://registry-cdn.wapm.dev/contents/syrusakbary/staticserver/1.0.2/serve.wasm";
 
 #[tokio::test]
 async fn execute_a_webc_server() {
@@ -35,22 +35,19 @@ async fn execute_a_webc_server() {
 
 #[tokio::test]
 async fn execute_a_webassembly_server_with_mounted_directories() {
-    let static_server = build_wasi("staticserver").join("serve.wasm");
-    let wasm = std::fs::read(&static_server).unwrap();
+    let wasm = cached(STATICSERVER);
+    let temp = TempDir::new().unwrap();
+    let example = temp.path().join("example");
+    std::fs::create_dir_all(&example).unwrap();
+    std::fs::write(example.join("file.txt"), b"Hello, World!").unwrap();
 
     let runner = Builder::default()
-        .program(static_server.display().to_string())
-        .map_dir(
-            "example",
-            project_root()
-                .join("examples")
-                .join("staticserver")
-                .join("example"),
-        )
+        .program("staticserver")
+        .map_dir("example", example)
         .build_wasm(wasm)
         .unwrap();
     let req = Request::builder()
-        .uri("/example/index.html")
+        .uri("/example/file.txt")
         .body(Body::default())
         .unwrap();
     let response = runner.handle(req).await.unwrap();
@@ -63,7 +60,7 @@ async fn execute_a_webassembly_server_with_mounted_directories() {
         buffer.extend(chunk);
     }
     let body = String::from_utf8(buffer).unwrap();
-    assert!(body.contains("<h1>Welcome to WebC</h1>"));
+    assert!(body.contains("Hello, World!"));
 }
 
 /// Download a file, caching it in $CARGO_TARGET_TMPDIR to avoid unnecessary
@@ -95,59 +92,4 @@ fn cached(url: &str) -> Bytes {
     std::fs::write(&cached_path, &body).unwrap();
 
     body.into()
-}
-
-/// Compile a package in this workspace to `wasm32-wasi` and get the directory
-/// the final binary was saved to.
-fn build_wasi(name: &str) -> PathBuf {
-    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
-
-    let mut cmd = Command::new(cargo);
-    cmd.arg("build")
-        .arg("--target=wasm32-wasi")
-        .args(["--package", name])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-
-    // Note: We were seeing build failures in CI because "cargo llvm-cov"
-    // automatically sets $RUSTFLAGS to include "-Zinstrument-coverage" and
-    // "profielr_builtins" isn't available for WebAssembly.
-    // See https://github.com/taiki-e/cargo-llvm-cov/issues/221
-    cmd.env("RUSTFLAGS", "");
-
-    let Output {
-        status,
-        stdout,
-        stderr,
-    } = cmd.output().expect("Unable to invoke cargo");
-
-    if !status.success() {
-        if !stdout.is_empty() {
-            eprintln!("---- STDOUT ----");
-            eprintln!("{}", String::from_utf8_lossy(&stdout));
-        }
-        if !stderr.is_empty() {
-            eprintln!("---- STDERR ----");
-            eprintln!("{}", String::from_utf8_lossy(&stderr));
-        }
-        panic!("{cmd:?} failed with {status}");
-    }
-
-    let target_dir = match std::env::var("CARGO_TARGET_DIR") {
-        Ok(s) => PathBuf::from(s),
-        Err(_) => project_root().join("target"),
-    };
-    target_dir.join("wasm32-wasi").join("debug")
-}
-
-fn project_root() -> &'static Path {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .unwrap();
-
-    assert!(path.join(".git").exists());
-
-    path
 }

@@ -1,3 +1,5 @@
+// Rust 1.64 doesn't understand tool-specific lints
+#![warn(unknown_lints)]
 // For now, let's ignore the fact that some of our Error variants are really big
 #![allow(clippy::result_large_err)]
 

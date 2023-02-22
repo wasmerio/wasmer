@@ -15,10 +15,12 @@ use crate::{context::Context, Builder, Error};
 /// so it can be easily integrated with a Hyper server and the Tower ecosystem.
 ///
 /// ```rust,no_run
-/// # use std::net::SocketAddr;
+/// use std::net::SocketAddr;
+/// use wcgi_runner::Runner;
+///
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let webc = b"...";
+/// let webc: &[u8] = b"...";
 /// let address: SocketAddr = ([127, 0, 0, 1], 3000).into();
 /// let runner = Runner::builder().build_webc(webc)?;
 ///
