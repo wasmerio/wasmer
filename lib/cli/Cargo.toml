@@ -64,7 +64,7 @@ serde = { version = "1.0.147", features = ["derive"] }
 dirs = { version = "4.0" }
 serde_json = { version = "1.0" }
 target-lexicon = { version = "0.12", features = ["std"] }
-prettytable-rs = "0.9.0"
+prettytable-rs = "0.10.0"
 wasmer-toml = "0.6.0"
 indexmap = "1.9.2"
 walkdir = "2.3.2"
