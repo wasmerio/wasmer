@@ -33,11 +33,6 @@ use crate::{
     VirtualTaskManagerExt, WasiEnv, WasiRuntime,
 };
 
-//pub const DEFAULT_BOOT_WEBC: &'static str = "sharrattj/bash";
-pub const DEFAULT_BOOT_WEBC: &str = "sharrattj/dash";
-//pub const DEFAULT_BOOT_USES: [&'static str; 2] = [ "sharrattj/coreutils", "sharrattj/catsay" ];
-pub const DEFAULT_BOOT_USES: [&str; 0] = [];
-
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Console {
@@ -61,20 +56,19 @@ pub struct Console {
 
 impl Console {
     pub fn new(
+        webc_boot_package: &str,
         runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
         compiled_modules: Arc<ModuleCache>,
     ) -> Self {
-        let mut uses = DEFAULT_BOOT_USES
-            .iter()
-            .map(|a| a.to_string())
-            .collect::<LinkedHashSet<_>>();
-        let prog = DEFAULT_BOOT_WEBC
+        let prog = webc_boot_package
             .split_once(' ')
             .map(|a| a.1)
-            .unwrap_or(DEFAULT_BOOT_WEBC);
+            .unwrap_or(webc_boot_package);
+
+        let mut uses = LinkedHashSet::new();
         uses.insert(prog.to_string());
         Self {
-            boot_cmd: DEFAULT_BOOT_WEBC.to_string(),
+            boot_cmd: webc_boot_package.to_string(),
             uses,
             is_mobile: false,
             is_ssh: false,
