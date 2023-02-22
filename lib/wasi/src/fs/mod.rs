@@ -371,17 +371,40 @@ impl WasiFs {
     pub async fn close_all(&self) {
         // TODO: this should close all uniquely owned files instead of just flushing.
 
-        let fds = self
-            .fd_map
-            .read()
-            .unwrap()
-            .keys()
-            .cloned()
-            .collect::<Vec<_>>();
+        let mut map = self.fd_map.write().unwrap();
 
-        for fd in fds {
-            self.flush(fd).await.ok();
+        for (_, item) in map.iter() {
+            if let Ok(mut item) = item.inode.inner.kind.write() {
+                match &mut *item {
+                    Kind::File { ref mut handle, .. } => {
+                        if let Some(file_arc) = handle.take() {
+                            match Arc::try_unwrap(file_arc) {
+                                Ok(file_lock) => {
+                                    if let Ok(mut file) = file_lock.into_inner() {
+                                        file.flush().await.ok();
+                                        file.shutdown().await.ok();
+                                    }
+                                }
+                                Err(file_arc) => {
+                                    if let Ok(mut file) = file_arc.write() {
+                                        file.flush().await.ok();
+                                    }
+                                    *handle = Some(file_arc);
+                                }
+                            }
+                        }
+                    }
+                    Kind::Socket { socket: _ } => {}
+                    Kind::Pipe { pipe } => {
+                        pipe.flush().await.ok();
+                        pipe.close();
+                    }
+                    _ => {}
+                }
+            }
         }
+
+        map.clear();
     }
 
     /// Will conditionally union the binary file system with this one
