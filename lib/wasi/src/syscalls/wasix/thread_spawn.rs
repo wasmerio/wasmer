@@ -32,16 +32,6 @@ pub fn thread_spawn<M: MemorySize>(
     reactor: Bool,
     ret_tid: WasmPtr<Tid, M>,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::thread_spawn (reactor={:?}, thread_id={}, stack_base={}, caller_id={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        reactor,
-        ctx.data().thread.tid().raw(),
-        stack_base,
-        current_caller_id().raw()
-    );
-
     // Now we use the environment and memory references
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
@@ -53,11 +43,10 @@ pub fn thread_spawn<M: MemorySize>(
         Ok(h) => h,
         Err(err) => {
             error!(
-                "wasi[{}:{}]::thread_spawn (reactor={:?}, thread_id={}, stack_base={}, caller_id={}) - failed to create thread handle: {}",
+                "wasi[{}:{}]::thread_spawn (reactor={:?}, stack_base={}, caller_id={}) - failed to create thread handle: {}",
                 ctx.data().pid(),
                 ctx.data().tid(),
                 reactor,
-                ctx.data().thread.tid().raw(),
                 stack_base,
                 current_caller_id().raw(),
                 err
@@ -67,6 +56,16 @@ pub fn thread_spawn<M: MemorySize>(
         }
     };
     let thread_id: Tid = thread_handle.id().into();
+
+    debug!(
+        %thread_id,
+        "wasi[{}:{}]::thread_spawn (reactor={:?}, stack_base={}, caller_id={})",
+        ctx.data().pid(),
+        ctx.data().tid(),
+        reactor,
+        stack_base,
+        current_caller_id().raw()
+    );
 
     // We need a copy of the process memory and a packaged store in order to
     // launch threads and reactors
@@ -145,10 +144,16 @@ pub fn thread_spawn<M: MemorySize>(
         let user_data_low: u32 = (user_data & 0xFFFFFFFF) as u32;
         let user_data_high: u32 = (user_data >> 32) as u32;
 
+        trace!(
+            %user_data,
+            "wasi[{}:{}]::thread_spawn spawn.call()",
+            ctx.data(&store).pid(),
+            ctx.data(&store).tid(),
+        );
+
         let mut ret = Errno::Success;
         if let Err(err) = spawn.call(store, user_data_low as i32, user_data_high as i32) {
             match err.downcast::<WasiError>() {
-                Ok(WasiError::Exit(0)) => ret = Errno::Success,
                 Ok(WasiError::Exit(code)) => {
                     debug!(
                         %code,
@@ -156,7 +161,11 @@ pub fn thread_spawn<M: MemorySize>(
                         ctx.data(&store).pid(),
                         ctx.data(&store).tid(),
                     );
-                    ret = Errno::Noexec;
+                    ret = if code == 0 {
+                        Errno::Success
+                    } else {
+                        Errno::Noexec
+                    };
                 }
                 Ok(WasiError::UnknownWasiVersion) => {
                     debug!(
@@ -219,6 +228,12 @@ pub fn thread_spawn<M: MemorySize>(
                 if let Some(thread) = thread {
                     let mut store = thread.store.borrow_mut();
                     let ret = call_module(&thread.ctx, store.deref_mut());
+
+                    {
+                        let mut guard = state.threading.write().unwrap();
+                        guard.thread_ctx.remove(&caller_id);
+                    }
+
                     return ret;
                 }
 

@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, Mutex, RwLock, Weak},
     task::Waker,
 };
 
@@ -379,29 +379,45 @@ impl WasiThread {
     }
 }
 
+#[derive(Debug)]
+pub struct WasiThreadHandleProtected {
+    thread: WasiThread,
+    inner: Weak<RwLock<WasiProcessInner>>,
+}
+
 #[derive(Debug, Clone)]
 pub struct WasiThreadHandle {
-    pub(super) id: Arc<WasiThreadId>,
-    pub(super) thread: WasiThread,
-    pub(super) inner: Arc<RwLock<WasiProcessInner>>,
+    protected: Arc<WasiThreadHandleProtected>,
 }
 
 impl WasiThreadHandle {
+    pub(crate) fn new(
+        thread: WasiThread,
+        inner: &Arc<RwLock<WasiProcessInner>>,
+    ) -> WasiThreadHandle {
+        Self {
+            protected: Arc::new(WasiThreadHandleProtected {
+                thread,
+                inner: Arc::downgrade(inner),
+            }),
+        }
+    }
+
     pub fn id(&self) -> WasiThreadId {
-        self.id.0.into()
+        self.protected.thread.tid()
     }
 
     pub fn as_thread(&self) -> WasiThread {
-        self.thread.clone()
+        self.protected.thread.clone()
     }
 }
 
-impl Drop for WasiThreadHandle {
+impl Drop for WasiThreadHandleProtected {
     fn drop(&mut self) {
-        // We do this so we track when the last handle goes out of scope
-        if let Some(id) = Arc::get_mut(&mut self.id) {
-            let mut inner = self.inner.write().unwrap();
-            if let Some(ctrl) = inner.threads.remove(id) {
+        let id = self.thread.tid();
+        if let Some(inner) = Weak::upgrade(&self.inner) {
+            let mut inner = inner.write().unwrap();
+            if let Some(ctrl) = inner.threads.remove(&id) {
                 ctrl.set_status_finished(Ok(0));
             }
             inner.thread_count -= 1;
@@ -413,13 +429,7 @@ impl std::ops::Deref for WasiThreadHandle {
     type Target = WasiThread;
 
     fn deref(&self) -> &Self::Target {
-        &self.thread
-    }
-}
-
-impl std::ops::DerefMut for WasiThreadHandle {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.thread
+        &self.protected.thread
     }
 }
 
