@@ -1859,7 +1859,7 @@ pub(super) mod utils {
     pub(super) fn get_libwasmer_cache_path() -> anyhow::Result<PathBuf> {
         let mut path = get_wasmer_dir()?;
         path.push("cache");
-        let _ = std::fs::create_dir(&path);
+        std::fs::create_dir_all(&path)?;
         Ok(path)
     }
 
