@@ -366,11 +366,22 @@ impl WasiFs {
         }
     }
 
-    /// Closes all the file handles
+    /// Closes all the file handles.
     #[allow(clippy::await_holding_lock)]
-    pub fn close_all(&self) {
-        let mut guard = self.fd_map.write().unwrap();
-        guard.clear();
+    pub async fn close_all(&self) {
+        // TODO: this should close all uniquely owned files instead of just flushing.
+
+        let fds = self
+            .fd_map
+            .read()
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>();
+
+        for fd in fds {
+            self.flush(fd).await.ok();
+        }
     }
 
     /// Will conditionally union the binary file system with this one

@@ -886,7 +886,20 @@ impl WasiEnv {
         // If this is the main thread then also close all the files
         if self.thread.is_main() {
             trace!("wasi[{}]:: cleaning up open file handles", self.pid());
-            self.state.fs.close_all();
+
+            let state = self.state.clone();
+            let tasks = self.tasks().clone();
+
+            let (tx, rx) = tokio::sync::oneshot::channel();
+            self.tasks()
+                .task_dedicated(Box::new(move || {
+                    tasks.runtime().block_on(async {
+                        state.fs.close_all().await;
+                    });
+                    tx.send(()).ok();
+                }))
+                .ok();
+            rx.blocking_recv().ok();
 
             // Now send a signal that the thread is terminated
             self.process.signal_process(Signal::Sigquit);
