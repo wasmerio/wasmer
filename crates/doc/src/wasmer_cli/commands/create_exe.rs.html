@@ -2289,6 +2289,23 @@
 <span id="2287">2287</span>
 <span id="2288">2288</span>
 <span id="2289">2289</span>
+<span id="2290">2290</span>
+<span id="2291">2291</span>
+<span id="2292">2292</span>
+<span id="2293">2293</span>
+<span id="2294">2294</span>
+<span id="2295">2295</span>
+<span id="2296">2296</span>
+<span id="2297">2297</span>
+<span id="2298">2298</span>
+<span id="2299">2299</span>
+<span id="2300">2300</span>
+<span id="2301">2301</span>
+<span id="2302">2302</span>
+<span id="2303">2303</span>
+<span id="2304">2304</span>
+<span id="2305">2305</span>
+<span id="2306">2306</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="self">self</span>::utils::normalize_atom_name</span>;
@@ -2304,6 +2321,7 @@
 <span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
 <span class="kw">use</span> <span class="ident">std::process::Command</span>;
 <span class="kw">use</span> <span class="ident">std::process::Stdio</span>;
+<span class="kw">use</span> <span class="ident">tar::Archive</span>;
 <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">wasmer_object</span>::{<span class="ident">emit_serialized</span>, <span class="ident">get_object_for_target</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry</span>;
@@ -3579,6 +3597,22 @@
         <span class="ident">cmd</span>.<span class="ident">args</span>(<span class="ident">files_winsdk</span>);
     }
 
+    <span class="kw">if</span> <span class="ident">zig_triple</span>.<span class="ident">contains</span>(<span class="string">&quot;macos&quot;</span>) {
+        <span class="comment">// need to link with Security framework when using zig, but zig</span>
+        <span class="comment">// doesn&#39;t include it, so we need to bring a copy of the dtb file</span>
+        <span class="comment">// which is basicaly the collection of exported symbol for the libs</span>
+        <span class="kw">let</span> <span class="ident">framework</span> <span class="op">=</span> <span class="macro">include_bytes!</span>(<span class="string">&quot;security_framework.tgz&quot;</span>).<span class="ident">to_vec</span>();
+        <span class="comment">// extract files</span>
+        <span class="kw">let</span> <span class="ident">tar</span> <span class="op">=</span> <span class="ident">flate2::read::GzDecoder::new</span>(<span class="ident">framework</span>.<span class="ident">as_slice</span>());
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">archive</span> <span class="op">=</span> <span class="ident">Archive::new</span>(<span class="ident">tar</span>);
+        <span class="comment">// directory is a temp folder</span>
+        <span class="ident">archive</span>.<span class="ident">unpack</span>(<span class="ident">directory</span>)<span class="question-mark">?</span>;
+        <span class="comment">// add the framework to the link command</span>
+        <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;-framework&quot;</span>);
+        <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="string">&quot;Security&quot;</span>);
+        <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="macro">format!</span>(<span class="string">&quot;-F{}&quot;</span>, <span class="ident">directory</span>.<span class="ident">display</span>()));
+    }
+
     <span class="kw">if</span> <span class="ident">debug</span> {
         <span class="macro">println!</span>(<span class="string">&quot;running cmd: {cmd:?}&quot;</span>);
         <span class="ident">cmd</span>.<span class="ident">stdout</span>(<span class="ident">Stdio::inherit</span>());
@@ -4150,7 +4184,7 @@
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">get_libwasmer_cache_path</span>() -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">get_wasmer_dir</span>()<span class="question-mark">?</span>;
         <span class="ident">path</span>.<span class="ident">push</span>(<span class="string">&quot;cache&quot;</span>);
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::fs::create_dir</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>);
+        <span class="ident">std::fs::create_dir_all</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">path</span>)
     }
 
@@ -4247,7 +4281,7 @@
             <span class="string">&quot;/test/wasmer-windows.exe&quot;</span>,
         ];
 
-        <span class="kw">let</span> <span class="ident">paths</span> <span class="op">=</span> <span class="ident">test_paths</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">Path::new</span>(<span class="ident">p</span>)).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+        <span class="kw">let</span> <span class="ident">paths</span> <span class="op">=</span> <span class="ident">test_paths</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="ident">Path::new</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
         <span class="macro">assert_eq!</span>(
             <span class="ident">paths</span>
                 .<span class="ident">iter</span>()
@@ -4259,7 +4293,7 @@
             <span class="macro">vec!</span>[<span class="kw-2">&amp;</span><span class="ident">Path::new</span>(<span class="string">&quot;/test/wasmer-windows-gnu64.tar.gz&quot;</span>)],
         );
 
-        <span class="kw">let</span> <span class="ident">paths</span> <span class="op">=</span> <span class="ident">test_paths</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">Path::new</span>(<span class="ident">p</span>)).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+        <span class="kw">let</span> <span class="ident">paths</span> <span class="op">=</span> <span class="ident">test_paths</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="ident">Path::new</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
         <span class="macro">assert_eq!</span>(
             <span class="ident">paths</span>
                 .<span class="ident">iter</span>()
@@ -4271,7 +4305,7 @@
             <span class="macro">vec!</span>[<span class="kw-2">&amp;</span><span class="ident">Path::new</span>(<span class="string">&quot;/test/wasmer-windows-gnu64.tar.gz&quot;</span>)],
         );
 
-        <span class="kw">let</span> <span class="ident">paths</span> <span class="op">=</span> <span class="ident">test_paths</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">Path::new</span>(<span class="ident">p</span>)).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+        <span class="kw">let</span> <span class="ident">paths</span> <span class="op">=</span> <span class="ident">test_paths</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="ident">Path::new</span>).<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
         <span class="macro">assert_eq!</span>(
             <span class="ident">paths</span>
                 .<span class="ident">iter</span>()

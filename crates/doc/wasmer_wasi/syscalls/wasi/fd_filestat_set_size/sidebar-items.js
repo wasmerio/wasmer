@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["fd_filestat_set_size","`fd_filestat_set_size()`"]]};

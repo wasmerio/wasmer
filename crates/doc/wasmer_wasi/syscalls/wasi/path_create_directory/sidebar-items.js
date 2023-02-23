@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["path_create_directory","`path_create_directory()`"]]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":[["InodeHttpSocketType",""],["InodeSocketKind",""],["WasiSocketOption",""],["WasiSocketStatus",""]],"fn":[["read_cidr",""],["read_ip",""],["read_ip_port",""],["read_ip_v4",""],["read_ip_v6",""],["read_route",""],["write_cidr",""],["write_ip",""],["write_ip_port",""],["write_route",""]],"struct":[["InodeSocket",""],["WasiHttpStatus",""]]};

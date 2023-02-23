@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["get_volume_name_opt",""],["normalizes_path",""],["transform_into_read_dir",""],["translate_file_type",""]],"struct":[["StaticFileSystem","Custom file system wrapper to map requested file paths"],["WebCFile",""],["WebCFileOpener","Custom file opener, returns a WebCFile"]]};
+window.SIDEBAR_ITEMS = {"fn":[["get_volume_name_opt",""],["normalizes_path",""],["transform_into_read_dir",""],["translate_file_type",""]],"struct":[["StaticFileSystem","Custom file system wrapper to map requested file paths"],["WebCFile",""]]};

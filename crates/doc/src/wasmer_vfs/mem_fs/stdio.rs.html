@@ -328,23 +328,11 @@
 <span id="328">328</span>
 <span id="329">329</span>
 <span id="330">330</span>
-<span id="331">331</span>
-<span id="332">332</span>
-<span id="333">333</span>
-<span id="334">334</span>
-<span id="335">335</span>
-<span id="336">336</span>
-<span id="337">337</span>
-<span id="338">338</span>
-<span id="339">339</span>
-<span id="340">340</span>
-<span id="341">341</span>
-<span id="342">342</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module contains the standard I/O streams, i.e. “emulated”</span>
 <span class="doccomment">//! `stdin`, `stdout` and `stderr`.</span>
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">FileDescriptor</span>, <span class="ident">FsError</span>, <span class="prelude-ty">Result</span>, <span class="ident">VirtualFile</span>};
-<span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Read</span>, <span class="ident">Seek</span>, <span class="ident">Write</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">FsError</span>, <span class="prelude-ty">Result</span>, <span class="ident">VirtualFile</span>};
+<span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Write</span>};
 
 <span class="macro">macro_rules!</span> <span class="ident">impl_virtualfile_on_std_streams</span> {
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span> { <span class="ident">readable</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">readable</span>:<span class="ident">expr</span>, <span class="ident">writable</span>: <span class="macro-nonterminal">$</span><span class="macro-nonterminal">writable</span>:<span class="ident">expr</span> $(,)<span class="op">*</span> }) =&gt; {
@@ -365,6 +353,7 @@
             }
         }
 
+        <span class="attribute">#[<span class="ident">async_trait::async_trait</span>]</span>
         <span class="kw">impl</span> <span class="ident">VirtualFile</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> {
             <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
                 <span class="number">0</span>
@@ -390,131 +379,113 @@
                 <span class="prelude-val">Ok</span>(())
             }
 
-            <span class="kw">fn</span> <span class="ident">bytes_available</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-                <span class="macro">unimplemented!</span>();
+            <span class="kw">fn</span> <span class="ident">poll_read_ready</span>(<span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+                <span class="ident">std::task::Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">len</span>()))
             }
 
-            <span class="kw">fn</span> <span class="ident">get_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">FileDescriptor</span><span class="op">&gt;</span> {
-                <span class="prelude-val">None</span>
+            <span class="kw">fn</span> <span class="ident">poll_write_ready</span>(<span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="ident">std::io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+                <span class="ident">std::task::Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="number">8192</span>))
             }
         }
 
-        <span class="macro">impl_virtualfile_on_std_streams!</span>(<span class="kw">impl</span> <span class="ident">Seek</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>);
-        <span class="macro">impl_virtualfile_on_std_streams!</span>(<span class="kw">impl</span> <span class="ident">Read</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>);
-        <span class="macro">impl_virtualfile_on_std_streams!</span>(<span class="kw">impl</span> <span class="ident">Write</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>);
+        <span class="macro">impl_virtualfile_on_std_streams!</span>(<span class="kw">impl</span> <span class="ident">AsyncSeek</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>);
+        <span class="macro">impl_virtualfile_on_std_streams!</span>(<span class="kw">impl</span> <span class="ident">AsyncRead</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>);
+        <span class="macro">impl_virtualfile_on_std_streams!</span>(<span class="kw">impl</span> <span class="ident">AsyncWrite</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>);
     };
 
-    (<span class="kw">impl</span> <span class="ident">Seek</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>) =&gt; {
-        <span class="kw">impl</span> <span class="ident">Seek</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> {
-            <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_pos</span>: <span class="ident">io::SeekFrom</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
+    (<span class="kw">impl</span> <span class="ident">AsyncSeek</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>) =&gt; {
+        <span class="kw">impl</span> <span class="ident">tokio::io::AsyncSeek</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> {
+            <span class="kw">fn</span> <span class="ident">start_seek</span>(
+                <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
+                <span class="ident">_position</span>: <span class="ident">io::SeekFrom</span>
+            ) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
                 <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
                     <span class="ident">io::ErrorKind::PermissionDenied</span>,
                     <span class="macro">concat!</span>(<span class="string">&quot;cannot seek `&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>), <span class="string">&quot;`&quot;</span>),
                 ))
             }
-        }
-    };
-
-    (<span class="kw">impl</span> <span class="ident">Read</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>) =&gt; {
-        <span class="kw">impl</span> <span class="ident">Read</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> {
-            <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>]) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_readable</span>() {
-                    <span class="kw">let</span> <span class="ident">length</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">as_slice</span>().<span class="ident">read</span>(<span class="ident">buf</span>)<span class="question-mark">?</span>;
-
-                    <span class="comment">// Remove what has been consumed.</span>
-                    <span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">drain</span>(..<span class="ident">length</span>);
-
-                    <span class="prelude-val">Ok</span>(<span class="ident">length</span>)
-                } <span class="kw">else</span> {
+            <span class="kw">fn</span> <span class="ident">poll_complete</span>(
+                <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
+                <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>
+            ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span><span class="op">&gt;</span>
+            {
+                <span class="ident">std::task::Poll::Ready</span>(
                     <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
                         <span class="ident">io::ErrorKind::PermissionDenied</span>,
-                        <span class="macro">concat!</span>(<span class="string">&quot;cannot read from `&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>), <span class="string">&quot;`&quot;</span>),
+                        <span class="macro">concat!</span>(<span class="string">&quot;cannot seek `&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>), <span class="string">&quot;`&quot;</span>),
                     ))
-                }
-            }
-
-            <span class="kw">fn</span> <span class="ident">read_to_end</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_readable</span>() {
-                    <span class="kw">let</span> <span class="ident">length</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">as_slice</span>().<span class="ident">read_to_end</span>(<span class="ident">buf</span>)<span class="question-mark">?</span>;
-
-                    <span class="comment">// Remove what has been consumed.</span>
-                    <span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">clear</span>();
-
-                    <span class="prelude-val">Ok</span>(<span class="ident">length</span>)
-                } <span class="kw">else</span> {
-                    <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
-                        <span class="ident">io::ErrorKind::PermissionDenied</span>,
-                        <span class="macro">concat!</span>(<span class="string">&quot;cannot read from `&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>), <span class="string">&quot;`&quot;</span>),
-                    ))
-                }
-            }
-
-            <span class="kw">fn</span> <span class="ident">read_to_string</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> <span class="ident">String</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_readable</span>() {
-                    <span class="kw">let</span> <span class="ident">length</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">as_slice</span>().<span class="ident">read_to_string</span>(<span class="ident">buf</span>)<span class="question-mark">?</span>;
-
-                    <span class="comment">// Remove what has been consumed.</span>
-                    <span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">drain</span>(..<span class="ident">length</span>);
-
-                    <span class="prelude-val">Ok</span>(<span class="ident">length</span>)
-                } <span class="kw">else</span> {
-                    <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
-                        <span class="ident">io::ErrorKind::PermissionDenied</span>,
-                        <span class="macro">concat!</span>(<span class="string">&quot;cannot read from `&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>), <span class="string">&quot;`&quot;</span>),
-                    ))
-                }
-            }
-
-            <span class="kw">fn</span> <span class="ident">read_exact</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>]) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_readable</span>() {
-                    <span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">as_slice</span>().<span class="ident">read_exact</span>(<span class="ident">buf</span>)<span class="question-mark">?</span>;
-
-                    <span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">drain</span>(..<span class="ident">buf</span>.<span class="ident">len</span>());
-
-                    <span class="prelude-val">Ok</span>(())
-                } <span class="kw">else</span> {
-                    <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
-                        <span class="ident">io::ErrorKind::PermissionDenied</span>,
-                        <span class="macro">concat!</span>(<span class="string">&quot;cannot read from `&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>), <span class="string">&quot;`&quot;</span>),
-                    ))
-                }
+                )
             }
         }
     };
 
-    (<span class="kw">impl</span> <span class="ident">Write</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>) =&gt; {
-        <span class="kw">impl</span> <span class="ident">Write</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> {
-            <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_writable</span>() {
-                    <span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">write</span>(<span class="ident">buf</span>)
-                } <span class="kw">else</span> {
-                    <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
-                        <span class="ident">io::ErrorKind::PermissionDenied</span>,
-                        <span class="macro">concat!</span>(<span class="string">&quot;cannot write to `&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>), <span class="string">&quot;`&quot;</span>),
-                    ))
-                }
+    (<span class="kw">impl</span> <span class="ident">AsyncRead</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>) =&gt; {
+        <span class="kw">impl</span> <span class="ident">tokio::io::AsyncRead</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> {
+            <span class="kw">fn</span> <span class="ident">poll_read</span>(
+                <span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
+                <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
+                <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> <span class="ident">tokio::io::ReadBuf</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
+            ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
+                <span class="ident">std::task::Poll::Ready</span>(
+                    <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_readable</span>() {
+                        <span class="kw">let</span> <span class="ident">length</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">remaining</span>().<span class="ident">min</span>(<span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">len</span>());
+                        <span class="ident">buf</span>.<span class="ident">put_slice</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">buf</span>[..<span class="ident">length</span>]);
+
+                        <span class="comment">// Remove what has been consumed.</span>
+                        <span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">drain</span>(..<span class="ident">length</span>);
+
+                        <span class="prelude-val">Ok</span>(())
+                    } <span class="kw">else</span> {
+                        <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
+                            <span class="ident">io::ErrorKind::PermissionDenied</span>,
+                            <span class="macro">concat!</span>(<span class="string">&quot;cannot read from `&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>), <span class="string">&quot;`&quot;</span>),
+                        ))
+                    }
+                )
+            }
+        }
+    };
+
+    (<span class="kw">impl</span> <span class="ident">AsyncWrite</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>:<span class="ident">ident</span>) =&gt; {
+        <span class="kw">impl</span> <span class="ident">tokio::io::AsyncWrite</span> <span class="kw">for</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> {
+            <span class="kw">fn</span> <span class="ident">poll_write</span>(
+                <span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
+                <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
+                <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
+            ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+                <span class="ident">std::task::Poll::Ready</span>(
+                    <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_writable</span>() {
+                        <span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">write</span>(<span class="ident">buf</span>)
+                    } <span class="kw">else</span> {
+                        <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
+                            <span class="ident">io::ErrorKind::PermissionDenied</span>,
+                            <span class="macro">concat!</span>(<span class="string">&quot;cannot write to `&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>), <span class="string">&quot;`&quot;</span>),
+                        ))
+                    }
+                )
             }
 
-            <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_writable</span>() {
-                    <span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">flush</span>()
-                } <span class="kw">else</span> {
-                    <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
-                        <span class="ident">io::ErrorKind::PermissionDenied</span>,
-                        <span class="macro">concat!</span>(<span class="string">&quot;cannot flush `&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>), <span class="string">&quot;`&quot;</span>),
-                    ))
-                }
+            <span class="kw">fn</span> <span class="ident">poll_flush</span>(
+                <span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
+                <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>
+            ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
+                <span class="ident">std::task::Poll::Ready</span>(
+                    <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_writable</span>() {
+                        <span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">flush</span>()
+                    } <span class="kw">else</span> {
+                        <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
+                            <span class="ident">io::ErrorKind::PermissionDenied</span>,
+                            <span class="macro">concat!</span>(<span class="string">&quot;cannot flush `&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>), <span class="string">&quot;`&quot;</span>),
+                        ))
+                    }
+                )
             }
 
-            <span class="kw">fn</span> <span class="ident">write_all</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-                <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_writable</span>() {
-                    <span class="self">self</span>.<span class="ident">buf</span>.<span class="ident">write_all</span>(<span class="ident">buf</span>)
-                } <span class="kw">else</span> {
-                    <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
-                        <span class="ident">io::ErrorKind::PermissionDenied</span>,
-                        <span class="macro">concat!</span>(<span class="string">&quot;cannot write to `&quot;</span>, <span class="macro">stringify!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span>), <span class="string">&quot;`&quot;</span>),
-                    ))
-                }
+            <span class="kw">fn</span> <span class="ident">poll_shutdown</span>(
+                <span class="self">self</span>: <span class="ident">std::pin::Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
+                <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::task::Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>
+            ) -&gt; <span class="ident">std::task::Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
+                <span class="ident">std::task::Poll::Ready</span>(<span class="prelude-val">Ok</span>(()))
             }
         }
     };
@@ -535,18 +506,20 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">test_read_write_seek</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::mem_fs</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Read</span>, <span class="ident">Seek</span>, <span class="ident">Write</span>};
+    <span class="kw">use</span> <span class="ident">tokio::io</span>::{<span class="ident">AsyncReadExt</span>, <span class="ident">AsyncSeekExt</span>, <span class="ident">AsyncWriteExt</span>};
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_read_stdin</span>() {
+    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::mem_fs</span>::<span class="kw-2">*</span>;
+    <span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>};
+
+    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">test_read_stdin</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stdin</span> <span class="op">=</span> <span class="ident">Stdin</span> {
             <span class="ident">buf</span>: <span class="macro">vec!</span>[<span class="string">b&#39;f&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;b&#39;</span>, <span class="string">b&#39;a&#39;</span>, <span class="string">b&#39;r&#39;</span>],
         };
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buffer</span> <span class="op">=</span> [<span class="number">0</span>; <span class="number">3</span>];
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(<span class="ident">stdin</span>.<span class="ident">read</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buffer</span>), <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
+            <span class="macro">matches!</span>(<span class="ident">stdin</span>.<span class="ident">read</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buffer</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
             <span class="string">&quot;reading bytes from `stdin`&quot;</span>,
         );
         <span class="macro">assert_eq!</span>(
@@ -558,7 +531,7 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buffer</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(<span class="ident">stdin</span>.<span class="ident">read_to_end</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buffer</span>), <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
+            <span class="macro">matches!</span>(<span class="ident">stdin</span>.<span class="ident">read_to_end</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buffer</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
             <span class="string">&quot;reading bytes again from `stdin`&quot;</span>,
         );
         <span class="macro">assert_eq!</span>(
@@ -570,53 +543,56 @@
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buffer</span> <span class="op">=</span> [<span class="number">0</span>; <span class="number">1</span>];
 
         <span class="macro">assert!</span>(
-            <span class="ident">stdin</span>.<span class="ident">read_exact</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buffer</span>).<span class="ident">is_err</span>(),
+            <span class="ident">stdin</span>.<span class="ident">read_exact</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buffer</span>).<span class="kw">await</span>.<span class="ident">is_err</span>(),
             <span class="string">&quot;cannot read bytes again because `stdin` has fully consumed&quot;</span>,
         );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_write_stdin</span>() {
+    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">test_write_stdin</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stdin</span> <span class="op">=</span> <span class="ident">Stdin</span> { <span class="ident">buf</span>: <span class="macro">vec!</span>[] };
 
-        <span class="macro">assert!</span>(<span class="ident">stdin</span>.<span class="ident">write</span>(<span class="string">b&quot;bazqux&quot;</span>).<span class="ident">is_err</span>(), <span class="string">&quot;cannot write into `stdin`&quot;</span>);
+        <span class="macro">assert!</span>(
+            <span class="ident">stdin</span>.<span class="ident">write</span>(<span class="string">b&quot;bazqux&quot;</span>).<span class="kw">await</span>.<span class="ident">is_err</span>(),
+            <span class="string">&quot;cannot write into `stdin`&quot;</span>
+        );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_seek_stdin</span>() {
+    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">test_seek_stdin</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stdin</span> <span class="op">=</span> <span class="ident">Stdin</span> {
             <span class="ident">buf</span>: <span class="macro">vec!</span>[<span class="string">b&#39;f&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;b&#39;</span>, <span class="string">b&#39;a&#39;</span>, <span class="string">b&#39;r&#39;</span>],
         };
 
         <span class="macro">assert!</span>(
-            <span class="ident">stdin</span>.<span class="ident">seek</span>(<span class="ident">io::SeekFrom::End</span>(<span class="number">0</span>)).<span class="ident">is_err</span>(),
+            <span class="ident">stdin</span>.<span class="ident">seek</span>(<span class="ident">io::SeekFrom::End</span>(<span class="number">0</span>)).<span class="kw">await</span>.<span class="ident">is_err</span>(),
             <span class="string">&quot;cannot seek `stdin`&quot;</span>,
         );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_read_stdout</span>() {
+    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">test_read_stdout</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stdout</span> <span class="op">=</span> <span class="ident">Stdout</span> {
             <span class="ident">buf</span>: <span class="macro">vec!</span>[<span class="string">b&#39;f&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;b&#39;</span>, <span class="string">b&#39;a&#39;</span>, <span class="string">b&#39;r&#39;</span>],
         };
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buffer</span> <span class="op">=</span> <span class="ident">String::new</span>();
 
         <span class="macro">assert!</span>(
-            <span class="ident">stdout</span>.<span class="ident">read_to_string</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buffer</span>).<span class="ident">is_err</span>(),
+            <span class="ident">stdout</span>.<span class="ident">read_to_string</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buffer</span>).<span class="kw">await</span>.<span class="ident">is_err</span>(),
             <span class="string">&quot;cannot read from `stdout`&quot;</span>
         );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_write_stdout</span>() {
+    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">test_write_stdout</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stdout</span> <span class="op">=</span> <span class="ident">Stdout</span> { <span class="ident">buf</span>: <span class="macro">vec!</span>[] };
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(<span class="ident">stdout</span>.<span class="ident">write</span>(<span class="string">b&quot;baz&quot;</span>), <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
+            <span class="macro">matches!</span>(<span class="ident">stdout</span>.<span class="ident">write</span>(<span class="string">b&quot;baz&quot;</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
             <span class="string">&quot;writing into `stdout`&quot;</span>,
         );
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(<span class="ident">stdout</span>.<span class="ident">write</span>(<span class="string">b&quot;qux&quot;</span>), <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
+            <span class="macro">matches!</span>(<span class="ident">stdout</span>.<span class="ident">write</span>(<span class="string">b&quot;qux&quot;</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
             <span class="string">&quot;writing again into `stdout`&quot;</span>,
         );
         <span class="macro">assert_eq!</span>(
@@ -626,41 +602,41 @@
         );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_seek_stdout</span>() {
+    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">test_seek_stdout</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stdout</span> <span class="op">=</span> <span class="ident">Stdout</span> {
             <span class="ident">buf</span>: <span class="macro">vec!</span>[<span class="string">b&#39;f&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;b&#39;</span>, <span class="string">b&#39;a&#39;</span>, <span class="string">b&#39;r&#39;</span>],
         };
 
         <span class="macro">assert!</span>(
-            <span class="ident">stdout</span>.<span class="ident">seek</span>(<span class="ident">io::SeekFrom::End</span>(<span class="number">0</span>)).<span class="ident">is_err</span>(),
+            <span class="ident">stdout</span>.<span class="ident">seek</span>(<span class="ident">io::SeekFrom::End</span>(<span class="number">0</span>)).<span class="kw">await</span>.<span class="ident">is_err</span>(),
             <span class="string">&quot;cannot seek `stdout`&quot;</span>,
         );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_read_stderr</span>() {
+    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">test_read_stderr</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stderr</span> <span class="op">=</span> <span class="ident">Stderr</span> {
             <span class="ident">buf</span>: <span class="macro">vec!</span>[<span class="string">b&#39;f&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;b&#39;</span>, <span class="string">b&#39;a&#39;</span>, <span class="string">b&#39;r&#39;</span>],
         };
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buffer</span> <span class="op">=</span> <span class="ident">String::new</span>();
 
         <span class="macro">assert!</span>(
-            <span class="ident">stderr</span>.<span class="ident">read_to_string</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buffer</span>).<span class="ident">is_err</span>(),
+            <span class="ident">stderr</span>.<span class="ident">read_to_string</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buffer</span>).<span class="kw">await</span>.<span class="ident">is_err</span>(),
             <span class="string">&quot;cannot read from `stderr`&quot;</span>
         );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_write_stderr</span>() {
+    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">test_write_stderr</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stderr</span> <span class="op">=</span> <span class="ident">Stderr</span> { <span class="ident">buf</span>: <span class="macro">vec!</span>[] };
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(<span class="ident">stderr</span>.<span class="ident">write</span>(<span class="string">b&quot;baz&quot;</span>), <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
+            <span class="macro">matches!</span>(<span class="ident">stderr</span>.<span class="ident">write</span>(<span class="string">b&quot;baz&quot;</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
             <span class="string">&quot;writing into `stderr`&quot;</span>,
         );
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(<span class="ident">stderr</span>.<span class="ident">write</span>(<span class="string">b&quot;qux&quot;</span>), <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
+            <span class="macro">matches!</span>(<span class="ident">stderr</span>.<span class="ident">write</span>(<span class="string">b&quot;qux&quot;</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)),
             <span class="string">&quot;writing again into `stderr`&quot;</span>,
         );
         <span class="macro">assert_eq!</span>(
@@ -670,14 +646,14 @@
         );
     }
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_seek_stderr</span>() {
+    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">test_seek_stderr</span>() {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stderr</span> <span class="op">=</span> <span class="ident">Stderr</span> {
             <span class="ident">buf</span>: <span class="macro">vec!</span>[<span class="string">b&#39;f&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;o&#39;</span>, <span class="string">b&#39;b&#39;</span>, <span class="string">b&#39;a&#39;</span>, <span class="string">b&#39;r&#39;</span>],
         };
 
         <span class="macro">assert!</span>(
-            <span class="ident">stderr</span>.<span class="ident">seek</span>(<span class="ident">io::SeekFrom::End</span>(<span class="number">0</span>)).<span class="ident">is_err</span>(),
+            <span class="ident">stderr</span>.<span class="ident">seek</span>(<span class="ident">io::SeekFrom::End</span>(<span class="number">0</span>)).<span class="kw">await</span>.<span class="ident">is_err</span>(),
             <span class="string">&quot;cannot seek `stderr`&quot;</span>,
         );
     }

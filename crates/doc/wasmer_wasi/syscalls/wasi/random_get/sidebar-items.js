@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["random_get","`random_get()`"]]};

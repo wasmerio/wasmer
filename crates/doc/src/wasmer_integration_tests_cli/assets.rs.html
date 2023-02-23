@@ -134,6 +134,9 @@
 <span id="134">134</span>
 <span id="135">135</span>
 <span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::env</span>;
 <span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
 
@@ -250,7 +253,10 @@
                 .<span class="ident">stdin</span>(<span class="ident">Stdio::null</span>())
                 .<span class="ident">output</span>();
         }
-        <span class="macro">panic!</span>(<span class="string">&quot;cannot find wasmer / wasmer.exe for integration test!&quot;</span>);
+        <span class="macro">panic!</span>(
+            <span class="string">&quot;cannot find wasmer / wasmer.exe for integration test at &#39;{}&#39;!&quot;</span>,
+            <span class="ident">ret</span>.<span class="ident">display</span>()
+        );
     }
     <span class="ident">ret</span>
 }

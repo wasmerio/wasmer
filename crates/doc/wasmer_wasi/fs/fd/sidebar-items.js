@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["Kind","The core of the filesystem abstraction.  Includes directories, files, and symlinks."]],"struct":[["Fd",""],["InodeVal","A file that Wasi knows about that may or may not be open"]]};

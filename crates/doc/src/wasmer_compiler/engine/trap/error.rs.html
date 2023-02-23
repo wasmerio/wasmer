@@ -296,6 +296,18 @@
 <span id="296">296</span>
 <span id="297">297</span>
 <span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">super</span>::frame_info</span>::{<span class="ident">FrameInfo</span>, <span class="ident">GlobalFrameInfo</span>, <span class="ident">FRAME_INFO</span>};
 <span class="kw">use</span> <span class="ident">backtrace::Backtrace</span>;
 <span class="kw">use</span> <span class="ident">std::error::Error</span>;
@@ -517,6 +529,18 @@
                 <span class="ident">inner</span>: <span class="ident">Arc::new</span>(<span class="ident">inner</span>),
             }),
             <span class="prelude-val">Err</span>(<span class="ident">inner</span>) =&gt; <span class="prelude-val">Err</span>(<span class="self">Self</span> { <span class="ident">inner</span> }),
+        }
+    }
+
+    <span class="doccomment">/// Attempts to downcast the `RuntimeError` to a concrete type.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">downcast_ref</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Error</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">T</span><span class="op">&gt;</span> {
+        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">as_ref</span>() {
+            <span class="comment">// We only try to downcast user errors</span>
+            <span class="ident">RuntimeErrorInner</span> {
+                <span class="ident">source</span>: <span class="ident">RuntimeErrorSource::User</span>(<span class="ident">err</span>),
+                ..
+            } <span class="kw">if</span> <span class="ident">err</span>.<span class="ident">is</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>() =&gt; <span class="ident">err</span>.<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(),
+            <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
         }
     }
 

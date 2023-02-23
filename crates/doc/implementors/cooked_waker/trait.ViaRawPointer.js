@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["wasmer_wasi"] = [{"text":"impl ViaRawPointer for <a class=\"struct\" href=\"wasmer_wasi/utils/dummy_waker/struct.WasiDummyWaker.html\" title=\"struct wasmer_wasi::utils::dummy_waker::WasiDummyWaker\">WasiDummyWaker</a>","synthetic":false,"types":["wasmer_wasi::utils::dummy_waker::WasiDummyWaker"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

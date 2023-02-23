@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["thread_local_create","`thread_local_create()`"]]};

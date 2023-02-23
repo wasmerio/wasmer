@@ -398,6 +398,14 @@
 <span id="396">396</span>
 <span id="397">397</span>
 <span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::RuntimeError</span>;
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span>
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Memory</span>, <span class="ident">Memory32</span>, <span class="ident">Memory64</span>, <span class="ident">MemorySize</span>, <span class="ident">MemoryView</span>, <span class="ident">WasmPtr</span>};
@@ -711,6 +719,14 @@
             <span class="ident">slice::from_raw_parts</span>(<span class="ident">data</span>.<span class="ident">as_ptr</span>() <span class="kw">as</span> <span class="kw-2">*const</span> <span class="ident">u8</span>, <span class="ident">data</span>.<span class="ident">len</span>() <span class="op">*</span> <span class="ident">mem::size_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>())
         };
         <span class="self">self</span>.<span class="ident">buffer</span>.<span class="ident">write</span>(<span class="self">self</span>.<span class="ident">offset</span>, <span class="ident">bytes</span>)
+    }
+
+    <span class="doccomment">/// Reads this `WasmSlice` into a `slice`.</span>
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read_to_slice</span>(<span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">MemoryAccessError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">len</span>.<span class="ident">try_into</span>().<span class="ident">expect</span>(<span class="string">&quot;WasmSlice length overflow&quot;</span>);
+        <span class="self">self</span>.<span class="ident">buffer</span>.<span class="ident">read_uninit</span>(<span class="self">self</span>.<span class="ident">offset</span>, <span class="ident">buf</span>)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="ident">len</span>)
     }
 
     <span class="doccomment">/// Reads this `WasmSlice` into a `Vec`.</span>

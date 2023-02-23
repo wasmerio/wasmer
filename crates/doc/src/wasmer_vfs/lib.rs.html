@@ -531,45 +531,101 @@
 <span id="531">531</span>
 <span id="532">532</span>
 <span id="533">533</span>
+<span id="534">534</span>
+<span id="535">535</span>
+<span id="536">536</span>
+<span id="537">537</span>
+<span id="538">538</span>
+<span id="539">539</span>
+<span id="540">540</span>
+<span id="541">541</span>
+<span id="542">542</span>
+<span id="543">543</span>
+<span id="544">544</span>
+<span id="545">545</span>
+<span id="546">546</span>
+<span id="547">547</span>
+<span id="548">548</span>
+<span id="549">549</span>
+<span id="550">550</span>
+<span id="551">551</span>
+<span id="552">552</span>
+<span id="553">553</span>
+<span id="554">554</span>
+<span id="555">555</span>
+<span id="556">556</span>
+<span id="557">557</span>
+<span id="558">558</span>
+<span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
+<span id="563">563</span>
+<span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::any::Any</span>;
 <span class="kw">use</span> <span class="ident">std::ffi::OsString</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
-<span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Read</span>, <span class="ident">Seek</span>, <span class="ident">Write</span>};
+<span class="kw">use</span> <span class="ident">std::io</span>;
 <span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
+<span class="kw">use</span> <span class="ident">std::pin::Pin</span>;
+<span class="kw">use</span> <span class="ident">std::task::Context</span>;
+<span class="kw">use</span> <span class="ident">std::task::Poll</span>;
 <span class="kw">use</span> <span class="ident">thiserror::Error</span>;
 
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;host-fs&quot;</span>), <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;mem-fs&quot;</span>)))]</span>
-<span class="macro">compile_error!</span>(<span class="string">&quot;At least the `host-fs` or the `mem-fs` feature must be enabled. Please, pick one.&quot;</span>);
-
-<span class="comment">//#[cfg(all(feature = &quot;mem-fs&quot;, feature = &quot;enable-serde&quot;))]</span>
-<span class="comment">//compile_warn!(&quot;`mem-fs` does not support `enable-serde` for the moment.&quot;);</span>
-
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">arc_box_file</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">arc_file</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">arc_fs</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">builder</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">combine_file</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">dual_write_file</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">empty_fs</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;host-fs&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">host_fs</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;mem-fs&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">mem_fs</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">null_file</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">passthru_fs</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">special_file</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">tmp_fs</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">union_fs</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">zero_file</span>;
+<span class="comment">// tty_file -&gt; see wasmer_wasi::tty_file</span>
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">pipe</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-fs&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">static_fs</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webc-fs&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">webc_fs</span>;
 
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">arc_box_file</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">arc_file</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">arc_fs</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">builder</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">combine_file</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">dual_write_file</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">empty_fs</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">null_file</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">passthru_fs</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">pipe</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">special_file</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tmp_fs</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">union_fs</span>::<span class="kw-2">*</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">zero_file</span>::<span class="kw-2">*</span>;
+
 <span class="kw">pub</span> <span class="kw">type</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">std::result::Result</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">FsError</span><span class="op">&gt;</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">transparent</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">FileDescriptor</span>(<span class="ident">usize</span>);
+<span class="comment">// re-exports</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tokio::io::ReadBuf</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tokio::io</span>::{<span class="ident">AsyncRead</span>, <span class="ident">AsyncReadExt</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tokio::io</span>::{<span class="ident">AsyncSeek</span>, <span class="ident">AsyncSeekExt</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tokio::io</span>::{<span class="ident">AsyncWrite</span>, <span class="ident">AsyncWriteExt</span>};
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">FileDescriptor</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">a</span>: <span class="ident">u32</span>) -&gt; <span class="self">Self</span> {
-        <span class="self">Self</span>(<span class="ident">a</span> <span class="kw">as</span> <span class="ident">usize</span>)
-    }
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">FileDescriptor</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">u32</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">a</span>: <span class="ident">FileDescriptor</span>) -&gt; <span class="ident">u32</span> {
-        <span class="ident">a</span>.<span class="number">0</span> <span class="kw">as</span> <span class="ident">u32</span>
-    }
-}
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">ClonableVirtualFile</span>: <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Clone</span> {}
 
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">FileSystem</span>: <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Upcastable</span> {
     <span class="kw">fn</span> <span class="ident">read_dir</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ReadDir</span><span class="op">&gt;</span>;
@@ -601,7 +657,7 @@
 
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">FileOpener</span> {
     <span class="kw">fn</span> <span class="ident">open</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
         <span class="ident">conf</span>: <span class="kw-2">&amp;</span><span class="ident">OpenOptionsConfig</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>;
@@ -655,19 +711,19 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">OpenOptions</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">fmt::Debug</span> <span class="kw">for</span> <span class="ident">OpenOptions</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">fmt::Formatter</span>) -&gt; <span class="ident">fmt::Result</span> {
         <span class="self">self</span>.<span class="ident">conf</span>.<span class="ident">fmt</span>(<span class="ident">f</span>)
     }
 }
 
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">OpenOptions</span> {
-    <span class="ident">opener</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FileOpener</span><span class="op">&gt;</span>,
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">OpenOptions</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+    <span class="ident">opener</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw">dyn</span> <span class="ident">FileOpener</span>,
     <span class="ident">conf</span>: <span class="ident">OpenOptionsConfig</span>,
 }
 
-<span class="kw">impl</span> <span class="ident">OpenOptions</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">opener</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FileOpener</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">OpenOptions</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">opener</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw">dyn</span> <span class="ident">FileOpener</span>) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">opener</span>,
             <span class="ident">conf</span>: <span class="ident">OpenOptionsConfig</span> {
@@ -730,7 +786,9 @@
 
 <span class="doccomment">/// This trait relies on your file closing when it goes out of scope via `Drop`</span>
 <span class="comment">//#[cfg_attr(feature = &quot;enable-serde&quot;, typetag::serde)]</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">VirtualFile</span>: <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">Write</span> <span class="op">+</span> <span class="ident">Read</span> <span class="op">+</span> <span class="ident">Seek</span> <span class="op">+</span> <span class="ident">Upcastable</span> {
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">VirtualFile</span>:
+    <span class="ident">fmt::Debug</span> <span class="op">+</span> <span class="ident">AsyncRead</span> <span class="op">+</span> <span class="ident">AsyncWrite</span> <span class="op">+</span> <span class="ident">AsyncSeek</span> <span class="op">+</span> <span class="ident">Unpin</span> <span class="op">+</span> <span class="ident">Upcastable</span>
+{
     <span class="doccomment">/// the last time the file was accessed in nanoseconds as a UNIX timestamp</span>
     <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span>;
 
@@ -750,42 +808,24 @@
     <span class="doccomment">/// Request deletion of the file</span>
     <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
 
-    <span class="doccomment">/// Store file contents and metadata to disk</span>
-    <span class="doccomment">/// Default implementation returns `Ok(())`.  You should implement this method if you care</span>
-    <span class="doccomment">/// about flushing your cache to permanent storage</span>
-    <span class="kw">fn</span> <span class="ident">sync_to_disk</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="doccomment">/// Returns the number of bytes available.  This function must not block</span>
-    <span class="kw">fn</span> <span class="ident">bytes_available</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">bytes_available_read</span>()<span class="question-mark">?</span>.<span class="ident">unwrap_or</span>(<span class="number">0usize</span>)
-            <span class="op">+</span> <span class="self">self</span>.<span class="ident">bytes_available_write</span>()<span class="question-mark">?</span>.<span class="ident">unwrap_or</span>(<span class="number">0usize</span>))
-    }
-
-    <span class="doccomment">/// Returns the number of bytes available.  This function must not block</span>
-    <span class="doccomment">/// Defaults to `None` which means the number of bytes is unknown</span>
-    <span class="kw">fn</span> <span class="ident">bytes_available_read</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
-    }
-
-    <span class="doccomment">/// Returns the number of bytes available.  This function must not block</span>
-    <span class="doccomment">/// Defaults to `None` which means the number of bytes is unknown</span>
-    <span class="kw">fn</span> <span class="ident">bytes_available_write</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
-    }
-
     <span class="doccomment">/// Indicates if the file is opened or closed. This function must not block</span>
     <span class="doccomment">/// Defaults to a status of being constantly open</span>
     <span class="kw">fn</span> <span class="ident">is_open</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
         <span class="bool-val">true</span>
     }
 
-    <span class="doccomment">/// Used for polling.  Default returns `None` because this method cannot be implemented for most types</span>
-    <span class="doccomment">/// Returns the underlying host fd</span>
-    <span class="kw">fn</span> <span class="ident">get_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">FileDescriptor</span><span class="op">&gt;</span> {
+    <span class="doccomment">/// Used for &quot;special&quot; files such as `stdin`, `stdout` and `stderr`.</span>
+    <span class="doccomment">/// Always returns the same file descriptor (0, 1 or 2). Returns `None`</span>
+    <span class="doccomment">/// on normal files</span>
+    <span class="kw">fn</span> <span class="ident">get_special_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> {
         <span class="prelude-val">None</span>
     }
+
+    <span class="doccomment">/// Polls the file for when there is data to be read</span>
+    <span class="kw">fn</span> <span class="ident">poll_read_ready</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span>;
+
+    <span class="doccomment">/// Polls the file for when it is available for writing</span>
+    <span class="kw">fn</span> <span class="ident">poll_write_ready</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span>;
 }
 
 <span class="comment">// Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .</span>
@@ -877,8 +917,8 @@
     <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;connection is not open&quot;</span>)]</span>
     <span class="ident">NotConnected</span>,
     <span class="doccomment">/// The requested file or directory could not be found</span>
-    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;entity not found&quot;</span>)]</span>
-    <span class="ident">EntityNotFound</span>,
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;entry not found&quot;</span>)]</span>
+    <span class="ident">EntryNotFound</span>,
     <span class="doccomment">/// The requested device couldn&#39;t be accessed</span>
     <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;can&#39;t access device&quot;</span>)]</span>
     <span class="ident">NoDevice</span>,
@@ -919,7 +959,7 @@
             <span class="ident">io::ErrorKind::InvalidData</span> =&gt; <span class="ident">FsError::InvalidData</span>,
             <span class="ident">io::ErrorKind::InvalidInput</span> =&gt; <span class="ident">FsError::InvalidInput</span>,
             <span class="ident">io::ErrorKind::NotConnected</span> =&gt; <span class="ident">FsError::NotConnected</span>,
-            <span class="ident">io::ErrorKind::NotFound</span> =&gt; <span class="ident">FsError::EntityNotFound</span>,
+            <span class="ident">io::ErrorKind::NotFound</span> =&gt; <span class="ident">FsError::EntryNotFound</span>,
             <span class="ident">io::ErrorKind::PermissionDenied</span> =&gt; <span class="ident">FsError::PermissionDenied</span>,
             <span class="ident">io::ErrorKind::TimedOut</span> =&gt; <span class="ident">FsError::TimedOut</span>,
             <span class="ident">io::ErrorKind::UnexpectedEof</span> =&gt; <span class="ident">FsError::UnexpectedEof</span>,
@@ -929,6 +969,39 @@
             <span class="comment">// if the following triggers, a new error type was added to this non-exhaustive enum</span>
             <span class="kw">_</span> =&gt; <span class="ident">FsError::UnknownError</span>,
         }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">FsError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">io::Error</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">val</span>: <span class="ident">FsError</span>) -&gt; <span class="self">Self</span> {
+        <span class="kw">let</span> <span class="ident">kind</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">val</span> {
+            <span class="ident">FsError::AddressInUse</span> =&gt; <span class="ident">io::ErrorKind::AddrInUse</span>,
+            <span class="ident">FsError::AddressNotAvailable</span> =&gt; <span class="ident">io::ErrorKind::AddrNotAvailable</span>,
+            <span class="ident">FsError::AlreadyExists</span> =&gt; <span class="ident">io::ErrorKind::AlreadyExists</span>,
+            <span class="ident">FsError::BrokenPipe</span> =&gt; <span class="ident">io::ErrorKind::BrokenPipe</span>,
+            <span class="ident">FsError::ConnectionAborted</span> =&gt; <span class="ident">io::ErrorKind::ConnectionAborted</span>,
+            <span class="ident">FsError::ConnectionRefused</span> =&gt; <span class="ident">io::ErrorKind::ConnectionRefused</span>,
+            <span class="ident">FsError::ConnectionReset</span> =&gt; <span class="ident">io::ErrorKind::ConnectionReset</span>,
+            <span class="ident">FsError::Interrupted</span> =&gt; <span class="ident">io::ErrorKind::Interrupted</span>,
+            <span class="ident">FsError::InvalidData</span> =&gt; <span class="ident">io::ErrorKind::InvalidData</span>,
+            <span class="ident">FsError::InvalidInput</span> =&gt; <span class="ident">io::ErrorKind::InvalidInput</span>,
+            <span class="ident">FsError::NotConnected</span> =&gt; <span class="ident">io::ErrorKind::NotConnected</span>,
+            <span class="ident">FsError::EntryNotFound</span> =&gt; <span class="ident">io::ErrorKind::NotFound</span>,
+            <span class="ident">FsError::PermissionDenied</span> =&gt; <span class="ident">io::ErrorKind::PermissionDenied</span>,
+            <span class="ident">FsError::TimedOut</span> =&gt; <span class="ident">io::ErrorKind::TimedOut</span>,
+            <span class="ident">FsError::UnexpectedEof</span> =&gt; <span class="ident">io::ErrorKind::UnexpectedEof</span>,
+            <span class="ident">FsError::WouldBlock</span> =&gt; <span class="ident">io::ErrorKind::WouldBlock</span>,
+            <span class="ident">FsError::WriteZero</span> =&gt; <span class="ident">io::ErrorKind::WriteZero</span>,
+            <span class="ident">FsError::IOError</span> =&gt; <span class="ident">io::ErrorKind::Other</span>,
+            <span class="ident">FsError::BaseNotDirectory</span> =&gt; <span class="ident">io::ErrorKind::Other</span>,
+            <span class="ident">FsError::NotAFile</span> =&gt; <span class="ident">io::ErrorKind::Other</span>,
+            <span class="ident">FsError::InvalidFd</span> =&gt; <span class="ident">io::ErrorKind::Other</span>,
+            <span class="ident">FsError::Lock</span> =&gt; <span class="ident">io::ErrorKind::Other</span>,
+            <span class="ident">FsError::NoDevice</span> =&gt; <span class="ident">io::ErrorKind::Other</span>,
+            <span class="ident">FsError::DirectoryNotEmpty</span> =&gt; <span class="ident">io::ErrorKind::Other</span>,
+            <span class="ident">FsError::UnknownError</span> =&gt; <span class="ident">io::ErrorKind::Other</span>,
+        };
+        <span class="ident">kind</span>.<span class="ident">into</span>()
     }
 }
 
@@ -942,6 +1015,9 @@
 <span class="kw">impl</span> <span class="ident">ReadDir</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">DirEntry</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> { <span class="ident">data</span>, <span class="ident">index</span>: <span class="number">0</span> }
+    }
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_empty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">data</span>.<span class="ident">is_empty</span>()
     }
 }
 

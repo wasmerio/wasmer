@@ -250,13 +250,6 @@
 <span id="248">248</span>
 <span id="249">249</span>
 <span id="250">250</span>
-<span id="251">251</span>
-<span id="252">252</span>
-<span id="253">253</span>
-<span id="254">254</span>
-<span id="255">255</span>
-<span id="256">256</span>
-<span id="257">257</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Native Functions.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! This module creates the helper `TypedFunction` that let us call WebAssembly</span>
@@ -266,15 +259,12 @@
 <span class="doccomment">//! let add_one = instance.exports.get_function(&quot;function_name&quot;)?;</span>
 <span class="doccomment">//! let add_one_native: TypedFunction&lt;i32, i32&gt; = add_one.native().unwrap();</span>
 <span class="doccomment">//! ```</span>
-<span class="kw">use</span> <span class="ident">std::cell::Cell</span>;
 <span class="kw">use</span> <span class="ident">std::marker::PhantomData</span>;
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys</span>::{
     <span class="ident">AsStoreMut</span>, <span class="ident">FromToNativeWasmType</span>, <span class="ident">Function</span>, <span class="ident">NativeWasmTypeInto</span>, <span class="ident">RuntimeError</span>, <span class="ident">WasmTypeList</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_types::RawValue</span>;
-
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::store::OnCalledHandler</span>;
 
 <span class="doccomment">/// A WebAssembly function that can be called natively</span>
 <span class="doccomment">/// (using the Native ABI).</span>
@@ -305,10 +295,6 @@
             <span class="ident">_phantom</span>: <span class="ident">PhantomData</span>,
         }
     }
-}
-
-<span class="macro">thread_local!</span> {
-    <span class="kw">static</span> <span class="ident">ON_CALLED</span>: <span class="ident">Cell</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">OnCalledHandler</span><span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Cell::new</span>(<span class="prelude-val">None</span>);
 }
 
 <span class="macro">macro_rules!</span> <span class="ident">impl_native_traits</span> {

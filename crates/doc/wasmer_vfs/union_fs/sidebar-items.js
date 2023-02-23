@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["filter_mounts",""]],"struct":[["MountPoint",""],["StrongMountPoint","A `strong` mount point holds a strong `Arc` reference to the filesystem mounted at path `path`."],["UnionFileSystem","Allows different filesystems of different types to be mounted at various mount points"]],"type":[["TempHolding",""]]};

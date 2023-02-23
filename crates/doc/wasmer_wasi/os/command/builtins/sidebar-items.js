@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":[["cmd_wasmer",""]]};

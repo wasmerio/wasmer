@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["to_error",""]],"macro":[["tuples",""]],"struct":[["BorrowChecker",""],["Region","Represents a contiguous region in memory."]],"trait":[["AllBytesValid","Unsafe trait representing types where every byte pattern is valid for their representation."]]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["environ_sizes_get","`environ_sizes_get()`"]]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["BodyInner",""]],"mod":[["header","HTTP header types"],["wasix_http_client_v1",""]],"struct":[["Body",""],["HttpClient",""],["Method","The Request Method (VERB)"],["StatusCode","An HTTP status code (`status-code` in RFC 7230 et al.)."]],"type":[["Request",""],["RequestBuilder",""],["Response",""]]};

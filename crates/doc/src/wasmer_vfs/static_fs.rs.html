@@ -382,18 +382,24 @@
 <span id="382">382</span>
 <span id="383">383</span>
 <span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow::anyhow</span>;
+<span class="kw">use</span> <span class="ident">tokio::io</span>::{<span class="ident">AsyncRead</span>, <span class="ident">AsyncSeek</span>, <span class="ident">AsyncWrite</span>};
 
 <span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
-<span class="kw">use</span> <span class="ident">std::io</span>::{<span class="ident">Error</span> <span class="kw">as</span> <span class="ident">IoError</span>, <span class="ident">ErrorKind</span> <span class="kw">as</span> <span class="ident">IoErrorKind</span>, <span class="ident">Read</span>, <span class="ident">Seek</span>, <span class="ident">SeekFrom</span>, <span class="ident">Write</span>};
+<span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Error</span> <span class="kw">as</span> <span class="ident">IoError</span>, <span class="ident">ErrorKind</span> <span class="kw">as</span> <span class="ident">IoErrorKind</span>, <span class="ident">SeekFrom</span>};
 <span class="kw">use</span> <span class="ident">std::path::Path</span>;
 <span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
+<span class="kw">use</span> <span class="ident">std::pin::Pin</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
+<span class="kw">use</span> <span class="ident">std::task</span>::{<span class="ident">Context</span>, <span class="ident">Poll</span>};
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::mem_fs::FileSystem</span> <span class="kw">as</span> <span class="ident">MemFileSystem</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">FileDescriptor</span>, <span class="ident">FileOpener</span>, <span class="ident">FileSystem</span>, <span class="ident">FsError</span>, <span class="ident">Metadata</span>, <span class="ident">OpenOptions</span>, <span class="ident">OpenOptionsConfig</span>,
-    <span class="ident">ReadDir</span>, <span class="ident">VirtualFile</span>,
+    <span class="ident">FileOpener</span>, <span class="ident">FileSystem</span>, <span class="ident">FsError</span>, <span class="ident">Metadata</span>, <span class="ident">OpenOptions</span>, <span class="ident">OpenOptionsConfig</span>, <span class="ident">ReadDir</span>, <span class="ident">VirtualFile</span>,
 };
 <span class="kw">use</span> <span class="ident">webc</span>::{<span class="ident">FsEntry</span>, <span class="ident">FsEntryType</span>, <span class="ident">OwnedFsEntryFile</span>};
 
@@ -425,16 +431,9 @@
 }
 
 <span class="doccomment">/// Custom file opener, returns a WebCFile</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">struct</span> <span class="ident">WebCFileOpener</span> {
-    <span class="kw">pub</span> <span class="ident">package</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">volumes</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">webc::IndexMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">webc::Volume</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="kw">pub</span> <span class="ident">memory</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">MemFileSystem</span><span class="op">&gt;</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">FileOpener</span> <span class="kw">for</span> <span class="ident">WebCFileOpener</span> {
+<span class="kw">impl</span> <span class="ident">FileOpener</span> <span class="kw">for</span> <span class="ident">StaticFileSystem</span> {
     <span class="kw">fn</span> <span class="ident">open</span>(
-        <span class="kw-2">&amp;mut</span> <span class="self">self</span>,
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
         <span class="ident">_conf</span>: <span class="kw-2">&amp;</span><span class="ident">OpenOptionsConfig</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualFile</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
@@ -442,9 +441,9 @@
             <span class="prelude-val">Some</span>(<span class="ident">volume</span>) =&gt; {
                 <span class="kw">let</span> <span class="ident">file</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="self">self</span>.<span class="ident">volumes</span>)
                     .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">volume</span>)
-                    .<span class="ident">ok_or</span>(<span class="ident">FsError::EntityNotFound</span>)<span class="question-mark">?</span>
+                    .<span class="ident">ok_or</span>(<span class="ident">FsError::EntryNotFound</span>)<span class="question-mark">?</span>
                     .<span class="ident">get_file_entry</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">path</span>.<span class="ident">display</span>()))
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">_e</span><span class="op">|</span> <span class="ident">FsError::EntityNotFound</span>)<span class="question-mark">?</span>;
+                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">_e</span><span class="op">|</span> <span class="ident">FsError::EntryNotFound</span>)<span class="question-mark">?</span>;
 
                 <span class="prelude-val">Ok</span>(<span class="ident">Box::new</span>(<span class="ident">WebCFile</span> {
                     <span class="ident">package</span>: <span class="self">self</span>.<span class="ident">package</span>.<span class="ident">clone</span>(),
@@ -487,6 +486,7 @@
     <span class="kw">pub</span> <span class="ident">cursor</span>: <span class="ident">u64</span>,
 }
 
+<span class="attribute">#[<span class="ident">async_trait::async_trait</span>]</span>
 <span class="kw">impl</span> <span class="ident">VirtualFile</span> <span class="kw">for</span> <span class="ident">WebCFile</span> {
     <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u64</span> {
         <span class="number">0</span>
@@ -506,19 +506,21 @@
     <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">bytes_available</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">size</span>().<span class="ident">try_into</span>().<span class="ident">unwrap_or</span>(<span class="ident">u32::MAX</span> <span class="kw">as</span> <span class="ident">usize</span>))
+    <span class="kw">fn</span> <span class="ident">poll_read_ready</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">remaining</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">entry</span>.<span class="ident">get_len</span>() <span class="op">-</span> <span class="self">self</span>.<span class="ident">cursor</span>;
+        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">remaining</span> <span class="kw">as</span> <span class="ident">usize</span>))
     }
-    <span class="kw">fn</span> <span class="ident">sync_to_disk</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(())
-    }
-    <span class="kw">fn</span> <span class="ident">get_fd</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">FileDescriptor</span><span class="op">&gt;</span> {
-        <span class="prelude-val">None</span>
+    <span class="kw">fn</span> <span class="ident">poll_write_ready</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Read</span> <span class="kw">for</span> <span class="ident">WebCFile</span> {
-    <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">IoError</span><span class="op">&gt;</span> {
+<span class="kw">impl</span> <span class="ident">AsyncRead</span> <span class="kw">for</span> <span class="ident">WebCFile</span> {
+    <span class="kw">fn</span> <span class="ident">poll_read</span>(
+        <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
+        <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
+        <span class="ident">buf</span>: <span class="kw-2">&amp;mut</span> <span class="ident">tokio::io::ReadBuf</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
+    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="self">self</span>
             .<span class="ident">volumes</span>
             .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">volume</span>)
@@ -535,29 +537,36 @@
         <span class="kw">let</span> <span class="ident">_start</span> <span class="op">=</span> <span class="ident">cursor</span>.<span class="ident">min</span>(<span class="ident">bytes</span>.<span class="ident">len</span>());
         <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">bytes</span>[<span class="ident">cursor</span>..];
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">len</span> <span class="op">=</span> <span class="number">0</span>;
-        <span class="kw">for</span> (<span class="ident">source</span>, <span class="ident">target</span>) <span class="kw">in</span> <span class="ident">bytes</span>.<span class="ident">iter</span>().<span class="ident">zip</span>(<span class="ident">buf</span>.<span class="ident">iter_mut</span>()) {
-            <span class="kw-2">*</span><span class="ident">target</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">source</span>;
-            <span class="ident">len</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
+        <span class="kw">if</span> <span class="ident">bytes</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="ident">buf</span>.<span class="ident">remaining</span>() {
+            <span class="kw">let</span> <span class="ident">remaining</span> <span class="op">=</span> <span class="ident">buf</span>.<span class="ident">remaining</span>();
+            <span class="ident">buf</span>.<span class="ident">put_slice</span>(<span class="kw-2">&amp;</span><span class="ident">bytes</span>[..<span class="ident">remaining</span>]);
+        } <span class="kw">else</span> {
+            <span class="ident">buf</span>.<span class="ident">put_slice</span>(<span class="ident">bytes</span>);
         }
-
-        <span class="prelude-val">Ok</span>(<span class="ident">len</span>)
+        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(()))
     }
 }
 
 <span class="comment">// WebC file is not writable, the FileOpener will return a MemoryFile for writing instead</span>
 <span class="comment">// This code should never be executed (since writes are redirected to memory instead).</span>
-<span class="kw">impl</span> <span class="ident">Write</span> <span class="kw">for</span> <span class="ident">WebCFile</span> {
-    <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">IoError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="ident">buf</span>.<span class="ident">len</span>())
+<span class="kw">impl</span> <span class="ident">AsyncWrite</span> <span class="kw">for</span> <span class="ident">WebCFile</span> {
+    <span class="kw">fn</span> <span class="ident">poll_write</span>(
+        <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
+        <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
+        <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
+    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">buf</span>.<span class="ident">len</span>()))
     }
-    <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">IoError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(())
+    <span class="kw">fn</span> <span class="ident">poll_flush</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(()))
+    }
+    <span class="kw">fn</span> <span class="ident">poll_shutdown</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">io::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(()))
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Seek</span> <span class="kw">for</span> <span class="ident">WebCFile</span> {
-    <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">pos</span>: <span class="ident">SeekFrom</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u64</span>, <span class="ident">IoError</span><span class="op">&gt;</span> {
+<span class="kw">impl</span> <span class="ident">AsyncSeek</span> <span class="kw">for</span> <span class="ident">WebCFile</span> {
+    <span class="kw">fn</span> <span class="ident">start_seek</span>(<span class="kw-2">mut</span> <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">pos</span>: <span class="ident">io::SeekFrom</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">self_size</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">size</span>();
         <span class="kw">match</span> <span class="ident">pos</span> {
             <span class="ident">SeekFrom::Start</span>(<span class="ident">s</span>) =&gt; {
@@ -577,7 +586,10 @@
                 .<span class="ident">min</span>(<span class="ident">self_size</span>);
             }
         }
-        <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">cursor</span>)
+        <span class="prelude-val">Ok</span>(())
+    }
+    <span class="kw">fn</span> <span class="ident">poll_complete</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">cursor</span>))
     }
 }
 
@@ -618,7 +630,7 @@
             <span class="kw">let</span> <span class="ident">read_dir_result</span> <span class="op">=</span> <span class="ident">volume</span>
                 .<span class="ident">read_dir</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>)
                 .<span class="ident">map</span>(<span class="op">|</span><span class="ident">o</span><span class="op">|</span> <span class="ident">transform_into_read_dir</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>), <span class="ident">o</span>.<span class="ident">as_ref</span>()))
-                .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">FsError::EntityNotFound</span>);
+                .<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">FsError::EntryNotFound</span>);
 
             <span class="kw">match</span> <span class="ident">read_dir_result</span> {
                 <span class="prelude-val">Ok</span>(<span class="ident">o</span>) =&gt; {
@@ -707,11 +719,7 @@
         }
     }
     <span class="kw">fn</span> <span class="ident">new_open_options</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">OpenOptions</span> {
-        <span class="ident">OpenOptions::new</span>(<span class="ident">Box::new</span>(<span class="ident">WebCFileOpener</span> {
-            <span class="ident">package</span>: <span class="self">self</span>.<span class="ident">package</span>.<span class="ident">clone</span>(),
-            <span class="ident">volumes</span>: <span class="self">self</span>.<span class="ident">volumes</span>.<span class="ident">clone</span>(),
-            <span class="ident">memory</span>: <span class="self">self</span>.<span class="ident">memory</span>.<span class="ident">clone</span>(),
-        }))
+        <span class="ident">OpenOptions::new</span>(<span class="self">self</span>)
     }
     <span class="kw">fn</span> <span class="ident">symlink_metadata</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Metadata</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">normalizes_path</span>(<span class="ident">path</span>);

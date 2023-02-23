@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":[["fd_mmap",""],["memories","Memory management for linear memories."]],"struct":[["VMMemory","Represents linear memory that can be either owned or shared"],["VMOwnedMemory","A linear memory instance."],["VMSharedMemory","A shared linear memory instance."]]};

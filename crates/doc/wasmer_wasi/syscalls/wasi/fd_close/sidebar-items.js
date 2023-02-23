@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["fd_close","`fd_close()`"]]};

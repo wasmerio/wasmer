@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["DeviceFile","A “special” file is a file that is locked to one file descriptor (i.e. stdout => 0, stdin => 1), etc."]],"type":[["Fd",""]]};

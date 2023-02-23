@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["port_dhcp_acquire","`port_dhcp_acquire()`"]]};

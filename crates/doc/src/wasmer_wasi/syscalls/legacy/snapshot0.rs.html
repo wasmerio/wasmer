@@ -178,13 +178,37 @@
 <span id="176">176</span>
 <span id="177">177</span>
 <span id="178">178</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls::types</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">mem_error_to_wasi</span>, <span class="ident">Memory32</span>, <span class="ident">MemorySize</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiError</span>, <span class="ident">WasiThread</span>};
-<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">FunctionEnvMut</span>, <span class="ident">WasmPtr</span>};
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">FunctionEnvMut</span>, <span class="ident">WasmPtr</span>};
 <span class="kw">use</span> <span class="ident">wasmer_wasi_types::wasi</span>::{
-    <span class="ident">Errno</span>, <span class="ident">Event</span>, <span class="ident">Fd</span>, <span class="ident">Filesize</span>, <span class="ident">Filestat</span>, <span class="ident">Filetype</span>, <span class="ident">Snapshot0Filestat</span>, <span class="ident">Snapshot0Subscription</span>,
-    <span class="ident">Snapshot0Whence</span>, <span class="ident">Subscription</span>, <span class="ident">Whence</span>,
+    <span class="ident">Errno</span>, <span class="ident">Event</span>, <span class="ident">EventFdReadwrite</span>, <span class="ident">Eventrwflags</span>, <span class="ident">Eventtype</span>, <span class="ident">Fd</span>, <span class="ident">Filesize</span>, <span class="ident">Filestat</span>, <span class="ident">Filetype</span>,
+    <span class="ident">Snapshot0Event</span>, <span class="ident">Snapshot0Filestat</span>, <span class="ident">Snapshot0Subscription</span>, <span class="ident">Snapshot0Whence</span>, <span class="ident">Subscription</span>,
+    <span class="ident">Whence</span>,
+};
+
+<span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">mem_error_to_wasi</span>,
+    <span class="ident">os::task::thread::WasiThread</span>,
+    <span class="ident">state</span>::{<span class="ident">PollEventBuilder</span>, <span class="ident">PollEventSet</span>},
+    <span class="ident">syscalls</span>,
+    <span class="ident">syscalls::types</span>,
+    <span class="ident">Memory32</span>, <span class="ident">MemorySize</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiError</span>,
 };
 
 <span class="doccomment">/// Wrapper around `syscalls::fd_filestat_get` with extra logic to handle the size</span>
@@ -308,53 +332,63 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">poll_oneoff</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">in_</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Snapshot0Subscription</span>, <span class="ident">Memory32</span><span class="op">&gt;</span>,
-    <span class="ident">out_</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Event</span>, <span class="ident">Memory32</span><span class="op">&gt;</span>,
+    <span class="ident">out_</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Snapshot0Event</span>, <span class="ident">Memory32</span><span class="op">&gt;</span>,
     <span class="ident">nsubscriptions</span>: <span class="ident">u32</span>,
     <span class="ident">nevents</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">Memory32</span><span class="op">&gt;</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
-    <span class="comment">// TODO: verify that the assumptions in the comment here still applyd</span>
-    <span class="comment">// in this case the new type is smaller than the old type, so it all fits into memory,</span>
-    <span class="comment">// we just need to readjust and copy it</span>
-
-    <span class="comment">// we start by adjusting `in_` into a format that the new code can understand</span>
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
-    <span class="kw">let</span> <span class="ident">nsubscriptions_offset</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">nsubscriptions</span>;
-    <span class="kw">let</span> <span class="ident">in_origs</span> <span class="op">=</span> <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">in_</span>.<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">nsubscriptions_offset</span>));
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">subscriptions</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+    <span class="kw">let</span> <span class="ident">in_origs</span> <span class="op">=</span> <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">in_</span>.<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">nsubscriptions</span>));
     <span class="kw">let</span> <span class="ident">in_origs</span> <span class="op">=</span> <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">in_origs</span>.<span class="ident">read_to_vec</span>());
-
-    <span class="comment">// get a pointer to the smaller new type</span>
-    <span class="kw">let</span> <span class="ident">in_new_type_ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Subscription</span>, <span class="ident">Memory32</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">in_</span>.<span class="ident">cast</span>();
-
-    <span class="kw">for</span> (<span class="ident">in_sub_new</span>, <span class="ident">orig</span>) <span class="kw">in</span>
-        <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">in_new_type_ptr</span>.<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">nsubscriptions_offset</span>))
-            .<span class="ident">iter</span>()
-            .<span class="ident">zip</span>(<span class="ident">in_origs</span>.<span class="ident">iter</span>())
-    {
-        <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">in_sub_new</span>.<span class="ident">write</span>(<span class="ident">Subscription::from</span>(<span class="kw-2">*</span><span class="ident">orig</span>)));
+    <span class="kw">for</span> <span class="ident">in_orig</span> <span class="kw">in</span> <span class="ident">in_origs</span> {
+        <span class="ident">subscriptions</span>.<span class="ident">push</span>((
+            <span class="prelude-val">None</span>,
+            <span class="ident">PollEventSet::default</span>(),
+            <span class="ident">Into</span>::<span class="op">&lt;</span><span class="ident">Subscription</span><span class="op">&gt;</span><span class="ident">::into</span>(<span class="ident">in_orig</span>),
+        ));
     }
 
     <span class="comment">// make the call</span>
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">syscalls::poll_oneoff</span>::<span class="op">&lt;</span><span class="ident">Memory32</span><span class="op">&gt;</span>(
-        <span class="ident">ctx</span>.<span class="ident">as_mut</span>(),
-        <span class="ident">in_new_type_ptr</span>,
-        <span class="ident">out_</span>,
-        <span class="ident">nsubscriptions</span>,
-        <span class="ident">nevents</span>,
-    );
+    <span class="kw">let</span> <span class="ident">triggered_events</span> <span class="op">=</span> <span class="ident">syscalls::poll_oneoff_internal</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>, <span class="ident">subscriptions</span>)<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">triggered_events</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">triggered_events</span> {
+        <span class="prelude-val">Ok</span>(<span class="ident">a</span>) =&gt; <span class="ident">a</span>,
+        <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
+            <span class="macro">tracing::trace!</span>(
+                <span class="string">&quot;wasi[{}:{}]::poll_oneoff0 errno={}&quot;</span>,
+                <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
+                <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
+                <span class="ident">err</span>
+            );
+            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">err</span>);
+        }
+    };
 
-    <span class="comment">// replace the old values of in, in case the calling code reuses the memory</span>
-    <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
-    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
-
-    <span class="kw">for</span> (<span class="ident">in_sub</span>, <span class="ident">orig</span>) <span class="kw">in</span> <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">in_</span>.<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">nsubscriptions_offset</span>))
-        .<span class="ident">iter</span>()
-        .<span class="ident">zip</span>(<span class="ident">in_origs</span>.<span class="ident">into_iter</span>())
-    {
-        <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">in_sub</span>.<span class="ident">write</span>(<span class="ident">orig</span>));
+    <span class="comment">// Process all the events that were triggered</span>
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">events_seen</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">0</span>;
+    <span class="kw">let</span> <span class="ident">event_array</span> <span class="op">=</span> <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">out_</span>.<span class="ident">slice</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">nsubscriptions</span>));
+    <span class="kw">for</span> <span class="ident">event</span> <span class="kw">in</span> <span class="ident">triggered_events</span> {
+        <span class="kw">let</span> <span class="ident">event</span> <span class="op">=</span> <span class="ident">Snapshot0Event</span> {
+            <span class="ident">userdata</span>: <span class="ident">event</span>.<span class="ident">userdata</span>,
+            <span class="ident">error</span>: <span class="ident">event</span>.<span class="ident">error</span>,
+            <span class="ident">type_</span>: <span class="ident">Eventtype::FdRead</span>,
+            <span class="ident">fd_readwrite</span>: <span class="kw">match</span> <span class="ident">event</span>.<span class="ident">type_</span> {
+                <span class="ident">Eventtype::FdRead</span> =&gt; <span class="kw">unsafe</span> { <span class="ident">event</span>.<span class="ident">u</span>.<span class="ident">fd_readwrite</span> },
+                <span class="ident">Eventtype::FdWrite</span> =&gt; <span class="kw">unsafe</span> { <span class="ident">event</span>.<span class="ident">u</span>.<span class="ident">fd_readwrite</span> },
+                <span class="ident">Eventtype::Clock</span> =&gt; <span class="ident">EventFdReadwrite</span> {
+                    <span class="ident">nbytes</span>: <span class="number">0</span>,
+                    <span class="ident">flags</span>: <span class="ident">Eventrwflags::empty</span>(),
+                },
+            },
+        };
+        <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">event_array</span>.<span class="ident">index</span>(<span class="ident">events_seen</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">write</span>(<span class="ident">event</span>));
+        <span class="ident">events_seen</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
     }
-
-    <span class="ident">result</span>
+    <span class="kw">let</span> <span class="ident">out_ptr</span> <span class="op">=</span> <span class="ident">nevents</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>);
+    <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">out_ptr</span>.<span class="ident">write</span>(<span class="ident">events_seen</span>));
+    <span class="prelude-val">Ok</span>(<span class="ident">Errno::Success</span>)
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasi" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

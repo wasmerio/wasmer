@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["clock_res_get","`clock_res_get()`"]]};

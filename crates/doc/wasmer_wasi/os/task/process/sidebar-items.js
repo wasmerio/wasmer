@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["WasiProcess","Represents a process running within the compute state"],["WasiProcessId","Represents the ID of a sub-process"],["WasiProcessInner",""],["WasiProcessWait",""]]};

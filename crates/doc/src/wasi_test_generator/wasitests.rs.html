@@ -571,7 +571,7 @@
 ) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span> {
     <span class="comment">//let out_dir = base_dir; //base_dir.join(&quot;..&quot;).join(version.get_directory_name());</span>
     <span class="kw">if</span> <span class="op">!</span><span class="ident">out_dir</span>.<span class="ident">exists</span>() {
-        <span class="ident">fs::create_dir</span>(<span class="kw-2">&amp;</span><span class="ident">out_dir</span>)<span class="question-mark">?</span>;
+        <span class="ident">fs::create_dir</span>(<span class="ident">out_dir</span>)<span class="question-mark">?</span>;
     }
     <span class="kw">let</span> <span class="ident">wasm_out_name</span> <span class="op">=</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasm_out_name</span> <span class="op">=</span> <span class="ident">out_dir</span>.<span class="ident">join</span>(<span class="ident">rs_mod_name</span>);
@@ -581,7 +581,7 @@
     <span class="macro">println!</span>(<span class="string">&quot;Reading contents from file `{}`&quot;</span>, <span class="ident">file</span>);
     <span class="kw">let</span> <span class="ident">file_contents</span>: <span class="ident">String</span> <span class="op">=</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">fc</span> <span class="op">=</span> <span class="ident">String::new</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">fs::OpenOptions::new</span>().<span class="ident">read</span>(<span class="bool-val">true</span>).<span class="ident">open</span>(<span class="kw-2">&amp;</span><span class="ident">file</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">fs::OpenOptions::new</span>().<span class="ident">read</span>(<span class="bool-val">true</span>).<span class="ident">open</span>(<span class="ident">file</span>)<span class="question-mark">?</span>;
         <span class="ident">f</span>.<span class="ident">read_to_string</span>(<span class="kw-2">&amp;mut</span> <span class="ident">fc</span>)<span class="question-mark">?</span>;
         <span class="ident">fc</span>
     };

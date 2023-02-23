@@ -46,51 +46,97 @@
 <span id="44">44</span>
 <span id="45">45</span>
 <span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
+<span id="62">62</span>
+<span id="63">63</span>
+<span id="64">64</span>
+<span id="65">65</span>
+<span id="66">66</span>
+<span id="67">67</span>
+<span id="68">68</span>
+<span id="69">69</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">doc</span>(<span class="ident">html_favicon_url</span> <span class="op">=</span> <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]</span>
 <span class="attribute">#![<span class="ident">doc</span>(<span class="ident">html_logo_url</span> <span class="op">=</span> <span class="string">&quot;https://github.com/wasmerio.png?size=200&quot;</span>)]</span>
 
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">asyncify</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">wasi</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">wasix</span>;
 
-<span class="comment">// Prevent the CI from passing if the wasi/bindings.rs is not</span>
-<span class="comment">// up to date with the output.wit file</span>
-<span class="attribute">#[<span class="ident">test</span>]</span>
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
-<span class="kw">fn</span> <span class="ident">fail_if_wit_files_arent_up_to_date</span>() {
-    <span class="kw">use</span> <span class="ident">wit_bindgen_core::Generator</span>;
+<span class="comment">// TODO: re-enable once WAI bindings generator generates correct code.</span>
+<span class="comment">// Currently we need manual fixes.</span>
+<span class="comment">// #[cfg(test)]</span>
+<span class="comment">// mod tests {</span>
+<span class="comment">//     use std::{</span>
+<span class="comment">//         collections::HashMap,</span>
+<span class="comment">//         path::{Path, PathBuf},</span>
+<span class="comment">//     };</span>
 
-    <span class="kw">let</span> <span class="ident">output_wit</span> <span class="op">=</span> <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/wit-clean/output.wit&quot;</span>);
-    <span class="kw">let</span> <span class="ident">bindings_target</span> <span class="op">=</span>
-        <span class="macro">include_str!</span>(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/src/wasi/bindings.rs&quot;</span>));
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">generator</span> <span class="op">=</span> <span class="ident">wit_bindgen_rust_wasm::Opts</span> {
-        ..<span class="ident">wit_bindgen_rust_wasm::Opts::default</span>()
-    }
-    .<span class="ident">build</span>();
-    <span class="kw">let</span> <span class="ident">output_wit_parsed</span> <span class="op">=</span> <span class="ident">wit_parser::Interface::parse_file</span>(<span class="ident">output_wit</span>).<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">imports</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="ident">output_wit_parsed</span>];
-    <span class="kw">let</span> <span class="ident">exports</span> <span class="op">=</span> <span class="macro">vec!</span>[];
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">files</span> <span class="op">=</span> <span class="ident">Default::default</span>();
-    <span class="ident">generator</span>.<span class="ident">generate_all</span>(
-        <span class="kw-2">&amp;</span><span class="ident">imports</span>, <span class="kw-2">&amp;</span><span class="ident">exports</span>, <span class="kw-2">&amp;mut</span> <span class="ident">files</span>, <span class="comment">/* generate_structs */</span> <span class="bool-val">true</span>,
-    );
-    <span class="kw">let</span> <span class="ident">generated</span> <span class="op">=</span> <span class="ident">files</span>
-        .<span class="ident">iter</span>()
-        .<span class="ident">filter_map</span>(<span class="op">|</span>(<span class="ident">k</span>, <span class="ident">v</span>)<span class="op">|</span> <span class="kw">if</span> <span class="ident">k</span> <span class="op">==</span> <span class="string">&quot;bindings.rs&quot;</span> { <span class="prelude-val">Some</span>(<span class="ident">v</span>) } <span class="kw">else</span> { <span class="prelude-val">None</span> })
-        .<span class="ident">next</span>()
-        .<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">generated_str</span> <span class="op">=</span> <span class="ident">String::from_utf8_lossy</span>(<span class="ident">generated</span>);
-    <span class="kw">let</span> <span class="ident">generated_str</span> <span class="op">=</span> <span class="ident">generated_str</span>
-        .<span class="ident">lines</span>()
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">to_string</span>())
-        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-        .<span class="ident">join</span>(<span class="string">&quot;\r\n&quot;</span>);
-    <span class="kw">let</span> <span class="ident">generated_str</span> <span class="op">=</span> <span class="ident">generated_str</span>.<span class="ident">replace</span>(<span class="string">&quot;mod output {&quot;</span>, <span class="string">&quot;pub mod output {&quot;</span>);
-    <span class="kw">let</span> <span class="ident">bindings_target</span> <span class="op">=</span> <span class="ident">bindings_target</span>
-        .<span class="ident">lines</span>()
-        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">s</span>.<span class="ident">to_string</span>())
-        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span>()
-        .<span class="ident">join</span>(<span class="string">&quot;\r\n&quot;</span>);
-    <span class="macro">pretty_assertions::assert_eq!</span>(<span class="ident">generated_str</span>, <span class="ident">bindings_target</span>); <span class="comment">// output.wit out of date? regenerate bindings.rs</span>
-}
+<span class="comment">//     // Prevent the CI from passing if the wasi/bindings.rs is not</span>
+<span class="comment">//     // up to date with the output.wit file</span>
+<span class="comment">//     #[test]</span>
+<span class="comment">//     #[cfg(feature = &quot;sys&quot;)]</span>
+<span class="comment">//     fn fail_if_wit_files_arent_up_to_date() {</span>
+<span class="comment">//         let root_dir = PathBuf::from(env!(&quot;CARGO_MANIFEST_DIR&quot;));</span>
+<span class="comment">//         let src_dir = root_dir.join(&quot;src&quot;);</span>
+<span class="comment">//         let gen_dir = root_dir.join(&quot;wasi-types-generator-extra&quot;);</span>
+
+<span class="comment">//         let current_files = load_file_tree(&amp;src_dir).unwrap();</span>
+
+<span class="comment">//         let code = std::process::Command::new(&quot;cargo&quot;)</span>
+<span class="comment">//             .arg(&quot;run&quot;)</span>
+<span class="comment">//             .current_dir(gen_dir)</span>
+<span class="comment">//             .spawn()</span>
+<span class="comment">//             .unwrap()</span>
+<span class="comment">//             .wait()</span>
+<span class="comment">//             .unwrap();</span>
+<span class="comment">//         assert!(code.success());</span>
+
+<span class="comment">//         let new_files = load_file_tree(&amp;src_dir).unwrap();</span>
+
+<span class="comment">//         assert_eq!(</span>
+<span class="comment">//             current_files, new_files,</span>
+<span class="comment">//             &quot;generated bindings files have changed - current bindings not up to date!&quot;</span>
+<span class="comment">//         );</span>
+<span class="comment">//     }</span>
+
+<span class="comment">//     fn load_file_tree(path: &amp;Path) -&gt; Result&lt;HashMap&lt;PathBuf, String&gt;, std::io::Error&gt; {</span>
+<span class="comment">//         let mut map = HashMap::new();</span>
+<span class="comment">//         load_file_tree_recursive(path, &amp;mut map)?;</span>
+<span class="comment">//         Ok(map)</span>
+<span class="comment">//     }</span>
+
+<span class="comment">//     fn load_file_tree_recursive(</span>
+<span class="comment">//         path: &amp;Path,</span>
+<span class="comment">//         map: &amp;mut HashMap&lt;PathBuf, String&gt;,</span>
+<span class="comment">//     ) -&gt; Result&lt;(), std::io::Error&gt; {</span>
+<span class="comment">//         for res in std::fs::read_dir(path)? {</span>
+<span class="comment">//             let entry = res?;</span>
+<span class="comment">//             let entry_path = entry.path();</span>
+<span class="comment">//             let ty = entry.file_type()?;</span>
+<span class="comment">//             if ty.is_dir() {</span>
+<span class="comment">//                 load_file_tree_recursive(&amp;entry_path, map)?;</span>
+<span class="comment">//             } else if ty.is_file() {</span>
+<span class="comment">//                 let content = std::fs::read_to_string(&amp;entry_path)?;</span>
+<span class="comment">//                 map.insert(entry_path, content);</span>
+<span class="comment">//             }</span>
+<span class="comment">//         }</span>
+<span class="comment">//         Ok(())</span>
+<span class="comment">//     }</span>
+<span class="comment">// }</span>
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wasi_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

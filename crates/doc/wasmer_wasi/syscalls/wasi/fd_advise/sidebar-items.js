@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["fd_advise","`fd_advise()`"]]};

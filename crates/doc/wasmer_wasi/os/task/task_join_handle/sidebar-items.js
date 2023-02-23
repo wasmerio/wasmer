@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["TaskJoinHandle","A handle that allows awaiting the termination of a task, and retrieving its exit code."]]};

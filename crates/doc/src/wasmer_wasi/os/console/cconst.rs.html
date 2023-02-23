@@ -1,0 +1,166 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasi/src/os/console/cconst.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>cconst.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Regular.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../FiraSans-Medium.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Regular.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceSerif4-Bold.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../SourceCodePro-Semibold.ttf.woff2"><link rel="stylesheet" type="text/css" href="../../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../../ayu.css" disabled><link rel="stylesheet" type="text/css" href="../../../../dark.css" disabled><link rel="stylesheet" type="text/css" href="../../../../light.css" id="themeStyle"><script id="default-settings" ></script><script src="../../../../storage.js"></script><script defer src="../../../../source-script.js"></script><script defer src="../../../../source-files.js"></script><script defer src="../../../../main.js"></script><noscript><link rel="stylesheet" href="../../../../noscript.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../../../wasmer_wasi/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../../../wasmer_wasi/index.html"><div class="logo-container">
+                    <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a></nav><main><div class="width-limiter"><div class="sub-container"><a class="sub-logo-container" href="../../../../wasmer_wasi/index.html">
+                        <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><nav class="sub"><form class="search-form"><div class="search-container"><span></span><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><button type="button">?</button></div><div id="settings-menu" tabindex="-1"><a href="../../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../../wheel.svg"></a></div></div></form></nav></div><section id="main-content" class="content"><div class="example-wrap"><pre class="line-numbers"><span id="1">1</span>
+<span id="2">2</span>
+<span id="3">3</span>
+<span id="4">4</span>
+<span id="5">5</span>
+<span id="6">6</span>
+<span id="7">7</span>
+<span id="8">8</span>
+<span id="9">9</span>
+<span id="10">10</span>
+<span id="11">11</span>
+<span id="12">12</span>
+<span id="13">13</span>
+<span id="14">14</span>
+<span id="15">15</span>
+<span id="16">16</span>
+<span id="17">17</span>
+<span id="18">18</span>
+<span id="19">19</span>
+<span id="20">20</span>
+<span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
+<span id="62">62</span>
+<span id="63">63</span>
+<span id="64">64</span>
+<span id="65">65</span>
+<span id="66">66</span>
+<span id="67">67</span>
+<span id="68">68</span>
+<span id="69">69</span>
+<span id="70">70</span>
+<span id="71">71</span>
+<span id="72">72</span>
+<span id="73">73</span>
+<span id="74">74</span>
+<span id="75">75</span>
+<span id="76">76</span>
+<span id="77">77</span>
+<span id="78">78</span>
+<span id="79">79</span>
+<span id="80">80</span>
+<span id="81">81</span>
+</pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ConsoleConst</span> {}
+
+<span class="kw">impl</span> <span class="ident">ConsoleConst</span> {
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_ENTER</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">13</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_BACKSPACE</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">8</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_INSERT</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">45</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_DEL</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">46</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_TAB</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">9</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_HOME</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">36</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_END</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">35</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_PAGE_UP</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">33</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_PAGE_DOWN</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">34</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_LEFT_ARROW</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">37</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_UP_ARROW</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">38</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_RIGHT_ARROW</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">39</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_DOWN_ARROW</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">40</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_C</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">67</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_L</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">76</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_F1</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">112</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_F2</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">113</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_F3</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">114</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_F4</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">115</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_F5</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">116</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_F6</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">117</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_F7</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">118</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_F8</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">119</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_F9</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">120</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_F10</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">121</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_F11</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">122</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_KEY_F12</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="number">123</span>;
+
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_CURSOR_UP</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1b[A&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_CURSOR_DOWN</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1b[B&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_CURSOR_RIGHT</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1b[C&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_CURSOR_LEFT</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1b[D&quot;</span>;
+
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_DELETE_LINE</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1b[2K\r&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_DELETE_RIGHT</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1b[0K\r&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_DELETE_LEFT</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1b[1K\r&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_DELETE_BELOW</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1b[0J\r&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_DELETE_ABOVE</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1b[1J\r&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_DELETE_ALL</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1b[2J\r&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_DELETE_SAVED</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1b[3J\r&quot;</span>;
+
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_CURSOR_SAVE</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1b[s&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_CURSOR_RESTORE</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1b[u&quot;</span>;
+
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_WRAPAROUND</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1b[?7h&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_REVERSE_WRAPAROUND</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1b[?45h&quot;</span>;
+
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_NO_WRAPAROUND</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1b[?7l&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">TERM_NO_REVERSE_WRAPAROUND</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1b[?45l&quot;</span>;
+
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">COL_RESET</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1B[0m&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">COL_BLACK</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1B[0;30m&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">COL_GRAY</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1B[1;30m&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">COL_RED</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1B[0;31m&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">COL_LIGHT_RED</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1B[1;31m&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">COL_GREEN</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1B[0;32m&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">COL_LIGHT_GREEN</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1B[1;32m&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">COL_BROWN</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1B[0;33m&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">COL_YELLOW</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1B[1;33m&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">COL_BLUE</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1B[0;34m&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">COL_LIGHT_BLUE</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1B[1;34m&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">COL_PURPLE</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1B[0;35m&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">COL_LIGHT_PURPLE</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1B[1;35m&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">COL_CYAN</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1B[0;36m&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">COL_LIGHT_CYAN</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1B[1;36m&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">COL_LIGHT_GRAY</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1B[0;37m&quot;</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">COL_WHITE</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;\x1B[1;37m&quot;</span>;
+
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">WELCOME_LARGE</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="macro">include_str!</span>(<span class="string">&quot;txt/welcome_large.txt&quot;</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">WELCOME_MEDIUM</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="macro">include_str!</span>(<span class="string">&quot;txt/welcome_medium.txt&quot;</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">WELCOME_SMALL</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="macro">include_str!</span>(<span class="string">&quot;txt/welcome_small.txt&quot;</span>);
+
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">ABOUT</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="macro">include_str!</span>(<span class="string">&quot;txt/about.md&quot;</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">ABOUT_WASMER</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="macro">include_str!</span>(<span class="string">&quot;txt/about_wasmer.md&quot;</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">HELP</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="macro">include_str!</span>(<span class="string">&quot;txt/help.md&quot;</span>);
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">BAD_WORKER</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> <span class="op">=</span> <span class="macro">include_str!</span>(<span class="string">&quot;txt/bad_worker.md&quot;</span>);
+}
+</code></pre></div>
+</section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasi" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

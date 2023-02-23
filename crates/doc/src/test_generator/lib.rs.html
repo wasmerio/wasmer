@@ -104,7 +104,6 @@
 <span id="104">104</span>
 <span id="105">105</span>
 <span id="106">106</span>
-<span id="107">107</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Build library to generate a program which runs all the testsuites.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! By generating a separate `#[test]` test for each file, we allow cargo test</span>
@@ -192,8 +191,7 @@
         .<span class="ident">expect</span>(<span class="string">&quot;filename should have a stem&quot;</span>)
         .<span class="ident">to_str</span>()
         .<span class="ident">expect</span>(<span class="string">&quot;filename should be representable as a string&quot;</span>)
-        .<span class="ident">replace</span>(<span class="string">&#39;-&#39;</span>, <span class="string">&quot;_&quot;</span>)
-        .<span class="ident">replace</span>(<span class="string">&#39;/&#39;</span>, <span class="string">&quot;_&quot;</span>)
+        .<span class="ident">replace</span>([<span class="string">&#39;-&#39;</span>, <span class="string">&#39;/&#39;</span>], <span class="string">&quot;_&quot;</span>)
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">with_test_module</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(

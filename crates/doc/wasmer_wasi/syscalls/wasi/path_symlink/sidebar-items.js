@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["path_symlink","`path_symlink()`"]]};

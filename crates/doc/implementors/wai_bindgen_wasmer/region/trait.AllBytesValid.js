@@ -1,0 +1,4 @@
+(function() {var implementors = {};
+implementors["wai_bindgen_wasmer"] = [];
+implementors["wasmer_wasi"] = [{"text":"impl <a class=\"trait\" href=\"wai_bindgen_wasmer/region/trait.AllBytesValid.html\" title=\"trait wai_bindgen_wasmer::region::AllBytesValid\">AllBytesValid</a> for <a class=\"struct\" href=\"wasmer_wasi/bindings/wasix_http_client_v1/struct.RedirectFollow.html\" title=\"struct wasmer_wasi::bindings::wasix_http_client_v1::RedirectFollow\">RedirectFollow</a>","synthetic":false,"types":["wasmer_wasi::bindings::wasix_http_client_v1::RedirectFollow"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

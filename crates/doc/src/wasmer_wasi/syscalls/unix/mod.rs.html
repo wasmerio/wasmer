@@ -59,14 +59,18 @@
 <span id="57">57</span>
 <span id="58">58</span>
 <span id="59">59</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls::types</span>::<span class="kw-2">*</span>;
+<span id="60">60</span>
+<span id="61">61</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::mem</span>;
+
 <span class="kw">use</span> <span class="ident">libc</span>::{
     <span class="ident">clock_getres</span>, <span class="ident">clock_gettime</span>, <span class="ident">timespec</span>, <span class="ident">CLOCK_MONOTONIC</span>, <span class="ident">CLOCK_PROCESS_CPUTIME_ID</span>,
     <span class="ident">CLOCK_REALTIME</span>, <span class="ident">CLOCK_THREAD_CPUTIME_ID</span>,
 };
-<span class="kw">use</span> <span class="ident">std::mem</span>;
 <span class="kw">use</span> <span class="ident">wasmer::WasmRef</span>;
 <span class="kw">use</span> <span class="ident">wasmer_wasi_types::wasi</span>::{<span class="ident">Errno</span>, <span class="ident">Snapshot0Clockid</span>, <span class="ident">Timestamp</span>};
+
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls::types</span>::<span class="kw-2">*</span>;
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">platform_clock_res_get</span>(
     <span class="ident">clock_id</span>: <span class="ident">Snapshot0Clockid</span>,

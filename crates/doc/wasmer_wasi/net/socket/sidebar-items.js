@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["InodeHttpSocketType",""],["InodeSocketKind",""],["TimeType",""],["WasiSocketOption",""],["WasiSocketStatus",""]],"fn":[["all_socket_rights",""]],"struct":[["IndefinitePoll",""],["InodeSocket",""],["InodeSocketInner",""],["InodeSocketNotifications",""],["InodeSocketProtected",""]]};

@@ -290,61 +290,6 @@
 <span id="288">288</span>
 <span id="289">289</span>
 <span id="290">290</span>
-<span id="291">291</span>
-<span id="292">292</span>
-<span id="293">293</span>
-<span id="294">294</span>
-<span id="295">295</span>
-<span id="296">296</span>
-<span id="297">297</span>
-<span id="298">298</span>
-<span id="299">299</span>
-<span id="300">300</span>
-<span id="301">301</span>
-<span id="302">302</span>
-<span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
-<span id="307">307</span>
-<span id="308">308</span>
-<span id="309">309</span>
-<span id="310">310</span>
-<span id="311">311</span>
-<span id="312">312</span>
-<span id="313">313</span>
-<span id="314">314</span>
-<span id="315">315</span>
-<span id="316">316</span>
-<span id="317">317</span>
-<span id="318">318</span>
-<span id="319">319</span>
-<span id="320">320</span>
-<span id="321">321</span>
-<span id="322">322</span>
-<span id="323">323</span>
-<span id="324">324</span>
-<span id="325">325</span>
-<span id="326">326</span>
-<span id="327">327</span>
-<span id="328">328</span>
-<span id="329">329</span>
-<span id="330">330</span>
-<span id="331">331</span>
-<span id="332">332</span>
-<span id="333">333</span>
-<span id="334">334</span>
-<span id="335">335</span>
-<span id="336">336</span>
-<span id="337">337</span>
-<span id="338">338</span>
-<span id="339">339</span>
-<span id="340">340</span>
-<span id="341">341</span>
-<span id="342">342</span>
-<span id="343">343</span>
-<span id="344">344</span>
-<span id="345">345</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">deny</span>(<span class="ident">unused_mut</span>)]</span>
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>, <span class="ident">clippy::identity_op</span>)]</span>
 
@@ -357,65 +302,12 @@
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">wasmer_types</span> <span class="kw">as</span> <span class="ident">wasmer</span>;
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::types::time</span>::<span class="kw-2">*</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">bus</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">directory</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">file</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">io</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">net</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">signal</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">subscription</span>::<span class="kw-2">*</span>;
-
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">__wasi_exitcode_t</span> <span class="op">=</span> <span class="ident">u32</span>;
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">__wasi_userdata_t</span> <span class="op">=</span> <span class="ident">u64</span>;
-
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">bus</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::wasi</span>::{
-        <span class="ident">BusDataFormat</span>, <span class="ident">BusEventClose</span>, <span class="ident">BusEventExit</span>, <span class="ident">BusEventFault</span>, <span class="ident">BusEventType</span>, <span class="ident">Cid</span>, <span class="ident">OptionCid</span>,
-    };
-    <span class="kw">use</span> <span class="ident">wasmer_derive::ValueType</span>;
-    <span class="kw">use</span> <span class="ident">wasmer_types::MemorySize</span>;
-
-    <span class="comment">// Not sure how to port these types to .wit with generics ...</span>
-
-    <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">ValueType</span>)]</span>
-    <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">__wasi_busevent_call_t</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span> {
-        <span class="kw">pub</span> <span class="ident">parent</span>: <span class="ident">OptionCid</span>,
-        <span class="kw">pub</span> <span class="ident">cid</span>: <span class="ident">Cid</span>,
-        <span class="kw">pub</span> <span class="ident">format</span>: <span class="ident">BusDataFormat</span>,
-        <span class="kw">pub</span> <span class="ident">topic_ptr</span>: <span class="ident">M::Offset</span>,
-        <span class="kw">pub</span> <span class="ident">topic_len</span>: <span class="ident">M::Offset</span>,
-        <span class="kw">pub</span> <span class="ident">buf_ptr</span>: <span class="ident">M::Offset</span>,
-        <span class="kw">pub</span> <span class="ident">buf_len</span>: <span class="ident">M::Offset</span>,
-    }
-
-    <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-    <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">union</span> <span class="ident">__wasi_busevent_u</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span> {
-        <span class="kw">pub</span> <span class="ident">noop</span>: <span class="ident">u8</span>,
-        <span class="kw">pub</span> <span class="ident">exit</span>: <span class="ident">BusEventExit</span>,
-        <span class="kw">pub</span> <span class="ident">call</span>: <span class="ident">__wasi_busevent_call_t</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>,
-        <span class="kw">pub</span> <span class="ident">result</span>: <span class="ident">__wasi_busevent_result_t</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>,
-        <span class="kw">pub</span> <span class="ident">fault</span>: <span class="ident">BusEventFault</span>,
-        <span class="kw">pub</span> <span class="ident">close</span>: <span class="ident">BusEventClose</span>,
-    }
-
-    <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">ValueType</span>)]</span>
-    <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">__wasi_busevent_result_t</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span> {
-        <span class="kw">pub</span> <span class="ident">format</span>: <span class="ident">BusDataFormat</span>,
-        <span class="kw">pub</span> <span class="ident">cid</span>: <span class="ident">Cid</span>,
-        <span class="kw">pub</span> <span class="ident">buf_ptr</span>: <span class="ident">M::Offset</span>,
-        <span class="kw">pub</span> <span class="ident">buf_len</span>: <span class="ident">M::Offset</span>,
-    }
-
-    <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
-    <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">__wasi_busevent_t</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span> {
-        <span class="kw">pub</span> <span class="ident">tag</span>: <span class="ident">BusEventType</span>,
-        <span class="kw">pub</span> <span class="ident">u</span>: <span class="ident">__wasi_busevent_u</span><span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>,
-    }
-}
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">file</span> {
     <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::wasi</span>::{<span class="ident">Fd</span>, <span class="ident">Rights</span>};
@@ -686,9 +578,7 @@
 }
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">subscription</span> {
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::wasi</span>::{
-        <span class="ident">Eventtype</span>, <span class="ident">SubscriptionClock</span>, <span class="ident">SubscriptionEnum</span> <span class="kw">as</span> <span class="ident">EventType</span>, <span class="ident">SubscriptionFsReadwrite</span>,
-    };
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::wasi</span>::{<span class="ident">Eventtype</span>, <span class="ident">SubscriptionFsReadwrite</span>};
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wasi_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

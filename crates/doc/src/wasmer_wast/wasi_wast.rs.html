@@ -671,17 +671,78 @@
 <span id="671">671</span>
 <span id="672">672</span>
 <span id="673">673</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow::Context</span>;
-<span class="kw">use</span> <span class="ident">std::fs</span>::{<span class="ident">read_dir</span>, <span class="ident">File</span>, <span class="ident">OpenOptions</span>, <span class="ident">ReadDir</span>};
-<span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Read</span>, <span class="ident">Seek</span>, <span class="ident">Write</span>};
+<span id="674">674</span>
+<span id="675">675</span>
+<span id="676">676</span>
+<span id="677">677</span>
+<span id="678">678</span>
+<span id="679">679</span>
+<span id="680">680</span>
+<span id="681">681</span>
+<span id="682">682</span>
+<span id="683">683</span>
+<span id="684">684</span>
+<span id="685">685</span>
+<span id="686">686</span>
+<span id="687">687</span>
+<span id="688">688</span>
+<span id="689">689</span>
+<span id="690">690</span>
+<span id="691">691</span>
+<span id="692">692</span>
+<span id="693">693</span>
+<span id="694">694</span>
+<span id="695">695</span>
+<span id="696">696</span>
+<span id="697">697</span>
+<span id="698">698</span>
+<span id="699">699</span>
+<span id="700">700</span>
+<span id="701">701</span>
+<span id="702">702</span>
+<span id="703">703</span>
+<span id="704">704</span>
+<span id="705">705</span>
+<span id="706">706</span>
+<span id="707">707</span>
+<span id="708">708</span>
+<span id="709">709</span>
+<span id="710">710</span>
+<span id="711">711</span>
+<span id="712">712</span>
+<span id="713">713</span>
+<span id="714">714</span>
+<span id="715">715</span>
+<span id="716">716</span>
+<span id="717">717</span>
+<span id="718">718</span>
+<span id="719">719</span>
+<span id="720">720</span>
+<span id="721">721</span>
+<span id="722">722</span>
+<span id="723">723</span>
+<span id="724">724</span>
+<span id="725">725</span>
+<span id="726">726</span>
+<span id="727">727</span>
+<span id="728">728</span>
+<span id="729">729</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::fs</span>::{<span class="ident">read_dir</span>, <span class="ident">File</span>, <span class="ident">OpenOptions</span>, <span class="ident">ReadDir</span>};
+<span class="kw">use</span> <span class="ident">std::future::Future</span>;
+<span class="kw">use</span> <span class="ident">std::io</span>::{<span class="self">self</span>, <span class="ident">Read</span>, <span class="ident">SeekFrom</span>};
 <span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
+<span class="kw">use</span> <span class="ident">std::pin::Pin</span>;
 <span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">mpsc</span>, <span class="ident">Arc</span>, <span class="ident">Mutex</span>};
-<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">FunctionEnv</span>, <span class="ident">Imports</span>, <span class="ident">Instance</span>, <span class="ident">Module</span>, <span class="ident">Store</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vfs</span>::{<span class="ident">host_fs</span>, <span class="ident">mem_fs</span>, <span class="ident">FileSystem</span>};
+<span class="kw">use</span> <span class="ident">std::task</span>::{<span class="ident">Context</span>, <span class="ident">Poll</span>};
+<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">FunctionEnv</span>, <span class="ident">Imports</span>, <span class="ident">Module</span>, <span class="ident">Store</span>};
+<span class="kw">use</span> <span class="ident">wasmer_vfs</span>::{
+    <span class="ident">host_fs</span>, <span class="ident">mem_fs</span>, <span class="ident">passthru_fs</span>, <span class="ident">tmp_fs</span>, <span class="ident">union_fs</span>, <span class="ident">AsyncRead</span>, <span class="ident">AsyncSeek</span>, <span class="ident">AsyncWrite</span>,
+    <span class="ident">AsyncWriteExt</span>, <span class="ident">FileSystem</span>, <span class="ident">Pipe</span>, <span class="ident">ReadBuf</span>, <span class="ident">RootFileSystemBuilder</span>,
+};
 <span class="kw">use</span> <span class="ident">wasmer_wasi::types::wasi</span>::{<span class="ident">Filesize</span>, <span class="ident">Timestamp</span>};
 <span class="kw">use</span> <span class="ident">wasmer_wasi</span>::{
-    <span class="ident">generate_import_object_from_env</span>, <span class="ident">get_wasi_version</span>, <span class="ident">FsError</span>, <span class="ident">Pipe</span>, <span class="ident">VirtualFile</span>, <span class="ident">WasiEnv</span>,
-    <span class="ident">WasiFunctionEnv</span>, <span class="ident">WasiState</span>, <span class="ident">WasiVersion</span>,
+    <span class="ident">generate_import_object_from_env</span>, <span class="ident">get_wasi_version</span>, <span class="ident">FsError</span>, <span class="ident">PluggableRuntimeImplementation</span>,
+    <span class="ident">VirtualFile</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiEnvBuilder</span>, <span class="ident">WasiRuntime</span>, <span class="ident">WasiVersion</span>,
 };
 <span class="kw">use</span> <span class="ident">wast::parser</span>::{<span class="self">self</span>, <span class="ident">Parse</span>, <span class="ident">ParseBuffer</span>, <span class="ident">Parser</span>};
 
@@ -693,6 +754,18 @@
 
     <span class="doccomment">/// Instruct the test runner to use `wasmer_vfs::mem_fs`.</span>
     <span class="ident">InMemory</span>,
+
+    <span class="doccomment">/// Instruct the test runner to use `wasmer_vfs::tmp_fs`</span>
+    <span class="ident">Tmp</span>,
+
+    <span class="doccomment">/// Instruct the test runner to use `wasmer_vfs::passtru_fs`</span>
+    <span class="ident">PassthruMemory</span>,
+
+    <span class="doccomment">/// Instruct the test runner to use `wasmer_vfs::union_fs&lt;host_fs, mem_fs&gt;`</span>
+    <span class="ident">UnionHostMemory</span>,
+
+    <span class="doccomment">/// Instruct the test runner to use the TempFs returned by `wasmer_vfs::builder::RootFileSystemBuilder`</span>
+    <span class="ident">RootFileSystemBuilder</span>,
 }
 
 <span class="doccomment">/// Crate holding metadata parsed from the WASI WAST about the test to be run.</span>
@@ -746,6 +819,7 @@
         <span class="ident">base_path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
         <span class="ident">filesystem_kind</span>: <span class="ident">WasiFileSystemKind</span>,
     ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span> {
+        <span class="kw">use</span> <span class="ident">anyhow::Context</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">pb</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="ident">base_path</span>);
         <span class="ident">pb</span>.<span class="ident">push</span>(<span class="self">self</span>.<span class="ident">wasm_path</span>);
         <span class="kw">let</span> <span class="ident">wasm_bytes</span> <span class="op">=</span> {
@@ -754,22 +828,31 @@
             <span class="ident">wasm_module</span>.<span class="ident">read_to_end</span>(<span class="kw-2">&amp;mut</span> <span class="ident">out</span>)<span class="question-mark">?</span>;
             <span class="ident">out</span>
         };
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">wasm_bytes</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> (<span class="ident">env</span>, <span class="ident">_tempdirs</span>, <span class="ident">stdout_rx</span>, <span class="ident">stderr_rx</span>) <span class="op">=</span>
-            <span class="self">self</span>.<span class="ident">create_wasi_env</span>(<span class="ident">store</span>, <span class="ident">filesystem_kind</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">imports</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_imports</span>(<span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">env</span>.<span class="ident">env</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">imports</span>)<span class="question-mark">?</span>;
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">rt</span> <span class="op">=</span> <span class="ident">PluggableRuntimeImplementation::default</span>();
+        <span class="ident">rt</span>.<span class="ident">set_engine</span>(<span class="prelude-val">Some</span>(<span class="ident">store</span>.<span class="ident">engine</span>().<span class="ident">clone</span>()));
+
+        <span class="kw">let</span> <span class="ident">tasks</span> <span class="op">=</span> <span class="ident">rt</span>.<span class="ident">task_manager</span>().<span class="ident">runtime</span>().<span class="ident">clone</span>();
+        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="ident">store</span>, <span class="ident">wasm_bytes</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> (<span class="ident">builder</span>, <span class="ident">_tempdirs</span>, <span class="kw-2">mut</span> <span class="ident">stdin_tx</span>, <span class="ident">stdout_rx</span>, <span class="ident">stderr_rx</span>) <span class="op">=</span>
+            { <span class="ident">tasks</span>.<span class="ident">block_on</span>(<span class="kw">async</span> { <span class="self">self</span>.<span class="ident">create_wasi_env</span>(<span class="ident">filesystem_kind</span>).<span class="kw">await</span> }) }<span class="question-mark">?</span>;
+
+        <span class="kw">let</span> (<span class="ident">instance</span>, <span class="ident">_wasi_env</span>) <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">runtime</span>(<span class="ident">Arc::new</span>(<span class="ident">rt</span>)).<span class="ident">instantiate</span>(<span class="ident">module</span>, <span class="ident">store</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get_function</span>(<span class="string">&quot;_start&quot;</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get_memory</span>(<span class="string">&quot;memory&quot;</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">wasi_env</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">data_mut</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>);
-        <span class="ident">wasi_env</span>.<span class="ident">set_memory</span>(<span class="ident">memory</span>.<span class="ident">clone</span>());
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">stdin</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">stdin</span> {
-            <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">wasi_env</span>.<span class="ident">state</span>();
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasi_stdin</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">stdin</span>().<span class="ident">unwrap</span>().<span class="ident">unwrap</span>();
+            <span class="comment">// let mut wasi_stdin = { wasi_env.data(store).stdin().unwrap().unwrap() };</span>
             <span class="comment">// Then we can write to it!</span>
-            <span class="macro">write!</span>(<span class="ident">wasi_stdin</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">stdin</span>.<span class="ident">stream</span>)<span class="question-mark">?</span>;
+            <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">stdin</span>.<span class="ident">stream</span>.<span class="ident">to_string</span>();
+            <span class="ident">tasks</span>.<span class="ident">block_on</span>(<span class="kw">async</span> <span class="kw">move</span> {
+                <span class="ident">stdin_tx</span>.<span class="ident">write_all</span>(<span class="ident">data</span>.<span class="ident">as_bytes</span>()).<span class="kw">await</span><span class="question-mark">?</span>;
+                <span class="ident">stdin_tx</span>.<span class="ident">shutdown</span>().<span class="kw">await</span><span class="question-mark">?</span>;
+
+                <span class="prelude-val">Ok</span>::<span class="op">&lt;</span><span class="kw">_</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span>(())
+            })<span class="question-mark">?</span>;
+        } <span class="kw">else</span> {
+            <span class="ident">std::mem::drop</span>(<span class="ident">stdin_tx</span>);
         }
 
         <span class="comment">// TODO: handle errors here when the error fix gets shipped</span>
@@ -790,6 +873,7 @@
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">expected_stdout</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">assert_stdout</span> {
             <span class="kw">let</span> <span class="ident">stdout_str</span> <span class="op">=</span> <span class="ident">get_stdio_output</span>(<span class="kw-2">&amp;</span><span class="ident">stdout_rx</span>)<span class="question-mark">?</span>;
+            <span class="macro">dbg!</span>(<span class="kw-2">&amp;</span><span class="ident">expected_stdout</span>, <span class="kw-2">&amp;</span><span class="ident">stdout_str</span>);
             <span class="macro">assert_eq!</span>(<span class="ident">stdout_str</span>, <span class="ident">expected_stdout</span>.<span class="ident">expected</span>);
         }
 
@@ -803,23 +887,23 @@
 
     <span class="doccomment">/// Create the wasi env with the given metadata.</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy::type_complexity</span>)]</span>
-    <span class="kw">fn</span> <span class="ident">create_wasi_env</span>(
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">create_wasi_env</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="kw-2">mut</span> <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Store</span>,
         <span class="ident">filesystem_kind</span>: <span class="ident">WasiFileSystemKind</span>,
     ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span>(
-        <span class="ident">WasiFunctionEnv</span>,
+        <span class="ident">WasiEnvBuilder</span>,
         <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">tempfile::TempDir</span><span class="op">&gt;</span>,
+        <span class="ident">Pipe</span>,
         <span class="ident">mpsc::Receiver</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
         <span class="ident">mpsc::Receiver</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     )<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">WasiState::new</span>(<span class="self">self</span>.<span class="ident">wasm_path</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">WasiEnv::builder</span>(<span class="self">self</span>.<span class="ident">wasm_path</span>);
 
-        <span class="kw">let</span> <span class="ident">stdin_pipe</span> <span class="op">=</span> <span class="ident">Pipe::new</span>();
-        <span class="ident">builder</span>.<span class="ident">stdin</span>(<span class="ident">Box::new</span>(<span class="ident">stdin_pipe</span>));
+        <span class="kw">let</span> (<span class="ident">stdin_tx</span>, <span class="ident">stdin_rx</span>) <span class="op">=</span> <span class="ident">Pipe::channel</span>();
+        <span class="ident">builder</span>.<span class="ident">set_stdin</span>(<span class="ident">Box::new</span>(<span class="ident">stdin_rx</span>));
 
         <span class="kw">for</span> (<span class="ident">name</span>, <span class="ident">value</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">envs</span> {
-            <span class="ident">builder</span>.<span class="ident">env</span>(<span class="ident">name</span>, <span class="ident">value</span>);
+            <span class="ident">builder</span>.<span class="ident">add_env</span>(<span class="ident">name</span>, <span class="ident">value</span>);
         }
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">host_temp_dirs_to_not_drop</span> <span class="op">=</span> <span class="macro">vec!</span>[];
@@ -831,73 +915,113 @@
                 <span class="kw">for</span> (<span class="ident">alias</span>, <span class="ident">real_dir</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">mapped_dirs</span> {
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">dir</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="ident">BASE_TEST_DIR</span>);
                     <span class="ident">dir</span>.<span class="ident">push</span>(<span class="ident">real_dir</span>);
-                    <span class="ident">builder</span>.<span class="ident">map_dir</span>(<span class="ident">alias</span>, <span class="ident">dir</span>)<span class="question-mark">?</span>;
+                    <span class="ident">builder</span>.<span class="ident">add_map_dir</span>(<span class="ident">alias</span>, <span class="ident">dir</span>)<span class="question-mark">?</span>;
                 }
 
                 <span class="comment">// due to the structure of our code, all preopen dirs must be mapped now</span>
                 <span class="kw">for</span> <span class="ident">dir</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">dirs</span> {
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_dir</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="ident">BASE_TEST_DIR</span>);
                     <span class="ident">new_dir</span>.<span class="ident">push</span>(<span class="ident">dir</span>);
-                    <span class="ident">builder</span>.<span class="ident">map_dir</span>(<span class="ident">dir</span>, <span class="ident">new_dir</span>)<span class="question-mark">?</span>;
+                    <span class="ident">builder</span>.<span class="ident">add_map_dir</span>(<span class="ident">dir</span>, <span class="ident">new_dir</span>)<span class="question-mark">?</span>;
                 }
 
                 <span class="kw">for</span> <span class="ident">alias</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">temp_dirs</span> {
                     <span class="kw">let</span> <span class="ident">temp_dir</span> <span class="op">=</span> <span class="ident">tempfile::tempdir</span>()<span class="question-mark">?</span>;
-                    <span class="ident">builder</span>.<span class="ident">map_dir</span>(<span class="ident">alias</span>, <span class="ident">temp_dir</span>.<span class="ident">path</span>())<span class="question-mark">?</span>;
+                    <span class="ident">builder</span>.<span class="ident">add_map_dir</span>(<span class="ident">alias</span>, <span class="ident">temp_dir</span>.<span class="ident">path</span>())<span class="question-mark">?</span>;
                     <span class="ident">host_temp_dirs_to_not_drop</span>.<span class="ident">push</span>(<span class="ident">temp_dir</span>);
                 }
 
                 <span class="ident">builder</span>.<span class="ident">set_fs</span>(<span class="ident">Box::new</span>(<span class="ident">fs</span>));
             }
 
-            <span class="ident">WasiFileSystemKind::InMemory</span> =&gt; {
-                <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
+            <span class="ident">other</span> =&gt; {
+                <span class="kw">let</span> <span class="ident">fs</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FileSystem</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">other</span> {
+                    <span class="ident">WasiFileSystemKind::InMemory</span> =&gt; <span class="ident">Box::new</span>(<span class="ident">mem_fs::FileSystem::default</span>()),
+                    <span class="ident">WasiFileSystemKind::Tmp</span> =&gt; <span class="ident">Box::new</span>(<span class="ident">tmp_fs::TmpFileSystem::default</span>()),
+                    <span class="ident">WasiFileSystemKind::PassthruMemory</span> =&gt; {
+                        <span class="ident">Box::new</span>(<span class="ident">passthru_fs::PassthruFileSystem::new</span>(<span class="ident">Box::new</span>(
+                            <span class="ident">mem_fs::FileSystem::default</span>(),
+                        )))
+                    }
+                    <span class="ident">WasiFileSystemKind::RootFileSystemBuilder</span> =&gt; {
+                        <span class="ident">Box::new</span>(<span class="ident">RootFileSystemBuilder::new</span>().<span class="ident">build</span>())
+                    }
+                    <span class="ident">WasiFileSystemKind::UnionHostMemory</span> =&gt; {
+                        <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
+                        <span class="kw">let</span> <span class="ident">b</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
+                        <span class="kw">let</span> <span class="ident">c</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
+                        <span class="kw">let</span> <span class="ident">d</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
+                        <span class="kw">let</span> <span class="ident">e</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
+                        <span class="kw">let</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">mem_fs::FileSystem::default</span>();
+
+                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">union</span> <span class="op">=</span> <span class="ident">union_fs::UnionFileSystem::new</span>();
+
+                        <span class="ident">union</span>.<span class="ident">mount</span>(<span class="string">&quot;mem_fs&quot;</span>, <span class="string">&quot;/test_fs&quot;</span>, <span class="bool-val">false</span>, <span class="ident">Box::new</span>(<span class="ident">a</span>), <span class="prelude-val">None</span>);
+                        <span class="ident">union</span>.<span class="ident">mount</span>(<span class="string">&quot;mem_fs_2&quot;</span>, <span class="string">&quot;/snapshot1&quot;</span>, <span class="bool-val">false</span>, <span class="ident">Box::new</span>(<span class="ident">b</span>), <span class="prelude-val">None</span>);
+                        <span class="ident">union</span>.<span class="ident">mount</span>(<span class="string">&quot;mem_fs_3&quot;</span>, <span class="string">&quot;/tests&quot;</span>, <span class="bool-val">false</span>, <span class="ident">Box::new</span>(<span class="ident">c</span>), <span class="prelude-val">None</span>);
+                        <span class="ident">union</span>.<span class="ident">mount</span>(<span class="string">&quot;mem_fs_4&quot;</span>, <span class="string">&quot;/nightly_2022_10_18&quot;</span>, <span class="bool-val">false</span>, <span class="ident">Box::new</span>(<span class="ident">d</span>), <span class="prelude-val">None</span>);
+                        <span class="ident">union</span>.<span class="ident">mount</span>(<span class="string">&quot;mem_fs_5&quot;</span>, <span class="string">&quot;/unstable&quot;</span>, <span class="bool-val">false</span>, <span class="ident">Box::new</span>(<span class="ident">e</span>), <span class="prelude-val">None</span>);
+                        <span class="ident">union</span>.<span class="ident">mount</span>(<span class="string">&quot;mem_fs_6&quot;</span>, <span class="string">&quot;/.tmp_wasmer_wast_0&quot;</span>, <span class="bool-val">false</span>, <span class="ident">Box::new</span>(<span class="ident">f</span>), <span class="prelude-val">None</span>);
+
+                        <span class="ident">Box::new</span>(<span class="ident">union</span>)
+                    }
+                    <span class="kw">_</span> =&gt; {
+                        <span class="macro">panic!</span>(<span class="string">&quot;unexpected filesystem type {:?}&quot;</span>, <span class="ident">other</span>);
+                    }
+                };
+
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">temp_dir_index</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">0</span>;
 
                 <span class="kw">let</span> <span class="ident">root</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="string">&quot;/&quot;</span>);
 
-                <span class="ident">map_host_fs_to_mem_fs</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="ident">read_dir</span>(<span class="ident">BASE_TEST_DIR</span>)<span class="question-mark">?</span>, <span class="kw-2">&amp;</span><span class="ident">root</span>)<span class="question-mark">?</span>;
+                <span class="ident">map_host_fs_to_mem_fs</span>(<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">fs</span>, <span class="ident">read_dir</span>(<span class="ident">BASE_TEST_DIR</span>)<span class="question-mark">?</span>, <span class="kw-2">&amp;</span><span class="ident">root</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 
                 <span class="kw">for</span> (<span class="ident">alias</span>, <span class="ident">real_dir</span>) <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">mapped_dirs</span> {
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">root</span>.<span class="ident">clone</span>();
                     <span class="ident">path</span>.<span class="ident">push</span>(<span class="ident">real_dir</span>);
-                    <span class="ident">builder</span>.<span class="ident">map_dir</span>(<span class="ident">alias</span>, <span class="ident">path</span>)<span class="question-mark">?</span>;
+                    <span class="ident">builder</span>.<span class="ident">add_map_dir</span>(<span class="ident">alias</span>, <span class="ident">path</span>)<span class="question-mark">?</span>;
                 }
 
                 <span class="kw">for</span> <span class="ident">dir</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">dirs</span> {
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_dir</span> <span class="op">=</span> <span class="ident">PathBuf::from</span>(<span class="string">&quot;/&quot;</span>);
                     <span class="ident">new_dir</span>.<span class="ident">push</span>(<span class="ident">dir</span>);
 
-                    <span class="ident">builder</span>.<span class="ident">map_dir</span>(<span class="ident">dir</span>, <span class="ident">new_dir</span>)<span class="question-mark">?</span>;
+                    <span class="ident">builder</span>.<span class="ident">add_map_dir</span>(<span class="ident">dir</span>, <span class="ident">new_dir</span>)<span class="question-mark">?</span>;
                 }
 
                 <span class="kw">for</span> <span class="ident">alias</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">temp_dirs</span> {
                     <span class="kw">let</span> <span class="ident">temp_dir_name</span> <span class="op">=</span>
                         <span class="ident">PathBuf::from</span>(<span class="macro">format!</span>(<span class="string">&quot;/.tmp_wasmer_wast_{}&quot;</span>, <span class="ident">temp_dir_index</span>));
                     <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">temp_dir_name</span>.<span class="ident">as_path</span>())<span class="question-mark">?</span>;
-                    <span class="ident">builder</span>.<span class="ident">map_dir</span>(<span class="ident">alias</span>, <span class="ident">temp_dir_name</span>)<span class="question-mark">?</span>;
+                    <span class="ident">builder</span>.<span class="ident">add_map_dir</span>(<span class="ident">alias</span>, <span class="ident">temp_dir_name</span>)<span class="question-mark">?</span>;
                     <span class="ident">temp_dir_index</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
                 }
 
-                <span class="ident">builder</span>.<span class="ident">set_fs</span>(<span class="ident">Box::new</span>(<span class="ident">fs</span>));
+                <span class="ident">builder</span>.<span class="ident">set_fs</span>(<span class="ident">fs</span>);
             }
         }
 
         <span class="kw">let</span> (<span class="ident">stdout</span>, <span class="ident">stdout_rx</span>) <span class="op">=</span> <span class="ident">OutputCapturerer::new</span>();
         <span class="kw">let</span> (<span class="ident">stderr</span>, <span class="ident">stderr_rx</span>) <span class="op">=</span> <span class="ident">OutputCapturerer::new</span>();
-        <span class="kw">let</span> <span class="ident">out</span> <span class="op">=</span> <span class="ident">builder</span>
+        <span class="kw">let</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>
             .<span class="ident">args</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">args</span>)
             <span class="comment">// adding this causes some tests to fail. TODO: investigate this</span>
             <span class="comment">//.env(&quot;RUST_BACKTRACE&quot;, &quot;1&quot;)</span>
             .<span class="ident">stdout</span>(<span class="ident">Box::new</span>(<span class="ident">stdout</span>))
-            .<span class="ident">stderr</span>(<span class="ident">Box::new</span>(<span class="ident">stderr</span>))
-            .<span class="ident">finalize</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>)<span class="question-mark">?</span>;
+            .<span class="ident">stderr</span>(<span class="ident">Box::new</span>(<span class="ident">stderr</span>));
 
-        <span class="prelude-val">Ok</span>((<span class="ident">out</span>, <span class="ident">host_temp_dirs_to_not_drop</span>, <span class="ident">stdout_rx</span>, <span class="ident">stderr_rx</span>))
+        <span class="prelude-val">Ok</span>((
+            <span class="ident">builder</span>,
+            <span class="ident">host_temp_dirs_to_not_drop</span>,
+            <span class="ident">stdin_tx</span>,
+            <span class="ident">stdout_rx</span>,
+            <span class="ident">stderr_rx</span>,
+        ))
     }
 
     <span class="doccomment">/// Get the correct [`WasiVersion`] from the Wasm [`Module`].</span>
     <span class="kw">fn</span> <span class="ident">get_version</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">WasiVersion</span><span class="op">&gt;</span> {
+        <span class="kw">use</span> <span class="ident">anyhow::Context</span>;
         <span class="kw">let</span> <span class="ident">version</span> <span class="op">=</span> <span class="ident">get_wasi_version</span>(<span class="ident">module</span>, <span class="bool-val">true</span>)
             .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="string">&quot;failed to detect a version of WASI from the module&quot;</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="ident">version</span>)
@@ -1167,8 +1291,8 @@
 <span class="kw">mod</span> <span class="ident">test</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 
-    <span class="attribute">#[<span class="ident">test</span>]</span>
-    <span class="kw">fn</span> <span class="ident">test_parse</span>() {
+    <span class="attribute">#[<span class="ident">tokio::test</span>]</span>
+    <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">test_parse</span>() {
         <span class="kw">let</span> <span class="ident">pb</span> <span class="op">=</span> <span class="ident">wast::parser::ParseBuffer::new</span>(
             <span class="string">r#&quot;(wasi_test &quot;my_wasm.wasm&quot;
                     (envs &quot;HELLO=WORLD&quot; &quot;RUST_BACKTRACE=1&quot;)
@@ -1219,72 +1343,6 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Read</span> <span class="kw">for</span> <span class="ident">OutputCapturerer</span> {
-    <span class="kw">fn</span> <span class="ident">read</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>]) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
-            <span class="ident">io::ErrorKind::Other</span>,
-            <span class="string">&quot;can not read from logging wrapper&quot;</span>,
-        ))
-    }
-    <span class="kw">fn</span> <span class="ident">read_to_end</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
-            <span class="ident">io::ErrorKind::Other</span>,
-            <span class="string">&quot;can not read from logging wrapper&quot;</span>,
-        ))
-    }
-    <span class="kw">fn</span> <span class="ident">read_to_string</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;mut</span> <span class="ident">String</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
-            <span class="ident">io::ErrorKind::Other</span>,
-            <span class="string">&quot;can not read from logging wrapper&quot;</span>,
-        ))
-    }
-    <span class="kw">fn</span> <span class="ident">read_exact</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_buf</span>: <span class="kw-2">&amp;mut</span> [<span class="ident">u8</span>]) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
-            <span class="ident">io::ErrorKind::Other</span>,
-            <span class="string">&quot;can not read from logging wrapper&quot;</span>,
-        ))
-    }
-}
-<span class="kw">impl</span> <span class="ident">Seek</span> <span class="kw">for</span> <span class="ident">OutputCapturerer</span> {
-    <span class="kw">fn</span> <span class="ident">seek</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">_pos</span>: <span class="ident">io::SeekFrom</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
-            <span class="ident">io::ErrorKind::Other</span>,
-            <span class="string">&quot;can not seek logging wrapper&quot;</span>,
-        ))
-    }
-}
-<span class="kw">impl</span> <span class="ident">Write</span> <span class="kw">for</span> <span class="ident">OutputCapturerer</span> {
-    <span class="kw">fn</span> <span class="ident">write</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">output</span>
-            .<span class="ident">lock</span>()
-            .<span class="ident">unwrap</span>()
-            .<span class="ident">send</span>(<span class="ident">buf</span>.<span class="ident">to_vec</span>())
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::BrokenPipe</span>, <span class="ident">err</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">buf</span>.<span class="ident">len</span>())
-    }
-    <span class="kw">fn</span> <span class="ident">flush</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(())
-    }
-    <span class="kw">fn</span> <span class="ident">write_all</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">output</span>
-            .<span class="ident">lock</span>()
-            .<span class="ident">unwrap</span>()
-            .<span class="ident">send</span>(<span class="ident">buf</span>.<span class="ident">to_vec</span>())
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::BrokenPipe</span>, <span class="ident">err</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(())
-    }
-    <span class="kw">fn</span> <span class="ident">write_fmt</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">fmt</span>: <span class="ident">std::fmt::Arguments</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="ident">::new</span>();
-        <span class="ident">buf</span>.<span class="ident">write_fmt</span>(<span class="ident">fmt</span>)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">output</span>
-            .<span class="ident">lock</span>()
-            .<span class="ident">unwrap</span>()
-            .<span class="ident">send</span>(<span class="ident">buf</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::BrokenPipe</span>, <span class="ident">err</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(())
-    }
-}
-
 <span class="kw">impl</span> <span class="ident">VirtualFile</span> <span class="kw">for</span> <span class="ident">OutputCapturerer</span> {
     <span class="kw">fn</span> <span class="ident">last_accessed</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Timestamp</span> {
         <span class="number">0</span>
@@ -1304,45 +1362,99 @@
     <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">FsError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn</span> <span class="ident">bytes_available</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">FsError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="number">1024</span>)
+    <span class="kw">fn</span> <span class="ident">poll_read_ready</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
+    }
+    <span class="kw">fn</span> <span class="ident">poll_write_ready</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="number">8192</span>))
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">AsyncSeek</span> <span class="kw">for</span> <span class="ident">OutputCapturerer</span> {
+    <span class="kw">fn</span> <span class="ident">start_seek</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_position</span>: <span class="ident">SeekFrom</span>) -&gt; <span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+        <span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
+            <span class="ident">io::ErrorKind::Other</span>,
+            <span class="string">&quot;can not seek logging wrapper&quot;</span>,
+        ))
+    }
+    <span class="kw">fn</span> <span class="ident">poll_complete</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">u64</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
+            <span class="ident">io::ErrorKind::Other</span>,
+            <span class="string">&quot;can not seek logging wrapper&quot;</span>,
+        )))
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">AsyncWrite</span> <span class="kw">for</span> <span class="ident">OutputCapturerer</span> {
+    <span class="kw">fn</span> <span class="ident">poll_write</span>(
+        <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
+        <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
+        <span class="ident">buf</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
+    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">output</span>
+            .<span class="ident">lock</span>()
+            .<span class="ident">unwrap</span>()
+            .<span class="ident">send</span>(<span class="ident">buf</span>.<span class="ident">to_vec</span>())
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="ident">io::Error::new</span>(<span class="ident">io::ErrorKind::BrokenPipe</span>, <span class="ident">err</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
+        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(<span class="ident">buf</span>.<span class="ident">len</span>()))
+    }
+    <span class="kw">fn</span> <span class="ident">poll_flush</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(()))
+    }
+    <span class="kw">fn</span> <span class="ident">poll_shutdown</span>(<span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>, <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Ok</span>(()))
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">AsyncRead</span> <span class="kw">for</span> <span class="ident">OutputCapturerer</span> {
+    <span class="kw">fn</span> <span class="ident">poll_read</span>(
+        <span class="self">self</span>: <span class="ident">Pin</span><span class="op">&lt;</span><span class="kw-2">&amp;mut</span> <span class="self">Self</span><span class="op">&gt;</span>,
+        <span class="ident">_cx</span>: <span class="kw-2">&amp;mut</span> <span class="ident">Context</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
+        <span class="ident">_buf</span>: <span class="kw-2">&amp;mut</span> <span class="ident">ReadBuf</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
+    ) -&gt; <span class="ident">Poll</span><span class="op">&lt;</span><span class="ident">io::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="ident">Poll::Ready</span>(<span class="prelude-val">Err</span>(<span class="ident">io::Error::new</span>(
+            <span class="ident">io::ErrorKind::Other</span>,
+            <span class="string">&quot;can not read from logging wrapper&quot;</span>,
+        )))
     }
 }
 
 <span class="doccomment">/// When using `wasmer_vfs::mem_fs`, we cannot rely on `BASE_TEST_DIR`</span>
 <span class="doccomment">/// because the host filesystem cannot be used. Instead, we are</span>
 <span class="doccomment">/// copying `BASE_TEST_DIR` to the `mem_fs`.</span>
-<span class="kw">fn</span> <span class="ident">map_host_fs_to_mem_fs</span>(
-    <span class="ident">fs</span>: <span class="kw-2">&amp;</span><span class="ident">mem_fs::FileSystem</span>,
+<span class="kw">fn</span> <span class="ident">map_host_fs_to_mem_fs</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
+    <span class="ident">fs</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw">dyn</span> <span class="ident">FileSystem</span>,
     <span class="ident">directory_reader</span>: <span class="ident">ReadDir</span>,
-    <span class="ident">path_prefix</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-    <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">directory_reader</span> {
-        <span class="kw">let</span> <span class="ident">entry</span> <span class="op">=</span> <span class="ident">entry</span><span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">entry_type</span> <span class="op">=</span> <span class="ident">entry</span>.<span class="ident">file_type</span>()<span class="question-mark">?</span>;
+    <span class="ident">path_prefix</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Path</span>,
+) -&gt; <span class="ident">Pin</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Future</span><span class="op">&lt;</span><span class="ident">Output</span> <span class="op">=</span> <span class="ident">anyhow::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> {
+        <span class="kw">for</span> <span class="ident">entry</span> <span class="kw">in</span> <span class="ident">directory_reader</span> {
+            <span class="kw">let</span> <span class="ident">entry</span> <span class="op">=</span> <span class="ident">entry</span><span class="question-mark">?</span>;
+            <span class="kw">let</span> <span class="ident">entry_type</span> <span class="op">=</span> <span class="ident">entry</span>.<span class="ident">file_type</span>()<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">path_prefix</span>.<span class="ident">join</span>(<span class="ident">entry</span>.<span class="ident">path</span>().<span class="ident">file_name</span>().<span class="ident">unwrap</span>());
+            <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">path_prefix</span>.<span class="ident">join</span>(<span class="ident">entry</span>.<span class="ident">path</span>().<span class="ident">file_name</span>().<span class="ident">unwrap</span>());
 
-        <span class="kw">if</span> <span class="ident">entry_type</span>.<span class="ident">is_dir</span>() {
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>)<span class="question-mark">?</span>;
+            <span class="kw">if</span> <span class="ident">entry_type</span>.<span class="ident">is_dir</span>() {
+                <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>)<span class="question-mark">?</span>;
 
-            <span class="ident">map_host_fs_to_mem_fs</span>(<span class="ident">fs</span>, <span class="ident">read_dir</span>(<span class="ident">entry</span>.<span class="ident">path</span>())<span class="question-mark">?</span>, <span class="kw-2">&amp;</span><span class="ident">path</span>)<span class="question-mark">?</span>
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">entry_type</span>.<span class="ident">is_file</span>() {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">host_file</span> <span class="op">=</span> <span class="ident">OpenOptions::new</span>().<span class="ident">read</span>(<span class="bool-val">true</span>).<span class="ident">open</span>(<span class="ident">entry</span>.<span class="ident">path</span>())<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">mem_file</span> <span class="op">=</span> <span class="ident">fs</span>
-                .<span class="ident">new_open_options</span>()
-                .<span class="ident">create_new</span>(<span class="bool-val">true</span>)
-                .<span class="ident">write</span>(<span class="bool-val">true</span>)
-                .<span class="ident">open</span>(<span class="ident">path</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buffer</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
-            <span class="ident">host_file</span>.<span class="ident">read_to_end</span>(<span class="kw-2">&amp;mut</span> <span class="ident">buffer</span>)<span class="question-mark">?</span>;
-            <span class="ident">mem_file</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="ident">buffer</span>)<span class="question-mark">?</span>;
-        } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">entry_type</span>.<span class="ident">is_symlink</span>() {
-            <span class="comment">//unimplemented!(&quot;`mem_fs` does not support symlink for the moment&quot;);</span>
+                <span class="ident">map_host_fs_to_mem_fs</span>(<span class="ident">fs</span>, <span class="ident">read_dir</span>(<span class="ident">entry</span>.<span class="ident">path</span>())<span class="question-mark">?</span>, <span class="kw-2">&amp;</span><span class="ident">path</span>).<span class="kw">await</span><span class="question-mark">?</span>
+            } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">entry_type</span>.<span class="ident">is_file</span>() {
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">host_file</span> <span class="op">=</span> <span class="ident">OpenOptions::new</span>().<span class="ident">read</span>(<span class="bool-val">true</span>).<span class="ident">open</span>(<span class="ident">entry</span>.<span class="ident">path</span>())<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">mem_file</span> <span class="op">=</span> <span class="ident">fs</span>
+                    .<span class="ident">new_open_options</span>()
+                    .<span class="ident">create_new</span>(<span class="bool-val">true</span>)
+                    .<span class="ident">write</span>(<span class="bool-val">true</span>)
+                    .<span class="ident">open</span>(<span class="ident">path</span>)<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buffer</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
+                <span class="ident">Read::read_to_end</span>(<span class="kw-2">&amp;mut</span> <span class="ident">host_file</span>, <span class="kw-2">&amp;mut</span> <span class="ident">buffer</span>)<span class="question-mark">?</span>;
+                <span class="ident">mem_file</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="ident">buffer</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+            } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">entry_type</span>.<span class="ident">is_symlink</span>() {
+                <span class="comment">//unimplemented!(&quot;`mem_fs` does not support symlink for the moment&quot;);</span>
+            }
         }
-    }
 
-    <span class="prelude-val">Ok</span>(())
+        <span class="prelude-val">Ok</span>(())
+    })
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wast" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>
