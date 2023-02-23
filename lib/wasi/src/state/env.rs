@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::Deref, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, ops::Deref, path::PathBuf, sync::Arc, time::Duration};
 
 use derivative::Derivative;
 use rand::Rng;
@@ -883,6 +883,8 @@ impl WasiEnv {
     /// Cleans up all the open files (if this is the main thread)
     #[allow(clippy::await_holding_lock)]
     pub fn cleanup(&self, exit_code: Option<ExitCode>) {
+        const CLEANUP_TIMEOUT: Duration = Duration::from_secs(10);
+
         // If this is the main thread then also close all the files
         if self.thread.is_main() {
             trace!("wasi[{}]:: cleaning up open file handles", self.pid());
@@ -894,7 +896,13 @@ impl WasiEnv {
             self.tasks()
                 .task_dedicated(Box::new(move || {
                     tasks.runtime().block_on(async {
-                        state.fs.close_all().await;
+                        let fut = tokio::time::timeout(CLEANUP_TIMEOUT, state.fs.close_all());
+
+                        if let Err(err) = fut.await {
+                            tracing::warn!(
+                                "WasiEnv::cleanup has timed out after {CLEANUP_TIMEOUT:?}: {err}"
+                            );
+                        }
                     });
                     tx.send(()).ok();
                 }))
