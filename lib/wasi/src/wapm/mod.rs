@@ -62,6 +62,8 @@ async fn fetch_webc(
             .replace(WAPM_WEBC_VERSION_TAG, version.replace('\"', "'").as_str()),
         None => WAPM_WEBC_QUERY_LAST.replace(WAPM_WEBC_QUERY_TAG, name.replace('\"', "'").as_str()),
     };
+    debug!("request: {}", url_query);
+
     let url = format!(
         "{}{}",
         WAPM_WEBC_URL,
@@ -84,6 +86,8 @@ async fn fetch_webc(
     let body = response.body.context("HTTP response with empty body")?;
     let data: WapmWebQuery =
         serde_json::from_slice(&body).context("Could not parse webc registry JSON data")?;
+    debug!("response: {:?}", data);
+
     let PiritaVersionedDownload {
         url: download_url,
         version,
