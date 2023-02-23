@@ -10,7 +10,7 @@ use wasmer_wasi_types::wasi::Errno;
 use crate::{
     bin_factory::{spawn_exec, BinaryPackage, ModuleCache},
     syscalls::stderr_write,
-    VirtualTaskManager, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
+    VirtualTaskManagerExt, WasiEnv, WasiRuntime,
 };
 
 const HELP: &str = r#"USAGE:
@@ -74,8 +74,7 @@ impl CmdWasmer {
             env.state = Arc::new(state);
 
             // Get the binary
-            let tasks = parent_ctx.data().tasks();
-            if let Some(binary) = self.get_package(what.clone(), tasks.deref()) {
+            if let Some(binary) = self.get_package(what.clone()) {
                 // Now run the module
                 spawn_exec(binary, name, store, env, &self.runtime, &self.cache)
             } else {
@@ -98,13 +97,8 @@ impl CmdWasmer {
         }
     }
 
-    pub fn get_package(
-        &self,
-        name: String,
-        tasks: &dyn VirtualTaskManager,
-    ) -> Option<BinaryPackage> {
-        self.cache
-            .get_webc(name.as_str(), self.runtime.deref(), tasks)
+    pub fn get_package(&self, name: String) -> Option<BinaryPackage> {
+        self.cache.get_webc(name.as_str(), self.runtime.deref())
     }
 }
 
