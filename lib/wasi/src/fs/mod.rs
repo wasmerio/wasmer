@@ -1608,6 +1608,7 @@ impl WasiFs {
             Fdflags::APPEND,
         );
     }
+
     fn create_stdin(&self, inodes: &WasiInodes) {
         self.create_std_dev_inner(
             inodes,
@@ -1618,6 +1619,7 @@ impl WasiFs {
             Fdflags::empty(),
         );
     }
+
     fn create_stderr(&self, inodes: &WasiInodes) {
         self.create_std_dev_inner(
             inodes,
