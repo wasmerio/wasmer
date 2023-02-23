@@ -771,7 +771,7 @@ impl WasiEnv {
         while let Some(use_package) = use_packages.pop_back() {
             if let Some(package) = cmd_wasmer
                 .as_ref()
-                .and_then(|cmd| cmd.get_package(use_package.clone(), self.tasks().deref()))
+                .and_then(|cmd| cmd.get_package(use_package.clone()))
             {
                 // If its already been added make sure the version is correct
                 let package_name = package.package_name.to_string();

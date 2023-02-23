@@ -27,7 +27,7 @@ pub fn path_filestat_get<M: MemorySize>(
     let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
     let mut path_string = unsafe { get_input_str!(&memory, path, path_len) };
-    debug!(
+    trace!(
         "wasi[{}:{}]::path_filestat_get (fd={}, path={})",
         ctx.data().pid(),
         ctx.data().tid(),

@@ -62,6 +62,7 @@ pub fn spawn_exec(
 
     // If the file system has not already been union'ed then do so
     env.state.fs.conditional_union(&binary);
+    tracing::debug!("{:?}", env.state.fs);
 
     // Now run the module
     spawn_exec_module(module, store, env, runtime)
