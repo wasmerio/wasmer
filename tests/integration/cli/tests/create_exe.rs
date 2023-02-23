@@ -579,7 +579,6 @@ fn create_exe_serialized_works() -> anyhow::Result<()> {
     let wasm_path = operating_dir.join(create_exe_test_wasm_path());
     #[cfg(not(windows))]
     let executable_path = operating_dir.join("wasm.out");
-    dbg!(&executable_path);
     #[cfg(windows)]
     let executable_path = operating_dir.join("wasm.exe");
 
