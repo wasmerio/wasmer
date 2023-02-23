@@ -1389,7 +1389,6 @@ impl WasiFs {
             _ => (),
         }
         let fd = self.get_fd(fd)?;
-        trace!("fdstat: {:?}", fd);
 
         let guard = fd.inode.read();
         let deref = guard.deref();
