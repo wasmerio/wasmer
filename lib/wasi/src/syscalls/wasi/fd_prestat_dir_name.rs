@@ -22,7 +22,6 @@ pub fn fd_prestat_dir_name<M: MemorySize>(
 
     // check inode-val.is_preopened?
 
-    trace!("=> inode: {:?}", inode);
     let guard = inode.read();
     match guard.deref() {
         Kind::Dir { .. } | Kind::Root { .. } => {
