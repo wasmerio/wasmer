@@ -202,7 +202,7 @@ impl FileSystem {
 
     /// Inserts a arc file into the file system that references another file
     /// in another file system (does not copy the real data)
-    pub fn insert_custom_file(
+    pub fn insert_device_file(
         &self,
         path: PathBuf,
         file: Box<dyn crate::VirtualFile + Send + Sync>,
@@ -214,51 +214,47 @@ impl FileSystem {
         let inode_of_parent = match inode_of_parent {
             InodeResolution::Found(a) => a,
             InodeResolution::Redirect(..) => {
+                // TODO: should remove the inode again!
                 return Err(FsError::InvalidInput);
             }
         };
 
-        match maybe_inode_of_file {
-            // The file already exists, then it can not be inserted.
-            Some(_inode_of_file) => return Err(FsError::AlreadyExists),
+        if let Some(_inode_of_file) = maybe_inode_of_file {
+            // TODO: restore previous inode?
+            return Err(FsError::AlreadyExists);
+        }
+        // Write lock.
+        let mut fs_lock = self.inner.write().map_err(|_| FsError::Lock)?;
 
-            // The file doesn't already exist; it's OK to create it if
-            None => {
-                // Write lock.
-                let mut fs_lock = self.inner.write().map_err(|_| FsError::Lock)?;
-
-                // Creating the file in the storage.
-                let inode_of_file = fs_lock.storage.vacant_entry().key();
-                let real_inode_of_file = fs_lock.storage.insert(Node::CustomFile(CustomFileNode {
-                    inode: inode_of_file,
-                    name: name_of_file,
-                    file: Mutex::new(file),
-                    metadata: {
-                        let time = time();
-                        Metadata {
-                            ft: FileType {
-                                file: true,
-                                ..Default::default()
-                            },
-                            accessed: time,
-                            created: time,
-                            modified: time,
-                            len: 0,
-                        }
+        // Creating the file in the storage.
+        let inode_of_file = fs_lock.storage.vacant_entry().key();
+        let real_inode_of_file = fs_lock.storage.insert(Node::CustomFile(CustomFileNode {
+            inode: inode_of_file,
+            name: name_of_file,
+            file: Mutex::new(file),
+            metadata: {
+                let time = time();
+                Metadata {
+                    ft: FileType {
+                        file: true,
+                        ..Default::default()
                     },
-                }));
+                    accessed: time,
+                    created: time,
+                    modified: time,
+                    len: 0,
+                }
+            },
+        }));
 
-                assert_eq!(
-                    inode_of_file, real_inode_of_file,
-                    "new file inode should have been correctly calculated",
-                );
+        assert_eq!(
+            inode_of_file, real_inode_of_file,
+            "new file inode should have been correctly calculated",
+        );
 
-                // Adding the new directory to its parent.
-                fs_lock.add_child_to_node(inode_of_parent, inode_of_file)?;
+        // Adding the new directory to its parent.
+        fs_lock.add_child_to_node(inode_of_parent, inode_of_file)?;
 
-                inode_of_file
-            }
-        };
         Ok(())
     }
 

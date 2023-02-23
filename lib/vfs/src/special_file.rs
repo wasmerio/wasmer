@@ -31,6 +31,7 @@ impl AsyncSeek for DeviceFile {
     fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
         Ok(())
     }
+
     fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
         Poll::Ready(Ok(0))
     }
@@ -44,12 +45,15 @@ impl AsyncWrite for DeviceFile {
     ) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(buf.len()))
     }
+
     fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Poll::Ready(Ok(()))
     }
+
     fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Poll::Ready(Ok(()))
     }
+
     fn poll_write_vectored(
         self: Pin<&mut Self>,
         _cx: &mut Context<'_>,
@@ -57,6 +61,7 @@ impl AsyncWrite for DeviceFile {
     ) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(bufs.len()))
     }
+
     fn is_write_vectored(&self) -> bool {
         false
     }

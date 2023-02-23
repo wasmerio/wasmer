@@ -4,13 +4,13 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::{collections::BTreeSet, path::Path};
-use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, RuntimeError, Value};
+use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Value};
 use wasmer_vfs::FileSystem;
 use wasmer_vfs::{DeviceFile, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer_wasi::types::__WASI_STDIN_FILENO;
 use wasmer_wasi::{
     default_fs_backing, get_wasi_versions, PluggableRuntimeImplementation, WasiEnv, WasiError,
-    WasiVersion,
+    WasiFunctionEnv, WasiVersion,
 };
 
 use clap::Parser;
@@ -108,7 +108,7 @@ impl Wasi {
         module: &Module,
         program_name: String,
         args: Vec<String>,
-    ) -> Result<(FunctionEnv<WasiEnv>, Instance)> {
+    ) -> Result<(WasiFunctionEnv, Instance)> {
         let args = args.iter().cloned().map(|arg| arg.into_bytes());
 
         let map_commands = self
@@ -182,7 +182,7 @@ impl Wasi {
         }
 
         let (instance, wasi_env) = builder.instantiate(module.clone(), store)?;
-        Ok((wasi_env.env, instance))
+        Ok((wasi_env, instance))
     }
 
     /// Helper function for handling the result of a Wasi _start function.
