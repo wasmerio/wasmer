@@ -398,6 +398,7 @@ fn test_snapshot_sleep() {
 // }
 
 // Tests that thread local variables work correctly
+#[cfg(target_os = "linux")]
 #[test]
 fn test_snapshot_thread_locals() {
     let mut snapshot = TestBuilder::new()
