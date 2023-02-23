@@ -610,8 +610,6 @@ impl WasiEnvBuilder {
             .take()
             .unwrap_or_else(|| Box::new(ArcFile::new(Box::new(super::Stdin::default()))));
 
-        // If we are running WASIX then we start a full sandbox FS
-        // otherwise we drop through to a default file system
         let fs_backing = self
             .fs
             .take()
