@@ -6,6 +6,14 @@ use wasmer::wat2wasm;
 
 use crate::commands::Publish;
 
+static HEADER_NO_CACHE: &'static str = r#"Cache-Control = "no-cache""#;
+static HEADER_CACHE: &'static str = r#"Cache-Control = "max-age=300""#;
+static HEADER_CORS: [&'static str; 3] = [
+    r#"Access-Control-Allow-Origin = "*""#,
+    r#"Cross-Origin-Embedder-Policy = "require-corp""#,
+    r#"Cross-Origin-Opener-Policy = "same-origin""#,
+];
+
 static TEMPLATE_CONFIG_TOML: &'static str = r#"
 [general]
 host = "::"
@@ -19,7 +27,7 @@ compression = true
 
 [[advanced.headers]]
 source = "**"
-headers = { Access-Control-Allow-Origin = "*", Cross-Origin-Embedder-Policy = "require-corp", Cross-Origin-Opener-Policy = "same-origin", Cache-Control = "max-age=30" }
+headers = { ${HEADERS} }
 "#;
 
 static TEMPLATE_WASMER_TOML: &'static str = r#"
@@ -45,7 +53,8 @@ abi = "wasi"
 
 static TEMPLATE_INSTRUCTIONS: &'static str = r#"
 
-Your website has now been published using the ${INHERIT} WASM HTTP server.
+Your website was bundled with the '${INHERIT}' WASM http server and has now
+been published.
 
 To access the website from a browser use the following URL:
 https://${PCK1}.${PCK2}.proxy.wapm.dev/
@@ -53,8 +62,8 @@ https://${PCK1}.${PCK2}.proxy.wapm.dev/
 Note: The first time you access this website it will generate TLS encryption
       keys which can take up to a minute.
 
-If you have a domain you would like to point to this website then create a CNAME
-record that points to ${PCK1}.${PCK2}.proxy.wapm.dev.
+If you have a domain you would like to point to this website then create a
+CNAME record that points to ${PCK1}.${PCK2}.proxy.wapm.dev.
 "#;
 
 /// CLI options for the `wasmer publish` command
@@ -90,6 +99,12 @@ pub struct PublishWebSite {
     /// Skip validation of the uploaded package
     #[clap(long)]
     pub no_validate: bool,
+    /// Enables CORS which is needed for WASM modules to run
+    #[clap(long)]
+    pub enable_cors: bool,
+    /// Indicates if the website should not do any caching
+    #[clap(long)]
+    pub no_web_caching: bool,
 }
 
 #[derive(Debug, Error)]
@@ -188,12 +203,27 @@ impl PublishWebSite {
             .ok_or(Into::<anyhow::Error>::into(
                 PublishWebSiteError::PackageNameInvalid,
             ))?;
+
+        let mut headers = String::new();
+        if self.no_web_caching {
+            headers.push_str(HEADER_NO_CACHE);
+        } else {
+            headers.push_str(HEADER_CACHE);
+        }
+        if self.enable_cors {
+            HEADER_CORS.iter().for_each(|h| {
+                headers.push_str(", ");
+                headers.push_str(h)
+            });
+        }
+
         Ok(template
             .replace("${PCK_NAME}", &self.package_name)
             .replace("${PCK1}", pck1)
             .replace("${PCK2}", pck2)
             .replace("${VERSION}", &format!("{}", self.version()))
             .replace("${INHERIT}", &self.inherit)
-            .replace("${INHERIT_VERSION}", &self.inherit_version))
+            .replace("${INHERIT_VERSION}", &self.inherit_version)
+            .replace("${HEADERS}", &headers))
     }
 }
