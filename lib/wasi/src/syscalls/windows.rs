@@ -1,6 +1,7 @@
-use crate::syscalls::types::wasi::{self, Timestamp};
 use tracing::debug;
 use wasmer::WasmRef;
+
+use crate::syscalls::types::wasi::{self, Timestamp};
 
 pub fn platform_clock_res_get(
     clock_id: wasi::Snapshot0Clockid,

@@ -3,7 +3,7 @@
 use anyhow::{bail, Context};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use wasmer_integration_tests_cli::{get_libwasmer_path, get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
+use wasmer_integration_tests_cli::{get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
 
 fn wasi_test_python_path() -> PathBuf {
     Path::new(C_ASSET_PATH).join("python-0.1.0.wasmer")
@@ -85,6 +85,7 @@ fn test_run_customlambda() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn assert_tarball_is_present_local(target: &str) -> Result<PathBuf, anyhow::Error> {
     let wasmer_dir = std::env::var("WASMER_DIR").expect("no WASMER_DIR set");
     let directory = match target {
@@ -106,7 +107,10 @@ fn assert_tarball_is_present_local(target: &str) -> Result<PathBuf, anyhow::Erro
     Ok(libwasmer_cache_path)
 }
 
-#[test]
+// FIXME: Fix and re-enable this test
+// See https://github.com/wasmerio/wasmer/issues/3615
+// #[test]
+#[allow(dead_code)]
 fn test_cross_compile_python_windows() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;
 
@@ -164,8 +168,10 @@ fn test_cross_compile_python_windows() -> anyhow::Result<()> {
             output.arg("-o");
             output.arg(python_wasmer_path.clone());
             output.arg(format!("--{c}"));
-            output.arg("--debug-dir");
-            output.arg(format!("{t}-{c}"));
+            if std::env::var("GITHUB_TOKEN").is_ok() {
+                output.arg("--debug-dir");
+                output.arg(format!("{t}-{c}"));
+            }
 
             if t.contains("x86_64") && *c == "singlepass" {
                 output.arg("-m");

@@ -33,6 +33,51 @@ jobs:
           echo $VERSION
           echo $DOING_RELEASE
 
+  lint:
+    name: Code lint
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.64
+          components: rustfmt, clippy
+      - name: Install libtinfo
+        shell: bash
+        run: |
+          sudo apt install -y libtinfo5
+      - name: Install LLVM (Linux)
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz -L -o /opt/llvm.tar.xz
+          mkdir -p /opt/llvm-12
+          tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-12
+          echo '/opt/llvm-12/bin' >> $GITHUB_PATH
+          echo 'LLVM_SYS_120_PREFIX=/opt/llvm-12' >> $GITHUB_ENV
+      - name: Cache
+        uses: whywaita/actions-cache-s3@v2
+        with:
+          path: |
+            ~/.cargo/*
+            ./target/*
+          key: r22-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-lint-linux-x64
+          aws-s3-bucket: wasmer-rust-artifacts-cache
+          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          aws-region: auto
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-s3-bucket-endpoint: false
+          aws-s3-force-path-style: true
+      - run: make lint
+        env:
+          ENABLE_CRANELIFT: "1"
+          ENABLE_LLVM: "1"
+          ENABLE_SINGLEPASS: "1"
+      - name: Assert no files have changed
+        run: |
+          git status
+          ! [[ $(git status -s) ]]
+
   cargo_deny:
     name: cargo-deny
     runs-on: ubuntu-22.04
@@ -316,11 +361,11 @@ jobs:
             ./target/*
             $CARGO_ROOT_DIR/*
           key: r22-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-${{ matrix.metadata.build }}
-          aws-s3-bucket: wasmer-github-ci-cache
-          aws-access-key-id: ${{ secrets.GOOGLE_CACHE_ID }}
-          aws-secret-access-key: ${{ secrets.GOOGLE_CACHE_SECRET }}
+          aws-s3-bucket: wasmer-rust-artifacts-cache
+          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
           aws-region: auto
-          aws-endpoint: https://storage.googleapis.com
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
       - name: Build C-API
@@ -491,11 +536,11 @@ jobs:
             ~/.cargo/*
             ./target/*
           key: r22-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-${{ matrix.stage.make }}-${{ matrix.metadata.build }}
-          aws-s3-bucket: wasmer-github-ci-cache
-          aws-access-key-id: ${{ secrets.GOOGLE_CACHE_ID }}
-          aws-secret-access-key: ${{ secrets.GOOGLE_CACHE_SECRET }}
+          aws-s3-bucket: wasmer-rust-artifacts-cache
+          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
           aws-region: auto
-          aws-endpoint: https://storage.googleapis.com
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
       - name: ${{ matrix.stage.description }}
@@ -566,11 +611,11 @@ jobs:
             ~/.cargo/*
             ./target/*
           key: r22-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-integration-cli-${{ matrix.build }}
-          aws-s3-bucket: wasmer-github-ci-cache
-          aws-access-key-id: ${{ secrets.GOOGLE_CACHE_ID }}
-          aws-secret-access-key: ${{ secrets.GOOGLE_CACHE_SECRET }}
+          aws-s3-bucket: wasmer-rust-artifacts-cache
+          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
           aws-region: auto
-          aws-endpoint: https://storage.googleapis.com
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
       - name: Prepare package directory

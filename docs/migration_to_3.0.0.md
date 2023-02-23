@@ -84,7 +84,7 @@ pub struct MyEnv {
     pub memory: wasmer::LazyInit<Memory>,
     #[wasmer(export(name = "__alloc"))]
     pub alloc_guest_memory: LazyInit<NativeFunc<u32, i32>>,
-    
+
     pub multiply_by: u32,
 }
 
@@ -153,7 +153,7 @@ let str = ptr.read_utf8_string(&memory_view, length as u32).unwrap();
 println!("Memory contents: {:?}", str);
 ```
 
-The reason for this change is that in the future this will enable 
+The reason for this change is that in the future this will enable
 safely sharing memory across threads. The same thing goes for reading slices:
 
 ```rust
@@ -199,7 +199,7 @@ let instance = Instance::new(&mut store, &module, &import_object).expect("Could 
 For WASI, don't forget to initialize the `WasiEnv` (it will import the memory)
 
 ```rust
-let mut wasi_env = WasiState::new("hello").finalize()?;
+let mut wasi_env = WasiState::builder("hello").finalize()?;
 let import_object = wasi_env.import_object(&mut store, &module)?;
 let instance = Instance::new(&mut store, &module, &import_object).expect("Could not instantiate module.");
 wasi_env.initialize(&mut store, &instance).unwrap();

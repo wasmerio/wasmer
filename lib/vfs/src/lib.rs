@@ -1,42 +1,60 @@
 use std::any::Any;
 use std::ffi::OsString;
 use std::fmt;
-use std::io::{self, Read, Seek, Write};
+use std::io;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
+use std::task::Context;
+use std::task::Poll;
 use thiserror::Error;
 
-#[cfg(all(not(feature = "host-fs"), not(feature = "mem-fs")))]
-compile_error!("At least the `host-fs` or the `mem-fs` feature must be enabled. Please, pick one.");
-
-//#[cfg(all(feature = "mem-fs", feature = "enable-serde"))]
-//compile_warn!("`mem-fs` does not support `enable-serde` for the moment.");
-
+pub mod arc_box_file;
+pub mod arc_file;
+pub mod arc_fs;
+pub mod builder;
+pub mod combine_file;
+pub mod dual_write_file;
+pub mod empty_fs;
 #[cfg(feature = "host-fs")]
 pub mod host_fs;
-#[cfg(feature = "mem-fs")]
 pub mod mem_fs;
+pub mod null_file;
+pub mod passthru_fs;
+pub mod special_file;
+pub mod tmp_fs;
+pub mod union_fs;
+pub mod zero_file;
+// tty_file -> see wasmer_wasi::tty_file
+pub mod pipe;
 #[cfg(feature = "static-fs")]
 pub mod static_fs;
 #[cfg(feature = "webc-fs")]
 pub mod webc_fs;
 
+pub use arc_box_file::*;
+pub use arc_file::*;
+pub use arc_fs::*;
+pub use builder::*;
+pub use combine_file::*;
+pub use dual_write_file::*;
+pub use empty_fs::*;
+pub use null_file::*;
+pub use passthru_fs::*;
+pub use pipe::*;
+pub use special_file::*;
+pub use tmp_fs::*;
+pub use union_fs::*;
+pub use zero_file::*;
+
 pub type Result<T> = std::result::Result<T, FsError>;
 
-#[derive(Debug)]
-#[repr(transparent)]
-pub struct FileDescriptor(usize);
+// re-exports
+pub use tokio::io::ReadBuf;
+pub use tokio::io::{AsyncRead, AsyncReadExt};
+pub use tokio::io::{AsyncSeek, AsyncSeekExt};
+pub use tokio::io::{AsyncWrite, AsyncWriteExt};
 
-impl From<u32> for FileDescriptor {
-    fn from(a: u32) -> Self {
-        Self(a as usize)
-    }
-}
-
-impl From<FileDescriptor> for u32 {
-    fn from(a: FileDescriptor) -> u32 {
-        a.0 as u32
-    }
-}
+pub trait ClonableVirtualFile: VirtualFile + Clone {}
 
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
@@ -68,7 +86,7 @@ impl dyn FileSystem + 'static {
 
 pub trait FileOpener {
     fn open(
-        &mut self,
+        &self,
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>>;
@@ -122,19 +140,19 @@ impl OpenOptionsConfig {
     }
 }
 
-impl fmt::Debug for OpenOptions {
+impl<'a> fmt::Debug for OpenOptions<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.conf.fmt(f)
     }
 }
 
-pub struct OpenOptions {
-    opener: Box<dyn FileOpener>,
+pub struct OpenOptions<'a> {
+    opener: &'a dyn FileOpener,
     conf: OpenOptionsConfig,
 }
 
-impl OpenOptions {
-    pub fn new(opener: Box<dyn FileOpener>) -> Self {
+impl<'a> OpenOptions<'a> {
+    pub fn new(opener: &'a dyn FileOpener) -> Self {
         Self {
             opener,
             conf: OpenOptionsConfig {
@@ -197,7 +215,9 @@ impl OpenOptions {
 
 /// This trait relies on your file closing when it goes out of scope via `Drop`
 //#[cfg_attr(feature = "enable-serde", typetag::serde)]
-pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
+pub trait VirtualFile:
+    fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable
+{
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64;
 
@@ -217,42 +237,24 @@ pub trait VirtualFile: fmt::Debug + Write + Read + Seek + Upcastable {
     /// Request deletion of the file
     fn unlink(&mut self) -> Result<()>;
 
-    /// Store file contents and metadata to disk
-    /// Default implementation returns `Ok(())`.  You should implement this method if you care
-    /// about flushing your cache to permanent storage
-    fn sync_to_disk(&self) -> Result<()> {
-        Ok(())
-    }
-
-    /// Returns the number of bytes available.  This function must not block
-    fn bytes_available(&self) -> Result<usize> {
-        Ok(self.bytes_available_read()?.unwrap_or(0usize)
-            + self.bytes_available_write()?.unwrap_or(0usize))
-    }
-
-    /// Returns the number of bytes available.  This function must not block
-    /// Defaults to `None` which means the number of bytes is unknown
-    fn bytes_available_read(&self) -> Result<Option<usize>> {
-        Ok(None)
-    }
-
-    /// Returns the number of bytes available.  This function must not block
-    /// Defaults to `None` which means the number of bytes is unknown
-    fn bytes_available_write(&self) -> Result<Option<usize>> {
-        Ok(None)
-    }
-
     /// Indicates if the file is opened or closed. This function must not block
     /// Defaults to a status of being constantly open
     fn is_open(&self) -> bool {
         true
     }
 
-    /// Used for polling.  Default returns `None` because this method cannot be implemented for most types
-    /// Returns the underlying host fd
-    fn get_fd(&self) -> Option<FileDescriptor> {
+    /// Used for "special" files such as `stdin`, `stdout` and `stderr`.
+    /// Always returns the same file descriptor (0, 1 or 2). Returns `None`
+    /// on normal files
+    fn get_special_fd(&self) -> Option<u32> {
         None
     }
+
+    /// Polls the file for when there is data to be read
+    fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>>;
+
+    /// Polls the file for when it is available for writing
+    fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>>;
 }
 
 // Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .
@@ -344,8 +346,8 @@ pub enum FsError {
     #[error("connection is not open")]
     NotConnected,
     /// The requested file or directory could not be found
-    #[error("entity not found")]
-    EntityNotFound,
+    #[error("entry not found")]
+    EntryNotFound,
     /// The requested device couldn't be accessed
     #[error("can't access device")]
     NoDevice,
@@ -386,7 +388,7 @@ impl From<io::Error> for FsError {
             io::ErrorKind::InvalidData => FsError::InvalidData,
             io::ErrorKind::InvalidInput => FsError::InvalidInput,
             io::ErrorKind::NotConnected => FsError::NotConnected,
-            io::ErrorKind::NotFound => FsError::EntityNotFound,
+            io::ErrorKind::NotFound => FsError::EntryNotFound,
             io::ErrorKind::PermissionDenied => FsError::PermissionDenied,
             io::ErrorKind::TimedOut => FsError::TimedOut,
             io::ErrorKind::UnexpectedEof => FsError::UnexpectedEof,
@@ -396,6 +398,39 @@ impl From<io::Error> for FsError {
             // if the following triggers, a new error type was added to this non-exhaustive enum
             _ => FsError::UnknownError,
         }
+    }
+}
+
+impl From<FsError> for io::Error {
+    fn from(val: FsError) -> Self {
+        let kind = match val {
+            FsError::AddressInUse => io::ErrorKind::AddrInUse,
+            FsError::AddressNotAvailable => io::ErrorKind::AddrNotAvailable,
+            FsError::AlreadyExists => io::ErrorKind::AlreadyExists,
+            FsError::BrokenPipe => io::ErrorKind::BrokenPipe,
+            FsError::ConnectionAborted => io::ErrorKind::ConnectionAborted,
+            FsError::ConnectionRefused => io::ErrorKind::ConnectionRefused,
+            FsError::ConnectionReset => io::ErrorKind::ConnectionReset,
+            FsError::Interrupted => io::ErrorKind::Interrupted,
+            FsError::InvalidData => io::ErrorKind::InvalidData,
+            FsError::InvalidInput => io::ErrorKind::InvalidInput,
+            FsError::NotConnected => io::ErrorKind::NotConnected,
+            FsError::EntryNotFound => io::ErrorKind::NotFound,
+            FsError::PermissionDenied => io::ErrorKind::PermissionDenied,
+            FsError::TimedOut => io::ErrorKind::TimedOut,
+            FsError::UnexpectedEof => io::ErrorKind::UnexpectedEof,
+            FsError::WouldBlock => io::ErrorKind::WouldBlock,
+            FsError::WriteZero => io::ErrorKind::WriteZero,
+            FsError::IOError => io::ErrorKind::Other,
+            FsError::BaseNotDirectory => io::ErrorKind::Other,
+            FsError::NotAFile => io::ErrorKind::Other,
+            FsError::InvalidFd => io::ErrorKind::Other,
+            FsError::Lock => io::ErrorKind::Other,
+            FsError::NoDevice => io::ErrorKind::Other,
+            FsError::DirectoryNotEmpty => io::ErrorKind::Other,
+            FsError::UnknownError => io::ErrorKind::Other,
+        };
+        kind.into()
     }
 }
 
@@ -409,6 +444,9 @@ pub struct ReadDir {
 impl ReadDir {
     pub fn new(data: Vec<DirEntry>) -> Self {
         Self { data, index: 0 }
+    }
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
     }
 }
 

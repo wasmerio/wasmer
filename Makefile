@@ -159,6 +159,9 @@ exclude_tests += --exclude wasmer-wasi-experimental-io-devices
 # We run integration tests separately (it requires building the c-api)
 exclude_tests += --exclude wasmer-integration-tests-cli
 exclude_tests += --exclude wasmer-integration-tests-ios
+# wasix_http_client is only for the WASM target, must be tested separately
+# FIXME: add separate test step!
+exclude_tests += --exclude wasix_http_client
 
 ifneq (, $(findstring llvm,$(compilers)))
 	ENABLE_LLVM := 1
@@ -480,6 +483,7 @@ test-stage-2-test-compiler-cranelift-nostd:
 test-stage-3-test-compiler-singlepass-nostd:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
 test-stage-4-wasmer-cli:
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/vfs/Cargo.toml --release
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
 
 # test examples 

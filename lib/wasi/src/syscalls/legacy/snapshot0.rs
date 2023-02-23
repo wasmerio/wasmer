@@ -1,10 +1,17 @@
-use crate::syscalls;
-use crate::syscalls::types;
-use crate::{mem_error_to_wasi, Memory32, MemorySize, WasiEnv, WasiError, WasiThread};
 use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
 use wasmer_wasi_types::wasi::{
-    Errno, Event, Fd, Filesize, Filestat, Filetype, Snapshot0Filestat, Snapshot0Subscription,
-    Snapshot0Whence, Subscription, Whence,
+    Errno, Event, EventFdReadwrite, Eventrwflags, Eventtype, Fd, Filesize, Filestat, Filetype,
+    Snapshot0Event, Snapshot0Filestat, Snapshot0Subscription, Snapshot0Whence, Subscription,
+    Whence,
+};
+
+use crate::{
+    mem_error_to_wasi,
+    os::task::thread::WasiThread,
+    state::{PollEventBuilder, PollEventSet},
+    syscalls,
+    syscalls::types,
+    Memory32, MemorySize, WasiEnv, WasiError,
 };
 
 /// Wrapper around `syscalls::fd_filestat_get` with extra logic to handle the size
@@ -128,51 +135,61 @@ pub fn fd_seek(
 pub fn poll_oneoff(
     mut ctx: FunctionEnvMut<WasiEnv>,
     in_: WasmPtr<Snapshot0Subscription, Memory32>,
-    out_: WasmPtr<Event, Memory32>,
+    out_: WasmPtr<Snapshot0Event, Memory32>,
     nsubscriptions: u32,
     nevents: WasmPtr<u32, Memory32>,
 ) -> Result<Errno, WasiError> {
-    // TODO: verify that the assumptions in the comment here still applyd
-    // in this case the new type is smaller than the old type, so it all fits into memory,
-    // we just need to readjust and copy it
-
-    // we start by adjusting `in_` into a format that the new code can understand
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-    let nsubscriptions_offset: u32 = nsubscriptions;
-    let in_origs = wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions_offset));
+    let mut subscriptions = Vec::new();
+    let in_origs = wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions));
     let in_origs = wasi_try_mem_ok!(in_origs.read_to_vec());
-
-    // get a pointer to the smaller new type
-    let in_new_type_ptr: WasmPtr<Subscription, Memory32> = in_.cast();
-
-    for (in_sub_new, orig) in
-        wasi_try_mem_ok!(in_new_type_ptr.slice(&memory, nsubscriptions_offset))
-            .iter()
-            .zip(in_origs.iter())
-    {
-        wasi_try_mem_ok!(in_sub_new.write(Subscription::from(*orig)));
+    for in_orig in in_origs {
+        subscriptions.push((
+            None,
+            PollEventSet::default(),
+            Into::<Subscription>::into(in_orig),
+        ));
     }
 
     // make the call
-    let result = syscalls::poll_oneoff::<Memory32>(
-        ctx.as_mut(),
-        in_new_type_ptr,
-        out_,
-        nsubscriptions,
-        nevents,
-    );
+    let triggered_events = syscalls::poll_oneoff_internal(&mut ctx, subscriptions)?;
+    let triggered_events = match triggered_events {
+        Ok(a) => a,
+        Err(err) => {
+            tracing::trace!(
+                "wasi[{}:{}]::poll_oneoff0 errno={}",
+                ctx.data().pid(),
+                ctx.data().tid(),
+                err
+            );
+            return Ok(err);
+        }
+    };
 
-    // replace the old values of in, in case the calling code reuses the memory
-    let env = ctx.data();
-    let memory = env.memory_view(&ctx);
-
-    for (in_sub, orig) in wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions_offset))
-        .iter()
-        .zip(in_origs.into_iter())
-    {
-        wasi_try_mem_ok!(in_sub.write(orig));
+    // Process all the events that were triggered
+    let mut env = ctx.data();
+    let mut memory = env.memory_view(&ctx);
+    let mut events_seen: u32 = 0;
+    let event_array = wasi_try_mem_ok!(out_.slice(&memory, nsubscriptions));
+    for event in triggered_events {
+        let event = Snapshot0Event {
+            userdata: event.userdata,
+            error: event.error,
+            type_: Eventtype::FdRead,
+            fd_readwrite: match event.type_ {
+                Eventtype::FdRead => unsafe { event.u.fd_readwrite },
+                Eventtype::FdWrite => unsafe { event.u.fd_readwrite },
+                Eventtype::Clock => EventFdReadwrite {
+                    nbytes: 0,
+                    flags: Eventrwflags::empty(),
+                },
+            },
+        };
+        wasi_try_mem_ok!(event_array.index(events_seen as u64).write(event));
+        events_seen += 1;
     }
-
-    result
+    let out_ptr = nevents.deref(&memory);
+    wasi_try_mem_ok!(out_ptr.write(events_seen));
+    Ok(Errno::Success)
 }

@@ -1,5 +1,7 @@
 //! Create a standalone native executable for a given Wasm file.
 
+use self::utils::normalize_atom_name;
+
 use super::ObjectFormat;
 use crate::common::normalize_path;
 use crate::store::CompilerOptions;
@@ -11,6 +13,7 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::process::Stdio;
+use tar::Archive;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 use wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
@@ -531,7 +534,7 @@ impl PrefixMapCompilation {
             return Ok(Self {
                 input_hashes: atoms
                     .iter()
-                    .map(|(name, bytes)| (name.clone(), Self::hash_for_bytes(bytes)))
+                    .map(|(name, bytes)| (normalize_atom_name(name), Self::hash_for_bytes(bytes)))
                     .collect(),
                 manual_prefixes: BTreeMap::new(),
                 compilation_objects: BTreeMap::new(),
@@ -540,10 +543,10 @@ impl PrefixMapCompilation {
 
         // if prefixes are specified, have to match the atom names exactly
         if prefixes.len() != atoms.len() {
-            return Err(anyhow::anyhow!(
-                "invalid mapping of prefix and atoms: expected prefixes for {} atoms, got {} prefixes", 
+            println!(
+                "WARNING: invalid mapping of prefix and atoms: expected prefixes for {} atoms, got {} prefixes", 
                 atoms.len(), prefixes.len()
-            ));
+            );
         }
 
         let available_atoms = atoms.iter().map(|(k, _)| k.clone()).collect::<Vec<_>>();
@@ -560,11 +563,11 @@ impl PrefixMapCompilation {
                 [atom, prefix, path] => {
                     if only_validate_prefixes {
                         // only insert the prefix in order to not error out of the fs::read(path)
-                        manual_prefixes.insert(atom.to_string(), prefix.to_string());
+                        manual_prefixes.insert(normalize_atom_name(atom), prefix.to_string());
                     } else {
                         let atom_hash = atoms
                         .iter()
-                        .find_map(|(name, _)| if name.as_str() == atom.as_str() { Some(prefix.to_string()) } else { None })
+                        .find_map(|(name, _)| if normalize_atom_name(name) == normalize_atom_name(atom) { Some(prefix.to_string()) } else { None })
                         .ok_or_else(|| anyhow::anyhow!("no atom {atom:?} found, for prefix {p:?}, available atoms are {available_atoms:?}"))?;
 
                         let current_dir = std::env::current_dir().unwrap().canonicalize().unwrap();
@@ -573,17 +576,17 @@ impl PrefixMapCompilation {
                             anyhow::anyhow!("could not read file for atom {atom:?} (prefix {p}, path {} in dir {}): {e}", path.display(), current_dir.display())
                         })?;
 
-                        compilation_objects.insert(atom.to_string(), bytes);
-                        manual_prefixes.insert(atom.to_string(), atom_hash.to_string());
+                        compilation_objects.insert(normalize_atom_name(atom), bytes);
+                        manual_prefixes.insert(normalize_atom_name(atom), atom_hash.to_string());
                     }
                 }
                 // atom + path, but default SHA256 prefix
                 [atom, path] => {
                     let atom_hash = atoms
                     .iter()
-                    .find_map(|(name, bytes)| if name.as_str() == atom.as_str() { Some(Self::hash_for_bytes(bytes)) } else { None })
+                    .find_map(|(name, bytes)| if normalize_atom_name(name) == normalize_atom_name(atom) { Some(Self::hash_for_bytes(bytes)) } else { None })
                     .ok_or_else(|| anyhow::anyhow!("no atom {atom:?} found, for prefix {p:?}, available atoms are {available_atoms:?}"))?;
-                    manual_prefixes.insert(atom.to_string(), atom_hash.to_string());
+                    manual_prefixes.insert(normalize_atom_name(atom), atom_hash.to_string());
 
                     if !only_validate_prefixes {
                         let current_dir = std::env::current_dir().unwrap().canonicalize().unwrap();
@@ -591,12 +594,12 @@ impl PrefixMapCompilation {
                         let bytes = std::fs::read(&path).map_err(|e| {
                             anyhow::anyhow!("could not read file for atom {atom:?} (prefix {p}, path {} in dir {}): {e}", path.display(), current_dir.display())
                         })?;
-                        compilation_objects.insert(atom.to_string(), bytes);
+                        compilation_objects.insert(normalize_atom_name(atom), bytes);
                     }
                 }
                 // only prefix if atoms.len() == 1
                 [prefix] if atoms.len() == 1 => {
-                    manual_prefixes.insert(atoms[0].0.clone(), prefix.to_string());
+                    manual_prefixes.insert(normalize_atom_name(&atoms[0].0), prefix.to_string());
                 }
                 _ => {
                     return Err(anyhow::anyhow!("invalid --precompiled-atom {p:?} - correct format is ATOM:PREFIX:PATH or ATOM:PATH"));
@@ -735,7 +738,7 @@ fn compile_atoms(
     let mut module_infos = BTreeMap::new();
     for (a, data) in atoms {
         let prefix = prefixes
-            .get_prefix_for_atom(a)
+            .get_prefix_for_atom(&normalize_atom_name(a))
             .ok_or_else(|| anyhow::anyhow!("no prefix given for atom {a}"))?;
         let atom_name = utils::normalize_atom_name(a);
         let output_object_path = output_dir.join(format!("{atom_name}.o"));
@@ -1284,6 +1287,22 @@ fn link_exe_from_dir(
             .unwrap_or_default();
 
         cmd.args(files_winsdk);
+    }
+
+    if zig_triple.contains("macos") {
+        // need to link with Security framework when using zig, but zig
+        // doesn't include it, so we need to bring a copy of the dtb file
+        // which is basicaly the collection of exported symbol for the libs
+        let framework = include_bytes!("security_framework.tgz").to_vec();
+        // extract files
+        let tar = flate2::read::GzDecoder::new(framework.as_slice());
+        let mut archive = Archive::new(tar);
+        // directory is a temp folder
+        archive.unpack(directory)?;
+        // add the framework to the link command
+        cmd.arg("-framework");
+        cmd.arg("Security");
+        cmd.arg(format!("-F{}", directory.display()));
     }
 
     if debug {
@@ -1857,7 +1876,7 @@ pub(super) mod utils {
     pub(super) fn get_libwasmer_cache_path() -> anyhow::Result<PathBuf> {
         let mut path = get_wasmer_dir()?;
         path.push("cache");
-        let _ = std::fs::create_dir(&path);
+        std::fs::create_dir_all(&path)?;
         Ok(path)
     }
 
@@ -1954,7 +1973,7 @@ pub(super) mod utils {
             "/test/wasmer-windows.exe",
         ];
 
-        let paths = test_paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
+        let paths = test_paths.iter().map(Path::new).collect::<Vec<_>>();
         assert_eq!(
             paths
                 .iter()
@@ -1966,7 +1985,7 @@ pub(super) mod utils {
             vec![&Path::new("/test/wasmer-windows-gnu64.tar.gz")],
         );
 
-        let paths = test_paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
+        let paths = test_paths.iter().map(Path::new).collect::<Vec<_>>();
         assert_eq!(
             paths
                 .iter()
@@ -1978,7 +1997,7 @@ pub(super) mod utils {
             vec![&Path::new("/test/wasmer-windows-gnu64.tar.gz")],
         );
 
-        let paths = test_paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
+        let paths = test_paths.iter().map(Path::new).collect::<Vec<_>>();
         assert_eq!(
             paths
                 .iter()
