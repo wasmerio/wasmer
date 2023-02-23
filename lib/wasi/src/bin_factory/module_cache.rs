@@ -148,7 +148,7 @@ impl ModuleCache {
                 let mut already: HashSet<String> = Default::default();
                 while data.entry.is_none() {
                     let mut inherits = data.uses.iter().filter_map(|webc| {
-                        if already.contains(webc) == false {
+                        if !already.contains(webc) {
                             already.insert(webc.clone());
                             self.get_webc_slow(webc, runtime, cache)
                         } else {
