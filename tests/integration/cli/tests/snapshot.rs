@@ -434,6 +434,7 @@ fn test_snapshot_thread_locals() {
 //     assert_json_snapshot!(snapshot);
 // }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn test_snapshot_dash() {
     let snapshot = TestBuilder::new()
