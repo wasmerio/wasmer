@@ -124,6 +124,17 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
             func_env: self.func_env.clone(),
         }
     }
+
+    /// Borrows a new mutable reference of both the attached Store and host state
+    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut) {
+        let data = self.func_env.as_mut(&mut self.store_mut) as *mut T;
+        // telling the borrow check to close his eyes here
+        // this is still relatively safe to do as func_env are
+        // stored in a specific vec of Store, separate from the other objects
+        // and not really directly accessible with the StoreMut
+        let data = unsafe { &mut *data };
+        (data, self.store_mut.as_store_mut())
+    }
 }
 
 impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
