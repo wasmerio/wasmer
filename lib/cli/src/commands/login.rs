@@ -3,7 +3,7 @@ use clap::Parser;
 use dialoguer::Input;
 use wasmer_registry::WasmerConfig;
 
-/// Subcommand for listing packages
+/// Subcommand for logging into the registry
 #[derive(Debug, Clone, Parser)]
 pub struct Login {
     /// Registry to log into (default: wapm.io)
@@ -15,7 +15,7 @@ pub struct Login {
 }
 
 impl Login {
-    fn get_token_or_ask_user(&self) -> Result<String, std::io::Error> {
+    pub(super) fn get_token_or_ask_user(&self) -> Result<String, std::io::Error> {
         match self.token.as_ref() {
             Some(s) => Ok(s.clone()),
             None => {

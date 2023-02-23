@@ -88,11 +88,10 @@ fn prepare_webc_env(
     command: &str,
     args: &[String],
 ) -> Result<WasiEnvBuilder, anyhow::Error> {
-    use webc::FsEntryType;
-
     let filesystem = Box::new(WebcFileSystem::init_all(webc));
+    let top_level_dirs = filesystem.top_level_dirs().clone();
     let mut builder = WasiEnv::builder(command).fs(filesystem).args(args);
-    for f_name in filesystem.top_level_dirs() {
+    for f_name in top_level_dirs.iter() {
         builder.add_preopen_build(|p| p.directory(f_name).read(true).write(true).create(true))?;
     }
 

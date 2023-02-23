@@ -9,7 +9,8 @@ use crate::commands::CreateExe;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
 use crate::commands::{
-    Add, Cache, Config, Init, Inspect, List, Login, Publish, Run, SelfUpdate, Validate, Whoami,
+    Add, Cache, Config, Init, Inspect, List, Login, Logout, Publish, PublishWebSite, Run,
+    SelfUpdate, Validate, Whoami,
 };
 #[cfg(feature = "static-artifact-create")]
 use crate::commands::{CreateObj, GenCHeader};
@@ -46,9 +47,16 @@ enum WasmerCLIOptions {
     /// Login into a wapm.io-like registry
     Login(Login),
 
-    /// Login into a wapm.io-like registry
+    /// Logout of a wapm.io-like registry
+    Logout(Logout),
+
+    /// Publish a package to a wapm.io-like registry
     #[clap(name = "publish")]
     Publish(Publish),
+
+    /// Publish a static web site on a wapm.io-like registry
+    #[clap(name = "publish-web")]
+    PublishWebSite(PublishWebSite),
 
     /// Wasmer cache
     #[clap(subcommand)]
@@ -180,7 +188,9 @@ impl WasmerCLIOptions {
             Self::Init(init) => init.execute(),
             Self::List(list) => list.execute(),
             Self::Login(login) => login.execute(),
+            Self::Logout(logout) => logout.execute(),
             Self::Publish(publish) => publish.execute(),
+            Self::PublishWebSite(publish) => publish.execute(),
             #[cfg(feature = "static-artifact-create")]
             Self::GenCHeader(gen_heder) => gen_heder.execute(),
             #[cfg(feature = "wast")]
@@ -242,7 +252,9 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
         match command.unwrap_or(&"".to_string()).as_ref() {
             "add" | "cache" | "compile" | "config" | "create-obj" | "create-exe" | "help"
             | "gen-c-header" | "inspect" | "init" | "run" | "self-update" | "validate" | "wast"
-            | "binfmt" | "list" | "login" | "publish" => WasmerCLIOptions::parse(),
+            | "binfmt" | "list" | "login" | "logout" | "publish" | "publish-web" => {
+                WasmerCLIOptions::parse()
+            }
             _ => {
                 WasmerCLIOptions::try_parse_from(args.iter()).unwrap_or_else(|e| {
                     match e.kind() {

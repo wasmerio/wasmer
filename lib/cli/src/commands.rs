@@ -16,7 +16,9 @@ mod init;
 mod inspect;
 mod list;
 mod login;
+mod logout;
 mod publish;
+mod publish_website;
 mod run;
 mod self_update;
 mod validate;
@@ -34,8 +36,8 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "wast")]
 pub use wast::*;
 pub use {
-    add::*, cache::*, config::*, init::*, inspect::*, list::*, login::*, publish::*, run::*,
-    self_update::*, validate::*, whoami::*,
+    add::*, cache::*, config::*, init::*, inspect::*, list::*, login::*, logout::*, publish::*,
+    publish_website::*, run::*, self_update::*, validate::*, whoami::*,
 };
 #[cfg(feature = "static-artifact-create")]
 pub use {create_obj::*, gen_c_header::*};
