@@ -4,13 +4,13 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::{collections::BTreeSet, path::Path};
-use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, RuntimeError, Value};
+use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Value};
 use wasmer_vfs::FileSystem;
-use wasmer_vfs::{PassthruFileSystem, RootFileSystemBuilder, SpecialFile};
+use wasmer_vfs::{DeviceFile, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer_wasi::types::__WASI_STDIN_FILENO;
 use wasmer_wasi::{
     default_fs_backing, get_wasi_versions, PluggableRuntimeImplementation, WasiEnv, WasiError,
-    WasiVersion,
+    WasiFunctionEnv, WasiVersion,
 };
 
 use clap::Parser;
@@ -108,7 +108,7 @@ impl Wasi {
         module: &Module,
         program_name: String,
         args: Vec<String>,
-    ) -> Result<(FunctionEnv<WasiEnv>, Instance)> {
+    ) -> Result<(WasiFunctionEnv, Instance)> {
         let args = args.iter().cloned().map(|arg| arg.into_bytes());
 
         let map_commands = self
@@ -141,7 +141,7 @@ impl Wasi {
         let mut builder = if wasmer_wasi::is_wasix_module(module) {
             // If we preopen anything from the host then shallow copy it over
             let root_fs = RootFileSystemBuilder::new()
-                .with_tty(Box::new(SpecialFile::new(__WASI_STDIN_FILENO)))
+                .with_tty(Box::new(DeviceFile::new(__WASI_STDIN_FILENO)))
                 .build();
             if !self.mapped_dirs.is_empty() {
                 let fs_backing: Arc<dyn FileSystem + Send + Sync> =
@@ -182,7 +182,7 @@ impl Wasi {
         }
 
         let (instance, wasi_env) = builder.instantiate(module.clone(), store)?;
-        Ok((wasi_env.env, instance))
+        Ok((wasi_env, instance))
     }
 
     /// Helper function for handling the result of a Wasi _start function.

@@ -610,8 +610,6 @@ impl WasiEnvBuilder {
             .take()
             .unwrap_or_else(|| Box::new(ArcFile::new(Box::new(super::Stdin::default()))));
 
-        // If we are running WASIX then we start a full sandbox FS
-        // otherwise we drop through to a default file system
         let fs_backing = self
             .fs
             .take()
@@ -704,6 +702,11 @@ impl WasiEnvBuilder {
         };
 
         Ok(init)
+    }
+
+    pub fn build(self) -> Result<WasiEnv, WasiRuntimeError> {
+        let init = self.build_init()?;
+        WasiEnv::from_init(init)
     }
 
     /// Construct a [`WasiFunctionEnv`].

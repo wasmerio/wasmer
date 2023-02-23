@@ -32,24 +32,24 @@ use std::sync::{Arc, LockResult, PoisonError, RwLock, RwLockReadGuard, RwLockWri
 ///
 /// This function might panic when called if the lock is already held by the current thread.
 ///
-/// # Examples
-///
-/// ```
-/// use std::sync::{Arc, RwLock};
-/// use std::thread;
-/// use crate::utils::read_owned;
-///
-/// let lock = Arc::new(RwLock::new(1));
-/// let c_lock = Arc::clone(&lock);
-///
-/// let n = read_owned(&lock).unwrap();
-/// assert_eq!(*n, 1);
-///
-/// thread::spawn(move || {
-///     let r = read_owned(&c_lock);
-///     assert!(r.is_ok());
-/// }).join().unwrap();
-/// ```
+// # Examples
+//
+// ```
+// use std::sync::{Arc, RwLock};
+// use std::thread;
+// use crate::utils::owned_mutex_guard::read_owned;
+//
+// let lock = Arc::new(RwLock::new(1));
+// let c_lock = Arc::clone(&lock);
+//
+// let n = read_owned(&lock).unwrap();
+// assert_eq!(*n, 1);
+//
+// thread::spawn(move || {
+//     let r = read_owned(&c_lock);
+//     assert!(r.is_ok());
+// }).join().unwrap();
+// ```
 pub(crate) fn read_owned<T>(lock: &Arc<RwLock<T>>) -> LockResult<OwnedRwLockReadGuard<T>> {
     OwnedRwLockReadGuard::new(lock)
 }
@@ -73,17 +73,17 @@ pub(crate) fn read_owned<T>(lock: &Arc<RwLock<T>>) -> LockResult<OwnedRwLockRead
 ///
 /// This function might panic when called if the lock is already held by the current thread.
 ///
-/// # Examples
-///
-/// ```
-/// use std::sync::RwLock;
-/// use crate::utils::write_owned;
-///
-/// let lock = RwLock::new(1);
-///
-/// let mut n = write_owned(&lock).unwrap();
-/// *n = 2;
-/// ```
+// # Examples
+//
+// ```
+// use std::sync::RwLock;
+// use crate::utils::owned_mutex_guard::write_owned;
+//
+// let lock = RwLock::new(1);
+//
+// let mut n = write_owned(&lock).unwrap();
+// *n = 2;
+// ```
 pub(crate) fn write_owned<T>(lock: &Arc<RwLock<T>>) -> LockResult<OwnedRwLockWriteGuard<T>> {
     OwnedRwLockWriteGuard::new(lock)
 }

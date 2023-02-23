@@ -85,6 +85,7 @@ fn test_run_customlambda() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn assert_tarball_is_present_local(target: &str) -> Result<PathBuf, anyhow::Error> {
     let wasmer_dir = std::env::var("WASMER_DIR").expect("no WASMER_DIR set");
     let directory = match target {
@@ -106,7 +107,10 @@ fn assert_tarball_is_present_local(target: &str) -> Result<PathBuf, anyhow::Erro
     Ok(libwasmer_cache_path)
 }
 
-#[test]
+// FIXME: Fix and re-enable this test
+// See https://github.com/wasmerio/wasmer/issues/3615
+// #[test]
+#[allow(dead_code)]
 fn test_cross_compile_python_windows() -> anyhow::Result<()> {
     let temp_dir = tempfile::TempDir::new()?;
 

@@ -19,8 +19,8 @@ use std::slice;
 #[cfg(feature = "webc_runner")]
 use wasmer_api::{AsStoreMut, Imports, Module};
 use wasmer_wasi::{
-    get_wasi_version, wasmer_vfs::AsyncReadExt, Pipe, VirtualTaskManager, WasiEnv, WasiEnvBuilder,
-    WasiFile, WasiFunctionEnv, WasiVersion,
+    default_fs_backing, get_wasi_version, wasmer_vfs::AsyncReadExt, Pipe, VirtualTaskManager,
+    WasiEnv, WasiEnvBuilder, WasiFile, WasiFunctionEnv, WasiVersion,
 };
 
 #[derive(Debug)]
@@ -45,7 +45,7 @@ pub unsafe extern "C" fn wasi_config_new(
         inherit_stdout: true,
         inherit_stderr: true,
         inherit_stdin: true,
-        builder: WasiEnv::builder(prog_name),
+        builder: WasiEnv::builder(prog_name).fs(default_fs_backing()),
     }))
 }
 
@@ -329,7 +329,12 @@ pub unsafe extern "C" fn wasi_env_new(
 
 /// Delete a [`wasi_env_t`].
 #[no_mangle]
-pub extern "C" fn wasi_env_delete(_state: Option<Box<wasi_env_t>>) {}
+pub extern "C" fn wasi_env_delete(state: Option<Box<wasi_env_t>>) {
+    if let Some(mut env) = state {
+        env.inner
+            .cleanup(unsafe { &mut env.store.store_mut() }, None);
+    }
+}
 
 /// Set the memory on a [`wasi_env_t`].
 // NOTE: Only here to not break the C API.

@@ -365,11 +365,27 @@ impl WasiFs {
         }
     }
 
-    /// Closes all the file handles
+    /// Closes all the file handles.
     #[allow(clippy::await_holding_lock)]
-    pub fn close_all(&self) {
-        let mut guard = self.fd_map.write().unwrap();
-        guard.clear();
+    pub async fn close_all(&self) {
+        // TODO: this should close all uniquely owned files instead of just flushing.
+
+        let to_close = {
+            if let Ok(map) = self.fd_map.read() {
+                map.keys().copied().collect::<Vec<_>>()
+            } else {
+                Vec::new()
+            }
+        };
+
+        for fd in to_close {
+            self.flush(fd).await.ok();
+            self.close_fd(fd).ok();
+        }
+
+        if let Ok(mut map) = self.fd_map.write() {
+            map.clear();
+        }
     }
 
     /// Will conditionally union the binary file system with this one
@@ -1590,6 +1606,7 @@ impl WasiFs {
             Fdflags::APPEND,
         );
     }
+
     fn create_stdin(&self, inodes: &WasiInodes) {
         self.create_std_dev_inner(
             inodes,
@@ -1600,6 +1617,7 @@ impl WasiFs {
             Fdflags::empty(),
         );
     }
+
     fn create_stderr(&self, inodes: &WasiInodes) {
         self.create_std_dev_inner(
             inodes,

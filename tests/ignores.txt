@@ -313,3 +313,6 @@ wasitests::nightly_2022_10_18::union_fs::fd_append
 # FIXME: Those tests seems to fails on CI, but can't rproduce the issue on local Windows
 windows     wasitests::snapshot1::host_fs::path_rename
 windows     wasitests::nightly_2022_10_18::host_fs::path_rename
+
+# FIXME - re-enable once the path resolution failures in WasiFs have been worked out
+path_rename

@@ -46,7 +46,7 @@ struct PipeReceiver {
 }
 
 impl Pipe {
-    pub fn new() -> Self {
+    fn new() -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
 
         Pipe {
@@ -82,21 +82,15 @@ impl Pipe {
     }
 }
 
-impl Into<PipeTx> for Pipe {
-    fn into(self) -> PipeTx {
-        self.send
+impl From<Pipe> for PipeTx {
+    fn from(val: Pipe) -> Self {
+        val.send
     }
 }
 
-impl Into<PipeRx> for Pipe {
-    fn into(self) -> PipeRx {
-        self.recv
-    }
-}
-
-impl Default for Pipe {
-    fn default() -> Self {
-        Self::new()
+impl From<Pipe> for PipeRx {
+    fn from(val: Pipe) -> Self {
+        val.recv
     }
 }
 
@@ -307,9 +301,11 @@ impl AsyncWrite for PipeTx {
             ))),
         }
     }
+
     fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         Poll::Ready(Ok(()))
     }
+
     fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         self.close();
         Poll::Ready(Ok(()))

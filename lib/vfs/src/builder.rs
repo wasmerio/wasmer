@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use tracing::*;
 
 use super::ZeroFile;
-use super::{NullFile, SpecialFile};
+use super::{DeviceFile, NullFile};
 use crate::tmp_fs::TmpFileSystem;
 
 pub struct RootFileSystemBuilder {
@@ -72,31 +72,31 @@ impl RootFileSystemBuilder {
         if self.add_wasmer_command {
             let _ = tmp
                 .new_open_options_ext()
-                .insert_custom_file(PathBuf::from("/bin/wasmer"), Box::new(NullFile::default()));
+                .insert_device_file(PathBuf::from("/bin/wasmer"), Box::new(NullFile::default()));
         }
         if self.default_dev_files {
             let _ = tmp
                 .new_open_options_ext()
-                .insert_custom_file(PathBuf::from("/dev/null"), Box::new(NullFile::default()));
+                .insert_device_file(PathBuf::from("/dev/null"), Box::new(NullFile::default()));
             let _ = tmp
                 .new_open_options_ext()
-                .insert_custom_file(PathBuf::from("/dev/zero"), Box::new(ZeroFile::default()));
-            let _ = tmp.new_open_options_ext().insert_custom_file(
+                .insert_device_file(PathBuf::from("/dev/zero"), Box::new(ZeroFile::default()));
+            let _ = tmp.new_open_options_ext().insert_device_file(
                 PathBuf::from("/dev/stdin"),
                 self.stdin
-                    .unwrap_or_else(|| Box::new(SpecialFile::new(SpecialFile::STDIN))),
+                    .unwrap_or_else(|| Box::new(DeviceFile::new(DeviceFile::STDIN))),
             );
-            let _ = tmp.new_open_options_ext().insert_custom_file(
+            let _ = tmp.new_open_options_ext().insert_device_file(
                 PathBuf::from("/dev/stdout"),
                 self.stdout
-                    .unwrap_or_else(|| Box::new(SpecialFile::new(SpecialFile::STDOUT))),
+                    .unwrap_or_else(|| Box::new(DeviceFile::new(DeviceFile::STDOUT))),
             );
-            let _ = tmp.new_open_options_ext().insert_custom_file(
+            let _ = tmp.new_open_options_ext().insert_device_file(
                 PathBuf::from("/dev/stderr"),
                 self.stderr
-                    .unwrap_or_else(|| Box::new(SpecialFile::new(SpecialFile::STDERR))),
+                    .unwrap_or_else(|| Box::new(DeviceFile::new(DeviceFile::STDERR))),
             );
-            let _ = tmp.new_open_options_ext().insert_custom_file(
+            let _ = tmp.new_open_options_ext().insert_device_file(
                 PathBuf::from("/dev/tty"),
                 self.tty.unwrap_or_else(|| Box::new(NullFile::default())),
             );
