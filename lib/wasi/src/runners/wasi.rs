@@ -90,25 +90,9 @@ fn prepare_webc_env(
 ) -> Result<WasiEnvBuilder, anyhow::Error> {
     use webc::FsEntryType;
 
-    let package_name = webc.get_package_name();
-    let top_level_dirs = webc
-        .get_volumes_for_package(&package_name)
-        .into_iter()
-        .flat_map(|volume| {
-            webc.volumes
-                .get(&volume)
-                .unwrap()
-                .header
-                .top_level
-                .iter()
-                .filter(|e| e.fs_type == FsEntryType::Dir)
-                .map(|e| e.text.to_string())
-        })
-        .collect::<Vec<_>>();
-
-    let filesystem = Box::new(WebcFileSystem::init(webc, &package_name));
+    let filesystem = Box::new(WebcFileSystem::init_all(webc));
     let mut builder = WasiEnv::builder(command).fs(filesystem).args(args);
-    for f_name in top_level_dirs.iter() {
+    for f_name in filesystem.top_level_dirs() {
         builder.add_preopen_build(|p| p.directory(f_name).read(true).write(true).create(true))?;
     }
 
