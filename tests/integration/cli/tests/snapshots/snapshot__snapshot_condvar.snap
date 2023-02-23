@@ -1,0 +1,22 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": null,
+    "wasm_hash": "33552ff4ca03a898f0e2e671cfc56ed8",
+    "use_packages": [],
+    "cli_args": [],
+    "stdin": null,
+    "debug_output": true,
+    "enable_threads": true
+  },
+  "result": {
+    "Success": {
+      "stdout": "condvar1 thread spawn\ncondvar1 thread started\ncondvar1 thread sleep(1sec) start\ncondvar loop\ncondvar wait\ncondvar1 thread sleep(1sec) end\ncondvar1 thread set condition\ncondvar1 thread notify\ncondvar woken\ncondvar parent done\ncondvar1 thread exit\nall done\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

@@ -1,0 +1,24 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": null,
+    "wasm_hash": "236b09a27be50336a6abf87e53ca754d",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "cli_args": [],
+    "stdin": null,
+    "debug_output": false,
+    "enable_threads": true
+  },
+  "result": {
+    "Success": {
+      "stdout": "Child pid: 2\nhi\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

@@ -78,6 +78,10 @@ fn main() -> anyhow::Result<()> {
                     for (wasi_filesystem_test_name, wasi_filesystem_kind) in &[
                         ("host_fs", "WasiFileSystemKind::Host"),
                         ("mem_fs", "WasiFileSystemKind::InMemory"),
+                        ("tmp_fs", "WasiFileSystemKind::Tmp"),
+                        ("passthru_fs", "WasiFileSystemKind::PassthruMemory"),
+                        ("union_fs", "WasiFileSystemKind::UnionHostMemory"),
+                        ("root_fs", "WasiFileSystemKind::RootFileSystemBuilder"),
                     ] {
                         with_test_module(wasitests, wasi_filesystem_test_name, |wasitests| {
                             test_directory(

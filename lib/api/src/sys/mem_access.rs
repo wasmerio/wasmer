@@ -313,6 +313,14 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
         self.buffer.write(self.offset, bytes)
     }
 
+    /// Reads this `WasmSlice` into a `slice`.
+    #[inline]
+    pub fn read_to_slice(self, buf: &mut [MaybeUninit<u8>]) -> Result<usize, MemoryAccessError> {
+        let len = self.len.try_into().expect("WasmSlice length overflow");
+        self.buffer.read_uninit(self.offset, buf)?;
+        Ok(len)
+    }
+
     /// Reads this `WasmSlice` into a `Vec`.
     #[inline]
     pub fn read_to_vec(self) -> Result<Vec<T>, MemoryAccessError> {

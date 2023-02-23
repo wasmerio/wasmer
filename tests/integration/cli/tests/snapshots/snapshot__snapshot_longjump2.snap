@@ -1,0 +1,24 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": null,
+    "wasm_hash": "999c6459bbc565b8f2c483c7baec2208",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "cli_args": [],
+    "stdin": null,
+    "debug_output": false,
+    "enable_threads": true
+  },
+  "result": {
+    "Success": {
+      "stdout": "before long jump\nafter long jump [val=10]\nbefore long jump\nafter long jump [val=20]\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

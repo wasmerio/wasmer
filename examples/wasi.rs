@@ -1,11 +1,10 @@
 //! Running a WASI compiled WebAssembly module with Wasmer.
 //!
 //! This example illustrates how to run WASI modules with
-//! Wasmer. To run WASI we have to have to do mainly 3 steps:
+//! Wasmer.
 //!
-//!   1. Create a `WasiEnv` instance
-//!   2. Attach the imports from the `WasiEnv` to a new instance
-//!   3. Run the `WASI` module.
+//! If you need more manual control over the instantiation, including custom
+//! imports, then check out the ./wasi_manual_setup.rs example.
 //!
 //! You can run the example directly by executing in Wasmer root:
 //!
@@ -15,9 +14,11 @@
 //!
 //! Ready?
 
-use wasmer::{Instance, Module, Store};
+use std::io::Read;
+
+use wasmer::{Module, Store};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_wasi::WasiState;
+use wasmer_wasi::{Pipe, WasiEnv};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_path = concat!(
@@ -37,28 +38,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's compile the Wasm module.
     let module = Module::new(&store, wasm_bytes)?;
 
-    println!("Creating `WasiEnv`...");
-    // First, we create the `WasiEnv`
-    let wasi_env = WasiState::new("hello")
+    let (stdout_tx, mut stdout_rx) = Pipe::channel();
+
+    // Run the module.
+    WasiEnv::builder("hello")
         // .args(&["world"])
         // .env("KEY", "Value")
-        .finalize(&mut store)?;
+        .stdout(Box::new(stdout_tx))
+        .run_with_store(module, &mut store)?;
 
-    println!("Instantiating module with WASI imports...");
-    // Then, we get the import object related to our WASI
-    // and attach it to the Wasm instance.
-    let import_object = wasi_env.import_object(&mut store, &module)?;
-    let instance = Instance::new(&mut store, &module, &import_object)?;
+    eprintln!("Run complete - reading output");
 
-    println!("Attach WASI memory...");
-    // Attach the memory export
-    let memory = instance.exports.get_memory("memory")?;
-    wasi_env.data_mut(&mut store).set_memory(memory.clone());
+    let mut buf = String::new();
+    stdout_rx.read_to_string(&mut buf).unwrap();
 
-    println!("Call WASI `_start` function...");
-    // And we just call the `_start` function!
-    let start = instance.exports.get_function("_start")?;
-    start.call(&mut store, &[])?;
+    eprintln!("Output: {buf}");
 
     Ok(())
 }

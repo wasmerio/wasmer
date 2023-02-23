@@ -58,6 +58,7 @@ pub use crate::js::native::TypedFunction;
 pub use crate::js::native_type::NativeWasmTypeInto;
 pub use crate::js::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
 pub use crate::js::trap::RuntimeError;
+pub use crate::js::vm::VMMemory;
 
 pub use crate::js::store::{
     AsStoreMut, AsStoreRef, Store, StoreHandle, StoreMut, StoreObjects, StoreRef,
