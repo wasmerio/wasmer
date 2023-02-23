@@ -371,6 +371,7 @@ fn test_snapshot_pipes() {
 // }
 
 // full multi-threading with shared memory and shared compiled modules
+#[cfg(target_os = "linux")]
 #[test]
 fn test_snapshot_sleep() {
     let snapshot = TestBuilder::new().run_wasm(include_bytes!("./wasm/example-sleep.wasm"));
