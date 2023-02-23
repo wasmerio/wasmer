@@ -20,9 +20,10 @@ pub struct WebcFileSystem<T>
 where
     T: std::fmt::Debug + Send + Sync + 'static,
 {
-    pub package: String,
     pub webc: Arc<T>,
     pub memory: Arc<MemFileSystem>,
+    top_level_dirs: Vec<String>,
+    volumes: Vec<webc::Volume<'static>>,
 }
 
 impl<T> WebcFileSystem<T>
@@ -31,17 +32,43 @@ where
     T: Deref<Target = WebC<'static>>,
 {
     pub fn init(webc: Arc<T>, package: &str) -> Self {
-        let fs = Self {
-            package: package.to_string(),
+        let mut fs = Self {
             webc: webc.clone(),
             memory: Arc::new(MemFileSystem::default()),
+            top_level_dirs: Vec::new(),
+            volumes: Vec::new(),
         };
+
         for volume in webc.get_volumes_for_package(package) {
+            if let Some(vol_ref) = webc.volumes.get(&volume) {
+                fs.volumes.push(vol_ref.clone());
+            }
             for directory in webc.list_directories(&volume) {
+                fs.top_level_dirs.push(directory.clone());
                 let _ = fs.create_dir(Path::new(&directory));
             }
         }
         fs
+    }
+
+    pub fn init_all(webc: Arc<T>) -> Self {
+        let mut fs = Self {
+            webc: webc.clone(),
+            memory: Arc::new(MemFileSystem::default()),
+            top_level_dirs: Vec::new(),
+            volumes: webc.volumes.clone().into_values().collect(),
+        };
+        for (header, _) in webc.volumes.iter() {
+            for directory in webc.list_directories(header) {
+                fs.top_level_dirs.push(directory.clone());
+                let _ = fs.create_dir(Path::new(&directory));
+            }
+        }
+        fs
+    }
+
+    pub fn top_level_dirs(&self) -> &Vec<String> {
+        &self.top_level_dirs
     }
 }
 
@@ -66,7 +93,6 @@ where
                     .map_err(|_e| FsError::EntryNotFound)?;
 
                 Ok(Box::new(WebCFile {
-                    package: self.package.clone(),
                     volume,
                     webc: self.webc.clone(),
                     path: path.to_path_buf(),
@@ -75,8 +101,8 @@ where
                 }))
             }
             None => {
-                for volume in self.webc.get_volumes_for_package(&self.package) {
-                    let v = match self.webc.volumes.get(&volume) {
+                for (volume, _) in self.webc.volumes.iter() {
+                    let v = match self.webc.volumes.get(volume) {
                         Some(s) => s,
                         None => continue, // error
                     };
@@ -87,7 +113,6 @@ where
                     };
 
                     return Ok(Box::new(WebCFile {
-                        package: self.package.clone(),
                         volume: volume.clone(),
                         webc: self.webc.clone(),
                         path: path.to_path_buf(),
@@ -107,8 +132,6 @@ where
     T: std::fmt::Debug + Send + Sync + 'static,
 {
     pub webc: Arc<T>,
-    #[allow(dead_code)]
-    pub package: String,
     pub volume: String,
     #[allow(dead_code)]
     pub path: PathBuf,
@@ -281,10 +304,12 @@ where
     fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
         let path = normalizes_path(path);
         let read_dir_result = self
-            .webc
-            .read_dir(&self.package, &path)
+            .volumes
+            .iter()
+            .filter_map(|v| v.read_dir(&path).ok())
+            .next()
             .map(|o| transform_into_read_dir(Path::new(&path), o.as_ref()))
-            .map_err(|_| FsError::EntryNotFound);
+            .ok_or(FsError::EntryNotFound);
 
         match read_dir_result {
             Ok(o) => Ok(o),
@@ -299,7 +324,7 @@ where
     fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
         let result = self.memory.remove_dir(Path::new(&path));
-        if self.webc.get_file_entry(&self.package, &path).is_some() {
+        if self.volumes.iter().any(|v| v.get_file_entry(&path).is_ok()) {
             Ok(())
         } else {
             result
@@ -309,7 +334,7 @@ where
         let from = normalizes_path(from);
         let to = normalizes_path(to);
         let result = self.memory.rename(Path::new(&from), Path::new(&to));
-        if self.webc.get_file_entry(&self.package, &from).is_some() {
+        if self.volumes.iter().any(|v| v.get_file_entry(&from).is_ok()) {
             Ok(())
         } else {
             result
@@ -317,15 +342,26 @@ where
     }
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         let path = normalizes_path(path);
-        if let Some(fs_entry) = self.webc.get_file_entry(&self.package, &path) {
+        if let Some(fs_entry) = self
+            .volumes
+            .iter()
+            .filter_map(|v| v.get_file_entry(&path).ok())
+            .next()
+        {
             Ok(Metadata {
                 ft: translate_file_type(FsEntryType::File),
                 accessed: 0,
                 created: 0,
                 modified: 0,
-                len: fs_entry.1.get_len(),
+                len: fs_entry.get_len(),
             })
-        } else if self.webc.read_dir(&self.package, &path).is_ok() {
+        } else if self
+            .volumes
+            .iter()
+            .filter_map(|v| v.read_dir(&path).ok())
+            .next()
+            .is_some()
+        {
             Ok(Metadata {
                 ft: translate_file_type(FsEntryType::Dir),
                 accessed: 0,
@@ -340,7 +376,13 @@ where
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
         let result = self.memory.remove_file(Path::new(&path));
-        if self.webc.get_file_entry(&self.package, &path).is_some() {
+        if self
+            .volumes
+            .iter()
+            .filter_map(|v| v.get_file_entry(&path).ok())
+            .next()
+            .is_some()
+        {
             Ok(())
         } else {
             result
@@ -351,15 +393,26 @@ where
     }
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         let path = normalizes_path(path);
-        if let Some(fs_entry) = self.webc.get_file_entry(&self.package, &path) {
+        if let Some(fs_entry) = self
+            .volumes
+            .iter()
+            .filter_map(|v| v.get_file_entry(&path).ok())
+            .next()
+        {
             Ok(Metadata {
                 ft: translate_file_type(FsEntryType::File),
                 accessed: 0,
                 created: 0,
                 modified: 0,
-                len: fs_entry.1.get_len(),
+                len: fs_entry.get_len(),
             })
-        } else if self.webc.read_dir(&self.package, &path).is_ok() {
+        } else if self
+            .volumes
+            .iter()
+            .filter_map(|v| v.read_dir(&path).ok())
+            .next()
+            .is_some()
+        {
             Ok(Metadata {
                 ft: translate_file_type(FsEntryType::Dir),
                 accessed: 0,
