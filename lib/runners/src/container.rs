@@ -1,12 +1,7 @@
-#![cfg(feature = "webc_runner")]
-
 use std::error::Error as StdError;
 use std::path::PathBuf;
 use std::sync::Arc;
 use webc::*;
-
-pub mod emscripten;
-pub mod wasi;
 
 /// Parsed WAPM file, memory-mapped to an on-disk path
 #[derive(Debug, Clone)]

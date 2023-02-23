@@ -4889,6 +4889,7 @@ dependencies = [
  "wasmer-emscripten",
  "wasmer-inline-c",
  "wasmer-middlewares",
+ "wasmer-runners",
  "wasmer-types",
  "wasmer-vfs",
  "wasmer-wasi",
@@ -4986,6 +4987,7 @@ dependencies = [
  "wasmer-emscripten",
  "wasmer-object",
  "wasmer-registry",
+ "wasmer-runners",
  "wasmer-toml",
  "wasmer-types",
  "wasmer-vfs",
@@ -5239,6 +5241,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-runners"
+version = "0.1.0"
+dependencies = [
+ "wasmer-emscripten",
+ "wcgi-runner",
+ "webc 4.1.1",
+]
+
+[[package]]
 name = "wasmer-sys-utils"
 version = "3.2.0-alpha.1"
 dependencies = [
@@ -5367,7 +5378,6 @@ dependencies = [
  "rand 0.8.5",
  "reqwest",
  "serde",
- "serde_cbor",
  "serde_derive",
  "serde_json",
  "serde_yaml 0.8.26",
@@ -5388,7 +5398,6 @@ dependencies = [
  "wasm-bindgen-test",
  "wasmer",
  "wasmer-compiler",
- "wasmer-emscripten",
  "wasmer-types",
  "wasmer-vfs",
  "wasmer-vm",

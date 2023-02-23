@@ -19,7 +19,7 @@ use wasmer::*;
 use wasmer_cache::{Cache, FileSystemCache, Hash};
 use wasmer_types::Type as ValueType;
 #[cfg(feature = "webc_runner")]
-use wasmer_wasi::runners::{Runner, WapmContainer};
+use wasmer_runners::{Runner, WapmContainer};
 
 #[cfg(feature = "wasi")]
 mod wasi;

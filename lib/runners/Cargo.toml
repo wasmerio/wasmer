@@ -1,0 +1,16 @@
+[package]
+name = "wasmer-runners"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wasmer-emscripten = { path = "../emscripten", version = "=3.2.0-alpha.1", optional = true }
+wcgi-runner = { path = "../wcgi-runner", version = "=3.2.0-alpha.1", optional = true }
+webc = "4.0.0-rc.1"
+
+[features]
+default = ["wcgi"]
+wcgi = ["wcgi-runner"]
+emscripten = ["wasmer-emscripten"]

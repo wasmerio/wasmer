@@ -91,6 +91,7 @@ rpassword = "7.2.0"
 pathdiff = "0.2.1"
 sha2 = "0.10.6"
 object = "0.30.0"
+wasmer-runners = { version = "0.1.0", path = "../runners", optional = true }
 
 [build-dependencies]
 chrono = { version = "^0.4", default-features = false, features = [ "std", "clock" ] }
@@ -118,7 +119,7 @@ wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi", "wasmer-wasi-local-networking"]
 emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
-webc_runner = ["wasi", "wasmer-wasi/webc_runner", "wasmer-wasi/webc_runner_rt_wasi", "wasmer-wasi/webc_runner_rt_emscripten", "nuke-dir", "webc"]
+webc_runner = ["wasi", "wasmer-runners", "wasmer-runners/emscripten", "wasmer-runners/wcgi", "nuke-dir", "webc"]
 compiler = [
     "wasmer-compiler/translator",
     "wasmer-compiler/compiler",

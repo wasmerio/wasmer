@@ -39,7 +39,6 @@ pub mod net;
 // TODO: should this be pub?
 pub mod fs;
 pub mod http;
-pub mod runners;
 pub mod runtime;
 mod state;
 mod syscalls;
