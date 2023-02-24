@@ -243,7 +243,7 @@ pub(crate) struct VMFuncRef;
 impl VMFuncRef {
     /// Converts the `VMFuncRef` into a `RawValue`.
     pub fn into_raw(self) -> RawValue {
-        Raw
+        unimplemented!();
     }
 
     /// Extracts a `VMFuncRef` from a `RawValue`.
