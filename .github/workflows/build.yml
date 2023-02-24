@@ -27,9 +27,9 @@ jobs:
         shell: bash
         run: |
           VERSION=${GITHUB_REF/refs\/tags\//}
-          echo ::set-output name=VERSION::${VERSION}
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           DOING_RELEASE=$(echo $VERSION | grep -c '^[0-9]\+\.[0-9]\+\.[0-9]\+\(-\([a-zA-Z]\+\)\?[0-9]*\)\?$' || true)
-          echo ::set-output name=DOING_RELEASE::${DOING_RELEASE}
+          echo "DOING_RELEASE=${DOING_RELEASE}" >> $GITHUB_OUTPUT
           echo $VERSION
           echo $DOING_RELEASE
 
@@ -42,7 +42,7 @@ jobs:
       matrix:
         include:
           - build: linux-x64
-            os: ubuntu-18.04
+            os: ubuntu-20.04
             artifact_name: 'wasmer-linux-amd64'
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-linux-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
@@ -87,12 +87,6 @@ jobs:
       TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@v3
-      - name: Set up libstdc++ on Linux
-        if: matrix.build == 'linux-x64'
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
-          sudo apt-get install --reinstall g++-8
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
@@ -107,7 +101,7 @@ jobs:
         with:
           toolchain: nightly
           target: ${{ matrix.metadata.target }}
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
         if: matrix.use_sccache != true
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.os == 'macos-11.0' && !matrix.llvm_url
@@ -258,7 +252,7 @@ jobs:
           TARGET: aarch64-apple-darwin
           TARGET_DIR: target/aarch64-apple-darwin/release
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.artifact_name }}
           path: dist
@@ -267,9 +261,9 @@ jobs:
 
   windows_gnu:
     name: Windows GNU
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install Windows-GNU linker
         shell: bash
         run: |
@@ -330,7 +324,7 @@ jobs:
           CARGO_TARGET: x86_64-pc-windows-gnu
           TARGET_DIR: target/x86_64-pc-windows-gnu/release
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: 'wasmer-windows-gnu64'
           path: dist
@@ -341,7 +335,7 @@ jobs:
     name: Linux aarch64
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: aarch64-unknown-linux-gnu
@@ -395,7 +389,7 @@ jobs:
           TARGET: aarch64-unknown-linux-gnu
           TARGET_DIR: target/aarch64-unknown-linux-gnu/release
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: wasmer-linux-aarch64
           path: dist
