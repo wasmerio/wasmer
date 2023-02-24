@@ -3,7 +3,8 @@
 use std::error::Error as StdError;
 use std::path::PathBuf;
 use std::sync::Arc;
-use webc::*;
+
+use webc::v1::{Command, WebC, WebCMmap};
 
 pub mod emscripten;
 pub mod wasi;
@@ -16,7 +17,7 @@ pub struct WapmContainer {
 }
 
 impl core::ops::Deref for WapmContainer {
-    type Target = webc::WebC<'static>;
+    type Target = WebC<'static>;
     fn deref<'a>(&'a self) -> &WebC<'static> {
         &self.webc.webc
     }
@@ -26,11 +27,11 @@ impl core::ops::Deref for WapmContainer {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum WebcParseError {
     /// Parse error
-    Parse(webc::Error),
+    Parse(webc::v1::Error),
 }
 
-impl From<webc::Error> for WebcParseError {
-    fn from(e: webc::Error) -> Self {
+impl From<webc::v1::Error> for WebcParseError {
+    fn from(e: webc::v1::Error) -> Self {
         WebcParseError::Parse(e)
     }
 }
@@ -39,7 +40,7 @@ impl WapmContainer {
     /// Parses a .webc container file. Since .webc files
     /// can be very large, only file paths are allowed.
     pub fn new(path: PathBuf) -> std::result::Result<Self, WebcParseError> {
-        let webc = webc::WebCMmap::parse(path, &webc::ParseOptions::default())?;
+        let webc = webc::v1::WebCMmap::parse(path, &webc::v1::ParseOptions::default())?;
         Ok(Self {
             webc: Arc::new(webc),
         })
@@ -107,7 +108,7 @@ impl Bindings for WitBindings {
         container: &WapmContainer,
         value: &serde_cbor::Value,
     ) -> Result<Self, String> {
-        let value: webc::BindingsExtended =
+        let value: webc::metadata::BindingsExtended =
             serde_cbor::from_slice(&serde_cbor::to_vec(value).unwrap())
                 .map_err(|e| format!("could not parse WitBindings annotations: {e}"))?;
 
@@ -161,7 +162,7 @@ pub trait Runner {
             Some(s) => s,
             None => {
                 let path = format!("{}", container.webc.path.display());
-                return Err(Box::new(webc::Error(format!(
+                return Err(Box::new(webc::v1::Error(format!(
                     "Cannot run {path:?}: not executable (no entrypoint in manifest)"
                 ))));
             }
@@ -190,13 +191,13 @@ pub trait Runner {
         match self.can_run_command(cmd, command_to_exec) {
             Ok(true) => {}
             Ok(false) => {
-                return Err(Box::new(webc::Error(format!(
+                return Err(Box::new(webc::v1::Error(format!(
                     "Cannot run command {cmd:?} with runner {:?}",
                     command_to_exec.runner
                 ))));
             }
             Err(e) => {
-                return Err(Box::new(webc::Error(format!(
+                return Err(Box::new(webc::v1::Error(format!(
                     "Cannot run command {cmd:?} with runner {:?}: {e}",
                     command_to_exec.runner
                 ))));

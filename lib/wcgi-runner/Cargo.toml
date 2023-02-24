@@ -27,7 +27,7 @@ wasmer-vfs = { version = "3.2.0-alpha.1", path = "../vfs", default-features = fa
 wasmer-wasi = { version = "3.2.0-alpha.1", path = "../wasi", default-features = false, features = ["sys-default"] }
 wcgi = { version = "0.1.1" }
 wcgi-host = { version = "0.1.0" }
-webc = { version = "5.0.0-rc.1", default-features = false }
+webc = { version = "5.0.0-rc.5", default-features = false }
 
 [dev-dependencies]
 anyhow = { version = "1", features = ["backtrace"] }

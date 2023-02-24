@@ -13,19 +13,22 @@ use crate::mem_fs::FileSystem as MemFileSystem;
 use crate::{
     FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, VirtualFile,
 };
-use webc::{FsEntry, FsEntryType, OwnedFsEntryFile};
+use webc::{
+    metadata::IndexMap,
+    v1::{FsEntry, FsEntryType, OwnedFsEntryFile},
+};
 
 /// Custom file system wrapper to map requested file paths
 #[derive(Debug)]
 pub struct StaticFileSystem {
     pub package: String,
-    pub volumes: Arc<webc::IndexMap<String, webc::Volume<'static>>>,
+    pub volumes: Arc<IndexMap<String, webc::v1::Volume<'static>>>,
     pub memory: Arc<MemFileSystem>,
 }
 
 impl StaticFileSystem {
     pub fn init(bytes: &'static [u8], package: &str) -> Option<Self> {
-        let volumes = Arc::new(webc::WebC::parse_volumes_from_fileblock(bytes).ok()?);
+        let volumes = Arc::new(webc::v1::WebC::parse_volumes_from_fileblock(bytes).ok()?);
         let fs = Self {
             package: package.to_string(),
             volumes: volumes.clone(),
@@ -90,7 +93,7 @@ impl FileOpener for StaticFileSystem {
 
 #[derive(Debug)]
 pub struct WebCFile {
-    pub volumes: Arc<webc::IndexMap<String, webc::Volume<'static>>>,
+    pub volumes: Arc<IndexMap<String, webc::v1::Volume<'static>>>,
     pub package: String,
     pub volume: String,
     pub path: PathBuf,

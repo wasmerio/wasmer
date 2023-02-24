@@ -690,7 +690,7 @@ pub fn get_all_available_registries(wasmer_dir: &Path) -> Result<Vec<String>, St
 #[derive(Debug, PartialEq, Clone)]
 pub struct RemoteWebcInfo {
     pub checksum: String,
-    pub manifest: webc::Manifest,
+    pub manifest: webc::metadata::Manifest,
 }
 
 pub fn install_webc_package(
@@ -772,9 +772,9 @@ fn get_all_installed_webc_packages_inner(wasmer_dir: &Path) -> Vec<RemoteWebcInf
     read_dir
         .filter_map(|r| Some(r.ok()?.path()))
         .filter_map(|path| {
-            webc::WebCMmap::parse(
+            webc::v1::WebCMmap::parse(
                 path,
-                &webc::ParseOptions {
+                &webc::v1::ParseOptions {
                     parse_atoms: false,
                     parse_volumes: false,
                     ..Default::default()
@@ -812,11 +812,11 @@ pub fn get_checksum_hash(bytes: &[u8]) -> String {
 /// Returns the checksum of the .webc file, so that we can check whether the
 /// file is already installed before downloading it
 pub fn get_remote_webc_checksum(url: &Url) -> Result<String, anyhow::Error> {
-    let request_max_bytes = webc::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
+    let request_max_bytes = webc::v1::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
     let data = get_webc_bytes(url, Some(0..request_max_bytes), None)
         .with_context(|| anyhow::anyhow!("note: use --registry to change the registry URL"))?
         .unwrap();
-    let checksum = webc::WebC::get_checksum_bytes(&data)
+    let checksum = webc::v1::WebC::get_checksum_bytes(&data)
         .map_err(|e| anyhow::anyhow!("{e}"))?
         .to_vec();
     Ok(get_checksum_hash(&checksum))
@@ -826,20 +826,20 @@ pub fn get_remote_webc_checksum(url: &Url) -> Result<String, anyhow::Error> {
 /// so we can see if the package has already been installed
 pub fn get_remote_webc_manifest(url: &Url) -> Result<RemoteWebcInfo, anyhow::Error> {
     // Request up unti manifest size / manifest len
-    let request_max_bytes = webc::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
+    let request_max_bytes = webc::v1::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
     let data = get_webc_bytes(url, Some(0..request_max_bytes), None)?.unwrap();
-    let checksum = webc::WebC::get_checksum_bytes(&data)
+    let checksum = webc::v1::WebC::get_checksum_bytes(&data)
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("WebC::get_checksum_bytes failed")?
         .to_vec();
     let hex_string = get_checksum_hash(&checksum);
 
-    let (manifest_start, manifest_len) = webc::WebC::get_manifest_offset_size(&data)
+    let (manifest_start, manifest_len) = webc::v1::WebC::get_manifest_offset_size(&data)
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("WebC::get_manifest_offset_size failed")?;
     let data_with_manifest =
         get_webc_bytes(url, Some(0..manifest_start + manifest_len), None)?.unwrap();
-    let manifest = webc::WebC::get_manifest(&data_with_manifest)
+    let manifest = webc::v1::WebC::get_manifest(&data_with_manifest)
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("WebC::get_manifest failed")?;
     Ok(RemoteWebcInfo {

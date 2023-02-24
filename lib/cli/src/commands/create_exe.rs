@@ -15,9 +15,10 @@ use std::process::Stdio;
 use tar::Archive;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
-use wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
-use wasmer_types::ModuleInfo;
-use webc::{ParseOptions, WebCMmap};
+use wasmer_types::{
+    compilation::symbols::ModuleMetadataSymbolRegistry, ModuleInfo, SymbolRegistry,
+};
+use webc::v1::{ParseOptions, WebCMmap};
 
 const LINK_SYSTEM_LIBRARIES_WINDOWS: &[&str] = &["userenv", "Ws2_32", "advapi32", "bcrypt"];
 
@@ -520,7 +521,7 @@ impl PrefixMapCompilation {
         // if prefixes are specified, have to match the atom names exactly
         if prefixes.len() != atoms.len() {
             println!(
-                "WARNING: invalid mapping of prefix and atoms: expected prefixes for {} atoms, got {} prefixes", 
+                "WARNING: invalid mapping of prefix and atoms: expected prefixes for {} atoms, got {} prefixes",
                 atoms.len(), prefixes.len()
             );
         }

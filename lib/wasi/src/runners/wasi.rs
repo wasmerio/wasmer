@@ -8,7 +8,7 @@ use std::error::Error as StdError;
 use std::sync::Arc;
 use wasmer::{Module, Store};
 use wasmer_vfs::webc_fs::WebcFileSystem;
-use webc::{Command, WebCMmap};
+use webc::{metadata::Command, v1::WebCMmap};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct WasiRunner {

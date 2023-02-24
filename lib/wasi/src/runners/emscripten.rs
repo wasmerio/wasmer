@@ -11,7 +11,7 @@ use wasmer_emscripten::{
     generate_emscripten_env, is_emscripten_module, run_emscripten_instance, EmEnv,
     EmscriptenGlobals,
 };
-use webc::{Command, WebCMmap};
+use webc::{metadata::Command, v1::WebCMmap};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct EmscriptenRunner {
