@@ -10,65 +10,12 @@
 extern crate wasmer_types as wasmer;
 
 pub use crate::types::time::*;
-pub use bus::*;
 pub use directory::*;
 pub use file::*;
 pub use io::*;
 pub use net::*;
 pub use signal::*;
 pub use subscription::*;
-
-pub type __wasi_exitcode_t = u32;
-pub type __wasi_userdata_t = u64;
-
-pub mod bus {
-    use crate::wasi::{
-        BusDataFormat, BusEventClose, BusEventExit, BusEventFault, BusEventType, Cid, OptionCid,
-    };
-    use wasmer_derive::ValueType;
-    use wasmer_types::MemorySize;
-
-    // Not sure how to port these types to .wit with generics ...
-
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
-    #[repr(C)]
-    pub struct __wasi_busevent_call_t<M: MemorySize> {
-        pub parent: OptionCid,
-        pub cid: Cid,
-        pub format: BusDataFormat,
-        pub topic_ptr: M::Offset,
-        pub topic_len: M::Offset,
-        pub buf_ptr: M::Offset,
-        pub buf_len: M::Offset,
-    }
-
-    #[derive(Copy, Clone)]
-    #[repr(C)]
-    pub union __wasi_busevent_u<M: MemorySize> {
-        pub noop: u8,
-        pub exit: BusEventExit,
-        pub call: __wasi_busevent_call_t<M>,
-        pub result: __wasi_busevent_result_t<M>,
-        pub fault: BusEventFault,
-        pub close: BusEventClose,
-    }
-
-    #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueType)]
-    #[repr(C)]
-    pub struct __wasi_busevent_result_t<M: MemorySize> {
-        pub format: BusDataFormat,
-        pub cid: Cid,
-        pub buf_ptr: M::Offset,
-        pub buf_len: M::Offset,
-    }
-
-    #[derive(Copy, Clone)]
-    #[repr(C)]
-    pub struct __wasi_busevent_t<M: MemorySize> {
-        pub tag: BusEventType,
-        pub u: __wasi_busevent_u<M>,
-    }
-}
 
 pub mod file {
     use crate::wasi::{Fd, Rights};
@@ -339,7 +286,5 @@ pub mod signal {
 }
 
 pub mod subscription {
-    pub use crate::wasi::{
-        Eventtype, SubscriptionClock, SubscriptionEnum as EventType, SubscriptionFsReadwrite,
-    };
+    pub use crate::wasi::{Eventtype, SubscriptionFsReadwrite};
 }

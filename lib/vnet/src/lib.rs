@@ -1,12 +1,13 @@
 use std::fmt;
+use std::mem::MaybeUninit;
 use std::net::IpAddr;
 use std::net::Ipv4Addr;
 use std::net::Ipv6Addr;
 use std::net::Shutdown;
 use std::net::SocketAddr;
-use std::sync::mpsc;
 use std::sync::Arc;
-use std::sync::Mutex;
+use std::task::Context;
+use std::task::Poll;
 use std::time::Duration;
 use thiserror::Error;
 
@@ -14,10 +15,6 @@ pub use bytes::Bytes;
 pub use bytes::BytesMut;
 
 pub type Result<T> = std::result::Result<T, NetworkError>;
-
-/// Socket descriptors are also file descriptors and so
-/// all file operations can also be used on sockets
-pub type SocketDescriptor = wasmer_vfs::FileDescriptor;
 
 /// Represents an IP address and its netmask
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -36,51 +33,59 @@ pub struct IpRoute {
 }
 
 /// An implementation of virtual networking
+#[async_trait::async_trait]
+#[allow(unused_variables)]
 pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
-    /// Establishes a web socket connection
-    /// (note: this does not use the virtual sockets and is standalone
-    ///        functionality that works without the network being connected)
-    fn ws_connect(&self, url: &str) -> Result<Box<dyn VirtualWebSocket + Sync>>;
-
-    /// Makes a HTTP request to a remote web resource
-    /// The headers are separated by line breaks
-    /// (note: this does not use the virtual sockets and is standalone
-    ///        functionality that works without the network being connected)
-    fn http_request(
-        &self,
-        url: &str,
-        method: &str,
-        headers: &str,
-        gzip: bool,
-    ) -> Result<SocketHttpRequest>;
-
     /// Bridges this local network with a remote network, which is required in
     /// order to make lower level networking calls (such as UDP/TCP)
-    fn bridge(&self, network: &str, access_token: &str, security: StreamSecurity) -> Result<()>;
+    async fn bridge(
+        &self,
+        network: &str,
+        access_token: &str,
+        security: StreamSecurity,
+    ) -> Result<()> {
+        Err(NetworkError::Unsupported)
+    }
 
     /// Disconnects from the remote network essentially unbridging it
-    fn unbridge(&self) -> Result<()>;
+    async fn unbridge(&self) -> Result<()> {
+        Err(NetworkError::Unsupported)
+    }
 
     /// Acquires an IP address on the network and configures the routing tables
-    fn dhcp_acquire(&self) -> Result<Vec<IpAddr>>;
+    async fn dhcp_acquire(&self) -> Result<Vec<IpAddr>> {
+        Err(NetworkError::Unsupported)
+    }
 
     /// Adds a static IP address to the interface with a netmask prefix
-    fn ip_add(&self, ip: IpAddr, prefix: u8) -> Result<()>;
+    fn ip_add(&self, ip: IpAddr, prefix: u8) -> Result<()> {
+        Err(NetworkError::Unsupported)
+    }
 
     /// Removes a static (or dynamic) IP address from the interface
-    fn ip_remove(&self, ip: IpAddr) -> Result<()>;
+    fn ip_remove(&self, ip: IpAddr) -> Result<()> {
+        Err(NetworkError::Unsupported)
+    }
 
     /// Clears all the assigned IP addresses for this interface
-    fn ip_clear(&self) -> Result<()>;
+    fn ip_clear(&self) -> Result<()> {
+        Err(NetworkError::Unsupported)
+    }
 
     /// Lists all the IP addresses currently assigned to this interface
-    fn ip_list(&self) -> Result<Vec<IpCidr>>;
+    fn ip_list(&self) -> Result<Vec<IpCidr>> {
+        Err(NetworkError::Unsupported)
+    }
 
     /// Returns the hardware MAC address for this interface
-    fn mac(&self) -> Result<[u8; 6]>;
+    fn mac(&self) -> Result<[u8; 6]> {
+        Err(NetworkError::Unsupported)
+    }
 
     /// Adds a default gateway to the routing table
-    fn gateway_set(&self, ip: IpAddr) -> Result<()>;
+    fn gateway_set(&self, ip: IpAddr) -> Result<()> {
+        Err(NetworkError::Unsupported)
+    }
 
     /// Adds a specific route to the routing table
     fn route_add(
@@ -89,125 +94,99 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
         via_router: IpAddr,
         preferred_until: Option<Duration>,
         expires_at: Option<Duration>,
-    ) -> Result<()>;
+    ) -> Result<()> {
+        Err(NetworkError::Unsupported)
+    }
 
     /// Removes a routing rule from the routing table
-    fn route_remove(&self, cidr: IpAddr) -> Result<()>;
+    fn route_remove(&self, cidr: IpAddr) -> Result<()> {
+        Err(NetworkError::Unsupported)
+    }
 
     /// Clears the routing table for this interface
-    fn route_clear(&self) -> Result<()>;
+    fn route_clear(&self) -> Result<()> {
+        Err(NetworkError::Unsupported)
+    }
 
     /// Lists all the routes defined in the routing table for this interface
-    fn route_list(&self) -> Result<Vec<IpRoute>>;
+    fn route_list(&self) -> Result<Vec<IpRoute>> {
+        Err(NetworkError::Unsupported)
+    }
 
     /// Creates a low level socket that can read and write Ethernet packets
     /// directly to the interface
-    fn bind_raw(&self) -> Result<Box<dyn VirtualRawSocket + Sync>>;
+    async fn bind_raw(&self) -> Result<Box<dyn VirtualRawSocket + Sync>> {
+        Err(NetworkError::Unsupported)
+    }
 
     /// Lists for TCP connections on a specific IP and Port combination
     /// Multiple servers (processes or threads) can bind to the same port if they each set
     /// the reuse-port and-or reuse-addr flags
-    fn listen_tcp(
+    async fn listen_tcp(
         &self,
         addr: SocketAddr,
         only_v6: bool,
         reuse_port: bool,
         reuse_addr: bool,
-    ) -> Result<Box<dyn VirtualTcpListener + Sync>>;
+    ) -> Result<Box<dyn VirtualTcpListener + Sync>> {
+        Err(NetworkError::Unsupported)
+    }
 
     /// Opens a UDP socket that listens on a specific IP and Port combination
     /// Multiple servers (processes or threads) can bind to the same port if they each set
     /// the reuse-port and-or reuse-addr flags
-    fn bind_udp(
+    async fn bind_udp(
         &self,
         addr: SocketAddr,
         reuse_port: bool,
         reuse_addr: bool,
-    ) -> Result<Box<dyn VirtualUdpSocket + Sync>>;
+    ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
+        Err(NetworkError::Unsupported)
+    }
 
     /// Creates a socket that can be used to send and receive ICMP packets
     /// from a paritcular IP address
-    fn bind_icmp(&self, addr: IpAddr) -> Result<Box<dyn VirtualIcmpSocket + Sync>>;
+    async fn bind_icmp(&self, addr: IpAddr) -> Result<Box<dyn VirtualIcmpSocket + Sync>> {
+        Err(NetworkError::Unsupported)
+    }
 
     /// Opens a TCP connection to a particular destination IP address and port
-    fn connect_tcp(
+    async fn connect_tcp(
         &self,
         addr: SocketAddr,
         peer: SocketAddr,
-        timeout: Option<Duration>,
-    ) -> Result<Box<dyn VirtualTcpSocket + Sync>>;
+    ) -> Result<Box<dyn VirtualTcpSocket + Sync>> {
+        Err(NetworkError::Unsupported)
+    }
 
     /// Performs DNS resolution for a specific hostname
-    fn resolve(
+    async fn resolve(
         &self,
         host: &str,
         port: Option<u16>,
         dns_server: Option<IpAddr>,
-    ) -> Result<Vec<IpAddr>>;
+    ) -> Result<Vec<IpAddr>> {
+        Err(NetworkError::Unsupported)
+    }
 }
 
-/// Holds the interface used to work with a pending HTTP request
-#[derive(Debug)]
-pub struct SocketHttpRequest {
-    /// Used to send the request bytes to the HTTP server
-    /// (once all bytes are send the sender should be closed)
-    pub request: Option<mpsc::Sender<Vec<u8>>>,
-    /// Used to receive the response bytes from the HTTP server
-    /// (once all the bytes have been received the receiver will be closed)
-    pub response: Option<mpsc::Receiver<Vec<u8>>>,
-    /// Used to receive all the headers from the HTTP server
-    /// (once all the headers have been received the receiver will be closed)
-    pub headers: Option<mpsc::Receiver<(String, String)>>,
-    /// Used to watch for the status
-    pub status: Arc<Mutex<mpsc::Receiver<Result<HttpStatus>>>>,
-}
-
-/// Represents the final result of a HTTP request
-#[derive(Debug)]
-pub struct HttpStatus {
-    /// Indicates if the HTTP request was redirected to another URL / server
-    pub redirected: bool,
-    /// Size of the data held in the response receiver
-    pub size: usize,
-    /// Status code returned by the server
-    pub status: u16,
-    /// Status text returned by the server
-    pub status_text: String,
-}
-
-#[derive(Debug)]
-pub struct SocketReceive {
-    /// Data that was received
-    pub data: Bytes,
-    /// Indicates if the data was truncated (e.g. UDP packet)
-    pub truncated: bool,
-}
-
-#[derive(Debug)]
-pub struct SocketReceiveFrom {
-    /// Data that was received
-    pub data: Bytes,
-    /// Indicates if the data was truncated (e.g. UDP packet)
-    pub truncated: bool,
-    /// Peer sender address of the data
-    pub addr: SocketAddr,
-}
+pub type DynVirtualNetworking = Arc<dyn VirtualNetworking>;
 
 pub trait VirtualTcpListener: fmt::Debug + Send + Sync + 'static {
-    /// Accepts an connection attempt that was made to this listener
-    fn accept(&self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>;
+    /// Tries to accept a new connection
+    fn try_accept(&mut self) -> Option<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>>;
 
-    /// Accepts an connection attempt that was made to this listener (or times out)
-    fn accept_timeout(
-        &self,
-        timeout: Duration,
-    ) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>;
+    /// Polls the socket for new connections
+    fn poll_accept(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>>;
 
-    /// Sets the accept timeout
-    fn set_timeout(&mut self, timeout: Option<Duration>) -> Result<()>;
-
-    /// Gets the accept timeout
-    fn timeout(&self) -> Result<Option<Duration>>;
+    /// Polls the socket for when there is data to be received
+    fn poll_accept_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<usize>>;
 
     /// Returns the local address of this TCP listener
     fn addr_local(&self) -> Result<SocketAddr>;
@@ -231,6 +210,18 @@ pub trait VirtualSocket: fmt::Debug + Send + Sync + 'static {
 
     /// Returns the status/state of the socket
     fn status(&self) -> Result<SocketStatus>;
+
+    /// Polls the socket for when there is data to be received
+    fn poll_read_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<usize>>;
+
+    /// Polls the socket for when the backpressure allows for writing to the socket
+    fn poll_write_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<usize>>;
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -249,18 +240,6 @@ pub enum StreamSecurity {
     DoubleEncryption,
 }
 
-/// Interface used for sending and receiving data from a web socket
-pub trait VirtualWebSocket: fmt::Debug + Send + Sync + 'static {
-    /// Sends out a datagram or stream of bytes on this socket
-    fn send(&mut self, data: Bytes) -> Result<usize>;
-
-    /// FLushes all the datagrams
-    fn flush(&mut self) -> Result<()>;
-
-    /// Recv a packet from the socket
-    fn recv(&mut self) -> Result<SocketReceive>;
-}
-
 /// Connected sockets have a persistent connection to a remote peer
 pub trait VirtualConnectedSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
     /// Determines how long the socket will remain in a TIME_WAIT
@@ -273,17 +252,28 @@ pub trait VirtualConnectedSocket: VirtualSocket + fmt::Debug + Send + Sync + 'st
     /// after it disconnects
     fn linger(&self) -> Result<Option<Duration>>;
 
-    /// Sends out a datagram or stream of bytes on this socket
-    fn send(&mut self, data: Bytes) -> Result<usize>;
+    /// Tries to send out a datagram or stream of bytes on this socket
+    fn try_send(&mut self, data: &[u8]) -> Result<usize>;
 
-    /// FLushes all the datagrams
-    fn flush(&mut self) -> Result<()>;
+    /// Sends out a datagram or stream of bytes on this socket
+    fn poll_send(&mut self, cx: &mut Context<'_>, data: &[u8]) -> Poll<Result<usize>>;
+
+    /// Attempts to flush the object, ensuring that any buffered data reach
+    /// their destination.
+    fn poll_flush(&mut self, cx: &mut Context<'_>) -> Poll<Result<()>>;
+
+    /// Closes the socket
+    fn close(&mut self) -> Result<()>;
 
     /// Recv a packet from the socket
-    fn recv(&mut self) -> Result<SocketReceive>;
+    fn poll_recv<'a>(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &'a mut [MaybeUninit<u8>],
+    ) -> Poll<Result<usize>>;
 
-    /// Peeks for a packet from the socket
-    fn peek(&mut self) -> Result<SocketReceive>;
+    /// Recv a packet from the socket
+    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize>;
 }
 
 /// Connectionless sockets are able to send and receive datagrams and stream
@@ -291,13 +281,26 @@ pub trait VirtualConnectedSocket: VirtualSocket + fmt::Debug + Send + Sync + 'st
 pub trait VirtualConnectionlessSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
     /// Sends out a datagram or stream of bytes on this socket
     /// to a specific address
-    fn send_to(&mut self, data: Bytes, addr: SocketAddr) -> Result<usize>;
+    fn poll_send_to(
+        &mut self,
+        cx: &mut Context<'_>,
+        data: &[u8],
+        addr: SocketAddr,
+    ) -> Poll<Result<usize>>;
+
+    /// Sends out a datagram or stream of bytes on this socket
+    /// to a specific address
+    fn try_send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize>;
 
     /// Recv a packet from the socket
-    fn recv_from(&mut self) -> Result<SocketReceiveFrom>;
+    fn poll_recv_from<'a>(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &'a mut [MaybeUninit<u8>],
+    ) -> Poll<Result<(usize, SocketAddr)>>;
 
-    /// Peeks for a packet from the socket
-    fn peek_from(&mut self) -> Result<SocketReceiveFrom>;
+    /// Recv a packet from the socket
+    fn try_recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)>;
 }
 
 /// ICMP sockets are low level devices bound to a specific address
@@ -308,14 +311,29 @@ pub trait VirtualIcmpSocket:
 }
 
 pub trait VirtualRawSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
-    /// Sends out a raw packet on this socket
-    fn send(&mut self, data: Bytes) -> Result<usize>;
+    /// Sends out a datagram or stream of bytes on this socket
+    fn poll_send(&mut self, cx: &mut Context<'_>, data: &[u8]) -> Poll<Result<usize>>;
 
-    /// FLushes all the datagrams
-    fn flush(&mut self) -> Result<()>;
+    /// Sends out a datagram or stream of bytes on this socket
+    fn try_send(&mut self, data: &[u8]) -> Result<usize>;
+
+    /// Attempts to flush the object, ensuring that any buffered data reach
+    /// their destination.
+    fn poll_flush(&mut self, cx: &mut Context<'_>) -> Poll<Result<()>>;
+
+    /// Attempts to flush the object, ensuring that any buffered data reach
+    /// their destination.
+    fn try_flush(&mut self) -> Result<()>;
 
     /// Recv a packet from the socket
-    fn recv(&mut self) -> Result<SocketReceive>;
+    fn poll_recv<'a>(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &'a mut [MaybeUninit<u8>],
+    ) -> Poll<Result<usize>>;
+
+    /// Recv a packet from the socket
+    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize>;
 
     /// Tells the raw socket and its backing switch that all packets
     /// should be received by this socket even if they are not
@@ -328,22 +346,7 @@ pub trait VirtualRawSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
     fn promiscuous(&self) -> Result<bool>;
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum TimeType {
-    ReadTimeout,
-    WriteTimeout,
-    AcceptTimeout,
-    ConnectTimeout,
-    Linger,
-}
-
 pub trait VirtualTcpSocket: VirtualConnectedSocket + fmt::Debug + Send + Sync + 'static {
-    /// Sets the timeout for a specific action on the socket
-    fn set_opt_time(&mut self, ty: TimeType, timeout: Option<Duration>) -> Result<()>;
-
-    /// Returns one of the previous set timeouts
-    fn opt_time(&self, ty: TimeType) -> Result<Option<Duration>>;
-
     /// Sets the receive buffer size which acts as a trottle for how
     /// much data is buffered on this side of the pipe
     fn set_recv_buf_size(&mut self, size: usize) -> Result<()>;
@@ -375,22 +378,17 @@ pub trait VirtualTcpSocket: VirtualConnectedSocket + fmt::Debug + Send + Sync + 
     /// is conencted to
     fn addr_peer(&self) -> Result<SocketAddr>;
 
-    /// Causes all the data held in the send buffer to be immediately
-    /// flushed to the destination peer
-    fn flush(&mut self) -> Result<()>;
-
     /// Shuts down either the READER or WRITER sides of the socket
     /// connection.
     fn shutdown(&mut self, how: Shutdown) -> Result<()>;
+
+    /// Return true if the socket is closed
+    fn is_closed(&self) -> bool;
 }
 
 pub trait VirtualUdpSocket:
-    VirtualConnectedSocket + VirtualConnectionlessSocket + fmt::Debug + Send + Sync + 'static
+    VirtualConnectionlessSocket + fmt::Debug + Send + Sync + 'static
 {
-    /// Connects to a destination peer so that the normal
-    /// send/recv operations can be used.
-    fn connect(&mut self, addr: SocketAddr) -> Result<()>;
-
     /// Sets a flag that means that the UDP socket is able
     /// to receive and process broadcast packets.
     fn set_broadcast(&mut self, broadcast: bool) -> Result<()>;
@@ -452,124 +450,8 @@ pub trait VirtualUdpSocket:
 #[derive(Debug, Default)]
 pub struct UnsupportedVirtualNetworking {}
 
-impl VirtualNetworking for UnsupportedVirtualNetworking {
-    fn ws_connect(&self, _url: &str) -> Result<Box<dyn VirtualWebSocket + Sync>> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn http_request(
-        &self,
-        _url: &str,
-        _method: &str,
-        _headers: &str,
-        _gzip: bool,
-    ) -> Result<SocketHttpRequest> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn bridge(&self, _network: &str, _access_token: &str, _security: StreamSecurity) -> Result<()> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn unbridge(&self) -> Result<()> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn dhcp_acquire(&self) -> Result<Vec<IpAddr>> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn ip_add(&self, _ip: IpAddr, _prefix: u8) -> Result<()> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn ip_remove(&self, _ip: IpAddr) -> Result<()> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn ip_clear(&self) -> Result<()> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn ip_list(&self) -> Result<Vec<IpCidr>> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn mac(&self) -> Result<[u8; 6]> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn gateway_set(&self, _ip: IpAddr) -> Result<()> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn route_add(
-        &self,
-        _cidr: IpCidr,
-        _via_router: IpAddr,
-        _preferred_until: Option<Duration>,
-        _expires_at: Option<Duration>,
-    ) -> Result<()> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn route_remove(&self, _cidr: IpAddr) -> Result<()> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn route_clear(&self) -> Result<()> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn route_list(&self) -> Result<Vec<IpRoute>> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn bind_raw(&self) -> Result<Box<dyn VirtualRawSocket + Sync>> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn bind_icmp(&self, _addr: IpAddr) -> Result<Box<dyn VirtualIcmpSocket + Sync>> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn listen_tcp(
-        &self,
-        _addr: SocketAddr,
-        _only_v6: bool,
-        _reuse_port: bool,
-        _reuse_addr: bool,
-    ) -> Result<Box<dyn VirtualTcpListener + Sync>> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn connect_tcp(
-        &self,
-        _addr: SocketAddr,
-        _peer: SocketAddr,
-        _timeout: Option<Duration>,
-    ) -> Result<Box<dyn VirtualTcpSocket + Sync>> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn bind_udp(
-        &self,
-        _addr: SocketAddr,
-        _reuse_port: bool,
-        _reuse_addr: bool,
-    ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
-        Err(NetworkError::Unsupported)
-    }
-
-    fn resolve(
-        &self,
-        _host: &str,
-        _port: Option<u16>,
-        _dns_server: Option<IpAddr>,
-    ) -> Result<Vec<IpAddr>> {
-        Err(NetworkError::Unsupported)
-    }
-}
+#[async_trait::async_trait]
+impl VirtualNetworking for UnsupportedVirtualNetworking {}
 
 #[derive(Error, Copy, Clone, Debug, PartialEq, Eq)]
 pub enum NetworkError {
@@ -595,6 +477,9 @@ pub enum NetworkError {
     /// A pipe was closed
     #[error("broken pipe (was closed)")]
     BrokenPipe,
+    /// Insufficient memory
+    #[error("Insufficient memory")]
+    InsufficientMemory,
     /// The connection was aborted
     #[error("connection aborted")]
     ConnectionAborted,
@@ -634,62 +519,13 @@ pub enum NetworkError {
     /// A call to write returned 0
     #[error("write returned 0")]
     WriteZero,
+    /// Too many open files
+    #[error("too many open files")]
+    TooManyOpenFiles,
     /// The operation is not supported.
     #[error("unsupported")]
     Unsupported,
     /// Some other unhandled error. If you see this, it's probably a bug.
     #[error("unknown error found")]
     UnknownError,
-}
-
-pub fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
-    use std::io::ErrorKind;
-    match net_error {
-        NetworkError::InvalidFd => ErrorKind::BrokenPipe.into(),
-        NetworkError::AlreadyExists => ErrorKind::AlreadyExists.into(),
-        NetworkError::Lock => ErrorKind::BrokenPipe.into(),
-        NetworkError::IOError => ErrorKind::BrokenPipe.into(),
-        NetworkError::AddressInUse => ErrorKind::AddrInUse.into(),
-        NetworkError::AddressNotAvailable => ErrorKind::AddrNotAvailable.into(),
-        NetworkError::BrokenPipe => ErrorKind::BrokenPipe.into(),
-        NetworkError::ConnectionAborted => ErrorKind::ConnectionAborted.into(),
-        NetworkError::ConnectionRefused => ErrorKind::ConnectionRefused.into(),
-        NetworkError::ConnectionReset => ErrorKind::ConnectionReset.into(),
-        NetworkError::Interrupted => ErrorKind::Interrupted.into(),
-        NetworkError::InvalidData => ErrorKind::InvalidData.into(),
-        NetworkError::InvalidInput => ErrorKind::InvalidInput.into(),
-        NetworkError::NotConnected => ErrorKind::NotConnected.into(),
-        NetworkError::NoDevice => ErrorKind::BrokenPipe.into(),
-        NetworkError::PermissionDenied => ErrorKind::PermissionDenied.into(),
-        NetworkError::TimedOut => ErrorKind::TimedOut.into(),
-        NetworkError::UnexpectedEof => ErrorKind::UnexpectedEof.into(),
-        NetworkError::WouldBlock => ErrorKind::WouldBlock.into(),
-        NetworkError::WriteZero => ErrorKind::WriteZero.into(),
-        NetworkError::Unsupported => ErrorKind::Unsupported.into(),
-        NetworkError::UnknownError => ErrorKind::BrokenPipe.into(),
-    }
-}
-
-pub fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
-    use std::io::ErrorKind;
-    match net_error.kind() {
-        ErrorKind::BrokenPipe => NetworkError::BrokenPipe,
-        ErrorKind::AlreadyExists => NetworkError::AlreadyExists,
-        ErrorKind::AddrInUse => NetworkError::AddressInUse,
-        ErrorKind::AddrNotAvailable => NetworkError::AddressNotAvailable,
-        ErrorKind::ConnectionAborted => NetworkError::ConnectionAborted,
-        ErrorKind::ConnectionRefused => NetworkError::ConnectionRefused,
-        ErrorKind::ConnectionReset => NetworkError::ConnectionReset,
-        ErrorKind::Interrupted => NetworkError::Interrupted,
-        ErrorKind::InvalidData => NetworkError::InvalidData,
-        ErrorKind::InvalidInput => NetworkError::InvalidInput,
-        ErrorKind::NotConnected => NetworkError::NotConnected,
-        ErrorKind::PermissionDenied => NetworkError::PermissionDenied,
-        ErrorKind::TimedOut => NetworkError::TimedOut,
-        ErrorKind::UnexpectedEof => NetworkError::UnexpectedEof,
-        ErrorKind::WouldBlock => NetworkError::WouldBlock,
-        ErrorKind::WriteZero => NetworkError::WriteZero,
-        ErrorKind::Unsupported => NetworkError::Unsupported,
-        _ => NetworkError::UnknownError,
-    }
 }

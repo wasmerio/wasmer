@@ -1,0 +1,24 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": null,
+    "wasm_hash": "31459fbda894b527295e874cdec44514",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "cli_args": [],
+    "stdin": null,
+    "debug_output": false,
+    "enable_threads": true
+  },
+  "result": {
+    "Success": {
+      "stdout": "(A1)\n(B1)\n(A2) r=10001\n(B2) r=20001\n(A3) r=10002\n(B3) r=20002\n(A4) r=10003\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

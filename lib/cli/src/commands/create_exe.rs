@@ -13,6 +13,7 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::process::Stdio;
+use tar::Archive;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 use wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
@@ -1288,6 +1289,22 @@ fn link_exe_from_dir(
         cmd.args(files_winsdk);
     }
 
+    if zig_triple.contains("macos") {
+        // need to link with Security framework when using zig, but zig
+        // doesn't include it, so we need to bring a copy of the dtb file
+        // which is basicaly the collection of exported symbol for the libs
+        let framework = include_bytes!("security_framework.tgz").to_vec();
+        // extract files
+        let tar = flate2::read::GzDecoder::new(framework.as_slice());
+        let mut archive = Archive::new(tar);
+        // directory is a temp folder
+        archive.unpack(directory)?;
+        // add the framework to the link command
+        cmd.arg("-framework");
+        cmd.arg("Security");
+        cmd.arg(format!("-F{}", directory.display()));
+    }
+
     if debug {
         println!("running cmd: {cmd:?}");
         cmd.stdout(Stdio::inherit());
@@ -1859,7 +1876,7 @@ pub(super) mod utils {
     pub(super) fn get_libwasmer_cache_path() -> anyhow::Result<PathBuf> {
         let mut path = get_wasmer_dir()?;
         path.push("cache");
-        let _ = std::fs::create_dir(&path);
+        std::fs::create_dir_all(&path)?;
         Ok(path)
     }
 
@@ -1956,7 +1973,7 @@ pub(super) mod utils {
             "/test/wasmer-windows.exe",
         ];
 
-        let paths = test_paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
+        let paths = test_paths.iter().map(Path::new).collect::<Vec<_>>();
         assert_eq!(
             paths
                 .iter()
@@ -1968,7 +1985,7 @@ pub(super) mod utils {
             vec![&Path::new("/test/wasmer-windows-gnu64.tar.gz")],
         );
 
-        let paths = test_paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
+        let paths = test_paths.iter().map(Path::new).collect::<Vec<_>>();
         assert_eq!(
             paths
                 .iter()
@@ -1980,7 +1997,7 @@ pub(super) mod utils {
             vec![&Path::new("/test/wasmer-windows-gnu64.tar.gz")],
         );
 
-        let paths = test_paths.iter().map(|p| Path::new(p)).collect::<Vec<_>>();
+        let paths = test_paths.iter().map(Path::new).collect::<Vec<_>>();
         assert_eq!(
             paths
                 .iter()

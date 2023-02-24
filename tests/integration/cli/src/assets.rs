@@ -114,7 +114,10 @@ pub fn get_wasmer_path() -> PathBuf {
                 .stdin(Stdio::null())
                 .output();
         }
-        panic!("cannot find wasmer / wasmer.exe for integration test!");
+        panic!(
+            "cannot find wasmer / wasmer.exe for integration test at '{}'!",
+            ret.display()
+        );
     }
     ret
 }
