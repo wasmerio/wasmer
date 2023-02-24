@@ -62,6 +62,7 @@ impl crate::runners::Runner for EmscriptenRunner {
         _command: &Command,
         container: &WapmContainer,
     ) -> Result<Self::Output, Box<dyn StdError>> {
+        let container = container.v1();
         let atom_name = container.get_atom_name_for_command("emscripten", command_name)?;
         let main_args = container.get_main_args_for_command(command_name);
         let atom_bytes = container.get_atom(&container.get_package_name(), &atom_name)?;
@@ -70,14 +71,14 @@ impl crate::runners::Runner for EmscriptenRunner {
         module.set_name(&atom_name);
 
         let (mut globals, env) =
-            prepare_emscripten_env(&mut self.store, &module, container.webc.clone(), &atom_name)?;
+            prepare_emscripten_env(&mut self.store, &module, container.clone(), &atom_name)?;
 
         exec_module(
             &mut self.store,
             &module,
             &mut globals,
             env,
-            container.webc.clone(),
+            container.clone(),
             &atom_name,
             main_args.unwrap_or_default(),
         )?;

@@ -61,13 +61,14 @@ impl crate::runners::Runner for WasiRunner {
         _command: &Command,
         container: &WapmContainer,
     ) -> Result<Self::Output, Box<dyn StdError>> {
+        let container = container.v1();
         let atom_name = container.get_atom_name_for_command("wasi", command_name)?;
         let atom_bytes = container.get_atom(&container.get_package_name(), &atom_name)?;
 
         let mut module = Module::new(&self.store, atom_bytes)?;
         module.set_name(&atom_name);
 
-        let builder = prepare_webc_env(container.webc.clone(), &atom_name, &self.args)?;
+        let builder = prepare_webc_env(container.clone(), &atom_name, &self.args)?;
 
         let init = builder.build_init()?;
 
