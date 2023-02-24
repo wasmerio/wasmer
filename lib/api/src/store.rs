@@ -1,4 +1,4 @@
-use crate::engine::{default_engine, AsEngineRef, Engine, EngineRef};
+use crate::engine::{AsEngineRef, Engine, EngineRef};
 use derivative::Derivative;
 use std::{
     fmt,
@@ -12,6 +12,8 @@ use wasmer_vm::init_traps;
 #[cfg(feature = "sys")]
 pub use wasmer_vm::TrapHandlerFn;
 
+#[cfg(feature = "sys")]
+use crate::sys::WasmerCompilerEngine;
 #[cfg(feature = "sys")]
 pub use wasmer_vm::{StoreHandle, StoreObjects};
 
@@ -143,7 +145,7 @@ unsafe impl Sync for Store {}
 
 impl Default for Store {
     fn default() -> Self {
-        Self::new(default_engine())
+        Self::new(Engine::default())
     }
 }
 

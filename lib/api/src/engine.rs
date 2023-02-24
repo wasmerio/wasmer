@@ -1,4 +1,4 @@
-// use core::ops::Deref;
+use core::ops::Deref;
 
 #[cfg(feature = "sys")]
 use crate::sys::engine as engine_imp;
@@ -11,13 +11,41 @@ use crate::js::engine as engine_imp;
 pub(crate) use crate::js::engine::default_engine;
 
 /// The engine type
-pub type Engine = engine_imp::Engine;
+pub struct Engine(pub(crate) engine_imp::Engine);
 
 impl AsEngineRef for Engine {
     fn as_engine_ref(&self) -> EngineRef {
         EngineRef { inner: self }
     }
 }
+
+impl Default for Engine {
+    fn default() -> Self {
+        Engine(default_engine())
+    }
+}
+
+// impl Into<Engine> for engine_imp::Engine {
+//     fn into(self) -> Engine {
+//         Engine(self)
+//     }
+// }
+
+impl From<engine_imp::Engine> for Engine {
+    fn from(inner: engine_imp::Engine) -> Self {
+        Self(inner)
+    }
+}
+
+// impl<P> Into<Engine> for P
+// where
+//     P: Into<engine_imp::Engine>
+// {
+//     fn into(self) -> Engine {
+//         let inner_engine: engine_imp::Engine = self.into();
+//         Engine(inner_engine)
+//     }
+// }
 
 /// A temporary handle to an [`Engine`]
 /// EngineRef can be used to build a [`Module`][wasmer::Module]
@@ -52,13 +80,12 @@ impl AsEngineRef for EngineRef<'_> {
     }
 }
 
-// impl<P> AsEngineRef for P
-// where
-//     P: Deref,
-//     P::Target: AsEngineRef,
-// {
-//     fn as_engine_ref(&self) -> EngineRef<'_> {
-//         EngineRef { inner: **self }
-//         (**self).as_engine_ref()
-//     }
-// }
+impl<P> AsEngineRef for P
+where
+    P: Deref,
+    P::Target: AsEngineRef,
+{
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        (**self).as_engine_ref()
+    }
+}

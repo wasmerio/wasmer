@@ -86,6 +86,7 @@ impl Function {
         let type_index = store
             .as_store_mut()
             .engine()
+            .0
             .register_signature(&function_type);
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
@@ -128,6 +129,7 @@ impl Function {
         let type_index = store
             .as_store_mut()
             .engine()
+            .0
             .register_signature(&function_type);
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
@@ -173,6 +175,7 @@ impl Function {
         let type_index = store
             .as_store_mut()
             .engine()
+            .0
             .register_signature(&function_type);
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
@@ -368,6 +371,7 @@ impl Function {
         let signature = store
             .as_store_ref()
             .engine()
+            .0
             .lookup_signature(funcref.0.as_ref().type_index)
             .expect("Signature not found in store");
         let vm_function = VMFunction {

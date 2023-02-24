@@ -1,5 +1,7 @@
-pub use wasmer_compiler::BaseTunables;
-pub use wasmer_compiler::{Artifact, Engine, EngineBuilder};
+pub use wasmer_compiler::{
+    Artifact, BaseTunables, CompilerConfig, Engine, EngineBuilder, Tunables,
+};
+use wasmer_types::{Features, Target};
 
 /// Returns the default engine for the Sys engine
 pub(crate) fn default_engine() -> Engine {
@@ -47,4 +49,70 @@ pub(crate) fn default_engine() -> Engine {
     let tunables = BaseTunables::for_target(engine.target());
     engine.set_tunables(tunables);
     engine
+}
+
+impl From<EngineBuilder> for crate::engine::Engine {
+    fn from(builder: EngineBuilder) -> Self {
+        Self(builder.into())
+    }
+}
+
+// impl From<CompilerConfig> for crate::engine::Engine {
+//     fn from(compiler: CompilerConfig) -> Self {
+//         Self(compiler.into())
+//     }
+// }
+
+/// The custom trait to access to all the `sys` function in the common
+/// engine.
+pub trait WasmerCompilerEngine {
+    /// Create a new `Engine` with the given config
+    #[cfg(feature = "compiler")]
+    fn new(compiler_config: Box<dyn CompilerConfig>, target: Target, features: Features) -> Self;
+
+    /// Create a headless `Engine`
+    ///
+    /// A headless engine is an engine without any compiler attached.
+    /// This is useful for assuring a minimal runtime for running
+    /// WebAssembly modules.
+    ///
+    /// For example, for running in IoT devices where compilers are very
+    /// expensive, or also to optimize startup speed.
+    ///
+    /// # Important
+    ///
+    /// Headless engines can't compile or validate any modules,
+    /// they just take already processed Modules (via `Module::serialize`).
+    fn headless() -> Self;
+
+    /// Gets the target
+    fn target(&self) -> &Target;
+
+    /// Attach a Tunable to this engine
+    fn set_tunables(&mut self, tunables: impl Tunables + Send + Sync + 'static);
+
+    /// Get a reference to attached Tunable of this engine
+    fn tunables(&self) -> &dyn Tunables;
+}
+
+impl WasmerCompilerEngine for crate::engine::Engine {
+    fn new(compiler_config: Box<dyn CompilerConfig>, target: Target, features: Features) -> Self {
+        crate::engine::Engine(Engine::new(compiler_config, target, features))
+    }
+
+    fn headless() -> Self {
+        crate::engine::Engine(Engine::headless())
+    }
+
+    fn target(&self) -> &Target {
+        self.0.target()
+    }
+
+    fn set_tunables(&mut self, tunables: impl Tunables + Send + Sync + 'static) {
+        self.0.set_tunables(tunables)
+    }
+
+    fn tunables(&self) -> &dyn Tunables {
+        self.0.tunables()
+    }
 }

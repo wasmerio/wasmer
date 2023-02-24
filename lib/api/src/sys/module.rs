@@ -1,4 +1,5 @@
 use crate::engine::AsEngineRef;
+use crate::sys::engine::WasmerCompilerEngine;
 use bytes::Bytes;
 use std::path::Path;
 use std::sync::Arc;
@@ -49,12 +50,12 @@ impl Module {
     }
 
     pub(crate) fn validate(engine: &impl AsEngineRef, binary: &[u8]) -> Result<(), CompileError> {
-        engine.as_engine_ref().engine().validate(binary)
+        engine.as_engine_ref().engine().0.validate(binary)
     }
 
     #[cfg(feature = "compiler")]
     fn compile(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
-        let artifact = engine.as_engine_ref().engine().compile(binary)?;
+        let artifact = engine.as_engine_ref().engine().0.compile(binary)?;
         Ok(Self::from_artifact(artifact))
     }
 
@@ -74,7 +75,7 @@ impl Module {
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
         let bytes = bytes.into_bytes();
-        let artifact = engine.as_engine_ref().engine().deserialize(&bytes)?;
+        let artifact = engine.as_engine_ref().engine().0.deserialize(&bytes)?;
         Ok(Self::from_artifact(artifact))
     }
 
@@ -85,6 +86,7 @@ impl Module {
         let artifact = engine
             .as_engine_ref()
             .engine()
+            .0
             .deserialize_from_file(path.as_ref())?;
         Ok(Self::from_artifact(artifact))
     }

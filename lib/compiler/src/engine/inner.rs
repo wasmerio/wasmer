@@ -72,13 +72,13 @@ impl Engine {
         }
     }
 
-    /// Returns only the `ModuleInfo` given a `wasm` byte slice
-    #[cfg(feature = "compiler")]
-    pub fn get_module_info(data: &[u8]) -> Result<ModuleInfo, CompileError> {
-        // this is from `artifact_builder.rs`
-        let environ = crate::ModuleEnvironment::new();
-        let translation = environ.translate(data).map_err(CompileError::Wasm)?;
-        Ok(translation.module)
+    #[cfg(not(feature = "compiler"))]
+    pub fn new(
+        compiler_config: Box<dyn CompilerConfig>,
+        target: Target,
+        features: Features,
+    ) -> Self {
+        panic!("The engine is not compiled with any compiler support")
     }
 
     /// Returns the name of this engine

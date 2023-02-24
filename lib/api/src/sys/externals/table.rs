@@ -1,4 +1,5 @@
 use crate::store::{AsStoreMut, AsStoreRef};
+use crate::sys::WasmerCompilerEngine;
 use crate::TableType;
 use crate::Value;
 use crate::{vm::VMExternTable, ExternRef, Function, RuntimeError};
