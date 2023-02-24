@@ -86,6 +86,15 @@ impl Engine {
         self.name.as_str()
     }
 
+    /// Returns the deterministic id of this engine
+    pub fn deterministic_id(&self) -> &str {
+        // TODO: add a `deterministic_id` to the Compiler, so two
+        // compilers can actually serialize into a different deterministic_id
+        // if their configuration is different (eg. LLVM with optimizations vs LLVM
+        // without optimizations)
+        self.name.as_str()
+    }
+
     /// Create a headless `Engine`
     ///
     /// A headless engine is an engine without any compiler attached.

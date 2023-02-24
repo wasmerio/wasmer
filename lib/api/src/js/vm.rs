@@ -107,6 +107,9 @@ impl VMMemory {
     }
 }
 
+/// The shared memory is the same as the normal memory
+pub type VMSharedMemory = VMMemory;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMGlobal {
     pub(crate) global: JsGlobal,
@@ -240,7 +243,7 @@ pub(crate) struct VMFuncRef;
 impl VMFuncRef {
     /// Converts the `VMFuncRef` into a `RawValue`.
     pub fn into_raw(self) -> RawValue {
-        unimplemented!()
+        Raw
     }
 
     /// Extracts a `VMFuncRef` from a `RawValue`.

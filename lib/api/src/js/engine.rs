@@ -1,6 +1,13 @@
 /// A WebAssembly `Universal` Engine.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Engine;
+
+impl Engine {
+    pub(crate) fn deterministic_id(&self) -> &str {
+        // All js engines have the same id
+        "generic"
+    }
+}
 
 impl Default for Engine {
     fn default() -> Self {

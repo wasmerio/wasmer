@@ -4,7 +4,7 @@
 pub(crate) use crate::js::vm::{
     VMExtern, VMExternFunction, VMExternGlobal, VMExternMemory, VMExternRef, VMExternTable,
     VMFuncRef, VMFunction, VMFunctionBody, VMFunctionEnvironment, VMGlobal, VMInstance, VMMemory,
-    VMTable, VMTrampoline,
+    VMSharedMemory, VMTable, VMTrampoline,
 };
 
 #[cfg(feature = "sys")]
@@ -13,7 +13,7 @@ pub(crate) use crate::sys::vm::{
     VMFuncRef, VMFunctionBody, VMFunctionEnvironment, VMInstance, VMTrampoline,
 };
 
-// Needed for tunables customization
+// Needed for tunables customization (those are public types now)
 #[cfg(feature = "sys")]
 pub use wasmer_vm::{
     // An extra one for VMMemory implementors
@@ -22,6 +22,7 @@ pub use wasmer_vm::{
     VMGlobal,
     VMMemory,
     VMMemoryDefinition,
+    VMSharedMemory,
     VMTable,
     VMTableDefinition,
 };

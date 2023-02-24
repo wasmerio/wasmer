@@ -11,7 +11,24 @@ use crate::js::engine as engine_imp;
 pub(crate) use crate::js::engine::default_engine;
 
 /// The engine type
+#[derive(Clone, Debug)]
 pub struct Engine(pub(crate) engine_imp::Engine);
+
+impl Engine {
+    #[deprecated(
+        since = "4.0.0",
+        note = "engine.cloned() has been deprecated in favor of engine.clone()"
+    )]
+    /// Returns the [`Tunables`].
+    pub fn cloned(&self) -> Self {
+        self.clone()
+    }
+
+    /// Returns the deterministic id of this engine
+    pub fn deterministic_id(&self) -> &str {
+        self.0.deterministic_id()
+    }
+}
 
 impl AsEngineRef for Engine {
     fn as_engine_ref(&self) -> EngineRef {
