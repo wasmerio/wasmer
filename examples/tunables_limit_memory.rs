@@ -7,6 +7,8 @@ use wasmer::{
     Target, Tunables,
 };
 use wasmer_compiler_cranelift::Cranelift;
+// This is to be able to set the tunables
+use wasmer::WasmerCompilerEngine;
 
 /// A custom tunables that allows you to set a memory limit.
 ///
