@@ -277,7 +277,7 @@ fn prepare_webc_env(
             Arc::new(StaticFileSystem::init(slice, &package_name)?),
             Arc::new(HostFileSystem::new(
                 &config
-                    .state_builder
+                    .builder
                     .get_preopens()
                     .into_iter()
                     .map(|s| HostFileSystemDescriptor {
