@@ -426,7 +426,7 @@ pub fn try_unpack_targz<P: AsRef<Path>>(
     let target_path = Path::new(&target_path);
 
     let open_file = || {
-        std::fs::File::open(&target_targz_path)
+        std::fs::File::open(target_targz_path)
             .map_err(|e| anyhow::anyhow!("failed to open {}: {e}", target_targz_path.display()))
     };
 
@@ -913,7 +913,7 @@ fn get_bytes(
     }
 
     if let Some(path) = stream_response_into.as_ref() {
-        let mut file = std::fs::File::create(&path).map_err(|e| {
+        let mut file = std::fs::File::create(path).map_err(|e| {
             anyhow::anyhow!("failed to download {url} into {}: {e}", path.display())
         })?;
 

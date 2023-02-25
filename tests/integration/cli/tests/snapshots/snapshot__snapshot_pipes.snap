@@ -1,0 +1,24 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": null,
+    "wasm_hash": "0dbff3332afdb3a5cec08478d85b45e2",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "cli_args": [],
+    "stdin": null,
+    "debug_output": false,
+    "enable_threads": true
+  },
+  "result": {
+    "Success": {
+      "stdout": "this text should be printed by the child\nthis text should be printed by the parent\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

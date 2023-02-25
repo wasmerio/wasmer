@@ -1,14 +1,19 @@
-use anyhow::Context;
 use std::fs::{read_dir, File, OpenOptions, ReadDir};
-use std::io::{self, Read, Seek, Write};
+use std::future::Future;
+use std::io::{self, Read, SeekFrom};
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::sync::{mpsc, Arc, Mutex};
-use wasmer::{FunctionEnv, Imports, Instance, Module, Store};
-use wasmer_vfs::{host_fs, mem_fs, FileSystem};
+use std::task::{Context, Poll};
+use wasmer::{FunctionEnv, Imports, Module, Store};
+use wasmer_vfs::{
+    host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, AsyncRead, AsyncSeek, AsyncWrite,
+    AsyncWriteExt, FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
+};
 use wasmer_wasi::types::wasi::{Filesize, Timestamp};
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, FsError, Pipe, VirtualFile, WasiEnv,
-    WasiFunctionEnv, WasiState, WasiVersion,
+    generate_import_object_from_env, get_wasi_version, FsError, PluggableRuntimeImplementation,
+    VirtualFile, WasiEnv, WasiEnvBuilder, WasiRuntime, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 
@@ -20,6 +25,18 @@ pub enum WasiFileSystemKind {
 
     /// Instruct the test runner to use `wasmer_vfs::mem_fs`.
     InMemory,
+
+    /// Instruct the test runner to use `wasmer_vfs::tmp_fs`
+    Tmp,
+
+    /// Instruct the test runner to use `wasmer_vfs::passtru_fs`
+    PassthruMemory,
+
+    /// Instruct the test runner to use `wasmer_vfs::union_fs<host_fs, mem_fs>`
+    UnionHostMemory,
+
+    /// Instruct the test runner to use the TempFs returned by `wasmer_vfs::builder::RootFileSystemBuilder`
+    RootFileSystemBuilder,
 }
 
 /// Crate holding metadata parsed from the WASI WAST about the test to be run.
@@ -73,6 +90,7 @@ impl<'a> WasiTest<'a> {
         base_path: &str,
         filesystem_kind: WasiFileSystemKind,
     ) -> anyhow::Result<bool> {
+        use anyhow::Context;
         let mut pb = PathBuf::from(base_path);
         pb.push(self.wasm_path);
         let wasm_bytes = {
@@ -81,22 +99,31 @@ impl<'a> WasiTest<'a> {
             wasm_module.read_to_end(&mut out)?;
             out
         };
-        let module = Module::new(store, &wasm_bytes)?;
-        let (env, _tempdirs, stdout_rx, stderr_rx) =
-            self.create_wasi_env(store, filesystem_kind)?;
-        let imports = self.get_imports(store, &env.env, &module)?;
-        let instance = Instance::new(&mut store, &module, &imports)?;
+
+        let mut rt = PluggableRuntimeImplementation::default();
+        rt.set_engine(Some(store.engine().clone()));
+
+        let tasks = rt.task_manager().runtime().clone();
+        let module = Module::new(store, wasm_bytes)?;
+        let (builder, _tempdirs, mut stdin_tx, stdout_rx, stderr_rx) =
+            { tasks.block_on(async { self.create_wasi_env(filesystem_kind).await }) }?;
+
+        let (instance, _wasi_env) = builder.runtime(Arc::new(rt)).instantiate(module, store)?;
 
         let start = instance.exports.get_function("_start")?;
-        let memory = instance.exports.get_memory("memory")?;
-        let wasi_env = env.data_mut(&mut store);
-        wasi_env.set_memory(memory.clone());
 
         if let Some(stdin) = &self.stdin {
-            let state = wasi_env.state();
-            let mut wasi_stdin = state.stdin().unwrap().unwrap();
+            // let mut wasi_stdin = { wasi_env.data(store).stdin().unwrap().unwrap() };
             // Then we can write to it!
-            write!(wasi_stdin, "{}", stdin.stream)?;
+            let data = stdin.stream.to_string();
+            tasks.block_on(async move {
+                stdin_tx.write_all(data.as_bytes()).await?;
+                stdin_tx.shutdown().await?;
+
+                Ok::<_, anyhow::Error>(())
+            })?;
+        } else {
+            std::mem::drop(stdin_tx);
         }
 
         // TODO: handle errors here when the error fix gets shipped
@@ -117,6 +144,7 @@ impl<'a> WasiTest<'a> {
 
         if let Some(expected_stdout) = &self.assert_stdout {
             let stdout_str = get_stdio_output(&stdout_rx)?;
+            dbg!(&expected_stdout, &stdout_str);
             assert_eq!(stdout_str, expected_stdout.expected);
         }
 
@@ -130,23 +158,23 @@ impl<'a> WasiTest<'a> {
 
     /// Create the wasi env with the given metadata.
     #[allow(clippy::type_complexity)]
-    fn create_wasi_env(
+    async fn create_wasi_env(
         &self,
-        mut store: &mut Store,
         filesystem_kind: WasiFileSystemKind,
     ) -> anyhow::Result<(
-        WasiFunctionEnv,
+        WasiEnvBuilder,
         Vec<tempfile::TempDir>,
+        Pipe,
         mpsc::Receiver<Vec<u8>>,
         mpsc::Receiver<Vec<u8>>,
     )> {
-        let mut builder = WasiState::new(self.wasm_path);
+        let mut builder = WasiEnv::builder(self.wasm_path);
 
-        let stdin_pipe = Pipe::new();
-        builder.stdin(Box::new(stdin_pipe));
+        let (stdin_tx, stdin_rx) = Pipe::channel();
+        builder.set_stdin(Box::new(stdin_rx));
 
         for (name, value) in &self.envs {
-            builder.env(name, value);
+            builder.add_env(name, value);
         }
 
         let mut host_temp_dirs_to_not_drop = vec![];
@@ -158,73 +186,113 @@ impl<'a> WasiTest<'a> {
                 for (alias, real_dir) in &self.mapped_dirs {
                     let mut dir = PathBuf::from(BASE_TEST_DIR);
                     dir.push(real_dir);
-                    builder.map_dir(alias, dir)?;
+                    builder.add_map_dir(alias, dir)?;
                 }
 
                 // due to the structure of our code, all preopen dirs must be mapped now
                 for dir in &self.dirs {
                     let mut new_dir = PathBuf::from(BASE_TEST_DIR);
                     new_dir.push(dir);
-                    builder.map_dir(dir, new_dir)?;
+                    builder.add_map_dir(dir, new_dir)?;
                 }
 
                 for alias in &self.temp_dirs {
                     let temp_dir = tempfile::tempdir()?;
-                    builder.map_dir(alias, temp_dir.path())?;
+                    builder.add_map_dir(alias, temp_dir.path())?;
                     host_temp_dirs_to_not_drop.push(temp_dir);
                 }
 
                 builder.set_fs(Box::new(fs));
             }
 
-            WasiFileSystemKind::InMemory => {
-                let fs = mem_fs::FileSystem::default();
+            other => {
+                let fs: Box<dyn FileSystem + Send + Sync> = match other {
+                    WasiFileSystemKind::InMemory => Box::new(mem_fs::FileSystem::default()),
+                    WasiFileSystemKind::Tmp => Box::new(tmp_fs::TmpFileSystem::default()),
+                    WasiFileSystemKind::PassthruMemory => {
+                        Box::new(passthru_fs::PassthruFileSystem::new(Box::new(
+                            mem_fs::FileSystem::default(),
+                        )))
+                    }
+                    WasiFileSystemKind::RootFileSystemBuilder => {
+                        Box::new(RootFileSystemBuilder::new().build())
+                    }
+                    WasiFileSystemKind::UnionHostMemory => {
+                        let a = mem_fs::FileSystem::default();
+                        let b = mem_fs::FileSystem::default();
+                        let c = mem_fs::FileSystem::default();
+                        let d = mem_fs::FileSystem::default();
+                        let e = mem_fs::FileSystem::default();
+                        let f = mem_fs::FileSystem::default();
+
+                        let mut union = union_fs::UnionFileSystem::new();
+
+                        union.mount("mem_fs", "/test_fs", false, Box::new(a), None);
+                        union.mount("mem_fs_2", "/snapshot1", false, Box::new(b), None);
+                        union.mount("mem_fs_3", "/tests", false, Box::new(c), None);
+                        union.mount("mem_fs_4", "/nightly_2022_10_18", false, Box::new(d), None);
+                        union.mount("mem_fs_5", "/unstable", false, Box::new(e), None);
+                        union.mount("mem_fs_6", "/.tmp_wasmer_wast_0", false, Box::new(f), None);
+
+                        Box::new(union)
+                    }
+                    _ => {
+                        panic!("unexpected filesystem type {:?}", other);
+                    }
+                };
+
                 let mut temp_dir_index: usize = 0;
 
                 let root = PathBuf::from("/");
 
-                map_host_fs_to_mem_fs(&fs, read_dir(BASE_TEST_DIR)?, &root)?;
+                map_host_fs_to_mem_fs(&*fs, read_dir(BASE_TEST_DIR)?, &root).await?;
 
                 for (alias, real_dir) in &self.mapped_dirs {
                     let mut path = root.clone();
                     path.push(real_dir);
-                    builder.map_dir(alias, path)?;
+                    builder.add_map_dir(alias, path)?;
                 }
 
                 for dir in &self.dirs {
                     let mut new_dir = PathBuf::from("/");
                     new_dir.push(dir);
 
-                    builder.map_dir(dir, new_dir)?;
+                    builder.add_map_dir(dir, new_dir)?;
                 }
 
                 for alias in &self.temp_dirs {
                     let temp_dir_name =
                         PathBuf::from(format!("/.tmp_wasmer_wast_{}", temp_dir_index));
                     fs.create_dir(temp_dir_name.as_path())?;
-                    builder.map_dir(alias, temp_dir_name)?;
+                    builder.add_map_dir(alias, temp_dir_name)?;
                     temp_dir_index += 1;
                 }
 
-                builder.set_fs(Box::new(fs));
+                builder.set_fs(fs);
             }
         }
 
         let (stdout, stdout_rx) = OutputCapturerer::new();
         let (stderr, stderr_rx) = OutputCapturerer::new();
-        let out = builder
+        let builder = builder
             .args(&self.args)
             // adding this causes some tests to fail. TODO: investigate this
             //.env("RUST_BACKTRACE", "1")
             .stdout(Box::new(stdout))
-            .stderr(Box::new(stderr))
-            .finalize(&mut store)?;
+            .stderr(Box::new(stderr));
 
-        Ok((out, host_temp_dirs_to_not_drop, stdout_rx, stderr_rx))
+        Ok((
+            builder,
+            host_temp_dirs_to_not_drop,
+            stdin_tx,
+            stdout_rx,
+            stderr_rx,
+        ))
     }
 
     /// Get the correct [`WasiVersion`] from the Wasm [`Module`].
     fn get_version(&self, module: &Module) -> anyhow::Result<WasiVersion> {
+        use anyhow::Context;
         let version = get_wasi_version(module, true)
             .with_context(|| "failed to detect a version of WASI from the module")?;
         Ok(version)
@@ -494,8 +562,8 @@ impl<'a> Parse<'a> for AssertStderr<'a> {
 mod test {
     use super::*;
 
-    #[test]
-    fn test_parse() {
+    #[tokio::test]
+    async fn test_parse() {
         let pb = wast::parser::ParseBuffer::new(
             r#"(wasi_test "my_wasm.wasm"
                     (envs "HELLO=WORLD" "RUST_BACKTRACE=1")
@@ -546,72 +614,6 @@ impl OutputCapturerer {
     }
 }
 
-impl Read for OutputCapturerer {
-    fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not read from logging wrapper",
-        ))
-    }
-    fn read_to_end(&mut self, _buf: &mut Vec<u8>) -> io::Result<usize> {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not read from logging wrapper",
-        ))
-    }
-    fn read_to_string(&mut self, _buf: &mut String) -> io::Result<usize> {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not read from logging wrapper",
-        ))
-    }
-    fn read_exact(&mut self, _buf: &mut [u8]) -> io::Result<()> {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not read from logging wrapper",
-        ))
-    }
-}
-impl Seek for OutputCapturerer {
-    fn seek(&mut self, _pos: io::SeekFrom) -> io::Result<u64> {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not seek logging wrapper",
-        ))
-    }
-}
-impl Write for OutputCapturerer {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.output
-            .lock()
-            .unwrap()
-            .send(buf.to_vec())
-            .map_err(|err| io::Error::new(io::ErrorKind::BrokenPipe, err.to_string()))?;
-        Ok(buf.len())
-    }
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        self.output
-            .lock()
-            .unwrap()
-            .send(buf.to_vec())
-            .map_err(|err| io::Error::new(io::ErrorKind::BrokenPipe, err.to_string()))?;
-        Ok(())
-    }
-    fn write_fmt(&mut self, fmt: std::fmt::Arguments) -> io::Result<()> {
-        let mut buf = Vec::<u8>::new();
-        buf.write_fmt(fmt)?;
-        self.output
-            .lock()
-            .unwrap()
-            .send(buf)
-            .map_err(|err| io::Error::new(io::ErrorKind::BrokenPipe, err.to_string()))?;
-        Ok(())
-    }
-}
-
 impl VirtualFile for OutputCapturerer {
     fn last_accessed(&self) -> Timestamp {
         0
@@ -631,43 +633,97 @@ impl VirtualFile for OutputCapturerer {
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
-    fn bytes_available(&self) -> Result<usize, FsError> {
-        Ok(1024)
+    fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(0))
+    }
+    fn poll_write_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(8192))
+    }
+}
+
+impl AsyncSeek for OutputCapturerer {
+    fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not seek logging wrapper",
+        ))
+    }
+    fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+        Poll::Ready(Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not seek logging wrapper",
+        )))
+    }
+}
+
+impl AsyncWrite for OutputCapturerer {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        self.output
+            .lock()
+            .unwrap()
+            .send(buf.to_vec())
+            .map_err(|err| io::Error::new(io::ErrorKind::BrokenPipe, err.to_string()))?;
+        Poll::Ready(Ok(buf.len()))
+    }
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+}
+
+impl AsyncRead for OutputCapturerer {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        _buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        Poll::Ready(Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from logging wrapper",
+        )))
     }
 }
 
 /// When using `wasmer_vfs::mem_fs`, we cannot rely on `BASE_TEST_DIR`
 /// because the host filesystem cannot be used. Instead, we are
 /// copying `BASE_TEST_DIR` to the `mem_fs`.
-fn map_host_fs_to_mem_fs(
-    fs: &mem_fs::FileSystem,
+fn map_host_fs_to_mem_fs<'a>(
+    fs: &'a dyn FileSystem,
     directory_reader: ReadDir,
-    path_prefix: &Path,
-) -> anyhow::Result<()> {
-    for entry in directory_reader {
-        let entry = entry?;
-        let entry_type = entry.file_type()?;
+    path_prefix: &'a Path,
+) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + 'a>> {
+    Box::pin(async move {
+        for entry in directory_reader {
+            let entry = entry?;
+            let entry_type = entry.file_type()?;
 
-        let path = path_prefix.join(entry.path().file_name().unwrap());
+            let path = path_prefix.join(entry.path().file_name().unwrap());
 
-        if entry_type.is_dir() {
-            fs.create_dir(&path)?;
+            if entry_type.is_dir() {
+                fs.create_dir(&path)?;
 
-            map_host_fs_to_mem_fs(fs, read_dir(entry.path())?, &path)?
-        } else if entry_type.is_file() {
-            let mut host_file = OpenOptions::new().read(true).open(entry.path())?;
-            let mut mem_file = fs
-                .new_open_options()
-                .create_new(true)
-                .write(true)
-                .open(path)?;
-            let mut buffer = Vec::new();
-            host_file.read_to_end(&mut buffer)?;
-            mem_file.write_all(&buffer)?;
-        } else if entry_type.is_symlink() {
-            //unimplemented!("`mem_fs` does not support symlink for the moment");
+                map_host_fs_to_mem_fs(fs, read_dir(entry.path())?, &path).await?
+            } else if entry_type.is_file() {
+                let mut host_file = OpenOptions::new().read(true).open(entry.path())?;
+                let mut mem_file = fs
+                    .new_open_options()
+                    .create_new(true)
+                    .write(true)
+                    .open(path)?;
+                let mut buffer = Vec::new();
+                Read::read_to_end(&mut host_file, &mut buffer)?;
+                mem_file.write_all(&buffer).await?;
+            } else if entry_type.is_symlink() {
+                //unimplemented!("`mem_fs` does not support symlink for the moment");
+            }
         }
-    }
 
-    Ok(())
+        Ok(())
+    })
 }
