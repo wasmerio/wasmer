@@ -1,4 +1,3 @@
-use graphql_client::GraphQLQuery;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -189,6 +188,9 @@ impl MultiRegistry {
 }
 
 impl WasmerConfig {
+    pub(crate) const ENV_VAR_WASMER_REGISTRY_TOKEN: &str = "WASMER_TOKEN";
+    pub(crate) const ENV_VAR_WASMER_REGISTRY_TOKEN_LEGACY: &str = "WAPM_REGISTRY_TOKEN";
+
     /// Save the config to a file
     pub fn save<P: AsRef<Path>>(&self, to: P) -> anyhow::Result<()> {
         use std::{fs::File, io::Write};
@@ -242,11 +244,3 @@ impl WasmerConfig {
         wasmer_dir.join(GLOBAL_CONFIG_DATABASE_FILE_NAME)
     }
 }
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "graphql/schema.graphql",
-    query_path = "graphql/queries/test_if_registry_present.graphql",
-    response_derives = "Debug"
-)]
-struct TestIfRegistryPresent;
