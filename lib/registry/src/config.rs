@@ -147,6 +147,12 @@ impl MultiRegistry {
         format_graphql(&self.active_registry)
     }
 
+    pub fn current_login(&self) -> Option<&RegistryLogin> {
+        self.tokens
+            .iter()
+            .find(|login| login.registry == self.active_registry)
+    }
+
     /// Sets the current (active) registry URL
     pub fn set_current_registry(&mut self, registry: &str) {
         let registry = format_graphql(registry);
@@ -230,6 +236,20 @@ impl WasmerConfig {
                 folder
             },
         )
+    }
+
+    /// Load the config based on environment variables and default config file locations.
+    pub fn from_env() -> Result<Self, anyhow::Error> {
+        let dir = Self::get_wasmer_dir()
+            .map_err(|err| anyhow::anyhow!("Could not determine wasmer dir: {err}"))?;
+        let file_path = Self::get_file_location(&dir);
+        Self::from_file(&file_path).map_err(|err| {
+            anyhow::anyhow!(
+                "Could not load config file at '{}': {}",
+                file_path.display(),
+                err
+            )
+        })
     }
 
     pub fn get_current_dir() -> std::io::Result<PathBuf> {

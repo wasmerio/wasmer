@@ -8,6 +8,7 @@
 //! curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
 //! ```
 
+mod client;
 pub mod config;
 pub mod graphql;
 pub mod interface;
@@ -15,6 +16,8 @@ pub mod login;
 pub mod package;
 pub mod publish;
 pub mod utils;
+
+pub use crate::client::RegistryClient;
 
 use anyhow::Context;
 use core::ops::Range;
