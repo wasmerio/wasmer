@@ -15,6 +15,7 @@ pub mod interface;
 pub mod login;
 pub mod package;
 pub mod publish;
+pub mod types;
 pub mod utils;
 
 pub use crate::client::RegistryClient;

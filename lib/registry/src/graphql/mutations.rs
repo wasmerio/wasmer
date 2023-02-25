@@ -7,3 +7,21 @@ use graphql_client::GraphQLQuery;
     response_derives = "Debug"
 )]
 pub(crate) struct PublishPackageMutationChunked;
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "graphql/schema.graphql",
+    query_path = "graphql/mutations/generate_deploy_token.graphql",
+    response_derives = "Debug"
+)]
+pub(crate) struct GenerateDeployToken;
+
+pub type JSONString = String;
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "graphql/schema.graphql",
+    query_path = "graphql/mutations/publish_deploy_app.graphql",
+    response_derives = "Debug"
+)]
+pub(crate) struct PublishDeployApp;
