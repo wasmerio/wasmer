@@ -43,7 +43,7 @@ mod sys {
 
 async fn test_stdout() {
     let mut store = Store::default();
-    let module = Module::new(&mut store, br#"
+    let module = Module::new(&store, br#"
     (module
         ;; Import the required fd_write WASI function which will write the given io vectors to stdout
         ;; The function signature for fd_write is:

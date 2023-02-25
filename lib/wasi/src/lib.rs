@@ -44,7 +44,6 @@ pub mod runtime;
 mod state;
 mod syscalls;
 mod utils;
-pub mod vbus;
 pub mod wapm;
 
 /// WAI based bindings.
@@ -70,7 +69,6 @@ use wasmer::{
     MemorySize, RuntimeError,
 };
 
-pub use crate::vbus::BusSpawnedProcessJoin;
 pub use wasmer_vfs;
 #[deprecated(since = "2.1.0", note = "Please use `wasmer_vfs::FsError`")]
 pub use wasmer_vfs::FsError as WasiFsError;
@@ -153,6 +151,72 @@ impl From<WasiCallingId> for u32 {
 /// The default stack size for WASIX
 pub const DEFAULT_STACK_SIZE: u64 = 1_048_576u64;
 pub const DEFAULT_STACK_BASE: u64 = DEFAULT_STACK_SIZE;
+
+// TODO: remove, this is a leftover from an old vbus crate and should be folded
+// into WasiRuntimeError.
+#[derive(Error, Copy, Clone, Debug, PartialEq, Eq)]
+pub enum VirtualBusError {
+    /// Failed during serialization
+    #[error("serialization failed")]
+    Serialization,
+    /// Failed during deserialization
+    #[error("deserialization failed")]
+    Deserialization,
+    /// Invalid WAPM process
+    #[error("invalid wapm")]
+    InvalidWapm,
+    /// Failed to fetch the WAPM process
+    #[error("fetch failed")]
+    FetchFailed,
+    /// Failed to compile the WAPM process
+    #[error("compile error")]
+    CompileError,
+    /// Invalid ABI
+    #[error("WAPM process has an invalid ABI")]
+    InvalidABI,
+    /// Call was aborted
+    #[error("call aborted")]
+    Aborted,
+    /// Bad handle
+    #[error("bad handle")]
+    BadHandle,
+    /// Invalid topic
+    #[error("invalid topic")]
+    InvalidTopic,
+    /// Invalid callback
+    #[error("invalid callback")]
+    BadCallback,
+    /// Call is unsupported
+    #[error("unsupported")]
+    Unsupported,
+    /// Not found
+    #[error("not found")]
+    NotFound,
+    /// Bad request
+    #[error("bad request")]
+    BadRequest,
+    /// Access denied
+    #[error("access denied")]
+    AccessDenied,
+    /// Internal error has occured
+    #[error("internal error")]
+    InternalError,
+    /// Memory allocation failed
+    #[error("memory allocation failed")]
+    MemoryAllocationFailed,
+    /// Invocation has failed
+    #[error("invocation has failed")]
+    InvokeFailed,
+    /// Already consumed
+    #[error("already consumed")]
+    AlreadyConsumed,
+    /// Memory access violation
+    #[error("memory access violation")]
+    MemoryAccessViolation,
+    /// Some other unhandled error. If you see this, it's probably a bug.
+    #[error("unknown error found")]
+    UnknownError,
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum WasiRuntimeError {

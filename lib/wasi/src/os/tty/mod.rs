@@ -3,13 +3,14 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::vbus::SignalHandlerAbi;
 use derivative::*;
 use futures::future::BoxFuture;
 use wasmer_vfs::{AsyncWriteExt, NullFile, VirtualFile};
 use wasmer_wasi_types::wasi::{Signal, Snapshot0Clockid};
 
 use crate::syscalls::platform_clock_time_get;
+
+use super::task::signal::SignalHandlerAbi;
 
 const TTY_MOBILE_PAUSE: u128 = std::time::Duration::from_millis(200).as_nanos();
 
@@ -229,7 +230,7 @@ impl Tty {
     fn on_ctrl_c(mut self, _data: Cow<'static, [u8]>) -> BoxFuture<'static, Self> {
         Box::pin(async move {
             if let Some(signaler) = self.signaler.as_ref() {
-                signaler.signal(Signal::Sigint as u8);
+                signaler.signal(Signal::Sigint as u8).ok();
 
                 let (echo, _line_buffering) = {
                     let options = self.options.inner.lock().unwrap();

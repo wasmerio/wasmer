@@ -1117,52 +1117,7 @@ impl core::fmt::Debug for Tty {
             .finish()
     }
 }
-#[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum BusDataFormat {
-    Raw,
-    Bincode,
-    MessagePack,
-    Json,
-    Yaml,
-    Xml,
-    Rkyv,
-}
-impl core::fmt::Debug for BusDataFormat {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            BusDataFormat::Raw => f.debug_tuple("BusDataFormat::Raw").finish(),
-            BusDataFormat::Bincode => f.debug_tuple("BusDataFormat::Bincode").finish(),
-            BusDataFormat::MessagePack => f.debug_tuple("BusDataFormat::MessagePack").finish(),
-            BusDataFormat::Json => f.debug_tuple("BusDataFormat::Json").finish(),
-            BusDataFormat::Yaml => f.debug_tuple("BusDataFormat::Yaml").finish(),
-            BusDataFormat::Xml => f.debug_tuple("BusDataFormat::Xml").finish(),
-            BusDataFormat::Rkyv => f.debug_tuple("BusDataFormat::Rkyv").finish(),
-        }
-    }
-}
-#[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum BusEventType {
-    Noop,
-    Exit,
-    Call,
-    Result,
-    Fault,
-    Close,
-}
-impl core::fmt::Debug for BusEventType {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            BusEventType::Noop => f.debug_tuple("BusEventType::Noop").finish(),
-            BusEventType::Exit => f.debug_tuple("BusEventType::Exit").finish(),
-            BusEventType::Call => f.debug_tuple("BusEventType::Call").finish(),
-            BusEventType::Result => f.debug_tuple("BusEventType::Result").finish(),
-            BusEventType::Fault => f.debug_tuple("BusEventType::Fault").finish(),
-            BusEventType::Close => f.debug_tuple("BusEventType::Close").finish(),
-        }
-    }
-}
+
 pub type Bid = u32;
 pub type Cid = u64;
 #[doc = " __wasi_option_t"]
@@ -2389,34 +2344,6 @@ impl core::fmt::Debug for Timeout {
         }
     }
 }
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct BusEvent {
-    pub tag: BusEventType,
-    pub padding: (u64, u64, u64, u64, u64, u64, u64, u32, u16, u8),
-}
-impl core::fmt::Debug for BusEvent {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("BusEvent")
-            .field("tag", &self.tag)
-            .field("padding", &self.padding)
-            .finish()
-    }
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct BusEvent2 {
-    pub tag: BusEventType,
-    pub event: BusEvent,
-}
-impl core::fmt::Debug for BusEvent2 {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("BusEvent2")
-            .field("tag", &self.tag)
-            .field("event", &self.event)
-            .finish()
-    }
-}
 
 // TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for Snapshot0Clockid {
@@ -3069,69 +2996,6 @@ unsafe impl ValueType for Tty {
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusDataFormat {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-unsafe impl wasmer::FromToNativeWasmType for BusDataFormat {
-    type Native = i32;
-
-    fn to_native(self) -> Self::Native {
-        self as i32
-    }
-
-    fn from_native(n: Self::Native) -> Self {
-        match n {
-            0 => Self::Raw,
-            1 => Self::Bincode,
-            2 => Self::MessagePack,
-            3 => Self::Json,
-            4 => Self::Yaml,
-            5 => Self::Xml,
-            6 => Self::Rkyv,
-
-            q => todo!("could not serialize number {q} to enum BusDataFormat"),
-        }
-    }
-
-    fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
-        false
-    }
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusEventType {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-unsafe impl wasmer::FromToNativeWasmType for BusEventType {
-    type Native = i32;
-
-    fn to_native(self) -> Self::Native {
-        self as i32
-    }
-
-    fn from_native(n: Self::Native) -> Self {
-        match n {
-            0 => Self::Noop,
-            1 => Self::Exit,
-            2 => Self::Call,
-            3 => Self::Result,
-            4 => Self::Fault,
-            5 => Self::Close,
-
-            q => todo!("could not serialize number {q} to enum BusEventType"),
-        }
-    }
-
-    fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
-        false
-    }
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for OptionTag {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
@@ -3682,16 +3546,4 @@ unsafe impl wasmer::FromToNativeWasmType for Timeout {
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusEvent {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusEvent2 {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }

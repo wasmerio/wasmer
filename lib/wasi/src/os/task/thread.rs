@@ -11,9 +11,15 @@ use wasmer_wasi_types::{
     wasi::{Errno, ExitCode},
 };
 
-use crate::os::task::process::{WasiProcessId, WasiProcessInner};
+use crate::{
+    os::task::process::{WasiProcessId, WasiProcessInner},
+    WasiRuntimeError,
+};
 
-use super::{control_plane::TaskCountGuard, task_join_handle::TaskJoinHandle};
+use super::{
+    control_plane::TaskCountGuard,
+    task_join_handle::{OwnedTaskStatus, TaskJoinHandle},
+};
 
 /// Represents the ID of a WASI thread
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -84,6 +90,31 @@ pub struct WasiThread {
     state: Arc<WasiThreadState>,
 }
 
+/// A guard that ensures a thread is marked as terminated when dropped.
+///
+/// Normally the thread result should be manually registered with
+/// [`Thread::set_status_running`] or [`Thread::set_status_finished`], but
+/// this guard can ensure that the thread is marked as terminated even if this
+/// is forgotten or a panic occurs.
+pub struct WasiThreadGuard {
+    pub thread: WasiThread,
+}
+
+impl WasiThreadGuard {
+    pub fn new(thread: WasiThread) -> Self {
+        Self { thread }
+    }
+}
+
+impl Drop for WasiThreadGuard {
+    fn drop(&mut self) {
+        self.thread
+            .set_status_finished(Err(
+                crate::RuntimeError::new("Thread manager disconnected").into()
+            ));
+    }
+}
+
 #[derive(Debug)]
 struct WasiThreadState {
     is_main: bool,
@@ -91,7 +122,7 @@ struct WasiThreadState {
     id: WasiThreadId,
     signals: Mutex<(Vec<Signal>, Vec<Waker>)>,
     stack: Mutex<ThreadStack>,
-    finished: Arc<TaskJoinHandle>,
+    status: Arc<OwnedTaskStatus>,
 
     // Registers the task termination with the ControlPlane on drop.
     // Never accessed, since it's a drop guard.
@@ -105,7 +136,7 @@ impl WasiThread {
         pid: WasiProcessId,
         id: WasiThreadId,
         is_main: bool,
-        finished: Arc<TaskJoinHandle>,
+        status: Arc<OwnedTaskStatus>,
         guard: TaskCountGuard,
     ) -> Self {
         Self {
@@ -113,7 +144,7 @@ impl WasiThread {
                 is_main,
                 pid,
                 id,
-                finished,
+                status,
                 signals: Mutex::new((Vec::new(), Vec::new())),
                 stack: Mutex::new(ThreadStack::default()),
                 _task_count_guard: guard,
@@ -136,25 +167,34 @@ impl WasiThread {
         self.state.is_main
     }
 
+    /// Get a join handle to watch the task status.
+    pub fn join_handle(&self) -> TaskJoinHandle {
+        self.state.status.handle()
+    }
+
     // TODO: this should be private, access should go through utility methods.
     pub fn signals(&self) -> &Mutex<(Vec<Signal>, Vec<Waker>)> {
         &self.state.signals
     }
 
+    pub fn set_status_running(&self) {
+        self.state.status.set_running();
+    }
+
     /// Marks the thread as finished (which will cause anyone that
     /// joined on it to wake up)
-    pub fn terminate(&self, exit_code: u32) {
-        self.state.finished.terminate(exit_code);
+    pub fn set_status_finished(&self, res: Result<ExitCode, WasiRuntimeError>) {
+        self.state.status.set_finished(res.map_err(Arc::new));
     }
 
     /// Waits until the thread is finished or the timeout is reached
-    pub async fn join(&self) -> Option<ExitCode> {
-        self.state.finished.await_termination().await
+    pub async fn join(&self) -> Result<ExitCode, Arc<WasiRuntimeError>> {
+        self.state.status.await_termination().await
     }
 
     /// Attempts to join on the thread
-    pub fn try_join(&self) -> Option<ExitCode> {
-        self.state.finished.get_exit_code()
+    pub fn try_join(&self) -> Option<Result<ExitCode, Arc<WasiRuntimeError>>> {
+        self.state.status.status().into_finished()
     }
 
     /// Adds a signal for this thread to process
@@ -362,7 +402,7 @@ impl Drop for WasiThreadHandle {
         if let Some(id) = Arc::get_mut(&mut self.id) {
             let mut inner = self.inner.write().unwrap();
             if let Some(ctrl) = inner.threads.remove(id) {
-                ctrl.terminate(0);
+                ctrl.set_status_finished(Ok(0));
             }
             inner.thread_count -= 1;
         }

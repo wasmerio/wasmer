@@ -752,6 +752,7 @@ impl WasiEnvBuilder {
 
         let start = instance.exports.get_function("_start")?;
 
+        env.data(store).thread.set_status_running();
         let res = crate::run_wasi_func_start(start, store);
 
         let exit_code = match &res {
