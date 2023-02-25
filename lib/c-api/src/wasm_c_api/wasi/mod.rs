@@ -125,7 +125,7 @@ pub unsafe extern "C" fn wasi_config_mapdir(
         }
     };
 
-    if let Err(e) = _config.state_builder.map_dir(alias_str, dir_str) {
+    if let Err(e) = _config.builder.add_map_dir(alias_str, dir_str) {
         update_last_error(e);
         return false;
     }

@@ -25,12 +25,12 @@ pub mod tmp_fs;
 pub mod union_fs;
 pub mod zero_file;
 // tty_file -> see wasmer_wasi::tty_file
+pub mod dual_fs;
 pub mod pipe;
 #[cfg(feature = "static-fs")]
 pub mod static_fs;
 #[cfg(feature = "webc-fs")]
 pub mod webc_fs;
-pub mod dual_fs;
 
 pub use arc_box_file::*;
 pub use arc_file::*;

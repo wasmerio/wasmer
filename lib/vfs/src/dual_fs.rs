@@ -35,7 +35,7 @@ impl crate::FileSystem for DualFilesystem {
                 return Ok(r);
             }
         }
-        Err(FsError::EntityNotFound)
+        Err(FsError::EntryNotFound)
     }
 
     fn create_dir(&self, path: &Path) -> Result<(), FsError> {
@@ -53,7 +53,7 @@ impl crate::FileSystem for DualFilesystem {
                 return Ok(());
             }
         }
-        Err(FsError::EntityNotFound)
+        Err(FsError::EntryNotFound)
     }
 
     fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
@@ -62,7 +62,7 @@ impl crate::FileSystem for DualFilesystem {
                 return Ok(());
             }
         }
-        Err(FsError::EntityNotFound)
+        Err(FsError::EntryNotFound)
     }
 
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
@@ -71,7 +71,7 @@ impl crate::FileSystem for DualFilesystem {
                 return Ok(());
             }
         }
-        Err(FsError::EntityNotFound)
+        Err(FsError::EntryNotFound)
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
@@ -85,25 +85,17 @@ impl crate::FileSystem for DualFilesystem {
                 return Ok(r);
             }
         }
-        Err(FsError::EntityNotFound)
+        Err(FsError::EntryNotFound)
     }
 
     fn new_open_options(&self) -> OpenOptions {
-        OpenOptions::new(Box::new(DualFsFileOpener {
-            readonly: self.readonly.to_vec(),
-            readwrite: self.readwrite.to_vec(),
-        }))
+        OpenOptions::new(self)
     }
 }
 
-pub struct DualFsFileOpener {
-    readonly: Vec<Arc<dyn ReadOnly>>,
-    readwrite: Vec<Arc<Mutex<Box<dyn ReadWrite>>>>,
-}
-
-impl crate::FileOpener for DualFsFileOpener {
+impl crate::FileOpener for DualFilesystem {
     fn open(
-        &mut self,
+        &self,
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>, FsError> {
@@ -112,7 +104,7 @@ impl crate::FileOpener for DualFsFileOpener {
 
         if use_write_fs {
             for r in self.readwrite.iter() {
-                if let Ok(mut r) = r.lock().map(|r| r.new_open_options()) {
+                if let Ok(mut r) = r.lock().as_mut().map(|r| r.new_open_options()) {
                     let ok = r
                         .read(conf.read)
                         .write(conf.write)
@@ -161,6 +153,6 @@ impl crate::FileOpener for DualFsFileOpener {
                 }
             }
         }
-        Err(FsError::EntityNotFound)
+        Err(FsError::EntryNotFound)
     }
 }

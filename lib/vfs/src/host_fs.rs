@@ -18,58 +18,6 @@ use tokio::fs as tfs;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 use tracing::debug;
 
-trait TryIntoFileDescriptor {
-    type Error;
-
-    fn try_into_filedescriptor(&self) -> std::result::Result<FileDescriptor, Self::Error>;
-}
-
-#[cfg(unix)]
-impl<T> TryIntoFileDescriptor for T
-where
-    T: AsRawFd,
-{
-    type Error = FsError;
-
-    fn try_into_filedescriptor(&self) -> std::result::Result<FileDescriptor, Self::Error> {
-        Ok(FileDescriptor(
-            self.as_raw_fd()
-                .try_into()
-                .map_err(|_| FsError::InvalidFd)?,
-        ))
-    }
-}
-
-#[cfg(unix)]
-impl TryInto<RawFd> for FileDescriptor {
-    type Error = FsError;
-
-    fn try_into(self) -> std::result::Result<RawFd, Self::Error> {
-        self.0.try_into().map_err(|_| FsError::InvalidFd)
-    }
-}
-
-#[cfg(windows)]
-impl<T> TryIntoFileDescriptor for T
-where
-    T: AsRawHandle,
-{
-    type Error = FsError;
-
-    fn try_into_filedescriptor(&self) -> std::result::Result<FileDescriptor, Self::Error> {
-        Ok(FileDescriptor(self.as_raw_handle() as usize))
-    }
-}
-
-#[cfg(windows)]
-impl TryInto<RawHandle> for FileDescriptor {
-    type Error = FsError;
-
-    fn try_into(self) -> std::result::Result<RawHandle, Self::Error> {
-        Ok(self.0 as RawHandle)
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct HostFileSystemDescriptor {
     pub path: PathBuf,
@@ -198,9 +146,9 @@ impl FileSystem {
 impl crate::FileSystem for FileSystem {
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         let normalized_path = get_normalized_host_path(path, &self.mapped_dirs, true)
-            .ok_or(FsError::EntityNotFound)?;
+            .ok_or(FsError::EntryNotFound)?;
         let read_dir = fs::read_dir(&normalized_path)?;
-        let data = read_dir
+        let mut data = read_dir
             .map(|entry| {
                 let entry = entry?;
                 let metadata = entry.metadata()?;
@@ -228,28 +176,47 @@ impl crate::FileSystem for FileSystem {
         let nonexisting_dir_parent = nonexisting_dir.into_iter().collect::<PathBuf>();
         let nonexisting_normalized =
             get_normalized_host_path(&nonexisting_dir_parent, &self.mapped_dirs, true)
-                .ok_or(FsError::EntityNotFound)?;
-        let path = nonexisting_normalized.join(path.file_name().ok_or(FsError::EntityNotFound)?);
+                .ok_or(FsError::EntryNotFound)?;
+        let path = nonexisting_normalized.join(path.file_name().ok_or(FsError::EntryNotFound)?);
         fs::create_dir(path).map_err(Into::into)
     }
 
     fn remove_dir(&self, path: &Path) -> Result<()> {
-        if path.parent().is_none() {
+        let normalized_path = get_normalized_host_path(path, &self.mapped_dirs, true)
+            .ok_or(FsError::EntryNotFound)?;
+        if normalized_path.parent().is_none() {
             return Err(FsError::BaseNotDirectory);
         }
         // https://github.com/rust-lang/rust/issues/86442
         // DirectoryNotEmpty is not implemented consistently
-        if path.is_dir() && self.read_dir(path).map(|s| !s.is_empty()).unwrap_or(false) {
+        if normalized_path.is_dir()
+            && self
+                .read_dir(&normalized_path)
+                .map(|s| !s.is_empty())
+                .unwrap_or(false)
+        {
             return Err(FsError::DirectoryNotEmpty);
         }
-        let normalized_path = get_normalized_host_path(path, &self.mapped_dirs, true)
-            .ok_or(FsError::EntityNotFound)?;
         fs::remove_dir(&normalized_path).map_err(Into::into)
     }
 
+    fn remove_file(&self, path: &Path) -> Result<()> {
+        let normalized_path = get_normalized_host_path(path, &self.mapped_dirs, true)
+            .ok_or(FsError::EntryNotFound)?;
+        if normalized_path.parent().is_none() {
+            return Err(FsError::BaseNotDirectory);
+        }
+        fs::remove_file(&normalized_path).map_err(Into::into)
+    }
+
+    fn new_open_options(&self) -> OpenOptions {
+        OpenOptions::new(self)
+    }
+
     fn rename(&self, from: &Path, to: &Path) -> Result<()> {
+        use filetime::{set_file_mtime, FileTime};
         let from_normalized = get_normalized_host_path(from, &self.mapped_dirs, true)
-            .ok_or(FsError::EntityNotFound)?;
+            .ok_or(FsError::EntryNotFound)?;
         let mut to_components = to
             .components()
             .map(|c| c.as_os_str().to_string_lossy().to_string())
@@ -258,28 +225,13 @@ impl crate::FileSystem for FileSystem {
         let to_parent = to_components.into_iter().collect::<PathBuf>();
         // expect that the parent of the "to" path already exists
         let to_normalized = get_normalized_host_path(&to_parent, &self.mapped_dirs, true)
-            .ok_or(FsError::EntityNotFound)?;
+            .ok_or(FsError::EntryNotFound)?;
         let to_normalized_final = match last_component {
             Some(s) => to_normalized.join(s),
             None => to_normalized,
         };
-        fs::rename(&from_normalized, &to_normalized_final).map_err(Into::into)
-    }
-
-    fn remove_file(&self, path: &Path) -> Result<()> {
-        let normalized_path = get_normalized_host_path(path, &self.mapped_dirs, true)
-            .ok_or(FsError::EntityNotFound)?;
-        fs::remove_file(&normalized_path).map_err(Into::into)
-    }
-
-    fn new_open_options(&self) -> OpenOptions {
-        OpenOptions::new(Box::new(FileOpener {
-            mapped_dirs: self.mapped_dirs.clone(),
-        }))
-    }
-
-    fn rename(&self, from: &Path, to: &Path) -> Result<()> {
-        use filetime::{set_file_mtime, FileTime};
+        let from = &from_normalized;
+        let to = &to_normalized_final;
         if from.parent().is_none() {
             return Err(FsError::BaseNotDirectory);
         }
@@ -323,20 +275,9 @@ impl crate::FileSystem for FileSystem {
         result
     }
 
-    fn remove_file(&self, path: &Path) -> Result<()> {
-        if path.parent().is_none() {
-            return Err(FsError::BaseNotDirectory);
-        }
-        fs::remove_file(path).map_err(Into::into)
-    }
-
-    fn new_open_options(&self) -> OpenOptions {
-        OpenOptions::new(self)
-    }
-
     fn metadata(&self, path: &Path) -> Result<Metadata> {
         let normalized_path = get_normalized_host_path(path, &self.mapped_dirs, true)
-            .ok_or(FsError::EntityNotFound)?;
+            .ok_or(FsError::EntryNotFound)?;
         fs::metadata(&normalized_path)
             .and_then(TryInto::try_into)
             .map_err(Into::into)
@@ -401,13 +342,7 @@ impl TryInto<Metadata> for std::fs::Metadata {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct FileOpener {
-    /// Host-mapped file system paths
-    pub mapped_dirs: BTreeMap<HostFsAlias, PathBuf>,
-}
-
-impl crate::FileOpener for FileOpener {
+impl crate::FileOpener for FileSystem {
     fn open(
         &self,
         path: &Path,
@@ -416,7 +351,7 @@ impl crate::FileOpener for FileOpener {
         let file_may_not_exist = conf.create() || conf.create_new();
         let normalized_path =
             get_normalized_host_path(path, &self.mapped_dirs, !file_may_not_exist)
-                .ok_or(FsError::EntityNotFound)?;
+                .ok_or(FsError::EntryNotFound)?;
         // TODO: handle create implying write, etc.
         let read = conf.read();
         let write = conf.write();
