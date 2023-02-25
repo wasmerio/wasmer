@@ -30,7 +30,6 @@ use std::{
     time::Duration,
 };
 
-use crate::vbus::VirtualBusInvocation;
 use derivative::Derivative;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -48,7 +47,6 @@ pub use self::{
 pub use crate::fs::{InodeGuard, InodeWeakGuard};
 use crate::{
     fs::{fs_error_into_wasi_err, WasiFs, WasiFsRoot, WasiInodes, WasiStateFileGuard},
-    os::task::process::WasiProcessId,
     syscalls::types::*,
     utils::WasiParkingLot,
     WasiCallingId,
@@ -105,12 +103,6 @@ pub(crate) struct WasiStateThreading {
 #[derive(Debug)]
 pub struct WasiFutex {
     pub(crate) wakers: Vec<Waker>,
-}
-
-#[derive(Debug)]
-pub struct WasiBusCall {
-    pub bid: WasiProcessId,
-    pub invocation: Box<dyn VirtualBusInvocation + Sync>,
 }
 
 /// Structure that holds the state of BUS calls to this process and from

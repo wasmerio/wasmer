@@ -1,5 +1,8 @@
 use super::*;
-use crate::syscalls::*;
+use crate::{
+    os::task::{OwnedTaskStatus, TaskStatus},
+    syscalls::*,
+};
 
 /// Replaces the current process with a new process
 ///
@@ -161,14 +164,14 @@ pub fn proc_exec<M: MemorySize>(
                     ctx.data().tid(),
                     err_exit_code
                 );
-                BusSpawnedProcess::exited_process(err_exit_code)
+                OwnedTaskStatus::new(TaskStatus::Finished(Ok(err_exit_code))).handle()
             }
         };
 
         // Add the process to the environment state
         {
             let mut inner = ctx.data().process.write();
-            inner.bus_processes.insert(child_pid, Box::new(process));
+            inner.bus_processes.insert(child_pid, process);
         }
 
         let mut memory_stack = vfork.memory_stack;
@@ -270,13 +273,8 @@ pub fn proc_exec<M: MemorySize>(
                     let (tx, rx) = std::sync::mpsc::channel();
                     let tasks_inner = tasks.clone();
                     tasks.block_on(Box::pin(async move {
-                        loop {
-                            tasks_inner.sleep_now(Duration::from_millis(5)).await;
-                            if let Some(exit_code) = process.inst.exit_code() {
-                                tx.send(exit_code).unwrap();
-                                break;
-                            }
-                        }
+                        let code = process.wait_finished().await.unwrap_or(Errno::Child as u32);
+                        tx.send(code);
                     }));
                     let exit_code = rx.recv().unwrap();
                     OnCalledAction::Trap(Box::new(WasiError::Exit(exit_code as ExitCode)))

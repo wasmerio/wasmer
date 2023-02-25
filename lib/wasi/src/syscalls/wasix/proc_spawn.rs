@@ -267,7 +267,7 @@ pub fn proc_spawn_internal(
 
     {
         let mut guard = env.process.write();
-        guard.bus_processes.insert(child_pid, Box::new(process));
+        guard.bus_processes.insert(child_pid, process);
     };
 
     let handles = BusHandles {

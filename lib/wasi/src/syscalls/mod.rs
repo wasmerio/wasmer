@@ -62,10 +62,6 @@ pub use unix::*;
 #[cfg(any(target_family = "wasm"))]
 pub use wasm::*;
 
-pub(crate) use crate::vbus::{
-    BusInvocationEvent, BusSpawnedProcess, SignalHandlerAbi, StdioMode, VirtualBusError,
-    VirtualBusInvokedWait,
-};
 pub(crate) use wasmer::{
     AsStoreMut, AsStoreRef, Extern, Function, FunctionEnv, FunctionEnvMut, Global, Instance,
     Memory, Memory32, Memory64, MemoryAccessError, MemoryError, MemorySize, MemoryView, Module,
@@ -81,10 +77,10 @@ pub use windows::*;
 
 pub(crate) use self::types::{
     wasi::{
-        Addressfamily, Advice, Bid, BusDataFormat, BusErrno, BusHandles, Cid, Clockid, Dircookie,
-        Dirent, Errno, Event, EventFdReadwrite, Eventrwflags, Eventtype, ExitCode, Fd as WasiFd,
-        Fdflags, Fdstat, Filesize, Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd,
-        Pid, Prestat, Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype, StackSnapshot,
+        Addressfamily, Advice, Bid, BusErrno, BusHandles, Cid, Clockid, Dircookie, Dirent, Errno,
+        Event, EventFdReadwrite, Eventrwflags, Eventtype, ExitCode, Fd as WasiFd, Fdflags, Fdstat,
+        Filesize, Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid, Prestat,
+        Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype, StackSnapshot,
         StdioMode as WasiStdioMode, Streamsecurity, Subscription, SubscriptionFsReadwrite, Tid,
         Timestamp, TlKey, TlUser, TlVal, Tty, Whence,
     },
@@ -106,7 +102,7 @@ pub(crate) use crate::{
     runtime::{task_manager::VirtualTaskManagerExt, SpawnType},
     state::{
         self, bus_errno_into_vbus_error, iterate_poll_events, vbus_error_into_bus_errno,
-        InodeGuard, InodeWeakGuard, PollEvent, PollEventBuilder, WasiBusCall, WasiFutex, WasiState,
+        InodeGuard, InodeWeakGuard, PollEvent, PollEventBuilder, WasiFutex, WasiState,
         WasiThreadContext,
     },
     utils::{self, map_io_err},
@@ -119,7 +115,7 @@ use crate::{
         MAX_SYMLINKS,
     },
     utils::store::InstanceSnapshot,
-    WasiInodes,
+    VirtualBusError, WasiInodes,
 };
 pub(crate) use crate::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 
@@ -1100,13 +1096,4 @@ pub(crate) fn conv_bus_err_to_exit_code(err: VirtualBusError) -> ExitCode {
         VirtualBusError::Unsupported => Errno::Noexec as ExitCode,
         _ => Errno::Inval as ExitCode,
     }
-}
-
-// Function for converting the format
-pub(crate) fn conv_bus_format(format: BusDataFormat) -> BusDataFormat {
-    format
-}
-
-pub(crate) fn conv_bus_format_from(format: BusDataFormat) -> BusDataFormat {
-    format
 }
