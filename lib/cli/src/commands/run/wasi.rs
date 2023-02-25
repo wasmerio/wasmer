@@ -1,11 +1,16 @@
 use crate::utils::{parse_envvar, parse_mapdir};
 use anyhow::Result;
-use std::collections::BTreeSet;
+use std::collections::HashMap;
 use std::path::PathBuf;
-use wasmer::{AsStoreMut, FunctionEnv, Instance, Module, RuntimeError, Value};
+use std::sync::Arc;
+use std::{collections::BTreeSet, path::Path};
+use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Value};
+use wasmer_vfs::FileSystem;
+use wasmer_vfs::{DeviceFile, PassthruFileSystem, RootFileSystemBuilder};
+use wasmer_wasi::types::__WASI_STDIN_FILENO;
 use wasmer_wasi::{
-    get_wasi_versions, import_object_for_all_wasi_versions, is_wasix_module,
-    wasi_import_shared_memory, WasiEnv, WasiError, WasiState, WasiVersion,
+    default_fs_backing, get_wasi_versions, PluggableRuntimeImplementation, WasiEnv, WasiError,
+    WasiFunctionEnv, WasiVersion,
 };
 
 use clap::Parser;
@@ -33,6 +38,14 @@ pub struct Wasi {
     )]
     pub(crate) env_vars: Vec<(String, String)>,
 
+    /// List of other containers this module depends on
+    #[clap(long = "use", name = "USE")]
+    uses: Vec<String>,
+
+    /// List of injected atoms
+    #[clap(long = "map-command", name = "MAPCMD")]
+    map_commands: Vec<String>,
+
     /// Enable experimental IO devices
     #[cfg(feature = "experimental-io-devices")]
     #[cfg_attr(
@@ -40,6 +53,18 @@ pub struct Wasi {
         clap(long = "enable-experimental-io-devices")
     )]
     enable_experimental_io_devices: bool,
+
+    /// Enable networking with the host network.
+    ///
+    /// Allows WASI modules to open TCP and UDP connections, create sockets, ...
+    #[clap(long = "net")]
+    pub networking: bool,
+
+    /// Allow instances to send http requests.
+    ///
+    /// Access to domains is granted by default.
+    #[clap(long)]
+    pub http_client: bool,
 
     /// Allow WASI modules to import multiple versions of WASI without a warning.
     #[clap(long = "allow-multiple-wasi-versions")]
@@ -62,9 +87,11 @@ impl Wasi {
 
     /// Gets the WASI version (if any) for the provided module
     pub fn get_versions(module: &Module) -> Option<BTreeSet<WasiVersion>> {
-        // Get the wasi version in strict mode, so no other imports are
-        // allowed.
-        get_wasi_versions(module, true)
+        // Get the wasi version in non-strict mode, so multiple wasi versions
+        // are potentially allowed.
+        //
+        // Checking for multiple wasi versions is handled outside this function.
+        get_wasi_versions(module, false)
     }
 
     /// Checks if a given module has any WASI imports at all.
@@ -81,15 +108,70 @@ impl Wasi {
         module: &Module,
         program_name: String,
         args: Vec<String>,
-    ) -> Result<(FunctionEnv<WasiEnv>, Instance)> {
+    ) -> Result<(WasiFunctionEnv, Instance)> {
         let args = args.iter().cloned().map(|arg| arg.into_bytes());
 
-        let mut wasi_state_builder = WasiState::new(program_name);
-        wasi_state_builder
+        let map_commands = self
+            .map_commands
+            .iter()
+            .map(|map| map.split_once('=').unwrap())
+            .map(|(a, b)| (a.to_string(), b.to_string()))
+            .collect::<HashMap<_, _>>();
+
+        let mut rt = PluggableRuntimeImplementation::default();
+
+        if self.networking {
+            rt.set_networking_implementation(
+                wasmer_wasi_local_networking::LocalNetworking::default(),
+            );
+        } else {
+            rt.set_networking_implementation(wasmer_vnet::UnsupportedVirtualNetworking::default());
+        }
+
+        let engine = store.as_store_mut().engine().clone();
+        rt.set_engine(Some(engine));
+
+        let builder = WasiEnv::builder(program_name)
+            .runtime(Arc::new(rt))
             .args(args)
             .envs(self.env_vars.clone())
-            .preopen_dirs(self.pre_opened_directories.clone())?
-            .map_dirs(self.mapped_dirs.clone())?;
+            .uses(self.uses.clone())
+            .map_commands(map_commands);
+
+        let mut builder = if wasmer_wasi::is_wasix_module(module) {
+            // If we preopen anything from the host then shallow copy it over
+            let root_fs = RootFileSystemBuilder::new()
+                .with_tty(Box::new(DeviceFile::new(__WASI_STDIN_FILENO)))
+                .build();
+            if !self.mapped_dirs.is_empty() {
+                let fs_backing: Arc<dyn FileSystem + Send + Sync> =
+                    Arc::new(PassthruFileSystem::new(default_fs_backing()));
+                for (src, dst) in self.mapped_dirs.clone() {
+                    let src = match src.starts_with('/') {
+                        true => src,
+                        false => format!("/{}", src),
+                    };
+                    root_fs.mount(PathBuf::from(src), &fs_backing, dst)?;
+                }
+            }
+
+            // Open the root of the new filesystem
+            builder
+                .sandbox_fs(root_fs)
+                .preopen_dir(Path::new("/"))
+                .unwrap()
+                .map_dir(".", "/")?
+        } else {
+            builder
+                .fs(default_fs_backing())
+                .preopen_dirs(self.pre_opened_directories.clone())?
+                .map_dirs(self.mapped_dirs.clone())?
+        };
+
+        if self.http_client {
+            let caps = wasmer_wasi::http::HttpClientCapabilityV1::new_allow_all();
+            builder.capabilities_mut().http_client = caps;
+        }
 
         #[cfg(feature = "experimental-io-devices")]
         {
@@ -99,17 +181,8 @@ impl Wasi {
             }
         }
 
-        let wasi_env = wasi_state_builder.finalize(store)?;
-        wasi_env.env.as_mut(store).state.fs.is_wasix.store(
-            is_wasix_module(module),
-            std::sync::atomic::Ordering::Release,
-        );
-        let mut import_object = import_object_for_all_wasi_versions(store, &wasi_env.env);
-        wasi_import_shared_memory(&mut import_object, module, store);
-        let instance = Instance::new(store, module, &import_object)?;
-        let memory = instance.exports.get_memory("memory")?;
-        wasi_env.data_mut(store).set_memory(memory.clone());
-        Ok((wasi_env.env, instance))
+        let (instance, wasi_env) = builder.instantiate(module.clone(), store)?;
+        Ok((wasi_env, instance))
     }
 
     /// Helper function for handling the result of a Wasi _start function.

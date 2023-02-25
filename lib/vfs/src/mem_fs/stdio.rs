@@ -1,8 +1,8 @@
 //! This module contains the standard I/O streams, i.e. “emulated”
 //! `stdin`, `stdout` and `stderr`.
 
-use crate::{FileDescriptor, FsError, Result, VirtualFile};
-use std::io::{self, Read, Seek, Write};
+use crate::{FsError, Result, VirtualFile};
+use std::io::{self, Write};
 
 macro_rules! impl_virtualfile_on_std_streams {
     ($name:ident { readable: $readable:expr, writable: $writable:expr $(,)* }) => {
@@ -23,6 +23,7 @@ macro_rules! impl_virtualfile_on_std_streams {
             }
         }
 
+        #[async_trait::async_trait]
         impl VirtualFile for $name {
             fn last_accessed(&self) -> u64 {
                 0
@@ -48,131 +49,113 @@ macro_rules! impl_virtualfile_on_std_streams {
                 Ok(())
             }
 
-            fn bytes_available(&self) -> Result<usize> {
-                unimplemented!();
+            fn poll_read_ready(self: std::pin::Pin<&mut Self>, _cx: &mut std::task::Context<'_>) -> std::task::Poll<std::io::Result<usize>> {
+                std::task::Poll::Ready(Ok(self.buf.len()))
             }
 
-            fn get_fd(&self) -> Option<FileDescriptor> {
-                None
+            fn poll_write_ready(self: std::pin::Pin<&mut Self>, _cx: &mut std::task::Context<'_>) -> std::task::Poll<std::io::Result<usize>> {
+                std::task::Poll::Ready(Ok(8192))
             }
         }
 
-        impl_virtualfile_on_std_streams!(impl Seek for $name);
-        impl_virtualfile_on_std_streams!(impl Read for $name);
-        impl_virtualfile_on_std_streams!(impl Write for $name);
+        impl_virtualfile_on_std_streams!(impl AsyncSeek for $name);
+        impl_virtualfile_on_std_streams!(impl AsyncRead for $name);
+        impl_virtualfile_on_std_streams!(impl AsyncWrite for $name);
     };
 
-    (impl Seek for $name:ident) => {
-        impl Seek for $name {
-            fn seek(&mut self, _pos: io::SeekFrom) -> io::Result<u64> {
+    (impl AsyncSeek for $name:ident) => {
+        impl tokio::io::AsyncSeek for $name {
+            fn start_seek(
+                self: std::pin::Pin<&mut Self>,
+                _position: io::SeekFrom
+            ) -> io::Result<()> {
                 Err(io::Error::new(
                     io::ErrorKind::PermissionDenied,
                     concat!("cannot seek `", stringify!($name), "`"),
                 ))
             }
-        }
-    };
-
-    (impl Read for $name:ident) => {
-        impl Read for $name {
-            fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-                if self.is_readable() {
-                    let length = self.buf.as_slice().read(buf)?;
-
-                    // Remove what has been consumed.
-                    self.buf.drain(..length);
-
-                    Ok(length)
-                } else {
+            fn poll_complete(
+                self: std::pin::Pin<&mut Self>,
+                _cx: &mut std::task::Context<'_>
+            ) -> std::task::Poll<io::Result<u64>>
+            {
+                std::task::Poll::Ready(
                     Err(io::Error::new(
                         io::ErrorKind::PermissionDenied,
-                        concat!("cannot read from `", stringify!($name), "`"),
+                        concat!("cannot seek `", stringify!($name), "`"),
                     ))
-                }
-            }
-
-            fn read_to_end(&mut self, buf: &mut Vec<u8>) -> io::Result<usize> {
-                if self.is_readable() {
-                    let length = self.buf.as_slice().read_to_end(buf)?;
-
-                    // Remove what has been consumed.
-                    self.buf.clear();
-
-                    Ok(length)
-                } else {
-                    Err(io::Error::new(
-                        io::ErrorKind::PermissionDenied,
-                        concat!("cannot read from `", stringify!($name), "`"),
-                    ))
-                }
-            }
-
-            fn read_to_string(&mut self, buf: &mut String) -> io::Result<usize> {
-                if self.is_readable() {
-                    let length = self.buf.as_slice().read_to_string(buf)?;
-
-                    // Remove what has been consumed.
-                    self.buf.drain(..length);
-
-                    Ok(length)
-                } else {
-                    Err(io::Error::new(
-                        io::ErrorKind::PermissionDenied,
-                        concat!("cannot read from `", stringify!($name), "`"),
-                    ))
-                }
-            }
-
-            fn read_exact(&mut self, buf: &mut [u8]) -> io::Result<()> {
-                if self.is_readable() {
-                    self.buf.as_slice().read_exact(buf)?;
-
-                    self.buf.drain(..buf.len());
-
-                    Ok(())
-                } else {
-                    Err(io::Error::new(
-                        io::ErrorKind::PermissionDenied,
-                        concat!("cannot read from `", stringify!($name), "`"),
-                    ))
-                }
+                )
             }
         }
     };
 
-    (impl Write for $name:ident) => {
-        impl Write for $name {
-            fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-                if self.is_writable() {
-                    self.buf.write(buf)
-                } else {
-                    Err(io::Error::new(
-                        io::ErrorKind::PermissionDenied,
-                        concat!("cannot write to `", stringify!($name), "`"),
-                    ))
-                }
+    (impl AsyncRead for $name:ident) => {
+        impl tokio::io::AsyncRead for $name {
+            fn poll_read(
+                mut self: std::pin::Pin<&mut Self>,
+                _cx: &mut std::task::Context<'_>,
+                buf: &mut tokio::io::ReadBuf<'_>,
+            ) -> std::task::Poll<io::Result<()>> {
+                std::task::Poll::Ready(
+                    if self.is_readable() {
+                        let length = buf.remaining().min(self.buf.len());
+                        buf.put_slice(&self.buf[..length]);
+
+                        // Remove what has been consumed.
+                        self.buf.drain(..length);
+
+                        Ok(())
+                    } else {
+                        Err(io::Error::new(
+                            io::ErrorKind::PermissionDenied,
+                            concat!("cannot read from `", stringify!($name), "`"),
+                        ))
+                    }
+                )
+            }
+        }
+    };
+
+    (impl AsyncWrite for $name:ident) => {
+        impl tokio::io::AsyncWrite for $name {
+            fn poll_write(
+                mut self: std::pin::Pin<&mut Self>,
+                _cx: &mut std::task::Context<'_>,
+                buf: &[u8],
+            ) -> std::task::Poll<io::Result<usize>> {
+                std::task::Poll::Ready(
+                    if self.is_writable() {
+                        self.buf.write(buf)
+                    } else {
+                        Err(io::Error::new(
+                            io::ErrorKind::PermissionDenied,
+                            concat!("cannot write to `", stringify!($name), "`"),
+                        ))
+                    }
+                )
             }
 
-            fn flush(&mut self) -> io::Result<()> {
-                if self.is_writable() {
-                    self.buf.flush()
-                } else {
-                    Err(io::Error::new(
-                        io::ErrorKind::PermissionDenied,
-                        concat!("cannot flush `", stringify!($name), "`"),
-                    ))
-                }
+            fn poll_flush(
+                mut self: std::pin::Pin<&mut Self>,
+                _cx: &mut std::task::Context<'_>
+            ) -> std::task::Poll<io::Result<()>> {
+                std::task::Poll::Ready(
+                    if self.is_writable() {
+                        self.buf.flush()
+                    } else {
+                        Err(io::Error::new(
+                            io::ErrorKind::PermissionDenied,
+                            concat!("cannot flush `", stringify!($name), "`"),
+                        ))
+                    }
+                )
             }
 
-            fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-                if self.is_writable() {
-                    self.buf.write_all(buf)
-                } else {
-                    Err(io::Error::new(
-                        io::ErrorKind::PermissionDenied,
-                        concat!("cannot write to `", stringify!($name), "`"),
-                    ))
-                }
+            fn poll_shutdown(
+                self: std::pin::Pin<&mut Self>,
+                _cx: &mut std::task::Context<'_>
+            ) -> std::task::Poll<io::Result<()>> {
+                std::task::Poll::Ready(Ok(()))
             }
         }
     };
@@ -193,18 +176,20 @@ impl_virtualfile_on_std_streams!(Stderr {
 
 #[cfg(test)]
 mod test_read_write_seek {
-    use crate::mem_fs::*;
-    use std::io::{self, Read, Seek, Write};
+    use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
-    #[test]
-    fn test_read_stdin() {
+    use crate::mem_fs::*;
+    use std::io::{self};
+
+    #[tokio::test]
+    async fn test_read_stdin() {
         let mut stdin = Stdin {
             buf: vec![b'f', b'o', b'o', b'b', b'a', b'r'],
         };
         let mut buffer = [0; 3];
 
         assert!(
-            matches!(stdin.read(&mut buffer), Ok(3)),
+            matches!(stdin.read(&mut buffer).await, Ok(3)),
             "reading bytes from `stdin`",
         );
         assert_eq!(
@@ -216,7 +201,7 @@ mod test_read_write_seek {
         let mut buffer = Vec::new();
 
         assert!(
-            matches!(stdin.read_to_end(&mut buffer), Ok(3)),
+            matches!(stdin.read_to_end(&mut buffer).await, Ok(3)),
             "reading bytes again from `stdin`",
         );
         assert_eq!(
@@ -228,53 +213,56 @@ mod test_read_write_seek {
         let mut buffer = [0; 1];
 
         assert!(
-            stdin.read_exact(&mut buffer).is_err(),
+            stdin.read_exact(&mut buffer).await.is_err(),
             "cannot read bytes again because `stdin` has fully consumed",
         );
     }
 
-    #[test]
-    fn test_write_stdin() {
+    #[tokio::test]
+    async fn test_write_stdin() {
         let mut stdin = Stdin { buf: vec![] };
 
-        assert!(stdin.write(b"bazqux").is_err(), "cannot write into `stdin`");
+        assert!(
+            stdin.write(b"bazqux").await.is_err(),
+            "cannot write into `stdin`"
+        );
     }
 
-    #[test]
-    fn test_seek_stdin() {
+    #[tokio::test]
+    async fn test_seek_stdin() {
         let mut stdin = Stdin {
             buf: vec![b'f', b'o', b'o', b'b', b'a', b'r'],
         };
 
         assert!(
-            stdin.seek(io::SeekFrom::End(0)).is_err(),
+            stdin.seek(io::SeekFrom::End(0)).await.is_err(),
             "cannot seek `stdin`",
         );
     }
 
-    #[test]
-    fn test_read_stdout() {
+    #[tokio::test]
+    async fn test_read_stdout() {
         let mut stdout = Stdout {
             buf: vec![b'f', b'o', b'o', b'b', b'a', b'r'],
         };
         let mut buffer = String::new();
 
         assert!(
-            stdout.read_to_string(&mut buffer).is_err(),
+            stdout.read_to_string(&mut buffer).await.is_err(),
             "cannot read from `stdout`"
         );
     }
 
-    #[test]
-    fn test_write_stdout() {
+    #[tokio::test]
+    async fn test_write_stdout() {
         let mut stdout = Stdout { buf: vec![] };
 
         assert!(
-            matches!(stdout.write(b"baz"), Ok(3)),
+            matches!(stdout.write(b"baz").await, Ok(3)),
             "writing into `stdout`",
         );
         assert!(
-            matches!(stdout.write(b"qux"), Ok(3)),
+            matches!(stdout.write(b"qux").await, Ok(3)),
             "writing again into `stdout`",
         );
         assert_eq!(
@@ -284,41 +272,41 @@ mod test_read_write_seek {
         );
     }
 
-    #[test]
-    fn test_seek_stdout() {
+    #[tokio::test]
+    async fn test_seek_stdout() {
         let mut stdout = Stdout {
             buf: vec![b'f', b'o', b'o', b'b', b'a', b'r'],
         };
 
         assert!(
-            stdout.seek(io::SeekFrom::End(0)).is_err(),
+            stdout.seek(io::SeekFrom::End(0)).await.is_err(),
             "cannot seek `stdout`",
         );
     }
 
-    #[test]
-    fn test_read_stderr() {
+    #[tokio::test]
+    async fn test_read_stderr() {
         let mut stderr = Stderr {
             buf: vec![b'f', b'o', b'o', b'b', b'a', b'r'],
         };
         let mut buffer = String::new();
 
         assert!(
-            stderr.read_to_string(&mut buffer).is_err(),
+            stderr.read_to_string(&mut buffer).await.is_err(),
             "cannot read from `stderr`"
         );
     }
 
-    #[test]
-    fn test_write_stderr() {
+    #[tokio::test]
+    async fn test_write_stderr() {
         let mut stderr = Stderr { buf: vec![] };
 
         assert!(
-            matches!(stderr.write(b"baz"), Ok(3)),
+            matches!(stderr.write(b"baz").await, Ok(3)),
             "writing into `stderr`",
         );
         assert!(
-            matches!(stderr.write(b"qux"), Ok(3)),
+            matches!(stderr.write(b"qux").await, Ok(3)),
             "writing again into `stderr`",
         );
         assert_eq!(
@@ -328,14 +316,14 @@ mod test_read_write_seek {
         );
     }
 
-    #[test]
-    fn test_seek_stderr() {
+    #[tokio::test]
+    async fn test_seek_stderr() {
         let mut stderr = Stderr {
             buf: vec![b'f', b'o', b'o', b'b', b'a', b'r'],
         };
 
         assert!(
-            stderr.seek(io::SeekFrom::End(0)).is_err(),
+            stderr.seek(io::SeekFrom::End(0)).await.is_err(),
             "cannot seek `stderr`",
         );
     }

@@ -167,17 +167,17 @@ impl RunWithPathBuf {
         })
     }
 
-    fn inner_module_run(&self, mut store: Store, instance: Instance) -> Result<()> {
+    fn inner_module_run(&self, store: &mut Store, instance: Instance) -> Result<()> {
         // If this module exports an _initialize function, run that first.
         if let Ok(initialize) = instance.exports.get_function("_initialize") {
             initialize
-                .call(&mut store, &[])
+                .call(store, &[])
                 .with_context(|| "failed to run _initialize function")?;
         }
 
         // Do we want to invoke a function?
         if let Some(ref invoke) = self.invoke {
-            let result = self.invoke_function(&mut store, &instance, invoke, &self.args)?;
+            let result = self.invoke_function(store, &instance, invoke, &self.args)?;
             println!(
                 "{}",
                 result
@@ -188,7 +188,7 @@ impl RunWithPathBuf {
             );
         } else {
             let start: Function = self.try_find_function(&instance, "_start", &[])?;
-            let result = start.call(&mut store, &[]);
+            let result = start.call(store, &[]);
             #[cfg(feature = "wasi")]
             self.wasi.handle_result(result)?;
             #[cfg(not(feature = "wasi"))]
@@ -299,16 +299,19 @@ impl RunWithPathBuf {
                                 .map(|f| f.to_string_lossy().to_string())
                         })
                         .unwrap_or_default();
-                    let (_ctx, instance) = self
+                    let (ctx, instance) = self
                         .wasi
                         .instantiate(&mut store, &module, program_name, self.args.clone())
                         .with_context(|| "failed to instantiate WASI module")?;
-                    self.inner_module_run(store, instance)
+                    let res = self.inner_module_run(&mut store, instance);
+
+                    ctx.cleanup(&mut store, None);
+                    res
                 }
                 // not WASI
                 _ => {
                     let instance = Instance::new(&mut store, &module, &imports! {})?;
-                    self.inner_module_run(store, instance)
+                    self.inner_module_run(&mut store, instance)
                 }
             }
         };

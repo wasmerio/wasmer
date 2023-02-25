@@ -1,11 +1,13 @@
-use crate::syscalls::types::*;
+use std::mem;
+
 use libc::{
     clock_getres, clock_gettime, timespec, CLOCK_MONOTONIC, CLOCK_PROCESS_CPUTIME_ID,
     CLOCK_REALTIME, CLOCK_THREAD_CPUTIME_ID,
 };
-use std::mem;
 use wasmer::WasmRef;
 use wasmer_wasi_types::wasi::{Errno, Snapshot0Clockid, Timestamp};
+
+use crate::syscalls::types::*;
 
 pub fn platform_clock_res_get(
     clock_id: Snapshot0Clockid,
