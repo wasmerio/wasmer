@@ -1,6 +1,6 @@
 use super::memory_view::MemoryView;
 use crate::store::{AsStoreMut, AsStoreRef};
-use crate::sys::WasmerCompilerEngine;
+use crate::sys::NativeEngineExt;
 use crate::vm::VMExternMemory;
 use crate::MemoryAccessError;
 use crate::MemoryType;

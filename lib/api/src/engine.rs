@@ -42,12 +42,6 @@ impl Default for Engine {
     }
 }
 
-// impl Into<Engine> for engine_imp::Engine {
-//     fn into(self) -> Engine {
-//         Engine(self)
-//     }
-// }
-
 impl From<engine_imp::Engine> for Engine {
     fn from(inner: engine_imp::Engine) -> Self {
         Self(inner)

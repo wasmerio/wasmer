@@ -4,7 +4,7 @@ use derivative::Derivative;
 use rand::Rng;
 use tracing::{trace, warn};
 #[cfg(feature = "sys")]
-use wasmer::WasmerCompilerEngine;
+use wasmer::NativeEngineExt;
 use wasmer::{
     AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryView, Module,
     TypedFunction,

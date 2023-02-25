@@ -1,10 +1,7 @@
 use super::*;
 use crate::syscalls::*;
 
-#[cfg(feature = "sys")]
 use wasmer::vm::VMMemory;
-#[cfg(feature = "js")]
-use wasmer::VMMemory;
 
 /// ### `thread_spawn()`
 /// Creates a new thread by spawning that shares the same

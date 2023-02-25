@@ -65,7 +65,7 @@ impl From<EngineBuilder> for crate::engine::Engine {
 
 /// The custom trait to access to all the `sys` function in the common
 /// engine.
-pub trait WasmerCompilerEngine {
+pub trait NativeEngineExt {
     /// Create a new `Engine` with the given config
     #[cfg(feature = "compiler")]
     fn new(compiler_config: Box<dyn CompilerConfig>, target: Target, features: Features) -> Self;
@@ -95,7 +95,7 @@ pub trait WasmerCompilerEngine {
     fn tunables(&self) -> &dyn Tunables;
 }
 
-impl WasmerCompilerEngine for crate::engine::Engine {
+impl NativeEngineExt for crate::engine::Engine {
     fn new(compiler_config: Box<dyn CompilerConfig>, target: Target, features: Features) -> Self {
         crate::engine::Engine(Engine::new(compiler_config, target, features))
     }

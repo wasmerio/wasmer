@@ -6,7 +6,7 @@ pub use wasmer_compiler::BaseTunables;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sys::WasmerCompilerEngine;
+    use crate::sys::NativeEngineExt;
     use crate::TableType;
     use std::cell::UnsafeCell;
     use std::ptr::NonNull;

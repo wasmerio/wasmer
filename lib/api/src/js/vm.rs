@@ -110,6 +110,7 @@ impl VMMemory {
 /// The shared memory is the same as the normal memory
 pub type VMSharedMemory = VMMemory;
 
+/// The VM Global type
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMGlobal {
     pub(crate) global: JsGlobal,
@@ -125,6 +126,7 @@ impl VMGlobal {
 unsafe impl Send for VMGlobal {}
 unsafe impl Sync for VMGlobal {}
 
+/// The VM Table type
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMTable {
     pub(crate) table: JsTable,
@@ -138,11 +140,14 @@ impl VMTable {
     pub(crate) fn new(table: JsTable, ty: TableType) -> Self {
         Self { table, ty }
     }
+
+    /// Get the table size at runtime
     pub fn get_runtime_size(&self) -> u32 {
         self.table.length()
     }
 }
 
+/// The VM Function type
 #[derive(Clone)]
 pub struct VMFunction {
     pub(crate) function: JsFunction,

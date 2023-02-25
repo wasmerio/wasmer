@@ -6,7 +6,7 @@ pub(crate) mod module;
 mod tunables;
 pub(crate) mod typed_function;
 
-pub use crate::sys::engine::WasmerCompilerEngine;
+pub use crate::sys::engine::NativeEngineExt;
 pub use crate::sys::tunables::BaseTunables;
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 #[cfg(feature = "compiler")]

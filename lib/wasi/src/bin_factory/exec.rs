@@ -12,7 +12,7 @@ use futures::Future;
 use tokio::sync::mpsc;
 use tracing::*;
 #[cfg(feature = "sys")]
-use wasmer::WasmerCompilerEngine;
+use wasmer::NativeEngineExt;
 use wasmer::{FunctionEnvMut, Instance, Memory, Module, Store};
 use wasmer_wasi_types::wasi::{Errno, ExitCode};
 

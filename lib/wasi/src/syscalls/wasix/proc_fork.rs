@@ -1,10 +1,7 @@
 use super::*;
 use crate::syscalls::*;
 
-#[cfg(feature = "sys")]
 use wasmer::vm::VMMemory;
-#[cfg(feature = "js")]
-use wasmer::VMMemory;
 
 /// ### `proc_fork()`
 /// Forks the current process into a new subprocess. If the function

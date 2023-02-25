@@ -237,7 +237,8 @@ impl Module {
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
         #[cfg(feature = "js-serializable-module")]
-        return Self::new(_engine, bytes.into_bytes()).map_err(|e| DeserializeError::Compiler(e));
+        return Self::from_binary(_engine, &bytes.into_bytes())
+            .map_err(|e| DeserializeError::Compiler(e));
 
         #[cfg(not(feature = "js-serializable-module"))]
         return Err(DeserializeError::Generic("You need to enable the `js-serializable-module` feature flag to deserialize a `Module`".to_string()));
