@@ -4,6 +4,7 @@ use url::Url;
 
 use crate::{
     graphql,
+    types::{PublishDeployAppOutput, PublishDeployAppRawVars},
 };
 
 /// API client for the Wasmer registry.
@@ -93,5 +94,53 @@ impl RegistryClient {
             // TODO: Better error forwaring with a custom error type.
             anyhow::bail!("GraphQL error: {:?}", res.errors);
         }
+    }
+
+    /// Generate a Deploy token for for the given Deploy app version id.
+    pub async fn generate_deploy_token(
+        &self,
+        app_version_id: String,
+    ) -> Result<String, anyhow::Error> {
+        let vars = graphql::mutations::generate_deploy_token::Variables { app_version_id };
+        let res = self
+            .execute_checked::<graphql::mutations::GenerateDeployToken>(vars)
+            .await?;
+        let token = res
+            .generate_deploy_token
+            .context("Query did not return a token")?
+            .token;
+
+        Ok(token)
+    }
+
+    /// Publish a Deploy app.
+    ///
+    /// Takes a raw, unvalidated deployment config.
+    // TODO: Add a variant of this query that takes a typed DeployV1 config.
+    pub async fn publish_deploy_app_raw(
+        &self,
+        data: PublishDeployAppRawVars,
+    ) -> Result<PublishDeployAppOutput, anyhow::Error> {
+        let vars2 = graphql::mutations::publish_deploy_app::Variables {
+            name: data.name,
+            owner: data.namespace,
+            config: serde_json::to_string(&data.config)?,
+        };
+
+        let version = self
+            .execute_checked::<graphql::mutations::PublishDeployApp>(vars2)
+            .await?
+            .publish_deploy_app
+            .context("Query did not return data")?
+            .deploy_app_version;
+        let app = version.app.context("Query did not return expected data")?;
+
+        Ok(PublishDeployAppOutput {
+            app_id: app.id,
+            app_name: app.name,
+            version_id: version.id,
+            version_name: version.version,
+            owner_name: app.owner.global_name,
+        })
     }
 }

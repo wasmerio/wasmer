@@ -1,0 +1,5 @@
+mutation GenerateDeployToken($appVersionId: String!) {
+  generateDeployToken(input: { deployAppVersionId: $configId }) {
+    token
+  }
+}
