@@ -1,4 +1,4 @@
-query GetPackageByCommandQuery ($commandName: String!) {
+query GetPackageByCommandQuery($commandName: String!) {
   getCommand(name: $commandName) {
     command
     packageVersion {
