@@ -1,0 +1,2165 @@
+type buffer-address = u64
+
+type buffer-size = u64
+
+type shader-location = u32
+
+type dynamic-offset = u32
+
+type fence-value = u64
+
+record nothing {
+}
+
+/// Timestamp in nanoseconds.
+type timestamp = u64
+
+enum device-error {
+  out-of-memory,
+  lost,
+  no-adapters,
+  unsupported
+}
+
+variant label {
+  none,
+  some(string)
+}
+
+record rect-u32 {
+  x: u32,
+  y: u32,
+  w: u32,
+  h: u32
+}
+
+record range-inclusive-u32 {
+  start: u32,
+  end: u32
+}
+
+record range-u32 {
+  start: u32,
+  end: u32
+}
+
+record range-f32 {
+  start: float32,
+  end: float32
+}
+
+record rect-f32 {
+  x: float32,
+  y: float32,
+  w: float32,
+  h: float32
+}
+
+record memory-range {
+  start: buffer-address,
+  end: buffer-address
+}
+
+variant shader-error {
+  compilation(string),
+  device(device-error)
+}
+
+variant pipeline-error {
+  linkage(string),
+  entry-point,
+  device(device-error)
+}
+
+variant surface-error {
+  lost,
+  out-dated,
+  device(device-error),
+  other(string),
+  timeout
+}
+
+variant instance-error {
+  not-supported
+}
+
+resource buf-u8 {
+}
+
+resource buf-u32 {
+}
+
+flags instance-flags {
+  /// Generate debug information in shaders and objects.
+  debug,
+  /// Enable validation, if possible.
+  validation
+}
+
+/// Pipeline layout creation flags.
+flags pipeline-layout-flags {
+  /// Include support for base vertex/instance drawing.
+  base-vertex-instance,
+  /// Include support for num work groups builtin.
+  num-work-groups
+}
+
+/// Pipeline layout creation flags.
+flags bind-group-layout-flags {
+  /// Allows for bind group binding arrays to be shorter than the array in the BGL.
+  partially-bound
+}
+
+/// Texture format capability flags.
+flags texture-format-capabilities {
+  /// Format can be sampled.
+  sampled,
+  /// Format can be sampled with a linear sampler.
+  smapled-linear,
+  /// Format can be sampled with a min/max reduction sampler.
+  sampled-minmax,
+  /// Format can be used as storage with write-only access.
+  storage,
+  /// Format can be used as storage with read and read/write access.
+  storage-read-write,
+  /// Format can be used as storage with atomics.
+  storage-atomic,
+  /// Format can be used as color and input attachment.
+  color-attachment,
+  /// Format can be used as color (with blending) and input attachment.
+  color-attachment-blend,
+  /// Format can be used as depth-stencil and input attachment.
+  depth-stencil-attachment,
+  /// Format can be multisampled by x2.
+  multisample-x2,
+  /// Format can be multisampled by x4.
+  multisample-x4,
+  /// Format can be multisampled by x8.
+  multisample-x8,
+  /// Format can be multisampled by x16.
+  multisample-x16,
+  /// Format can be used for render pass resolve targets.
+  mulisample-resolve,
+  /// Format can be copied from.
+  copy-src,
+  /// Format can be copied to.
+  copy-dst
+}
+
+flags format-aspects {
+  color,
+  depth,
+  stencil
+}
+
+flags memory-flags {
+  transient,
+  prefer-coherent
+}
+
+flags attachment-ops {
+  load,
+  store
+}
+
+flags buffer-uses {
+  /// The argument to a read-only mapping.
+  map-read,
+  /// The argument to a write-only mapping.
+  map-write,
+  /// The source of a hardware copy.
+  copy-src,
+  /// The destination of a hardware copy.
+  copy-dst,
+  /// The index buffer used for drawing.
+  index,
+  /// A vertex buffer used for drawing.
+  vertex,
+  /// A uniform buffer bound in a bind group.
+  uniform,
+  /// A read-only storage buffer used in a bind group.
+  storage-read,
+  /// A read-write or write-only buffer used in a bind group.
+  storage-read-write,
+  /// The indirect or count buffer in a indirect draw or dispatch.
+  storage-indirect
+}
+
+record range-buffer-uses {
+  start: buffer-uses,
+  end: buffer-uses
+}
+
+flags texture-uses {
+  /// The texture is in unknown state.
+  uninitialized,
+  /// Ready to present image to the surface.
+  present,
+  /// The source of a hardware copy.
+  copy-src,
+  /// The destination of a hardware copy.
+  copy-dst,
+  /// Read-only sampled or fetched resource.
+  fetched-resource,
+  /// The color target of a renderpass.
+  color-target,
+  /// Read-only depth stencil usage.
+  depth-stencil-read,
+  /// Read-write depth stencil usage
+  depth-stencil-write,
+  /// Read-only storage buffer usage. Corresponds to a UAV in d3d, so is exclusive, despite being read only.
+  storage-read,
+  /// Read-write or write-only storage buffer usage.
+  storage-read-write,
+  /// Flag used by the wgpu-core texture tracker to say a texture is in different states for every sub-resource
+  complex,
+  /// Flag used by the wgpu-core texture tracker to say that the tracker does not know the state of the sub-resource.
+  /// This is different from UNINITIALIZED as that says the tracker does know, but the texture has not been initialized.
+  unknown
+}
+
+record range-texture-uses {
+  start: texture-uses,
+  end: texture-uses
+}
+
+record instance-descriptor {
+  name: string,
+  instance-flags: instance-flags
+}
+
+record alignments {
+  buffer-copy-offset: buffer-size,
+  buffer-copy-pitch: buffer-size
+}
+
+record limits {
+  /// Maximum allowed value for the `size.width` of a texture created with `TextureDimension::D1`.
+  /// Defaults to 8192. Higher is "better".
+  max-texture-dimension1d: u32,
+  /// Maximum allowed value for the `size.width` and `size.height` of a texture created with `TextureDimension::D2`.
+  /// Defaults to 8192. Higher is "better".
+  max-texture-dimension2d: u32,
+  /// Maximum allowed value for the `size.width`, `size.height`, and `size.depth-or-array-layers`
+  /// of a texture created with `TextureDimension::D3`.
+  /// Defaults to 2048. Higher is "better".
+  max-texture-dimension3d: u32,
+  /// Maximum allowed value for the `size.depth-or-array-layers` of a texture created with `TextureDimension::D2`.
+  /// Defaults to 256. Higher is "better".
+  max-texture-array-layers: u32,
+  /// Amount of bind groups that can be attached to a pipeline at the same time. Defaults to 4. Higher is "better".
+  max-bind-groups: u32,
+  /// Maximum binding index allowed in `create-bind-group-layout`. Defaults to 640.
+  max-bindings-per-bind-group: u32,
+  /// Amount of uniform buffer bindings that can be dynamic in a single pipeline. Defaults to 8. Higher is "better".
+  max-dynamic-uniform-buffers-per-pipeline-layout: u32,
+  /// Amount of storage buffer bindings that can be dynamic in a single pipeline. Defaults to 4. Higher is "better".
+  max-dynamic-storage-buffers-per-pipeline-layout: u32,
+  /// Amount of sampled textures visible in a single shader stage. Defaults to 16. Higher is "better".
+  max-sampled-textures-per-shader-stage: u32,
+  /// Amount of samplers visible in a single shader stage. Defaults to 16. Higher is "better".
+  max-samplers-per-shader-stage: u32,
+  /// Amount of storage buffers visible in a single shader stage. Defaults to 8. Higher is "better".
+  max-storage-buffers-per-shader-stage: u32,
+  /// Amount of storage textures visible in a single shader stage. Defaults to 8. Higher is "better".
+  max-storage-textures-per-shader-stage: u32,
+  /// Amount of uniform buffers visible in a single shader stage. Defaults to 12. Higher is "better".
+  max-uniform-buffers-per-shader-stage: u32,
+  /// Maximum size in bytes of a binding to a uniform buffer. Defaults to 64 KB. Higher is "better".
+  max-uniform-buffer-binding-size: u32,
+  /// Maximum size in bytes of a binding to a storage buffer. Defaults to 128 MB. Higher is "better".
+  max-storage-buffer-binding-size: u32,
+  /// Maximum length of `VertexState::buffers` when creating a `RenderPipeline`.
+  /// Defaults to 8. Higher is "better".
+  max-vertex-buffers: u32,
+  /// A limit above which buffer allocations are guaranteed to fail.
+  ///
+  /// Buffer allocations below the maximum buffer size may not succeed depending on available memory,
+  /// fragmentation and other factors.
+  max-buffer-size: u64,
+  /// Maximum length of `VertexBufferLayout::attributes`, summed over all `VertexState::buffers`,
+  /// when creating a `RenderPipeline`.
+  /// Defaults to 16. Higher is "better".
+  max-vertex-attributes: u32,
+  /// Maximum value for `VertexBufferLayout::array-stride` when creating a `RenderPipeline`.
+  /// Defaults to 2048. Higher is "better".
+  max-vertex-buffer-array-stride: u32,
+  /// Required `BufferBindingType::Uniform` alignment for `BufferBinding::offset`
+  /// when creating a `BindGroup`, or for `set-bind-group` `dynamicOffsets`.
+  /// Defaults to 256. Lower is "better".
+  min-uniform-buffer-offset-alignment: u32,
+  /// Required `BufferBindingType::Storage` alignment for `BufferBinding::offset`
+  /// when creating a `BindGroup`, or for `set-bind-group` `dynamicOffsets`.
+  /// Defaults to 256. Lower is "better".
+  min-storage-buffer-offset-alignment: u32,
+  /// Maximum allowed number of components (scalars) of input or output locations for
+  /// inter-stage communication (vertex outputs to fragment inputs). Defaults to 60.
+  max-inter-stage-shader-components: u32,
+  /// Maximum number of bytes used for workgroup memory in a compute entry point. Defaults to
+  /// 16352.
+  max-compute-workgroup-storage-size: u32,
+  /// Maximum value of the product of the `workgroup-size` dimensions for a compute entry-point.
+  /// Defaults to 256.
+  max-compute-invocations-per-workgroup: u32,
+  /// The maximum value of the workgroup-size X dimension for a compute stage `ShaderModule` entry-point.
+  /// Defaults to 256.
+  max-compute-workgroup-size-x: u32,
+  /// The maximum value of the workgroup-size Y dimension for a compute stage `ShaderModule` entry-point.
+  /// Defaults to 256.
+  max-compute-workgroup-size-y: u32,
+  /// The maximum value of the workgroup-size Z dimension for a compute stage `ShaderModule` entry-point.
+  /// Defaults to 64.
+  max-compute-workgroup-size-z: u32,
+  /// The maximum value for each dimension of a `ComputePass::dispatch(x, y, z)` operation.
+  /// Defaults to 65535.
+  max-compute-workgroups-per-dimension: u32,
+  /// Amount of storage available for push constants in bytes. Defaults to 0. Higher is "better".
+  /// Requesting more than 0 during device creation requires [`Features::PUSH-CONSTANTS`] to be enabled.
+  ///
+  /// Expect the size to be:
+  /// - Vulkan: 128-256 bytes
+  /// - DX12: 256 bytes
+  /// - Metal: 4096 bytes
+  /// - DX11 & OpenGL don't natively support push constants, and are emulated with uniforms,
+  ///   so this number is less useful but likely 256.
+  max-push-constant-size: u32
+}
+
+record downlevel-limits {
+}
+
+flags downlevel-flags {
+   /// The device supports compiling and using compute shaders.
+  ///
+  /// DX11 on FL10 level hardware, WebGL2, and GLES3.0 devices do not support compute.
+  compute-shaders,
+  /// Supports binding storage buffers and textures to fragment shaders.
+  fragment-writable-storage,
+  /// Supports indirect drawing and dispatching.
+  ///
+  /// DX11 on FL10 level hardware, WebGL2, and GLES 3.0 devices do not support indirect.
+  indirect-execution,
+  /// Supports non-zero `base-vertex` parameter to indexed draw calls.
+  base-vertex,
+  /// Supports reading from a depth/stencil buffer while using as a read-only depth/stencil
+  /// attachment.
+  ///
+  /// The WebGL2 and GLES backends do not support RODS.
+  read-only-depth-stencil,
+  /// Supports textures with mipmaps which have a non power of two size.
+  non-power-of-two-mipmapped-textures,
+  /// Supports textures that are cube arrays.
+  cube-array-textures,
+  /// Supports comparison samplers.
+  comparison-samplers,
+  /// Supports different blend operations per color attachment.
+  independent-blend,
+  /// Supports storage buffers in vertex shaders.
+  vertex-storage,
+
+  /// Supports samplers with anisotropic filtering. Note this isn't actually required by
+  /// WebGPU, the implementation is allowed to completely ignore aniso clamp. This flag is
+  /// here for native backends so they can communicate to the user of aniso is enabled.
+  ///
+  /// All backends and all devices support anisotropic filtering.
+  anisotropic-filtering,
+
+  /// Supports storage buffers in fragment shaders.
+  fragment-storage,
+
+  /// Supports sample-rate shading.
+  multisampled-shading,
+
+  /// Supports copies between depth textures and buffers.
+  ///
+  /// GLES/WebGL don't support this.
+  depth-texture-and-buffer-copies,
+
+  /// Supports all the texture usages described in WebGPU. If this isn't supported, you
+  /// should call `get-texture-format-features` to get how you can use textures of a given format
+  webgpu-texture-format-support,
+
+  /// Supports buffer bindings with sizes that aren't a multiple of 16.
+  ///
+  /// WebGL doesn't support this.
+  buffer-bindings-not16-byte-aligned,
+
+  /// Supports buffers to combine [`BufferUsages::INDEX`] with usages other than [`BufferUsages::COPY-DST`] and [`BufferUsages::COPY-SRC`].
+  /// Furthermore, in absence of this feature it is not allowed to copy index buffers from/to buffers with a set of usage flags containing
+  /// [`BufferUsages::VERTEX`]/[`BufferUsages::UNIFORM`]/[`BufferUsages::STORAGE`] or [`BufferUsages::INDIRECT`].
+  ///
+  /// WebGL doesn't support this.
+  unrestricted-index-buffer,
+
+  /// Supports full 32-bit range indices (2^32-1 as opposed to 2^24-1 without this flag)
+  ///
+  /// Corresponds to Vulkan's `VkPhysicalDeviceFeatures.fullDrawIndexUint32`
+  full-draw-index-uint32,
+
+  /// Supports depth bias clamping
+  ///
+  /// Corresponds to Vulkan's `VkPhysicalDeviceFeatures.depthBiasClamp`
+  depth-bias-clamp,
+
+  /// Supports specifying which view format values are allowed when create-view() is called on a texture.
+  ///
+  /// The WebGL and GLES backends doesn't support this.
+  view-formatsm,
+
+  /// With this feature not present, there are the following restrictions on `Queue::copy-external-image-to-texture`:
+  /// - The source must not be [`web-sys::OffscreenCanvas`]
+  /// - [`ImageCopyExternalImage::origin`] must be zero.
+  /// - [`ImageCopyTextureTagged::color-space`] must be srgb.
+  /// - If the source is an [`web-sys::ImageBitmap`]:
+  ///   - [`ImageCopyExternalImage::flip-y`] must be false.
+  ///   - [`ImageCopyTextureTagged::premultiplied-alpha`] must be false.
+  ///
+  /// WebGL doesn't support this. WebGPU does.
+  unrestricted-external-texture-copies,
+
+  /// Supports specifying which view formats are allowed when calling create-view on the texture returned by get-current-texture.
+  ///
+  /// The GLES/WebGL and Vulkan on Android doesn't support this.
+  surface-view-formats,
+}
+
+flags shader-model {
+  /// Extremely limited shaders, including a total instruction limit.
+  sm2,
+  /// Missing minor features and storage images.
+  sm4,
+  /// WebGPU supports shader module 5.
+  sm5
+}
+
+record downlevel-capabilities {
+    /// Combined boolean flags.
+    downlevel-flags: downlevel-flags,
+    /// Additional limits
+    limits: downlevel-limits,
+    /// Which collections of features shaders support. Defined in terms of D3D's shader models.
+    shader-model: shader-model
+}
+
+record capabilities {
+  limits: limits,
+  alignments: alignments,
+  downlevel: downlevel-capabilities
+}
+
+enum device-type {
+  /// Other or Unknown.
+  other,
+  /// Integrated GPU with shared CPU/GPU memory.
+  integrated-gpu,
+  /// Discrete GPU with separate CPU/GPU memory.
+  discrete-gpu,
+  /// Virtual / Hosted.
+  virtual-gpu,
+  /// Cpu / Software Rendering.
+  cpu
+}
+
+enum backend {
+  /// Dummy backend, used for testing.
+  empty,
+  /// Vulkan API
+  vulkan,
+  /// Metal API (Apple platforms)
+  metal,
+  /// Direct3D-12 (Windows)
+  dx12,
+  /// Direct3D-11 (Windows)
+  dx11,
+  /// OpenGL ES-3 (Linux, Android)
+  gl,
+  /// WebGPU in the browser
+  browser-web-gpu
+}
+
+record adapter-info {
+  /// Adapter name
+  name: string,
+  /// Vendor PCI id of the adapter
+  ///
+  /// If the vendor has no PCI id, then this value will be the backend's vendor id equivalent. On Vulkan,
+  /// Mesa would have a vendor id equivalent to it's `VkVendorId` value.
+  vendor: u64,
+  /// PCI id of the adapter
+  device: u64,
+  /// Type of device
+  device-type: device-type,
+  /// Driver name
+  driver: string,
+  /// Driver info
+  driver-info: string,
+  /// Backend used for device
+  backend: backend
+}
+
+enum astc-block {
+  /// 4x4 block compressed texture. 16 bytes per block (8 bit/px).
+  b4x4,
+  /// 5x4 block compressed texture. 16 bytes per block (6.4 bit/px).
+  b5x4,
+  /// 5x5 block compressed texture. 16 bytes per block (5.12 bit/px).
+  b5x5,
+  /// 6x5 block compressed texture. 16 bytes per block (4.27 bit/px).
+  b6x5,
+  /// 6x6 block compressed texture. 16 bytes per block (3.56 bit/px).
+  b6x6,
+  /// 8x5 block compressed texture. 16 bytes per block (3.2 bit/px).
+  b8x5,
+  /// 8x6 block compressed texture. 16 bytes per block (2.67 bit/px).
+  b8x6,
+  /// 8x8 block compressed texture. 16 bytes per block (2 bit/px).
+  b8x8,
+  /// 10x5 block compressed texture. 16 bytes per block (2.56 bit/px).
+  b10x5,
+  /// 10x6 block compressed texture. 16 bytes per block (2.13 bit/px).
+  b10x6,
+  /// 10x8 block compressed texture. 16 bytes per block (1.6 bit/px).
+  b10x8,
+  /// 10x10 block compressed texture. 16 bytes per block (1.28 bit/px).
+  b10x10,
+  /// 12x10 block compressed texture. 16 bytes per block (1.07 bit/px).
+  b12x10,
+  /// 12x12 block compressed texture. 16 bytes per block (0.89 bit/px).
+  b12x12
+}
+
+enum astc-channel {
+  /// 8 bit integer RGBA, [0, 255] converted to/from linear-color float [0, 1] in shader.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-ASTC-LDR`] must be enabled to use this channel.
+  unorm,
+  /// 8 bit integer RGBA, Srgb-color [0, 255] converted to/from linear-color float [0, 1] in shader.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-ASTC-LDR`] must be enabled to use this channel.
+  unorm-srgb,
+  /// floating-point RGBA, linear-color float can be outside of the [0, 1] range.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-ASTC-HDR`] must be enabled to use this channel.
+  hdr
+}
+
+record text-format-astc {
+  block: astc-block,
+  channel: astc-channel
+}
+
+variant texture-format {
+  // Normal 8 bit formats
+  /// Red channel only. 8 bit integer per channel. [0, 255] converted to/from float [0, 1] in shader.
+  r8-unorm,
+  /// Red channel only. 8 bit integer per channel. [-127, 127] converted to/from float [-1, 1] in shader.
+  r8-snorm,
+  /// Red channel only. 8 bit integer per channel. Unsigned in shader.
+  r8-uint,
+  /// Red channel only. 8 bit integer per channel. Signed in shader.
+  r8-sint,
+
+  // Normal 16 bit formats
+  /// Red channel only. 16 bit integer per channel. Unsigned in shader.
+  r16-uint,
+  /// Red channel only. 16 bit integer per channel. Signed in shader.
+  r16-sint,
+  /// Red channel only. 16 bit integer per channel. [0, 65535] converted to/from float [0, 1] in shader.
+  ///
+  /// [`Features::TEXTURE-FORMAT-16BIT-NORM`] must be enabled to use this texture format.
+  r16-unorm,
+  /// Red channel only. 16 bit integer per channel. [0, 65535] converted to/from float [-1, 1] in shader.
+  ///
+  /// [`Features::TEXTURE-FORMAT-16BIT-NORM`] must be enabled to use this texture format.
+  r16-snorm,
+  /// Red channel only. 16 bit float per channel. Float in shader.
+  r16-float,
+  /// Red and green channels. 8 bit integer per channel. [0, 255] converted to/from float [0, 1] in shader.
+  rg8-unorm,
+  /// Red and green channels. 8 bit integer per channel. [-127, 127] converted to/from float [-1, 1] in shader.
+  rg8-snorm,
+  /// Red and green channels. 8 bit integer per channel. Unsigned in shader.
+  rg8-uint,
+  /// Red and green channels. 8 bit integer per channel. Signed in shader.
+  rg8-sint,
+
+  // Normal 32 bit formats
+  /// Red channel only. 32 bit integer per channel. Unsigned in shader.
+  r32-uint,
+  /// Red channel only. 32 bit integer per channel. Signed in shader.
+  r32-sint,
+  /// Red channel only. 32 bit float per channel. Float in shader.
+  r32-float,
+  /// Red and green channels. 16 bit integer per channel. Unsigned in shader.
+  rg16-uint,
+  /// Red and green channels. 16 bit integer per channel. Signed in shader.
+  rg16-sint,
+  /// Red and green channels. 16 bit integer per channel. [0, 65535] converted to/from float [0, 1] in shader.
+  ///
+  /// [`Features::TEXTURE-FORMAT-16BIT-NORM`] must be enabled to use this texture format.
+  rg16-unorm,
+  /// Red and green channels. 16 bit integer per channel. [0, 65535] converted to/from float [-1, 1] in shader.
+  ///
+  /// [`Features::TEXTURE-FORMAT-16BIT-NORM`] must be enabled to use this texture format.
+  rg16-snorm,
+  /// Red and green channels. 16 bit float per channel. Float in shader.
+  rg16-float,
+  /// Red, green, blue, and alpha channels. 8 bit integer per channel. [0, 255] converted to/from float [0, 1] in shader.
+  rgba8-unorm,
+  /// Red, green, blue, and alpha channels. 8 bit integer per channel. Srgb-color [0, 255] converted to/from linear-color float [0, 1] in shader.
+  rgba8-unorm-srgb,
+  /// Red, green, blue, and alpha channels. 8 bit integer per channel. [-127, 127] converted to/from float [-1, 1] in shader.
+  rgba8-snorm,
+  /// Red, green, blue, and alpha channels. 8 bit integer per channel. Unsigned in shader.
+  rgba8-uint,
+  /// Red, green, blue, and alpha channels. 8 bit integer per channel. Signed in shader.
+  rgba8-sint,
+  /// Blue, green, red, and alpha channels. 8 bit integer per channel. [0, 255] converted to/from float [0, 1] in shader.
+  bgra8-unorm,
+  /// Blue, green, red, and alpha channels. 8 bit integer per channel. Srgb-color [0, 255] converted to/from linear-color float [0, 1] in shader.
+  bgra8-unorm-srgb,
+
+  // Packed 32 bit formats
+  /// Packed unsigned float with 9 bits mantisa for each RGB component, then a common 5 bits exponent
+  rgb9e5-ufloat,
+  /// Red, green, blue, and alpha channels. 10 bit integer for RGB channels, 2 bit integer for alpha channel. [0, 1023] ([0, 3] for alpha) converted to/from float [0, 1] in shader.
+  rgb10a2-unorm,
+  /// Red, green, and blue channels. 11 bit float with no sign bit for RG channels. 10 bit float with no sign bit for blue channel. Float in shader.
+  rg11b10-float,
+
+  // Normal 64 bit formats
+  /// Red and green channels. 32 bit integer per channel. Unsigned in shader.
+  rg32-uint,
+  /// Red and green channels. 32 bit integer per channel. Signed in shader.
+  rg32-sint,
+  /// Red and green channels. 32 bit float per channel. Float in shader.
+  rg32-float,
+  /// Red, green, blue, and alpha channels. 16 bit integer per channel. Unsigned in shader.
+  rgba16-uint,
+  /// Red, green, blue, and alpha channels. 16 bit integer per channel. Signed in shader.
+  rgba16-sint,
+  /// Red, green, blue, and alpha channels. 16 bit integer per channel. [0, 65535] converted to/from float [0, 1] in shader.
+  ///
+  /// [`Features::TEXTURE-FORMAT-16BIT-NORM`] must be enabled to use this texture format.
+  rgba16-unorm,
+  /// Red, green, blue, and alpha. 16 bit integer per channel. [0, 65535] converted to/from float [-1, 1] in shader.
+  ///
+  /// [`Features::TEXTURE-FORMAT-16BIT-NORM`] must be enabled to use this texture format.
+  rgba16-snorm,
+  /// Red, green, blue, and alpha channels. 16 bit float per channel. Float in shader.
+  rgba16-float,
+
+  // Normal 128 bit formats
+  /// Red, green, blue, and alpha channels. 32 bit integer per channel. Unsigned in shader.
+  rgba32-uint,
+  /// Red, green, blue, and alpha channels. 32 bit integer per channel. Signed in shader.
+  rgba32-sint,
+  /// Red, green, blue, and alpha channels. 32 bit float per channel. Float in shader.
+  rgba32-float,
+
+  // Depth and stencil formats
+  /// Stencil format with 8 bit integer stencil.
+  stencil8,
+  /// Special depth format with 16 bit integer depth.
+  depth16-unorm,
+  /// Special depth format with at least 24 bit integer depth.
+  depth24-plus,
+  /// Special depth/stencil format with at least 24 bit integer depth and 8 bits integer stencil.
+  depth24-plus-stencil8,
+  /// Special depth format with 32 bit floating point depth.
+  depth32-float,
+  /// Special depth/stencil format with 32 bit floating point depth and 8 bits integer stencil.
+  depth32-float-stencil8,
+
+  // Compressed textures usable with `TEXTURE-COMPRESSION-BC` feature.
+  /// 4x4 block compressed texture. 8 bytes per block (4 bit/px). 4 color + alpha pallet. 5 bit R + 6 bit G + 5 bit B + 1 bit alpha.
+  /// [0, 63] ([0, 1] for alpha) converted to/from float [0, 1] in shader.
+  ///
+  /// Also known as DXT1.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-BC`] must be enabled to use this texture format.
+  bc1-rgba-unorm,
+  /// 4x4 block compressed texture. 8 bytes per block (4 bit/px). 4 color + alpha pallet. 5 bit R + 6 bit G + 5 bit B + 1 bit alpha.
+  /// Srgb-color [0, 63] ([0, 1] for alpha) converted to/from linear-color float [0, 1] in shader.
+  ///
+  /// Also known as DXT1.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-BC`] must be enabled to use this texture format.
+  bc1-rgba-unorm-srgb,
+  /// 4x4 block compressed texture. 16 bytes per block (8 bit/px). 4 color pallet. 5 bit R + 6 bit G + 5 bit B + 4 bit alpha.
+  /// [0, 63] ([0, 15] for alpha) converted to/from float [0, 1] in shader.
+  ///
+  /// Also known as DXT3.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-BC`] must be enabled to use this texture format.
+  bc2-rgba-unorm,
+  /// 4x4 block compressed texture. 16 bytes per block (8 bit/px). 4 color pallet. 5 bit R + 6 bit G + 5 bit B + 4 bit alpha.
+  /// Srgb-color [0, 63] ([0, 255] for alpha) converted to/from linear-color float [0, 1] in shader.
+  ///
+  /// Also known as DXT3.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-BC`] must be enabled to use this texture format.
+  bc2-rgba-unorm-srgb,
+  /// 4x4 block compressed texture. 16 bytes per block (8 bit/px). 4 color pallet + 8 alpha pallet. 5 bit R + 6 bit G + 5 bit B + 8 bit alpha.
+  /// [0, 63] ([0, 255] for alpha) converted to/from float [0, 1] in shader.
+  ///
+  /// Also known as DXT5.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-BC`] must be enabled to use this texture format.
+  bc3-rgba-unorm,
+  /// 4x4 block compressed texture. 16 bytes per block (8 bit/px). 4 color pallet + 8 alpha pallet. 5 bit R + 6 bit G + 5 bit B + 8 bit alpha.
+  /// Srgb-color [0, 63] ([0, 255] for alpha) converted to/from linear-color float [0, 1] in shader.
+  ///
+  /// Also known as DXT5.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-BC`] must be enabled to use this texture format.
+  bc3-rgba-unorm-srgb,
+  /// 4x4 block compressed texture. 8 bytes per block (4 bit/px). 8 color pallet. 8 bit R.
+  /// [0, 255] converted to/from float [0, 1] in shader.
+  ///
+  /// Also known as RGTC1.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-BC`] must be enabled to use this texture format.
+  bc4r-unorm,
+  /// 4x4 block compressed texture. 8 bytes per block (4 bit/px). 8 color pallet. 8 bit R.
+  /// [-127, 127] converted to/from float [-1, 1] in shader.
+  ///
+  /// Also known as RGTC1.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-BC`] must be enabled to use this texture format.
+  bc4r-snorm,
+  /// 4x4 block compressed texture. 16 bytes per block (8 bit/px). 8 color red pallet + 8 color green pallet. 8 bit RG.
+  /// [0, 255] converted to/from float [0, 1] in shader.
+  ///
+  /// Also known as RGTC2.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-BC`] must be enabled to use this texture format.
+  bc5-rg-unorm,
+  /// 4x4 block compressed texture. 16 bytes per block (8 bit/px). 8 color red pallet + 8 color green pallet. 8 bit RG.
+  /// [-127, 127] converted to/from float [-1, 1] in shader.
+  ///
+  /// Also known as RGTC2.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-BC`] must be enabled to use this texture format.
+  bc5-rg-snorm,
+  /// 4x4 block compressed texture. 16 bytes per block (8 bit/px). Variable sized pallet. 16 bit unsigned float RGB. Float in shader.
+  ///
+  /// Also known as BPTC (float).
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-BC`] must be enabled to use this texture format.
+  bc6h-rgb-ufloat,
+  /// 4x4 block compressed texture. 16 bytes per block (8 bit/px). Variable sized pallet. 16 bit signed float RGB. Float in shader.
+  ///
+  /// Also known as BPTC (float).
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-BC`] must be enabled to use this texture format.
+  bc6h-rgb-sfloat,
+  /// 4x4 block compressed texture. 16 bytes per block (8 bit/px). Variable sized pallet. 8 bit integer RGBA.
+  /// [0, 255] converted to/from float [0, 1] in shader.
+  ///
+  /// Also known as BPTC (unorm).
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-BC`] must be enabled to use this texture format.
+  bc7-rgba-unorm,
+  /// 4x4 block compressed texture. 16 bytes per block (8 bit/px). Variable sized pallet. 8 bit integer RGBA.
+  /// Srgb-color [0, 255] converted to/from linear-color float [0, 1] in shader.
+  ///
+  /// Also known as BPTC (unorm).
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-BC`] must be enabled to use this texture format.
+  cb7-rgba-unorm-srgb,
+  /// 4x4 block compressed texture. 8 bytes per block (4 bit/px). Complex pallet. 8 bit integer RGB.
+  /// [0, 255] converted to/from float [0, 1] in shader.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-ETC2`] must be enabled to use this texture format.
+  etc2-rgb8-unorm,
+  /// 4x4 block compressed texture. 8 bytes per block (4 bit/px). Complex pallet. 8 bit integer RGB.
+  /// Srgb-color [0, 255] converted to/from linear-color float [0, 1] in shader.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-ETC2`] must be enabled to use this texture format.
+  etc2-rgb8-unorm-srgb,
+  /// 4x4 block compressed texture. 8 bytes per block (4 bit/px). Complex pallet. 8 bit integer RGB + 1 bit alpha.
+  /// [0, 255] ([0, 1] for alpha) converted to/from float [0, 1] in shader.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-ETC2`] must be enabled to use this texture format.
+  etc2-rgb8-a1-unorm,
+  /// 4x4 block compressed texture. 8 bytes per block (4 bit/px). Complex pallet. 8 bit integer RGB + 1 bit alpha.
+  /// Srgb-color [0, 255] ([0, 1] for alpha) converted to/from linear-color float [0, 1] in shader.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-ETC2`] must be enabled to use this texture format.
+  etc2-rgb8-a1-unorm-srgb,
+  /// 4x4 block compressed texture. 16 bytes per block (8 bit/px). Complex pallet. 8 bit integer RGB + 8 bit alpha.
+  /// [0, 255] converted to/from float [0, 1] in shader.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-ETC2`] must be enabled to use this texture format.
+  etc2-rgb-a8-unorm,
+  /// 4x4 block compressed texture. 16 bytes per block (8 bit/px). Complex pallet. 8 bit integer RGB + 8 bit alpha.
+  /// Srgb-color [0, 255] converted to/from linear-color float [0, 1] in shader.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-ETC2`] must be enabled to use this texture format.
+  etc2-rgb-a8-unorm-srgb,
+  /// 4x4 block compressed texture. 8 bytes per block (4 bit/px). Complex pallet. 11 bit integer R.
+  /// [0, 255] converted to/from float [0, 1] in shader.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-ETC2`] must be enabled to use this texture format.
+  eac-r11-unorm,
+  /// 4x4 block compressed texture. 8 bytes per block (4 bit/px). Complex pallet. 11 bit integer R.
+  /// [-127, 127] converted to/from float [-1, 1] in shader.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-ETC2`] must be enabled to use this texture format.
+  eac-r11-snorm,
+  /// 4x4 block compressed texture. 16 bytes per block (8 bit/px). Complex pallet. 11 bit integer R + 11 bit integer G.
+  /// [0, 255] converted to/from float [0, 1] in shader.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-ETC2`] must be enabled to use this texture format.
+  eac-rg11-unorm,
+  /// 4x4 block compressed texture. 16 bytes per block (8 bit/px). Complex pallet. 11 bit integer R + 11 bit integer G.
+  /// [-127, 127] converted to/from float [-1, 1] in shader.
+  ///
+  /// [`Features::TEXTURE-COMPRESSION-ETC2`] must be enabled to use this texture format.
+  eac-rg11-snorm,
+  /// block compressed texture. 16 bytes per block.
+  ///
+  /// Features [`TEXTURE-COMPRESSION-ASTC-LDR`] or [`TEXTURE-COMPRESSION-ASTC-HDR`]
+  /// must be enabled to use this texture format.
+  ///
+  /// [`TEXTURE-COMPRESSION-ASTC-LDR`]: Features::TEXTURE-COMPRESSION-ASTC-LDR
+  /// [`TEXTURE-COMPRESSION-ASTC-HDR`]: Features::TEXTURE-COMPRESSION-ASTC-HDR
+  astc(text-format-astc)
+}
+
+record extent3d {
+  /// Width of the extent
+  width: u32,
+  /// Height of the extent
+  height: u32,
+  /// The depth of the extent or the number of array layers
+  depth-or-array-layers: u32
+}
+
+record range-inclusive-extent3d {
+  start: extent3d,
+  end: extent3d
+}
+
+enum present-mode {
+  /// Chooses FifoRelaxed -> Fifo based on availability.
+  ///
+  /// Because of the fallback behavior, it is supported everywhere.
+  auto-vsync,
+  /// Chooses Immediate -> Mailbox -> Fifo (on web) based on availability.
+  ///
+  /// Because of the fallback behavior, it is supported everywhere.
+  auto-no-vsync,
+  /// Presentation frames are kept in a First-In-First-Out queue approximately 3 frames
+  /// long. Every vertical blanking period, the presentation engine will pop a frame
+  /// off the queue to display. If there is no frame to display, it will present the same
+  /// frame again until the next vblank.
+  ///
+  /// When a present command is executed on the gpu, the presented image is added on the queue.
+  ///
+  /// No tearing will be observed.
+  ///
+  /// Calls to get-current-texture will block until there is a spot in the queue.
+  ///
+  /// Supported on all platforms.
+  ///
+  /// If you don't know what mode to choose, choose this mode. This is traditionally called "Vsync On".
+  fifo,
+  /// Presentation frames are kept in a First-In-First-Out queue approximately 3 frames
+  /// long. Every vertical blanking period, the presentation engine will pop a frame
+  /// off the queue to display. If there is no frame to display, it will present the
+  /// same frame until there is a frame in the queue. The moment there is a frame in the
+  /// queue, it will immediately pop the frame off the queue.
+  ///
+  /// When a present command is executed on the gpu, the presented image is added on the queue.
+  ///
+  /// Tearing will be observed if frames last more than one vblank as the front buffer.
+  ///
+  /// Calls to get-current-texture will block until there is a spot in the queue.
+  ///
+  /// Supported on AMD on Vulkan.
+  ///
+  /// This is traditionally called "Adaptive Vsync"
+  fifo-relaxed,
+  /// Presentation frames are not queued at all. The moment a present command
+  /// is executed on the GPU, the presented image is swapped onto the front buffer
+  /// immediately.
+  ///
+  /// Tearing can be observed.
+  ///
+  /// Supported on most platforms except older DX12 and Wayland.
+  ///
+  /// This is traditionally called "Vsync Off".
+  immediate,
+  /// Presentation frames are kept in a single-frame queue. Every vertical blanking period,
+  /// the presentation engine will pop a frame from the queue. If there is no frame to display,
+  /// it will present the same frame again until the next vblank.
+  ///
+  /// When a present command is executed on the gpu, the frame will be put into the queue.
+  /// If there was already a frame in the queue, the new frame will -replace- the old frame
+  /// on the queue.
+  ///
+  /// No tearing will be observed.
+  ///
+  /// Supported on DX11/12 on Windows 10, NVidia on Vulkan and Wayland on Vulkan.
+  ///
+  /// This is traditionally called "Fast Vsync"
+  mailbox
+}
+
+enum composite-alpha-mode {
+  /// Chooses either `Opaque` or `Inherit` automatically，depending on the
+  /// `alpha-mode` that the current surface can support.
+  auto,
+  /// The alpha channel, if it exists, of the textures is ignored in the
+  /// compositing process. Instead, the textures is treated as if it has a
+  /// constant alpha of 1.0.
+  opaque,
+  /// The alpha channel, if it exists, of the textures is respected in the
+  /// compositing process. The non-alpha channels of the textures are
+  /// expected to already be multiplied by the alpha channel by the
+  /// application.
+  pre-multiplied,
+  /// The alpha channel, if it exists, of the textures is respected in the
+  /// compositing process. The non-alpha channels of the textures are not
+  /// expected to already be multiplied by the alpha channel by the
+  /// application; instead, the compositor will multiply the non-alpha
+  /// channels of the texture by the alpha channel during compositing.
+  post-multiplied,
+  /// The alpha channel, if it exists, of the textures is unknown for processing
+  /// during compositing. Instead, the application is responsible for setting
+  /// the composite alpha blending mode using native WSI command. If not set,
+  /// then a platform-specific default will be used.
+  inherit
+}
+
+record surface-capabilities {
+  format: list<texture-format>,
+  swap-chain-sizes: range-inclusive-u32,
+  current-extent: option<extent3d>,
+  extents: range-inclusive-extent3d,
+  usage: texture-uses,
+  present-modes: list<present-mode>,
+  composite-alpha-modes: list<composite-alpha-mode>
+}
+
+record buffer-mapping {
+  ptr: buf-u8,
+  is-coherent: bool
+}
+
+record buffer-descriptor {
+  label: label,
+  size: buffer-address,
+  usage: buffer-uses,
+  memory-flags: memory-flags
+}
+
+enum texture-dimension {
+  /// 1D texture
+  d1,
+  /// 2D texture
+  d2,
+  /// 3D texture
+  d3
+}
+
+record texture-descriptor {
+  label: label,
+  size: extent3d,
+  mip-level-count: u32,
+  sample-count: u32,
+  dimension: texture-dimension,
+  format: texture-format,
+  usage: texture-uses,
+  memory-flags: memory-flags,
+  view-formats: list<texture-format>
+}
+
+enum texture-aspect {
+  /// Depth, Stencil, and Color.
+  all,
+  /// Stencil.
+  stencil-only,
+  /// Depth.
+  depth-only
+}
+
+record image-subresource-range {
+  /// Aspect of the texture. Color textures must be [`TextureAspect::All`][TAA].
+  ///
+  /// [TAA]: ../wgpu/enum.TextureAspect.html#variant.All
+  aspect: texture-aspect,
+  /// Base mip level.
+  base-mip-level: u32,
+  /// Mip level count.
+  /// If `Some(count)`, `base-mip-level + count` must be less or equal to underlying texture mip count.
+  /// If `None`, considered to include the rest of the mipmap levels, but at least 1 in total.
+  mip-level-count: option<u32>,
+  /// Base array layer.
+  base-array-layer: u32,
+  /// Layer count.
+  /// If `Some(count)`, `base-array-layer + count` must be less or equal to the underlying array count.
+  /// If `None`, considered to include the rest of the array layers, but at least 1 in total.
+  array-layer-count: option<u32>
+}
+
+record texture-view-descriptor {
+  label: label,
+  format: texture-format,
+  dimension: texture-dimension,
+  usage: texture-uses,
+  range: image-subresource-range
+}
+
+enum address-mode {
+  /// Clamp the value to the edge of the texture
+  ///
+  /// -0.25 -> 0.0
+  /// 1.25  -> 1.0
+  clamp-to-edge,
+  /// Repeat the texture in a tiling fashion
+  ///
+  /// -0.25 -> 0.75
+  /// 1.25 -> 0.25
+  repeat,
+  /// Repeat the texture, mirroring it every repeat
+  ///
+  /// -0.25 -> 0.25
+  /// 1.25 -> 0.75
+  mirror-repeat,
+  /// Clamp the value to the border of the texture
+  /// Requires feature [`Features::ADDRESS-MODE-CLAMP-TO-BORDER`]
+  ///
+  /// -0.25 -> border
+  /// 1.25 -> border
+  clamp-to-border
+}
+
+enum filter-mode {
+  /// Nearest neighbor sampling.
+  nearest,
+  /// Linear Interpolation
+  linear
+}
+
+/// Comparison function used for depth and stencil operations.
+enum compare-function {
+  /// Function never passes
+  never,
+  /// Function passes if new value less than existing value
+  less,
+  /// Function passes if new value is equal to existing value. When using
+  /// this compare function, make sure to mark your Vertex Shader's `@builtin(position)`
+  /// output as `@invariant` to prevent artifacting.
+  equal,
+  /// Function passes if new value is less than or equal to existing value
+  less-equal,
+  /// Function passes if new value is greater than existing value
+  greater,
+  /// Function passes if new value is not equal to existing value. When using
+  /// this compare function, make sure to mark your Vertex Shader's `@builtin(position)`
+  /// output as `@invariant` to prevent artifacting.
+  not-equal,
+  /// Function passes if new value is greater than or equal to existing value
+  greater-equal,
+  /// Function always passes
+  always
+}
+
+/// Color variation to use when sampler addressing mode is [`AddressMode::ClampToBorder`]
+enum sample-border-color {
+  /// [0, 0, 0, 0]
+  transparent-black,
+  /// [0, 0, 0, 1]
+  opaque-black,
+  /// [1, 1, 1, 1]
+  opaque-white,
+
+  /// On the Metal backend, this is equivalent to `TransparentBlack` for
+  /// textures that have an alpha component, and equivalent to `OpaqueBlack`
+  /// for textures that do not have an alpha component. On other backends,
+  /// this is equivalent to `TransparentBlack`. Requires
+  /// [`Features::ADDRESS-MODE-CLAMP-TO-ZERO`]. Not supported on the web.
+  zero
+}
+
+record sampler-descriptor {
+  label: label,
+  address-modes1: address-mode,
+  address-modes2: address-mode,
+  address-modes3: address-mode,
+  mag-filter: filter-mode,
+  min-filter: filter-mode,
+  mipmap-filter: filter-mode,
+  lod-clamp: option<range-f32>,
+  compare: option<compare-function>,
+  anisotropy-clamp: option<u8>,
+  border-color: option<sample-border-color>
+}
+
+flags shader-stages {
+  /// Binding is not visible from any shader stage.
+  none,
+  /// Binding is visible from the vertex shader of a render pipeline.
+  vertex,
+  /// Binding is visible from the fragment shader of a render pipeline.
+  fragment,
+  /// Binding is visible from the compute shader of a compute pipeline.
+  compute
+}
+
+/// A storage buffer.
+record buffer-binding-type-storage {
+  /// If `true`, the buffer can only be read in the shader,
+  /// and it:
+  /// - may or may not be annotated with `read` (WGSL).
+  /// - must be annotated with `readonly` (GLSL).
+  read-only: bool
+}
+
+/// Specific type of a buffer binding.
+///
+/// Corresponds to [WebGPU `GPUBufferBindingType`](
+/// https://gpuweb.github.io/gpuweb/#enumdef-gpubufferbindingtype).
+variant buffer-binding-type {
+  /// A buffer for uniform values.
+  uniform,
+  /// A storage buffer.
+  storage(buffer-binding-type-storage)
+}
+
+/// A buffer binding.
+record binding-type-buffer {
+  /// Sub-type of the buffer binding.
+  ty: buffer-binding-type,
+  /// Indicates that the binding has a dynamic offset.
+  has-dynamic-offset: bool,
+  /// Minimum size of the corresponding `BufferBinding` required to match this entry.
+  /// When pipeline is created, the size has to cover at least the corresponding structure in the shader
+  /// plus one element of the unbound array, which can only be last in the structure.
+  /// If `None`, the check is performed at draw call time instead of pipeline and bind group creation.
+  min-binding-size: option<buffer-size>
+}
+
+/// A sampler that can be used to sample a texture.
+enum binding-type-sampler {
+  /// The sampling result is produced based on more than a single color sample from a texture,
+  /// e.g. when bilinear interpolation is enabled.
+  filtering,
+  /// The sampling result is produced based on a single color sample from a texture.
+  non-filtering,
+  /// Use as a comparison sampler instead of a normal sampler.
+  /// For more info take a look at the analogous functionality in OpenGL: <https://www.khronos.org/opengl/wiki/Sampler-Object#Comparison-mode>.
+  comparison
+}
+
+record texture-sample-type-float {
+  /// If this is `false`, the texture can't be sampled with
+  /// a filtering sampler.
+  filterable: bool
+}
+
+variant texture-sample-type {
+  /// Sampling returns floats.
+  float(texture-sample-type-float),
+  /// Sampling does the depth reference comparison.
+  depth,
+  /// Sampling returns signed integers.
+  sint,
+  /// Sampling returns unsigned integers.
+  uint
+}
+
+enum texture-view-dimension {
+  /// A one dimensional texture. `texture-1d` in WGSL and `texture1D` in GLSL.
+  d1,
+  /// A two dimensional texture. `texture-2d` in WGSL and `texture2D` in GLSL.
+  d2,
+  /// A two dimensional array texture. `texture-2d-array` in WGSL and `texture2DArray` in GLSL.
+  d2-array,
+  /// A cubemap texture. `texture-cube` in WGSL and `textureCube` in GLSL.
+  cube,
+  /// A cubemap array texture. `texture-cube-array` in WGSL and `textureCubeArray` in GLSL.
+  cube-array,
+  /// A three dimensional texture. `texture-3d` in WGSL and `texture3D` in GLSL.
+  d3
+}
+
+/// A texture binding.
+record binding-type-texture {
+  /// Sample type of the texture binding.
+  sample-type: texture-sample-type,
+  /// Dimension of the texture view that is going to be sampled.
+  view-dimension: texture-view-dimension,
+  /// True if the texture has a sample count greater than 1. If this is true,
+  /// the texture must be read from shaders with `texture1DMS`, `texture2DMS`, or `texture3DMS`,
+  /// depending on `dimension`.
+  multisampled: bool
+}
+
+/// Specific type of a sample in a texture binding.
+enum storage-texture-access {
+  /// The texture can only be written in the shader and it:
+  /// - may or may not be annotated with `write` (WGSL).
+  /// - must be annotated with `writeonly` (GLSL).
+  write-only,
+  /// The texture can only be read in the shader and it must be annotated with `read` (WGSL) or
+  /// `readonly` (GLSL).
+  read-only,
+  /// The texture can be both read and written in the shader and must be annotated with
+  /// `read-write` in WGSL.
+  read-write
+}
+
+/// A storage texture.
+record binding-type-storage-texture {
+  /// Allowed access to this texture.
+  access: storage-texture-access,
+  /// Format of the texture.
+  format: texture-format,
+  /// Dimension of the texture view that is going to be sampled.
+  view-dimension: texture-view-dimension
+}
+
+/// Specific type of a binding.
+variant binding-type {
+  /// A buffer binding.
+  buffer(binding-type-buffer),
+  /// A sampler that can be used to sample a texture.
+  sampler(binding-type-sampler),
+  /// A texture binding.
+  texture(binding-type-texture),
+  /// A storage texture.
+  storage-texture(binding-type-storage-texture)
+}
+
+record bind-group-layout-entry {
+   /// Binding index. Must match shader index and be unique inside a BindGroupLayout. A binding
+  /// of index 1, would be described as `layout(set = 0, binding = 1) uniform` in shaders.
+  binding: u32,
+  /// Which shader stages can see this binding.
+  visibility: shader-stages,
+  /// The type of the binding
+  ty: binding-type,
+  /// If this value is Some, indicates this entry is an array. Array size must be 1 or greater.  ///
+  /// If this value is Some and `ty` is `BindingType::Texture`, [`Features::TEXTURE-BINDING-ARRAY`] must be supported.  ///
+  /// If this value is Some and `ty` is any other variant, bind group creation will fail.
+  count: option<u32>
+}
+
+record bind-group-layout-descriptor {
+  label: label,
+  layout-flags: bind-group-layout-flags,
+  entries: list<bind-group-layout-entry>
+}
+
+record push-constant-range {
+  /// Stage push constant range is visible from. Each stage can only be served by at most one range.
+  /// One range can serve multiple stages however.
+  stages: shader-stages,
+  /// Range in push constant memory to use for the stage. Must be less than [`Limits::max-push-constant-size`].
+  /// Start and end must be aligned to the 4s.
+  range: range-u32
+}
+
+record buffer-copy {
+  src-offset: buffer-address,
+  dst-offset: buffer-address,
+  size: buffer-size
+}
+
+resource buffer {
+  clear-buffer: func(range: memory-range)
+  copy-buffer-to-buffer: func(dst: buffer, region: buffer-copy)
+}
+
+record buffer-binding {
+  /// The buffer being bound.
+  buffer: buffer,
+  /// The offset at which the bound region starts.
+  offset: buffer-address,
+  /// The size of the region bound, in bytes.
+  size: option<buffer-size>
+}
+
+resource texture-view {
+}
+
+record texture-binding {
+  view: texture-view,
+  usage: texture-uses
+}
+
+record bind-group-entry {
+  binding: u32,
+  resource-index: u32,
+  count: u32
+}
+
+resource bind-group-layout {
+}
+
+resource sampler {
+}
+
+record bind-group-descriptor {
+  label: label,
+  layout: bind-group-layout,
+  buffers: list<buffer-binding>,
+  samplers: list<sampler>,
+  textures: list<texture-binding>,
+  entries: list<bind-group-entry>
+}
+
+resource command-buffer {
+  reset: func()
+  transition-buffers: func()
+  transition-textures: func()
+}
+
+resource texture {
+}
+
+resource queue {
+  submit: func(command-buffers: list<command-buffer>) -> expected<nothing, device-error>
+  present: func(surface: surface, texture: texture) -> expected<nothing, surface-error>
+  get-timestamp-period: func() -> float32
+}
+
+record command-encoder-descriptor {
+  label: label,
+  queue: queue
+}
+
+resource naga-module {
+}
+
+/// Naga shader module.
+record naga-shader {
+  /// Shader module IR.
+  module: naga-module
+}
+
+variant shader-input {
+  naga(naga-shader),
+  spir-v(buf-u32)
+}
+
+record shader-module-descriptor {
+  label: label,
+  runtime-checks: bool
+}
+
+resource shader-module {
+}
+
+record programmable-stage {
+  module: shader-module,
+  entry-point: string
+}
+
+resource pipeline-layout {
+}
+
+record compute-pipeline-descriptor {
+  label: label,
+  layout: pipeline-layout,
+  stage: programmable-stage
+}
+
+/// Whether a vertex buffer is indexed by vertex or by instance.
+enum vertex-step-mode {
+  /// Vertex data is advanced every vertex.
+  vertex,
+  /// Vertex data is advanced every instance.
+  instance
+}
+
+/// Vertex Format for a [`VertexAttribute`] (input).
+enum vertex-format {
+  /// Two unsigned bytes (u8). `uvec2` in shaders.
+  format-uint8x2,
+  /// Four unsigned bytes (u8). `uvec4` in shaders.
+  format-uint8x4,
+  /// Two signed bytes (i8). `ivec2` in shaders.
+  format-sint8x2,
+  /// Four signed bytes (i8). `ivec4` in shaders.
+  format-sint8x4,
+  /// Two unsigned bytes (u8). [0, 255] converted to float [0, 1] `vec2` in shaders.
+  format-unorm8x2,
+  /// Four unsigned bytes (u8). [0, 255] converted to float [0, 1] `vec4` in shaders.
+  format-unorm8x4,
+  /// Two signed bytes (i8). [-127, 127] converted to float [-1, 1] `vec2` in shaders.
+  format-snorm8x2,
+  /// Four signed bytes (i8). [-127, 127] converted to float [-1, 1] `vec4` in shaders.
+  format-snorm8x4,
+  /// Two unsigned shorts (u16). `uvec2` in shaders.
+  format-uint16x2,
+  /// Four unsigned shorts (u16). `uvec4` in shaders.
+  format-uint16x4,
+  /// Two signed shorts (i16). `ivec2` in shaders.
+  format-sint16x2,
+  /// Four signed shorts (i16). `ivec4` in shaders.
+  format-sint16x4,
+  /// Two unsigned shorts (u16). [0, 65535] converted to float [0, 1] `vec2` in shaders.
+  format-unorm16x2,
+  /// Four unsigned shorts (u16). [0, 65535] converted to float [0, 1] `vec4` in shaders.
+  format-unorm16x4,
+  /// Two signed shorts (i16). [-32767, 32767] converted to float [-1, 1] `vec2` in shaders.
+  format-snorm16x2,
+  /// Four signed shorts (i16). [-32767, 32767] converted to float [-1, 1] `vec4` in shaders.
+  format-snorm16x4,
+  /// Two half-precision floats (no Rust equiv). `vec2` in shaders.
+  format-float16x2,
+  /// Four half-precision floats (no Rust equiv). `vec4` in shaders.
+  format-float16x4,
+  /// One single-precision float (f32). `float` in shaders.
+  format-float32,
+  /// Two single-precision floats (f32). `vec2` in shaders.
+  format-float32x2,
+  /// Three single-precision floats (f32). `vec3` in shaders.
+  format-float32x3,
+  /// Four single-precision floats (f32). `vec4` in shaders.
+  format-float32x4,
+  /// One unsigned int (u32). `uint` in shaders.
+  format-uint32,
+  /// Two unsigned ints (u32). `uvec2` in shaders.
+  format-uint32x2,
+  /// Three unsigned ints (u32). `uvec3` in shaders.
+  format-uint32x3,
+  /// Four unsigned ints (u32). `uvec4` in shaders.
+  format-uint32x4,
+  /// One signed int (s32). `int` in shaders.
+  format-sint32,
+  /// Two signed ints (s32). `ivec2` in shaders.
+  format-sint32x2,
+  /// Three signed ints (s32). `ivec3` in shaders.
+  format-sint32x3,
+  /// Four signed ints (s32). `ivec4` in shaders.
+  format-sint32x4,
+  /// One double-precision float (f64). `double` in shaders. Requires VERTEX-ATTRIBUTE-64BIT features.
+  format-float64,
+  /// Two double-precision floats (f64). `dvec2` in shaders. Requires VERTEX-ATTRIBUTE-64BIT features.
+  format-float64x2,
+  /// Three double-precision floats (f64). `dvec3` in shaders. Requires VERTEX-ATTRIBUTE-64BIT features.
+  format-float64x3,
+  /// Four double-precision floats (f64). `dvec4` in shaders. Requires VERTEX-ATTRIBUTE-64BIT features.
+  format-float64x4
+}
+
+/// Vertex inputs (attributes) to shaders.
+record vertex-attribute {
+  /// Format of the input
+  format: vertex-format,
+  /// Byte offset of the start of the input
+  offset: buffer-address,
+  /// Location for this input. Must match the location in the shader.
+  shader-location: shader-location,
+}
+
+record vertex-buffer-layout {
+  /// The stride, in bytes, between elements of this buffer.
+  array-stride: buffer-address,
+  /// How often this vertex buffer is "stepped" forward.
+  step-mode: vertex-step-mode,
+  /// The list of attributes which comprise a single vertex.
+  attributes: list<vertex-attribute>
+}
+
+/// Primitive type the input mesh is composed of.
+enum primitive-topology {
+  /// Vertex data is a list of points. Each vertex is a new point.
+  point-list,
+  /// Vertex data is a list of lines. Each pair of vertices composes a new line.
+  line-list,
+  /// Vertex data is a strip of lines. Each set of two adjacent vertices form a line.
+  line-strip,
+  /// Vertex data is a list of triangles. Each set of 3 vertices composes a new triangle.
+  triangle-list,
+  /// Vertex data is a triangle strip. Each set of three adjacent vertices form a triangle.
+  triangle-strip
+}
+
+/// Format of indices used with pipeline.
+enum index-format {
+  /// Indices are 16 bit unsigned integers.
+  format-uint16,
+  /// Indices are 32 bit unsigned integers.
+  format-uint32,
+}
+
+/// Vertex winding order which classifies the "front" face of a triangle.
+enum front-face {
+  /// Triangles with vertices in counter clockwise order are considered the front face.
+  ccw,
+  /// Triangles with vertices in clockwise order are considered the front face.
+  cw
+}
+
+/// Face of a vertex.
+enum face {
+  /// Front face
+  front,
+  /// Back face
+  back
+}
+
+/// Type of drawing mode for polygons
+enum polygon-mode {
+  /// Polygons are filled
+  fill,
+  /// Polygons are drawn as line segments
+  line,
+  /// Polygons are drawn as points
+  point
+}
+
+/// Describes the state of primitive assembly and rasterization in a render pipeline.
+record primitive-state {
+  /// The primitive topology used to interpret vertices.
+  topology: primitive-topology,
+  /// When drawing strip topologies with indices, this is the required format for the index buffer.
+  /// This has no effect on non-indexed or non-strip draws.
+  strip-index-format: option<index-format>,
+  /// The face to consider the front for the purpose of culling and stencil operations.
+  front-face: front-face,
+  /// The face culling mode.
+  cull-mode: option<face>,
+  /// If set to true, the polygon depth is not clipped to 0-1 before rasterization.
+  unclipped-depth: bool,
+  /// Controls the way each polygon is rasterized. Can be either `Fill` (default), `Line` or `Point`
+  polygon-mode: polygon-mode,
+  /// If set to true, the primitives are rendered with conservative overestimation. I.e. any rastered pixel touched by it is filled.
+  /// Only valid for PolygonMode::Fill!
+  conservative: bool
+}
+
+/// Operation to perform on the stencil value.
+enum stencil-operation {
+  /// Keep stencil value unchanged.
+  keep,
+  /// Set stencil value to zero.
+  zero,
+  /// Replace stencil value with value provided in most recent call to
+  replace,
+  /// Bitwise inverts stencil value.
+  invert,
+  /// Increments stencil value by one, clamping on overflow.
+  increment-clamp,
+  /// Decrements stencil value by one, clamping on underflow.
+  decrement-clamp,
+  /// Increments stencil value by one, wrapping on overflow.
+  increment-wrap,
+  /// Decrements stencil value by one, wrapping on underflow.
+  decrement-wrap
+}
+
+/// Describes stencil state in a render pipeline.
+record stencil-face-state {
+  /// Comparison function that determines if the fail-op or pass-op is used on the stencil buffer.
+  compare: compare-function,
+  /// Operation that is preformed when stencil test fails.
+  fail-op: stencil-operation,
+  /// Operation that is performed when depth test fails but stencil test succeeds.
+  depth-fail-op: stencil-operation,
+  /// Operation that is performed when stencil test success.
+  pass-op: stencil-operation
+}
+
+/// State of the stencil operation (fixed-pipeline stage).
+record stencil-state {
+  /// Front face mode.
+  front: stencil-face-state,
+  /// Back face mode.
+  back: stencil-face-state,
+  /// Stencil values are AND'd with this mask when reading and writing from the stencil buffer. Only low 8 bits are used.
+  read-mask: u32,
+  /// Stencil values are AND'd with this mask when writing to the stencil buffer. Only low 8 bits are used.
+  write-mask: u32
+}
+
+/// Describes the biasing setting for the depth target.
+record depth-bias-state {
+  /// Constant depth biasing factor, in basic units of the depth format.
+  state-constant: s32,
+  /// Slope depth biasing factor.
+  slope-scale: float32,
+  /// Depth bias clamp value (absolute).
+  clamp: float32
+}
+
+/// Describes the depth/stencil state in a render pipeline.
+record depth-stencil-state {
+  /// Format of the depth/stencil buffer, must be special depth format. Must match the the format
+  /// of the depth/stencil attachment in [`CommandEncoder::begin-render-pass`][CEbrp].
+  format: texture-format,
+  /// If disabled, depth will not be written to.
+  depth-write-enabled: bool,
+  /// Comparison function used to compare depth values in the depth test.
+  depth-compare: compare-function,
+  /// Stencil state.
+  stencil: stencil-state,
+  /// Depth bias state.
+  bias: depth-bias-state
+}
+
+/// Describes the multi-sampling state of a render pipeline.
+record multisample-state {
+  /// The number of samples calculated per pixel (for MSAA). For non-multisampled textures,
+  /// this should be `1`
+  count: u32,
+  /// Bitmask that restricts the samples of a pixel modified by this pipeline. All samples
+  /// can be enabled using the value `!0`
+  mask: u64,
+  /// When enabled, produces another sample mask per pixel based on the alpha output value, that
+  /// is ANDed with the sample-mask and the primitive coverage to restrict the set of samples
+  /// affected by a primitive.
+  alpha-to-coverage-enabled: bool
+}
+/// Alpha blend factor.
+
+enum blend-factor {
+  /// 0.0
+  zero,
+  /// 1.0
+  one,
+  /// S.component
+  src,
+  /// 1.0 - S.component
+  one-minus-src,
+  /// S.alpha
+  src-alpha,
+  /// 1.0 - S.alpha
+  one-minus-src-alpha,
+  /// D.component
+  dst,
+  /// 1.0 - D.component
+  one-minus-dst,
+  /// D.alpha
+  dst-alpha,
+  /// 1.0 - D.alpha
+  one-minus-dst-alpha,
+  /// min(S.alpha, 1.0 - D.alpha)
+  src-alpha-saturated,
+  /// Constant
+  constant,
+  /// 1.0 - Constant
+  one-minus-constant
+}
+
+/// Alpha blend operation.
+enum blend-operation {
+  /// Src + Dst
+  add,
+  /// Src - Dst
+  subtract,
+  /// Dst - Src
+  reverse-subtract,
+  /// min(Src, Dst)
+  min,
+  /// max(Src, Dst)
+  max
+}
+
+/// Describes a blend component of a [`BlendState`].
+record blend-component {
+  /// Multiplier for the source, which is produced by the fragment shader.
+  src-factor: blend-factor,
+  /// Multiplier for the destination, which is stored in the target.
+  dst-factor: blend-factor,
+  /// The binary operation applied to the source and destination,
+  /// multiplied by their respective factors.
+  operation: blend-operation
+}
+
+/// Describe the blend state of a render pipeline,
+/// within [`ColorTargetState`].
+record blend-state {
+  /// Color equation.
+  color: blend-component,
+  /// Alpha equation.
+  alpha: blend-component
+}
+
+/// Color write mask. Disabled color channels will not be written to.
+flags color-writes {
+  /// Enable red channel writes
+  red,
+  /// Enable green channel writes
+  green,
+  /// Enable blue channel writes
+  blue,
+  /// Enable alpha channel writes
+  alpha
+}
+
+/// Describes the color state of a render pipeline.
+record color-target-state {
+  /// The [`TextureFormat`] of the image that this pipeline will render to. Must match the the format
+  /// of the corresponding color attachment in [`CommandEncoder::begin-render-pass`][CEbrp]
+  format: texture-format,
+  /// The blending that is used for this pipeline.
+  blend: option<blend-state>,
+  /// Mask which enables/disables writes to different color/alpha channel.
+  write-mask: color-writes
+}
+
+/// Describes a render (graphics) pipeline.
+record record-pipeline-descriptor {
+  label: label,
+  /// The layout of bind groups for this pipeline.
+  layout: pipeline-layout,
+  /// The format of any vertex buffers used with this pipeline.
+  vertex-buffers: list<vertex-buffer-layout>,
+  /// The vertex stage for this pipeline.
+  vertex-stage: programmable-stage,
+  /// The properties of the pipeline at the primitive assembly and rasterization level.
+  primitive: primitive-state,
+  /// The effect of draw calls on the depth and stencil aspects of the output target, if any.
+  depth-stencil: option<depth-stencil-state>,
+  /// The multi-sampling properties of the pipeline.
+  multisample: multisample-state,
+  /// The fragment stage for this pipeline.
+  fragment-stage: option<programmable-stage>,
+  /// The effect of draw calls on the color aspect of the output target.
+  color-targets: list<option<color-target-state>>,
+  /// If the pipeline will be used with a multiview render pass, this indicates how many array
+  /// layers the attachments will have.
+  multiview: option<u8>
+}
+
+record surface-configuration {
+  /// Number of textures in the swap chain. Must be in
+  /// `SurfaceCapabilities::swap-chain-size` range.
+  swap-chain-size: u32,
+  /// Vertical synchronization mode.
+  present-mode: present-mode,
+  /// Alpha composition mode.
+  composite-alpha-mode: composite-alpha-mode,
+  /// Format of the surface textures.
+  format: texture-format,
+  /// Requested texture extent. Must be in
+  extent: extent3d,
+  /// Allowed usage of surface textures,
+  usage: texture-uses,
+  /// Allows views of swapchain texture to have a different format
+  /// than the texture does.
+  view-formats: list<texture-format>
+}
+
+record buffer-barrier {
+  buffer: buffer,
+  usage: range-buffer-uses
+}
+
+record texture-barrier {
+  texture: texture,
+  range: image-subresource-range,
+  usage: range-texture-uses
+}
+
+record origin2d {
+  x: u32,
+  y: u32
+}
+
+record origin3d {
+  x: u32,
+  y: u32,
+  z: u32
+}
+
+record texture-copy-base {
+  mip-level: u32,
+  array-layer: u32,
+  origin: origin3d,
+  aspect: format-aspects
+}
+
+record copy-extent {
+  width: u32,
+  height: u32,
+  depth: u32
+}
+
+record texture-copy {
+  src-base: texture-copy-base,
+  dst-base: texture-copy-base,
+  size: copy-extent
+}
+
+record buffer-texture-copy {
+  buffer-layout: texture-view,
+  usage: texture-uses
+}
+
+/// RGBA double precision color.
+record color {
+  /// Red component of the color
+  r: float64,
+  /// Green component of the color
+  g: float64,
+  /// Blue component of the color
+  b: float64,
+  /// Alpha component of the color
+  a: float64
+}
+
+resource attachment {
+}
+
+record color-attachment {
+  target: attachment,
+  resolve-target: option<attachment>,
+  ops: attachment-ops,
+  clear-value: color
+}
+
+record depth-stencil-attachment-clear-value {
+  tuple1: float32,
+  tuple2: u32
+}
+
+record depth-stencil-attachment {
+  target: attachment,
+  depth-ops: attachment-ops,
+  clear-value: depth-stencil-attachment-clear-value
+}
+
+record render-pass-descriptor {
+  label: label,
+  extent: extent3d,
+  sample-count: u32,
+  color-attachments: list<option<color-attachment>>,
+  depth-stencil-attachment: option<depth-stencil-attachment>,
+  multiview: option<u32>
+}
+
+record compute-pass-descriptor {
+  label: label
+}
+
+flags features {
+  /// By default, polygon depth is clipped to 0-1 range before/during rasterization.
+  /// Anything outside of that range is rejected, and respective fragments are not touched.
+  depth-clip-control,
+  /// Allows for explicit creation of textures of format [`TextureFormat::Depth32FloatStencil8`]
+  depth32float-stencil8,
+  /// Enables BCn family of compressed textures. All BCn textures use 4x4 pixel blocks
+  /// with 8 or 16 bytes per block.
+  texture-compression-bc,
+  /// Enables ETC family of compressed textures. All ETC textures use 4x4 pixel blocks.
+  /// ETC2 RGB and RGBA1 are 8 bytes per block. RTC2 RGBA8 and EAC are 16 bytes per block.
+  texture-compression-etc2,
+  /// Enables ASTC family of compressed textures. ASTC textures use pixel blocks varying from 4x4 to 12x12.
+  /// Blocks are always 16 bytes.
+  texture-compression-astc-ldr,
+  /// Allows non-zero value for the "first instance" in indirect draw calls.
+  indirect-first-instance,
+  /// Enables use of Timestamp Queries. These queries tell the current gpu timestamp when
+  /// all work before the query is finished. Call [`CommandEncoder::write_timestamp`],
+  timestamp-query,
+  /// Enables use of Pipeline Statistics Queries. These queries tell the count of various operations
+  /// performed between the start and stop call. Call [`RenderPassEncoder::begin_pipeline_statistics_query`] to start
+  /// a query, then call [`RenderPassEncoder::end_pipeline_statistics_query`] to stop one.
+  pipeline-statistics-query,
+  /// Allows shaders to acquire the FP16 ability
+  shader-float16,
+
+  /// Webgpu only allows the MAP_READ and MAP_WRITE buffer usage to be matched with
+  /// COPY_DST and COPY_SRC respectively. This removes this requirement.
+  mappable-primary-buffers,
+  /// Allows the user to create uniform arrays of textures in shaders:
+  texture-binding-arry,
+  /// Allows the user to create arrays of buffers in shaders:
+  buffer-binding-arry,
+  /// Allows the user to create uniform arrays of storage buffers or textures in shaders,
+  /// if resp. [`Features::BUFFER_BINDING_ARRAY`] or [`Features::TEXTURE_BINDING_ARRAY`]
+  /// is supported.
+  storage-resource-binding-array,
+  /// Allows shaders to index sampled texture and storage buffer resource arrays with dynamically non-uniform values:
+  sampled-texture-and-storage-buffer-array-non-uniform-indexing,
+  /// Allows shaders to index uniform buffer and storage texture resource arrays with dynamically non-uniform values:
+  uniform-buffer-and-storage-texture-array-non-uniform-indexing,
+  /// Allows the user to create bind groups continaing arrays with less bindings than the BindGroupLayout.
+  partially-bound-binding-array,
+  /// Allows the user to call [`RenderPass::multi_draw_indirect`] and [`RenderPass::multi_draw_indexed_indirect`].
+  multi-draw-indirect,
+  /// Allows the user to call [`RenderPass::multi_draw_indirect_count`] and [`RenderPass::multi_draw_indexed_indirect_count`].
+  multi-draw-indirect-count,
+  /// Allows the use of push constants: small, fast bits of memory that can be updated
+  /// inside a [`RenderPass`].
+  push-constants,
+  /// Allows the use of [`AddressMode::ClampToBorder`] with a border color
+  /// other than [`SamplerBorderColor::Zero`].
+  address-mode-clamp-to-border,
+  /// Allows the user to set [`PolygonMode::Line`] in [`PrimitiveState::polygon_mode`]
+  polygon-mode-line,
+  /// Allows the user to set [`PolygonMode::Point`] in [`PrimitiveState::polygon_mode`]
+  polygon-mode-point,
+  /// Enables device specific texture format features.
+  texture-adapter-specific-format-features,
+  /// Enables 64-bit floating point types in SPIR-V shaders.
+  shader-float64,
+  /// Enables using 64-bit types for vertex attributes.
+  vertex-attribute64bit,
+  /// Allows the user to set a overestimation-conservative-rasterization in [`PrimitiveState::conservative`]
+  conservative-rasterization,
+  /// Enables bindings of writable storage buffers and textures visible to vertex shaders.
+  vertex-writable-storage,
+  /// Enables clear to zero for textures.
+  clear-texture,
+  /// Enables creating shader modules from SPIR-V binary data (unsafe).
+  spirv-shader-passthrough,
+  /// Enables `builtin(primitive_index)` in fragment shaders.
+  shader-primitive-index,
+  /// Enables multiview render passes and `builtin(view_index)` in vertex shaders.
+  multiview,
+  /// Enables normalized `16-bit` texture formats.
+  texture-format16bit-norm,
+  /// Allows the use of [`AddressMode::ClampToBorder`] with a border color
+  /// of [`SamplerBorderColor::Zero`].
+  address-mode-clamp-to-zero,
+  /// Enables ASTC HDR family of compressed textures.
+  texture-compression-astc-hdr,
+  /// Allows for timestamp queries inside render passes.
+  write-timestamp-inside-passes,
+  /// Allows shaders to use i16. Not currently supported in naga, only available through `spirv-passthrough`.
+  shader-int16,
+  /// Allows shaders to use the `early_depth_test` attribute.
+  shader-early-depth-test,
+}
+
+record acquired-surface-texture {
+  texture: texture,
+  suboptimal: bool
+}
+
+resource surface {
+  configure: func(device: device, config: surface-configuration) -> expected<nothing, surface-error>
+  unconfigure: func(device: device)
+  acquire-texture: func(timeout: option<timestamp>) -> expected<acquired-surface-texture, surface-error>
+}
+
+resource fence {
+  fence-value: func() -> expected<fence-value, device-error>
+  fence-wait: func(value: fence-value, timeout-ms: u32) -> expected<bool, device-error>
+}
+
+resource image-bitmap {
+}
+
+resource html-video-element {
+}
+
+resource html-canvas-element {
+}
+
+resource offscreen-canvas {
+}
+
+/// Source of an external texture copy.
+variant external-image-source {
+  /// Copy from a previously-decoded image bitmap.
+  image-bitmap(image-bitmap),
+  /// Copy from a current frame of a video element.
+  html-video-element(html-video-element),
+  /// Copy from a on-screen canvas.
+  html-canvas-element(html-canvas-element),
+  /// Copy from a off-screen canvas.
+  offscreen-canvas(offscreen-canvas),
+}
+
+/// View of an external texture that cna be used to copy to a texture.
+record image-copy-external-image {
+  /// The texture to be copied from. The copy source data is captured at the moment
+  /// the copy is issued.
+  source: external-image-source,
+  /// The base texel used for copying from the external image. Together
+  /// with the `copy_size` argument to copy functions, defines the
+  /// sub-region of the image to copy.
+  origin: origin2d,
+  /// If the Y coordinate of the image should be flipped. Even if this is
+  /// true, `origin` is still relative to the top left.
+  flip-y: bool
+}
+
+resource command-encoder {
+  begin-encoding: func(label: label) -> expected<nothing, device-error>
+  discard-encoding: func()
+  end-encoding: func() -> expected<command-buffer, device-error>
+
+  copy-external-image-to-texture: func(src: image-copy-external-image, dst: texture, dst-premultiplication: bool, region: texture-copy)
+  copy-texture-to-texture: func(src: texture, src-usage: texture-uses, dst: texture, region: texture-copy)
+  copy-buffer-to-texture: func(src: buffer, dst: texture, region: buffer-texture-copy)
+  copy-texture-to-buffer: func(src: texture, src-usage: texture-uses, dst: buffer, region: buffer-texture-copy)
+
+  set-bind-group: func(layout: pipeline-layout, index: u32, group: bind-group, dynamic-offsets: list<dynamic-offset>)
+  set-push-constants: func(layout: pipeline-layout, stages: shader-stages, offset: u32, data: buf-u8)
+
+  insert-debug-marker: func(label: string)
+  begin-debug-marker: func(group-label: string)
+  end-debug-marker: func()
+
+  begin-render-pass: func(desc: render-pass-descriptor)
+  end-render-pass: func()
+  set-render-pipeline: func(pipeline: render-pipeline)
+  set-index-buffer: func(binding: buffer-binding, format: index-format)
+  set-vertex-buffer: func(index: u32, binding: buffer-binding)
+  set-viewport: func(rect: rect-u32, depth-range: range-f32)
+  set-scissor-rect: func(rect: rect-u32)
+  set-stencil-reference: func(value: u32)
+  set-blend-constants: func(color1: float32, color2: float32, color3: float32, color4: float32)
+  draw: func(start-vertex: u32, vertex-count: u32, start-instance: u32, instance-count: u32)
+  draw-indexed: func(start-index: u32, index-count: u32, base-vertex: s32, start-instance: u32, instance-count: u32)
+  draw-indirect: func(buffer: buffer, offset: buffer-address, draw-count: u32)
+  draw-indexed-indirect: func(buffer: buffer, offset: buffer-address, draw-count: u32)
+  draw-indirect-count: func(buffer: buffer, offset: buffer-address, count-buffer: buffer, count-offset: buffer-address, max-count: u32)
+  draw-indexed-indirect-count: func(buffer: buffer, offset: buffer-address, count-buffer: buffer, count-offset: buffer-address, max-count: u32)
+  
+  begin-compute-pass: func(desc: compute-pass-descriptor)
+  end-compute-pass: func()
+
+  set-compute-pipeline: func(pipeline: compute-pipeline)
+  dispatch: func(count1: u32, count2: u32, count3: u32)
+  dispatch-indirect: func(buffer: buffer, offset: buffer-address)
+}
+
+/// Flags for which pipeline data should be recorded.
+flags pipeline-statistics-types {
+  /// Amount of times the vertex shader is ran. Accounts for
+  /// the vertex cache when doing indexed rendering.
+  vertex-shader-invocations,
+  /// Amount of times the clipper is invoked. This
+  /// is also the amount of triangles output by the vertex shader.
+  clipper-invocations,
+  /// Amount of primitives that are not culled by the clipper.
+  /// This is the amount of triangles that are actually on screen
+  /// and will be rasterized and rendered.
+  clipper-primitives-out,
+  /// Amount of times the fragment shader is ran. Accounts for
+  /// fragment shaders running in 2x2 blocks in order to get
+  /// derivatives.
+  fragment-shader-invocations,
+  /// Amount of times a compute shader is invoked. This will
+  /// be equivalent to the dispatch count times the workgroup size.
+  compute-shader-invocations
+}
+
+/// Type of query contained in a QuerySet.
+variant query-type {
+  /// Query returns a single 64-bit number, serving as an occlusion boolean.
+  occlusion,
+  /// Query returns up to 5 64-bit numbers based on the given flags.
+  pipeline-statistics(pipeline-statistics-types),
+  /// Query returns a 64-bit number indicating the GPU-timestamp
+  /// where all previous commands have finished executing.
+  timestamp
+}
+
+/// Describes how to create a QuerySet.
+record query-set-descriptor {
+  /// Debug label for the query set.
+  label: label,
+  /// Kind of query that this query set should contain.
+  ty: query-type,
+  /// Total count of queries the set contains. Must not be zero.
+  /// Must not be greater than [`QUERY_SET_MAX_QUERIES`].
+  count: u32
+}
+
+resource query-set {
+  begin-query: func(index: u32)
+  end-query: func(index: u32)
+  write-timestamp: func(index: u32)
+  reset-queries: func(range: range-u32)
+  copy-query-results: func(range: range-u32, buffer: buffer, offset: buffer-address, stride: buffer-size)
+}
+
+resource bind-group {
+}
+
+resource render-pipeline {
+}
+
+resource compute-pipeline {
+}
+
+resource device {
+  exit: func(queue: queue)
+
+  create-buffer: func(desc: buffer-descriptor) -> expected<buffer, device-error>
+  map-buffer: func(buffer: buffer, range: memory-range) -> expected<buffer-mapping, device-error>
+  unmap-buffer: func(buffer: buffer) -> expected<nothing, device-error>
+  flush-mapped-range: func(buffer: buffer, range: memory-range)
+  invalidate-mapped-range: func(buffer: buffer, range: memory-range)
+
+  create-texture: func(desc: texture-descriptor) -> expected<texture, device-error>
+  create-texture-view: func(texture: texture, desc: texture-view-descriptor) -> expected<texture-view, device-error>
+  create-sampler: func(desc: sampler-descriptor) -> expected<sampler, device-error>
+
+  create-command-encoder: func(desc: command-encoder-descriptor) -> expected<command-encoder, device-error>
+
+  create-bind-group-layout: func(desc: bind-group-layout-descriptor) -> expected<bind-group-layout, device-error>
+  
+  create-pipeline-layout: func(desc: pipeline-layout-descriptor) -> expected<pipeline-layout, device-error>
+
+  create-bind-group: func(desc: bind-group-descriptor) -> expected<bind-group, device-error>
+
+  create-shader-module: func(desc: shader-module-descriptor) -> expected<shader-module, shader-error>
+
+  create-render-pipeline: func(desc: shader-module-descriptor) -> expected<render-pipeline, pipeline-error>
+
+  create-compute-pipeline: func(desc: compute-pipeline-descriptor) -> expected<compute-pipeline, pipeline-error>
+
+  create-query-set: func(desc: query-set-descriptor) -> expected<query-set, device-error>
+
+  create-fence: func() -> expected<fence, device-error>
+
+  start-capture: func() -> bool
+  stop-capture: func()
+}
+
+record open-device {
+  device: device,
+  queue: queue
+}
+
+resource adapter {
+  open: func(features: features, limits: limits) -> expected<open-device, device-error>
+  texture-format-capabilities: func(format: texture-format) -> texture-format-capabilities
+  surface-capabilities: func(surface: surface) -> option<surface-capabilities>
+  get-presentation-timestamp: func() -> timestamp
+}
+
+record exposed-adapter {
+  adapter: adapter,
+  info: adapter-info,
+  features: features,
+  capabilities: capabilities
+}
+
+record pipeline-layout-descriptor {
+  label: label,
+  layout-flags: pipeline-layout-flags,
+  bind-group-layouts: list<bind-group-layout>,
+  push-constant-ranges: list<push-constant-range>
+}
+
+resource display {
+  static default-display: func() -> display
+}
+
+resource window {
+  static default-window: func() -> window
+}
+
+resource instance {
+  static new: func(desc: instance-descriptor) -> expected<instance, instance-error>
+
+  create-surface: func(display-handle: display, window-handle: window) -> expected<surface, instance-error>
+  destroy-surface: func(surface: surface)
+  enumerate-adapters: func() -> list<exposed-adapter>
+}

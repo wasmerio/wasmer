@@ -46,6 +46,7 @@ mod syscalls;
 mod utils;
 pub mod vbus;
 pub mod wapm;
+pub mod wgpu;
 
 /// WAI based bindings.
 mod bindings;
@@ -650,7 +651,7 @@ pub type InstanceInitializer =
     Box<dyn FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>>;
 
 type ModuleInitializer =
-    Box<dyn FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>>;
+    Box<dyn Fn(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>>;
 
 /// No-op module initializer.
 fn stub_initializer(
@@ -688,17 +689,36 @@ fn import_object_for_all_wasi_versions(
 
             let has_canonical_realloc = module.exports().any(|t| t.name() == "canonical_abi_realloc");
             let has_wasix_http_import = module.imports().any(|t| t.module() == "wasix_http_client_v1");
+            let has_wasix_wgpu = module.imports().any(|t| t.module() == "wasix_wgpu_v1");
 
             let init = if has_canonical_realloc && has_wasix_http_import {
                 let wenv = env.as_ref(store);
                 let http = crate::http::client_impl::WasixHttpClientImpl::new(wenv);
-                    crate::bindings::wasix_http_client_v1::add_to_imports(
-                        store,
-                        &mut imports,
-                        http,
-                    )
+                crate::bindings::wasix_http_client_v1::add_to_imports(
+                    store,
+                    &mut imports,
+                    http,
+                )
             } else {
                 Box::new(stub_initializer) as ModuleInitializer
+            };
+
+            let init = if has_canonical_realloc && has_wasix_wgpu {
+                let wenv = env.as_ref(store);
+                let wgpu = crate::wgpu::client_impl::WasixWgpuImpl::new(wenv);
+                let init2 = crate::bindings::wasix_wgpu_v1::add_to_imports(
+                    store,
+                    &mut imports,
+                    wgpu,
+                );
+                let f = move |instance: &wasmer::Instance, store: &dyn wasmer::AsStoreRef| {
+                    init.as_ref()(instance, store)?;
+                    init2.as_ref()(instance, store)?;
+                    Ok(())
+                };
+                Box::new(f)
+            } else {
+                init
             };
 
             let init = init;

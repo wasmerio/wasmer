@@ -41,6 +41,7 @@ fn run() -> Result<(), anyhow::Error> {
     generate_wasi(&root)?;
     generate_wasix_wasmer(&root)?;
     generate_wasix_http_client(&root)?;
+    generate_wgpu(&root)?;
 
     // Format code.
     let code = std::process::Command::new("cargo")
@@ -58,7 +59,7 @@ fn run() -> Result<(), anyhow::Error> {
 fn generate_wasix_wasmer(root: &Path) -> Result<(), anyhow::Error> {
     eprintln!("Generating wasix Wasmer bindings...");
 
-    let modules = ["wasix_http_client_v1"];
+    let modules = ["wasix_http_client_v1", "wasix_wgpu_v1"];
     let schema_dir = root.join("schema/wasix");
     let out_dir = root
         .parent()
@@ -80,6 +81,7 @@ fn generate_wasix_wasmer(root: &Path) -> Result<(), anyhow::Error> {
 
         let mut gen = opts.clone().build();
         let mut files = Files::default();
+        eprintln!("Generating {}...", wai_path.display());
         gen.generate_all(&[], &[interface], &mut files);
 
         assert_eq!(files.iter().count(), 1);
@@ -137,6 +139,50 @@ fn generate_wasix_http_client(root: &Path) -> Result<(), anyhow::Error> {
     }
 
     eprintln!("Wasix http client bindings generated");
+    Ok(())
+}
+
+fn generate_wgpu(root: &Path) -> Result<(), anyhow::Error> {
+    eprintln!("Generating wasix wgpu bindings...");
+
+    let modules = ["wasix_wgpu_v1"];
+    let schema_dir = root.join("schema/wasix");
+    let out_dir = root
+        .parent()
+        .context("Could not get root parent directory")?
+        .join("wasix/wasix-wgpu/src");
+
+    let opts = wai_bindgen_gen_rust_wasm::Opts {
+        rustfmt: true,
+        multi_module: false,
+        unchecked: false,
+        symbol_namespace: String::new(),
+        standalone: true,
+        force_generate_structs: false,
+    };
+
+    for module in modules {
+        let wai_path = schema_dir.join(module).with_extension("wai");
+        eprintln!("Reading {}...", wai_path.display());
+        let wai = std::fs::read_to_string(&wai_path)?;
+        let interface = Interface::parse(module, &wai)?;
+
+        let mut gen = opts.clone().build();
+        let mut files = Files::default();
+        gen.generate_all(&[interface], &[], &mut files);
+
+        assert_eq!(files.iter().count(), 1);
+        let (_name, contents_raw) = files.iter().next().unwrap();
+        let contents_str = std::str::from_utf8(&contents_raw)?;
+        // let contents_fixed = wasmer_bindings_fixup(contents_str)?;
+        let contents_fixed = contents_str;
+
+        let out_path = out_dir.join(module).with_extension("rs");
+        eprintln!("Writing {}...", out_path.display());
+        std::fs::write(&out_path, contents_fixed)?;
+    }
+
+    eprintln!("Wasix wgpu bindings generated");
     Ok(())
 }
 

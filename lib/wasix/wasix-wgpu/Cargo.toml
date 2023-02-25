@@ -1,0 +1,11 @@
+[package]
+name = "wasix_wgpu"
+description = "Wasix bindings library for WGPU on WebAssembly."
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.66"
+wai-bindgen-rust = "0.2.2"

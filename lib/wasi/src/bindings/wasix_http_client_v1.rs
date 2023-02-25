@@ -196,7 +196,7 @@ pub fn add_to_imports<T>(
     store: &mut impl wasmer::AsStoreMut,
     imports: &mut wasmer::Imports,
     data: T,
-) -> Box<dyn FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>>
+) -> Box<dyn Fn(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error> + 'static>
 where
     T: WasixHttpClientV1,
 {

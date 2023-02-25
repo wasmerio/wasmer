@@ -66,6 +66,10 @@ default-features = false
 features = ["rustls-tls", "json"]
 optional = true
 
+[dependencies.wgpu]
+version = "0.15.1"
+optional = true
+
 [target.'cfg(unix)'.dependencies]
 libc = { version = "^0.2", default-features = false }
 
@@ -97,7 +101,7 @@ webc_runner_rt_emscripten = ["wasmer-emscripten"]
 webc_runner_rt_wasi = []
 
 sys = ["wasmer/sys", "wasmer-wasi-types/sys", "webc/mmap", "wasmer-vm", "time"]
-sys-default = ["wasmer/wat", "wasmer/compiler", "sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest" ]
+sys-default = ["wasmer/wat", "wasmer/compiler", "sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest", "host-wgpu" ]
 sys-poll = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 
@@ -112,6 +116,7 @@ host-threads = []
 host-reqwest = ["reqwest"]
 host-fs = ["wasmer-vfs/host-fs"]
 host-termios = ["termios", "term_size"]
+host-wgpu = ["wgpu"]
 
 logging = ["tracing/log"]
 disable-all-logging = [

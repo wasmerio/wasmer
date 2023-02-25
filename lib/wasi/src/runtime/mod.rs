@@ -6,7 +6,7 @@ use std::{fmt, sync::Arc};
 
 use wasmer_vnet::{DynVirtualNetworking, VirtualNetworking};
 
-use crate::{http::DynHttpClient, os::TtyBridge};
+use crate::{http::DynHttpClient, os::TtyBridge, wgpu::DynWgpuClient};
 
 #[cfg(feature = "sys")]
 pub type ArcTunables = std::sync::Arc<dyn wasmer::Tunables + Send + Sync>;
@@ -48,6 +48,11 @@ where
 
     /// Returns a HTTP client
     fn http_client(&self) -> Option<&DynHttpClient> {
+        None
+    }
+
+    /// Returns a WGPU client
+    fn wgpu_client(&self) -> Option<&DynWgpuClient> {
         None
     }
 
