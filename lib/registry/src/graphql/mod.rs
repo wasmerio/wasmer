@@ -55,12 +55,7 @@ where
 
     let form = form_modifier(form);
 
-    let user_agent = format!(
-        "wasmer/{} {} {}",
-        env!("CARGO_PKG_VERSION"),
-        whoami::platform(),
-        whoami_distro(),
-    );
+    let user_agent = crate::client::RegistryClient::default_user_agent();
 
     let mut res = client
         .post(registry_url)
@@ -107,12 +102,7 @@ where
 
     let form = form_modifier(form);
 
-    let user_agent = format!(
-        "wasmer/{} {} {}",
-        env!("CARGO_PKG_VERSION"),
-        whoami::platform(),
-        whoami_distro(),
-    );
+    let user_agent = crate::client::RegistryClient::default_user_agent();
 
     let mut res = client
         .post(registry_url)
