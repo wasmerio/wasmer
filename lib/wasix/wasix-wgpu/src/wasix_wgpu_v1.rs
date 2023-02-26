@@ -11824,8 +11824,9 @@ impl Adapter {
     }
 }
 impl Display {
-    pub fn default_display() -> Display {
+    pub fn default_display() -> Result<Display, DeviceError> {
         unsafe {
+            let ptr0 = WASIX_WGPU_V1_RET_AREA.0.as_mut_ptr() as i32;
             #[link(wasm_import_module = "wasix_wgpu_v1")]
             extern "C" {
                 #[cfg_attr(target_arch = "wasm32", link_name = "display::default-display")]
@@ -11833,16 +11834,27 @@ impl Display {
                     not(target_arch = "wasm32"),
                     link_name = "wasix_wgpu_v1_display::default-display"
                 )]
-                fn wai_import() -> i32;
+                fn wai_import(_: i32);
             }
-            let ret = wai_import();
-            Display(ret)
+            wai_import(ptr0);
+            match i32::from(*((ptr0 + 0) as *const u8)) {
+                0 => Ok(Display(*((ptr0 + 4) as *const i32))),
+                1 => Err(match i32::from(*((ptr0 + 4) as *const u8)) {
+                    0 => DeviceError::OutOfMemory,
+                    1 => DeviceError::Lost,
+                    2 => DeviceError::NoAdapters,
+                    3 => DeviceError::Unsupported,
+                    _ => panic!("invalid enum discriminant"),
+                }),
+                _ => panic!("invalid enum discriminant"),
+            }
         }
     }
 }
 impl Window {
-    pub fn default_window() -> Window {
+    pub fn default_window() -> Result<Window, DeviceError> {
         unsafe {
+            let ptr0 = WASIX_WGPU_V1_RET_AREA.0.as_mut_ptr() as i32;
             #[link(wasm_import_module = "wasix_wgpu_v1")]
             extern "C" {
                 #[cfg_attr(target_arch = "wasm32", link_name = "window::default-window")]
@@ -11850,10 +11862,20 @@ impl Window {
                     not(target_arch = "wasm32"),
                     link_name = "wasix_wgpu_v1_window::default-window"
                 )]
-                fn wai_import() -> i32;
+                fn wai_import(_: i32);
             }
-            let ret = wai_import();
-            Window(ret)
+            wai_import(ptr0);
+            match i32::from(*((ptr0 + 0) as *const u8)) {
+                0 => Ok(Window(*((ptr0 + 4) as *const i32))),
+                1 => Err(match i32::from(*((ptr0 + 4) as *const u8)) {
+                    0 => DeviceError::OutOfMemory,
+                    1 => DeviceError::Lost,
+                    2 => DeviceError::NoAdapters,
+                    3 => DeviceError::Unsupported,
+                    _ => panic!("invalid enum discriminant"),
+                }),
+                _ => panic!("invalid enum discriminant"),
+            }
         }
     }
 }
@@ -11913,23 +11935,6 @@ impl Instance {
                 }),
                 _ => panic!("invalid enum discriminant"),
             }
-        }
-    }
-}
-impl Instance {
-    pub fn destroy_surface(&self, surface: &Surface) -> () {
-        unsafe {
-            #[link(wasm_import_module = "wasix_wgpu_v1")]
-            extern "C" {
-                #[cfg_attr(target_arch = "wasm32", link_name = "instance::destroy-surface")]
-                #[cfg_attr(
-                    not(target_arch = "wasm32"),
-                    link_name = "wasix_wgpu_v1_instance::destroy-surface"
-                )]
-                fn wai_import(_: i32, _: i32);
-            }
-            wai_import(self.0, surface.0);
-            ()
         }
     }
 }

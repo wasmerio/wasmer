@@ -29,8 +29,8 @@ impl WgpuClient {
 
         let inst = sys::Instance::new(desc)?;
 
-        let display = sys::Display::default_display();
-        let window = sys::Window::default_window();
+        let display = sys::Display::default_display().map_err(|_| InstanceError::NotSupported)?;
+        let window = sys::Window::default_window().map_err(|_| InstanceError::NotSupported)?;
         let surface = inst.create_surface(&display, &window)?;
 
         Ok(Self {
@@ -110,12 +110,6 @@ impl Default for sys::Limits {
             max_compute_workgroups_per_dimension: 65535,
             max_push_constant_size: 0,
         }
-    }
-}
-
-impl Drop for WgpuClient {
-    fn drop(&mut self) {
-        self.inst.destroy_surface(&self.surface)
     }
 }
 

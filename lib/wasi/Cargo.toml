@@ -70,6 +70,14 @@ optional = true
 version = "0.15.1"
 optional = true
 
+[dependencies.raw-window-handle]
+version = "0.5.0"
+optional = true
+
+[dependencies.winit]
+version = "0.28.1"
+optional = true
+
 [target.'cfg(unix)'.dependencies]
 libc = { version = "^0.2", default-features = false }
 
@@ -116,7 +124,7 @@ host-threads = []
 host-reqwest = ["reqwest"]
 host-fs = ["wasmer-vfs/host-fs"]
 host-termios = ["termios", "term_size"]
-host-wgpu = ["wgpu"]
+host-wgpu = ["wgpu", "winit", "raw-window-handle"]
 
 logging = ["tracing/log"]
 disable-all-logging = [

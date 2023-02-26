@@ -35,12 +35,23 @@ impl core::fmt::Debug for DeviceError {
             DeviceError::OutOfMemory => f.debug_tuple("DeviceError::OutOfMemory").finish(),
             DeviceError::Lost => f.debug_tuple("DeviceError::Lost").finish(),
             DeviceError::NoAdapters => f.debug_tuple("DeviceError::NoAdapters").finish(),
-            DeviceError::Unsupported => f.debug_tuple("DeviceError::Unsuppported").finish(),
+            DeviceError::Unsupported => f.debug_tuple("DeviceError::Unsupported").finish(),
         }
     }
 }
-
-pub type Label<'a> = Option<&'a str>;
+#[derive(Clone)]
+pub enum Label<'a> {
+    None,
+    Some(&'a str),
+}
+impl<'a> core::fmt::Debug for Label<'a> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Label::None => f.debug_tuple("Label::None").finish(),
+            Label::Some(e) => f.debug_tuple("Label::Some").field(e).finish(),
+        }
+    }
+}
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct RectU32 {
@@ -3560,8 +3571,8 @@ pub trait WasixWgpuV1: Sized + Send + Sync + 'static {
         surface: &Self::Surface,
     ) -> Option<SurfaceCapabilities>;
     fn adapter_get_presentation_timestamp(&mut self, self_: &Self::Adapter) -> Timestamp;
-    fn display_default_display(&mut self) -> Self::Display;
-    fn window_default_window(&mut self) -> Self::Window;
+    fn display_default_display(&mut self) -> Result<Self::Display, DeviceError>;
+    fn window_default_window(&mut self) -> Result<Self::Window, DeviceError>;
     fn instance_new(
         &mut self,
         desc: InstanceDescriptor<'_>,
@@ -3572,7 +3583,6 @@ pub trait WasixWgpuV1: Sized + Send + Sync + 'static {
         display_handle: &Self::Display,
         window_handle: &Self::Window,
     ) -> Result<Self::Surface, InstanceError>;
-    fn instance_destroy_surface(&mut self, self_: &Self::Instance, surface: &Self::Surface) -> ();
     fn instance_enumerate_adapters(&mut self, self_: &Self::Instance) -> Vec<ExposedAdapter<Self>>;
     fn drop_adapter(&mut self, state: Self::Adapter) {
         drop(state);
@@ -11013,8 +11023,112 @@ where
             },
         ),
     );
-    exports . insert ("display::default-display" , wasmer :: Function :: new_typed_with_env (& mut store , & env , move | mut store : wasmer :: FunctionEnvMut < EnvWrapper < T > > | -> Result < i32 , wasmer :: RuntimeError > { let span = wai_bindgen_wasmer :: tracing :: span ! (wai_bindgen_wasmer :: tracing :: Level :: TRACE , "wai-bindgen abi" , module = "wasix_wgpu_v1" , function = "display::default-display" ,) ; let _enter = span . enter () ; let _memory : wasmer :: Memory = store . data () . lazy . get () . unwrap () . memory . clone () ; let data_mut = store . data_mut () ; let tables = data_mut . tables . borrow_mut () ; let host = & mut data_mut . data ; let result = host . display_default_display () ; drop (tables) ; wai_bindgen_wasmer :: tracing :: event ! (wai_bindgen_wasmer :: tracing :: Level :: TRACE , result = wai_bindgen_wasmer :: tracing :: field :: debug (& result) ,) ; Ok ({ let data_mut = store . data_mut () ; let mut tables = data_mut . tables . borrow_mut () ; tables . display_table . insert (result) as i32 }) })) ;
-    exports . insert ("window::default-window" , wasmer :: Function :: new_typed_with_env (& mut store , & env , move | mut store : wasmer :: FunctionEnvMut < EnvWrapper < T > > | -> Result < i32 , wasmer :: RuntimeError > { let span = wai_bindgen_wasmer :: tracing :: span ! (wai_bindgen_wasmer :: tracing :: Level :: TRACE , "wai-bindgen abi" , module = "wasix_wgpu_v1" , function = "window::default-window" ,) ; let _enter = span . enter () ; let _memory : wasmer :: Memory = store . data () . lazy . get () . unwrap () . memory . clone () ; let data_mut = store . data_mut () ; let tables = data_mut . tables . borrow_mut () ; let host = & mut data_mut . data ; let result = host . window_default_window () ; drop (tables) ; wai_bindgen_wasmer :: tracing :: event ! (wai_bindgen_wasmer :: tracing :: Level :: TRACE , result = wai_bindgen_wasmer :: tracing :: field :: debug (& result) ,) ; Ok ({ let data_mut = store . data_mut () ; let mut tables = data_mut . tables . borrow_mut () ; tables . window_table . insert (result) as i32 }) })) ;
+    exports.insert(
+        "display::default-display",
+        wasmer::Function::new_typed_with_env(
+            &mut store,
+            &env,
+            move |mut store: wasmer::FunctionEnvMut<EnvWrapper<T>>,
+                  arg0: i32|
+                  -> Result<(), wasmer::RuntimeError> {
+                let span = wai_bindgen_wasmer::tracing::span!(
+                    wai_bindgen_wasmer::tracing::Level::TRACE,
+                    "wai-bindgen abi",
+                    module = "wasix_wgpu_v1",
+                    function = "display::default-display",
+                );
+                let _enter = span.enter();
+                let _memory: wasmer::Memory = store.data().lazy.get().unwrap().memory.clone();
+                let data_mut = store.data_mut();
+                let tables = data_mut.tables.borrow_mut();
+                let host = &mut data_mut.data;
+                let result = host.display_default_display();
+                drop(tables);
+                wai_bindgen_wasmer::tracing::event!(
+                    wai_bindgen_wasmer::tracing::Level::TRACE,
+                    result = wai_bindgen_wasmer::tracing::field::debug(&result),
+                );
+                match result {
+                    Ok(e) => {
+                        let _memory_view = _memory.view(&store);
+                        let caller_memory = unsafe { _memory_view.data_unchecked_mut() };
+                        caller_memory
+                            .store(arg0 + 0, wai_bindgen_wasmer::rt::as_i32(0i32) as u8)?;
+                        caller_memory.store(
+                            arg0 + 4,
+                            wai_bindgen_wasmer::rt::as_i32({
+                                let data_mut = store.data_mut();
+                                let mut tables = data_mut.tables.borrow_mut();
+                                tables.display_table.insert(e) as i32
+                            }),
+                        )?;
+                    }
+                    Err(e) => {
+                        let _memory_view = _memory.view(&store);
+                        let caller_memory = unsafe { _memory_view.data_unchecked_mut() };
+                        caller_memory
+                            .store(arg0 + 0, wai_bindgen_wasmer::rt::as_i32(1i32) as u8)?;
+                        caller_memory
+                            .store(arg0 + 4, wai_bindgen_wasmer::rt::as_i32(e as i32) as u8)?;
+                    }
+                };
+                Ok(())
+            },
+        ),
+    );
+    exports.insert(
+        "window::default-window",
+        wasmer::Function::new_typed_with_env(
+            &mut store,
+            &env,
+            move |mut store: wasmer::FunctionEnvMut<EnvWrapper<T>>,
+                  arg0: i32|
+                  -> Result<(), wasmer::RuntimeError> {
+                let span = wai_bindgen_wasmer::tracing::span!(
+                    wai_bindgen_wasmer::tracing::Level::TRACE,
+                    "wai-bindgen abi",
+                    module = "wasix_wgpu_v1",
+                    function = "window::default-window",
+                );
+                let _enter = span.enter();
+                let _memory: wasmer::Memory = store.data().lazy.get().unwrap().memory.clone();
+                let data_mut = store.data_mut();
+                let tables = data_mut.tables.borrow_mut();
+                let host = &mut data_mut.data;
+                let result = host.window_default_window();
+                drop(tables);
+                wai_bindgen_wasmer::tracing::event!(
+                    wai_bindgen_wasmer::tracing::Level::TRACE,
+                    result = wai_bindgen_wasmer::tracing::field::debug(&result),
+                );
+                match result {
+                    Ok(e) => {
+                        let _memory_view = _memory.view(&store);
+                        let caller_memory = unsafe { _memory_view.data_unchecked_mut() };
+                        caller_memory
+                            .store(arg0 + 0, wai_bindgen_wasmer::rt::as_i32(0i32) as u8)?;
+                        caller_memory.store(
+                            arg0 + 4,
+                            wai_bindgen_wasmer::rt::as_i32({
+                                let data_mut = store.data_mut();
+                                let mut tables = data_mut.tables.borrow_mut();
+                                tables.window_table.insert(e) as i32
+                            }),
+                        )?;
+                    }
+                    Err(e) => {
+                        let _memory_view = _memory.view(&store);
+                        let caller_memory = unsafe { _memory_view.data_unchecked_mut() };
+                        caller_memory
+                            .store(arg0 + 0, wai_bindgen_wasmer::rt::as_i32(1i32) as u8)?;
+                        caller_memory
+                            .store(arg0 + 4, wai_bindgen_wasmer::rt::as_i32(e as i32) as u8)?;
+                    }
+                };
+                Ok(())
+            },
+        ),
+    );
     exports.insert(
         "instance::new",
         wasmer::Function::new_typed_with_env(
@@ -11180,46 +11294,6 @@ where
                         };
                     }
                 };
-                Ok(())
-            },
-        ),
-    );
-    exports.insert(
-        "instance::destroy-surface",
-        wasmer::Function::new_typed_with_env(
-            &mut store,
-            &env,
-            move |mut store: wasmer::FunctionEnvMut<EnvWrapper<T>>,
-                  arg0: i32,
-                  arg1: i32|
-                  -> Result<(), wasmer::RuntimeError> {
-                let span = wai_bindgen_wasmer::tracing::span!(
-                    wai_bindgen_wasmer::tracing::Level::TRACE,
-                    "wai-bindgen abi",
-                    module = "wasix_wgpu_v1",
-                    function = "instance::destroy-surface",
-                );
-                let _enter = span.enter();
-                let _memory: wasmer::Memory = store.data().lazy.get().unwrap().memory.clone();
-                let data_mut = store.data_mut();
-                let tables = data_mut.tables.borrow_mut();
-                let param0 = tables
-                    .instance_table
-                    .get((arg0) as u32)
-                    .ok_or_else(|| wasmer::RuntimeError::new("invalid handle index"))?;
-                let param1 = tables
-                    .surface_table
-                    .get((arg1) as u32)
-                    .ok_or_else(|| wasmer::RuntimeError::new("invalid handle index"))?;
-                wai_bindgen_wasmer::tracing::event!(
-                    wai_bindgen_wasmer::tracing::Level::TRACE,
-                    self_ = wai_bindgen_wasmer::tracing::field::debug(&param0),
-                    surface = wai_bindgen_wasmer::tracing::field::debug(&param1),
-                );
-                let host = &mut data_mut.data;
-                let result = host.instance_destroy_surface(param0, param1);
-                drop(tables);
-                let () = result;
                 Ok(())
             },
         ),

@@ -2149,17 +2149,16 @@ record pipeline-layout-descriptor {
 }
 
 resource display {
-  static default-display: func() -> display
+  static default-display: func() -> expected<display, device-error>
 }
 
 resource window {
-  static default-window: func() -> window
+  static default-window: func() -> expected<window, device-error>
 }
 
 resource instance {
   static new: func(desc: instance-descriptor) -> expected<instance, instance-error>
 
   create-surface: func(display-handle: display, window-handle: window) -> expected<surface, instance-error>
-  destroy-surface: func(surface: surface)
   enumerate-adapters: func() -> list<exposed-adapter>
 }

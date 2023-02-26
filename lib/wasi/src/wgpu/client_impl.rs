@@ -15,16 +15,17 @@ use super::{
 };
 
 pub struct WasixWgpuImpl {
+    #[allow(dead_code)]
     cap: Capabilities,
     runtime: Arc<dyn WasiRuntime + Send + Sync>,
 }
 
 impl WasixWgpuImpl {
-    pub fn new(env: &WasiEnv) -> Option<Self> {
-        Some(Self {
+    pub fn new(env: &WasiEnv) -> Self {
+        Self {
             cap: env.capabilities.clone(),
             runtime: env.runtime.clone(),
-        })
+        }
     }
 }
 
@@ -50,6 +51,7 @@ pub struct BindGroupLayoutImpl {
 
 #[derive(Debug)]
 pub struct BufU32Impl {
+    #[allow(dead_code)]
     inner: DynBufU32,
 }
 
@@ -115,6 +117,7 @@ pub struct InstanceImpl {
 
 #[derive(Debug)]
 pub struct NagaModuleImpl {
+    #[allow(dead_code)]
     inner: DynNagaModule,
 }
 
@@ -995,13 +998,19 @@ impl sys::WasixWgpuV1 for WasixWgpuImpl {
     }
 
     fn display_default_display(&mut self) -> Result<Self::Display, sys::DeviceError> {
-        let wgpu = self.runtime.wgpu_client().ok_or(sys::DeviceError::Unsupported)?;
+        let wgpu = self
+            .runtime
+            .wgpu_client()
+            .ok_or(sys::DeviceError::Unsupported)?;
         let ret = wgpu.default_display();
         Ok(ComputerDisplayImpl { inner: ret })
     }
 
     fn window_default_window(&mut self) -> Result<Self::Window, sys::DeviceError> {
-        let wgpu = self.runtime.wgpu_client().ok_or(sys::DeviceError::Unsupported)?;
+        let wgpu = self
+            .runtime
+            .wgpu_client()
+            .ok_or(sys::DeviceError::Unsupported)?;
         let ret = wgpu.default_window();
         Ok(WindowImpl { inner: ret })
     }
@@ -1010,7 +1019,10 @@ impl sys::WasixWgpuV1 for WasixWgpuImpl {
         &mut self,
         desc: sys::InstanceDescriptor<'_>,
     ) -> Result<Self::Instance, sys::InstanceError> {
-        let wgpu = self.runtime.wgpu_client().ok_or(sys::InstanceError::NotSupported)?;
+        let wgpu = self
+            .runtime
+            .wgpu_client()
+            .ok_or(sys::InstanceError::NotSupported)?;
         let ret = wgpu.instance_new(desc)?;
         Ok(InstanceImpl { inner: ret })
     }
@@ -1025,10 +1037,6 @@ impl sys::WasixWgpuV1 for WasixWgpuImpl {
             .inner
             .create_surface(display_handle.inner.deref(), window_handle.inner.deref())?;
         Ok(SurfaceImpl { inner: ret })
-    }
-
-    fn instance_destroy_surface(&mut self, self_: &Self::Instance, surface: &Self::Surface) -> () {
-        self_.inner.destroy_surface(surface.inner.deref())
     }
 
     fn instance_enumerate_adapters(

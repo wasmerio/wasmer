@@ -1,4 +1,6 @@
 #![allow(unused_variables)]
+use raw_window_handle::{RawWindowHandle, RawDisplayHandle};
+
 use crate::bindings::wasix_wgpu_v1 as sys;
 use std::sync::Arc;
 
@@ -14,7 +16,7 @@ pub type Timestamp = sys::Timestamp;
 
 pub trait Adapter: std::fmt::Debug {
     fn open(&self, features: Features, limits: Limits) -> Result<OpenDevice, sys::DeviceError> {
-        unimplemented!()
+        Err(sys::DeviceError::Unsupported)
     }
 
     fn texture_format_capabilities(&self, format: TextureFormat) -> sys::TextureFormatCapabilities {
@@ -29,22 +31,22 @@ pub trait Adapter: std::fmt::Debug {
         unimplemented!()
     }
 }
-pub type DynAdapter = Arc<dyn Adapter + Send + Sync + 'static>;
+pub type DynAdapter = Arc<dyn Adapter + Send + 'static>;
 
 pub trait Attachment: std::fmt::Debug {}
-pub type DynAttachment = Arc<dyn Attachment + Send + Sync + 'static>;
+pub type DynAttachment = Arc<dyn Attachment + Send + 'static>;
 
 pub trait BindGroup: std::fmt::Debug {}
-pub type DynBindGroup = Arc<dyn BindGroup + Send + Sync + 'static>;
+pub type DynBindGroup = Arc<dyn BindGroup + Send + 'static>;
 
 pub trait BindGroupLayout: std::fmt::Debug {}
-pub type DynBindGroupLayout = Arc<dyn BindGroupLayout + Send + Sync + 'static>;
+pub type DynBindGroupLayout = Arc<dyn BindGroupLayout + Send + 'static>;
 
 pub trait BufU32: std::fmt::Debug {}
-pub type DynBufU32 = Arc<dyn BufU32 + Send + Sync + 'static>;
+pub type DynBufU32 = Arc<dyn BufU32 + Send + 'static>;
 
 pub trait BufU8: std::fmt::Debug {}
-pub type DynBufU8 = Arc<dyn BufU8 + Send + Sync + 'static>;
+pub type DynBufU8 = Arc<dyn BufU8 + Send + 'static>;
 pub type BufferCopy = sys::BufferCopy;
 
 pub trait Buffer: std::fmt::Debug {
@@ -56,7 +58,7 @@ pub trait Buffer: std::fmt::Debug {
         unimplemented!()
     }
 }
-pub type DynBuffer = Arc<dyn Buffer + Send + Sync + 'static>;
+pub type DynBuffer = Arc<dyn Buffer + Send + 'static>;
 
 pub trait CommandBuffer: std::fmt::Debug {
     fn reset(&self) {
@@ -71,13 +73,13 @@ pub trait CommandBuffer: std::fmt::Debug {
         unimplemented!()
     }
 }
-pub type DynCommandBuffer = Arc<dyn CommandBuffer + Send + Sync + 'static>;
+pub type DynCommandBuffer = Arc<dyn CommandBuffer + Send + 'static>;
 pub type AttachmentOps = sys::AttachmentOps;
 pub type Color = sys::Color;
 
 pub struct ColorAttachment<'a, 'b> {
     pub target: &'a dyn Attachment,
-    pub resolve_target: Option<&'b (dyn Attachment + Send + Sync)>,
+    pub resolve_target: Option<&'b (dyn Attachment + Send)>,
     pub ops: AttachmentOps,
     pub clear_value: Color,
 }
@@ -134,7 +136,7 @@ pub type ComputePassDescriptor<'a> = sys::ComputePassDescriptor<'a>;
 
 pub trait CommandEncoder: std::fmt::Debug {
     fn begin_encoding(&self, label: sys::Label<'_>) -> Result<sys::Nothing, sys::DeviceError> {
-        unimplemented!()
+        Err(sys::DeviceError::Unsupported)
     }
 
     fn discard_encoding(&self) {
@@ -142,7 +144,7 @@ pub trait CommandEncoder: std::fmt::Debug {
     }
 
     fn end_encoding(&self) -> Result<DynCommandBuffer, sys::DeviceError> {
-        unimplemented!()
+        Err(sys::DeviceError::Unsupported)
     }
 
     fn copy_external_image_to_texture(
@@ -317,10 +319,10 @@ pub trait CommandEncoder: std::fmt::Debug {
         unimplemented!()
     }
 }
-pub type DynCommandEncoder = Arc<dyn CommandEncoder + Send + Sync + 'static>;
+pub type DynCommandEncoder = Arc<dyn CommandEncoder + Send + 'static>;
 
 pub trait ComputePipeline: std::fmt::Debug {}
-pub type DynComputePipeline = Arc<dyn ComputePipeline + Send + Sync + 'static>;
+pub type DynComputePipeline = Arc<dyn ComputePipeline + Send + 'static>;
 
 pub struct BufferMapping {
     pub ptr: DynBufU8,
@@ -384,11 +386,10 @@ pub type QuerySetDescriptor<'a> = sys::QuerySetDescriptor<'a>;
 
 pub trait Device: std::fmt::Debug {
     fn exit(&self, queue: &dyn Queue) {
-        unimplemented!()
     }
 
     fn create_buffer(&self, desc: BufferDescriptor<'_>) -> Result<DynBuffer, sys::DeviceError> {
-        unimplemented!()
+        Err(sys::DeviceError::Unsupported)
     }
 
     fn map_buffer(
@@ -396,23 +397,21 @@ pub trait Device: std::fmt::Debug {
         buffer: &dyn Buffer,
         range: MemoryRange,
     ) -> Result<BufferMapping, sys::DeviceError> {
-        unimplemented!()
+        Err(sys::DeviceError::Unsupported)
     }
 
     fn unmap_buffer(&self, buffer: &dyn Buffer) -> Result<(), sys::DeviceError> {
-        unimplemented!()
+        Err(sys::DeviceError::Unsupported)
     }
 
     fn flush_mapped_range(&self, buffer: &dyn Buffer, range: MemoryRange) {
-        unimplemented!()
     }
 
     fn invalidate_mapped_range(&self, buffer: &dyn Buffer, range: MemoryRange) {
-        unimplemented!()
     }
 
     fn create_texture(&self, desc: TextureDescriptor<'_>) -> Result<DynTexture, sys::DeviceError> {
-        unimplemented!()
+        Err(sys::DeviceError::Unsupported)
     }
 
     fn create_texture_view(
@@ -420,116 +419,126 @@ pub trait Device: std::fmt::Debug {
         texture: &dyn Texture,
         desc: sys::TextureViewDescriptor<'_>,
     ) -> Result<DynTextureView, sys::DeviceError> {
-        unimplemented!()
+        Err(sys::DeviceError::Unsupported)
     }
 
     fn create_sampler(
         &self,
         desc: sys::SamplerDescriptor<'_>,
     ) -> Result<DynSampler, sys::DeviceError> {
-        unimplemented!()
+        Err(sys::DeviceError::Unsupported)
     }
 
     fn create_command_encoder(
         &self,
         desc: CommandEncoderDescriptor,
     ) -> Result<DynCommandEncoder, sys::DeviceError> {
-        unimplemented!()
+        Err(sys::DeviceError::Unsupported)
     }
 
     fn create_bind_group_layout(
         &self,
         desc: sys::BindGroupLayoutDescriptor<'_>,
     ) -> Result<DynBindGroupLayout, sys::DeviceError> {
-        unimplemented!()
+        Err(sys::DeviceError::Unsupported)
     }
 
     fn create_pipeline_layout(
         &self,
         desc: PipelineLayoutDescriptor<'_>,
     ) -> Result<DynPipelineLayout, sys::DeviceError> {
-        unimplemented!()
+        Err(sys::DeviceError::Unsupported)
     }
 
     fn create_bind_group(
         &self,
         desc: BindGroupDescriptor<'_, '_, '_>,
     ) -> Result<DynBindGroup, sys::DeviceError> {
-        unimplemented!()
+        Err(sys::DeviceError::Unsupported)
     }
 
     fn create_shader_module(
         &self,
         desc: sys::ShaderModuleDescriptor<'_>,
     ) -> Result<DynShaderModule, sys::ShaderError> {
-        unimplemented!()
+        Err(sys::ShaderError::Device(sys::DeviceError::Unsupported))
     }
 
     fn create_render_pipeline(
         &self,
         desc: sys::ShaderModuleDescriptor<'_>,
     ) -> Result<DynRenderPipeline, sys::PipelineError> {
-        unimplemented!()
+        Err(sys::PipelineError::Device(sys::DeviceError::Unsupported))
     }
 
     fn create_compute_pipeline(
         &self,
         desc: ComputePipelineDescriptor<'_, '_, '_, '_>,
     ) -> Result<DynComputePipeline, sys::PipelineError> {
-        unimplemented!()
+        Err(sys::PipelineError::Device(sys::DeviceError::Unsupported))
     }
 
     fn create_query_set(
         &self,
         desc: QuerySetDescriptor<'_>,
     ) -> Result<DynQuerySet, sys::DeviceError> {
-        unimplemented!()
+        Err(sys::DeviceError::Unsupported)
     }
 
     fn create_fence(&self) -> Result<DynFence, sys::DeviceError> {
-        unimplemented!()
+        Err(sys::DeviceError::Unsupported)
     }
 
     fn start_capture(&self) -> bool {
-        unimplemented!()
+        false
     }
 
     fn stop_capture(&self) {
-        unimplemented!()
     }
 }
-pub type DynDevice = Arc<dyn Device + Send + Sync + 'static>;
+pub type DynDevice = Arc<dyn Device + Send + 'static>;
 
-pub trait ComputerDisplay: std::fmt::Debug {}
-pub type DynComputerDisplay = Arc<dyn ComputerDisplay + Send + Sync + 'static>;
+pub trait ComputerDisplay: std::fmt::Debug {
+    fn handle(&self) -> RawDisplayHandle;
+}
+pub type DynComputerDisplay = Arc<dyn ComputerDisplay + 'static>;
+
 pub type FenceValue = sys::FenceValue;
 
 pub trait Fence: std::fmt::Debug {
     fn value(&self) -> Result<sys::FenceValue, sys::DeviceError> {
-        unimplemented!()
+        Err(sys::DeviceError::Unsupported)
     }
 
     fn wait(&self, value: FenceValue, timeout_ms: u32) -> Result<bool, sys::DeviceError> {
-        unimplemented!()
+        Err(sys::DeviceError::Unsupported)
     }
 }
-pub type DynFence = Arc<dyn Fence + Send + Sync + 'static>;
+pub type DynFence = Arc<dyn Fence + Send + 'static>;
 
 pub trait HtmlCanvasElement: std::fmt::Debug {}
-pub type DynHtmlCanvasElement = Arc<dyn HtmlCanvasElement + Send + Sync + 'static>;
+pub type DynHtmlCanvasElement = Arc<dyn HtmlCanvasElement + Send + 'static>;
 
 pub trait HtmlVideoElement: std::fmt::Debug {}
-pub type DynHtmlVideoElement = Arc<dyn HtmlVideoElement + Send + Sync + 'static>;
+pub type DynHtmlVideoElement = Arc<dyn HtmlVideoElement + Send + 'static>;
 
 pub trait ImageBitmap: std::fmt::Debug {}
-pub type DynImageBitmap = Arc<dyn ImageBitmap + Send + Sync + 'static>;
+pub type DynImageBitmap = Arc<dyn ImageBitmap + Send + 'static>;
+pub type InstanceDescriptor<'a> = sys::InstanceDescriptor<'a>;
+pub type AdapterInfo = sys::AdapterInfo;
+pub type DeviceType = sys::DeviceType;
+pub type Backend = sys::Backend;
+pub type Capabilities = sys::Capabilities;
+pub type DownlevelCapabilities = sys::DownlevelCapabilities;
 
 pub struct ExposedAdapter {
     pub adapter: DynAdapter,
-    pub info: sys::AdapterInfo,
+    pub info: AdapterInfo,
     pub features: Features,
-    pub capabilities: sys::Capabilities,
+    pub capabilities: Capabilities,
 }
+
+pub type InstanceFlags = sys::InstanceFlags;
 
 pub trait Instance: std::fmt::Debug {
     fn create_surface(
@@ -537,27 +546,23 @@ pub trait Instance: std::fmt::Debug {
         display_handle: &dyn ComputerDisplay,
         window_handle: &dyn Window,
     ) -> Result<DynSurface, sys::InstanceError> {
-        unimplemented!()
-    }
-
-    fn destroy_surface(&self, surface: &dyn Surface) {
-        unimplemented!()
+        Err(sys::InstanceError::NotSupported)
     }
 
     fn enumerate_adapters(&self) -> Vec<ExposedAdapter> {
-        unimplemented!()
+        Vec::new()
     }
 }
-pub type DynInstance = Arc<dyn Instance + Send + Sync + 'static>;
+pub type DynInstance = Arc<dyn Instance + Send + 'static>;
 
 pub trait NagaModule: std::fmt::Debug {}
-pub type DynNagaModule = Arc<dyn NagaModule + Send + Sync + 'static>;
+pub type DynNagaModule = Arc<dyn NagaModule + Send + 'static>;
 
 pub trait OffscreenCanvas: std::fmt::Debug {}
-pub type DynOffscreenCanvas = Arc<dyn OffscreenCanvas + Send + Sync + 'static>;
+pub type DynOffscreenCanvas = Arc<dyn OffscreenCanvas + Send + 'static>;
 
 pub trait PipelineLayout: std::fmt::Debug {}
-pub type DynPipelineLayout = Arc<dyn PipelineLayout + Send + Sync + 'static>;
+pub type DynPipelineLayout = Arc<dyn PipelineLayout + Send + 'static>;
 pub type RangeU32 = sys::RangeU32;
 
 pub trait QuerySet: std::fmt::Debug {
@@ -587,14 +592,14 @@ pub trait QuerySet: std::fmt::Debug {
         unimplemented!()
     }
 }
-pub type DynQuerySet = Arc<dyn QuerySet + Send + Sync + 'static>;
+pub type DynQuerySet = Arc<dyn QuerySet + Send + 'static>;
 
 pub trait Queue: std::fmt::Debug {
     fn submit<'a>(
         &self,
-        command_buffers: &mut dyn Iterator<Item = &'a (dyn CommandBuffer + Sync + Send)>,
+        command_buffers: &mut dyn Iterator<Item = &'a (dyn CommandBuffer + Send)>,
     ) -> Result<(), sys::DeviceError> {
-        unimplemented!()
+        Err(sys::DeviceError::Unsupported)
     }
 
     fn present(
@@ -602,23 +607,23 @@ pub trait Queue: std::fmt::Debug {
         surface: &dyn Surface,
         texture: &dyn Texture,
     ) -> Result<(), sys::SurfaceError> {
-        unimplemented!()
+        Err(sys::SurfaceError::Device(sys::DeviceError::Unsupported))
     }
 
     fn get_timestamp_period(&self) -> f32 {
         unimplemented!()
     }
 }
-pub type DynQueue = Arc<dyn Queue + Send + Sync + 'static>;
+pub type DynQueue = Arc<dyn Queue + Send + 'static>;
 
 pub trait RenderPipeline: std::fmt::Debug {}
-pub type DynRenderPipeline = Arc<dyn RenderPipeline + Send + Sync + 'static>;
+pub type DynRenderPipeline = Arc<dyn RenderPipeline + Send + 'static>;
 
 pub trait Sampler: std::fmt::Debug {}
-pub type DynSampler = Arc<dyn Sampler + Send + Sync + 'static>;
+pub type DynSampler = Arc<dyn Sampler + Send + 'static>;
 
 pub trait ShaderModule: std::fmt::Debug {}
-pub type DynShaderModule = Arc<dyn ShaderModule + Send + Sync + 'static>;
+pub type DynShaderModule = Arc<dyn ShaderModule + Send + 'static>;
 
 pub struct AcquiredSurfaceTexture {
     pub texture: DynTexture,
@@ -631,30 +636,32 @@ pub trait Surface: std::fmt::Debug {
         device: &dyn Device,
         config: sys::SurfaceConfiguration,
     ) -> Result<sys::Nothing, sys::SurfaceError> {
-        unimplemented!()
+        Err(sys::SurfaceError::Device(sys::DeviceError::Unsupported))
     }
 
     fn unconfigure(&self, device: &dyn Device) -> () {
-        unimplemented!()
     }
 
     fn acquire_texture(
         &self,
         timeout: Option<Timestamp>,
     ) -> Result<AcquiredSurfaceTexture, sys::SurfaceError> {
-        unimplemented!()
+        Err(sys::SurfaceError::Device(sys::DeviceError::Unsupported))
     }
 }
-pub type DynSurface = Arc<dyn Surface + Send + Sync + 'static>;
+pub type DynSurface = Arc<dyn Surface + Send + 'static>;
 
 pub trait Texture: std::fmt::Debug {}
-pub type DynTexture = Arc<dyn Texture + Send + Sync + 'static>;
+pub type DynTexture = Arc<dyn Texture + Send + 'static>;
 
 pub trait TextureView: std::fmt::Debug {}
-pub type DynTextureView = Arc<dyn TextureView + Send + Sync + 'static>;
+pub type DynTextureView = Arc<dyn TextureView + Send + 'static>;
 
-pub trait Window: std::fmt::Debug {}
-pub type DynWindow = Arc<dyn Window + Send + Sync + 'static>;
+pub trait Window: std::fmt::Debug {
+    fn handle(&self) -> RawWindowHandle;
+}
+
+pub type DynWindow = Arc<dyn Window + Send + 'static>;   
 
 pub trait WgpuClient: std::fmt::Debug {
     fn default_display(&self) -> DynComputerDisplay {
@@ -667,9 +674,9 @@ pub trait WgpuClient: std::fmt::Debug {
 
     fn instance_new(
         &self,
-        desc: sys::InstanceDescriptor<'_>,
+        desc: InstanceDescriptor<'_>,
     ) -> Result<DynInstance, sys::InstanceError> {
-        unimplemented!()
+        Err(sys::InstanceError::NotSupported)
     }
 }
-pub type DynWgpuClient = Arc<dyn WgpuClient + Send + Sync + 'static>;
+pub type DynWgpuClient = Arc<dyn WgpuClient + Send + 'static>;
