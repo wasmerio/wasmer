@@ -179,6 +179,7 @@
 <span id="177">177</span>
 <span id="178">178</span>
 <span id="179">179</span>
+<span id="180">180</span>
 </pre><pre class="rust"><code><span class="comment">// TODO: review allow..</span>
 <span class="kw">use</span> <span class="ident">cfg_if::cfg_if</span>;
 
@@ -186,8 +187,9 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vbus::VirtualBusError</span>;
 <span class="kw">use</span> <span class="ident">wasmer_wasi_types::wasi</span>::{<span class="ident">BusErrno</span>, <span class="ident">Rights</span>};
+
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VirtualBusError</span>;
 
 <span class="macro">cfg_if!</span> {
     <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;host-fs&quot;</span>)]</span> {

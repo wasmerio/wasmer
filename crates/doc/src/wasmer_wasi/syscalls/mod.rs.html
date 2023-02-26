@@ -1099,19 +1099,6 @@
 <span id="1097">1097</span>
 <span id="1098">1098</span>
 <span id="1099">1099</span>
-<span id="1100">1100</span>
-<span id="1101">1101</span>
-<span id="1102">1102</span>
-<span id="1103">1103</span>
-<span id="1104">1104</span>
-<span id="1105">1105</span>
-<span id="1106">1106</span>
-<span id="1107">1107</span>
-<span id="1108">1108</span>
-<span id="1109">1109</span>
-<span id="1110">1110</span>
-<span id="1111">1111</span>
-<span id="1112">1112</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>, <span class="ident">clippy::too_many_arguments</span>, <span class="ident">clippy::cognitive_complexity</span>)]</span>
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span> {
@@ -1176,10 +1163,6 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">target_family</span> <span class="op">=</span> <span class="string">&quot;wasm&quot;</span>))]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasm</span>::<span class="kw-2">*</span>;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vbus</span>::{
-    <span class="ident">BusInvocationEvent</span>, <span class="ident">BusSpawnedProcess</span>, <span class="ident">SignalHandlerAbi</span>, <span class="ident">StdioMode</span>, <span class="ident">VirtualBusError</span>,
-    <span class="ident">VirtualBusInvokedWait</span>,
-};
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident">wasmer</span>::{
     <span class="ident">AsStoreMut</span>, <span class="ident">AsStoreRef</span>, <span class="ident">Extern</span>, <span class="ident">Function</span>, <span class="ident">FunctionEnv</span>, <span class="ident">FunctionEnvMut</span>, <span class="ident">Global</span>, <span class="ident">Instance</span>,
     <span class="ident">Memory</span>, <span class="ident">Memory32</span>, <span class="ident">Memory64</span>, <span class="ident">MemoryAccessError</span>, <span class="ident">MemoryError</span>, <span class="ident">MemorySize</span>, <span class="ident">MemoryView</span>, <span class="ident">Module</span>,
@@ -1195,10 +1178,10 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="ident"><span class="self">self</span>::types</span>::{
     <span class="ident">wasi</span>::{
-        <span class="ident">Addressfamily</span>, <span class="ident">Advice</span>, <span class="ident">Bid</span>, <span class="ident">BusDataFormat</span>, <span class="ident">BusErrno</span>, <span class="ident">BusHandles</span>, <span class="ident">Cid</span>, <span class="ident">Clockid</span>, <span class="ident">Dircookie</span>,
-        <span class="ident">Dirent</span>, <span class="ident">Errno</span>, <span class="ident">Event</span>, <span class="ident">EventFdReadwrite</span>, <span class="ident">Eventrwflags</span>, <span class="ident">Eventtype</span>, <span class="ident">ExitCode</span>, <span class="ident">Fd</span> <span class="kw">as</span> <span class="ident">WasiFd</span>,
-        <span class="ident">Fdflags</span>, <span class="ident">Fdstat</span>, <span class="ident">Filesize</span>, <span class="ident">Filestat</span>, <span class="ident">Filetype</span>, <span class="ident">Fstflags</span>, <span class="ident">Linkcount</span>, <span class="ident">Longsize</span>, <span class="ident">OptionFd</span>,
-        <span class="ident">Pid</span>, <span class="ident">Prestat</span>, <span class="ident">Rights</span>, <span class="ident">Snapshot0Clockid</span>, <span class="ident">Sockoption</span>, <span class="ident">Sockstatus</span>, <span class="ident">Socktype</span>, <span class="ident">StackSnapshot</span>,
+        <span class="ident">Addressfamily</span>, <span class="ident">Advice</span>, <span class="ident">Bid</span>, <span class="ident">BusErrno</span>, <span class="ident">BusHandles</span>, <span class="ident">Cid</span>, <span class="ident">Clockid</span>, <span class="ident">Dircookie</span>, <span class="ident">Dirent</span>, <span class="ident">Errno</span>,
+        <span class="ident">Event</span>, <span class="ident">EventFdReadwrite</span>, <span class="ident">Eventrwflags</span>, <span class="ident">Eventtype</span>, <span class="ident">ExitCode</span>, <span class="ident">Fd</span> <span class="kw">as</span> <span class="ident">WasiFd</span>, <span class="ident">Fdflags</span>, <span class="ident">Fdstat</span>,
+        <span class="ident">Filesize</span>, <span class="ident">Filestat</span>, <span class="ident">Filetype</span>, <span class="ident">Fstflags</span>, <span class="ident">Linkcount</span>, <span class="ident">Longsize</span>, <span class="ident">OptionFd</span>, <span class="ident">Pid</span>, <span class="ident">Prestat</span>,
+        <span class="ident">Rights</span>, <span class="ident">Snapshot0Clockid</span>, <span class="ident">Sockoption</span>, <span class="ident">Sockstatus</span>, <span class="ident">Socktype</span>, <span class="ident">StackSnapshot</span>,
         <span class="ident">StdioMode</span> <span class="kw">as</span> <span class="ident">WasiStdioMode</span>, <span class="ident">Streamsecurity</span>, <span class="ident">Subscription</span>, <span class="ident">SubscriptionFsReadwrite</span>, <span class="ident">Tid</span>,
         <span class="ident">Timestamp</span>, <span class="ident">TlKey</span>, <span class="ident">TlUser</span>, <span class="ident">TlVal</span>, <span class="ident">Tty</span>, <span class="ident">Whence</span>,
     },
@@ -1220,7 +1203,7 @@
     <span class="ident">runtime</span>::{<span class="ident">task_manager::VirtualTaskManagerExt</span>, <span class="ident">SpawnType</span>},
     <span class="ident">state</span>::{
         <span class="self">self</span>, <span class="ident">bus_errno_into_vbus_error</span>, <span class="ident">iterate_poll_events</span>, <span class="ident">vbus_error_into_bus_errno</span>,
-        <span class="ident">InodeGuard</span>, <span class="ident">InodeWeakGuard</span>, <span class="ident">PollEvent</span>, <span class="ident">PollEventBuilder</span>, <span class="ident">WasiBusCall</span>, <span class="ident">WasiFutex</span>, <span class="ident">WasiState</span>,
+        <span class="ident">InodeGuard</span>, <span class="ident">InodeWeakGuard</span>, <span class="ident">PollEvent</span>, <span class="ident">PollEventBuilder</span>, <span class="ident">WasiFutex</span>, <span class="ident">WasiState</span>,
         <span class="ident">WasiThreadContext</span>,
     },
     <span class="ident">utils</span>::{<span class="self">self</span>, <span class="ident">map_io_err</span>},
@@ -1233,7 +1216,7 @@
         <span class="ident">MAX_SYMLINKS</span>,
     },
     <span class="ident">utils::store::InstanceSnapshot</span>,
-    <span class="ident">WasiInodes</span>,
+    <span class="ident">VirtualBusError</span>, <span class="ident">WasiInodes</span>,
 };
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">net::net_error_into_wasi_err</span>, <span class="ident">utils::WasiParkingLot</span>};
 
@@ -2214,15 +2197,6 @@
         <span class="ident">VirtualBusError::Unsupported</span> =&gt; <span class="ident">Errno::Noexec</span> <span class="kw">as</span> <span class="ident">ExitCode</span>,
         <span class="kw">_</span> =&gt; <span class="ident">Errno::Inval</span> <span class="kw">as</span> <span class="ident">ExitCode</span>,
     }
-}
-
-<span class="comment">// Function for converting the format</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">conv_bus_format</span>(<span class="ident">format</span>: <span class="ident">BusDataFormat</span>) -&gt; <span class="ident">BusDataFormat</span> {
-    <span class="ident">format</span>
-}
-
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">conv_bus_format_from</span>(<span class="ident">format</span>: <span class="ident">BusDataFormat</span>) -&gt; <span class="ident">BusDataFormat</span> {
-    <span class="ident">format</span>
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasi" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

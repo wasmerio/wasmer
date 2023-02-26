@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["TaskJoinHandle","A handle that allows awaiting the termination of a task, and retrieving its exit code."]]};
+window.SIDEBAR_ITEMS = {"enum":[["TaskStatus",""]],"struct":[["OwnedTaskStatus","A handle that allows awaiting the termination of a task, and retrieving its exit code."],["TaskJoinHandle","A handle that allows awaiting the termination of a task, and retrieving its exit code."],["TaskTerminatedError",""]],"trait":[["VirtualTaskHandle",""]]};

@@ -779,6 +779,70 @@
 <span id="777">777</span>
 <span id="778">778</span>
 <span id="779">779</span>
+<span id="780">780</span>
+<span id="781">781</span>
+<span id="782">782</span>
+<span id="783">783</span>
+<span id="784">784</span>
+<span id="785">785</span>
+<span id="786">786</span>
+<span id="787">787</span>
+<span id="788">788</span>
+<span id="789">789</span>
+<span id="790">790</span>
+<span id="791">791</span>
+<span id="792">792</span>
+<span id="793">793</span>
+<span id="794">794</span>
+<span id="795">795</span>
+<span id="796">796</span>
+<span id="797">797</span>
+<span id="798">798</span>
+<span id="799">799</span>
+<span id="800">800</span>
+<span id="801">801</span>
+<span id="802">802</span>
+<span id="803">803</span>
+<span id="804">804</span>
+<span id="805">805</span>
+<span id="806">806</span>
+<span id="807">807</span>
+<span id="808">808</span>
+<span id="809">809</span>
+<span id="810">810</span>
+<span id="811">811</span>
+<span id="812">812</span>
+<span id="813">813</span>
+<span id="814">814</span>
+<span id="815">815</span>
+<span id="816">816</span>
+<span id="817">817</span>
+<span id="818">818</span>
+<span id="819">819</span>
+<span id="820">820</span>
+<span id="821">821</span>
+<span id="822">822</span>
+<span id="823">823</span>
+<span id="824">824</span>
+<span id="825">825</span>
+<span id="826">826</span>
+<span id="827">827</span>
+<span id="828">828</span>
+<span id="829">829</span>
+<span id="830">830</span>
+<span id="831">831</span>
+<span id="832">832</span>
+<span id="833">833</span>
+<span id="834">834</span>
+<span id="835">835</span>
+<span id="836">836</span>
+<span id="837">837</span>
+<span id="838">838</span>
+<span id="839">839</span>
+<span id="840">840</span>
+<span id="841">841</span>
+<span id="842">842</span>
+<span id="843">843</span>
 </pre><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream</span>
 
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">unused_mut</span>)]</span>
@@ -825,7 +889,6 @@
 <span class="kw">mod</span> <span class="ident">state</span>;
 <span class="kw">mod</span> <span class="ident">syscalls</span>;
 <span class="kw">mod</span> <span class="ident">utils</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">vbus</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">wapm</span>;
 
 <span class="doccomment">/// WAI based bindings.</span>
@@ -851,7 +914,6 @@
     <span class="ident">MemorySize</span>, <span class="ident">RuntimeError</span>,
 };
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vbus::BusSpawnedProcessJoin</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_vfs</span>;
 <span class="attribute">#[<span class="ident">deprecated</span>(<span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;2.1.0&quot;</span>, <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;Please use `wasmer_vfs::FsError`&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_vfs::FsError</span> <span class="kw">as</span> <span class="ident">WasiFsError</span>;
@@ -934,6 +996,72 @@
 <span class="doccomment">/// The default stack size for WASIX</span>
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DEFAULT_STACK_SIZE</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="number">1_048_576u64</span>;
 <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DEFAULT_STACK_BASE</span>: <span class="ident">u64</span> <span class="op">=</span> <span class="ident">DEFAULT_STACK_SIZE</span>;
+
+<span class="comment">// TODO: remove, this is a leftover from an old vbus crate and should be folded</span>
+<span class="comment">// into WasiRuntimeError.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Error</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">VirtualBusError</span> {
+    <span class="doccomment">/// Failed during serialization</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;serialization failed&quot;</span>)]</span>
+    <span class="ident">Serialization</span>,
+    <span class="doccomment">/// Failed during deserialization</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;deserialization failed&quot;</span>)]</span>
+    <span class="ident">Deserialization</span>,
+    <span class="doccomment">/// Invalid WAPM process</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;invalid wapm&quot;</span>)]</span>
+    <span class="ident">InvalidWapm</span>,
+    <span class="doccomment">/// Failed to fetch the WAPM process</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;fetch failed&quot;</span>)]</span>
+    <span class="ident">FetchFailed</span>,
+    <span class="doccomment">/// Failed to compile the WAPM process</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;compile error&quot;</span>)]</span>
+    <span class="ident">CompileError</span>,
+    <span class="doccomment">/// Invalid ABI</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;WAPM process has an invalid ABI&quot;</span>)]</span>
+    <span class="ident">InvalidABI</span>,
+    <span class="doccomment">/// Call was aborted</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;call aborted&quot;</span>)]</span>
+    <span class="ident">Aborted</span>,
+    <span class="doccomment">/// Bad handle</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;bad handle&quot;</span>)]</span>
+    <span class="ident">BadHandle</span>,
+    <span class="doccomment">/// Invalid topic</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;invalid topic&quot;</span>)]</span>
+    <span class="ident">InvalidTopic</span>,
+    <span class="doccomment">/// Invalid callback</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;invalid callback&quot;</span>)]</span>
+    <span class="ident">BadCallback</span>,
+    <span class="doccomment">/// Call is unsupported</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;unsupported&quot;</span>)]</span>
+    <span class="ident">Unsupported</span>,
+    <span class="doccomment">/// Not found</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;not found&quot;</span>)]</span>
+    <span class="ident">NotFound</span>,
+    <span class="doccomment">/// Bad request</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;bad request&quot;</span>)]</span>
+    <span class="ident">BadRequest</span>,
+    <span class="doccomment">/// Access denied</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;access denied&quot;</span>)]</span>
+    <span class="ident">AccessDenied</span>,
+    <span class="doccomment">/// Internal error has occured</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;internal error&quot;</span>)]</span>
+    <span class="ident">InternalError</span>,
+    <span class="doccomment">/// Memory allocation failed</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;memory allocation failed&quot;</span>)]</span>
+    <span class="ident">MemoryAllocationFailed</span>,
+    <span class="doccomment">/// Invocation has failed</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;invocation has failed&quot;</span>)]</span>
+    <span class="ident">InvokeFailed</span>,
+    <span class="doccomment">/// Already consumed</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;already consumed&quot;</span>)]</span>
+    <span class="ident">AlreadyConsumed</span>,
+    <span class="doccomment">/// Memory access violation</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;memory access violation&quot;</span>)]</span>
+    <span class="ident">MemoryAccessViolation</span>,
+    <span class="doccomment">/// Some other unhandled error. If you see this, it&#39;s probably a bug.</span>
+    <span class="attribute">#[<span class="ident">error</span>(<span class="string">&quot;unknown error found&quot;</span>)]</span>
+    <span class="ident">UnknownError</span>,
+}
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">thiserror::Error</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">WasiRuntimeError</span> {

@@ -408,6 +408,46 @@
 <span id="406">406</span>
 <span id="407">407</span>
 <span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections::HashMap</span>,
     <span class="ident">ops</span>::{<span class="ident">Deref</span>, <span class="ident">DerefMut</span>},
@@ -421,9 +461,15 @@
     <span class="ident">wasi</span>::{<span class="ident">Errno</span>, <span class="ident">ExitCode</span>},
 };
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::os::task::process</span>::{<span class="ident">WasiProcessId</span>, <span class="ident">WasiProcessInner</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">os::task::process</span>::{<span class="ident">WasiProcessId</span>, <span class="ident">WasiProcessInner</span>},
+    <span class="ident">WasiRuntimeError</span>,
+};
 
-<span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">control_plane::TaskCountGuard</span>, <span class="ident">task_join_handle::TaskJoinHandle</span>};
+<span class="kw">use</span> <span class="kw">super</span>::{
+    <span class="ident">control_plane::TaskCountGuard</span>,
+    <span class="ident">task_join_handle</span>::{<span class="ident">OwnedTaskStatus</span>, <span class="ident">TaskJoinHandle</span>},
+};
 
 <span class="doccomment">/// Represents the ID of a WASI thread</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">Hash</span>)]</span>
@@ -494,6 +540,31 @@
     <span class="ident">state</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WasiThreadState</span><span class="op">&gt;</span>,
 }
 
+<span class="doccomment">/// A guard that ensures a thread is marked as terminated when dropped.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Normally the thread result should be manually registered with</span>
+<span class="doccomment">/// [`Thread::set_status_running`] or [`Thread::set_status_finished`], but</span>
+<span class="doccomment">/// this guard can ensure that the thread is marked as terminated even if this</span>
+<span class="doccomment">/// is forgotten or a panic occurs.</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiThreadGuard</span> {
+    <span class="kw">pub</span> <span class="ident">thread</span>: <span class="ident">WasiThread</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">WasiThreadGuard</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">thread</span>: <span class="ident">WasiThread</span>) -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span> { <span class="ident">thread</span> }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">WasiThreadGuard</span> {
+    <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
+        <span class="self">self</span>.<span class="ident">thread</span>
+            .<span class="ident">set_status_finished</span>(<span class="prelude-val">Err</span>(
+                <span class="ident"><span class="kw">crate</span>::RuntimeError::new</span>(<span class="string">&quot;Thread manager disconnected&quot;</span>).<span class="ident">into</span>()
+            ));
+    }
+}
+
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">struct</span> <span class="ident">WasiThreadState</span> {
     <span class="ident">is_main</span>: <span class="ident">bool</span>,
@@ -501,7 +572,7 @@
     <span class="ident">id</span>: <span class="ident">WasiThreadId</span>,
     <span class="ident">signals</span>: <span class="ident">Mutex</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Signal</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Waker</span><span class="op">&gt;</span>)<span class="op">&gt;</span>,
     <span class="ident">stack</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">ThreadStack</span><span class="op">&gt;</span>,
-    <span class="ident">finished</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">TaskJoinHandle</span><span class="op">&gt;</span>,
+    <span class="ident">status</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">OwnedTaskStatus</span><span class="op">&gt;</span>,
 
     <span class="comment">// Registers the task termination with the ControlPlane on drop.</span>
     <span class="comment">// Never accessed, since it&#39;s a drop guard.</span>
@@ -515,7 +586,7 @@
         <span class="ident">pid</span>: <span class="ident">WasiProcessId</span>,
         <span class="ident">id</span>: <span class="ident">WasiThreadId</span>,
         <span class="ident">is_main</span>: <span class="ident">bool</span>,
-        <span class="ident">finished</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">TaskJoinHandle</span><span class="op">&gt;</span>,
+        <span class="ident">status</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">OwnedTaskStatus</span><span class="op">&gt;</span>,
         <span class="ident">guard</span>: <span class="ident">TaskCountGuard</span>,
     ) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> {
@@ -523,7 +594,7 @@
                 <span class="ident">is_main</span>,
                 <span class="ident">pid</span>,
                 <span class="ident">id</span>,
-                <span class="ident">finished</span>,
+                <span class="ident">status</span>,
                 <span class="ident">signals</span>: <span class="ident">Mutex::new</span>((<span class="ident">Vec::new</span>(), <span class="ident">Vec::new</span>())),
                 <span class="ident">stack</span>: <span class="ident">Mutex::new</span>(<span class="ident">ThreadStack::default</span>()),
                 <span class="ident">_task_count_guard</span>: <span class="ident">guard</span>,
@@ -546,25 +617,34 @@
         <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">is_main</span>
     }
 
+    <span class="doccomment">/// Get a join handle to watch the task status.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">join_handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">TaskJoinHandle</span> {
+        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">status</span>.<span class="ident">handle</span>()
+    }
+
     <span class="comment">// TODO: this should be private, access should go through utility methods.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">signals</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Mutex</span><span class="op">&lt;</span>(<span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Signal</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Waker</span><span class="op">&gt;</span>)<span class="op">&gt;</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">state</span>.<span class="ident">signals</span>
     }
 
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_status_running</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">status</span>.<span class="ident">set_running</span>();
+    }
+
     <span class="doccomment">/// Marks the thread as finished (which will cause anyone that</span>
     <span class="doccomment">/// joined on it to wake up)</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">terminate</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">exit_code</span>: <span class="ident">u32</span>) {
-        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">finished</span>.<span class="ident">terminate</span>(<span class="ident">exit_code</span>);
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_status_finished</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExitCode</span>, <span class="ident">WasiRuntimeError</span><span class="op">&gt;</span>) {
+        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">status</span>.<span class="ident">set_finished</span>(<span class="ident">res</span>.<span class="ident">map_err</span>(<span class="ident">Arc::new</span>));
     }
 
     <span class="doccomment">/// Waits until the thread is finished or the timeout is reached</span>
-    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ExitCode</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">finished</span>.<span class="ident">await_termination</span>().<span class="kw">await</span>
+    <span class="kw">pub</span> <span class="kw">async</span> <span class="kw">fn</span> <span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExitCode</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WasiRuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">status</span>.<span class="ident">await_termination</span>().<span class="kw">await</span>
     }
 
     <span class="doccomment">/// Attempts to join on the thread</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_join</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ExitCode</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">finished</span>.<span class="ident">get_exit_code</span>()
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">try_join</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExitCode</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WasiRuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">status</span>.<span class="ident">status</span>().<span class="ident">into_finished</span>()
     }
 
     <span class="doccomment">/// Adds a signal for this thread to process</span>
@@ -772,7 +852,7 @@
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">id</span>) <span class="op">=</span> <span class="ident">Arc::get_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">id</span>) {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">ctrl</span>) <span class="op">=</span> <span class="ident">inner</span>.<span class="ident">threads</span>.<span class="ident">remove</span>(<span class="ident">id</span>) {
-                <span class="ident">ctrl</span>.<span class="ident">terminate</span>(<span class="number">0</span>);
+                <span class="ident">ctrl</span>.<span class="ident">set_status_finished</span>(<span class="prelude-val">Ok</span>(<span class="number">0</span>));
             }
             <span class="ident">inner</span>.<span class="ident">thread_count</span> <span class="op">-</span><span class="op">=</span> <span class="number">1</span>;
         }

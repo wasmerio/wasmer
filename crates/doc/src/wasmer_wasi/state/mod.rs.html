@@ -283,14 +283,6 @@
 <span id="281">281</span>
 <span id="282">282</span>
 <span id="283">283</span>
-<span id="284">284</span>
-<span id="285">285</span>
-<span id="286">286</span>
-<span id="287">287</span>
-<span id="288">288</span>
-<span id="289">289</span>
-<span id="290">290</span>
-<span id="291">291</span>
 </pre><pre class="rust"><code><span class="doccomment">//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready</span>
 <span class="doccomment">//! yet and may be broken in patch releases.  If you&#39;re using this and have any specific needs,</span>
 <span class="doccomment">//! please [let us know here](https://github.com/wasmerio/wasmer/issues/583) or by filing an issue.</span>
@@ -323,7 +315,6 @@
     <span class="ident">time::Duration</span>,
 };
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vbus::VirtualBusInvocation</span>;
 <span class="kw">use</span> <span class="ident">derivative::Derivative</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
@@ -341,7 +332,6 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::fs</span>::{<span class="ident">InodeGuard</span>, <span class="ident">InodeWeakGuard</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">fs</span>::{<span class="ident">fs_error_into_wasi_err</span>, <span class="ident">WasiFs</span>, <span class="ident">WasiFsRoot</span>, <span class="ident">WasiInodes</span>, <span class="ident">WasiStateFileGuard</span>},
-    <span class="ident">os::task::process::WasiProcessId</span>,
     <span class="ident">syscalls::types</span>::<span class="kw-2">*</span>,
     <span class="ident">utils::WasiParkingLot</span>,
     <span class="ident">WasiCallingId</span>,
@@ -398,12 +388,6 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiFutex</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">wakers</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Waker</span><span class="op">&gt;</span>,
-}
-
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiBusCall</span> {
-    <span class="kw">pub</span> <span class="ident">bid</span>: <span class="ident">WasiProcessId</span>,
-    <span class="kw">pub</span> <span class="ident">invocation</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">VirtualBusInvocation</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>,
 }
 
 <span class="doccomment">/// Structure that holds the state of BUS calls to this process and from</span>

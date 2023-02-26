@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["spawn_exec",""],["spawn_exec_module",""]],"struct":[["SpawnedProcess",""]]};
+window.SIDEBAR_ITEMS = {"fn":[["spawn_exec",""],["spawn_exec_module",""]]};

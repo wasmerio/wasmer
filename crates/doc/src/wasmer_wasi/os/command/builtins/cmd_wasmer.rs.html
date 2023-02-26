@@ -148,9 +148,18 @@
 <span id="146">146</span>
 <span id="147">147</span>
 <span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">any::Any</span>, <span class="ident">ops::Deref</span>, <span class="ident">sync::Arc</span>};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vbus</span>::{<span class="ident">BusSpawnedProcess</span>, <span class="ident">VirtualBusError</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">os::task</span>::{<span class="ident">OwnedTaskStatus</span>, <span class="ident">TaskJoinHandle</span>},
+    <span class="ident">VirtualBusError</span>,
+};
 <span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">FunctionEnvMut</span>, <span class="ident">Store</span>};
 <span class="kw">use</span> <span class="ident">wasmer_wasi_types::wasi::Errno</span>;
 
@@ -209,7 +218,7 @@ ARGS:
         <span class="ident">config</span>: <span class="kw-2">&amp;mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
         <span class="ident">what</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
         <span class="kw-2">mut</span> <span class="ident">args</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">BusSpawnedProcess</span>, <span class="ident">VirtualBusError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TaskJoinHandle</span>, <span class="ident">VirtualBusError</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">what</span>) <span class="op">=</span> <span class="ident">what</span> {
             <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">take</span>().<span class="ident">ok_or</span>(<span class="ident">VirtualBusError::UnknownError</span>)<span class="question-mark">?</span>;
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">config</span>.<span class="ident">take</span>().<span class="ident">ok_or</span>(<span class="ident">VirtualBusError::UnknownError</span>)<span class="question-mark">?</span>;
@@ -233,13 +242,15 @@ ARGS:
                     )
                     .<span class="kw">await</span>;
                 });
-                <span class="prelude-val">Ok</span>(<span class="ident">BusSpawnedProcess::exited_process</span>(<span class="ident">Errno::Noent</span> <span class="kw">as</span> <span class="ident">u32</span>))
+                <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">OwnedTaskStatus::new_finished_with_code</span>(<span class="ident">Errno::Noent</span> <span class="kw">as</span> <span class="ident">u32</span>).<span class="ident">handle</span>();
+                <span class="prelude-val">Ok</span>(<span class="ident">handle</span>)
             }
         } <span class="kw">else</span> {
             <span class="ident">parent_ctx</span>.<span class="ident">data</span>().<span class="ident">tasks</span>().<span class="ident">block_on</span>(<span class="kw">async</span> <span class="kw">move</span> {
                 <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">stderr_write</span>(<span class="ident">parent_ctx</span>, <span class="ident">HELP_RUN</span>.<span class="ident">as_bytes</span>()).<span class="kw">await</span>;
             });
-            <span class="prelude-val">Ok</span>(<span class="ident">BusSpawnedProcess::exited_process</span>(<span class="number">0</span>))
+            <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">OwnedTaskStatus::new_finished_with_code</span>(<span class="number">0</span>).<span class="ident">handle</span>();
+            <span class="prelude-val">Ok</span>(<span class="ident">handle</span>)
         }
     }
 
@@ -268,7 +279,7 @@ ARGS:
         <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
         <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Store</span><span class="op">&gt;</span>,
         <span class="ident">env</span>: <span class="kw-2">&amp;mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">BusSpawnedProcess</span>, <span class="ident">VirtualBusError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TaskJoinHandle</span>, <span class="ident">VirtualBusError</span><span class="op">&gt;</span> {
         <span class="comment">// Read the command we want to run</span>
         <span class="kw">let</span> <span class="ident">env_inner</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">as_ref</span>().<span class="ident">ok_or</span>(<span class="ident">VirtualBusError::UnknownError</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">env_inner</span>.<span class="ident">state</span>.<span class="ident">args</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="ident">a</span>.<span class="ident">as_str</span>());
@@ -286,7 +297,8 @@ ARGS:
                 <span class="ident">parent_ctx</span>.<span class="ident">data</span>().<span class="ident">tasks</span>().<span class="ident">block_on</span>(<span class="kw">async</span> <span class="kw">move</span> {
                     <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">stderr_write</span>(<span class="ident">parent_ctx</span>, <span class="ident">HELP</span>.<span class="ident">as_bytes</span>()).<span class="kw">await</span>;
                 });
-                <span class="prelude-val">Ok</span>(<span class="ident">BusSpawnedProcess::exited_process</span>(<span class="number">0</span>))
+                <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> <span class="ident">OwnedTaskStatus::new_finished_with_code</span>(<span class="number">0</span>).<span class="ident">handle</span>();
+                <span class="prelude-val">Ok</span>(<span class="ident">handle</span>)
             }
             <span class="prelude-val">Some</span>(<span class="ident">what</span>) =&gt; {
                 <span class="kw">let</span> <span class="ident">what</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">what</span>.<span class="ident">to_string</span>());

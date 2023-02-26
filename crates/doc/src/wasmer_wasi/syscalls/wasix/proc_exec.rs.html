@@ -302,10 +302,11 @@
 <span id="300">300</span>
 <span id="301">301</span>
 <span id="302">302</span>
-<span id="303">303</span>
-<span id="304">304</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">os::task</span>::{<span class="ident">OwnedTaskStatus</span>, <span class="ident">TaskStatus</span>},
+    <span class="ident">syscalls</span>::<span class="kw-2">*</span>,
+};
 
 <span class="doccomment">/// Replaces the current process with a new process</span>
 <span class="doccomment">///</span>
@@ -467,14 +468,14 @@
                     <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
                     <span class="ident">err_exit_code</span>
                 );
-                <span class="ident">BusSpawnedProcess::exited_process</span>(<span class="ident">err_exit_code</span>)
+                <span class="ident">OwnedTaskStatus::new</span>(<span class="ident">TaskStatus::Finished</span>(<span class="prelude-val">Ok</span>(<span class="ident">err_exit_code</span>))).<span class="ident">handle</span>()
             }
         };
 
         <span class="comment">// Add the process to the environment state</span>
         {
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">process</span>.<span class="ident">write</span>();
-            <span class="ident">inner</span>.<span class="ident">bus_processes</span>.<span class="ident">insert</span>(<span class="ident">child_pid</span>, <span class="ident">Box::new</span>(<span class="ident">process</span>));
+            <span class="ident">inner</span>.<span class="ident">bus_processes</span>.<span class="ident">insert</span>(<span class="ident">child_pid</span>, <span class="ident">process</span>);
         }
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">memory_stack</span> <span class="op">=</span> <span class="ident">vfork</span>.<span class="ident">memory_stack</span>;
@@ -576,13 +577,8 @@
                     <span class="kw">let</span> (<span class="ident">tx</span>, <span class="ident">rx</span>) <span class="op">=</span> <span class="ident">std::sync::mpsc::channel</span>();
                     <span class="kw">let</span> <span class="ident">tasks_inner</span> <span class="op">=</span> <span class="ident">tasks</span>.<span class="ident">clone</span>();
                     <span class="ident">tasks</span>.<span class="ident">block_on</span>(<span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> {
-                        <span class="kw">loop</span> {
-                            <span class="ident">tasks_inner</span>.<span class="ident">sleep_now</span>(<span class="ident">Duration::from_millis</span>(<span class="number">5</span>)).<span class="kw">await</span>;
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">exit_code</span>) <span class="op">=</span> <span class="ident">process</span>.<span class="ident">inst</span>.<span class="ident">exit_code</span>() {
-                                <span class="ident">tx</span>.<span class="ident">send</span>(<span class="ident">exit_code</span>).<span class="ident">unwrap</span>();
-                                <span class="kw">break</span>;
-                            }
-                        }
+                        <span class="kw">let</span> <span class="ident">code</span> <span class="op">=</span> <span class="ident">process</span>.<span class="ident">wait_finished</span>().<span class="kw">await</span>.<span class="ident">unwrap_or</span>(<span class="ident">Errno::Child</span> <span class="kw">as</span> <span class="ident">u32</span>);
+                        <span class="ident">tx</span>.<span class="ident">send</span>(<span class="ident">code</span>);
                     }));
                     <span class="kw">let</span> <span class="ident">exit_code</span> <span class="op">=</span> <span class="ident">rx</span>.<span class="ident">recv</span>().<span class="ident">unwrap</span>();
                     <span class="ident">OnCalledAction::Trap</span>(<span class="ident">Box::new</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">exit_code</span> <span class="kw">as</span> <span class="ident">ExitCode</span>)))

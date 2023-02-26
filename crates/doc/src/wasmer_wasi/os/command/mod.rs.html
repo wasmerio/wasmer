@@ -103,15 +103,23 @@
 <span id="101">101</span>
 <span id="102">102</span>
 <span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
 </pre><pre class="rust"><code><span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">builtins</span>;
 
 <span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections::HashMap</span>, <span class="ident">sync::Arc</span>};
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vbus</span>::{<span class="ident">BusSpawnedProcess</span>, <span class="ident">VirtualBusError</span>};
 <span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">FunctionEnvMut</span>, <span class="ident">Store</span>};
 <span class="kw">use</span> <span class="ident">wasmer_wasi_types::wasi::Errno</span>;
 
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">bin_factory::ModuleCache</span>, <span class="ident">syscalls::stderr_write</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiRuntime</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">bin_factory::ModuleCache</span>, <span class="ident">syscalls::stderr_write</span>, <span class="ident">VirtualBusError</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiRuntime</span>,
+};
+
+<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::task</span>::{<span class="ident">OwnedTaskStatus</span>, <span class="ident">TaskJoinHandle</span>, <span class="ident">TaskStatus</span>};
 
 <span class="doccomment">/// A command available to an OS environment.</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">VirtualCommand</span>
@@ -131,7 +139,7 @@
         <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
         <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Store</span><span class="op">&gt;</span>,
         <span class="ident">config</span>: <span class="kw-2">&amp;mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">BusSpawnedProcess</span>, <span class="ident">VirtualBusError</span><span class="op">&gt;</span>;
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TaskJoinHandle</span>, <span class="ident">VirtualBusError</span><span class="op">&gt;</span>;
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
@@ -193,7 +201,7 @@
         <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
         <span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Store</span><span class="op">&gt;</span>,
         <span class="ident">builder</span>: <span class="kw-2">&amp;mut</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
-    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">BusSpawnedProcess</span>, <span class="ident">VirtualBusError</span><span class="op">&gt;</span> {
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">TaskJoinHandle</span>, <span class="ident">VirtualBusError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">to_string</span>();
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">cmd</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">commands</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>) {
             <span class="ident">cmd</span>.<span class="ident">exec</span>(<span class="ident">parent_ctx</span>, <span class="ident">path</span>.<span class="ident">as_str</span>(), <span class="ident">store</span>, <span class="ident">builder</span>)
@@ -202,7 +210,9 @@
                 <span class="ident">parent_ctx</span>,
                 <span class="macro">format!</span>(<span class="string">&quot;wasm command unknown - {}\r\n&quot;</span>, <span class="ident">path</span>).<span class="ident">as_bytes</span>(),
             );
-            <span class="prelude-val">Ok</span>(<span class="ident">BusSpawnedProcess::exited_process</span>(<span class="ident">Errno::Noent</span> <span class="kw">as</span> <span class="ident">u32</span>))
+
+            <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident">OwnedTaskStatus::new</span>(<span class="ident">TaskStatus::Finished</span>(<span class="prelude-val">Ok</span>(<span class="ident">Errno::Noent</span> <span class="kw">as</span> <span class="ident">u32</span>)));
+            <span class="prelude-val">Ok</span>(<span class="ident">res</span>.<span class="ident">handle</span>())
         }
     }
 }

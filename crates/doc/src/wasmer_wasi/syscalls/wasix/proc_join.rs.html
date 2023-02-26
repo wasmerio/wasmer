@@ -90,6 +90,7 @@
 <span id="88">88</span>
 <span id="89">89</span>
 <span id="90">90</span>
+<span id="91">91</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -158,7 +159,8 @@
     <span class="kw">let</span> <span class="ident">process</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">process</span>.<span class="ident">control_plane</span>().<span class="ident">get_process</span>(<span class="ident">pid</span>);
     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">process</span>) <span class="op">=</span> <span class="ident">process</span> {
         <span class="kw">let</span> <span class="ident">exit_code</span> <span class="op">=</span> <span class="macro">wasi_try_ok!</span>(<span class="ident">__asyncify</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>, <span class="prelude-val">None</span>, <span class="kw">async</span> <span class="kw">move</span> {
-            <span class="ident">process</span>.<span class="ident">join</span>().<span class="kw">await</span>.<span class="ident">ok_or</span>(<span class="ident">Errno::Child</span>)
+            <span class="kw">let</span> <span class="ident">code</span> <span class="op">=</span> <span class="ident">process</span>.<span class="ident">join</span>().<span class="kw">await</span>.<span class="ident">unwrap_or</span>(<span class="ident">Errno::Child</span> <span class="kw">as</span> <span class="ident">u32</span>);
+            <span class="prelude-val">Ok</span>(<span class="ident">code</span>)
         })<span class="question-mark">?</span>);
 
         <span class="macro">trace!</span>(<span class="string">&quot;child ({}) exited with {}&quot;</span>, <span class="ident">pid</span>.<span class="ident">raw</span>(), <span class="ident">exit_code</span>);

@@ -453,18 +453,20 @@
 <span id="451">451</span>
 <span id="452">452</span>
 <span id="453">453</span>
+<span id="454">454</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">borrow::Cow</span>,
     <span class="ident">sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>},
 };
 
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vbus::SignalHandlerAbi</span>;
 <span class="kw">use</span> <span class="ident">derivative</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">futures::future::BoxFuture</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vfs</span>::{<span class="ident">AsyncWriteExt</span>, <span class="ident">NullFile</span>, <span class="ident">VirtualFile</span>};
 <span class="kw">use</span> <span class="ident">wasmer_wasi_types::wasi</span>::{<span class="ident">Signal</span>, <span class="ident">Snapshot0Clockid</span>};
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls::platform_clock_time_get</span>;
+
+<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::task::signal::SignalHandlerAbi</span>;
 
 <span class="kw">const</span> <span class="ident">TTY_MOBILE_PAUSE</span>: <span class="ident">u128</span> <span class="op">=</span> <span class="ident">std::time::Duration::from_millis</span>(<span class="number">200</span>).<span class="ident">as_nanos</span>();
 
@@ -684,7 +686,7 @@
     <span class="kw">fn</span> <span class="ident">on_ctrl_c</span>(<span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">_data</span>: <span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, [<span class="ident">u8</span>]<span class="op">&gt;</span>) -&gt; <span class="ident">BoxFuture</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="self">Self</span><span class="op">&gt;</span> {
         <span class="ident">Box::pin</span>(<span class="kw">async</span> <span class="kw">move</span> {
             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">signaler</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">signaler</span>.<span class="ident">as_ref</span>() {
-                <span class="ident">signaler</span>.<span class="ident">signal</span>(<span class="ident">Signal::Sigint</span> <span class="kw">as</span> <span class="ident">u8</span>);
+                <span class="ident">signaler</span>.<span class="ident">signal</span>(<span class="ident">Signal::Sigint</span> <span class="kw">as</span> <span class="ident">u8</span>).<span class="ident">ok</span>();
 
                 <span class="kw">let</span> (<span class="ident">echo</span>, <span class="ident">_line_buffering</span>) <span class="op">=</span> {
                     <span class="kw">let</span> <span class="ident">options</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">options</span>.<span class="ident">inner</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();

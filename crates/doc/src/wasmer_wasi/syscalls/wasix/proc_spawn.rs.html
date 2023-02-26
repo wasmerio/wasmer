@@ -549,7 +549,7 @@
 
     {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">process</span>.<span class="ident">write</span>();
-        <span class="ident">guard</span>.<span class="ident">bus_processes</span>.<span class="ident">insert</span>(<span class="ident">child_pid</span>, <span class="ident">Box::new</span>(<span class="ident">process</span>));
+        <span class="ident">guard</span>.<span class="ident">bus_processes</span>.<span class="ident">insert</span>(<span class="ident">child_pid</span>, <span class="ident">process</span>);
     };
 
     <span class="kw">let</span> <span class="ident">handles</span> <span class="op">=</span> <span class="ident">BusHandles</span> {

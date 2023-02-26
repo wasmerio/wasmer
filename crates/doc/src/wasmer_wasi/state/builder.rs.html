@@ -937,6 +937,7 @@
 <span id="935">935</span>
 <span id="936">936</span>
 <span id="937">937</span>
+<span id="938">938</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.</span>
 
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -1691,6 +1692,7 @@
 
         <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get_function</span>(<span class="string">&quot;_start&quot;</span>)<span class="question-mark">?</span>;
 
+        <span class="ident">env</span>.<span class="ident">data</span>(<span class="ident">store</span>).<span class="ident">thread</span>.<span class="ident">set_status_running</span>();
         <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::run_wasi_func_start</span>(<span class="ident">start</span>, <span class="ident">store</span>);
 
         <span class="kw">let</span> <span class="ident">exit_code</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">res</span> {

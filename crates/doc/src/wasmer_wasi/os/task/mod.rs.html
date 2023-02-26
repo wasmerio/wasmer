@@ -7,12 +7,20 @@
 <span id="5">5</span>
 <span id="6">6</span>
 <span id="7">7</span>
+<span id="8">8</span>
+<span id="9">9</span>
+<span id="10">10</span>
+<span id="11">11</span>
 </pre><pre class="rust"><code><span class="doccomment">//! OS task management for processes and threads.</span>
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">control_plane</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">process</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">signal</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">task_join_handle</span>;
+<span class="kw">mod</span> <span class="ident">task_join_handle</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">thread</span>;
+
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">task_join_handle</span>::{
+    <span class="ident">OwnedTaskStatus</span>, <span class="ident">TaskJoinHandle</span>, <span class="ident">TaskStatus</span>, <span class="ident">TaskTerminatedError</span>, <span class="ident">VirtualTaskHandle</span>,
+};
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasi" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

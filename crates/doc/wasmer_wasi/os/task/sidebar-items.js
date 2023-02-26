@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["control_plane",""],["process",""],["signal",""],["task_join_handle",""],["thread",""]]};
+window.SIDEBAR_ITEMS = {"enum":[["TaskStatus",""]],"mod":[["control_plane",""],["process",""],["signal",""],["task_join_handle",""],["thread",""]],"struct":[["OwnedTaskStatus","A handle that allows awaiting the termination of a task, and retrieving its exit code."],["TaskJoinHandle","A handle that allows awaiting the termination of a task, and retrieving its exit code."],["TaskTerminatedError",""]],"trait":[["VirtualTaskHandle",""]]};
