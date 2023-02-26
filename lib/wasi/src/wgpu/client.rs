@@ -2,7 +2,7 @@
 use raw_window_handle::{RawWindowHandle, RawDisplayHandle};
 
 use crate::bindings::wasix_wgpu_v1 as sys;
-use std::sync::Arc;
+use std::{sync::Arc, any::Any};
 
 pub struct OpenDevice {
     pub device: DynDevice,
@@ -495,6 +495,8 @@ pub trait Device: std::fmt::Debug {
 
     fn stop_capture(&self) {
     }
+
+    fn as_any(&self) -> &dyn Any;
 }
 pub type DynDevice = Arc<dyn Device + Send + 'static>;
 
@@ -530,6 +532,10 @@ pub type DeviceType = sys::DeviceType;
 pub type Backend = sys::Backend;
 pub type Capabilities = sys::Capabilities;
 pub type DownlevelCapabilities = sys::DownlevelCapabilities;
+pub type DownlevelFlags = sys::DownlevelFlags;
+pub type DownlevelLimits = sys::DownlevelLimits;
+pub type ShaderModel = sys::ShaderModel;
+pub type Alignments = sys::Alignments;
 
 pub struct ExposedAdapter {
     pub adapter: DynAdapter,

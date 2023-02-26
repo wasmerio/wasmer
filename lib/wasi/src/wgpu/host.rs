@@ -147,7 +147,6 @@ for HostInstance {
                 let info = a.inner.get_info();
                 let features = a.inner.features();
                 let limits = a.inner.limits();
-                a.inner.
                 let capabilities = a.inner.get_downlevel_capabilities();
                 super::ExposedAdapter {
                     adapter: Arc::new(a),
@@ -161,7 +160,7 @@ for HostInstance {
                         backend: conv_backend(info.backend),
                     },
                     features: conv_features(features),
-                    capabilities: conv_capabilities(capabilities),
+                    capabilities: conv_capabilities(limits, capabilities),
                 }
             })
             .collect()
@@ -265,11 +264,58 @@ fn conv_limits(limits: wgpu::Limits) -> super::Limits {
     }
 }
 
+fn conv_downlevel_flags(flags: wgpu::DownlevelFlags) -> super::DownlevelFlags {
+    use wgpu::DownlevelFlags as F;
+    let mut ret = super::DownlevelFlags::empty();
+    if flags.contains(F::COMPUTE_SHADERS) { ret.insert(super::DownlevelFlags::COMPUTE_SHADERS); }
+    if flags.contains(F::FRAGMENT_WRITABLE_STORAGE) { ret.insert(super::DownlevelFlags::FRAGMENT_WRITABLE_STORAGE); }
+    if flags.contains(F::INDIRECT_EXECUTION) { ret.insert(super::DownlevelFlags::INDIRECT_EXECUTION); }
+    if flags.contains(F::BASE_VERTEX) { ret.insert(super::DownlevelFlags::BASE_VERTEX); }
+    if flags.contains(F::READ_ONLY_DEPTH_STENCIL) { ret.insert(super::DownlevelFlags::READ_ONLY_DEPTH_STENCIL); }
+    if flags.contains(F::NON_POWER_OF_TWO_MIPMAPPED_TEXTURES) { ret.insert(super::DownlevelFlags::NON_POWER_OF_TWO_MIPMAPPED_TEXTURES); }
+    if flags.contains(F::CUBE_ARRAY_TEXTURES) { ret.insert(super::DownlevelFlags::CUBE_ARRAY_TEXTURES); }
+    if flags.contains(F::COMPARISON_SAMPLERS) { ret.insert(super::DownlevelFlags::COMPARISON_SAMPLERS); }
+    if flags.contains(F::INDEPENDENT_BLEND) { ret.insert(super::DownlevelFlags::INDEPENDENT_BLEND); }
+    if flags.contains(F::VERTEX_STORAGE) { ret.insert(super::DownlevelFlags::VERTEX_STORAGE); }
+    if flags.contains(F::ANISOTROPIC_FILTERING) { ret.insert(super::DownlevelFlags::ANISOTROPIC_FILTERING); }
+    if flags.contains(F::FRAGMENT_STORAGE) { ret.insert(super::DownlevelFlags::FRAGMENT_STORAGE); }
+    if flags.contains(F::MULTISAMPLED_SHADING) { ret.insert(super::DownlevelFlags::MULTISAMPLED_SHADING); }
+    if flags.contains(F::DEPTH_TEXTURE_AND_BUFFER_COPIES) { ret.insert(super::DownlevelFlags::DEPTH_TEXTURE_AND_BUFFER_COPIES); }
+    if flags.contains(F::WEBGPU_TEXTURE_FORMAT_SUPPORT) { ret.insert(super::DownlevelFlags::WEBGPU_TEXTURE_FORMAT_SUPPORT); }
+    if flags.contains(F::BUFFER_BINDINGS_NOT_16_BYTE_ALIGNED) { ret.insert(super::DownlevelFlags::BUFFER_BINDINGS_NOT16_BYTE_ALIGNED); }
+    if flags.contains(F::UNRESTRICTED_INDEX_BUFFER) { ret.insert(super::DownlevelFlags::UNRESTRICTED_INDEX_BUFFER); }
+    if flags.contains(F::FULL_DRAW_INDEX_UINT32) { ret.insert(super::DownlevelFlags::FULL_DRAW_INDEX_UINT32); }
+    if flags.contains(F::DEPTH_BIAS_CLAMP) { ret.insert(super::DownlevelFlags::DEPTH_BIAS_CLAMP); }
+    if flags.contains(F::VIEW_FORMATS) { ret.insert(super::DownlevelFlags::VIEW_FORMATSM); }
+    if flags.contains(F::UNRESTRICTED_EXTERNAL_TEXTURE_COPIES) { ret.insert(super::DownlevelFlags::UNRESTRICTED_EXTERNAL_TEXTURE_COPIES); }
+    if flags.contains(F::SURFACE_VIEW_FORMATS) { ret.insert(super::DownlevelFlags::SURFACE_VIEW_FORMATS); }
+    ret
+}
+
+fn conv_shader_model(mode: wgpu::ShaderModel) -> super::ShaderModel {
+    match mode {
+        wgpu::ShaderModel::Sm2 => super::ShaderModel::SM2,
+        wgpu::ShaderModel::Sm4 => super::ShaderModel::SM4,
+        wgpu::ShaderModel::Sm5 => super::ShaderModel::SM5,
+    }
+}
+
 fn conv_downlevel_capabilities(capabilities: wgpu::DownlevelCapabilities) -> super::DownlevelCapabilities {
     super::DownlevelCapabilities {
-        downlevel_flags: todo!(),
-        limits: todo!(),
-        shader_model: todo!(),
+        downlevel_flags: conv_downlevel_flags(capabilities.flags),
+        limits: super::DownlevelLimits { },
+        shader_model: conv_shader_model(capabilities.shader_model),
+    }
+}
+
+fn conv_capabilities(limits: wgpu::Limits, caps: wgpu::DownlevelCapabilities) -> super::Capabilities {
+    super::Capabilities {
+        limits: conv_limits(limits),
+        alignments: super::Alignments {
+            buffer_copy_offset: 0,
+            buffer_copy_pitch: 0,
+        },
+        downlevel: conv_downlevel_capabilities(caps),
     }
 }
 
@@ -284,13 +330,29 @@ impl super::Surface
 for HostSurface {
     fn configure(
         &self,
-        _device: &dyn super::Device,
-        _config: crate::bindings::wasix_wgpu_v1::SurfaceConfiguration,
+        device: &dyn super::Device,
+        config: crate::bindings::wasix_wgpu_v1::SurfaceConfiguration,
     ) -> Result<crate::bindings::wasix_wgpu_v1::Nothing, crate::bindings::wasix_wgpu_v1::SurfaceError> {
-        Err(crate::bindings::wasix_wgpu_v1::SurfaceError::Device(crate::bindings::wasix_wgpu_v1::DeviceError::Unsupported))
+        let device = device
+            .as_any()
+            .downcast_ref::<HostDevice>()
+            .ok_or(crate::bindings::wasix_wgpu_v1::SurfaceError::Device(crate::bindings::wasix_wgpu_v1::DeviceError::Lost))?;
+
+        let config = wgpu::SurfaceConfiguration {
+            usage: config.usage,
+            format: config.format,
+            width: config.extent.width,
+            height: config.extent.height,
+            present_mode: config.present_mode,
+            alpha_mode: config.composite_alpha_mode,
+            view_formats: config.view_formats,
+        };
+
+        self.inner.configure(&device.inner, &config);
+        Ok(crate::bindings::wasix_wgpu_v1::Nothing { })
     }
 
-    fn unconfigure(&self, _device: &dyn super::Device) -> () {
+    fn unconfigure(&self, _device: &dyn super::Device) {
     }
 
     fn acquire_texture(
@@ -303,4 +365,9 @@ for HostSurface {
 
 pub struct HostAdapter {
     inner: wgpu::Adapter
+}
+
+
+pub struct HostDevice {
+    inner: wgpu::Device
 }
