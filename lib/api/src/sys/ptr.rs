@@ -97,7 +97,7 @@ impl<T, M: MemorySize> WasmPtr<T, M> {
 
     /// Checks whether the `WasmPtr` is null.
     #[inline]
-    pub fn is_null(self) -> bool {
+    pub fn is_null(&self) -> bool {
         self.offset.into() == 0
     }
 
@@ -142,19 +142,19 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     /// Creates a `WasmRef` from this `WasmPtr` which allows reading and
     /// mutating of the value being pointed to.
     #[inline]
-    pub fn deref<'a>(self, view: &'a MemoryView) -> WasmRef<'a, T> {
+    pub fn deref<'a>(&self, view: &'a MemoryView) -> WasmRef<'a, T> {
         WasmRef::new(view, self.offset.into())
     }
 
     /// Reads the address pointed to by this `WasmPtr` in a memory.
     #[inline]
-    pub fn read(self, view: &MemoryView) -> Result<T, MemoryAccessError> {
+    pub fn read(&self, view: &MemoryView) -> Result<T, MemoryAccessError> {
         self.deref(view).read()
     }
 
     /// Writes to the address pointed to by this `WasmPtr` in a memory.
     #[inline]
-    pub fn write(self, view: &MemoryView, val: T) -> Result<(), MemoryAccessError> {
+    pub fn write(&self, view: &MemoryView, val: T) -> Result<(), MemoryAccessError> {
         self.deref(view).write(val)
     }
 
@@ -165,7 +165,7 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     /// address.
     #[inline]
     pub fn slice<'a>(
-        self,
+        &self,
         view: &'a MemoryView,
         len: M::Offset,
     ) -> Result<WasmSlice<'a, T>, MemoryAccessError> {
@@ -178,7 +178,7 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
     /// This last value is not included in the returned vector.
     #[inline]
     pub fn read_until(
-        self,
+        &self,
         view: &MemoryView,
         mut end: impl FnMut(&T) -> bool,
     ) -> Result<Vec<T>, MemoryAccessError> {
@@ -202,7 +202,7 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     /// modified.
     #[inline]
     pub fn read_utf8_string(
-        self,
+        &self,
         view: &MemoryView,
         len: M::Offset,
     ) -> Result<String, MemoryAccessError> {
@@ -215,7 +215,10 @@ impl<M: MemorySize> WasmPtr<u8, M> {
     /// This method is safe to call even if the memory is being concurrently
     /// modified.
     #[inline]
-    pub fn read_utf8_string_with_nul(self, view: &MemoryView) -> Result<String, MemoryAccessError> {
+    pub fn read_utf8_string_with_nul(
+        &self,
+        view: &MemoryView,
+    ) -> Result<String, MemoryAccessError> {
         let vec = self.read_until(view, |&byte| byte == 0)?;
         Ok(String::from_utf8(vec)?)
     }

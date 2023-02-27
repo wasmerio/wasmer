@@ -8,10 +8,6 @@ edition = "2018"
 
 [dependencies]
 thiserror = "1"
-wasmer-vfs = { path = "../vfs", version = "=3.2.0-alpha.1", default-features = false }
 bytes = "1"
-
-[features]
-default = ["mem_fs"]
-mem_fs = ["wasmer-vfs/mem-fs"]
-host_fs = ["wasmer-vfs/host-fs"]
+async-trait = { version = "^0.1" }
+tracing = "0.1"

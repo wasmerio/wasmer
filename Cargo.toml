@@ -41,12 +41,14 @@ members = [
     "lib/object",
     "lib/vfs",
     "lib/vnet",
-    "lib/vbus",
+    "lib/sys-utils",
     "lib/vm",
+    "lib/wai-bindgen-wasmer",
     "lib/wasi",
     "lib/wasi-types",
     "lib/wasi-experimental-io-devices",
     "lib/wasi-local-networking",
+    "lib/wasix/wasix-http-client",
     "lib/wasm-interface",
     "lib/c-api/tests/wasmer-c-api-test-runner",
     "lib/c-api/examples/wasmer-capi-examples-runner",
@@ -132,6 +134,9 @@ coverage = []
 [profile.dev]
 split-debuginfo = "unpacked"
 
+#[profile.release]
+#debug = true
+
 [[bench]]
 name = "static_and_dynamic_functions"
 harness = false
@@ -209,6 +214,11 @@ required-features = ["cranelift"]
 [[example]]
 name = "wasi"
 path = "examples/wasi.rs"
+required-features = ["cranelift", "wasi"]
+
+[[example]]
+name = "wasi-manual-setup"
+path = "examples/wasi_manual_setup.rs"
 required-features = ["cranelift", "wasi"]
 
 [[example]]
