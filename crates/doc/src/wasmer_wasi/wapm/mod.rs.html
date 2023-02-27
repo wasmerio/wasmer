@@ -493,17 +493,6 @@
 <span id="491">491</span>
 <span id="492">492</span>
 <span id="493">493</span>
-<span id="494">494</span>
-<span id="495">495</span>
-<span id="496">496</span>
-<span id="497">497</span>
-<span id="498">498</span>
-<span id="499">499</span>
-<span id="500">500</span>
-<span id="501">501</span>
-<span id="502">502</span>
-<span id="503">503</span>
-<span id="504">504</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">bail</span>, <span class="ident">Context</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">ops::Deref</span>,
@@ -515,11 +504,11 @@
 <span class="kw">use</span> <span class="ident">tracing</span>::<span class="kw-2">*</span>;
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span>
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">error</span>, <span class="ident">warn</span>};
-<span class="kw">use</span> <span class="ident">webc</span>::{<span class="ident">Annotation</span>, <span class="ident">FsEntryType</span>, <span class="ident">UrlOrManifest</span>, <span class="ident">WebC</span>};
+<span class="kw">use</span> <span class="ident">webc</span>::{<span class="ident">Annotation</span>, <span class="ident">UrlOrManifest</span>, <span class="ident">WebC</span>};
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">bin_factory</span>::{<span class="ident">BinaryPackage</span>, <span class="ident">BinaryPackageCommand</span>},
-    <span class="ident">VirtualTaskManager</span>, <span class="ident">WasiRuntime</span>,
+    <span class="ident">WasiRuntime</span>,
 };
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wapm-tar&quot;</span>)]</span>
@@ -533,7 +522,6 @@
     <span class="ident">cache_dir</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
     <span class="ident">webc</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
     <span class="ident">runtime</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">WasiRuntime</span>,
-    <span class="ident">tasks</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">VirtualTaskManager</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">BinaryPackage</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">client</span> <span class="op">=</span> <span class="ident">runtime</span>
         .<span class="ident">http_client</span>()
@@ -546,7 +534,10 @@
         <span class="kw">async</span> <span class="kw">move</span> { <span class="ident">fetch_webc</span>(<span class="kw-2">&amp;</span><span class="ident">cache_dir</span>, <span class="kw-2">&amp;</span><span class="ident">webc</span>, <span class="ident">client</span>).<span class="kw">await</span> }
     };
 
-    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">tasks</span>.<span class="ident">block_on</span>(<span class="ident">f</span>).<span class="ident">context</span>(<span class="string">&quot;webc fetch task has died&quot;</span>);
+    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">runtime</span>
+        .<span class="ident">task_manager</span>()
+        .<span class="ident">block_on</span>(<span class="ident">f</span>)
+        .<span class="ident">context</span>(<span class="string">&quot;webc fetch task has died&quot;</span>);
     <span class="ident">result</span>.<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;could not fetch webc &#39;{webc}&#39;&quot;</span>))
 }
 
@@ -566,6 +557,8 @@
             .<span class="ident">replace</span>(<span class="ident">WAPM_WEBC_VERSION_TAG</span>, <span class="ident">version</span>.<span class="ident">replace</span>(<span class="string">&#39;\&quot;&#39;</span>, <span class="string">&quot;&#39;&quot;</span>).<span class="ident">as_str</span>()),
         <span class="prelude-val">None</span> =&gt; <span class="ident">WAPM_WEBC_QUERY_LAST</span>.<span class="ident">replace</span>(<span class="ident">WAPM_WEBC_QUERY_TAG</span>, <span class="ident">name</span>.<span class="ident">replace</span>(<span class="string">&#39;\&quot;&#39;</span>, <span class="string">&quot;&#39;&quot;</span>).<span class="ident">as_str</span>()),
     };
+    <span class="macro">debug!</span>(<span class="string">&quot;request: {}&quot;</span>, <span class="ident">url_query</span>);
+
     <span class="kw">let</span> <span class="ident">url</span> <span class="op">=</span> <span class="macro">format!</span>(
         <span class="string">&quot;{}{}&quot;</span>,
         <span class="ident">WAPM_WEBC_URL</span>,
@@ -588,6 +581,8 @@
     <span class="kw">let</span> <span class="ident">body</span> <span class="op">=</span> <span class="ident">response</span>.<span class="ident">body</span>.<span class="ident">context</span>(<span class="string">&quot;HTTP response with empty body&quot;</span>)<span class="question-mark">?</span>;
     <span class="kw">let</span> <span class="ident">data</span>: <span class="ident">WapmWebQuery</span> <span class="op">=</span>
         <span class="ident">serde_json::from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">body</span>).<span class="ident">context</span>(<span class="string">&quot;Could not parse webc registry JSON data&quot;</span>)<span class="question-mark">?</span>;
+    <span class="macro">debug!</span>(<span class="string">&quot;response: {:?}&quot;</span>, <span class="ident">data</span>);
+
     <span class="kw">let</span> <span class="ident">PiritaVersionedDownload</span> {
         <span class="ident">url</span>: <span class="ident">download_url</span>,
         <span class="ident">version</span>,
@@ -860,27 +855,10 @@
         <span class="ident">pck</span>.<span class="ident">version</span> <span class="op">=</span> <span class="ident">version</span>.<span class="ident">clone</span>().<span class="ident">into</span>();
     }
 
-    <span class="comment">// Add all the file system files</span>
-    <span class="kw">let</span> <span class="ident">top_level_dirs</span> <span class="op">=</span> <span class="ident">webc</span>
-        .<span class="ident">get_volumes_for_package</span>(<span class="kw-2">&amp;</span><span class="ident">package_name</span>)
-        .<span class="ident">into_iter</span>()
-        .<span class="ident">flat_map</span>(<span class="op">|</span><span class="ident">volume</span><span class="op">|</span> {
-            <span class="ident">webc</span>.<span class="ident">volumes</span>
-                .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">volume</span>)
-                .<span class="ident">unwrap</span>()
-                .<span class="ident">header</span>
-                .<span class="ident">top_level</span>
-                .<span class="ident">iter</span>()
-                .<span class="ident">filter</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">fs_type</span> <span class="op">==</span> <span class="ident">FsEntryType::Dir</span>)
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">text</span>.<span class="ident">to_string</span>())
-        })
-        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-
     <span class="comment">// Add the file system from the webc</span>
-    <span class="ident">pck</span>.<span class="ident">webc_fs</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Arc::new</span>(<span class="ident">wasmer_vfs::webc_fs::WebcFileSystem::init</span>(
-        <span class="ident">ownership</span>.<span class="ident">clone</span>(),
-        <span class="kw-2">&amp;</span><span class="ident">package_name</span>,
-    )));
+    <span class="kw">let</span> <span class="ident">webc_fs</span> <span class="op">=</span> <span class="ident">wasmer_vfs::webc_fs::WebcFileSystem::init_all</span>(<span class="ident">ownership</span>.<span class="ident">clone</span>());
+    <span class="kw">let</span> <span class="ident">top_level_dirs</span> <span class="op">=</span> <span class="ident">webc_fs</span>.<span class="ident">top_level_dirs</span>().<span class="ident">clone</span>();
+    <span class="ident">pck</span>.<span class="ident">webc_fs</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Arc::new</span>(<span class="ident">webc_fs</span>));
     <span class="ident">pck</span>.<span class="ident">webc_top_level_dirs</span> <span class="op">=</span> <span class="ident">top_level_dirs</span>;
 
     <span class="comment">// Add the memory footprint of the file system</span>

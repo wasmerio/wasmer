@@ -78,7 +78,7 @@
         .<span class="ident">fs</span>
         .<span class="ident">create_fd</span>(<span class="ident">rights</span>, <span class="ident">rights</span>, <span class="ident">Fdflags::empty</span>(), <span class="number">0</span>, <span class="ident">inode</span>));
 
-    <span class="macro">debug!</span>(
+    <span class="macro">trace!</span>(
         <span class="string">&quot;wasi[{}:{}]::fd_event - event notifications created (fd={})&quot;</span>,
         <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
         <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),

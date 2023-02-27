@@ -133,7 +133,7 @@
     <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>, <span class="ident">inodes</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state_and_inodes</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>, <span class="number">0</span>);
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">path_string</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">path</span>, <span class="ident">path_len</span>) };
-    <span class="macro">debug!</span>(
+    <span class="macro">trace!</span>(
         <span class="string">&quot;wasi[{}:{}]::path_filestat_get (fd={}, path={})&quot;</span>,
         <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
         <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),

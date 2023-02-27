@@ -277,6 +277,7 @@
 <span id="275">275</span>
 <span id="276">276</span>
 <span id="277">277</span>
+<span id="278">278</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">pin::Pin</span>, <span class="ident">sync::Arc</span>};
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -341,6 +342,7 @@
 
     <span class="comment">// If the file system has not already been union&#39;ed then do so</span>
     <span class="ident">env</span>.<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">conditional_union</span>(<span class="kw-2">&amp;</span><span class="ident">binary</span>);
+    <span class="macro">tracing::debug!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">env</span>.<span class="ident">state</span>.<span class="ident">fs</span>);
 
     <span class="comment">// Now run the module</span>
     <span class="ident">spawn_exec_module</span>(<span class="ident">module</span>, <span class="ident">store</span>, <span class="ident">env</span>, <span class="ident">runtime</span>)

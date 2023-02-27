@@ -1870,6 +1870,16 @@
 <span id="1868">1868</span>
 <span id="1869">1869</span>
 <span id="1870">1870</span>
+<span id="1871">1871</span>
+<span id="1872">1872</span>
+<span id="1873">1873</span>
+<span id="1874">1874</span>
+<span id="1875">1875</span>
+<span id="1876">1876</span>
+<span id="1877">1877</span>
+<span id="1878">1878</span>
+<span id="1879">1879</span>
+<span id="1880">1880</span>
 </pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">fd</span>;
 <span class="kw">mod</span> <span class="ident">inode_guard</span>;
 <span class="kw">mod</span> <span class="ident">notification</span>;
@@ -2190,7 +2200,6 @@
 
 <span class="doccomment">/// Warning, modifying these fields directly may cause invariants to break and</span>
 <span class="doccomment">/// should be considered unsafe.  These fields may be made private in a future release</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiFs</span> {
     <span class="comment">//pub repo: Repo,</span>
@@ -3262,7 +3271,6 @@
             <span class="kw">_</span> =&gt; (),
         }
         <span class="kw">let</span> <span class="ident">fd</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>)<span class="question-mark">?</span>;
-        <span class="macro">debug!</span>(<span class="string">&quot;fdstat: {:?}&quot;</span>, <span class="ident">fd</span>);
 
         <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">fd</span>.<span class="ident">inode</span>.<span class="ident">read</span>();
         <span class="kw">let</span> <span class="ident">deref</span> <span class="op">=</span> <span class="ident">guard</span>.<span class="ident">deref</span>();
@@ -3621,6 +3629,18 @@
             }
         }
         <span class="prelude-val">Ok</span>(())
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">std::fmt::Debug</span> <span class="kw">for</span> <span class="ident">WasiFs</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">std::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">std::fmt::Result</span> {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">guard</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">current_dir</span>.<span class="ident">try_lock</span>() {
+            <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;current_dir={} &quot;</span>, <span class="ident">guard</span>.<span class="ident">as_str</span>())<span class="question-mark">?</span>;
+        } <span class="kw">else</span> {
+            <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;current_dir=(locked) &quot;</span>)<span class="question-mark">?</span>;
+        }
+        <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;next_fd={} &quot;</span>, <span class="self">self</span>.<span class="ident">next_fd</span>.<span class="ident">load</span>(<span class="ident">Ordering::Relaxed</span>))<span class="question-mark">?</span>;
+        <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;{:?}&quot;</span>, <span class="self">self</span>.<span class="ident">root_fs</span>)
     }
 }
 

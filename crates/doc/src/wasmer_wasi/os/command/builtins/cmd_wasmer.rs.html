@@ -148,12 +148,6 @@
 <span id="146">146</span>
 <span id="147">147</span>
 <span id="148">148</span>
-<span id="149">149</span>
-<span id="150">150</span>
-<span id="151">151</span>
-<span id="152">152</span>
-<span id="153">153</span>
-<span id="154">154</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">any::Any</span>, <span class="ident">ops::Deref</span>, <span class="ident">sync::Arc</span>};
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
@@ -166,7 +160,7 @@
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">bin_factory</span>::{<span class="ident">spawn_exec</span>, <span class="ident">BinaryPackage</span>, <span class="ident">ModuleCache</span>},
     <span class="ident">syscalls::stderr_write</span>,
-    <span class="ident">VirtualTaskManager</span>, <span class="ident">VirtualTaskManagerExt</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiRuntime</span>,
+    <span class="ident">VirtualTaskManagerExt</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiRuntime</span>,
 };
 
 <span class="kw">const</span> <span class="ident">HELP</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">r#&quot;USAGE:
@@ -230,8 +224,7 @@ ARGS:
             <span class="ident">env</span>.<span class="ident">state</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="ident">state</span>);
 
             <span class="comment">// Get the binary</span>
-            <span class="kw">let</span> <span class="ident">tasks</span> <span class="op">=</span> <span class="ident">parent_ctx</span>.<span class="ident">data</span>().<span class="ident">tasks</span>();
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">binary</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_package</span>(<span class="ident">what</span>.<span class="ident">clone</span>(), <span class="ident">tasks</span>.<span class="ident">deref</span>()) {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">binary</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_package</span>(<span class="ident">what</span>.<span class="ident">clone</span>()) {
                 <span class="comment">// Now run the module</span>
                 <span class="ident">spawn_exec</span>(<span class="ident">binary</span>, <span class="ident">name</span>, <span class="ident">store</span>, <span class="ident">env</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">runtime</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">cache</span>)
             } <span class="kw">else</span> {
@@ -254,13 +247,8 @@ ARGS:
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_package</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">name</span>: <span class="ident">String</span>,
-        <span class="ident">tasks</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">VirtualTaskManager</span>,
-    ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BinaryPackage</span><span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">cache</span>
-            .<span class="ident">get_webc</span>(<span class="ident">name</span>.<span class="ident">as_str</span>(), <span class="self">self</span>.<span class="ident">runtime</span>.<span class="ident">deref</span>(), <span class="ident">tasks</span>)
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_package</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">name</span>: <span class="ident">String</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BinaryPackage</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">cache</span>.<span class="ident">get_webc</span>(<span class="ident">name</span>.<span class="ident">as_str</span>(), <span class="self">self</span>.<span class="ident">runtime</span>.<span class="ident">deref</span>())
     }
 }
 

@@ -266,8 +266,6 @@
 <span id="264">264</span>
 <span id="265">265</span>
 <span id="266">266</span>
-<span id="267">267</span>
-<span id="268">268</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span>
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 
@@ -473,24 +471,22 @@
             <span class="ident">tasks</span>.<span class="ident">block_on</span>(<span class="self">self</span>.<span class="ident">draw_welcome</span>());
         }
 
-        <span class="kw">let</span> <span class="ident">binary</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">binary</span>) <span class="op">=</span>
-            <span class="self">self</span>.<span class="ident">compiled_modules</span>
-                .<span class="ident">get_webc</span>(<span class="ident">webc</span>, <span class="self">self</span>.<span class="ident">runtime</span>.<span class="ident">deref</span>(), <span class="ident">tasks</span>.<span class="ident">deref</span>())
-        {
-            <span class="ident">binary</span>
-        } <span class="kw">else</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stderr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stderr</span>.<span class="ident">clone</span>();
-            <span class="ident">tasks</span>.<span class="ident">block_on</span>(<span class="kw">async</span> {
-                <span class="ident">wasmer_vfs::AsyncWriteExt::write_all</span>(
-                    <span class="kw-2">&amp;mut</span> <span class="ident">stderr</span>,
-                    <span class="macro">format!</span>(<span class="string">&quot;package not found [{}]\r\n&quot;</span>, <span class="ident">webc</span>).<span class="ident">as_bytes</span>(),
-                )
-                .<span class="kw">await</span>
-                .<span class="ident">ok</span>();
-            });
-            <span class="macro">tracing::debug!</span>(<span class="string">&quot;failed to get webc dependency - {}&quot;</span>, <span class="ident">webc</span>);
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">VirtualBusError::NotFound</span>);
-        };
+        <span class="kw">let</span> <span class="ident">binary</span> <span class="op">=</span>
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">binary</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">compiled_modules</span>.<span class="ident">get_webc</span>(<span class="ident">webc</span>, <span class="self">self</span>.<span class="ident">runtime</span>.<span class="ident">deref</span>()) {
+                <span class="ident">binary</span>
+            } <span class="kw">else</span> {
+                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stderr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stderr</span>.<span class="ident">clone</span>();
+                <span class="ident">tasks</span>.<span class="ident">block_on</span>(<span class="kw">async</span> {
+                    <span class="ident">wasmer_vfs::AsyncWriteExt::write_all</span>(
+                        <span class="kw-2">&amp;mut</span> <span class="ident">stderr</span>,
+                        <span class="macro">format!</span>(<span class="string">&quot;package not found [{}]\r\n&quot;</span>, <span class="ident">webc</span>).<span class="ident">as_bytes</span>(),
+                    )
+                    .<span class="kw">await</span>
+                    .<span class="ident">ok</span>();
+                });
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;failed to get webc dependency - {}&quot;</span>, <span class="ident">webc</span>);
+                <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">VirtualBusError::NotFound</span>);
+            };
 
         <span class="kw">let</span> <span class="ident">wasi_process</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">process</span>.<span class="ident">clone</span>();
 

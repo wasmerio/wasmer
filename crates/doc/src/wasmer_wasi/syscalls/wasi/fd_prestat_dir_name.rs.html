@@ -50,7 +50,6 @@
 <span id="48">48</span>
 <span id="49">49</span>
 <span id="50">50</span>
-<span id="51">51</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -75,7 +74,6 @@
 
     <span class="comment">// check inode-val.is_preopened?</span>
 
-    <span class="macro">trace!</span>(<span class="string">&quot;=&gt; inode: {:?}&quot;</span>, <span class="ident">inode</span>);
     <span class="kw">let</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">inode</span>.<span class="ident">read</span>();
     <span class="kw">match</span> <span class="ident">guard</span>.<span class="ident">deref</span>() {
         <span class="ident">Kind::Dir</span> { .. } <span class="op">|</span> <span class="ident">Kind::Root</span> { .. } =&gt; {

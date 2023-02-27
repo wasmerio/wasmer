@@ -49,7 +49,7 @@
     <span class="ident">fd</span>: <span class="ident">WasiFd</span>,
     <span class="ident">buf_ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Fdstat</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">Errno</span> {
-    <span class="macro">debug!</span>(
+    <span class="macro">trace!</span>(
         <span class="string">&quot;wasi[{}:{}]::fd_fdstat_get: fd={}, buf_ptr={}&quot;</span>,
         <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
         <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),

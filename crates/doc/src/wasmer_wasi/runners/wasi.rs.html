@@ -99,23 +99,6 @@
 <span id="97">97</span>
 <span id="98">98</span>
 <span id="99">99</span>
-<span id="100">100</span>
-<span id="101">101</span>
-<span id="102">102</span>
-<span id="103">103</span>
-<span id="104">104</span>
-<span id="105">105</span>
-<span id="106">106</span>
-<span id="107">107</span>
-<span id="108">108</span>
-<span id="109">109</span>
-<span id="110">110</span>
-<span id="111">111</span>
-<span id="112">112</span>
-<span id="113">113</span>
-<span id="114">114</span>
-<span id="115">115</span>
-<span id="116">116</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webc_runner_rt_wasi&quot;</span>)]</span>
 <span class="doccomment">//! WebC container support for running WASI modules</span>
 
@@ -206,29 +189,12 @@
     <span class="ident">command</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
     <span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>],
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">WasiEnvBuilder</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident">webc::FsEntryType</span>;
-
-    <span class="kw">let</span> <span class="ident">package_name</span> <span class="op">=</span> <span class="ident">webc</span>.<span class="ident">get_package_name</span>();
-    <span class="kw">let</span> <span class="ident">top_level_dirs</span> <span class="op">=</span> <span class="ident">webc</span>
-        .<span class="ident">get_volumes_for_package</span>(<span class="kw-2">&amp;</span><span class="ident">package_name</span>)
-        .<span class="ident">into_iter</span>()
-        .<span class="ident">flat_map</span>(<span class="op">|</span><span class="ident">volume</span><span class="op">|</span> {
-            <span class="ident">webc</span>.<span class="ident">volumes</span>
-                .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">volume</span>)
-                .<span class="ident">unwrap</span>()
-                .<span class="ident">header</span>
-                .<span class="ident">top_level</span>
-                .<span class="ident">iter</span>()
-                .<span class="ident">filter</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">fs_type</span> <span class="op">==</span> <span class="ident">FsEntryType::Dir</span>)
-                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">text</span>.<span class="ident">to_string</span>())
-        })
-        .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
-
-    <span class="kw">let</span> <span class="ident">filesystem</span> <span class="op">=</span> <span class="ident">Box::new</span>(<span class="ident">WebcFileSystem::init</span>(<span class="ident">webc</span>, <span class="kw-2">&amp;</span><span class="ident">package_name</span>));
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">WasiEnv::builder</span>(<span class="ident">command</span>).<span class="ident">fs</span>(<span class="ident">filesystem</span>).<span class="ident">args</span>(<span class="ident">args</span>);
-    <span class="kw">for</span> <span class="ident">f_name</span> <span class="kw">in</span> <span class="ident">top_level_dirs</span>.<span class="ident">iter</span>() {
+    <span class="kw">let</span> <span class="ident">filesystem</span> <span class="op">=</span> <span class="ident">Box::new</span>(<span class="ident">WebcFileSystem::init_all</span>(<span class="ident">webc</span>));
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">builder</span> <span class="op">=</span> <span class="ident">WasiEnv::builder</span>(<span class="ident">command</span>).<span class="ident">args</span>(<span class="ident">args</span>);
+    <span class="kw">for</span> <span class="ident">f_name</span> <span class="kw">in</span> <span class="ident">filesystem</span>.<span class="ident">top_level_dirs</span>() {
         <span class="ident">builder</span>.<span class="ident">add_preopen_build</span>(<span class="op">|</span><span class="ident">p</span><span class="op">|</span> <span class="ident">p</span>.<span class="ident">directory</span>(<span class="ident">f_name</span>).<span class="ident">read</span>(<span class="bool-val">true</span>).<span class="ident">write</span>(<span class="bool-val">true</span>).<span class="ident">create</span>(<span class="bool-val">true</span>))<span class="question-mark">?</span>;
     }
+    <span class="ident">builder</span>.<span class="ident">set_fs</span>(<span class="ident">filesystem</span>);
 
     <span class="prelude-val">Ok</span>(<span class="ident">builder</span>)
 }
