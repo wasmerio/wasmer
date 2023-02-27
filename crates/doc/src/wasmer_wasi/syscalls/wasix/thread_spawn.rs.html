@@ -326,6 +326,21 @@
 <span id="324">324</span>
 <span id="325">325</span>
 <span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -360,16 +375,6 @@
     <span class="ident">reactor</span>: <span class="ident">Bool</span>,
     <span class="ident">ret_tid</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Tid</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">Errno</span> {
-    <span class="macro">debug!</span>(
-        <span class="string">&quot;wasi[{}:{}]::thread_spawn (reactor={:?}, thread_id={}, stack_base={}, caller_id={})&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-        <span class="ident">reactor</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">thread</span>.<span class="ident">tid</span>().<span class="ident">raw</span>(),
-        <span class="ident">stack_base</span>,
-        <span class="ident">current_caller_id</span>().<span class="ident">raw</span>()
-    );
-
     <span class="comment">// Now we use the environment and memory references</span>
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
@@ -381,11 +386,10 @@
         <span class="prelude-val">Ok</span>(<span class="ident">h</span>) =&gt; <span class="ident">h</span>,
         <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
             <span class="macro">error!</span>(
-                <span class="string">&quot;wasi[{}:{}]::thread_spawn (reactor={:?}, thread_id={}, stack_base={}, caller_id={}) - failed to create thread handle: {}&quot;</span>,
+                <span class="string">&quot;wasi[{}:{}]::thread_spawn (reactor={:?}, stack_base={}, caller_id={}) - failed to create thread handle: {}&quot;</span>,
                 <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
                 <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
                 <span class="ident">reactor</span>,
-                <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">thread</span>.<span class="ident">tid</span>().<span class="ident">raw</span>(),
                 <span class="ident">stack_base</span>,
                 <span class="ident">current_caller_id</span>().<span class="ident">raw</span>(),
                 <span class="ident">err</span>
@@ -395,6 +399,16 @@
         }
     };
     <span class="kw">let</span> <span class="ident">thread_id</span>: <span class="ident">Tid</span> <span class="op">=</span> <span class="ident">thread_handle</span>.<span class="ident">id</span>().<span class="ident">into</span>();
+
+    <span class="macro">debug!</span>(
+        <span class="op">%</span><span class="ident">thread_id</span>,
+        <span class="string">&quot;wasi[{}:{}]::thread_spawn (reactor={:?}, stack_base={}, caller_id={})&quot;</span>,
+        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
+        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
+        <span class="ident">reactor</span>,
+        <span class="ident">stack_base</span>,
+        <span class="ident">current_caller_id</span>().<span class="ident">raw</span>()
+    );
 
     <span class="comment">// We need a copy of the process memory and a packaged store in order to</span>
     <span class="comment">// launch threads and reactors</span>
@@ -473,10 +487,16 @@
         <span class="kw">let</span> <span class="ident">user_data_low</span>: <span class="ident">u32</span> <span class="op">=</span> (<span class="ident">user_data</span> <span class="op">&amp;</span> <span class="number">0xFFFFFFFF</span>) <span class="kw">as</span> <span class="ident">u32</span>;
         <span class="kw">let</span> <span class="ident">user_data_high</span>: <span class="ident">u32</span> <span class="op">=</span> (<span class="ident">user_data</span> <span class="op">&gt;</span><span class="op">&gt;</span> <span class="number">32</span>) <span class="kw">as</span> <span class="ident">u32</span>;
 
+        <span class="macro">trace!</span>(
+            <span class="op">%</span><span class="ident">user_data</span>,
+            <span class="string">&quot;wasi[{}:{}]::thread_spawn spawn.call()&quot;</span>,
+            <span class="ident">ctx</span>.<span class="ident">data</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>).<span class="ident">pid</span>(),
+            <span class="ident">ctx</span>.<span class="ident">data</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>).<span class="ident">tid</span>(),
+        );
+
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">Errno::Success</span>;
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">spawn</span>.<span class="ident">call</span>(<span class="ident">store</span>, <span class="ident">user_data_low</span> <span class="kw">as</span> <span class="ident">i32</span>, <span class="ident">user_data_high</span> <span class="kw">as</span> <span class="ident">i32</span>) {
             <span class="kw">match</span> <span class="ident">err</span>.<span class="ident">downcast</span>::<span class="op">&lt;</span><span class="ident">WasiError</span><span class="op">&gt;</span>() {
-                <span class="prelude-val">Ok</span>(<span class="ident">WasiError::Exit</span>(<span class="number">0</span>)) =&gt; <span class="ident">ret</span> <span class="op">=</span> <span class="ident">Errno::Success</span>,
                 <span class="prelude-val">Ok</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">code</span>)) =&gt; {
                     <span class="macro">debug!</span>(
                         <span class="op">%</span><span class="ident">code</span>,
@@ -484,7 +504,11 @@
                         <span class="ident">ctx</span>.<span class="ident">data</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>).<span class="ident">pid</span>(),
                         <span class="ident">ctx</span>.<span class="ident">data</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>).<span class="ident">tid</span>(),
                     );
-                    <span class="ident">ret</span> <span class="op">=</span> <span class="ident">Errno::Noexec</span>;
+                    <span class="ident">ret</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">code</span> <span class="op">==</span> <span class="number">0</span> {
+                        <span class="ident">Errno::Success</span>
+                    } <span class="kw">else</span> {
+                        <span class="ident">Errno::Noexec</span>
+                    };
                 }
                 <span class="prelude-val">Ok</span>(<span class="ident">WasiError::UnknownWasiVersion</span>) =&gt; {
                     <span class="macro">debug!</span>(
@@ -547,6 +571,12 @@
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">thread</span>) <span class="op">=</span> <span class="ident">thread</span> {
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">thread</span>.<span class="ident">store</span>.<span class="ident">borrow_mut</span>();
                     <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="ident">call_module</span>(<span class="kw-2">&amp;</span><span class="ident">thread</span>.<span class="ident">ctx</span>, <span class="ident">store</span>.<span class="ident">deref_mut</span>());
+
+                    {
+                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">threading</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
+                        <span class="ident">guard</span>.<span class="ident">thread_ctx</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">caller_id</span>);
+                    }
+
                     <span class="kw">return</span> <span class="ident">ret</span>;
                 }
 

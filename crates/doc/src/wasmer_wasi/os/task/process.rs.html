@@ -377,10 +377,6 @@
 <span id="375">375</span>
 <span id="376">376</span>
 <span id="377">377</span>
-<span id="378">378</span>
-<span id="379">379</span>
-<span id="380">380</span>
-<span id="381">381</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">borrow::Cow</span>,
     <span class="ident">collections::HashMap</span>,
@@ -584,11 +580,7 @@
         <span class="ident">inner</span>.<span class="ident">threads</span>.<span class="ident">insert</span>(<span class="ident">id</span>, <span class="ident">ctrl</span>.<span class="ident">clone</span>());
         <span class="ident">inner</span>.<span class="ident">thread_count</span> <span class="op">+</span><span class="op">=</span> <span class="number">1</span>;
 
-        <span class="prelude-val">Ok</span>(<span class="ident">WasiThreadHandle</span> {
-            <span class="ident">id</span>: <span class="ident">Arc::new</span>(<span class="ident">id</span>),
-            <span class="ident">thread</span>: <span class="ident">ctrl</span>,
-            <span class="ident">inner</span>: <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">clone</span>(),
-        })
+        <span class="prelude-val">Ok</span>(<span class="ident">WasiThreadHandle::new</span>(<span class="ident">ctrl</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">inner</span>))
     }
 
     <span class="doccomment">/// Gets a reference to a particular thread</span>
