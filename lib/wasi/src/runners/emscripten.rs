@@ -1,10 +1,8 @@
-#![cfg(feature = "webc_runner_rt_emscripten")]
 //! WebC container support for running Emscripten modules
 
 use crate::runners::WapmContainer;
-use anyhow::anyhow;
+use anyhow::{anyhow, Error};
 use serde::{Deserialize, Serialize};
-use std::error::Error as StdError;
 use std::sync::Arc;
 use wasmer::{FunctionEnv, Instance, Module, Store};
 use wasmer_emscripten::{
@@ -49,7 +47,7 @@ impl EmscriptenRunner {
 impl crate::runners::Runner for EmscriptenRunner {
     type Output = ();
 
-    fn can_run_command(&self, _: &str, command: &Command) -> Result<bool, Box<dyn StdError>> {
+    fn can_run_command(&self, _: &str, command: &Command) -> Result<bool, Error> {
         Ok(command
             .runner
             .starts_with("https://webc.org/runner/emscripten"))
@@ -61,11 +59,15 @@ impl crate::runners::Runner for EmscriptenRunner {
         command_name: &str,
         _command: &Command,
         container: &WapmContainer,
-    ) -> Result<Self::Output, Box<dyn StdError>> {
+    ) -> Result<Self::Output, Error> {
         let container = container.v1();
-        let atom_name = container.get_atom_name_for_command("emscripten", command_name)?;
+        let atom_name = container
+            .get_atom_name_for_command("emscripten", command_name)
+            .map_err(Error::msg)?;
         let main_args = container.get_main_args_for_command(command_name);
-        let atom_bytes = container.get_atom(&container.get_package_name(), &atom_name)?;
+        let atom_bytes = container
+            .get_atom(&container.get_package_name(), &atom_name)
+            .map_err(Error::msg)?;
 
         let mut module = Module::new(&self.store, atom_bytes)?;
         module.set_name(&atom_name);

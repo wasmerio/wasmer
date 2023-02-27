@@ -225,11 +225,7 @@ impl RunWithPathBuf {
         {
             if let Ok(pf) = WapmContainer::new(self.path.clone()) {
                 return self
-                    .run_container(
-                        pf,
-                        &self.command_name.clone().unwrap_or_default(),
-                        &self.args,
-                    )
+                    .run_container(pf, self.command_name.as_deref(), &self.args)
                     .map_err(|e| anyhow!("Could not run PiritaFile: {e}"));
             }
         }
@@ -376,48 +372,38 @@ impl RunWithPathBuf {
     fn run_container(
         &self,
         container: WapmContainer,
-        id: &str,
+        id: Option<&str>,
         args: &[String],
     ) -> Result<(), anyhow::Error> {
-        let mut result = None;
+        let id = id
+            .or_else(|| container.manifest().entrypoint.as_deref())
+            .context("No command specified")?;
 
-        #[cfg(feature = "wasi")]
-        {
-            if let Some(r) = result {
-                return r;
-            }
+        let command = container
+            .manifest()
+            .commands
+            .get(id)
+            .with_context(|| format!("No metadata found for the command, \"{id}\""))?;
 
-            let (store, _compiler_type) = self.store.get_store()?;
-            let mut runner = wasmer_wasi::runners::wasi::WasiRunner::new(store);
-            runner.set_args(args.to_vec());
-            result = Some(if id.is_empty() {
-                runner.run(&container).map_err(|e| anyhow::anyhow!("{e}"))
-            } else {
-                runner
-                    .run_cmd(&container, id)
-                    .map_err(|e| anyhow::anyhow!("{e}"))
-            });
+        let (store, _compiler_type) = self.store.get_store()?;
+        let mut runner = wasmer_wasi::runners::wasi::WasiRunner::new(store);
+        runner.set_args(args.to_vec());
+        if runner.can_run_command(id, command).unwrap_or(false) {
+            runner
+                .run_cmd(&container, id)
+                .context("WASI runner failed")?;
         }
 
-        #[cfg(feature = "emscripten")]
-        {
-            if let Some(r) = result {
-                return r;
-            }
-
-            let (store, _compiler_type) = self.store.get_store()?;
-            let mut runner = wasmer_wasi::runners::emscripten::EmscriptenRunner::new(store);
-            runner.set_args(args.to_vec());
-            result = Some(if id.is_empty() {
-                runner.run(&container).map_err(|e| anyhow::anyhow!("{e}"))
-            } else {
-                runner
-                    .run_cmd(&container, id)
-                    .map_err(|e| anyhow::anyhow!("{e}"))
-            });
+        let (store, _compiler_type) = self.store.get_store()?;
+        let mut runner = wasmer_wasi::runners::emscripten::EmscriptenRunner::new(store);
+        runner.set_args(args.to_vec());
+        if runner.can_run_command(id, command).unwrap_or(false) {
+            runner
+                .run_cmd(&container, id)
+                .context("Emscripten runner failed")?;
         }
 
-        result.unwrap_or_else(|| Err(anyhow::anyhow!("neither emscripten or wasi file")))
+        anyhow::bail!("No runner");
     }
 
     fn get_store_module(&self) -> Result<(Store, Module)> {

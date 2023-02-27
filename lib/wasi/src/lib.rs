@@ -39,6 +39,7 @@ pub mod net;
 // TODO: should this be pub?
 pub mod fs;
 pub mod http;
+#[cfg(feature = "webc_runner")]
 pub mod runners;
 pub mod runtime;
 mod state;

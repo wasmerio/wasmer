@@ -1,10 +1,9 @@
-#![cfg(feature = "webc_runner_rt_wasi")]
 //! WebC container support for running WASI modules
 
 use crate::runners::WapmContainer;
 use crate::{WasiEnv, WasiEnvBuilder};
+use anyhow::Error;
 use serde::{Deserialize, Serialize};
-use std::error::Error as StdError;
 use std::sync::Arc;
 use wasmer::{Module, Store};
 use wasmer_vfs::webc_fs::WebcFileSystem;
@@ -46,11 +45,7 @@ impl WasiRunner {
 impl crate::runners::Runner for WasiRunner {
     type Output = ();
 
-    fn can_run_command(
-        &self,
-        _command_name: &str,
-        command: &Command,
-    ) -> Result<bool, Box<dyn StdError>> {
+    fn can_run_command(&self, _command_name: &str, command: &Command) -> Result<bool, Error> {
         Ok(command.runner.starts_with("https://webc.org/runner/wasi"))
     }
 
@@ -60,9 +55,11 @@ impl crate::runners::Runner for WasiRunner {
         command_name: &str,
         _command: &Command,
         container: &WapmContainer,
-    ) -> Result<Self::Output, Box<dyn StdError>> {
+    ) -> Result<Self::Output, Error> {
         let container = container.v1();
-        let atom_name = container.get_atom_name_for_command("wasi", command_name)?;
+        let atom_name = container
+            .get_atom_name_for_command("wasi", command_name)
+            .map_err(Error::msg)?;
         let atom_bytes = container.get_atom(&container.get_package_name(), &atom_name)?;
 
         let mut module = Module::new(&self.store, atom_bytes)?;

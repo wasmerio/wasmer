@@ -13,10 +13,8 @@ use crate::mem_fs::FileSystem as MemFileSystem;
 use crate::{
     FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, VirtualFile,
 };
-use webc::{
-    metadata::IndexMap,
-    v1::{FsEntry, FsEntryType, OwnedFsEntryFile},
-};
+use indexmap::IndexMap;
+use webc::v1::{FsEntry, FsEntryType, OwnedFsEntryFile};
 
 /// Custom file system wrapper to map requested file paths
 #[derive(Debug)]

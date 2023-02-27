@@ -97,9 +97,9 @@ default = ["sys-default"]
 time = ["tokio/time"]
 
 webc_runner = ["serde_cbor", "wasmer/compiler"]
-webc_runner_rt_emscripten = ["wasmer-emscripten"]
-wcgi_runner = ["hyper", "wcgi", "wcgi-host"]
 webc_runner_rt_wasi = []
+webc_runner_rt_wcgi = ["hyper", "wcgi", "wcgi-host"]
+webc_runner_rt_emscripten = ["wasmer-emscripten"]
 
 sys = ["wasmer/sys", "wasmer-wasi-types/sys", "webc/mmap", "wasmer-vm", "time"]
 sys-default = ["wasmer/wat", "wasmer/compiler", "sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest" ]

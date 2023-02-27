@@ -31,6 +31,10 @@ impl WapmContainer {
         self.webc.volumes.keys().cloned().collect::<Vec<_>>()
     }
 
+    pub fn get_atom(&self, name: &str) -> Option<&[u8]> {
+        self.webc.get_atom(&self.webc.get_package_name(), name).ok()
+    }
+
     /// Lookup .wit bindings by name and parse them
     pub fn get_bindings<T: Bindings>(
         &self,

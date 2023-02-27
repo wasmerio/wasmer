@@ -1,6 +1,5 @@
-use std::error::Error as StdError;
-
-use webc::v1::Command;
+use anyhow::Error;
+use webc::metadata::Command;
 
 use crate::runners::WapmContainer;
 
@@ -10,11 +9,7 @@ pub trait Runner {
     type Output;
 
     /// Returns whether the Runner will be able to run the `Command`
-    fn can_run_command(
-        &self,
-        command_name: &str,
-        command: &Command,
-    ) -> Result<bool, Box<dyn StdError>>;
+    fn can_run_command(&self, command_name: &str, command: &Command) -> Result<bool, Error>;
 
     /// Implementation to run the given command
     ///
@@ -25,17 +20,15 @@ pub trait Runner {
         command_name: &str,
         cmd: &Command,
         container: &WapmContainer,
-    ) -> Result<Self::Output, Box<dyn StdError>>;
+    ) -> Result<Self::Output, Error>;
 
     /// Runs the container if the container has an `entrypoint` in the manifest
-    fn run(&mut self, container: &WapmContainer) -> Result<Self::Output, Box<dyn StdError>> {
+    fn run(&mut self, container: &WapmContainer) -> Result<Self::Output, Error> {
         let cmd = match container.manifest().entrypoint.as_ref() {
             Some(s) => s,
             None => {
                 let path = format!("{}", container.v1().path.display());
-                return Err(Box::new(webc::v1::Error(format!(
-                    "Cannot run {path:?}: not executable (no entrypoint in manifest)"
-                ))));
+                anyhow::bail!("Cannot run {path:?}: not executable (no entrypoint in manifest)");
             }
         };
 
@@ -43,11 +36,7 @@ pub trait Runner {
     }
 
     /// Runs the given `cmd` on the container
-    fn run_cmd(
-        &mut self,
-        container: &WapmContainer,
-        cmd: &str,
-    ) -> Result<Self::Output, Box<dyn StdError>> {
+    fn run_cmd(&mut self, container: &WapmContainer, cmd: &str) -> Result<Self::Output, Error> {
         let webc = container.v1();
         let path = format!("{}", webc.path.display());
         let command_to_exec = webc
@@ -61,16 +50,16 @@ pub trait Runner {
         match self.can_run_command(cmd, command_to_exec) {
             Ok(true) => {}
             Ok(false) => {
-                return Err(Box::new(webc::v1::Error(format!(
+                anyhow::bail!(
                     "Cannot run command {cmd:?} with runner {:?}",
                     command_to_exec.runner
-                ))));
+                );
             }
             Err(e) => {
-                return Err(Box::new(webc::v1::Error(format!(
+                anyhow::bail!(
                     "Cannot run command {cmd:?} with runner {:?}: {e}",
                     command_to_exec.runner
-                ))));
+                );
             }
         }
 
