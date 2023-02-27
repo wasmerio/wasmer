@@ -33,7 +33,9 @@ fn data_and_store_mut() -> Result<(), String> {
     assert_eq!(data.global.get(&mut storemut), Value::I32(10));
     data.value = data.global.get(&mut storemut).unwrap_i32() + 10;
 
-    data.global.set(&mut storemut, Value::I32(data.value)).unwrap();
+    data.global
+        .set(&mut storemut, Value::I32(data.value))
+        .unwrap();
 
     assert_eq!(data.global.get(&mut storemut), Value::I32(data.value));
 
