@@ -51,18 +51,6 @@ pub(crate) fn default_engine() -> Engine {
     engine
 }
 
-impl From<EngineBuilder> for crate::engine::Engine {
-    fn from(builder: EngineBuilder) -> Self {
-        Self(builder.into())
-    }
-}
-
-// impl From<CompilerConfig> for crate::engine::Engine {
-//     fn from(compiler: CompilerConfig) -> Self {
-//         Self(compiler.into())
-//     }
-// }
-
 /// The custom trait to access to all the `sys` function in the common
 /// engine.
 pub trait NativeEngineExt {

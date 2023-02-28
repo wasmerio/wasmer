@@ -8,7 +8,7 @@ use wasmer::{
 };
 use wasmer_compiler_cranelift::Cranelift;
 // This is to be able to set the tunables
-use wasmer::WasmerCompilerEngine;
+use wasmer::NativeEngineExt;
 
 /// A custom tunables that allows you to set a memory limit.
 ///

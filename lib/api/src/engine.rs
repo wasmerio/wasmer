@@ -42,21 +42,11 @@ impl Default for Engine {
     }
 }
 
-impl From<engine_imp::Engine> for Engine {
-    fn from(inner: engine_imp::Engine) -> Self {
-        Self(inner)
+impl<T: Into<engine_imp::Engine>> From<T> for Engine {
+    fn from(t: T) -> Self {
+        Self(t.into())
     }
 }
-
-// impl<P> Into<Engine> for P
-// where
-//     P: Into<engine_imp::Engine>
-// {
-//     fn into(self) -> Engine {
-//         let inner_engine: engine_imp::Engine = self.into();
-//         Engine(inner_engine)
-//     }
-// }
 
 /// A temporary handle to an [`Engine`]
 /// EngineRef can be used to build a [`Module`][wasmer::Module]
