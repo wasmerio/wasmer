@@ -14,7 +14,7 @@ pub fn fd_fdstat_get<M: MemorySize>(
     fd: WasiFd,
     buf_ptr: WasmPtr<Fdstat, M>,
 ) -> Errno {
-    debug!(
+    trace!(
         "wasi[{}:{}]::fd_fdstat_get: fd={}, buf_ptr={}",
         ctx.data().pid(),
         ctx.data().tid(),

@@ -4706,6 +4706,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasm-coredump-builder"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "158180f35c9ba89a3e7763f20be93e77d5e41535c18e22c85d6dd5b5bce18108"
+dependencies = [
+ "wasm-coredump-encoder",
+ "wasm-coredump-types",
+ "wasm-encoder 0.23.0",
+]
+
+[[package]]
+name = "wasm-coredump-encoder"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f0c99cdf3a88363570f1027e2f337de6647cac9fed5d474f86103d7c45c8700"
+dependencies = [
+ "leb128",
+ "wasm-coredump-types",
+]
+
+[[package]]
+name = "wasm-coredump-types"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10e35729a021e44c20511e23ac2b215df05da243bdc4bad336fd3686552539fc"
+
+[[package]]
 name = "wasm-encoder"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4719,6 +4746,15 @@ name = "wasm-encoder"
 version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef126be0e14bdf355ac1a8b41afc89195289e5c7179f80118e3abddb472f0810"
+dependencies = [
+ "leb128",
+]
+
+[[package]]
+name = "wasm-encoder"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c3e4bc09095436c8e7584d86d33e6c3ee67045af8fb262cbb9cc321de553428"
 dependencies = [
  "leb128",
 ]
@@ -4908,6 +4944,7 @@ dependencies = [
  "unix_mode",
  "url",
  "walkdir",
+ "wasm-coredump-builder",
  "wasmer",
  "wasmer-cache",
  "wasmer-compiler",

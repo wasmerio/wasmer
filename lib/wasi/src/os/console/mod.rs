@@ -11,7 +11,6 @@ use std::{
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
-use crate::vbus::{BusSpawnedProcess, VirtualBusError};
 use derivative::*;
 use linked_hash_set::LinkedHashSet;
 use tokio::sync::{mpsc, RwLock};
@@ -25,12 +24,12 @@ use wasmer_vfs::{
 };
 use wasmer_wasi_types::{types::__WASI_STDIN_FILENO, wasi::BusErrno};
 
-use super::{cconst::ConsoleConst, common::*};
+use super::{cconst::ConsoleConst, common::*, task::TaskJoinHandle};
 use crate::{
     bin_factory::{spawn_exec, BinFactory, ModuleCache},
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
     state::Capabilities,
-    VirtualTaskManagerExt, WasiEnv, WasiRuntime,
+    VirtualBusError, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
 };
 
 #[derive(Derivative)]
@@ -146,7 +145,7 @@ impl Console {
         self
     }
 
-    pub fn run(&mut self) -> Result<(BusSpawnedProcess, WasiProcess), VirtualBusError> {
+    pub fn run(&mut self) -> Result<(TaskJoinHandle, WasiProcess), VirtualBusError> {
         // Extract the program name from the arguments
         let empty_args: Vec<&[u8]> = Vec::new();
         let (webc, prog, args) = match self.boot_cmd.split_once(' ') {
@@ -204,24 +203,22 @@ impl Console {
             tasks.block_on(self.draw_welcome());
         }
 
-        let binary = if let Some(binary) =
-            self.compiled_modules
-                .get_webc(webc, self.runtime.deref(), tasks.deref())
-        {
-            binary
-        } else {
-            let mut stderr = self.stderr.clone();
-            tasks.block_on(async {
-                wasmer_vfs::AsyncWriteExt::write_all(
-                    &mut stderr,
-                    format!("package not found [{}]\r\n", webc).as_bytes(),
-                )
-                .await
-                .ok();
-            });
-            tracing::debug!("failed to get webc dependency - {}", webc);
-            return Err(crate::vbus::VirtualBusError::NotFound);
-        };
+        let binary =
+            if let Some(binary) = self.compiled_modules.get_webc(webc, self.runtime.deref()) {
+                binary
+            } else {
+                let mut stderr = self.stderr.clone();
+                tasks.block_on(async {
+                    wasmer_vfs::AsyncWriteExt::write_all(
+                        &mut stderr,
+                        format!("package not found [{}]\r\n", webc).as_bytes(),
+                    )
+                    .await
+                    .ok();
+                });
+                tracing::debug!("failed to get webc dependency - {}", webc);
+                return Err(VirtualBusError::NotFound);
+            };
 
         let wasi_process = env.process.clone();
 

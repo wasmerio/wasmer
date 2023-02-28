@@ -1,13 +1,16 @@
 use std::{any::Any, ops::Deref, sync::Arc};
 
-use crate::vbus::{BusSpawnedProcess, VirtualBusError};
+use crate::{
+    os::task::{OwnedTaskStatus, TaskJoinHandle},
+    VirtualBusError,
+};
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_wasi_types::wasi::Errno;
 
 use crate::{
     bin_factory::{spawn_exec, BinaryPackage, ModuleCache},
     syscalls::stderr_write,
-    VirtualTaskManager, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
+    VirtualTaskManagerExt, WasiEnv, WasiRuntime,
 };
 
 const HELP: &str = r#"USAGE:
@@ -59,7 +62,7 @@ impl CmdWasmer {
         config: &mut Option<WasiEnv>,
         what: Option<String>,
         mut args: Vec<String>,
-    ) -> Result<BusSpawnedProcess, VirtualBusError> {
+    ) -> Result<TaskJoinHandle, VirtualBusError> {
         if let Some(what) = what {
             let store = store.take().ok_or(VirtualBusError::UnknownError)?;
             let mut env = config.take().ok_or(VirtualBusError::UnknownError)?;
@@ -71,8 +74,7 @@ impl CmdWasmer {
             env.state = Arc::new(state);
 
             // Get the binary
-            let tasks = parent_ctx.data().tasks();
-            if let Some(binary) = self.get_package(what.clone(), tasks.deref()) {
+            if let Some(binary) = self.get_package(what.clone()) {
                 // Now run the module
                 spawn_exec(binary, name, store, env, &self.runtime, &self.cache)
             } else {
@@ -83,23 +85,20 @@ impl CmdWasmer {
                     )
                     .await;
                 });
-                Ok(BusSpawnedProcess::exited_process(Errno::Noent as u32))
+                let handle = OwnedTaskStatus::new_finished_with_code(Errno::Noent as u32).handle();
+                Ok(handle)
             }
         } else {
             parent_ctx.data().tasks().block_on(async move {
                 let _ = stderr_write(parent_ctx, HELP_RUN.as_bytes()).await;
             });
-            Ok(BusSpawnedProcess::exited_process(0))
+            let handle = OwnedTaskStatus::new_finished_with_code(0).handle();
+            Ok(handle)
         }
     }
 
-    pub fn get_package(
-        &self,
-        name: String,
-        tasks: &dyn VirtualTaskManager,
-    ) -> Option<BinaryPackage> {
-        self.cache
-            .get_webc(name.as_str(), self.runtime.deref(), tasks)
+    pub fn get_package(&self, name: String) -> Option<BinaryPackage> {
+        self.cache.get_webc(name.as_str(), self.runtime.deref())
     }
 }
 
@@ -118,7 +117,7 @@ impl VirtualCommand for CmdWasmer {
         name: &str,
         store: &mut Option<Store>,
         env: &mut Option<WasiEnv>,
-    ) -> Result<BusSpawnedProcess, VirtualBusError> {
+    ) -> Result<TaskJoinHandle, VirtualBusError> {
         // Read the command we want to run
         let env_inner = env.as_ref().ok_or(VirtualBusError::UnknownError)?;
         let mut args = env_inner.state.args.iter().map(|a| a.as_str());
@@ -136,7 +135,8 @@ impl VirtualCommand for CmdWasmer {
                 parent_ctx.data().tasks().block_on(async move {
                     let _ = stderr_write(parent_ctx, HELP.as_bytes()).await;
                 });
-                Ok(BusSpawnedProcess::exited_process(0))
+                let handle = OwnedTaskStatus::new_finished_with_code(0).handle();
+                Ok(handle)
             }
             Some(what) => {
                 let what = Some(what.to_string());

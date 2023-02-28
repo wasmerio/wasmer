@@ -318,7 +318,6 @@ impl FileSystem for WasiFsRoot {
 
 /// Warning, modifying these fields directly may cause invariants to break and
 /// should be considered unsafe.  These fields may be made private in a future release
-#[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct WasiFs {
     //pub repo: Repo,
@@ -1390,7 +1389,6 @@ impl WasiFs {
             _ => (),
         }
         let fd = self.get_fd(fd)?;
-        debug!("fdstat: {:?}", fd);
 
         let guard = fd.inode.read();
         let deref = guard.deref();
@@ -1749,6 +1747,18 @@ impl WasiFs {
             }
         }
         Ok(())
+    }
+}
+
+impl std::fmt::Debug for WasiFs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Ok(guard) = self.current_dir.try_lock() {
+            write!(f, "current_dir={} ", guard.as_str())?;
+        } else {
+            write!(f, "current_dir=(locked) ")?;
+        }
+        write!(f, "next_fd={} ", self.next_fd.load(Ordering::Relaxed))?;
+        write!(f, "{:?}", self.root_fs)
     }
 }
 

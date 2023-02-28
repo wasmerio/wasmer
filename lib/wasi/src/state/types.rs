@@ -5,8 +5,9 @@ use cfg_if::cfg_if;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::vbus::VirtualBusError;
 use wasmer_wasi_types::wasi::{BusErrno, Rights};
+
+use crate::VirtualBusError;
 
 cfg_if! {
     if #[cfg(feature = "host-fs")] {

@@ -10,7 +10,6 @@ mod binary_package;
 mod exec;
 mod module_cache;
 
-pub(crate) use exec::SpawnedProcess;
 use sha2::*;
 
 pub use self::{

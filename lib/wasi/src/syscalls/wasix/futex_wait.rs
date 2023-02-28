@@ -73,21 +73,10 @@ pub fn futex_wait<M: MemorySize>(
     timeout: WasmPtr<OptionTimestamp, M>,
     ret_woken: WasmPtr<Bool, M>,
 ) -> Result<Errno, WasiError> {
-    trace!(
-        "wasi[{}:{}]::futex_wait(offset={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        futex_ptr.offset()
-    );
-
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
-    let mut env = ctx.data();
-    let state = env.state.clone();
-
-    let futex_idx: u64 = wasi_try_ok!(futex_ptr.offset().try_into().map_err(|_| Errno::Overflow));
-
     // Determine the timeout
+    let mut env = ctx.data();
     let timeout = {
         let memory = env.memory_view(&ctx);
         wasi_try_mem_ok!(timeout.read(&memory))
@@ -96,6 +85,17 @@ pub fn futex_wait<M: MemorySize>(
         OptionTag::Some => Some(Duration::from_nanos(timeout.u as u64)),
         _ => None,
     };
+
+    trace!(
+        "wasi[{}:{}]::futex_wait(offset={}, timeout={:?})",
+        ctx.data().pid(),
+        ctx.data().tid(),
+        futex_ptr.offset(),
+        timeout
+    );
+
+    let state = env.state.clone();
+    let futex_idx: u64 = wasi_try_ok!(futex_ptr.offset().try_into().map_err(|_| Errno::Overflow));
 
     // Create a poller which will register ourselves against
     // this futex event and check when it has changed
@@ -123,6 +123,6 @@ pub fn futex_wait<M: MemorySize>(
     };
     let memory = env.memory_view(&ctx);
     let mut env = ctx.data();
-    wasi_try_mem_ok!(ret_woken.write(&memory, Bool::False));
+    wasi_try_mem_ok!(ret_woken.write(&memory, woken));
     Ok(ret)
 }

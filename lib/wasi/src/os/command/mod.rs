@@ -2,11 +2,14 @@ pub mod builtins;
 
 use std::{collections::HashMap, sync::Arc};
 
-use crate::vbus::{BusSpawnedProcess, VirtualBusError};
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_wasi_types::wasi::Errno;
 
-use crate::{bin_factory::ModuleCache, syscalls::stderr_write, WasiEnv, WasiRuntime};
+use crate::{
+    bin_factory::ModuleCache, syscalls::stderr_write, VirtualBusError, WasiEnv, WasiRuntime,
+};
+
+use super::task::{OwnedTaskStatus, TaskJoinHandle, TaskStatus};
 
 /// A command available to an OS environment.
 pub trait VirtualCommand
@@ -26,7 +29,7 @@ where
         path: &str,
         store: &mut Option<Store>,
         config: &mut Option<WasiEnv>,
-    ) -> Result<BusSpawnedProcess, VirtualBusError>;
+    ) -> Result<TaskJoinHandle, VirtualBusError>;
 }
 
 #[derive(Debug, Clone)]
@@ -88,7 +91,7 @@ impl Commands {
         path: &str,
         store: &mut Option<Store>,
         builder: &mut Option<WasiEnv>,
-    ) -> Result<BusSpawnedProcess, VirtualBusError> {
+    ) -> Result<TaskJoinHandle, VirtualBusError> {
         let path = path.to_string();
         if let Some(cmd) = self.commands.get(&path) {
             cmd.exec(parent_ctx, path.as_str(), store, builder)
@@ -97,7 +100,9 @@ impl Commands {
                 parent_ctx,
                 format!("wasm command unknown - {}\r\n", path).as_bytes(),
             );
-            Ok(BusSpawnedProcess::exited_process(Errno::Noent as u32))
+
+            let res = OwnedTaskStatus::new(TaskStatus::Finished(Ok(Errno::Noent as u32)));
+            Ok(res.handle())
         }
     }
 }

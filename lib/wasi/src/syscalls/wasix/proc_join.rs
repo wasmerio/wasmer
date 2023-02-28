@@ -66,7 +66,8 @@ pub fn proc_join<M: MemorySize>(
     let process = env.process.control_plane().get_process(pid);
     if let Some(process) = process {
         let exit_code = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-            process.join().await.ok_or(Errno::Child)
+            let code = process.join().await.unwrap_or(Errno::Child as u32);
+            Ok(code)
         })?);
 
         trace!("child ({}) exited with {}", pid.raw(), exit_code);

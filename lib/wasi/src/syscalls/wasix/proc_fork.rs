@@ -1,5 +1,5 @@
 use super::*;
-use crate::syscalls::*;
+use crate::{os::task::OwnedTaskStatus, syscalls::*};
 
 #[cfg(feature = "sys")]
 use wasmer::vm::VMMemory;
@@ -331,18 +331,9 @@ pub fn proc_fork<M: MemorySize>(
         };
 
         // Add the process to the environment state
-        let process = BusSpawnedProcess {
-            inst: Box::new(crate::bin_factory::SpawnedProcess {
-                exit_code: Mutex::new(None),
-                exit_code_rx: Mutex::new(exit_code_rx),
-            }),
-            stdin: None,
-            stdout: None,
-            stderr: None,
-            signaler: Some(signaler),
-            module_memory_footprint: 0,
-            file_system_memory_footprint: 0,
-        };
+
+        let process = OwnedTaskStatus::default();
+
         {
             trace!(
                 "wasi[{}:{}]::spawned sub-process (pid={})",
@@ -351,7 +342,7 @@ pub fn proc_fork<M: MemorySize>(
                 child_pid.raw()
             );
             let mut inner = ctx.data().process.write();
-            inner.bus_processes.insert(child_pid, Box::new(process));
+            inner.bus_processes.insert(child_pid, process.handle());
         }
 
         // If the return value offset is within the memory stack then we need

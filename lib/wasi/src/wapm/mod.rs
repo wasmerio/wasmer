@@ -9,11 +9,11 @@ use wasmer_vfs::FileSystem;
 use tracing::*;
 #[allow(unused_imports)]
 use tracing::{error, warn};
-use webc::{Annotation, FsEntryType, UrlOrManifest, WebC};
+use webc::{Annotation, UrlOrManifest, WebC};
 
 use crate::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},
-    VirtualTaskManager, WasiRuntime,
+    WasiRuntime,
 };
 
 #[cfg(feature = "wapm-tar")]
@@ -27,7 +27,6 @@ pub(crate) fn fetch_webc_task(
     cache_dir: &str,
     webc: &str,
     runtime: &dyn WasiRuntime,
-    tasks: &dyn VirtualTaskManager,
 ) -> Result<BinaryPackage, anyhow::Error> {
     let client = runtime
         .http_client()
@@ -40,7 +39,10 @@ pub(crate) fn fetch_webc_task(
         async move { fetch_webc(&cache_dir, &webc, client).await }
     };
 
-    let result = tasks.block_on(f).context("webc fetch task has died");
+    let result = runtime
+        .task_manager()
+        .block_on(f)
+        .context("webc fetch task has died");
     result.with_context(|| format!("could not fetch webc '{webc}'"))
 }
 
@@ -60,6 +62,8 @@ async fn fetch_webc(
             .replace(WAPM_WEBC_VERSION_TAG, version.replace('\"', "'").as_str()),
         None => WAPM_WEBC_QUERY_LAST.replace(WAPM_WEBC_QUERY_TAG, name.replace('\"', "'").as_str()),
     };
+    debug!("request: {}", url_query);
+
     let url = format!(
         "{}{}",
         WAPM_WEBC_URL,
@@ -82,6 +86,8 @@ async fn fetch_webc(
     let body = response.body.context("HTTP response with empty body")?;
     let data: WapmWebQuery =
         serde_json::from_slice(&body).context("Could not parse webc registry JSON data")?;
+    debug!("response: {:?}", data);
+
     let PiritaVersionedDownload {
         url: download_url,
         version,
@@ -354,27 +360,10 @@ where
         pck.version = version.clone().into();
     }
 
-    // Add all the file system files
-    let top_level_dirs = webc
-        .get_volumes_for_package(&package_name)
-        .into_iter()
-        .flat_map(|volume| {
-            webc.volumes
-                .get(&volume)
-                .unwrap()
-                .header
-                .top_level
-                .iter()
-                .filter(|e| e.fs_type == FsEntryType::Dir)
-                .map(|e| e.text.to_string())
-        })
-        .collect::<Vec<_>>();
-
     // Add the file system from the webc
-    pck.webc_fs = Some(Arc::new(wasmer_vfs::webc_fs::WebcFileSystem::init(
-        ownership.clone(),
-        &package_name,
-    )));
+    let webc_fs = wasmer_vfs::webc_fs::WebcFileSystem::init_all(ownership.clone());
+    let top_level_dirs = webc_fs.top_level_dirs().clone();
+    pck.webc_fs = Some(Arc::new(webc_fs));
     pck.webc_top_level_dirs = top_level_dirs;
 
     // Add the memory footprint of the file system
