@@ -92,39 +92,6 @@ impl AsJs for Imports {
     // Annotation is here to prevent spurious IDE warnings.
     #[allow(unused_unsafe)]
     fn as_jsvalue(&self, store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
-        // /// Returns the `Imports` as a Javascript `Object`
-        // pub fn as_jsobject(&self, store: &impl AsStoreRef) -> js_sys::Object {
-        //     let imports = js_sys::Object::new();
-        //     let namespaces: HashMap<&str, Vec<(&str, &Extern)>> =
-        //         self.map
-        //             .iter()
-        //             .fold(HashMap::default(), |mut acc, ((ns, name), ext)| {
-        //                 acc.entry(ns.as_str())
-        //                     .or_default()
-        //                     .push((name.as_str(), ext));
-        //                 acc
-        //             });
-
-        //     for (ns, exports) in namespaces.into_iter() {
-        //         let import_namespace = js_sys::Object::new();
-        //         for (name, ext) in exports {
-        //             // Annotation is here to prevent spurious IDE warnings.
-        //             #[allow(unused_unsafe)]
-        //             unsafe {
-        //                 js_sys::Reflect::set(&import_namespace, &name.into(), &ext.as_jsvalue(store))
-        //                     .expect("Error while setting into the js namespace object");
-        //             }
-        //         }
-        //         // Annotation is here to prevent spurious IDE warnings.
-        //         #[allow(unused_unsafe)]
-        //         unsafe {
-        //             js_sys::Reflect::set(&imports, &ns.into(), &import_namespace.into())
-        //                 .expect("Error while setting into the js imports object");
-        //         }
-        //     }
-        //     imports
-        // }
-
         let imports_object = js_sys::Object::new();
         for (namespace, name, extern_) in self.iter() {
             let val = unsafe { js_sys::Reflect::get(&imports_object, &namespace.into()).unwrap() };
