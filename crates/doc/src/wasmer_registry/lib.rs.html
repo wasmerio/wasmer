@@ -1109,8 +1109,22 @@
 <span class="doccomment">//! curl -sSfL https://registry.wapm.io/graphql/schema.graphql &gt; lib/registry/graphql/schema.graphql</span>
 <span class="doccomment">//! ```</span>
 
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">api</span>;
+<span class="kw">mod</span> <span class="ident">client</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">config</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">graphql</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">interface</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">login</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">package</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">publish</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">utils</span>;
+
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">client::RegistryClient</span>;
+
 <span class="kw">use</span> <span class="ident">anyhow::Context</span>;
 <span class="kw">use</span> <span class="ident">core::ops::Range</span>;
+<span class="kw">use</span> <span class="ident">graphql_client::GraphQLQuery</span>;
 <span class="kw">use</span> <span class="ident">reqwest::header</span>::{<span class="ident">ACCEPT</span>, <span class="ident">RANGE</span>};
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::io</span>::{<span class="ident">Read</span>, <span class="ident">Write</span>};
@@ -1119,20 +1133,11 @@
 <span class="kw">use</span> <span class="ident">tar::EntryType</span>;
 <span class="kw">use</span> <span class="ident">url::Url</span>;
 
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">config</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">graphql</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">interface</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">login</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">package</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">publish</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">queries</span>;
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">utils</span>;
-
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::utils::normalize_path</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">config</span>::{<span class="ident">format_graphql</span>, <span class="ident">WasmerConfig</span>},
+    <span class="ident">graphql::queries::get_bindings_query::ProgrammingLanguage</span>,
     <span class="ident">package::Package</span>,
-    <span class="ident">queries::get_bindings_query::ProgrammingLanguage</span>,
 };
 
 <span class="kw">pub</span> <span class="kw">static</span> <span class="ident">PACKAGE_TOML_FILE_NAME</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="string">&quot;wasmer.toml&quot;</span>;
@@ -1369,11 +1374,10 @@
     <span class="ident">registry_url</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
     <span class="ident">command_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PackageDownloadInfo</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="kw">crate</span>::{
-        <span class="ident">graphql::execute_query</span>,
+    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql</span>::{
+        <span class="ident">execute_query</span>,
         <span class="ident">queries</span>::{<span class="ident">get_package_by_command_query</span>, <span class="ident">GetPackageByCommandQuery</span>},
     };
-    <span class="kw">use</span> <span class="ident">graphql_client::GraphQLQuery</span>;
 
     <span class="kw">let</span> <span class="ident">q</span> <span class="op">=</span> <span class="ident">GetPackageByCommandQuery::build_query</span>(<span class="ident">get_package_by_command_query::Variables</span> {
         <span class="ident">command_name</span>: <span class="ident">command_name</span>.<span class="ident">to_string</span>(),
@@ -1458,11 +1462,10 @@
     <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
     <span class="ident">version</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">PackageDownloadInfo</span>, <span class="ident">QueryPackageError</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="kw">crate</span>::{
-        <span class="ident">graphql::execute_query</span>,
+    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql</span>::{
+        <span class="ident">execute_query</span>,
         <span class="ident">queries</span>::{<span class="ident">get_package_version_query</span>, <span class="ident">GetPackageVersionQuery</span>},
     };
-    <span class="kw">use</span> <span class="ident">graphql_client::GraphQLQuery</span>;
 
     <span class="kw">let</span> <span class="ident">q</span> <span class="op">=</span> <span class="ident">GetPackageVersionQuery::build_query</span>(<span class="ident">get_package_version_query::Variables</span> {
         <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),
@@ -1727,8 +1730,7 @@
     <span class="ident">registry</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
     <span class="ident">token</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">String</span>), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::queries</span>::{<span class="ident">who_am_i_query</span>, <span class="ident">WhoAmIQuery</span>};
-    <span class="kw">use</span> <span class="ident">graphql_client::GraphQLQuery</span>;
+    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql::queries</span>::{<span class="ident">who_am_i_query</span>, <span class="ident">WhoAmIQuery</span>};
 
     <span class="kw">let</span> <span class="ident">config</span> <span class="op">=</span> <span class="ident">WasmerConfig::from_file</span>(<span class="ident">wasmer_dir</span>);
 
@@ -1762,8 +1764,7 @@
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">test_if_registry_present</span>(<span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">bool</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::queries</span>::{<span class="ident">test_if_registry_present</span>, <span class="ident">TestIfRegistryPresent</span>};
-    <span class="kw">use</span> <span class="ident">graphql_client::GraphQLQuery</span>;
+    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql::queries</span>::{<span class="ident">test_if_registry_present</span>, <span class="ident">TestIfRegistryPresent</span>};
 
     <span class="kw">let</span> <span class="ident">q</span> <span class="op">=</span> <span class="ident">TestIfRegistryPresent::build_query</span>(<span class="ident">test_if_registry_present::Variables</span> {});
     <span class="ident"><span class="kw">crate</span>::graphql::execute_query_modifier_inner_check_json</span>(
@@ -2165,11 +2166,10 @@
     <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
     <span class="ident">version</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Bindings</span><span class="op">&gt;</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::queries</span>::{
+    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql::queries</span>::{
         <span class="ident">get_bindings_query</span>::{<span class="ident">ResponseData</span>, <span class="ident">Variables</span>},
         <span class="ident">GetBindingsQuery</span>,
     };
-    <span class="kw">use</span> <span class="ident">graphql_client::GraphQLQuery</span>;
 
     <span class="kw">let</span> <span class="ident">variables</span> <span class="op">=</span> <span class="ident">Variables</span> {
         <span class="ident">name</span>: <span class="ident">name</span>.<span class="ident">to_string</span>(),

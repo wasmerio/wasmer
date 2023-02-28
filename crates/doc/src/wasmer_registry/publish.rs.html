@@ -239,17 +239,25 @@
 <span id="239">239</span>
 <span id="240">240</span>
 <span id="241">241</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql</span>::{<span class="ident">execute_query_modifier_inner</span>, <span class="ident">get_signed_url</span>, <span class="ident">GetSignedUrl</span>};
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql</span>::{<span class="ident">publish_package_mutation_chunked</span>, <span class="ident">PublishPackageMutationChunked</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">format_graphql</span>, <span class="ident">WasmerConfig</span>};
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
+<span class="kw">use</span> <span class="ident">std::fmt::Write</span>;
+<span class="kw">use</span> <span class="ident">std::io::BufRead</span>;
+<span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
+
 <span class="kw">use</span> <span class="ident">console</span>::{<span class="ident">style</span>, <span class="ident">Emoji</span>};
 <span class="kw">use</span> <span class="ident">graphql_client::GraphQLQuery</span>;
 <span class="kw">use</span> <span class="ident">indicatif</span>::{<span class="ident">ProgressBar</span>, <span class="ident">ProgressState</span>, <span class="ident">ProgressStyle</span>};
 
-<span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
-<span class="kw">use</span> <span class="ident">std::fmt::Write</span>;
-<span class="kw">use</span> <span class="ident">std::io::BufRead</span>;
-<span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql</span>::{
+    <span class="ident">execute_query_modifier_inner</span>,
+    <span class="ident">mutations</span>::{<span class="ident">publish_package_mutation_chunked</span>, <span class="ident">PublishPackageMutationChunked</span>},
+    <span class="ident">queries</span>::{<span class="ident">get_signed_url</span>, <span class="ident">GetSignedUrl</span>},
+};
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">format_graphql</span>, <span class="ident">WasmerConfig</span>};
 
 <span class="kw">static</span> <span class="ident">UPLOAD</span>: <span class="ident">Emoji</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Emoji</span>(<span class="string">&quot;⬆️  &quot;</span>, <span class="string">&quot;&quot;</span>);
 <span class="kw">static</span> <span class="ident">PACKAGE</span>: <span class="ident">Emoji</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">Emoji</span>(<span class="string">&quot;📦  &quot;</span>, <span class="string">&quot;&quot;</span>);

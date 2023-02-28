@@ -19,21 +19,11 @@
 <span id="19">19</span>
 <span id="20">20</span>
 <span id="21">21</span>
-<span id="22">22</span>
-<span id="23">23</span>
-<span id="24">24</span>
-<span id="25">25</span>
-<span id="26">26</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql::execute_query</span>;
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql</span>::{
+    <span class="ident">execute_query</span>,
+    <span class="ident">queries</span>::{<span class="ident">who_am_i_query</span>, <span class="ident">WhoAmIQuery</span>},
+};
 <span class="kw">use</span> <span class="ident">graphql_client::GraphQLQuery</span>;
-
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">GraphQLQuery</span>)]</span>
-<span class="attribute">#[<span class="ident">graphql</span>(
-    <span class="ident">schema_path</span> <span class="op">=</span> <span class="string">&quot;graphql/schema.graphql&quot;</span>,
-    <span class="ident">query_path</span> <span class="op">=</span> <span class="string">&quot;graphql/queries/whoami.graphql&quot;</span>,
-    <span class="ident">response_derives</span> <span class="op">=</span> <span class="string">&quot;Debug&quot;</span>
-)]</span>
-<span class="kw">struct</span> <span class="ident">WhoAmIQuery</span>;
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_username</span>(<span class="ident">registry</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">q</span> <span class="op">=</span> <span class="ident">WhoAmIQuery::build_query</span>(<span class="ident">who_am_i_query::Variables</span> {});

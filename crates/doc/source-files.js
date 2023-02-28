@@ -21,7 +21,7 @@ var sourcesIndex = JSON.parse('{\
 "wasmer_integration_tests_cli":["",[],["assets.rs","lib.rs","link_code.rs","util.rs"]],\
 "wasmer_middlewares":["",[],["lib.rs","metering.rs"]],\
 "wasmer_object":["",[],["error.rs","lib.rs","module.rs"]],\
-"wasmer_registry":["",[],["config.rs","graphql.rs","interface.rs","lib.rs","login.rs","package.rs","publish.rs","queries.rs","utils.rs"]],\
+"wasmer_registry":["",[["graphql",[],["mod.rs","mutations.rs","proxy.rs","queries.rs"]]],["api.rs","client.rs","config.rs","interface.rs","lib.rs","login.rs","package.rs","publish.rs","types.rs","utils.rs"]],\
 "wasmer_sys_utils":["",[["memory",[["fd_memory",[],["fd_mmap.rs","memories.rs","mod.rs"]]],["mod.rs"]]],["lib.rs"]],\
 "wasmer_types":["",[["compilation",[],["address_map.rs","function.rs","mod.rs","module.rs","relocation.rs","section.rs","sourceloc.rs","symbols.rs","target.rs","trap.rs","unwind.rs"]],["entity",[],["boxed_slice.rs","iter.rs","keys.rs","mod.rs","packed_option.rs","primary_map.rs","secondary_map.rs"]]],["error.rs","features.rs","indexes.rs","initializers.rs","lib.rs","libcalls.rs","memory.rs","module.rs","serialize.rs","table.rs","trapcode.rs","types.rs","units.rs","utils.rs","value.rs","vmoffsets.rs"]],\
 "wasmer_vfs":["",[["mem_fs",[],["file.rs","file_opener.rs","filesystem.rs","mod.rs","stdio.rs"]]],["arc_box_file.rs","arc_file.rs","arc_fs.rs","builder.rs","combine_file.rs","dual_write_file.rs","empty_fs.rs","host_fs.rs","lib.rs","null_file.rs","passthru_fs.rs","pipe.rs","special_file.rs","static_fs.rs","tmp_fs.rs","union_fs.rs","webc_fs.rs","zero_file.rs"]],\

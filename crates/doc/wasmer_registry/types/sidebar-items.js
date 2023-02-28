@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["PublishDeployAppOutput","Data for a deployed app."],["PublishDeployAppRawVars","Payload for publishing a new Deploy app."]]};

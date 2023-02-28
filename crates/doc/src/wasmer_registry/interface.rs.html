@@ -42,23 +42,17 @@
 <span id="42">42</span>
 <span id="43">43</span>
 <span id="44">44</span>
-<span id="45">45</span>
-<span id="46">46</span>
-<span id="47">47</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">cfg_attr</span>(
     <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;full&quot;</span>),
     <span class="ident">allow</span>(<span class="ident">dead_code</span>, <span class="ident">unused_imports</span>, <span class="ident">unused_variables</span>)
 )]</span>
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql::execute_query</span>;
-<span class="kw">use</span> <span class="ident">graphql_client</span>::<span class="kw-2">*</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">GraphQLQuery</span>)]</span>
-<span class="attribute">#[<span class="ident">graphql</span>(
-    <span class="ident">schema_path</span> <span class="op">=</span> <span class="string">&quot;graphql/schema.graphql&quot;</span>,
-    <span class="ident">query_path</span> <span class="op">=</span> <span class="string">&quot;graphql/queries/get_interface_version.graphql&quot;</span>,
-    <span class="ident">response_derives</span> <span class="op">=</span> <span class="string">&quot;Debug&quot;</span>
-)]</span>
-<span class="kw">struct</span> <span class="ident">GetInterfaceVersionQuery</span>;
+<span class="kw">use</span> <span class="ident">graphql_client::GraphQLQuery</span>;
+
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::graphql</span>::{
+    <span class="ident">execute_query</span>,
+    <span class="ident">queries</span>::{<span class="ident">get_interface_version_query</span>, <span class="ident">GetInterfaceVersionQuery</span>},
+};
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">InterfaceFromServer</span> {
