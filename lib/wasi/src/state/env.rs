@@ -447,13 +447,14 @@ impl WasiEnv {
         // Let's instantiate the module with the imports.
         let (mut import_object, instance_init_callback) =
             import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
-        if let Some(memory) = memory {
-            import_object.define(
-                "env",
-                "memory",
-                Memory::new_from_existing(&mut store, memory),
-            );
-        }
+
+        let imported_memory = if let Some(memory) = memory {
+            let imported_memory = Memory::new_from_existing(&mut store, memory);
+            import_object.define("env", "memory", imported_memory.clone());
+            Some(imported_memory)
+        } else {
+            None
+        };
 
         // Construct the instance.
         let instance = match Instance::new(&mut store, &module, &import_object) {
@@ -471,7 +472,9 @@ impl WasiEnv {
         instance_init_callback(&instance, &store).unwrap();
 
         // Initialize the WASI environment
-        if let Err(err) = func_env.initialize(&mut store, instance.clone()) {
+        if let Err(err) =
+            func_env.initialize_with_memory(&mut store, instance.clone(), imported_memory)
+        {
             tracing::error!("wasi[{}]::wasi initialize error ({})", pid, err);
             func_env
                 .data(&store)
