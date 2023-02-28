@@ -4,8 +4,7 @@ on:
   push:
     branches:
       - '**'
-    pull_request:
-        types: [ opened, synchronize ]
+  pull_request
   workflow_dispatch:
     inputs:
       release:
