@@ -140,6 +140,17 @@
 <span id="138">138</span>
 <span id="139">139</span>
 <span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">any::Any</span>, <span class="ident">marker::PhantomData</span>};
 
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">StoreHandle</span>, <span class="ident">StoreObjects</span>, <span class="ident">VMFunctionEnvironment</span>};
@@ -258,6 +269,17 @@
             <span class="ident">store_mut</span>: <span class="self">self</span>.<span class="ident">store_mut</span>.<span class="ident">as_store_mut</span>(),
             <span class="ident">func_env</span>: <span class="self">self</span>.<span class="ident">func_env</span>.<span class="ident">clone</span>(),
         }
+    }
+
+    <span class="doccomment">/// Borrows a new mutable reference of both the attached Store and host state</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">data_and_store_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; (<span class="kw-2">&amp;mut</span> <span class="ident">T</span>, <span class="ident">StoreMut</span>) {
+        <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">func_env</span>.<span class="ident">as_mut</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>.<span class="ident">store_mut</span>) <span class="kw">as</span> <span class="kw-2">*mut</span> <span class="ident">T</span>;
+        <span class="comment">// telling the borrow check to close his eyes here</span>
+        <span class="comment">// this is still relatively safe to do as func_env are</span>
+        <span class="comment">// stored in a specific vec of Store, separate from the other objects</span>
+        <span class="comment">// and not really directly accessible with the StoreMut</span>
+        <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="kw-2">&amp;mut</span> <span class="kw-2">*</span><span class="ident">data</span> };
+        (<span class="ident">data</span>, <span class="self">self</span>.<span class="ident">store_mut</span>.<span class="ident">as_store_mut</span>())
     }
 }
 
