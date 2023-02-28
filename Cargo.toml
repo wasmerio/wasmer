@@ -52,7 +52,6 @@ members = [
     "lib/wasi-local-networking",
     "lib/wasix/wasix-http-client",
     "lib/wasm-interface",
-    "lib/wcgi-runner",
     "lib/c-api/tests/wasmer-c-api-test-runner",
     "lib/c-api/examples/wasmer-capi-examples-runner",
     "lib/types",
