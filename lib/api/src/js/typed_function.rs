@@ -10,9 +10,9 @@
 use std::marker::PhantomData;
 
 use crate::native_type::NativeWasmTypeInto;
-use crate::Function;
 use crate::{AsStoreMut, AsStoreRef, TypedFunction};
 use crate::{FromToNativeWasmType, RuntimeError, WasmTypeList};
+use crate::{Function, Value};
 // use std::panic::{catch_unwind, AssertUnwindSafe};
 use crate::js::as_js::{param_from_js, AsJs};
 use js_sys::Array;
@@ -34,20 +34,20 @@ macro_rules! impl_native_traits {
             $( $x: FromToNativeWasmType + NativeWasmTypeInto, )*
             {
                 #[allow(unused_unsafe)]
-                let params_list: Vec<RawValue> = unsafe {
-                    vec![ $( $x.into_raw(store) ),* ]
+                let params_list: Vec<_> = unsafe {
+                    vec![ $( ($x::WASM_TYPE, $x.into_raw(store) ) ),* ]
                 };
-                let params_list: Vec<JsValue> = params_list
-                    .into_iter()
-                    .map(|a| a.as_jsvalue(&store.as_store_ref()))
-                    .collect();
                 let results = {
                     let mut r;
                     // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
                     loop {
                         r = self.func.0.handle.function.apply(
                             &JsValue::UNDEFINED,
-                            &Array::from_iter(params_list.iter())
+                            unsafe {
+                                &Array::from_iter(params_list.clone()
+                                .into_iter()
+                                .map(|(b, a)| Value::from_raw(store, b, a).as_jsvalue(store)))
+                                }
                         );
                         let store_mut = store.as_store_mut();
                         if let Some(callback) = store_mut.inner.on_called.take() {

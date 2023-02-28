@@ -70,22 +70,6 @@ impl AsJs for Value {
     }
 }
 
-impl AsJs for wasmer_types::RawValue {
-    type DefinitionType = Type;
-
-    fn as_jsvalue(&self, _store: &impl AsStoreRef) -> JsValue {
-        unsafe { JsValue::from_f64(self.into()) }
-    }
-
-    fn from_jsvalue(
-        _store: &mut impl AsStoreMut,
-        type_: &Self::DefinitionType,
-        value: &JsValue,
-    ) -> Result<Self, JsError> {
-        unimplemented!();
-    }
-}
-
 impl AsJs for Imports {
     type DefinitionType = crate::module::Module;
 

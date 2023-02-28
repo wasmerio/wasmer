@@ -215,13 +215,6 @@ impl Function {
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
         // Annotation is here to prevent spurious IDE warnings.
-        #[allow(unused_unsafe)]
-        let params: Vec<_> = unsafe {
-            params
-                .iter()
-                .map(|a| a.as_raw(&store.as_store_ref()))
-                .collect()
-        };
         let arr = js_sys::Array::new_with_length(params.len() as u32);
 
         // let raw_env = env.as_raw() as *mut u8;
