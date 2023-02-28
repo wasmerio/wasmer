@@ -174,8 +174,8 @@ impl RunWithPathBuf {
 
         if let Err(err) = invoke_res {
             if let Some(coredump_path) = self.coredump_on_trap.as_ref() {
-                let source_name = self.path.to_str().unwrap_or_else(|| "unknown");
-                if let Err(coredump_err) = generate_coredump(&err, &source_name, &coredump_path) {
+                let source_name = self.path.to_str().unwrap_or("unknown");
+                if let Err(coredump_err) = generate_coredump(&err, source_name, coredump_path) {
                     eprintln!("warning: coredump failed to generate: {}", coredump_err);
                     Err(err)
                 } else {
