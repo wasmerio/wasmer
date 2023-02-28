@@ -16,7 +16,7 @@ pub struct Engine(pub(crate) engine_imp::Engine);
 
 impl Engine {
     #[deprecated(
-        since = "4.0.0",
+        since = "3.2.0",
         note = "engine.cloned() has been deprecated in favor of engine.clone()"
     )]
     /// Returns the [`Engine`].
