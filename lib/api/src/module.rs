@@ -107,8 +107,7 @@ impl Module {
     /// ```
     /// # use wasmer::*;
     /// #
-    /// # let compiler = Cranelift::default();
-    /// # let engine = EngineBuilder::new(compiler).engine();
+    /// # let engine: Engine = Cranelift::default().into();
     ///
     /// let module = Module::from_file(&engine, "path/to/foo.wasm");
     /// ```
