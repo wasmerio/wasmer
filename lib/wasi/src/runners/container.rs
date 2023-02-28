@@ -1,38 +1,67 @@
 use std::{path::PathBuf, sync::Arc};
 
-use webc::{metadata::Manifest, v1::WebCMmap};
+use bytes::Bytes;
+use wasmer_vfs::{webc_fs::WebcFileSystem, FileSystem};
+use webc::{
+    metadata::Manifest,
+    v1::{ParseOptions, WebC, WebCMmap, WebCOwned},
+    Version,
+};
 
 /// Parsed WAPM file, memory-mapped to an on-disk path
 #[derive(Debug, Clone)]
 pub struct WapmContainer {
-    /// WebC container
-    webc: Arc<WebCMmap>,
+    repr: Repr,
 }
 
 impl WapmContainer {
     /// Parses a .webc container file. Since .webc files
     /// can be very large, only file paths are allowed.
-    pub fn new(path: PathBuf) -> std::result::Result<Self, WebcParseError> {
-        let webc = webc::v1::WebCMmap::parse(path, &webc::v1::ParseOptions::default())?;
+    pub fn from_path(path: PathBuf) -> std::result::Result<Self, WebcParseError> {
+        let webc = webc::v1::WebCMmap::parse(path, &ParseOptions::default())?;
         Ok(Self {
-            webc: Arc::new(webc),
+            repr: Repr::V1Mmap(Arc::new(webc)),
         })
+    }
+
+    pub fn from_bytes(bytes: Bytes) -> std::result::Result<Self, WebcParseError> {
+        match webc::detect(bytes.as_ref())? {
+            Version::V1 => {
+                let webc = WebCOwned::parse(bytes.into(), &ParseOptions::default())?;
+                Ok(WapmContainer {
+                    repr: Repr::V1Owned(Arc::new(webc)),
+                })
+            }
+            Version::V2 => todo!(),
+            other => Err(WebcParseError::UnsupportedVersion(other)),
+        }
     }
 
     /// Returns the bytes of a file or a stringified error
     pub fn get_file<'b>(&'b self, path: &str) -> Result<&'b [u8], String> {
-        self.webc
-            .get_file(&self.webc.get_package_name(), path)
-            .map_err(|e| e.0)
+        match &self.repr {
+            Repr::V1Mmap(mapped) => mapped
+                .get_file(&mapped.get_package_name(), path)
+                .map_err(|e| e.0),
+            Repr::V1Owned(owned) => owned
+                .get_file(&owned.get_package_name(), path)
+                .map_err(|e| e.0),
+        }
     }
 
     /// Returns a list of volumes in this container
     pub fn get_volumes(&self) -> Vec<String> {
-        self.webc.volumes.keys().cloned().collect::<Vec<_>>()
+        match &self.repr {
+            Repr::V1Mmap(mapped) => mapped.volumes.keys().cloned().collect(),
+            Repr::V1Owned(owned) => owned.volumes.keys().cloned().collect(),
+        }
     }
 
     pub fn get_atom(&self, name: &str) -> Option<&[u8]> {
-        self.webc.get_atom(&self.webc.get_package_name(), name).ok()
+        match &self.repr {
+            Repr::V1Mmap(mapped) => mapped.get_atom(&mapped.get_package_name(), name).ok(),
+            Repr::V1Owned(owned) => owned.get_atom(&owned.get_package_name(), name).ok(),
+        }
     }
 
     /// Lookup .wit bindings by name and parse them
@@ -41,8 +70,7 @@ impl WapmContainer {
         bindings: &str,
     ) -> std::result::Result<T, ParseBindingsError> {
         let bindings = self
-            .webc
-            .manifest
+            .manifest()
             .bindings
             .iter()
             .find(|b| b.name == bindings)
@@ -52,12 +80,45 @@ impl WapmContainer {
     }
 
     pub fn manifest(&self) -> &Manifest {
-        &self.webc.manifest
+        match &self.repr {
+            Repr::V1Mmap(mapped) => &mapped.manifest,
+            Repr::V1Owned(owned) => &owned.manifest,
+        }
     }
 
-    pub fn v1(&self) -> &Arc<WebCMmap> {
-        &self.webc
+    // HACK(Michael-F-Bryan): WapmContainer originally exposed its Arc<WebCMmap>
+    // field, so every man and his dog accessed it directly instead of going
+    // through the WapmContainer abstraction. This is an escape hatch to make
+    // that code w
+    pub fn v1(&self) -> &WebC<'_> {
+        match &self.repr {
+            Repr::V1Mmap(mapped) => &*mapped,
+            Repr::V1Owned(owned) => &*owned,
+        }
     }
+
+    pub(crate) fn volume_fs(&self, package_name: &str) -> Box<dyn FileSystem + Send + Sync> {
+        match &self.repr {
+            Repr::V1Mmap(mapped) => {
+                Box::new(WebcFileSystem::init(Arc::clone(mapped), package_name))
+            }
+            Repr::V1Owned(owned) => Box::new(WebcFileSystem::init(Arc::clone(owned), package_name)),
+        }
+    }
+
+    /// Get the entire container as a single filesystem.
+    pub(crate) fn container_fs(&self) -> Box<dyn FileSystem + Send + Sync> {
+        match &self.repr {
+            Repr::V1Mmap(mapped) => Box::new(WebcFileSystem::init_all(Arc::clone(mapped))),
+            Repr::V1Owned(owned) => Box::new(WebcFileSystem::init_all(Arc::clone(owned))),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum Repr {
+    V1Mmap(Arc<WebCMmap>),
+    V1Owned(Arc<WebCOwned>),
 }
 
 /// Error that happened while parsing .wit bindings
@@ -119,14 +180,22 @@ impl Bindings for WitBindings {
 }
 
 /// Error that ocurred while parsing the .webc file
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug)]
 pub enum WebcParseError {
     /// Parse error
     Parse(webc::v1::Error),
+    Detect(webc::DetectError),
+    UnsupportedVersion(Version),
 }
 
 impl From<webc::v1::Error> for WebcParseError {
     fn from(e: webc::v1::Error) -> Self {
         WebcParseError::Parse(e)
+    }
+}
+
+impl From<webc::DetectError> for WebcParseError {
+    fn from(e: webc::DetectError) -> Self {
+        WebcParseError::Detect(e)
     }
 }

@@ -1,19 +1,21 @@
 //! WebC container support for running WASI modules
 
-use crate::runners::WapmContainer;
+use std::sync::Arc;
+
+use crate::{runners::WapmContainer, PluggableRuntimeImplementation, VirtualTaskManager};
 use crate::{WasiEnv, WasiEnvBuilder};
 use anyhow::Error;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use wasmer::{Module, Store};
-use wasmer_vfs::webc_fs::WebcFileSystem;
-use webc::{metadata::Command, v1::WebCMmap};
+use webc::metadata::Command;
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct WasiRunner {
     args: Vec<String>,
     #[serde(skip, default)]
     store: Store,
+    #[serde(skip, default)]
+    tasks: Option<Arc<dyn VirtualTaskManager>>,
 }
 
 impl WasiRunner {
@@ -22,6 +24,7 @@ impl WasiRunner {
         Self {
             args: Vec::new(),
             store,
+            tasks: None,
         }
     }
 
@@ -40,6 +43,15 @@ impl WasiRunner {
     pub fn set_args(&mut self, args: Vec<String>) {
         self.args = args;
     }
+
+    pub fn with_task_manager(mut self, tasks: impl VirtualTaskManager) -> Self {
+        self.set_task_manager(tasks);
+        self
+    }
+
+    pub fn set_task_manager(&mut self, tasks: impl VirtualTaskManager) {
+        self.tasks = Some(Arc::new(tasks));
+    }
 }
 
 impl crate::runners::Runner for WasiRunner {
@@ -56,16 +68,23 @@ impl crate::runners::Runner for WasiRunner {
         _command: &Command,
         container: &WapmContainer,
     ) -> Result<Self::Output, Error> {
-        let container = container.v1();
-        let atom_name = container
+        let webc = container.v1();
+        let atom_name = webc
             .get_atom_name_for_command("wasi", command_name)
             .map_err(Error::msg)?;
-        let atom_bytes = container.get_atom(&container.get_package_name(), &atom_name)?;
+        let atom_bytes = webc.get_atom(&webc.get_package_name(), &atom_name)?;
 
         let mut module = Module::new(&self.store, atom_bytes)?;
         module.set_name(&atom_name);
 
-        let builder = prepare_webc_env(container.clone(), &atom_name, &self.args)?;
+        let mut builder = prepare_webc_env(container, &atom_name, &self.args)?;
+
+        if let Some(tasks) = &self.tasks {
+            eprintln!("Aasdfasf");
+
+            let rt = PluggableRuntimeImplementation::new(Arc::clone(&tasks));
+            builder.set_runtime(Arc::new(rt));
+        }
 
         let init = builder.build_init()?;
 
@@ -82,15 +101,29 @@ impl crate::runners::Runner for WasiRunner {
 
 // https://github.com/tokera-com/ate/blob/42c4ce5a0c0aef47aeb4420cc6dc788ef6ee8804/term-lib/src/eval/exec.rs#L444
 fn prepare_webc_env(
-    webc: Arc<WebCMmap>,
+    container: &WapmContainer,
     command: &str,
     args: &[String],
 ) -> Result<WasiEnvBuilder, anyhow::Error> {
-    let filesystem = Box::new(WebcFileSystem::init_all(webc));
+    let filesystem = container.container_fs();
     let mut builder = WasiEnv::builder(command).args(args);
-    for f_name in filesystem.top_level_dirs() {
-        builder.add_preopen_build(|p| p.directory(f_name).read(true).write(true).create(true))?;
+
+    if let Ok(dir) = filesystem.read_dir("/".as_ref()) {
+        let entries = dir.filter_map(|entry| entry.ok()).filter(|entry| {
+            if let Ok(file_type) = entry.file_type() {
+                file_type.dir
+            } else {
+                false
+            }
+        });
+
+        for entry in entries {
+            builder.add_preopen_build(|p| {
+                p.directory(&entry.path).read(true).write(true).create(true)
+            })?;
+        }
     }
+
     builder.set_fs(filesystem);
 
     Ok(builder)

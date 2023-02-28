@@ -223,7 +223,7 @@ impl RunWithPathBuf {
     fn inner_execute(&self) -> Result<()> {
         #[cfg(feature = "webc_runner")]
         {
-            if let Ok(pf) = WapmContainer::new(self.path.clone()) {
+            if let Ok(pf) = WapmContainer::from_path(self.path.clone()) {
                 return self
                     .run_container(pf, self.command_name.as_deref(), &self.args)
                     .map_err(|e| anyhow!("Could not run PiritaFile: {e}"));
@@ -396,6 +396,15 @@ impl RunWithPathBuf {
 
         let (store, _compiler_type) = self.store.get_store()?;
         let mut runner = wasmer_wasi::runners::emscripten::EmscriptenRunner::new(store);
+        runner.set_args(args.to_vec());
+        if runner.can_run_command(id, command).unwrap_or(false) {
+            runner
+                .run_cmd(&container, id)
+                .context("Emscripten runner failed")?;
+        }
+
+        let (store, _compiler_type) = self.store.get_store()?;
+        let mut runner = wasmer_wasi::runners::wcgi::WcgiRunner::new(store);
         runner.set_args(args.to_vec());
         if runner.can_run_command(id, command).unwrap_or(false) {
             runner

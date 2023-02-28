@@ -20,7 +20,7 @@ use wcgi_host::CgiDialect;
 
 use crate::{
     http::HttpClientCapabilityV1, runners::wcgi::MappedDirectory, Capabilities, Pipe,
-    VirtualTaskManager, WasiEnv,
+    PluggableRuntimeImplementation, VirtualTaskManager, WasiEnv,
 };
 
 /// The shared object that manages the instantiaion of WASI executables and
@@ -50,6 +50,7 @@ impl Handler {
         self.dialect
             .prepare_environment_variables(parts, &mut request_specific_env);
 
+        let rt = PluggableRuntimeImplementation::new(Arc::clone(&self.task_manager));
         let builder = builder
             .envs(self.env.iter())
             .envs(request_specific_env)
@@ -61,6 +62,7 @@ impl Handler {
                 insecure_allow_all: true,
                 http_client: HttpClientCapabilityV1::new_allow_all(),
             })
+            .runtime(Arc::new(rt))
             .sandbox_fs(self.fs()?)
             .preopen_dir(Path::new("/"))?;
 

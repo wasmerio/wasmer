@@ -3,13 +3,12 @@
 use crate::runners::WapmContainer;
 use anyhow::{anyhow, Error};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use wasmer::{FunctionEnv, Instance, Module, Store};
 use wasmer_emscripten::{
     generate_emscripten_env, is_emscripten_module, run_emscripten_instance, EmEnv,
     EmscriptenGlobals,
 };
-use webc::{metadata::Command, v1::WebCMmap};
+use webc::metadata::Command;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct EmscriptenRunner {
@@ -72,15 +71,13 @@ impl crate::runners::Runner for EmscriptenRunner {
         let mut module = Module::new(&self.store, atom_bytes)?;
         module.set_name(&atom_name);
 
-        let (mut globals, env) =
-            prepare_emscripten_env(&mut self.store, &module, container.clone(), &atom_name)?;
+        let (mut globals, env) = prepare_emscripten_env(&mut self.store, &module, &atom_name)?;
 
         exec_module(
             &mut self.store,
             &module,
             &mut globals,
             env,
-            container.clone(),
             &atom_name,
             main_args.unwrap_or_default(),
         )?;
@@ -92,7 +89,6 @@ impl crate::runners::Runner for EmscriptenRunner {
 fn prepare_emscripten_env(
     store: &mut Store,
     module: &Module,
-    _atom: Arc<WebCMmap>,
     name: &str,
 ) -> Result<(EmscriptenGlobals, FunctionEnv<EmEnv>), anyhow::Error> {
     if !is_emscripten_module(module) {
@@ -113,7 +109,6 @@ fn exec_module(
     module: &Module,
     globals: &mut EmscriptenGlobals,
     em_env: FunctionEnv<EmEnv>,
-    _atom: Arc<WebCMmap>,
     name: &str,
     args: Vec<String>,
 ) -> Result<(), anyhow::Error> {

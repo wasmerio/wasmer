@@ -27,8 +27,7 @@ pub trait Runner {
         let cmd = match container.manifest().entrypoint.as_ref() {
             Some(s) => s,
             None => {
-                let path = format!("{}", container.v1().path.display());
-                anyhow::bail!("Cannot run {path:?}: not executable (no entrypoint in manifest)");
+                anyhow::bail!("Cannot run the package: not executable (no entrypoint in manifest)");
             }
         };
 
@@ -37,15 +36,11 @@ pub trait Runner {
 
     /// Runs the given `cmd` on the container
     fn run_cmd(&mut self, container: &WapmContainer, cmd: &str) -> Result<Self::Output, Error> {
-        let webc = container.v1();
-        let path = format!("{}", webc.path.display());
-        let command_to_exec = webc
-            .manifest
+        let command_to_exec = container
+            .manifest()
             .commands
             .get(cmd)
-            .ok_or_else(|| anyhow::anyhow!("{path}: command {cmd:?} not found in manifest"))?;
-
-        let _path = format!("{}", webc.path.display());
+            .ok_or_else(|| anyhow::anyhow!("command {cmd:?} not found in manifest"))?;
 
         match self.can_run_command(cmd, command_to_exec) {
             Ok(true) => {}

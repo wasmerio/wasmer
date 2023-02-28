@@ -1,10 +1,11 @@
 use std::{collections::HashMap, convert::Infallible, net::SocketAddr, path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Error};
+use futures::channel::oneshot::Receiver;
 use wasmer::{Engine, Module, Store};
 use wasmer_vfs::FileSystem;
 use wcgi_host::CgiDialect;
-use webc::metadata::{Command, Manifest};
+use webc::metadata::{annotations::Wcgi, Command, Manifest};
 
 use crate::{
     runners::{
@@ -24,7 +25,7 @@ pub struct WcgiRunner {
 // make the "Runner" trait contain just these two methods.
 impl WcgiRunner {
     fn supports(cmd: &Command) -> Result<bool, Error> {
-        Ok(cmd.runner.starts_with("https://webc.org/runner/wcgi"))
+        Ok(cmd.runner.starts_with("https://webc.org/runner/wasi"))
     }
 
     #[tracing::instrument(skip(self, ctx))]
@@ -42,8 +43,23 @@ impl WcgiRunner {
         let address = self.config.addr;
         tracing::info!(%address, "Starting the server");
 
+        let abort = self.config.abort.take();
+
         task_manager
-            .block_on(async { hyper::Server::bind(&address).serve(make_service).await })
+            .block_on(async {
+                let server = hyper::Server::bind(&address).serve(make_service);
+
+                match abort {
+                    Some(abort) => {
+                        server
+                            .with_graceful_shutdown(async move {
+                                let _ = abort.await;
+                            })
+                            .await
+                    }
+                    None => server.await,
+                }
+            })
             .context("Unable to start the server")?;
 
         todo!();
@@ -90,13 +106,10 @@ impl WcgiRunner {
 
         env.extend(self.config.env.clone());
 
-        let webc::metadata::annotations::Wcgi { dialect, .. } = ctx
-            .command()
-            .annotations
-            .get("wcgi")
-            .cloned()
-            .and_then(|v| serde_cbor::value::from_value(v).ok())
-            .context("No \"wcgi\" annotations associated with this command")?;
+        let Wcgi { dialect, .. } = match ctx.command().annotations.get("wcgi") {
+            Some(v) => serde_cbor::value::from_value(v.clone())?,
+            None => Wcgi::default(),
+        };
 
         let dialect = match dialect {
             Some(d) => d.parse().context("Unable to parse the CGI dialect")?,
@@ -195,6 +208,7 @@ pub struct Config {
     env: HashMap<String, String>,
     forward_host_env: bool,
     mapped_dirs: Vec<MappedDirectory>,
+    abort: Option<futures::channel::oneshot::Receiver<()>>,
 }
 
 impl Config {
@@ -259,6 +273,11 @@ impl Config {
         });
         self
     }
+
+    pub fn abort_channel(&mut self, rx: Receiver<()>) -> &mut Self {
+        self.abort = Some(rx);
+        self
+    }
 }
 
 impl Default for Config {
@@ -270,6 +289,7 @@ impl Default for Config {
             forward_host_env: false,
             mapped_dirs: Vec::new(),
             args: Vec::new(),
+            abort: None,
         }
     }
 }
