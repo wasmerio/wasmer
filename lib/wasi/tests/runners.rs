@@ -1,7 +1,8 @@
 #![cfg(feature = "webc_runner")]
 
-use std::path::Path;
+use std::{path::Path, time::Duration};
 
+use once_cell::sync::Lazy;
 use reqwest::Client;
 use wasmer_wasi::runners::{Runner, WapmContainer};
 
@@ -10,7 +11,7 @@ mod wasi {
     use tokio::runtime::Handle;
     use wasmer::Store;
     use wasmer_wasi::{
-        runners::wasi::WasiRunner, runtime::task_manager::tokio::TokioTaskManager, WasiRuntimeError,
+        runners::wasi::WasiRunner, runtime::task_manager::tokio::TokioTaskManager, WasiError,
     };
 
     use super::*;
@@ -24,21 +25,30 @@ mod wasi {
 
         // Note: we don't have any way to intercept stdin or stdout, so blindly
         // assume that everything is fine if it runs successfully.
-        let err = WasiRunner::new(store)
-            .with_task_manager(tasks)
-            .run_cmd(&container, "wat2wasm")
-            .unwrap_err();
+        let handle = std::thread::spawn(move || {
+            WasiRunner::new(store)
+                .with_task_manager(tasks)
+                .run_cmd(&container, "wat2wasm")
+        });
+        let err = handle.join().unwrap().unwrap_err();
 
-        let runtime_error: &WasiRuntimeError = err.downcast().unwrap();
-        let exit_code = runtime_error.as_exit_code().unwrap();
+        let runtime_error = err
+            .chain()
+            .find_map(|e| e.downcast_ref::<WasiError>())
+            .unwrap();
+        let exit_code = match runtime_error {
+            WasiError::Exit(code) => *code,
+            _ => unreachable!(),
+        };
         assert_eq!(exit_code, 1);
     }
 }
 
 #[cfg(feature = "webc_runner_rt_wcgi")]
 mod wcgi {
-    use std::thread::JoinHandle;
+    use std::future::Future;
 
+    use futures::{channel::mpsc::Sender, future::AbortHandle, SinkExt, StreamExt};
     use rand::Rng;
     use tokio::runtime::Handle;
     use wasmer_wasi::{runners::wcgi::WcgiRunner, runtime::task_manager::tokio::TokioTaskManager};
@@ -52,46 +62,64 @@ mod wcgi {
         let container = WapmContainer::from_bytes(webc).unwrap();
         let mut runner = WcgiRunner::new("staticserver");
         let port = rand::thread_rng().gen_range(10000_u16..65535_u16);
-        let port = 12345;
-        let (tx, rx) = futures::channel::oneshot::channel();
+        let (cb, started) = callbacks(Handle::current());
         runner
             .config()
             .addr(([127, 0, 0, 1], port).into())
             .task_manager(tasks)
-            .abort_channel(rx);
-        // Note: the server blocks, so spin it up in a background thread and kill it
-        // after we've made our request.
-        let _guard = thread_spawn(move || {
+            .callbacks(cb);
+
+        // The server blocks so we need to start it on a background thread.
+        std::thread::spawn(move || {
             runner.run_cmd(&container, "wcgi").unwrap();
         });
 
-        // The way we test this is by fetching "/" and checking it contains
-        // something we expect
-        let resp = reqwest::get(format!("http://localhost:{port}/index.html"))
+        // wait for the server to have started
+        let abort_handle = started.await;
+
+        // Now the server is running, we can check that it is working by
+        // fetching "/" and checking for known content
+        let resp = client()
+            .get(format!("http://localhost:{port}/"))
+            .send()
             .await
             .unwrap();
         let body = resp.error_for_status().unwrap().text().await.unwrap();
 
-        assert!(body.contains("asdf"), "{}", body);
+        assert!(body.contains("<title>Index of /</title>"), "{}", body);
 
-        // Make sure we shut the server down afterwards
-        drop(tx);
+        // Make sure the server is shutdown afterwards
+        abort_handle.abort();
     }
 
-    fn thread_spawn(f: impl FnOnce() + Send + 'static) -> impl Drop {
-        struct JoinOnDrop(Option<JoinHandle<()>>);
-        impl Drop for JoinOnDrop {
-            fn drop(&mut self) {
-                if let Err(e) = self.0.take().unwrap().join() {
-                    if !std::thread::panicking() {
-                        std::panic::resume_unwind(e);
-                    }
-                }
-            }
-        }
-        let handle = std::thread::spawn(f);
+    fn callbacks(handle: Handle) -> (Callbacks, impl Future<Output = AbortHandle>) {
+        let (sender, mut rx) = futures::channel::mpsc::channel(1);
 
-        JoinOnDrop(Some(handle))
+        let cb = Callbacks { sender, handle };
+        let fut = async move { rx.next().await.unwrap() };
+
+        (cb, fut)
+    }
+
+    struct Callbacks {
+        sender: Sender<AbortHandle>,
+        handle: Handle,
+    }
+
+    impl wasmer_wasi::runners::wcgi::Callbacks for Callbacks {
+        fn started(&self, abort: futures::stream::AbortHandle) {
+            let mut sender = self.sender.clone();
+            self.handle.spawn(async move {
+                sender.send(abort).await.unwrap();
+            });
+        }
+
+        fn on_stderr(&self, stderr: &[u8]) {
+            panic!(
+                "Something was written to stderr: {}",
+                String::from_utf8_lossy(stderr)
+            );
+        }
     }
 }
 
@@ -106,9 +134,7 @@ async fn download_cached(url: &str) -> bytes::Bytes {
         return std::fs::read(&cached_path).unwrap().into();
     }
 
-    let client = Client::new();
-
-    let response = client
+    let response = client()
         .get(url)
         .header("Accept", "application/webc")
         .send()
@@ -128,4 +154,14 @@ async fn download_cached(url: &str) -> bytes::Bytes {
     std::fs::write(&cached_path, &body).unwrap();
 
     body
+}
+
+fn client() -> Client {
+    static CLIENT: Lazy<Client> = Lazy::new(|| {
+        Client::builder()
+            .connect_timeout(Duration::from_secs(30))
+            .build()
+            .unwrap()
+    });
+    CLIENT.clone()
 }

@@ -97,7 +97,8 @@ impl WapmContainer {
         }
     }
 
-    pub(crate) fn volume_fs(&self, package_name: &str) -> Box<dyn FileSystem + Send + Sync> {
+    /// Load a volume as a [`FileSystem`] node.
+    pub fn volume_fs(&self, package_name: &str) -> Box<dyn FileSystem + Send + Sync> {
         match &self.repr {
             Repr::V1Mmap(mapped) => {
                 Box::new(WebcFileSystem::init(Arc::clone(mapped), package_name))

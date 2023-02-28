@@ -1,7 +1,7 @@
 use std::{collections::HashMap, convert::Infallible, net::SocketAddr, path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Error};
-use futures::channel::oneshot::Receiver;
+use futures::future::AbortHandle;
 use wasmer::{Engine, Module, Store};
 use wasmer_vfs::FileSystem;
 use wcgi_host::CgiDialect;
@@ -43,26 +43,25 @@ impl WcgiRunner {
         let address = self.config.addr;
         tracing::info!(%address, "Starting the server");
 
-        let abort = self.config.abort.take();
+        let callbacks = Arc::clone(&self.config.callbacks);
 
         task_manager
             .block_on(async {
-                let server = hyper::Server::bind(&address).serve(make_service);
+                let (shutdown, abort_handle) =
+                    futures::future::abortable(futures::future::pending::<()>());
 
-                match abort {
-                    Some(abort) => {
-                        server
-                            .with_graceful_shutdown(async move {
-                                let _ = abort.await;
-                            })
-                            .await
-                    }
-                    None => server.await,
-                }
+                callbacks.started(abort_handle);
+
+                hyper::Server::bind(&address)
+                    .serve(make_service)
+                    .with_graceful_shutdown(async {
+                        let _ = shutdown.await;
+                    })
+                    .await
             })
             .context("Unable to start the server")?;
 
-        todo!();
+        Ok(())
     }
 }
 
@@ -128,6 +127,7 @@ impl WcgiRunner {
                 .unwrap_or_else(|| Arc::new(TokioTaskManager::default())),
             module,
             dialect,
+            callbacks: Arc::clone(&self.config.callbacks),
         };
 
         Ok(handler)
@@ -200,7 +200,8 @@ impl crate::runners::Runner for WcgiRunner {
     }
 }
 
-#[derive(Debug)]
+#[derive(derivative::Derivative)]
+#[derivative(Debug)]
 pub struct Config {
     task_manager: Option<Arc<dyn VirtualTaskManager>>,
     addr: SocketAddr,
@@ -208,7 +209,8 @@ pub struct Config {
     env: HashMap<String, String>,
     forward_host_env: bool,
     mapped_dirs: Vec<MappedDirectory>,
-    abort: Option<futures::channel::oneshot::Receiver<()>>,
+    #[derivative(Debug = "ignore")]
+    callbacks: Arc<dyn Callbacks>,
 }
 
 impl Config {
@@ -274,8 +276,10 @@ impl Config {
         self
     }
 
-    pub fn abort_channel(&mut self, rx: Receiver<()>) -> &mut Self {
-        self.abort = Some(rx);
+    /// Set callbacks that will be triggered at various points in the runner's
+    /// lifecycle.
+    pub fn callbacks(&mut self, callbacks: impl Callbacks + Send + Sync + 'static) -> &mut Self {
+        self.callbacks = Arc::new(callbacks);
         self
     }
 }
@@ -289,7 +293,22 @@ impl Default for Config {
             forward_host_env: false,
             mapped_dirs: Vec::new(),
             args: Vec::new(),
-            abort: None,
+            callbacks: Arc::new(NoopCallbacks),
         }
     }
 }
+
+/// Callbacks that are triggered at various points in the lifecycle of a runner
+/// and any WebAssembly instances it may start.
+pub trait Callbacks: Send + Sync + 'static {
+    /// A callback that is called whenever the server starts.
+    fn started(&self, _abort: AbortHandle) {}
+    /// Data was written to stderr by an instance.
+    fn on_stderr(&self, _stderr: &[u8]) {}
+    /// Reading from stderr failed.
+    fn on_stderr_error(&self, _error: std::io::Error) {}
+}
+
+struct NoopCallbacks;
+
+impl Callbacks for NoopCallbacks {}

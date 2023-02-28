@@ -19,13 +19,15 @@ use wasmer_vfs::{FileSystem, PassthruFileSystem, RootFileSystemBuilder, TmpFileS
 use wcgi_host::CgiDialect;
 
 use crate::{
-    http::HttpClientCapabilityV1, runners::wcgi::MappedDirectory, Capabilities, Pipe,
-    PluggableRuntimeImplementation, VirtualTaskManager, WasiEnv,
+    http::HttpClientCapabilityV1,
+    runners::wcgi::{Callbacks, MappedDirectory},
+    Capabilities, Pipe, PluggableRuntimeImplementation, VirtualTaskManager, WasiEnv,
 };
 
 /// The shared object that manages the instantiaion of WASI executables and
 /// communicating with them via the CGI protocol.
-#[derive(Debug, Clone)]
+#[derive(Clone, derivative::Derivative)]
+#[derivative(Debug)]
 pub(crate) struct Handler {
     pub(crate) program: Arc<str>,
     pub(crate) env: Arc<HashMap<String, String>>,
@@ -34,6 +36,8 @@ pub(crate) struct Handler {
     pub(crate) task_manager: Arc<dyn VirtualTaskManager>,
     pub(crate) module: Module,
     pub(crate) dialect: CgiDialect,
+    #[derivative(Debug = "ignore")]
+    pub(crate) callbacks: Arc<dyn Callbacks>,
 }
 
 impl Handler {
@@ -76,10 +80,14 @@ impl Handler {
             .and_then(|r| async { r.map_err(Error::from) });
 
         let handle = self.task_manager.runtime().clone();
+        let callbacks = Arc::clone(&self.callbacks);
+
+        handle.spawn(async move {
+            consume_stderr(stderr_receiver, callbacks).await;
+        });
+
         self.task_manager.runtime().spawn(async move {
-            if let Err(e) =
-                drive_request_to_completion(&handle, done, body, req_body_sender, stderr_receiver)
-                    .await
+            if let Err(e) = drive_request_to_completion(&handle, done, body, req_body_sender).await
             {
                 tracing::error!(
                     error = &*e as &dyn std::error::Error,
@@ -152,7 +160,6 @@ async fn drive_request_to_completion(
     done: impl Future<Output = Result<(), Error>>,
     mut request_body: hyper::Body,
     mut instance_stdin: impl AsyncWrite + Send + Unpin + 'static,
-    instance_stderr: impl AsyncRead + Send + Unpin + 'static,
 ) -> Result<(), Error> {
     let request_body_send = handle
         .spawn(async move {
@@ -173,10 +180,6 @@ async fn drive_request_to_completion(
         .map_err(Error::from)
         .and_then(|r| async { r });
 
-    handle.spawn(async move {
-        consume_stderr(instance_stderr).await;
-    });
-
     futures::try_join!(done, request_body_send)?;
 
     Ok(())
@@ -185,11 +188,11 @@ async fn drive_request_to_completion(
 /// Read the instance's stderr, taking care to preserve output even when WASI
 /// pipe errors occur so users still have *something* they use for
 /// troubleshooting.
-async fn consume_stderr(stderr: impl AsyncRead + Send + Unpin + 'static) {
+async fn consume_stderr(
+    stderr: impl AsyncRead + Send + Unpin + 'static,
+    callbacks: Arc<dyn Callbacks>,
+) {
     let mut stderr = tokio::io::BufReader::new(stderr);
-
-    // FIXME: this could lead to unbound memory usage
-    let mut buffer = Vec::new();
 
     // Note: we don't want to just read_to_end() because a reading error
     // would cause us to lose all of stderr. At least this way we'll be
@@ -201,30 +204,16 @@ async fn consume_stderr(stderr: impl AsyncRead + Send + Unpin + 'static) {
                 break;
             }
             Ok(chunk) => {
-                buffer.extend(chunk);
+                callbacks.on_stderr(chunk);
                 let bytes_read = chunk.len();
                 stderr.consume(bytes_read);
             }
             Err(e) => {
-                tracing::error!(
-                    error = &e as &dyn std::error::Error,
-                    bytes_read = buffer.len(),
-                    "Unable to read the complete stderr",
-                );
+                callbacks.on_stderr_error(e);
                 break;
             }
         }
     }
-
-    let stderr = String::from_utf8(buffer).unwrap_or_else(|e| {
-        tracing::warn!(
-            error = &e as &dyn std::error::Error,
-            "Stdout wasn't valid UTF-8",
-        );
-        String::from_utf8_lossy(e.as_bytes()).into_owned()
-    });
-
-    tracing::info!(%stderr);
 }
 
 impl Service<Request<Body>> for Handler {
