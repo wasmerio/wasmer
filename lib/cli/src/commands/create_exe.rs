@@ -227,7 +227,7 @@ impl CreateExe {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
         }
 
-        let (mut store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+        let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
 
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
@@ -276,7 +276,7 @@ impl CreateExe {
                 )
             }?;
 
-        get_module_infos(&mut store, &tempdir, &atoms, object_format)?;
+        get_module_infos(&store, &tempdir, &atoms, object_format)?;
         let mut entrypoint = get_entrypoint(&tempdir)?;
         create_header_files_in_dir(&tempdir, &mut entrypoint, &atoms, &self.precompiled_atom)?;
         link_exe_from_dir(
@@ -964,7 +964,7 @@ pub(super) fn prepare_directory_from_single_wasm_file(
 // reads the module info from the wasm module and writes the ModuleInfo for each file
 // into the entrypoint.json file
 fn get_module_infos(
-    mut store: &mut Store,
+    store: &Store,
     directory: &Path,
     atoms: &[(String, Vec<u8>)],
     object_format: ObjectFormat,
@@ -974,7 +974,7 @@ fn get_module_infos(
 
     let mut module_infos = BTreeMap::new();
     for (atom_name, atom_bytes) in atoms {
-        let module = Module::new(&mut store, atom_bytes.as_slice())?;
+        let module = Module::new(&store, atom_bytes.as_slice())?;
         let module_info = module.info();
         if let Some(s) = entrypoint
             .atoms
