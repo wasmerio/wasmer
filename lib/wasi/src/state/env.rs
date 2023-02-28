@@ -535,7 +535,7 @@ impl WasiEnv {
             let signal_cnt = signals.len();
             for sig in signals {
                 if sig == Signal::Sigint || sig == Signal::Sigquit || sig == Signal::Sigkill {
-                    env.thread.terminate(Errno::Intr as u32);
+                    env.thread.set_status_finished(Ok(Errno::Intr as u32));
                     return Err(WasiError::Exit(Errno::Intr as u32));
                 } else {
                     trace!("wasi[{}]::signal-ignored: {:?}", env.pid(), sig);
@@ -564,7 +564,7 @@ impl WasiEnv {
                 .thread
                 .has_signal(&[Signal::Sigint, Signal::Sigquit, Signal::Sigkill])
             {
-                env.thread.terminate(Errno::Intr as u32);
+                env.thread.set_status_finished(Ok(Errno::Intr as u32));
             }
             return Ok(Ok(false));
         }
@@ -651,10 +651,10 @@ impl WasiEnv {
     pub fn should_exit(&self) -> Option<u32> {
         // Check for forced exit
         if let Some(forced_exit) = self.thread.try_join() {
-            return Some(forced_exit);
+            return Some(forced_exit.unwrap_or(Errno::Child as u32));
         }
         if let Some(forced_exit) = self.process.try_join() {
-            return Some(forced_exit);
+            return Some(forced_exit.unwrap_or(Errno::Child as u32));
         }
         None
     }
@@ -773,7 +773,7 @@ impl WasiEnv {
         while let Some(use_package) = use_packages.pop_back() {
             if let Some(package) = cmd_wasmer
                 .as_ref()
-                .and_then(|cmd| cmd.get_package(use_package.clone(), self.tasks().deref()))
+                .and_then(|cmd| cmd.get_package(use_package.clone()))
             {
                 // If its already been added make sure the version is correct
                 let package_name = package.package_name.to_string();

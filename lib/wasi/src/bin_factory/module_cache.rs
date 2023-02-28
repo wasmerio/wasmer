@@ -1,10 +1,16 @@
-use std::{cell::RefCell, collections::HashMap, ops::DerefMut, path::PathBuf, sync::RwLock};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    ops::DerefMut,
+    path::PathBuf,
+    sync::RwLock,
+};
 
 use wasmer::Module;
 use wasmer_wasi_types::wasi::Snapshot0Clockid;
 
 use super::BinaryPackage;
-use crate::{syscalls::platform_clock_time_get, VirtualTaskManager, WasiRuntime};
+use crate::{syscalls::platform_clock_time_get, WasiRuntime};
 
 pub const DEFAULT_COMPILED_PATH: &str = "~/.wasmer/compiled";
 pub const DEFAULT_WEBC_PATH: &str = "~/.wasmer/webc";
@@ -83,12 +89,7 @@ impl ModuleCache {
     }
 
     // TODO: should return Result<_, anyhow::Error>
-    pub fn get_webc(
-        &self,
-        webc: &str,
-        runtime: &dyn WasiRuntime,
-        tasks: &dyn VirtualTaskManager,
-    ) -> Option<BinaryPackage> {
+    pub fn get_webc(&self, webc: &str, runtime: &dyn WasiRuntime) -> Option<BinaryPackage> {
         let name = webc.to_string();
         let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
 
@@ -109,8 +110,19 @@ impl ModuleCache {
 
         // Slow path
         let mut cache = self.cache_webc.write().unwrap();
+        self.get_webc_slow(webc, runtime, cache.deref_mut())
+    }
 
-        // Check the cache
+    fn get_webc_slow(
+        &self,
+        webc: &str,
+        runtime: &dyn WasiRuntime,
+        cache: &mut HashMap<String, BinaryPackage>,
+    ) -> Option<BinaryPackage> {
+        let name = webc.to_string();
+        let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
+
+        // Check the cache (again)
         if let Some(data) = cache.get(&name) {
             if let Some(when_cached) = data.when_cached.as_ref() {
                 let delta = now - *when_cached;
@@ -129,9 +141,27 @@ impl ModuleCache {
                 .map(|a| a.0)
                 .unwrap_or_else(|| name.as_str());
             let cache_webc_dir = self.cache_webc_dir.as_str();
-            if let Ok(data) =
-                crate::wapm::fetch_webc_task(cache_webc_dir, wapm_name, runtime, tasks)
-            {
+            if let Ok(mut data) = crate::wapm::fetch_webc_task(cache_webc_dir, wapm_name, runtime) {
+                // If the binary has no entry but it inherits from another module
+                // that does have an entry then we fall back to that inherited entry point
+                // (this convention is recursive down the list of inheritance until it finds the first entry point)
+                let mut already: HashSet<String> = Default::default();
+                while data.entry.is_none() {
+                    let mut inherits = data.uses.iter().filter_map(|webc| {
+                        if !already.contains(webc) {
+                            already.insert(webc.clone());
+                            self.get_webc_slow(webc, runtime, cache)
+                        } else {
+                            None
+                        }
+                    });
+                    if let Some(inherits) = inherits.next() {
+                        data.entry = inherits.entry.clone();
+                    } else {
+                        break;
+                    }
+                }
+
                 // If the package is the same then don't replace it
                 // as we don't want to duplicate the memory usage
                 if let Some(existing) = cache.get_mut(&name) {
@@ -277,9 +307,7 @@ mod tests {
 
         let mut store = Vec::new();
         for _ in 0..2 {
-            let webc = cache
-                .get_webc("sharrattj/dash", &rt, std::ops::Deref::deref(tasks))
-                .unwrap();
+            let webc = cache.get_webc("sharrattj/dash", &rt).unwrap();
             store.push(webc);
             tasks
                 .runtime()

@@ -32,7 +32,7 @@ pub fn fd_event<M: MemorySize>(
         .fs
         .create_fd(rights, rights, Fdflags::empty(), 0, inode));
 
-    debug!(
+    trace!(
         "wasi[{}:{}]::fd_event - event notifications created (fd={})",
         ctx.data().pid(),
         ctx.data().tid(),

@@ -9,7 +9,7 @@ use std::{
     time::Duration,
 };
 
-use crate::vbus::{BusSpawnedProcess, SignalHandlerAbi};
+use crate::WasiRuntimeError;
 use tracing::trace;
 use wasmer_wasi_types::{
     types::Signal,
@@ -22,7 +22,11 @@ use crate::{
     WasiThread, WasiThreadHandle, WasiThreadId,
 };
 
-use super::{control_plane::ControlPlaneError, task_join_handle::TaskJoinHandle};
+use super::{
+    control_plane::ControlPlaneError,
+    signal::{SignalDeliveryError, SignalHandlerAbi},
+    task_join_handle::{OwnedTaskStatus, TaskJoinHandle},
+};
 
 /// Represents the ID of a sub-process
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -79,7 +83,7 @@ pub struct WasiProcess {
     // (we don't want cyclical references)
     pub(crate) compute: WasiControlPlane,
     /// Reference to the exit code for the main thread
-    pub(crate) finished: Arc<TaskJoinHandle>,
+    pub(crate) finished: Arc<OwnedTaskStatus>,
     /// List of all the children spawned from this thread
     pub(crate) children: Arc<RwLock<Vec<WasiProcessId>>>,
     /// Number of threads waiting for children to exit
@@ -104,11 +108,12 @@ pub struct WasiProcessInner {
     /// Signals that will be triggered at specific intervals
     pub signal_intervals: HashMap<Signal, WasiSignalInterval>,
     /// Represents all the process spun up as a bus process
-    pub bus_processes: HashMap<WasiProcessId, Box<BusSpawnedProcess>>,
+    pub bus_processes: HashMap<WasiProcessId, TaskJoinHandle>,
     /// Indicates if the bus process can be reused
     pub bus_process_reuse: HashMap<Cow<'static, str>, WasiProcessId>,
 }
 
+// TODO: why do we need this, how is it used?
 pub(crate) struct WasiProcessWait {
     waiting: Arc<AtomicU32>,
 }
@@ -146,7 +151,7 @@ impl WasiProcess {
                 bus_process_reuse: Default::default(),
             })),
             children: Arc::new(RwLock::new(Default::default())),
-            finished: Arc::new(TaskJoinHandle::new()),
+            finished: Arc::new(OwnedTaskStatus::default()),
             waiting: Arc::new(AtomicU32::new(0)),
         }
     }
@@ -189,18 +194,14 @@ impl WasiProcess {
             is_main = true;
             self.finished.clone()
         } else {
-            Arc::new(TaskJoinHandle::new())
+            Arc::new(OwnedTaskStatus::default())
         };
 
         let ctrl = WasiThread::new(self.pid(), id, is_main, finished, task_count_guard);
         inner.threads.insert(id, ctrl.clone());
         inner.thread_count += 1;
 
-        Ok(WasiThreadHandle {
-            id: Arc::new(id),
-            thread: ctrl,
-            inner: self.inner.clone(),
-        })
+        Ok(WasiThreadHandle::new(ctrl, &self.inner))
     }
 
     /// Gets a reference to a particular thread
@@ -277,19 +278,19 @@ impl WasiProcess {
         inner.thread_count
     }
 
-    /// Waits until the process is finished or the timeout is reached
-    pub async fn join(&self) -> Option<ExitCode> {
+    /// Waits until the process is finished.
+    pub async fn join(&self) -> Result<ExitCode, Arc<WasiRuntimeError>> {
         let _guard = WasiProcessWait::new(self);
         self.finished.await_termination().await
     }
 
     /// Attempts to join on the process
-    pub fn try_join(&self) -> Option<ExitCode> {
-        self.finished.get_exit_code()
+    pub fn try_join(&self) -> Option<Result<ExitCode, Arc<WasiRuntimeError>>> {
+        self.finished.status().into_finished()
     }
 
     /// Waits for all the children to be finished
-    pub async fn join_children(&mut self) -> Option<ExitCode> {
+    pub async fn join_children(&mut self) -> Option<Result<ExitCode, Arc<WasiRuntimeError>>> {
         let _guard = WasiProcessWait::new(self);
         let children: Vec<_> = {
             let children = self.children.read().unwrap();
@@ -313,47 +314,48 @@ impl WasiProcess {
         futures::future::join_all(waits.into_iter())
             .await
             .into_iter()
-            .find_map(|a| a)
+            .next()
     }
 
     /// Waits for any of the children to finished
     pub async fn join_any_child(&mut self) -> Result<Option<(WasiProcessId, ExitCode)>, Errno> {
         let _guard = WasiProcessWait::new(self);
-        loop {
-            let children: Vec<_> = {
-                let children = self.children.read().unwrap();
-                children.clone()
-            };
-            if children.is_empty() {
-                return Err(Errno::Child);
-            }
+        let children: Vec<_> = {
+            let children = self.children.read().unwrap();
+            children.clone()
+        };
+        if children.is_empty() {
+            return Err(Errno::Child);
+        }
 
-            let mut waits = Vec::new();
-            for pid in children {
-                if let Some(process) = self.compute.get_process(pid) {
-                    let children = self.children.clone();
-                    waits.push(async move {
-                        let join = process.join().await;
-                        let mut children = children.write().unwrap();
-                        children.retain(|a| *a != pid);
-                        join.map(|exit_code| (pid, exit_code))
-                    })
-                }
-            }
-            let woke = futures::future::select_all(waits.into_iter().map(|a| Box::pin(a)))
-                .await
-                .0;
-            if let Some((pid, exit_code)) = woke {
-                return Ok(Some((pid, exit_code)));
+        let mut waits = Vec::new();
+        for pid in children {
+            if let Some(process) = self.compute.get_process(pid) {
+                let children = self.children.clone();
+                waits.push(async move {
+                    let join = process.join().await;
+                    let mut children = children.write().unwrap();
+                    children.retain(|a| *a != pid);
+                    (pid, join)
+                })
             }
         }
+        let (pid, res) = futures::future::select_all(waits.into_iter().map(|a| Box::pin(a)))
+            .await
+            .0;
+
+        let code = res.unwrap_or_else(|e| e.as_exit_code().unwrap_or(Errno::Canceled as u32));
+
+        Ok(Some((pid, code)))
     }
 
     /// Terminate the process and all its threads
     pub fn terminate(&self, exit_code: ExitCode) {
+        // FIXME: this is wrong, threads might still be running!
+        // Need special logic for the main thread.
         let guard = self.inner.read().unwrap();
         for thread in guard.threads.values() {
-            thread.terminate(exit_code)
+            thread.set_status_finished(Ok(exit_code))
         }
     }
 
@@ -364,9 +366,12 @@ impl WasiProcess {
 }
 
 impl SignalHandlerAbi for WasiProcess {
-    fn signal(&self, sig: u8) {
+    fn signal(&self, sig: u8) -> Result<(), SignalDeliveryError> {
         if let Ok(sig) = sig.try_into() {
             self.signal_process(sig);
+            Ok(())
+        } else {
+            Err(SignalDeliveryError)
         }
     }
 }

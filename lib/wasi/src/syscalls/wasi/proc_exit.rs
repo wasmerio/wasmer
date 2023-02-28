@@ -20,7 +20,7 @@ pub fn proc_exit<M: MemorySize>(
     );
 
     // Set the exit code for this process
-    ctx.data().thread.terminate(code as u32);
+    ctx.data().thread.set_status_finished(Ok(code as u32));
 
     // If we are in a vfork we need to return to the point we left off
     if let Some(mut vfork) = ctx.data_mut().vfork.take() {
