@@ -115,13 +115,14 @@ pub fn spawn_exec_module(
                 // Let's instantiate the module with the imports.
                 let (mut import_object, init) =
                     import_object_for_all_wasi_versions(&module, &mut store, &wasi_env.env);
-                if let Some(memory) = memory {
-                    import_object.define(
-                        "env",
-                        "memory",
-                        Memory::new_from_existing(&mut store, memory),
-                    );
-                }
+                let imported_memory = if let Some(memory) = memory {
+                    let imported_memory = Memory::new_from_existing(&mut store, memory);
+                    import_object.define("env", "memory", imported_memory.clone());
+                    Some(imported_memory)
+                } else {
+                    None
+                };
+
                 let instance = match Instance::new(&mut store, &module, &import_object) {
                     Ok(a) => a,
                     Err(err) => {
@@ -136,7 +137,9 @@ pub fn spawn_exec_module(
                 init(&instance, &store).unwrap();
 
                 // Initialize the WASI environment
-                if let Err(err) = wasi_env.initialize(&mut store, instance.clone()) {
+                if let Err(err) =
+                    wasi_env.initialize_with_memory(&mut store, instance.clone(), imported_memory)
+                {
                     error!("wasi[{}]::wasi initialize error ({})", pid, err);
                     wasi_env
                         .data(&store)
