@@ -1,5 +1,5 @@
 use tracing::trace;
-use wasmer::{AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Module};
+use wasmer::{AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module};
 use wasmer_wasi_types::wasi::ExitCode;
 
 use crate::{
@@ -52,6 +52,19 @@ impl WasiFunctionEnv {
         store: &mut impl AsStoreMut,
         instance: Instance,
     ) -> Result<(), ExportError> {
+        self.initialize_with_memory(store, instance, None)
+    }
+
+    /// Initializes the WasiEnv using the instance exports and a provided optional memory
+    /// (this must be executed before attempting to use it)
+    /// (as the stores can not by themselves be passed between threads we can store the module
+    ///  in a thread-local variables and use it later - for multithreading)
+    pub fn initialize_with_memory(
+        &mut self,
+        store: &mut impl AsStoreMut,
+        instance: Instance,
+        memory: Option<Memory>,
+    ) -> Result<(), ExportError> {
         // List all the exports and imports
         for ns in instance.module().exports() {
             //trace!("module::export - {} ({:?})", ns.name(), ns.ty());
@@ -65,7 +78,17 @@ impl WasiFunctionEnv {
 
         // First we get the malloc function which if it exists will be used to
         // create the pthread_self structure
-        let memory = instance.exports.get_memory("memory")?.clone();
+        let memory = instance.exports.get_memory("memory").map_or_else(
+            |e| {
+                if let Some(memory) = memory {
+                    Ok(memory)
+                } else {
+                    Err(e)
+                }
+            },
+            |v| Ok(v.clone()),
+        )?;
+
         let new_inner = WasiInstanceHandles::new(memory, store, instance);
 
         let env = self.data_mut(store);
