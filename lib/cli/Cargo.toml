@@ -26,7 +26,9 @@ required-features = ["headless"]
 
 [dependencies]
 wasmer = { version = "=3.2.0-alpha.1", path = "../api", default-features = false }
-wasmer-compiler = { version = "=3.2.0-alpha.1", path = "../compiler", features = ["compiler", ] }
+wasmer-compiler = { version = "=3.2.0-alpha.1", path = "../compiler", features = [
+    "compiler",
+] }
 wasmer-compiler-cranelift = { version = "=3.2.0-alpha.1", path = "../compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "=3.2.0-alpha.1", path = "../compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "=3.2.0-alpha.1", path = "../compiler-llvm", optional = true }
@@ -36,7 +38,9 @@ wasmer-wasix = { version = "0.1.0", path = "../wasi", optional = true }
 wasmer-wasix-experimental-io-devices = { version = "0.1.0", path = "../wasi-experimental-io-devices", optional = true, features = ["link_external_libs"] }
 wasmer-wast = { version = "=3.2.0-alpha.1", path = "../../tests/lib/wast", optional = true }
 wasmer-cache = { version = "=3.2.0-alpha.1", path = "../cache", optional = true }
-wasmer-types = { version = "=3.2.0-alpha.1", path = "../types", features = ["enable-serde"] }
+wasmer-types = { version = "=3.2.0-alpha.1", path = "../types", features = [
+    "enable-serde",
+] }
 wasmer-registry = { version = "=4.0.0", path = "../registry" }
 wasmer-object = { version = "=3.2.0-alpha.1", path = "../object", optional = true }
 virtual-fs  = { version = "0.1.0", path = "../vfs", default-features = false, features = ["host-fs"] }
@@ -68,7 +72,6 @@ regex = "1.6.0"
 toml = "0.5.9"
 url = "2.3.1"
 libc = { version = "^0.2", default-features = false }
-nuke-dir = { version = "0.1.0", optional = true }
 webc = { version = "5.0.0-rc.5", optional = true }
 isatty = "0.1.9"
 dialoguer = "0.10.2"
@@ -79,7 +82,11 @@ cargo_metadata = "0.15.2"
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 tar = "0.4.38"
 thiserror = "1.0.37"
-time = { version = "0.3.17", default-features = false, features = ["parsing", "std", "formatting"] }
+time = { version = "0.3.17", default-features = false, features = [
+    "parsing",
+    "std",
+    "formatting",
+] }
 log = "0.4.17"
 minisign = "0.7.2"
 semver = "1.0.14"
@@ -92,7 +99,10 @@ tracing = { version = "0.1", optional = true }
 tracing-subscriber = { version = "0.3", features = [ "env-filter", "fmt" ], optional = true }
 
 [build-dependencies]
-chrono = { version = "^0.4", default-features = false, features = [ "std", "clock" ] }
+chrono = { version = "^0.4", default-features = false, features = [
+    "std",
+    "clock",
+] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 unix_mode = "0.1.3"
@@ -120,12 +130,11 @@ host-net = [ "virtual-net/host-net" ]
 emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
 webc_runner = [
-    "wasi", 
-    "wasmer-wasix/webc_runner", 
-    "wasmer-wasix/webc_runner_rt_wasi", 
-    "wasmer-wasix/webc_runner_rt_wcgi", 
-    "wasmer-wasix/webc_runner_rt_emscripten", 
-    "nuke-dir", 
+    "wasi",
+    "wasmer-wasix/webc_runner",
+    "wasmer-wasix/webc_runner_rt_wasi",
+    "wasmer-wasix/webc_runner_rt_wcgi",
+    "wasmer-wasix/webc_runner_rt_emscripten",
     "webc"
 ]
 compiler = [
@@ -133,28 +142,6 @@ compiler = [
     "wasmer-compiler/compiler",
     "wasmer-wasix/compiler"
 ]
-wasmer-artifact-create = ["compiler",
- "wasmer/wasmer-artifact-load",
- "wasmer/wasmer-artifact-create",
- "wasmer-compiler/wasmer-artifact-load",
- "wasmer-compiler/wasmer-artifact-create",
- "wasmer-object",
- ]
-static-artifact-create = ["compiler",
- "wasmer/static-artifact-load",
- "wasmer/static-artifact-create",
- "wasmer-compiler/static-artifact-load",
- "wasmer-compiler/static-artifact-create",
- "wasmer-object",
- ]
-wasmer-artifact-load = ["compiler",
- "wasmer/wasmer-artifact-load",
- "wasmer-compiler/wasmer-artifact-load",
- ]
-static-artifact-load = ["compiler",
- "wasmer/static-artifact-load",
- "wasmer-compiler/static-artifact-load",
- ]
 
 experimental-io-devices = [
     "wasmer-wasix-experimental-io-devices",
