@@ -5,7 +5,10 @@ use futures::future::AbortHandle;
 use wasmer::{Engine, Module, Store};
 use wasmer_vfs::FileSystem;
 use wcgi_host::CgiDialect;
-use webc::metadata::{annotations::Wcgi, Command, Manifest};
+use webc::metadata::{
+    annotations::{Wasi, Wcgi},
+    Command, Manifest,
+};
 
 use crate::{
     runners::{
@@ -30,9 +33,17 @@ impl WcgiRunner {
 
     #[tracing::instrument(skip(self, ctx))]
     fn run_(&mut self, command_name: &str, ctx: &RunnerContext<'_>) -> Result<(), Error> {
-        let module = self.load_module(ctx).context("Couldn't load the module")?;
+        let wasi: Wasi = ctx
+            .command()
+            .get_annotation("wasi")
+            .context("Unable to retrieve the WASI metadata")?
+            .context("The command doesn't have any WASI annotations")?;
 
-        let handler = self.create_handler(module, ctx)?;
+        let module = self
+            .load_module(&wasi, ctx)
+            .context("Couldn't load the module")?;
+
+        let handler = self.create_handler(module, &wasi, ctx)?;
         let task_manager = Arc::clone(&handler.task_manager);
 
         let make_service = hyper::service::make_service_fn(move |_| {
@@ -56,6 +67,7 @@ impl WcgiRunner {
                     .serve(make_service)
                     .with_graceful_shutdown(async {
                         let _ = shutdown.await;
+                        tracing::info!("Shutting down gracefully");
                     })
                     .await
             })
@@ -77,15 +89,7 @@ impl WcgiRunner {
         &mut self.config
     }
 
-    fn load_module(&self, ctx: &RunnerContext<'_>) -> Result<Module, Error> {
-        let wasi: webc::metadata::annotations::Wasi = ctx
-            .command()
-            .annotations
-            .get("wasi")
-            .cloned()
-            .and_then(|v| serde_cbor::value::from_value(v).ok())
-            .context("Unable to retrieve the WASI metadata")?;
-
+    fn load_module(&self, wasi: &Wasi, ctx: &RunnerContext<'_>) -> Result<Module, Error> {
         let atom_name = &wasi.atom;
         let atom = ctx
             .get_atom(&atom_name)
@@ -96,19 +100,16 @@ impl WcgiRunner {
         Ok(module)
     }
 
-    fn create_handler(&self, module: Module, ctx: &RunnerContext<'_>) -> Result<Handler, Error> {
-        let mut env = HashMap::new();
+    fn create_handler(
+        &self,
+        module: Module,
+        wasi: &Wasi,
+        ctx: &RunnerContext<'_>,
+    ) -> Result<Handler, Error> {
+        let env = construct_env(wasi, self.config.forward_host_env, &self.config.env);
+        let args = construct_args(wasi, &self.config.args);
 
-        if self.config.forward_host_env {
-            env.extend(std::env::vars());
-        }
-
-        env.extend(self.config.env.clone());
-
-        let Wcgi { dialect, .. } = match ctx.command().annotations.get("wcgi") {
-            Some(v) => serde_cbor::value::from_value(v.clone())?,
-            None => Wcgi::default(),
-        };
+        let Wcgi { dialect, .. } = ctx.command().get_annotation("wcgi")?.unwrap_or_default();
 
         let dialect = match dialect {
             Some(d) => d.parse().context("Unable to parse the CGI dialect")?,
@@ -118,7 +119,7 @@ impl WcgiRunner {
         let handler = Handler {
             program: Arc::clone(&self.program_name),
             env: Arc::new(env),
-            args: self.config.args.clone().into(),
+            args,
             mapped_dirs: self.config.mapped_dirs.clone().into(),
             task_manager: self
                 .config
@@ -132,6 +133,48 @@ impl WcgiRunner {
 
         Ok(handler)
     }
+}
+
+fn construct_args(wasi: &Wasi, extras: &[String]) -> Arc<[String]> {
+    let mut args = Vec::new();
+
+    if let Some(main_args) = &wasi.main_args {
+        args.extend(main_args.iter().cloned());
+    }
+
+    args.extend(extras.iter().cloned());
+
+    args.into()
+}
+
+fn construct_env(
+    wasi: &Wasi,
+    forward_host_env: bool,
+    overrides: &HashMap<String, String>,
+) -> HashMap<String, String> {
+    let mut env: HashMap<String, String> = HashMap::new();
+
+    for item in wasi.env.as_deref().unwrap_or_default() {
+        // TODO(Michael-F-Bryan): Convert "wasi.env" in the webc crate from an
+        // Option<Vec<String>> to a HashMap<String, String> so we avoid this
+        // string.split() business
+        match item.split_once('=') {
+            Some((k, v)) => {
+                env.insert(k.to_string(), v.to_string());
+            }
+            None => {
+                env.insert(item.to_string(), String::new());
+            }
+        }
+    }
+
+    if forward_host_env {
+        env.extend(std::env::vars());
+    }
+
+    env.extend(overrides.clone());
+
+    env
 }
 
 // TODO(Michael-F-Bryan): Pass this to Runner::run() as "&dyn RunnerContext"

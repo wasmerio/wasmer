@@ -1,14 +1,14 @@
 //! WebC container support for running Emscripten modules
 
 use crate::runners::WapmContainer;
-use anyhow::{anyhow, Error};
+use anyhow::{anyhow, Context, Error};
 use serde::{Deserialize, Serialize};
 use wasmer::{FunctionEnv, Instance, Module, Store};
 use wasmer_emscripten::{
     generate_emscripten_env, is_emscripten_module, run_emscripten_instance, EmEnv,
     EmscriptenGlobals,
 };
-use webc::metadata::Command;
+use webc::metadata::{annotations::Emscripten, Command};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct EmscriptenRunner {
@@ -56,17 +56,18 @@ impl crate::runners::Runner for EmscriptenRunner {
     fn run_command(
         &mut self,
         command_name: &str,
-        _command: &Command,
+        command: &Command,
         container: &WapmContainer,
     ) -> Result<Self::Output, Error> {
-        let container = container.v1();
-        let atom_name = container
-            .get_atom_name_for_command("emscripten", command_name)
-            .map_err(Error::msg)?;
-        let main_args = container.get_main_args_for_command(command_name);
+        let Emscripten {
+            atom: atom_name,
+            main_args,
+            ..
+        } = command.get_annotation("emscripten")?.unwrap_or_default();
+        let atom_name = atom_name.context("The atom name is required")?;
         let atom_bytes = container
-            .get_atom(&container.get_package_name(), &atom_name)
-            .map_err(Error::msg)?;
+            .get_atom(&atom_name)
+            .with_context(|| format!("Unable to read the \"{atom_name}\" atom"))?;
 
         let mut module = Module::new(&self.store, atom_bytes)?;
         module.set_name(&atom_name);

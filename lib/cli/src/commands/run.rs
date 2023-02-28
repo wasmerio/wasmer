@@ -408,7 +408,7 @@ impl RunWithPathBuf {
         if runner.can_run_command(id, command).unwrap_or(false) {
             runner
                 .run_cmd(&container, id)
-                .context("Emscripten runner failed")?;
+                .context("WCGI runner failed")?;
         }
 
         anyhow::bail!("No runner");

@@ -16,20 +16,25 @@ edition = "2018"
 # `libwasmer.so`, `libwasmer.dylib`, `wasmer.dll` etc. But it creates
 # a conflict with the existing `wasmer` crate, see below.
 name = "wasmer" # ##lib.name##
-                # ^ DO NOT REMOVE, it's used the `Makefile`, see `build-docs-capi`.
+# ^ DO NOT REMOVE, it's used the `Makefile`, see `build-docs-capi`.
 crate-type = ["staticlib", "cdylib"] #"cdylib", "rlib", "staticlib"]
 
 [dependencies]
 # We rename `wasmer` to `wasmer-api` to avoid the conflict with this
 # library name (see `[lib]`).
-wasmer-api = { version = "=3.2.0-alpha.1", path = "../api", default-features = false, features = ["sys"], package = "wasmer" }
+wasmer-api = { version = "=3.2.0-alpha.1", path = "../api", default-features = false, features = [
+    "sys",
+], package = "wasmer" }
 wasmer-compiler-cranelift = { version = "=3.2.0-alpha.1", path = "../compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "=3.2.0-alpha.1", path = "../compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "=3.2.0-alpha.1", path = "../compiler-llvm", optional = true }
 wasmer-emscripten = { version = "=3.2.0-alpha.1", path = "../emscripten", optional = true }
 wasmer-compiler = { version = "=3.2.0-alpha.1", path = "../compiler" }
 wasmer-middlewares = { version = "=3.2.0-alpha.1", path = "../middlewares", optional = true }
-wasmer-wasi = { version = "=3.2.0-alpha.1", path = "../wasi", features = ["host-fs", "host-vnet"], optional = true }
+wasmer-wasi = { version = "=3.2.0-alpha.1", path = "../wasi", features = [
+    "host-fs",
+    "host-vnet",
+], optional = true }
 wasmer-types = { version = "=3.2.0-alpha.1", path = "../types" }
 wasmer-vfs = { version = "=3.2.0-alpha.1", path = "../vfs", optional = true, default-features = false, features = ["static-fs"] }
 webc = { version = "5.0.0-rc.5", optional = true }
@@ -51,19 +56,10 @@ wasmer-inline-c = "0.1.1"
 inline-c = "0.1.7"
 
 [features]
-default = [
-    "wat",
-    "cranelift",
-    "compiler",
-    "wasi",
-    "middlewares",
-]
+default = ["wat", "cranelift", "compiler", "wasi", "middlewares"]
 wat = ["wasmer-api/wat"]
 wasi = ["wasmer-wasi"]
-middlewares = [
-    "compiler",
-    "wasmer-middlewares",
-]
+middlewares = ["compiler", "wasmer-middlewares"]
 compiler = [
     "wasmer-api/compiler",
     "wasmer-compiler/translator",
@@ -76,18 +72,9 @@ compiler-headless = [
     "wasmer-compiler/translator",
     "wasmer-compiler/compiler",
 ]
-singlepass = [
-    "wasmer-compiler-singlepass",
-    "compiler",
-]
-cranelift = [
-    "wasmer-compiler-cranelift",
-    "compiler",
-]
-llvm = [
-    "wasmer-compiler-llvm",
-    "compiler",
-]
+singlepass = ["wasmer-compiler-singlepass", "compiler"]
+cranelift = ["wasmer-compiler-cranelift", "compiler"]
+llvm = ["wasmer-compiler-llvm", "compiler"]
 wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
 wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
 static-artifact-load = ["wasmer-compiler/static-artifact-load"]

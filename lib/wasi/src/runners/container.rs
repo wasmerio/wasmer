@@ -8,7 +8,7 @@ use webc::{
     Version,
 };
 
-/// Parsed WAPM file, memory-mapped to an on-disk path
+/// A parsed WAPM package.
 #[derive(Debug, Clone)]
 pub struct WapmContainer {
     repr: Repr,
@@ -89,8 +89,9 @@ impl WapmContainer {
     // HACK(Michael-F-Bryan): WapmContainer originally exposed its Arc<WebCMmap>
     // field, so every man and his dog accessed it directly instead of going
     // through the WapmContainer abstraction. This is an escape hatch to make
-    // that code w
-    pub fn v1(&self) -> &WebC<'_> {
+    // that code keep working for the time being.
+    // #[deprecated]
+    pub(crate) fn v1(&self) -> &WebC<'_> {
         match &self.repr {
             Repr::V1Mmap(mapped) => &*mapped,
             Repr::V1Owned(owned) => &*owned,

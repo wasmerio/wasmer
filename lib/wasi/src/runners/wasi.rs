@@ -4,10 +4,10 @@ use std::sync::Arc;
 
 use crate::{runners::WapmContainer, PluggableRuntimeImplementation, VirtualTaskManager};
 use crate::{WasiEnv, WasiEnvBuilder};
-use anyhow::Error;
+use anyhow::{Context, Error};
 use serde::{Deserialize, Serialize};
 use wasmer::{Module, Store};
-use webc::metadata::Command;
+use webc::metadata::{annotations::Wasi, Command};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WasiRunner {
@@ -61,20 +61,22 @@ impl crate::runners::Runner for WasiRunner {
         Ok(command.runner.starts_with("https://webc.org/runner/wasi"))
     }
 
-    #[allow(unreachable_code, unused_variables)]
     fn run_command(
         &mut self,
-        command_name: &str,
-        _command: &Command,
+        _command_name: &str,
+        command: &Command,
         container: &WapmContainer,
     ) -> Result<Self::Output, Error> {
-        let webc = container.v1();
-        let atom_name = webc
-            .get_atom_name_for_command("wasi", command_name)
-            .map_err(Error::msg)?;
-        let atom_bytes = webc.get_atom(&webc.get_package_name(), &atom_name)?;
+        let Wasi {
+            atom: atom_name, ..
+        } = command
+            .get_annotation("wasi")?
+            .context("The command doesn't have any WASI annotations")?;
+        let atom = container
+            .get_atom(&atom_name)
+            .with_context(|| format!("Unable to get the \"{atom_name}\" atom"))?;
 
-        let mut module = Module::new(&self.store, atom_bytes)?;
+        let mut module = Module::new(&self.store, atom)?;
         module.set_name(&atom_name);
 
         let mut builder = prepare_webc_env(container, &atom_name, &self.args)?;
@@ -84,14 +86,7 @@ impl crate::runners::Runner for WasiRunner {
             builder.set_runtime(Arc::new(rt));
         }
 
-        let init = builder.build_init()?;
-
-        let (instance, env) = WasiEnv::instantiate(init, module, &mut self.store)?;
-
-        let _result = instance
-            .exports
-            .get_function("_start")?
-            .call(&mut self.store, &[])?;
+        builder.run(module)?;
 
         Ok(())
     }
