@@ -19,7 +19,7 @@ impl Engine {
         since = "4.0.0",
         note = "engine.cloned() has been deprecated in favor of engine.clone()"
     )]
-    /// Returns the [`Tunables`].
+    /// Returns the [`Engine`].
     pub fn cloned(&self) -> Self {
         self.clone()
     }
