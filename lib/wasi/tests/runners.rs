@@ -37,9 +37,10 @@ mod wasi {
 
 #[cfg(feature = "webc_runner_rt_wcgi")]
 mod wcgi {
+    use std::thread::JoinHandle;
+
     use rand::Rng;
     use tokio::runtime::Handle;
-    use wasmer::Store;
     use wasmer_wasi::{runners::wcgi::WcgiRunner, runtime::task_manager::tokio::TokioTaskManager};
 
     use super::*;
@@ -49,18 +50,48 @@ mod wcgi {
         let webc = download_cached("https://wapm.dev/syrusakbary/staticserver").await;
         let tasks = TokioTaskManager::new(Handle::current());
         let container = WapmContainer::from_bytes(webc).unwrap();
-
         let mut runner = WcgiRunner::new("staticserver");
         let port = rand::thread_rng().gen_range(10000_u16..65535_u16);
+        let port = 12345;
         let (tx, rx) = futures::channel::oneshot::channel();
         runner
             .config()
             .addr(([127, 0, 0, 1], port).into())
             .task_manager(tasks)
             .abort_channel(rx);
-        runner.run_cmd(&container, "wcgi").unwrap();
+        // Note: the server blocks, so spin it up in a background thread and kill it
+        // after we've made our request.
+        let _guard = thread_spawn(move || {
+            runner.run_cmd(&container, "wcgi").unwrap();
+        });
 
-        todo!();
+        // The way we test this is by fetching "/" and checking it contains
+        // something we expect
+        let resp = reqwest::get(format!("http://localhost:{port}/index.html"))
+            .await
+            .unwrap();
+        let body = resp.error_for_status().unwrap().text().await.unwrap();
+
+        assert!(body.contains("asdf"), "{}", body);
+
+        // Make sure we shut the server down afterwards
+        drop(tx);
+    }
+
+    fn thread_spawn(f: impl FnOnce() + Send + 'static) -> impl Drop {
+        struct JoinOnDrop(Option<JoinHandle<()>>);
+        impl Drop for JoinOnDrop {
+            fn drop(&mut self) {
+                if let Err(e) = self.0.take().unwrap().join() {
+                    if !std::thread::panicking() {
+                        std::panic::resume_unwind(e);
+                    }
+                }
+            }
+        }
+        let handle = std::thread::spawn(f);
+
+        JoinOnDrop(Some(handle))
     }
 }
 

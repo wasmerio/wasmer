@@ -403,9 +403,8 @@ impl RunWithPathBuf {
                 .context("Emscripten runner failed")?;
         }
 
-        let (store, _compiler_type) = self.store.get_store()?;
-        let mut runner = wasmer_wasi::runners::wcgi::WcgiRunner::new(store);
-        runner.set_args(args.to_vec());
+        let mut runner = wasmer_wasi::runners::wcgi::WcgiRunner::new(id);
+        runner.config().args(args);
         if runner.can_run_command(id, command).unwrap_or(false) {
             runner
                 .run_cmd(&container, id)
