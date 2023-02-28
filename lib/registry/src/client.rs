@@ -2,11 +2,6 @@ use anyhow::Context;
 use graphql_client::GraphQLQuery;
 use url::Url;
 
-use crate::{
-    graphql,
-    types::{PublishDeployAppOutput, PublishDeployAppRawVars},
-};
-
 /// API client for the Wasmer registry.
 #[derive(Clone)]
 pub struct RegistryClient {
@@ -60,7 +55,7 @@ impl RegistryClient {
     }
 
     /// Execute a GraphQL query.
-    async fn execute<Q: GraphQLQuery>(
+    pub(crate) async fn execute_unchecked<Q: GraphQLQuery>(
         &self,
         vars: Q::Variables,
     ) -> Result<graphql_client::Response<Q::ResponseData>, reqwest::Error> {
@@ -82,65 +77,24 @@ impl RegistryClient {
     }
 
     /// Execute a GraphQL query, and convert a response with errors to a Rust error.
-    async fn execute_checked<Q: GraphQLQuery>(
+    pub(crate) async fn execute<Q: GraphQLQuery>(
         &self,
         vars: Q::Variables,
     ) -> Result<Q::ResponseData, anyhow::Error> {
-        let res = self.execute::<Q>(vars).await?;
+        let res = self.execute_unchecked::<Q>(vars).await?;
 
-        if let Some(data) = res.data {
-            Ok(data)
-        } else {
-            // TODO: Better error forwaring with a custom error type.
-            anyhow::bail!("GraphQL error: {:?}", res.errors);
+        match (res.data, res.errors) {
+            (_, Some(errors)) => {
+                // TODO: Better error forwaring with a custom error type.
+                let errors = errors
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                anyhow::bail!("GraphQL error: {errors}");
+            }
+            (Some(data), None) => Ok(data),
+            (None, None) => anyhow::bail!("GraphQL response contained no data"),
         }
-    }
-
-    /// Generate a Deploy token for for the given Deploy app version id.
-    pub async fn generate_deploy_token(
-        &self,
-        app_version_id: String,
-    ) -> Result<String, anyhow::Error> {
-        let vars = graphql::mutations::generate_deploy_token::Variables { app_version_id };
-        let res = self
-            .execute_checked::<graphql::mutations::GenerateDeployToken>(vars)
-            .await?;
-        let token = res
-            .generate_deploy_token
-            .context("Query did not return a token")?
-            .token;
-
-        Ok(token)
-    }
-
-    /// Publish a Deploy app.
-    ///
-    /// Takes a raw, unvalidated deployment config.
-    // TODO: Add a variant of this query that takes a typed DeployV1 config.
-    pub async fn publish_deploy_app_raw(
-        &self,
-        data: PublishDeployAppRawVars,
-    ) -> Result<PublishDeployAppOutput, anyhow::Error> {
-        let vars2 = graphql::mutations::publish_deploy_app::Variables {
-            name: data.name,
-            owner: data.namespace,
-            config: serde_json::to_string(&data.config)?,
-        };
-
-        let version = self
-            .execute_checked::<graphql::mutations::PublishDeployApp>(vars2)
-            .await?
-            .publish_deploy_app
-            .context("Query did not return data")?
-            .deploy_app_version;
-        let app = version.app.context("Query did not return expected data")?;
-
-        Ok(PublishDeployAppOutput {
-            app_id: app.id,
-            app_name: app.name,
-            version_id: version.id,
-            version_name: version.version,
-            owner_name: app.owner.global_name,
-        })
     }
 }
