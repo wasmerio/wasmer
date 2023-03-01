@@ -5,7 +5,7 @@ pub struct Engine;
 impl Engine {
     pub(crate) fn deterministic_id(&self) -> &str {
         // All js engines have the same id
-        "generic"
+        "js-generic"
     }
 }
 
