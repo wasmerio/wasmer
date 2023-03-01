@@ -27,18 +27,22 @@ pub fn proc_join<M: MemorySize>(
     // If the ID is maximum then it means wait for any of the children
     if pid == u32::MAX {
         let mut process = ctx.data_mut().process.clone();
-        let child_exit = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-            process.join_any_child().await
-        }).map_err(|err| {
-            trace!(
-                "wasi[{}:{}]::child join failed (pid={}) - {}",
-                ctx.data().pid(),
-                ctx.data().tid(),
-                pid,
+        let child_exit =
+            wasi_try_ok!(__asyncify(
+                &mut ctx,
+                None,
+                async move { process.join_any_child().await }
+            )
+            .map_err(|err| {
+                trace!(
+                    "wasi[{}:{}]::child join failed (pid={}) - {}",
+                    ctx.data().pid(),
+                    ctx.data().tid(),
+                    pid,
+                    err
+                );
                 err
-            );
-            err
-        })?);
+            })?);
         return match child_exit {
             Some((pid, exit_code)) => {
                 trace!(
@@ -77,7 +81,8 @@ pub fn proc_join<M: MemorySize>(
         let exit_code = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
             let code = process.join().await.unwrap_or(Errno::Child as u32);
             Ok(code)
-        }).map_err(|err| {
+        })
+        .map_err(|err| {
             trace!(
                 "wasi[{}:{}]::child join failed (pid={}) - {}",
                 ctx.data().pid(),
