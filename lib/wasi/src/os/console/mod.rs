@@ -222,14 +222,19 @@ impl Console {
 
         let wasi_process = env.process.clone();
 
-        // TODO: fetching dependencies should be moved to the builder!
-        // if let Err(err) = env.uses(self.uses.clone()) {
-        //     tasks.block_on(async {
-        //         let _ = self.runtime.stderr(format!("{}\r\n", err).as_bytes()).await;
-        //     });
-        //     tracing::debug!("failed to load used dependency - {}", err);
-        //     return Err(crate::vbus::VirtualBusError::BadRequest);
-        // }
+        if let Err(err) = env.uses(self.uses.clone()) {
+            let mut stderr = self.stderr.clone();
+            tasks.block_on(async {
+                wasmer_vfs::AsyncWriteExt::write_all(
+                    &mut stderr,
+                    format!("{}\r\n", err).as_bytes(),
+                )
+                .await
+                .ok();
+            });
+            tracing::debug!("failed to load used dependency - {}", err);
+            return Err(VirtualBusError::BadRequest);
+        }
 
         // Build the config
         // Run the binary
