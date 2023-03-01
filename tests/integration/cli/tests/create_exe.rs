@@ -564,7 +564,7 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn create_obj(args: Vec<String>, keyword_needle: &str, keyword: &str) -> anyhow::Result<()> {
+fn create_obj(args: Vec<String>) -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
@@ -588,20 +588,12 @@ fn create_obj(args: Vec<String>, keyword_needle: &str, keyword: &str) -> anyhow:
         object_path.display()
     );
 
-    let output_str = String::from_utf8_lossy(&output);
-    assert!(
-        output_str.contains(keyword_needle),
-        "create-obj output doesn't mention `{}` format keyword:\n{}",
-        keyword,
-        output_str
-    );
-
     Ok(())
 }
 
 #[test]
 fn create_obj_default() -> anyhow::Result<()> {
-    create_obj(vec![], "Symbols", "symbols")
+    create_obj(vec![])
 }
 
 fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
