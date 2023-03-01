@@ -6,7 +6,7 @@ use std::{pin::Pin, time::Duration};
 
 use ::tokio::runtime::Handle;
 use futures::Future;
-use wasmer::{MemoryType, Module};
+use wasmer::{MemoryType, Module, Store};
 
 #[cfg(feature = "js")]
 use wasmer::VMMemory;
@@ -69,7 +69,8 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     /// It is ok for this task to block execution and any async futures within its scope
     fn task_wasm(
         &self,
-        task: Box<dyn FnOnce(Module, Option<VMMemory>) + Send + 'static>,
+        task: Box<dyn FnOnce(Store, Module, Option<VMMemory>) + Send + 'static>,
+        store: Store,
         module: Module,
         spawn_type: SpawnType,
     ) -> Result<(), WasiThreadError>;

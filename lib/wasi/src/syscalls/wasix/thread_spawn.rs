@@ -299,14 +299,14 @@ pub fn thread_spawn<M: MemorySize>(
             let thread_module = env.inner().instance.module().clone();
             let tasks2 = tasks.clone();
 
-            let task = move |thread_module, mut thread_memory| {
+            let task = move |store, thread_module, mut thread_memory| {
                 // FIXME: should not use unwrap() here! (initializiation refactor)
                 let mut store = Some(store);
                 execute_module(&mut store, thread_module, &mut thread_memory);
             };
 
             wasi_try!(tasks
-                .task_wasm(Box::new(task), thread_module, spawn_type)
+                .task_wasm(Box::new(task), store, thread_module, spawn_type)
                 .map_err(|err| { Into::<Errno>::into(err) }));
         }
         _ => {
