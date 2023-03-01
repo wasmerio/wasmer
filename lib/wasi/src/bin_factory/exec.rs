@@ -104,22 +104,11 @@ pub fn spawn_exec_module(
         let tasks_outer = tasks.clone();
 
         let task = {
-            let spawn_type = memory_spawn;
             let mut store = store;
-
-            move || {
+            move |module, memory| {
                 // Create the WasiFunctionEnv
                 let mut wasi_env = env;
                 wasi_env.runtime = runtime;
-                let memory = match wasi_env.tasks().build_memory(spawn_type) {
-                    Ok(m) => m,
-                    Err(err) => {
-                        error!("wasi[{}]::wasm could not build memory error ({})", pid, err);
-                        wasi_env.cleanup(Some(Errno::Noexec as ExitCode));
-                        return;
-                    }
-                };
-
                 let thread = WasiThreadGuard::new(wasi_env.thread.clone());
 
                 let mut wasi_env = WasiFunctionEnv::new(&mut store, wasi_env);
@@ -199,28 +188,12 @@ pub fn spawn_exec_module(
             }
         };
 
-        // TODO: handle this better - required because of Module not being Send.
-        #[cfg(feature = "js")]
-        let task = {
-            struct UnsafeWrapper {
-                inner: Box<dyn FnOnce() + 'static>,
-            }
-
-            unsafe impl Send for UnsafeWrapper {}
-
-            let inner = UnsafeWrapper {
-                inner: Box::new(task),
-            };
-
-            move || {
-                (inner.inner)();
-            }
-        };
-
-        tasks_outer.task_wasm(Box::new(task)).map_err(|err| {
-            error!("wasi[{}]::failed to launch module - {}", pid, err);
-            VirtualBusError::UnknownError
-        })?
+        tasks_outer
+            .task_wasm(Box::new(task), module, memory_spawn)
+            .map_err(|err| {
+                error!("wasi[{}]::failed to launch module - {}", pid, err);
+                VirtualBusError::UnknownError
+            })?
     };
 
     Ok(join_handle)
