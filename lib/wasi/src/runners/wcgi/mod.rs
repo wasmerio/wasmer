@@ -3,7 +3,7 @@ mod runner;
 
 use std::path::PathBuf;
 
-pub use self::runner::{Config, WcgiRunner, Callbacks};
+pub use self::runner::{Callbacks, Config, WcgiRunner};
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct MappedDirectory {

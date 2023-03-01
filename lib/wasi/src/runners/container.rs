@@ -94,8 +94,8 @@ impl WapmContainer {
     // #[deprecated]
     pub(crate) fn v1(&self) -> &WebC<'_> {
         match &self.repr {
-            Repr::V1Mmap(mapped) => &*mapped,
-            Repr::V1Owned(owned) => &*owned,
+            Repr::V1Mmap(mapped) => mapped,
+            Repr::V1Owned(owned) => owned,
         }
     }
 

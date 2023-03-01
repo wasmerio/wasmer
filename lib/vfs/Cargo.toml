@@ -27,6 +27,7 @@ tokio = { version = "1", features = [
 ], default_features = false }
 pin-project-lite = "0.2.9"
 indexmap = "1.9.2"
+serde = { version = "1", optional = true, features = ["derive"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = [
@@ -39,5 +40,5 @@ default = ["host-fs", "webc-fs", "static-fs"]
 host-fs = ["libc", "fs_extra", "filetime", "tokio/fs", "tokio/io-std"]
 webc-fs = ["webc", "anyhow"]
 static-fs = ["webc", "anyhow"]
-enable-serde = ["typetag"]
+enable-serde = ["serde", "typetag"]
 no-time = []

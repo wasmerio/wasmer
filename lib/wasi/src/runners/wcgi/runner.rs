@@ -97,7 +97,7 @@ impl WcgiRunner {
     fn load_module(&self, wasi: &Wasi, ctx: &RunnerContext<'_>) -> Result<Module, Error> {
         let atom_name = &wasi.atom;
         let atom = ctx
-            .get_atom(&atom_name)
+            .get_atom(atom_name)
             .with_context(|| format!("Unable to retrieve the \"{atom_name}\" atom"))?;
 
         let module = ctx.compile(atom).context("Unable to compile the atom")?;
@@ -125,7 +125,7 @@ impl WcgiRunner {
             program: self.program_name.clone(),
             env,
             args,
-            mapped_dirs: self.config.mapped_dirs.clone().into(),
+            mapped_dirs: self.config.mapped_dirs.clone(),
             task_manager: self
                 .config
                 .task_manager
