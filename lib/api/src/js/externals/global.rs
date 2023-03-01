@@ -130,9 +130,15 @@ impl Global {
     /// ```
     pub fn get(&self, store: &impl AsStoreRef) -> Value {
         unsafe {
-            let raw = self.handle.global.value().as_f64().unwrap();
-            let ty = self.handle.ty;
-            Value::from_raw(store, ty.ty, raw)
+            match self.handle.global.value().as_f64() {
+                Some(raw) => {
+                    let ty = self.handle.ty;
+                    Value::from_raw(store, ty.ty, raw)
+                },
+                None => {
+                    Value::null()
+                }
+            }
         }
     }
 

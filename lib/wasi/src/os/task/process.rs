@@ -325,7 +325,7 @@ impl WasiProcess {
             children.clone()
         };
         if children.is_empty() {
-            return Err(Errno::Child);
+            return Ok(None);
         }
 
         let mut waits = Vec::new();
