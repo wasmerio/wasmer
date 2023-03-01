@@ -14,6 +14,7 @@ pub struct WapmContainer {
     repr: Repr,
 }
 
+#[allow(dead_code)] // Some pub(crate) items are only used behind #[cfg] code
 impl WapmContainer {
     /// Parses a .webc container file. Since .webc files
     /// can be very large, only file paths are allowed.
@@ -99,7 +100,7 @@ impl WapmContainer {
     }
 
     /// Load a volume as a [`FileSystem`] node.
-    pub fn volume_fs(&self, package_name: &str) -> Box<dyn FileSystem + Send + Sync> {
+    pub(crate) fn volume_fs(&self, package_name: &str) -> Box<dyn FileSystem + Send + Sync> {
         match &self.repr {
             Repr::V1Mmap(mapped) => {
                 Box::new(WebcFileSystem::init(Arc::clone(mapped), package_name))
