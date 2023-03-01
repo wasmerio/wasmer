@@ -8,12 +8,12 @@ use crate::suggestions::suggest_function_exports;
 use crate::warning;
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
-use std::fs::File;
 use std::io::Write;
 use std::ops::Deref;
 use std::path::PathBuf;
 #[cfg(feature = "cache")]
 use std::str::FromStr;
+use std::{fs::File, net::SocketAddr};
 #[cfg(feature = "emscripten")]
 use wasmer::FunctionEnv;
 use wasmer::*;
@@ -90,6 +90,10 @@ pub struct RunWithoutFile {
     #[cfg(feature = "debug")]
     #[clap(long = "verbose")]
     pub(crate) verbose: Option<u8>,
+
+    #[cfg(feature = "webc_runner")]
+    #[clap(flatten)]
+    pub(crate) wcgi: WcgiOptions,
 
     /// Enable coredump generation after a WebAssembly trap.
     #[clap(name = "COREDUMP PATH", long = "coredump-on-trap", parse(from_os_str))]
@@ -223,6 +227,7 @@ impl RunWithPathBuf {
     fn inner_execute(&self) -> Result<()> {
         #[cfg(feature = "webc_runner")]
         {
+            dbg!(&self.path);
             if let Ok(pf) = WapmContainer::from_path(self.path.clone()) {
                 return self.run_container(pf, self.command_name.as_deref(), &self.args);
             }
@@ -400,7 +405,16 @@ impl RunWithPathBuf {
 
         let mut runner = wasmer_wasi::runners::wcgi::WcgiRunner::new(id);
         let (store, _compiler_type) = self.store.get_store()?;
-        runner.config().args(args).store(store);
+        runner
+            .config()
+            .args(args)
+            .store(store)
+            .addr(self.wcgi.addr)
+            .envs(self.wasi.env_vars.clone())
+            .map_directories(self.wasi.mapped_dirs.iter().map(|(g, h)| (h, g)));
+        if self.wcgi.forward_host_env {
+            runner.config().forward_host_env();
+        }
         if runner.can_run_command(id, command).unwrap_or(false) {
             return runner.run_cmd(&container, id).context("WCGI runner failed");
         }
@@ -688,4 +702,23 @@ fn generate_coredump(
     })?;
 
     Ok(())
+}
+
+#[derive(Debug, Clone, Parser)]
+pub(crate) struct WcgiOptions {
+    /// The address to serve on.
+    #[clap(long, short, env, default_value_t = ([127, 0, 0, 1], 8000).into())]
+    pub(crate) addr: SocketAddr,
+    /// Forward all host env variables to the wcgi task.
+    #[clap(long)]
+    pub(crate) forward_host_env: bool,
+}
+
+impl Default for WcgiOptions {
+    fn default() -> Self {
+        Self {
+            addr: ([127, 0, 0, 1], 8000).into(),
+            forward_host_env: false,
+        }
+    }
 }

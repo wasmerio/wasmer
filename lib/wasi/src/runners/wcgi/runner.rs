@@ -323,6 +323,20 @@ impl Config {
         self
     }
 
+    pub fn map_directories<I, H, G>(&mut self, mappings: I) -> &mut Self
+    where
+        I: IntoIterator<Item = (H, G)>,
+        H: Into<PathBuf>,
+        G: Into<String>,
+    {
+        let mappings = mappings.into_iter().map(|(h, g)| MappedDirectory {
+            host: h.into(),
+            guest: g.into(),
+        });
+        self.mapped_dirs.extend(mappings);
+        self
+    }
+
     /// Set callbacks that will be triggered at various points in the runner's
     /// lifecycle.
     pub fn callbacks(&mut self, callbacks: impl Callbacks + Send + Sync + 'static) -> &mut Self {
