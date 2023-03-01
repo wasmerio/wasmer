@@ -194,27 +194,14 @@ pub fn proc_fork<M: MemorySize>(
             let mut store = fork_store;
             let module = fork_module;
 
-            let task = move || {
+            let spawn_type = SpawnType::NewThread(fork_memory);
+            let task = move |module, memory| {
                 // Create the WasiFunctionEnv
                 let pid = child_env.pid();
                 let tid = child_env.tid();
                 child_env.runtime = runtime.clone();
                 let mut ctx = WasiFunctionEnv::new(&mut store, child_env);
                 // fork_store, fork_module,
-
-                let spawn_type = SpawnType::NewThread(fork_memory);
-
-                let memory = match tasks.build_memory(spawn_type) {
-                    Ok(m) => m,
-                    Err(err) => {
-                        error!(
-                            "wasi[{}:{}]::{} failed - could not build instance memory - {}",
-                            pid, tid, fork_op, err
-                        );
-                        ctx.data(&store).cleanup(Some(Errno::Noexec as ExitCode));
-                        return;
-                    }
-                };
 
                 // Let's instantiate the module with the imports.
                 let (mut import_object, init) =
@@ -298,26 +285,8 @@ pub fn proc_fork<M: MemorySize>(
                 drop(child_handle);
             };
 
-            // TODO: handle this better - required because of Module not being Send.
-            #[cfg(feature = "js")]
-            let task = {
-                struct UnsafeWrapper {
-                    inner: Box<dyn FnOnce() + 'static>,
-                }
-
-                unsafe impl Send for UnsafeWrapper {}
-
-                let inner = UnsafeWrapper {
-                    inner: Box::new(task),
-                };
-
-                move || {
-                    (inner.inner)();
-                }
-            };
-
             tasks_outer
-                .task_wasm(Box::new(task))
+                .task_wasm(Box::new(task), module, spawn_type)
                 .map_err(|err| {
                     warn!(
                         "wasi[{}:{}]::failed to fork as the process could not be spawned - {}",
