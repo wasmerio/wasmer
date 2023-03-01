@@ -409,6 +409,15 @@ where
                         atom.len(),
                         command
                     );
+                    if pck.entry.is_none() {
+                        trace!("defaulting entry to command [{}]", command);
+                        let entry: &'static [u8] = {
+                            let atom: &'_ [u8] = atom;
+                            std::mem::transmute(atom)
+                        };
+                        pck.entry = Some(entry.into());
+                    }
+
                     let mut commands = pck.commands.write().unwrap();
                     commands.push(BinaryPackageCommand::new_with_ownership(
                         command.clone(),

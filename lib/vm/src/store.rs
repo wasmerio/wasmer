@@ -108,7 +108,7 @@ impl StoreObjects {
         self.globals.iter()
     }
 
-    /// Return an immutable iterator over all globals and convert them to u128
+    /// Return an vector of all globals and converted to u128
     pub fn as_u128_globals(&self) -> Vec<u128> {
         self.iter_globals()
             .map(|v| unsafe { v.vmglobal().as_ref().val.u128 })

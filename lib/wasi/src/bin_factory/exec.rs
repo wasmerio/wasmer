@@ -29,11 +29,7 @@ pub fn spawn_exec(
     #[cfg(not(feature = "sys"))]
     let compiler = "generic";
 
-    #[cfg(feature = "sys")]
     let module = compiled_modules.get_compiled_module(&store, binary.hash().as_str(), compiler);
-    #[cfg(not(feature = "sys"))]
-    let module = compiled_modules.get_compiled_module(binary.hash().as_str(), compiler);
-
     let module = match (module, binary.entry.as_ref()) {
         (Some(a), _) => a,
         (None, Some(entry)) => {
