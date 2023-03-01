@@ -191,11 +191,11 @@ pub fn proc_fork<M: MemorySize>(
             let tasks = tasks.clone();
             let tasks_outer = tasks.clone();
 
-            let mut store = fork_store;
+            let store = fork_store;
             let module = fork_module;
 
             let spawn_type = SpawnType::NewThread(fork_memory);
-            let task = move |module, memory| {
+            let task = move |mut store, module, memory| {
                 // Create the WasiFunctionEnv
                 let pid = child_env.pid();
                 let tid = child_env.tid();
@@ -286,7 +286,7 @@ pub fn proc_fork<M: MemorySize>(
             };
 
             tasks_outer
-                .task_wasm(Box::new(task), module, spawn_type)
+                .task_wasm(Box::new(task), store, module, spawn_type)
                 .map_err(|err| {
                     warn!(
                         "wasi[{}:{}]::failed to fork as the process could not be spawned - {}",
