@@ -57,7 +57,7 @@ mod wcgi {
 
     #[tokio::test]
     async fn static_server() {
-        let webc = download_cached("https://wapm.dev/syrusakbary/staticserver").await;
+        let webc = download_cached("https://wapm.io/Michael-F-Bryan/staticserver").await;
         let tasks = TokioTaskManager::new(Handle::current());
         let container = WapmContainer::from_bytes(webc).unwrap();
         let mut runner = WcgiRunner::new("staticserver");

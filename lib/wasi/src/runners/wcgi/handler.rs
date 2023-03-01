@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    ops::Deref,
     path::{Path, PathBuf},
     pin::Pin,
     sync::Arc,
@@ -26,21 +27,14 @@ use crate::{
 
 /// The shared object that manages the instantiaion of WASI executables and
 /// communicating with them via the CGI protocol.
-#[derive(Clone, derivative::Derivative)]
-#[derivative(Debug)]
-pub(crate) struct Handler {
-    pub(crate) program: Arc<str>,
-    pub(crate) env: Arc<HashMap<String, String>>,
-    pub(crate) args: Arc<[String]>,
-    pub(crate) mapped_dirs: Arc<[MappedDirectory]>,
-    pub(crate) task_manager: Arc<dyn VirtualTaskManager>,
-    pub(crate) module: Module,
-    pub(crate) dialect: CgiDialect,
-    #[derivative(Debug = "ignore")]
-    pub(crate) callbacks: Arc<dyn Callbacks>,
-}
+#[derive(Clone, Debug)]
+pub(crate) struct Handler(Arc<SharedState>);
 
 impl Handler {
+    pub(crate) fn new(state: SharedState) -> Self {
+        Handler(Arc::new(state))
+    }
+
     pub(crate) async fn handle(&self, req: Request<Body>) -> Result<Response<Body>, Error> {
         let (parts, body) = req.into_parts();
 
@@ -153,6 +147,14 @@ impl Handler {
     }
 }
 
+impl Deref for Handler {
+    type Target = Arc<SharedState>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 /// Drive the request to completion by streaming the request body to the
 /// instance and waiting for it to exit.
 async fn drive_request_to_completion(
@@ -214,6 +216,20 @@ async fn consume_stderr(
             }
         }
     }
+}
+
+#[derive(Clone, derivative::Derivative)]
+#[derivative(Debug)]
+pub(crate) struct SharedState {
+    pub(crate) program: String,
+    pub(crate) env: HashMap<String, String>,
+    pub(crate) args: Vec<String>,
+    pub(crate) mapped_dirs: Vec<MappedDirectory>,
+    pub(crate) module: Module,
+    pub(crate) dialect: CgiDialect,
+    pub(crate) task_manager: Arc<dyn VirtualTaskManager>,
+    #[derivative(Debug = "ignore")]
+    pub(crate) callbacks: Arc<dyn Callbacks>,
 }
 
 impl Service<Request<Body>> for Handler {

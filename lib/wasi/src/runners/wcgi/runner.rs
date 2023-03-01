@@ -12,7 +12,10 @@ use webc::metadata::{
 
 use crate::{
     runners::{
-        wcgi::{handler::Handler, MappedDirectory},
+        wcgi::{
+            handler::{Handler, SharedState},
+            MappedDirectory,
+        },
         WapmContainer,
     },
     runtime::task_manager::tokio::TokioTaskManager,
@@ -20,7 +23,7 @@ use crate::{
 };
 
 pub struct WcgiRunner {
-    program_name: Arc<str>,
+    program_name: String,
     config: Config,
 }
 
@@ -80,7 +83,7 @@ impl WcgiRunner {
 }
 
 impl WcgiRunner {
-    pub fn new(program_name: impl Into<Arc<str>>) -> Self {
+    pub fn new(program_name: impl Into<String>) -> Self {
         WcgiRunner {
             program_name: program_name.into(),
             config: Config::default(),
@@ -118,9 +121,9 @@ impl WcgiRunner {
             None => CgiDialect::Wcgi,
         };
 
-        let handler = Handler {
-            program: Arc::clone(&self.program_name),
-            env: Arc::new(env),
+        let shared = SharedState {
+            program: self.program_name.clone(),
+            env,
             args,
             mapped_dirs: self.config.mapped_dirs.clone().into(),
             task_manager: self
@@ -133,11 +136,11 @@ impl WcgiRunner {
             callbacks: Arc::clone(&self.config.callbacks),
         };
 
-        Ok(handler)
+        Ok(Handler::new(shared))
     }
 }
 
-fn construct_args(wasi: &Wasi, extras: &[String]) -> Arc<[String]> {
+fn construct_args(wasi: &Wasi, extras: &[String]) -> Vec<String> {
     let mut args = Vec::new();
 
     if let Some(main_args) = &wasi.main_args {
@@ -146,7 +149,7 @@ fn construct_args(wasi: &Wasi, extras: &[String]) -> Arc<[String]> {
 
     args.extend(extras.iter().cloned());
 
-    args.into()
+    args
 }
 
 fn construct_env(

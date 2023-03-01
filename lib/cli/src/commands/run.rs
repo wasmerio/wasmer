@@ -227,7 +227,6 @@ impl RunWithPathBuf {
     fn inner_execute(&self) -> Result<()> {
         #[cfg(feature = "webc_runner")]
         {
-            dbg!(&self.path);
             if let Ok(pf) = WapmContainer::from_path(self.path.clone()) {
                 return self.run_container(pf, self.command_name.as_deref(), &self.args);
             }
