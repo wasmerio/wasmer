@@ -898,13 +898,16 @@ impl WasiEnv {
             let (tx, rx) = std::sync::mpsc::channel();
             self.tasks()
                 .task_dedicated(Box::new(move || {
+                    let tasks_inner = tasks.clone();
                     tasks.runtime().block_on(async {
-                        let fut = tokio::time::timeout(CLEANUP_TIMEOUT, state.fs.close_all());
-
-                        if let Err(err) = fut.await {
-                            tracing::warn!(
-                                "WasiEnv::cleanup has timed out after {CLEANUP_TIMEOUT:?}: {err}"
-                            );
+                        let timeout = tasks_inner.sleep_now(CLEANUP_TIMEOUT);
+                        tokio::select! {
+                            _ = timeout => {
+                                tracing::warn!(
+                                    "WasiEnv::cleanup has timed out after {CLEANUP_TIMEOUT:?}"
+                                );
+                            },
+                            _ = state.fs.close_all() => { }
                         }
                     });
                     tx.send(()).ok();
