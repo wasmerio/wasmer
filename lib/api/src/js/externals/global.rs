@@ -134,10 +134,8 @@ impl Global {
                 Some(raw) => {
                     let ty = self.handle.ty;
                     Value::from_raw(store, ty.ty, raw)
-                },
-                None => {
-                    Value::null()
                 }
+                None => Value::null(),
             }
         }
     }
