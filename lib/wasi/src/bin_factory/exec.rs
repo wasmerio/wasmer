@@ -104,8 +104,7 @@ pub fn spawn_exec_module(
         let tasks_outer = tasks.clone();
 
         let task = {
-            let mut store = store;
-            move |module, memory| {
+            move |mut store, module, memory| {
                 // Create the WasiFunctionEnv
                 let mut wasi_env = env;
                 wasi_env.runtime = runtime;
@@ -189,7 +188,7 @@ pub fn spawn_exec_module(
         };
 
         tasks_outer
-            .task_wasm(Box::new(task), module, memory_spawn)
+            .task_wasm(Box::new(task), store, module, memory_spawn)
             .map_err(|err| {
                 error!("wasi[{}]::failed to launch module - {}", pid, err);
                 VirtualBusError::UnknownError
