@@ -2,7 +2,10 @@ use std::{pin::Pin, time::Duration};
 
 use futures::Future;
 use tokio::runtime::Handle;
-use wasmer::vm::{VMMemory, VMSharedMemory};
+use wasmer::{
+    vm::{VMMemory, VMSharedMemory},
+    Module,
+};
 
 use crate::os::task::thread::WasiThreadError;
 
@@ -120,10 +123,16 @@ impl VirtualTaskManager for TokioTaskManager {
     }
 
     /// See [`VirtualTaskManager::enter`].
-    fn task_wasm(&self, task: Box<dyn FnOnce() + Send + 'static>) -> Result<(), WasiThreadError> {
+    fn task_wasm(
+        &self,
+        task: Box<dyn FnOnce(Module, Option<VMMemory>) + Send + 'static>,
+        module: Module,
+        spawn_type: SpawnType,
+    ) -> Result<(), WasiThreadError> {
+        let memory = self.build_memory(spawn_type)?;
         self.0.spawn_blocking(move || {
             // Invoke the callback
-            task();
+            task(module, memory);
         });
         Ok(())
     }
