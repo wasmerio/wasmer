@@ -28,7 +28,9 @@ pub struct WcgiRunner {
 // make the "Runner" trait contain just these two methods.
 impl WcgiRunner {
     fn supports(cmd: &Command) -> Result<bool, Error> {
-        Ok(cmd.runner.starts_with("https://webc.org/runner/wasi"))
+        Ok(cmd
+            .runner
+            .starts_with(webc::metadata::annotations::WCGI_RUNNER_URI))
     }
 
     #[tracing::instrument(skip(self, ctx))]
@@ -37,7 +39,7 @@ impl WcgiRunner {
             .command()
             .get_annotation("wasi")
             .context("Unable to retrieve the WASI metadata")?
-            .context("The command doesn't have any WASI annotations")?;
+            .unwrap_or_else(|| Wasi::new(command_name));
 
         let module = self
             .load_module(&wasi, ctx)
@@ -183,7 +185,7 @@ struct RunnerContext<'a> {
     container: &'a WapmContainer,
     command: &'a Command,
     engine: Engine,
-    store: Store,
+    store: Arc<Store>,
 }
 
 #[allow(dead_code)]
@@ -231,7 +233,8 @@ impl crate::runners::Runner for WcgiRunner {
         command: &Command,
         container: &WapmContainer,
     ) -> Result<Self::Output, Error> {
-        let store = Store::default();
+        let store = self.config.store.clone().unwrap_or_default();
+
         let ctx = RunnerContext {
             container,
             command,
@@ -254,6 +257,7 @@ pub struct Config {
     mapped_dirs: Vec<MappedDirectory>,
     #[derivative(Debug = "ignore")]
     callbacks: Arc<dyn Callbacks>,
+    store: Option<Arc<Store>>,
 }
 
 impl Config {
@@ -325,6 +329,11 @@ impl Config {
         self.callbacks = Arc::new(callbacks);
         self
     }
+
+    pub fn store(&mut self, store: Store) -> &mut Self {
+        self.store = Some(Arc::new(store));
+        self
+    }
 }
 
 impl Default for Config {
@@ -337,6 +346,7 @@ impl Default for Config {
             mapped_dirs: Vec::new(),
             args: Vec::new(),
             callbacks: Arc::new(NoopCallbacks),
+            store: None,
         }
     }
 }

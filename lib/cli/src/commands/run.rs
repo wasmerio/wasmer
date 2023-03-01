@@ -224,9 +224,7 @@ impl RunWithPathBuf {
         #[cfg(feature = "webc_runner")]
         {
             if let Ok(pf) = WapmContainer::from_path(self.path.clone()) {
-                return self
-                    .run_container(pf, self.command_name.as_deref(), &self.args)
-                    .map_err(|e| anyhow!("Could not run PiritaFile: {e}"));
+                return self.run_container(pf, self.command_name.as_deref(), &self.args);
             }
         }
         let (mut store, module) = self.get_store_module()?;
@@ -378,7 +376,6 @@ impl RunWithPathBuf {
         let id = id
             .or_else(|| container.manifest().entrypoint.as_deref())
             .context("No command specified")?;
-
         let command = container
             .manifest()
             .commands
@@ -389,29 +386,29 @@ impl RunWithPathBuf {
         let mut runner = wasmer_wasi::runners::wasi::WasiRunner::new(store);
         runner.set_args(args.to_vec());
         if runner.can_run_command(id, command).unwrap_or(false) {
-            runner
-                .run_cmd(&container, id)
-                .context("WASI runner failed")?;
+            return runner.run_cmd(&container, id).context("WASI runner failed");
         }
 
         let (store, _compiler_type) = self.store.get_store()?;
         let mut runner = wasmer_wasi::runners::emscripten::EmscriptenRunner::new(store);
         runner.set_args(args.to_vec());
         if runner.can_run_command(id, command).unwrap_or(false) {
-            runner
+            return runner
                 .run_cmd(&container, id)
-                .context("Emscripten runner failed")?;
+                .context("Emscripten runner failed");
         }
 
         let mut runner = wasmer_wasi::runners::wcgi::WcgiRunner::new(id);
-        runner.config().args(args);
+        let (store, _compiler_type) = self.store.get_store()?;
+        runner.config().args(args).store(store);
         if runner.can_run_command(id, command).unwrap_or(false) {
-            runner
-                .run_cmd(&container, id)
-                .context("WCGI runner failed")?;
+            return runner.run_cmd(&container, id).context("WCGI runner failed");
         }
 
-        anyhow::bail!("No runner");
+        anyhow::bail!(
+            "Unable to find a runner that supports \"{}\"",
+            command.runner
+        );
     }
 
     fn get_store_module(&self) -> Result<(Store, Module)> {

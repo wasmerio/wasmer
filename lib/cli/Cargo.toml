@@ -79,7 +79,6 @@ regex = "1.6.0"
 toml = "0.5.9"
 url = "2.3.1"
 libc = { version = "^0.2", default-features = false }
-nuke-dir = { version = "0.1.0", optional = true }
 webc = { version = "5.0.0-rc.5", optional = true }
 isatty = "0.1.9"
 dialoguer = "0.10.2"
@@ -139,7 +138,6 @@ webc_runner = [
     "wasmer-wasi/webc_runner_rt_wasi",
     "wasmer-wasi/webc_runner_rt_emscripten",
     "wasmer-wasi/webc_runner_rt_wcgi",
-    "nuke-dir",
     "webc",
 ]
 compiler = [

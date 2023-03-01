@@ -2380,12 +2380,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nuke-dir"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a6842d8099b88d19a64158a6cfdc3e9ad82c738c041dab98280ef7ba98d64fa"
-
-[[package]]
 name = "num-integer"
 version = "0.1.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4870,7 +4864,6 @@ dependencies = [
  "libc",
  "log",
  "minisign",
- "nuke-dir",
  "object 0.30.3",
  "pathdiff",
  "prettytable-rs",

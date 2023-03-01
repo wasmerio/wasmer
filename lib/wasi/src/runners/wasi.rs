@@ -58,20 +58,21 @@ impl crate::runners::Runner for WasiRunner {
     type Output = ();
 
     fn can_run_command(&self, _command_name: &str, command: &Command) -> Result<bool, Error> {
-        Ok(command.runner.starts_with("https://webc.org/runner/wasi"))
+        Ok(command
+            .runner
+            .starts_with(webc::metadata::annotations::WASI_RUNNER_URI))
     }
 
     fn run_command(
         &mut self,
-        _command_name: &str,
+        command_name: &str,
         command: &Command,
         container: &WapmContainer,
     ) -> Result<Self::Output, Error> {
-        let Wasi {
-            atom: atom_name, ..
-        } = command
-            .get_annotation("wasi")?
-            .context("The command doesn't have any WASI annotations")?;
+        let atom_name = match command.get_annotation("wasi")? {
+            Some(Wasi { atom, .. }) => atom,
+            None => command_name.to_string(),
+        };
         let atom = container
             .get_atom(&atom_name)
             .with_context(|| format!("Unable to get the \"{atom_name}\" atom"))?;

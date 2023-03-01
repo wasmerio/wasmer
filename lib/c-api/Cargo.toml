@@ -45,7 +45,6 @@ libc = { version = "^0.2", default-features = false }
 thiserror = "1"
 typetag = { version = "0.1", optional = true }
 paste = "1.0"
-wasmer-vfs = { version = "3.2.0-alpha.1", path = "../vfs", optional = true }
 
 [dev-dependencies]
 field-offset = "0.3.3"

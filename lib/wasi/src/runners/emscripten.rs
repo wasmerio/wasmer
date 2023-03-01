@@ -49,7 +49,7 @@ impl crate::runners::Runner for EmscriptenRunner {
     fn can_run_command(&self, _: &str, command: &Command) -> Result<bool, Error> {
         Ok(command
             .runner
-            .starts_with("https://webc.org/runner/emscripten"))
+            .starts_with(webc::metadata::annotations::EMSCRIPTEN_RUNNER_URI))
     }
 
     #[allow(unreachable_code, unused_variables)]
