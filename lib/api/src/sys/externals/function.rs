@@ -3,11 +3,9 @@ use crate::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, W
 use crate::store::{AsStoreMut, AsStoreRef, StoreInner, StoreMut};
 use crate::vm::VMExternFunction;
 use crate::{FunctionEnv, FunctionEnvMut, FunctionType, RuntimeError, Value};
-use std::array::TryFromSliceError;
-use std::convert::TryInto;
 use std::panic::{self, AssertUnwindSafe};
 use std::{cell::UnsafeCell, cmp::max, ffi::c_void};
-use wasmer_types::{NativeWasmType, RawValue, Type};
+use wasmer_types::{NativeWasmType, RawValue};
 use wasmer_vm::{
     on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, MaybeInstanceOwned,
     StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMExtern, VMFuncRef,
@@ -464,121 +462,6 @@ macro_rules! impl_host_function {
            $c_struct_name:ident,
            $( $x:ident ),* ) => {
 
-            /// A structure with a C-compatible representation that can hold a set of Wasm values.
-            /// This type is used by `WasmTypeList::CStruct`.
-            #[repr($c_struct_representation)]
-            pub struct $c_struct_name< $( $x ),* > ( $( <<$x as FromToNativeWasmType>::Native as NativeWasmType>::Abi ),* )
-            where
-                $( $x: FromToNativeWasmType ),*;
-
-            // Implement `WasmTypeList` for a specific tuple.
-            #[allow(unused_parens, dead_code)]
-            impl< $( $x ),* >
-                WasmTypeList
-            for
-                ( $( $x ),* )
-            where
-                $( $x: FromToNativeWasmType ),*
-            {
-                type CStruct = $c_struct_name< $( $x ),* >;
-
-                type Array = [RawValue; count_idents!( $( $x ),* )];
-
-                fn size() -> u32 {
-                    count_idents!( $( $x ),* ) as _
-                }
-
-                #[allow(unused_mut)]
-                #[allow(clippy::unused_unit)]
-                #[allow(clippy::missing_safety_doc)]
-                unsafe fn from_array(mut _store: &mut impl AsStoreMut, array: Self::Array) -> Self {
-                    // Unpack items of the array.
-                    #[allow(non_snake_case)]
-                    let [ $( $x ),* ] = array;
-
-                    // Build the tuple.
-                    (
-                        $(
-                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_raw(_store, $x))
-                        ),*
-                    )
-                }
-
-                #[allow(clippy::missing_safety_doc)]
-                unsafe fn from_slice(store: &mut impl AsStoreMut, slice: &[RawValue]) -> Result<Self, TryFromSliceError> {
-                    Ok(Self::from_array(store, slice.try_into()?))
-                }
-
-                #[allow(unused_mut)]
-                #[allow(clippy::missing_safety_doc)]
-                unsafe fn into_array(self, mut _store: &mut impl AsStoreMut) -> Self::Array {
-                    // Unpack items of the tuple.
-                    #[allow(non_snake_case)]
-                    let ( $( $x ),* ) = self;
-
-                    // Build the array.
-                    [
-                        $(
-                            FromToNativeWasmType::to_native($x).into_raw(_store)
-                        ),*
-                    ]
-                }
-
-                fn empty_array() -> Self::Array {
-                    // Build an array initialized with `0`.
-                    [RawValue { i32: 0 }; count_idents!( $( $x ),* )]
-                }
-
-                #[allow(unused_mut)]
-                #[allow(clippy::unused_unit)]
-                #[allow(clippy::missing_safety_doc)]
-                unsafe fn from_c_struct(mut _store: &mut impl AsStoreMut, c_struct: Self::CStruct) -> Self {
-                    // Unpack items of the C structure.
-                    #[allow(non_snake_case)]
-                    let $c_struct_name( $( $x ),* ) = c_struct;
-
-                    (
-                        $(
-                            FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(_store, $x))
-                        ),*
-                    )
-                }
-
-                #[allow(unused_parens, non_snake_case, unused_mut)]
-                #[allow(clippy::missing_safety_doc)]
-                unsafe fn into_c_struct(self, mut _store: &mut impl AsStoreMut) -> Self::CStruct {
-                    // Unpack items of the tuple.
-                    let ( $( $x ),* ) = self;
-
-                    // Build the C structure.
-                    $c_struct_name(
-                        $(
-                            FromToNativeWasmType::to_native($x).into_abi(_store)
-                        ),*
-                    )
-                }
-
-                #[allow(non_snake_case)]
-                unsafe fn write_c_struct_to_ptr(c_struct: Self::CStruct, _ptr: *mut RawValue) {
-                    // Unpack items of the tuple.
-                    let $c_struct_name( $( $x ),* ) = c_struct;
-
-                    let mut _n = 0;
-                    $(
-                        *_ptr.add(_n).cast() = $x;
-                        _n += 1;
-                    )*
-                }
-
-                fn wasm_types() -> &'static [Type] {
-                    &[
-                        $(
-                            $x::Native::WASM_TYPE
-                        ),*
-                    ]
-                }
-            }
-
             // Implement `HostFunction` for a function with a [`FunctionEnvMut`] that has the same
             // arity than the tuple.
             #[allow(unused_parens)]
@@ -739,18 +622,6 @@ macro_rules! impl_host_function {
                     call_trampoline::<$( $x, )* Rets>
                 }
 
-            }
-        };
-    }
-
-// Black-magic to count the number of identifiers at compile-time.
-macro_rules! count_idents {
-        ( $($idents:ident),* ) => {
-            {
-                #[allow(dead_code, non_camel_case_types)]
-                enum Idents { $( $idents, )* __CountIdentsLast }
-                const COUNT: usize = Idents::__CountIdentsLast as usize;
-                COUNT
             }
         };
     }
