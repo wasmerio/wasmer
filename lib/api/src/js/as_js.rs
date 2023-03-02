@@ -13,6 +13,7 @@ use crate::{Extern, Function, Global, Memory, Table};
 use js_sys::Function as JsFunction;
 use js_sys::WebAssembly::{Memory as JsMemory, Table as JsTable};
 use std::collections::HashMap;
+use std::convert::TryInto;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::{JsError, JsValue};
 use wasmer_types::ExternType;
@@ -35,12 +36,22 @@ pub trait AsJs: Sized {
 pub fn param_from_js(ty: &Type, js_val: &JsValue) -> Value {
     match ty {
         Type::I32 => Value::I32(js_val.as_f64().unwrap() as _),
-        Type::I64 => Value::I64(js_val.as_f64().unwrap() as _),
+        Type::I64 => {
+            let number = js_val.as_f64().unwrap_or_else(|| {
+                // To support BigInt
+                js_sys::Number::from(js_val.clone()).as_f64().unwrap()
+            }) as _;
+            Value::I64(number)
+        }
         Type::F32 => Value::F32(js_val.as_f64().unwrap() as _),
         Type::F64 => Value::F64(js_val.as_f64().unwrap()),
-        t => unimplemented!(
+        Type::V128 => {
+            let big_num: u128 = js_sys::BigInt::from(js_val.clone()).try_into().unwrap();
+            Value::V128(big_num)
+        }
+        Type::ExternRef | Type::FuncRef => unimplemented!(
             "The type `{:?}` is not yet supported in the JS Function API",
-            t
+            ty
         ),
     }
 }
@@ -50,11 +61,11 @@ impl AsJs for Value {
 
     fn as_jsvalue(&self, _store: &impl AsStoreRef) -> JsValue {
         match self {
-            Self::I32(i) => JsValue::from_f64(*i as f64),
-            Self::I64(i) => JsValue::from_f64(*i as f64),
-            Self::F32(f) => JsValue::from_f64(*f as f64),
-            Self::F64(f) => JsValue::from_f64(*f),
-            Self::V128(f) => JsValue::from_f64(*f as f64),
+            Self::I32(i) => JsValue::from(*i),
+            Self::I64(i) => JsValue::from(*i),
+            Self::F32(f) => JsValue::from(*f),
+            Self::F64(f) => JsValue::from(*f),
+            Self::V128(v) => JsValue::from(*v),
             Self::FuncRef(Some(func)) => func.0.handle.function.clone().into(),
             Self::FuncRef(None) => JsValue::null(),
             Self::ExternRef(_) => unimplemented!(),
