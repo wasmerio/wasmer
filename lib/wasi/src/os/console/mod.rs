@@ -223,6 +223,9 @@ impl Console {
         let wasi_process = env.process.clone();
 
         // TODO: fetching dependencies should be moved to the builder!
+        // TODO: the Console only makes sense in the context of SSH and the terminal.
+        // We should make this just take a WasiBuilder and the console related configs
+        // and not add so much custom logic in here.
         if let Err(err) = env.uses(self.uses.clone()) {
             let mut stderr = self.stderr.clone();
             tasks.block_on(async {
