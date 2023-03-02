@@ -322,25 +322,6 @@
 <span id="320">320</span>
 <span id="321">321</span>
 <span id="322">322</span>
-<span id="323">323</span>
-<span id="324">324</span>
-<span id="325">325</span>
-<span id="326">326</span>
-<span id="327">327</span>
-<span id="328">328</span>
-<span id="329">329</span>
-<span id="330">330</span>
-<span id="331">331</span>
-<span id="332">332</span>
-<span id="333">333</span>
-<span id="334">334</span>
-<span id="335">335</span>
-<span id="336">336</span>
-<span id="337">337</span>
-<span id="338">338</span>
-<span id="339">339</span>
-<span id="340">340</span>
-<span id="341">341</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -642,33 +623,14 @@
             <span class="kw">let</span> <span class="ident">thread_module</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">inner</span>().<span class="ident">instance</span>.<span class="ident">module</span>().<span class="ident">clone</span>();
             <span class="kw">let</span> <span class="ident">tasks2</span> <span class="op">=</span> <span class="ident">tasks</span>.<span class="ident">clone</span>();
 
-            <span class="kw">let</span> <span class="ident">task</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="op">|</span> {
+            <span class="kw">let</span> <span class="ident">task</span> <span class="op">=</span> <span class="kw">move</span> <span class="op">|</span><span class="ident">store</span>, <span class="ident">thread_module</span>, <span class="kw-2">mut</span> <span class="ident">thread_memory</span><span class="op">|</span> {
                 <span class="comment">// FIXME: should not use unwrap() here! (initializiation refactor)</span>
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">thread_memory</span> <span class="op">=</span> <span class="ident">tasks2</span>.<span class="ident">build_memory</span>(<span class="ident">spawn_type</span>).<span class="ident">unwrap</span>();
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">store</span>);
                 <span class="ident">execute_module</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">thread_module</span>, <span class="kw-2">&amp;mut</span> <span class="ident">thread_memory</span>);
             };
 
-            <span class="comment">// TODO: handle this better - required because of Module not being Send.</span>
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;js&quot;</span>)]</span>
-            <span class="kw">let</span> <span class="ident">task</span> <span class="op">=</span> {
-                <span class="kw">struct</span> <span class="ident">UnsafeWrapper</span> {
-                    <span class="ident">inner</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FnOnce</span>() <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>,
-                }
-
-                <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Send</span> <span class="kw">for</span> <span class="ident">UnsafeWrapper</span> {}
-
-                <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="ident">UnsafeWrapper</span> {
-                    <span class="ident">inner</span>: <span class="ident">Box::new</span>(<span class="ident">task</span>),
-                };
-
-                <span class="kw">move</span> <span class="op">|</span><span class="op">|</span> {
-                    (<span class="ident">inner</span>.<span class="ident">inner</span>)();
-                }
-            };
-
             <span class="macro">wasi_try!</span>(<span class="ident">tasks</span>
-                .<span class="ident">task_wasm</span>(<span class="ident">Box::new</span>(<span class="ident">task</span>),)
+                .<span class="ident">task_wasm</span>(<span class="ident">Box::new</span>(<span class="ident">task</span>), <span class="ident">store</span>, <span class="ident">thread_module</span>, <span class="ident">spawn_type</span>)
                 .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> { <span class="ident">Into</span>::<span class="op">&lt;</span><span class="ident">Errno</span><span class="op">&gt;</span><span class="ident">::into</span>(<span class="ident">err</span>) }));
         }
         <span class="kw">_</span> =&gt; {

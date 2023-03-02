@@ -266,6 +266,15 @@
 <span id="264">264</span>
 <span id="265">265</span>
 <span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused_imports</span>)]</span>
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 
@@ -491,13 +500,22 @@
         <span class="kw">let</span> <span class="ident">wasi_process</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">process</span>.<span class="ident">clone</span>();
 
         <span class="comment">// TODO: fetching dependencies should be moved to the builder!</span>
-        <span class="comment">// if let Err(err) = env.uses(self.uses.clone()) {</span>
-        <span class="comment">//     tasks.block_on(async {</span>
-        <span class="comment">//         let _ = self.runtime.stderr(format!(&quot;{}\r\n&quot;, err).as_bytes()).await;</span>
-        <span class="comment">//     });</span>
-        <span class="comment">//     tracing::debug!(&quot;failed to load used dependency - {}&quot;, err);</span>
-        <span class="comment">//     return Err(crate::vbus::VirtualBusError::BadRequest);</span>
-        <span class="comment">// }</span>
+        <span class="comment">// TODO: the Console only makes sense in the context of SSH and the terminal.</span>
+        <span class="comment">// We should make this just take a WasiBuilder and the console related configs</span>
+        <span class="comment">// and not add so much custom logic in here.</span>
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">uses</span>(<span class="self">self</span>.<span class="ident">uses</span>.<span class="ident">clone</span>()) {
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stderr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">stderr</span>.<span class="ident">clone</span>();
+            <span class="ident">tasks</span>.<span class="ident">block_on</span>(<span class="kw">async</span> {
+                <span class="ident">wasmer_vfs::AsyncWriteExt::write_all</span>(
+                    <span class="kw-2">&amp;mut</span> <span class="ident">stderr</span>,
+                    <span class="macro">format!</span>(<span class="string">&quot;{}\r\n&quot;</span>, <span class="ident">err</span>).<span class="ident">as_bytes</span>(),
+                )
+                .<span class="kw">await</span>
+                .<span class="ident">ok</span>();
+            });
+            <span class="macro">tracing::debug!</span>(<span class="string">&quot;failed to load used dependency - {}&quot;</span>, <span class="ident">err</span>);
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">VirtualBusError::BadRequest</span>);
+        }
 
         <span class="comment">// Build the config</span>
         <span class="comment">// Run the binary</span>

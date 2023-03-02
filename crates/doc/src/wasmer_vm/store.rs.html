@@ -312,6 +312,13 @@
 <span id="312">312</span>
 <span id="313">313</span>
 <span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">core::slice::Iter</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">cell::UnsafeCell</span>,
@@ -420,6 +427,13 @@
     <span class="doccomment">/// Return an immutable iterator over all globals</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">iter_globals</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Iter</span><span class="op">&lt;</span><span class="ident">VMGlobal</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">globals</span>.<span class="ident">iter</span>()
+    }
+
+    <span class="doccomment">/// Return an vector of all globals and converted to u128</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">as_u128_globals</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u128</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">iter_globals</span>()
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="kw">unsafe</span> { <span class="ident">v</span>.<span class="ident">vmglobal</span>().<span class="ident">as_ref</span>().<span class="ident">val</span>.<span class="ident">u128</span> })
+            .<span class="ident">collect</span>()
     }
 
     <span class="doccomment">/// Set a global, at index idx. Will panic if idx is out of range</span>

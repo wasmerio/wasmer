@@ -506,6 +506,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_compiled_module</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span> <span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">wasmer::AsEngineRef</span>,
+        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;js&quot;</span>)]</span> <span class="ident">engine</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">wasmer::AsStoreRef</span>,
         <span class="ident">data_hash</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
         <span class="ident">compiler</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
     ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> {
@@ -534,34 +535,33 @@
             }
         }
 
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
-        {
-            <span class="comment">// slow path</span>
-            <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">std::path::Path::new</span>(<span class="self">self</span>.<span class="ident">cache_compile_dir</span>.<span class="ident">as_str</span>())
-                .<span class="ident">join</span>(<span class="macro">format!</span>(<span class="string">&quot;{}.bin&quot;</span>, <span class="ident">key</span>).<span class="ident">as_str</span>());
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">data</span>) <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="ident">path</span>) {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">decoder</span> <span class="op">=</span> <span class="ident">weezl::decode::Decoder::new</span>(<span class="ident">weezl::BitOrder::Msb</span>, <span class="number">8</span>);
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">data</span>) <span class="op">=</span> <span class="ident">decoder</span>.<span class="ident">decode</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>[..]) {
-                    <span class="kw">let</span> <span class="ident">module_bytes</span> <span class="op">=</span> <span class="ident">bytes::Bytes::from</span>(<span class="ident">data</span>);
+        <span class="comment">// slow path</span>
+        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">std::path::Path::new</span>(<span class="self">self</span>.<span class="ident">cache_compile_dir</span>.<span class="ident">as_str</span>())
+            .<span class="ident">join</span>(<span class="macro">format!</span>(<span class="string">&quot;{}.bin&quot;</span>, <span class="ident">key</span>).<span class="ident">as_str</span>());
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">data</span>) <span class="op">=</span> <span class="ident">std::fs::read</span>(<span class="ident">path</span>.<span class="ident">as_path</span>()) {
+            <span class="macro">tracing::trace!</span>(<span class="string">&quot;bin file found: {:?} [len={}]&quot;</span>, <span class="ident">path</span>.<span class="ident">as_path</span>(), <span class="ident">data</span>.<span class="ident">len</span>());
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">decoder</span> <span class="op">=</span> <span class="ident">weezl::decode::Decoder::new</span>(<span class="ident">weezl::BitOrder::Msb</span>, <span class="number">8</span>);
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">data</span>) <span class="op">=</span> <span class="ident">decoder</span>.<span class="ident">decode</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>[..]) {
+                <span class="kw">let</span> <span class="ident">module_bytes</span> <span class="op">=</span> <span class="ident">bytes::Bytes::from</span>(<span class="ident">data</span>);
 
-                    <span class="comment">// Load the module</span>
-                    <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">Module::deserialize</span>(<span class="ident">engine</span>, <span class="kw-2">&amp;</span><span class="ident">module_bytes</span>[..]).<span class="ident">unwrap</span>() };
+                <span class="comment">// Load the module</span>
+                <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">Module::deserialize</span>(<span class="ident">engine</span>, <span class="kw-2">&amp;</span><span class="ident">module_bytes</span>[..]).<span class="ident">unwrap</span>() };
 
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">cache</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">cached_modules</span> {
-                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-                        <span class="ident">cache</span>.<span class="ident">insert</span>(<span class="ident">key</span>.<span class="ident">clone</span>(), <span class="ident">module</span>.<span class="ident">clone</span>());
-                    }
-
-                    <span class="ident">THREAD_LOCAL_CACHED_MODULES</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">cache</span><span class="op">|</span> {
-                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">borrow_mut</span>();
-                        <span class="ident">cache</span>.<span class="ident">insert</span>(<span class="ident">key</span>.<span class="ident">clone</span>(), <span class="ident">module</span>.<span class="ident">clone</span>());
-                    });
-                    <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">module</span>);
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">cache</span>) <span class="op">=</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">cached_modules</span> {
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
+                    <span class="ident">cache</span>.<span class="ident">insert</span>(<span class="ident">key</span>.<span class="ident">clone</span>(), <span class="ident">module</span>.<span class="ident">clone</span>());
                 }
+
+                <span class="ident">THREAD_LOCAL_CACHED_MODULES</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">cache</span><span class="op">|</span> {
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">cache</span> <span class="op">=</span> <span class="ident">cache</span>.<span class="ident">borrow_mut</span>();
+                    <span class="ident">cache</span>.<span class="ident">insert</span>(<span class="ident">key</span>.<span class="ident">clone</span>(), <span class="ident">module</span>.<span class="ident">clone</span>());
+                });
+                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">module</span>);
             }
         }
 
         <span class="comment">// Not found</span>
+        <span class="macro">tracing::trace!</span>(<span class="string">&quot;bin file not found: {:?}&quot;</span>, <span class="ident">path</span>);
         <span class="prelude-val">None</span>
     }
 

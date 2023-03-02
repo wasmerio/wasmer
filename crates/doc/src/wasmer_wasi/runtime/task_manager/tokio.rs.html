@@ -148,11 +148,24 @@
 <span id="146">146</span>
 <span id="147">147</span>
 <span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">pin::Pin</span>, <span class="ident">time::Duration</span>};
 
 <span class="kw">use</span> <span class="ident">futures::Future</span>;
 <span class="kw">use</span> <span class="ident">tokio::runtime::Handle</span>;
-<span class="kw">use</span> <span class="ident">wasmer::vm</span>::{<span class="ident">VMMemory</span>, <span class="ident">VMSharedMemory</span>};
+<span class="kw">use</span> <span class="ident">wasmer</span>::{
+    <span class="ident">vm</span>::{<span class="ident">VMMemory</span>, <span class="ident">VMSharedMemory</span>},
+    <span class="ident">Module</span>, <span class="ident">Store</span>,
+};
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::os::task::thread::WasiThreadError</span>;
 
@@ -270,10 +283,17 @@
     }
 
     <span class="doccomment">/// See [`VirtualTaskManager::enter`].</span>
-    <span class="kw">fn</span> <span class="ident">task_wasm</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">task</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FnOnce</span>() <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiThreadError</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">task_wasm</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">task</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FnOnce</span>(<span class="ident">Store</span>, <span class="ident">Module</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">VMMemory</span><span class="op">&gt;</span>) <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>,
+        <span class="ident">store</span>: <span class="ident">Store</span>,
+        <span class="ident">module</span>: <span class="ident">Module</span>,
+        <span class="ident">spawn_type</span>: <span class="ident">SpawnType</span>,
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiThreadError</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">build_memory</span>(<span class="ident">spawn_type</span>)<span class="question-mark">?</span>;
         <span class="self">self</span>.<span class="number">0</span>.<span class="ident">spawn_blocking</span>(<span class="kw">move</span> <span class="op">|</span><span class="op">|</span> {
             <span class="comment">// Invoke the callback</span>
-            <span class="ident">task</span>();
+            <span class="ident">task</span>(<span class="ident">store</span>, <span class="ident">module</span>, <span class="ident">memory</span>);
         });
         <span class="prelude-val">Ok</span>(())
     }

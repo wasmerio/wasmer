@@ -108,6 +108,12 @@
 <span id="106">106</span>
 <span id="107">107</span>
 <span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
 </pre><pre class="rust"><code><span class="comment">// TODO: should be behind a different , tokio specific feature flag.</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys-thread&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">tokio</span>;
@@ -116,7 +122,7 @@
 
 <span class="kw">use</span> <span class="ident">::tokio::runtime::Handle</span>;
 <span class="kw">use</span> <span class="ident">futures::Future</span>;
-<span class="kw">use</span> <span class="ident">wasmer::MemoryType</span>;
+<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">MemoryType</span>, <span class="ident">Module</span>, <span class="ident">Store</span>};
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;js&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer::VMMemory</span>;
@@ -177,7 +183,13 @@
     <span class="doccomment">/// Starts an asynchronous task will will run on a dedicated thread</span>
     <span class="doccomment">/// pulled from the worker pool that has a stateful thread local variable</span>
     <span class="doccomment">/// It is ok for this task to block execution and any async futures within its scope</span>
-    <span class="kw">fn</span> <span class="ident">task_wasm</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">task</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FnOnce</span>() <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiThreadError</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">task_wasm</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">task</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FnOnce</span>(<span class="ident">Store</span>, <span class="ident">Module</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">VMMemory</span><span class="op">&gt;</span>) <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span>,
+        <span class="ident">store</span>: <span class="ident">Store</span>,
+        <span class="ident">module</span>: <span class="ident">Module</span>,
+        <span class="ident">spawn_type</span>: <span class="ident">SpawnType</span>,
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiThreadError</span><span class="op">&gt;</span>;
 
     <span class="doccomment">/// Starts an asynchronous task will will run on a dedicated thread</span>
     <span class="doccomment">/// pulled from the worker pool. It is ok for this task to block execution</span>

@@ -704,7 +704,7 @@
             <span class="ident">children</span>.<span class="ident">clone</span>()
         };
         <span class="kw">if</span> <span class="ident">children</span>.<span class="ident">is_empty</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">Errno::Child</span>);
+            <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
         }
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">waits</span> <span class="op">=</span> <span class="ident">Vec::new</span>();

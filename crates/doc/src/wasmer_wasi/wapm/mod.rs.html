@@ -493,6 +493,15 @@
 <span id="491">491</span>
 <span id="492">492</span>
 <span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">bail</span>, <span class="ident">Context</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">ops::Deref</span>,
@@ -904,6 +913,15 @@
                         <span class="ident">atom</span>.<span class="ident">len</span>(),
                         <span class="ident">command</span>
                     );
+                    <span class="kw">if</span> <span class="ident">pck</span>.<span class="ident">entry</span>.<span class="ident">is_none</span>() {
+                        <span class="macro">trace!</span>(<span class="string">&quot;defaulting entry to command [{}]&quot;</span>, <span class="ident">command</span>);
+                        <span class="kw">let</span> <span class="ident">entry</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">u8</span>] <span class="op">=</span> {
+                            <span class="kw">let</span> <span class="ident">atom</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_</span> [<span class="ident">u8</span>] <span class="op">=</span> <span class="ident">atom</span>;
+                            <span class="ident">std::mem::transmute</span>(<span class="ident">atom</span>)
+                        };
+                        <span class="ident">pck</span>.<span class="ident">entry</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">entry</span>.<span class="ident">into</span>());
+                    }
+
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">commands</span> <span class="op">=</span> <span class="ident">pck</span>.<span class="ident">commands</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
                     <span class="ident">commands</span>.<span class="ident">push</span>(<span class="ident">BinaryPackageCommand::new_with_ownership</span>(
                         <span class="ident">command</span>.<span class="ident">clone</span>(),
