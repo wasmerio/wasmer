@@ -420,10 +420,12 @@ pub(super) fn compile_pirita_into_directory(
                 )
             })?;
 
-            Some(target_dir.join("include").join(format!(
+            let header_path = target_dir.join("include").join(format!(
                 "static_defs_{}.h",
                 utils::normalize_atom_name(&atom_name)
-            )))
+            ));
+
+            Some(header_path)
         };
         target_paths.push((
             atom_name.clone(),
