@@ -174,6 +174,18 @@
 <span id="172">172</span>
 <span id="173">173</span>
 <span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">pin::Pin</span>,
     <span class="ident">sync::Arc</span>,
@@ -213,6 +225,14 @@
             <span class="ident"><span class="self">Self</span>::Finished</span>(<span class="ident">res</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">res</span>),
             <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
         }
+    }
+
+    <span class="doccomment">/// Returns `true` if the task status is [`Finished`].</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// [`Finished`]: TaskStatus::Finished</span>
+    <span class="attribute">#[<span class="ident">must_use</span>]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_finished</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
+        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="ident"><span class="self">Self</span>::Finished</span>(..))
     }
 }
 
@@ -264,6 +284,11 @@
 
     <span class="doccomment">/// Marks the task as finished.</span>
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn</span> <span class="ident">set_finished</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ExitCode</span>, <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">WasiRuntimeError</span><span class="op">&gt;</span><span class="op">&gt;</span>) {
+        <span class="comment">// Don&#39;t overwrite a previous finished state.</span>
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">status</span>().<span class="ident">is_finished</span>() {
+            <span class="kw">return</span>;
+        }
+
         <span class="kw">let</span> <span class="ident">inner</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">res</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">code</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="ident">code</span>),
             <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
@@ -274,7 +299,6 @@
                 }
             }
         };
-
         <span class="self">self</span>.<span class="ident">watch</span>.<span class="ident">send</span>(<span class="ident">TaskStatus::Finished</span>(<span class="ident">inner</span>)).<span class="ident">ok</span>();
     }
 

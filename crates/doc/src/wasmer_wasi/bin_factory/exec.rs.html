@@ -281,7 +281,7 @@
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">pin::Pin</span>, <span class="ident">sync::Arc</span>};
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
-    <span class="ident">os::task</span>::{<span class="ident">thread::WasiThreadGuard</span>, <span class="ident">TaskJoinHandle</span>},
+    <span class="ident">os::task</span>::{<span class="ident">thread::WasiThreadRunGuard</span>, <span class="ident">TaskJoinHandle</span>},
     <span class="ident">VirtualBusError</span>, <span class="ident">WasiRuntimeError</span>,
 };
 <span class="kw">use</span> <span class="ident">futures::Future</span>;
@@ -400,7 +400,7 @@
                     }
                 };
 
-                <span class="kw">let</span> <span class="ident">thread</span> <span class="op">=</span> <span class="ident">WasiThreadGuard::new</span>(<span class="ident">wasi_env</span>.<span class="ident">thread</span>.<span class="ident">clone</span>());
+                <span class="kw">let</span> <span class="ident">thread</span> <span class="op">=</span> <span class="ident">WasiThreadRunGuard::new</span>(<span class="ident">wasi_env</span>.<span class="ident">thread</span>.<span class="ident">clone</span>());
 
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasi_env</span> <span class="op">=</span> <span class="ident">WasiFunctionEnv::new</span>(<span class="kw-2">&amp;mut</span> <span class="ident">store</span>, <span class="ident">wasi_env</span>);
 

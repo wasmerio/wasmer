@@ -556,17 +556,17 @@
 <span class="doccomment">/// [`Thread::set_status_running`] or [`Thread::set_status_finished`], but</span>
 <span class="doccomment">/// this guard can ensure that the thread is marked as terminated even if this</span>
 <span class="doccomment">/// is forgotten or a panic occurs.</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiThreadGuard</span> {
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiThreadRunGuard</span> {
     <span class="kw">pub</span> <span class="ident">thread</span>: <span class="ident">WasiThread</span>,
 }
 
-<span class="kw">impl</span> <span class="ident">WasiThreadGuard</span> {
+<span class="kw">impl</span> <span class="ident">WasiThreadRunGuard</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">thread</span>: <span class="ident">WasiThread</span>) -&gt; <span class="self">Self</span> {
         <span class="self">Self</span> { <span class="ident">thread</span> }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">WasiThreadGuard</span> {
+<span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">WasiThreadRunGuard</span> {
     <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
         <span class="self">self</span>.<span class="ident">thread</span>
             .<span class="ident">set_status_finished</span>(<span class="prelude-val">Err</span>(
