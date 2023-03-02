@@ -2206,111 +2206,10 @@
 <span id="2204">2204</span>
 <span id="2205">2205</span>
 <span id="2206">2206</span>
-<span id="2207">2207</span>
-<span id="2208">2208</span>
-<span id="2209">2209</span>
-<span id="2210">2210</span>
-<span id="2211">2211</span>
-<span id="2212">2212</span>
-<span id="2213">2213</span>
-<span id="2214">2214</span>
-<span id="2215">2215</span>
-<span id="2216">2216</span>
-<span id="2217">2217</span>
-<span id="2218">2218</span>
-<span id="2219">2219</span>
-<span id="2220">2220</span>
-<span id="2221">2221</span>
-<span id="2222">2222</span>
-<span id="2223">2223</span>
-<span id="2224">2224</span>
-<span id="2225">2225</span>
-<span id="2226">2226</span>
-<span id="2227">2227</span>
-<span id="2228">2228</span>
-<span id="2229">2229</span>
-<span id="2230">2230</span>
-<span id="2231">2231</span>
-<span id="2232">2232</span>
-<span id="2233">2233</span>
-<span id="2234">2234</span>
-<span id="2235">2235</span>
-<span id="2236">2236</span>
-<span id="2237">2237</span>
-<span id="2238">2238</span>
-<span id="2239">2239</span>
-<span id="2240">2240</span>
-<span id="2241">2241</span>
-<span id="2242">2242</span>
-<span id="2243">2243</span>
-<span id="2244">2244</span>
-<span id="2245">2245</span>
-<span id="2246">2246</span>
-<span id="2247">2247</span>
-<span id="2248">2248</span>
-<span id="2249">2249</span>
-<span id="2250">2250</span>
-<span id="2251">2251</span>
-<span id="2252">2252</span>
-<span id="2253">2253</span>
-<span id="2254">2254</span>
-<span id="2255">2255</span>
-<span id="2256">2256</span>
-<span id="2257">2257</span>
-<span id="2258">2258</span>
-<span id="2259">2259</span>
-<span id="2260">2260</span>
-<span id="2261">2261</span>
-<span id="2262">2262</span>
-<span id="2263">2263</span>
-<span id="2264">2264</span>
-<span id="2265">2265</span>
-<span id="2266">2266</span>
-<span id="2267">2267</span>
-<span id="2268">2268</span>
-<span id="2269">2269</span>
-<span id="2270">2270</span>
-<span id="2271">2271</span>
-<span id="2272">2272</span>
-<span id="2273">2273</span>
-<span id="2274">2274</span>
-<span id="2275">2275</span>
-<span id="2276">2276</span>
-<span id="2277">2277</span>
-<span id="2278">2278</span>
-<span id="2279">2279</span>
-<span id="2280">2280</span>
-<span id="2281">2281</span>
-<span id="2282">2282</span>
-<span id="2283">2283</span>
-<span id="2284">2284</span>
-<span id="2285">2285</span>
-<span id="2286">2286</span>
-<span id="2287">2287</span>
-<span id="2288">2288</span>
-<span id="2289">2289</span>
-<span id="2290">2290</span>
-<span id="2291">2291</span>
-<span id="2292">2292</span>
-<span id="2293">2293</span>
-<span id="2294">2294</span>
-<span id="2295">2295</span>
-<span id="2296">2296</span>
-<span id="2297">2297</span>
-<span id="2298">2298</span>
-<span id="2299">2299</span>
-<span id="2300">2300</span>
-<span id="2301">2301</span>
-<span id="2302">2302</span>
-<span id="2303">2303</span>
-<span id="2304">2304</span>
-<span id="2305">2305</span>
-<span id="2306">2306</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="self">self</span>::utils::normalize_atom_name</span>;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::ObjectFormat</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::normalize_path</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store::CompilerOptions</span>;
 <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
@@ -2325,7 +2224,7 @@
 <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">wasmer_object</span>::{<span class="ident">emit_serialized</span>, <span class="ident">get_object_for_target</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">ModuleInfo</span>, <span class="ident">SymbolRegistry</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types::ModuleInfo</span>;
 <span class="kw">use</span> <span class="ident">webc</span>::{<span class="ident">ParseOptions</span>, <span class="ident">WebCMmap</span>};
 
 <span class="kw">const</span> <span class="ident">LINK_SYSTEM_LIBRARIES_WINDOWS</span>: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="ident">str</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;userenv&quot;</span>, <span class="string">&quot;Ws2_32&quot;</span>, <span class="string">&quot;advapi32&quot;</span>, <span class="string">&quot;bcrypt&quot;</span>];
@@ -2382,14 +2281,6 @@
     <span class="doccomment">/// this flag can be used to override that behaviour.</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;URL_OR_RELEASE_VERSION&quot;</span>)]</span>
     <span class="ident">use_wasmer_release</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-
-    <span class="doccomment">/// Object format options</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This flag accepts two options: `symbols` or `serialized`.</span>
-    <span class="doccomment">/// - (default) `symbols` creates an object where all functions and metadata of the module are regular object symbols</span>
-    <span class="doccomment">/// - `serialized` creates an object where the module is zero-copy serialized as raw data</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;object-format&quot;</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;OBJECT_FORMAT&quot;</span>, <span class="ident">verbatim_doc_comment</span>)]</span>
-    <span class="ident">object_format</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ObjectFormat</span><span class="op">&gt;</span>,
 
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">short</span> <span class="op">=</span> <span class="string">&#39;m&#39;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">number_of_values</span> <span class="op">=</span> <span class="number">1</span>)]</span>
     <span class="ident">cpu_features</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span>,
@@ -2472,8 +2363,6 @@
     <span class="kw">pub</span> <span class="ident">atoms</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">CommandEntrypoint</span><span class="op">&gt;</span>,
     <span class="doccomment">/// Volume objects (if any) to link into the final binary</span>
     <span class="kw">pub</span> <span class="ident">volumes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Volume</span><span class="op">&gt;</span>,
-    <span class="doccomment">/// Type of the object format the atoms were compiled with</span>
-    <span class="kw">pub</span> <span class="ident">object_format</span>: <span class="ident">ObjectFormat</span>,
 }
 
 <span class="doccomment">/// Command entrypoint for multiple commands</span>
@@ -2511,7 +2400,6 @@
         <span class="kw">let</span> <span class="ident">starting_cd</span> <span class="op">=</span> <span class="ident">env::current_dir</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">input_path</span> <span class="op">=</span> <span class="ident">starting_cd</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">path</span>);
         <span class="kw">let</span> <span class="ident">output_path</span> <span class="op">=</span> <span class="ident">starting_cd</span>.<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">output</span>);
-        <span class="kw">let</span> <span class="ident">object_format</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">object_format</span>.<span class="ident">unwrap_or_default</span>();
 
         <span class="kw">let</span> <span class="ident">url_or_version</span> <span class="op">=</span> <span class="kw">match</span> <span class="self">self</span>
             .<span class="ident">use_wasmer_release</span>
@@ -2523,13 +2411,8 @@
             <span class="prelude-val">None</span> =&gt; <span class="prelude-val">None</span>,
         };
 
-        <span class="kw">let</span> <span class="ident">cross_compilation</span> <span class="op">=</span> <span class="ident">utils::get_cross_compile_setup</span>(
-            <span class="kw-2">&amp;mut</span> <span class="ident">cc</span>,
-            <span class="kw-2">&amp;</span><span class="ident">target_triple</span>,
-            <span class="kw-2">&amp;</span><span class="ident">starting_cd</span>,
-            <span class="kw-2">&amp;</span><span class="ident">object_format</span>,
-            <span class="ident">url_or_version</span>,
-        )<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">cross_compilation</span> <span class="op">=</span>
+            <span class="ident">utils::get_cross_compile_setup</span>(<span class="kw-2">&amp;mut</span> <span class="ident">cc</span>, <span class="kw-2">&amp;</span><span class="ident">target_triple</span>, <span class="kw-2">&amp;</span><span class="ident">starting_cd</span>, <span class="ident">url_or_version</span>)<span class="question-mark">?</span>;
 
         <span class="kw">if</span> <span class="ident">input_path</span>.<span class="ident">is_dir</span>() {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;input path cannot be a directory&quot;</span>));
@@ -2539,7 +2422,6 @@
 
         <span class="macro">println!</span>(<span class="string">&quot;Compiler: {}&quot;</span>, <span class="ident">compiler_type</span>.<span class="ident">to_string</span>());
         <span class="macro">println!</span>(<span class="string">&quot;Target: {}&quot;</span>, <span class="ident">target</span>.<span class="ident">triple</span>());
-        <span class="macro">println!</span>(<span class="string">&quot;Format: {:?}&quot;</span>, <span class="ident">object_format</span>);
         <span class="macro">println!</span>(
             <span class="string">&quot;Using path `{}` as libwasmer path.&quot;</span>,
             <span class="ident">cross_compilation</span>.<span class="ident">library</span>.<span class="ident">display</span>()
@@ -2565,7 +2447,6 @@
                     <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">compiler</span>,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">cpu_features</span>,
                     <span class="kw-2">&amp;</span><span class="ident">cross_compilation</span>.<span class="ident">target</span>,
-                    <span class="ident">object_format</span>,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">precompiled_atom</span>,
                     <span class="ident">AllowMultiWasm::Allow</span>,
                     <span class="self">self</span>.<span class="ident">debug_dir</span>.<span class="ident">is_some</span>(),
@@ -2578,13 +2459,12 @@
                     <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">compiler</span>,
                     <span class="kw-2">&amp;</span><span class="ident">cross_compilation</span>.<span class="ident">target</span>,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">cpu_features</span>,
-                    <span class="ident">object_format</span>,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">precompiled_atom</span>,
                     <span class="self">self</span>.<span class="ident">debug_dir</span>.<span class="ident">is_some</span>(),
                 )
             }<span class="question-mark">?</span>;
 
-        <span class="ident">get_module_infos</span>(<span class="kw-2">&amp;</span><span class="ident">tempdir</span>, <span class="kw-2">&amp;</span><span class="ident">atoms</span>, <span class="ident">object_format</span>)<span class="question-mark">?</span>;
+        <span class="ident">get_module_infos</span>(<span class="kw-2">&amp;</span><span class="ident">tempdir</span>, <span class="kw-2">&amp;</span><span class="ident">atoms</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">entrypoint</span> <span class="op">=</span> <span class="ident">get_entrypoint</span>(<span class="kw-2">&amp;</span><span class="ident">tempdir</span>)<span class="question-mark">?</span>;
         <span class="ident">create_header_files_in_dir</span>(<span class="kw-2">&amp;</span><span class="ident">tempdir</span>, <span class="kw-2">&amp;mut</span> <span class="ident">entrypoint</span>, <span class="kw-2">&amp;</span><span class="ident">atoms</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">precompiled_atom</span>)<span class="question-mark">?</span>;
         <span class="ident">link_exe_from_dir</span>(
@@ -2668,7 +2548,6 @@
     <span class="ident">compiler</span>: <span class="kw-2">&amp;</span><span class="ident">CompilerOptions</span>,
     <span class="ident">cpu_features</span>: <span class="kw-2">&amp;</span>[<span class="ident">CpuFeature</span>],
     <span class="ident">triple</span>: <span class="kw-2">&amp;</span><span class="ident">Triple</span>,
-    <span class="ident">object_format</span>: <span class="ident">ObjectFormat</span>,
     <span class="ident">prefixes</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>],
     <span class="ident">allow_multi_wasm</span>: <span class="ident">AllowMultiWasm</span>,
     <span class="ident">debug</span>: <span class="ident">bool</span>,
@@ -2741,21 +2620,20 @@
         <span class="kw">let</span> <span class="ident">atom_path</span> <span class="op">=</span> <span class="ident">target_dir</span>
             .<span class="ident">join</span>(<span class="string">&quot;atoms&quot;</span>)
             .<span class="ident">join</span>(<span class="macro">format!</span>(<span class="string">&quot;{}.o&quot;</span>, <span class="ident">utils::normalize_atom_name</span>(<span class="kw-2">&amp;</span><span class="ident">atom_name</span>)));
-        <span class="kw">let</span> <span class="ident">header_path</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">object_format</span> {
-            <span class="ident">ObjectFormat::Symbols</span> =&gt; {
-                <span class="ident">std::fs::create_dir_all</span>(<span class="ident">target_dir</span>.<span class="ident">join</span>(<span class="string">&quot;include&quot;</span>)).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
-                    <span class="macro">anyhow::anyhow!</span>(
-                        <span class="string">&quot;cannot create /include dir in {}: {e}&quot;</span>,
-                        <span class="ident">target_dir</span>.<span class="ident">display</span>()
-                    )
-                })<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">header_path</span> <span class="op">=</span> {
+            <span class="ident">std::fs::create_dir_all</span>(<span class="ident">target_dir</span>.<span class="ident">join</span>(<span class="string">&quot;include&quot;</span>)).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
+                <span class="macro">anyhow::anyhow!</span>(
+                    <span class="string">&quot;cannot create /include dir in {}: {e}&quot;</span>,
+                    <span class="ident">target_dir</span>.<span class="ident">display</span>()
+                )
+            })<span class="question-mark">?</span>;
 
-                <span class="prelude-val">Some</span>(<span class="ident">target_dir</span>.<span class="ident">join</span>(<span class="string">&quot;include&quot;</span>).<span class="ident">join</span>(<span class="macro">format!</span>(
-                    <span class="string">&quot;static_defs_{}.h&quot;</span>,
-                    <span class="ident">utils::normalize_atom_name</span>(<span class="kw-2">&amp;</span><span class="ident">atom_name</span>)
-                )))
-            }
-            <span class="ident">ObjectFormat::Serialized</span> =&gt; <span class="prelude-val">None</span>,
+            <span class="kw">let</span> <span class="ident">header_path</span> <span class="op">=</span> <span class="ident">target_dir</span>.<span class="ident">join</span>(<span class="string">&quot;include&quot;</span>).<span class="ident">join</span>(<span class="macro">format!</span>(
+                <span class="string">&quot;static_defs_{}.h&quot;</span>,
+                <span class="ident">utils::normalize_atom_name</span>(<span class="kw-2">&amp;</span><span class="ident">atom_name</span>)
+            ));
+
+            <span class="prelude-val">Some</span>(<span class="ident">header_path</span>)
         };
         <span class="ident">target_paths</span>.<span class="ident">push</span>((
             <span class="ident">atom_name</span>.<span class="ident">clone</span>(),
@@ -2773,7 +2651,6 @@
         <span class="kw-2">&amp;</span><span class="ident">target_dir</span>.<span class="ident">join</span>(<span class="string">&quot;atoms&quot;</span>),
         <span class="ident">compiler</span>,
         <span class="ident">target</span>,
-        <span class="ident">object_format</span>,
         <span class="kw-2">&amp;</span><span class="ident">prefix_map</span>,
         <span class="ident">debug</span>,
     )<span class="question-mark">?</span>;
@@ -2804,7 +2681,6 @@
             <span class="ident">name</span>: <span class="ident">volume_name</span>.<span class="ident">to_string</span>(),
             <span class="ident">obj_file</span>: <span class="ident">volume_path</span>,
         }],
-        <span class="ident">object_format</span>,
     };
 
     <span class="ident">write_entrypoint</span>(<span class="kw-2">&amp;</span><span class="ident">target_dir</span>, <span class="kw-2">&amp;</span><span class="ident">entrypoint</span>)<span class="question-mark">?</span>;
@@ -3035,7 +2911,6 @@
     <span class="ident">output_dir</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
     <span class="ident">compiler</span>: <span class="kw-2">&amp;</span><span class="ident">CompilerOptions</span>,
     <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>,
-    <span class="ident">object_format</span>: <span class="ident">ObjectFormat</span>,
     <span class="ident">prefixes</span>: <span class="kw-2">&amp;</span><span class="ident">PrefixMapCompilation</span>,
     <span class="ident">debug</span>: <span class="ident">bool</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">ModuleInfo</span><span class="op">&gt;</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
@@ -3059,44 +2934,25 @@
             <span class="kw">continue</span>;
         }
         <span class="kw">let</span> (<span class="ident">store</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">compiler</span>.<span class="ident">get_store_for_target</span>(<span class="ident">target</span>.<span class="ident">clone</span>())<span class="question-mark">?</span>;
-        <span class="kw">match</span> <span class="ident">object_format</span> {
-            <span class="ident">ObjectFormat::Symbols</span> =&gt; {
-                <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">engine</span>();
-                <span class="kw">let</span> <span class="ident">engine_inner</span> <span class="op">=</span> <span class="ident">engine</span>.<span class="ident">inner</span>();
-                <span class="kw">let</span> <span class="ident">compiler</span> <span class="op">=</span> <span class="ident">engine_inner</span>.<span class="ident">compiler</span>()<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">features</span> <span class="op">=</span> <span class="ident">engine_inner</span>.<span class="ident">features</span>();
-                <span class="kw">let</span> <span class="ident">tunables</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">tunables</span>();
-                <span class="kw">let</span> (<span class="ident">module_info</span>, <span class="ident">obj</span>, <span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">Artifact::generate_object</span>(
-                    <span class="ident">compiler</span>,
-                    <span class="ident">data</span>,
-                    <span class="prelude-val">Some</span>(<span class="ident">prefix</span>.<span class="ident">as_str</span>()),
-                    <span class="ident">target</span>,
-                    <span class="ident">tunables</span>,
-                    <span class="ident">features</span>,
-                )<span class="question-mark">?</span>;
-                <span class="ident">module_infos</span>.<span class="ident">insert</span>(<span class="ident">atom_name</span>, <span class="ident">module_info</span>);
-                <span class="comment">// Write object file with functions</span>
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">BufWriter::new</span>(<span class="ident">File::create</span>(<span class="kw-2">&amp;</span><span class="ident">output_object_path</span>)<span class="question-mark">?</span>);
-                <span class="ident">obj</span>.<span class="ident">write_stream</span>(<span class="kw-2">&amp;mut</span> <span class="ident">writer</span>)
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="ident">err</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
-                <span class="ident">writer</span>.<span class="ident">flush</span>()<span class="question-mark">?</span>;
-            }
-            <span class="ident">ObjectFormat::Serialized</span> =&gt; {
-                <span class="kw">let</span> <span class="ident">module_name</span> <span class="op">=</span> <span class="ident">ModuleMetadataSymbolRegistry</span> {
-                    <span class="ident">prefix</span>: <span class="ident">prefix</span>.<span class="ident">clone</span>(),
-                }
-                .<span class="ident">symbol_to_name</span>(<span class="ident">wasmer_types::Symbol::Metadata</span>);
-                <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::from_binary</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">data</span>).<span class="ident">context</span>(<span class="string">&quot;failed to compile Wasm&quot;</span>)<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">serialize</span>()<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">obj</span> <span class="op">=</span> <span class="ident">get_object_for_target</span>(<span class="ident">target</span>.<span class="ident">triple</span>())<span class="question-mark">?</span>;
-                <span class="ident">emit_serialized</span>(<span class="kw-2">&amp;mut</span> <span class="ident">obj</span>, <span class="kw-2">&amp;</span><span class="ident">bytes</span>, <span class="ident">target</span>.<span class="ident">triple</span>(), <span class="kw-2">&amp;</span><span class="ident">module_name</span>)<span class="question-mark">?</span>;
-
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">BufWriter::new</span>(<span class="ident">File::create</span>(<span class="kw-2">&amp;</span><span class="ident">output_object_path</span>)<span class="question-mark">?</span>);
-                <span class="ident">obj</span>.<span class="ident">write_stream</span>(<span class="kw-2">&amp;mut</span> <span class="ident">writer</span>)
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="ident">err</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
-                <span class="ident">writer</span>.<span class="ident">flush</span>()<span class="question-mark">?</span>;
-            }
-        }
+        <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">engine</span>();
+        <span class="kw">let</span> <span class="ident">engine_inner</span> <span class="op">=</span> <span class="ident">engine</span>.<span class="ident">inner</span>();
+        <span class="kw">let</span> <span class="ident">compiler</span> <span class="op">=</span> <span class="ident">engine_inner</span>.<span class="ident">compiler</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">features</span> <span class="op">=</span> <span class="ident">engine_inner</span>.<span class="ident">features</span>();
+        <span class="kw">let</span> <span class="ident">tunables</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">tunables</span>();
+        <span class="kw">let</span> (<span class="ident">module_info</span>, <span class="ident">obj</span>, <span class="kw">_</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">Artifact::generate_object</span>(
+            <span class="ident">compiler</span>,
+            <span class="ident">data</span>,
+            <span class="prelude-val">Some</span>(<span class="ident">prefix</span>.<span class="ident">as_str</span>()),
+            <span class="ident">target</span>,
+            <span class="ident">tunables</span>,
+            <span class="ident">features</span>,
+        )<span class="question-mark">?</span>;
+        <span class="ident">module_infos</span>.<span class="ident">insert</span>(<span class="ident">atom_name</span>, <span class="ident">module_info</span>);
+        <span class="comment">// Write object file with functions</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">writer</span> <span class="op">=</span> <span class="ident">BufWriter::new</span>(<span class="ident">File::create</span>(<span class="kw-2">&amp;</span><span class="ident">output_object_path</span>)<span class="question-mark">?</span>);
+        <span class="ident">obj</span>.<span class="ident">write_stream</span>(<span class="kw-2">&amp;mut</span> <span class="ident">writer</span>)
+            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="ident">err</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
+        <span class="ident">writer</span>.<span class="ident">flush</span>()<span class="question-mark">?</span>;
     }
 
     <span class="prelude-val">Ok</span>(<span class="ident">module_infos</span>)
@@ -3198,7 +3054,6 @@
     <span class="ident">compiler</span>: <span class="kw-2">&amp;</span><span class="ident">CompilerOptions</span>,
     <span class="ident">triple</span>: <span class="kw-2">&amp;</span><span class="ident">Triple</span>,
     <span class="ident">cpu_features</span>: <span class="kw-2">&amp;</span>[<span class="ident">CpuFeature</span>],
-    <span class="ident">object_format</span>: <span class="ident">ObjectFormat</span>,
     <span class="ident">prefix</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>],
     <span class="ident">debug</span>: <span class="ident">bool</span>,
 ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>)<span class="op">&gt;</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
@@ -3240,7 +3095,6 @@
         <span class="kw-2">&amp;</span><span class="ident">target_dir</span>.<span class="ident">join</span>(<span class="string">&quot;atoms&quot;</span>),
         <span class="ident">compiler</span>,
         <span class="ident">target</span>,
-        <span class="ident">object_format</span>,
         <span class="kw-2">&amp;</span><span class="ident">prefix_map</span>,
         <span class="ident">debug</span>,
     )<span class="question-mark">?</span>;
@@ -3260,7 +3114,6 @@
     <span class="kw">let</span> <span class="ident">entrypoint</span> <span class="op">=</span> <span class="ident">Entrypoint</span> {
         <span class="ident">atoms</span>,
         <span class="ident">volumes</span>: <span class="ident">Vec::new</span>(),
-        <span class="ident">object_format</span>,
     };
 
     <span class="ident">write_entrypoint</span>(<span class="kw-2">&amp;</span><span class="ident">target_dir</span>, <span class="kw-2">&amp;</span><span class="ident">entrypoint</span>)<span class="question-mark">?</span>;
@@ -3274,7 +3127,6 @@
 <span class="kw">fn</span> <span class="ident">get_module_infos</span>(
     <span class="ident">directory</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
     <span class="ident">atoms</span>: <span class="kw-2">&amp;</span>[(<span class="ident">String</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>)],
-    <span class="ident">object_format</span>: <span class="ident">ObjectFormat</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">ModuleInfo</span><span class="op">&gt;</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">entrypoint</span> <span class="op">=</span>
         <span class="ident">get_entrypoint</span>(<span class="ident">directory</span>).<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;get module infos&quot;</span>))<span class="question-mark">?</span>;
@@ -3294,8 +3146,6 @@
         }
     }
 
-    <span class="ident">entrypoint</span>.<span class="ident">object_format</span> <span class="op">=</span> <span class="ident">object_format</span>;
-
     <span class="ident">write_entrypoint</span>(<span class="ident">directory</span>, <span class="kw-2">&amp;</span><span class="ident">entrypoint</span>)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(<span class="ident">module_infos</span>)
@@ -3309,11 +3159,6 @@
     <span class="ident">prefixes</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>],
 ) -&gt; <span class="ident">anyhow::Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
     <span class="kw">use</span> <span class="ident">object</span>::{<span class="ident">Object</span>, <span class="ident">ObjectSection</span>};
-
-    <span class="kw">if</span> <span class="ident">entrypoint</span>.<span class="ident">object_format</span> <span class="op">==</span> <span class="ident">ObjectFormat::Serialized</span> {
-        <span class="ident">write_entrypoint</span>(<span class="ident">directory</span>, <span class="ident">entrypoint</span>)<span class="question-mark">?</span>;
-        <span class="kw">return</span> <span class="prelude-val">Ok</span>(());
-    }
 
     <span class="ident">std::fs::create_dir_all</span>(<span class="ident">directory</span>.<span class="ident">join</span>(<span class="string">&quot;include&quot;</span>)).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
         <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;cannot create /include dir in {}: {e}&quot;</span>, <span class="ident">directory</span>.<span class="ident">display</span>())
@@ -3449,8 +3294,7 @@
     <span class="comment">// to libunwind and libstdc++ not compiling, so we fake this special case of cross-compilation</span>
     <span class="comment">// by falling back to the system compilation + system linker</span>
     <span class="kw">if</span> <span class="ident">cross_compilation</span>.<span class="ident">target</span> <span class="op">==</span> <span class="ident">Triple::host</span>()
-        <span class="op">&amp;&amp;</span> (<span class="ident">entrypoint</span>.<span class="ident">object_format</span> <span class="op">==</span> <span class="ident">ObjectFormat::Serialized</span>
-            <span class="op">|</span><span class="op">|</span> <span class="ident">cross_compilation</span>.<span class="ident">target</span>.<span class="ident">operating_system</span> <span class="op">==</span> <span class="ident">OperatingSystem::Windows</span>)
+        <span class="op">&amp;&amp;</span> <span class="ident">cross_compilation</span>.<span class="ident">target</span>.<span class="ident">operating_system</span> <span class="op">==</span> <span class="ident">OperatingSystem::Windows</span>
     {
         <span class="ident">run_c_compile</span>(
             <span class="kw-2">&amp;</span><span class="ident">directory</span>.<span class="ident">join</span>(<span class="string">&quot;wasmer_main.c&quot;</span>),
@@ -3465,12 +3309,6 @@
                 <span class="ident">directory</span>.<span class="ident">display</span>()
             )
         })<span class="question-mark">?</span>;
-    } <span class="kw">else</span> <span class="kw">if</span> <span class="ident">entrypoint</span>.<span class="ident">object_format</span> <span class="op">==</span> <span class="ident">ObjectFormat::Serialized</span>
-        <span class="op">&amp;&amp;</span> <span class="ident">cross_compilation</span>.<span class="ident">target</span> <span class="op">!</span><span class="op">=</span> <span class="ident">Triple::host</span>()
-    {
-        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-            <span class="string">&quot;ObjectFormat::Serialized + cross compilation not implemented&quot;</span>
-        ));
     }
 
     <span class="comment">// compilation done, now link</span>
@@ -3571,10 +3409,7 @@
     <span class="ident">cmd</span>.<span class="ident">arg</span>(<span class="ident">normalize_path</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
         <span class="string">&quot;{}&quot;</span>,
         <span class="ident">directory</span>
-            .<span class="ident">join</span>(<span class="kw">match</span> <span class="ident">entrypoint</span>.<span class="ident">object_format</span> {
-                <span class="ident">ObjectFormat::Serialized</span> =&gt; <span class="string">&quot;wasmer_main.o&quot;</span>,
-                <span class="ident">ObjectFormat::Symbols</span> =&gt; <span class="string">&quot;wasmer_main.c&quot;</span>,
-            })
+            .<span class="ident">join</span>(<span class="string">&quot;wasmer_main.c&quot;</span>)
             .<span class="ident">canonicalize</span>()
             .<span class="ident">expect</span>(<span class="string">&quot;could not find wasmer_main.c / wasmer_main.o&quot;</span>)
             .<span class="ident">display</span>()
@@ -3711,8 +3546,6 @@
 
     <span class="kw">const</span> <span class="ident">WASMER_MAIN_C_SOURCE</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">include_str!</span>(<span class="string">&quot;wasmer_create_exe_main.c&quot;</span>);
 
-    <span class="kw">let</span> <span class="ident">compile_static</span> <span class="op">=</span> <span class="ident">entrypoint</span>.<span class="ident">object_format</span> <span class="op">==</span> <span class="ident">ObjectFormat::Symbols</span>;
-
     <span class="comment">// always with compile zig + static_defs.h</span>
     <span class="kw">let</span> <span class="ident">atom_names</span> <span class="op">=</span> <span class="ident">entrypoint</span>
         .<span class="ident">atoms</span>
@@ -3720,7 +3553,7 @@
         .<span class="ident">map</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="ident">a</span>.<span class="ident">command</span>)
         .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">c_code_to_add</span> <span class="op">=</span> <span class="ident">String::new</span>();
+    <span class="kw">let</span> <span class="ident">c_code_to_add</span> <span class="op">=</span> <span class="ident">String::new</span>();
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">c_code_to_instantiate</span> <span class="op">=</span> <span class="ident">String::new</span>();
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">deallocate_module</span> <span class="op">=</span> <span class="ident">String::new</span>();
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">extra_headers</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
@@ -3736,44 +3569,16 @@
             })<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">atom_name</span> <span class="op">=</span> <span class="ident">prefix</span>.<span class="ident">clone</span>();
 
-        <span class="kw">let</span> <span class="ident">module_name</span> <span class="op">=</span> <span class="ident">ModuleMetadataSymbolRegistry</span> {
-            <span class="ident">prefix</span>: <span class="ident">prefix</span>.<span class="ident">clone</span>(),
-        }
-        .<span class="ident">symbol_to_name</span>(<span class="ident">wasmer_types::Symbol::Metadata</span>);
+        <span class="ident">extra_headers</span>.<span class="ident">push</span>(<span class="macro">format!</span>(<span class="string">&quot;#include \&quot;static_defs_{atom_name}.h\&quot;&quot;</span>));
 
-        <span class="kw">if</span> <span class="ident">compile_static</span> {
-            <span class="ident">extra_headers</span>.<span class="ident">push</span>(<span class="macro">format!</span>(<span class="string">&quot;#include \&quot;static_defs_{atom_name}.h\&quot;&quot;</span>));
-
-            <span class="macro">write!</span>(<span class="ident">c_code_to_instantiate</span>, <span class="string">&quot;
-            wasm_module_t *atom_{atom_name} = wasmer_object_module_new_{atom_name}(store, \&quot;{atom_name}\&quot;);
-            if (!atom_{atom_name}) {{
-                fprintf(stderr, \&quot;Failed to create module from atom \\\&quot;{a}\\\&quot;\\n\&quot;);
-                print_wasmer_error();
-                return -1;
-            }}
-            &quot;</span>)<span class="question-mark">?</span>;
-        } <span class="kw">else</span> {
-            <span class="macro">write!</span>(
-                <span class="ident">c_code_to_add</span>,
-                <span class="string">&quot;
-                extern size_t {module_name}_LENGTH asm(\&quot;{module_name}_LENGTH\&quot;);
-                extern char {module_name}_DATA asm(\&quot;{module_name}_DATA\&quot;);
-                &quot;</span>
-            )<span class="question-mark">?</span>;
-
-            <span class="macro">write!</span>(<span class="ident">c_code_to_instantiate</span>, <span class="string">&quot;
-            wasm_byte_vec_t atom_{atom_name}_byte_vec = {{
-                .size = {module_name}_LENGTH,
-                .data = &amp;{module_name}_DATA,
-            }};
-            wasm_module_t *atom_{atom_name} = wasm_module_deserialize(store, &amp;atom_{atom_name}_byte_vec);
-            if (!atom_{atom_name}) {{
-                fprintf(stderr, \&quot;Failed to create module from atom \\\&quot;{atom_name}\\\&quot;\\n\&quot;);
-                print_wasmer_error();
-                return -1;
-            }}
-            &quot;</span>)<span class="question-mark">?</span>;
-        }
+        <span class="macro">write!</span>(<span class="ident">c_code_to_instantiate</span>, <span class="string">&quot;
+        wasm_module_t *atom_{atom_name} = wasmer_object_module_new_{atom_name}(store, \&quot;{atom_name}\&quot;);
+        if (!atom_{atom_name}) {{
+            fprintf(stderr, \&quot;Failed to create module from atom \\\&quot;{a}\\\&quot;\\n\&quot;);
+            print_wasmer_error();
+            return -1;
+        }}
+        &quot;</span>)<span class="question-mark">?</span>;
 
         <span class="macro">write!</span>(<span class="ident">deallocate_module</span>, <span class="string">&quot;wasm_module_delete(atom_{atom_name});&quot;</span>)<span class="question-mark">?</span>;
     }
@@ -3864,7 +3669,7 @@
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">mod</span> <span class="ident">utils</span> {
 
-    <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">CrossCompile</span>, <span class="ident">CrossCompileSetup</span>, <span class="ident">ObjectFormat</span>, <span class="ident">UrlOrVersion</span>};
+    <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">CrossCompile</span>, <span class="ident">CrossCompileSetup</span>, <span class="ident">UrlOrVersion</span>};
     <span class="kw">use</span> <span class="ident">anyhow::Context</span>;
     <span class="kw">use</span> <span class="ident">std</span>::{
         <span class="ident">ffi::OsStr</span>,
@@ -3890,14 +3695,9 @@
         <span class="ident">cross_subc</span>: <span class="kw-2">&amp;mut</span> <span class="ident">CrossCompile</span>,
         <span class="ident">target_triple</span>: <span class="kw-2">&amp;</span><span class="ident">Triple</span>,
         <span class="ident">starting_cd</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>,
-        <span class="ident">object_format</span>: <span class="kw-2">&amp;</span><span class="ident">ObjectFormat</span>,
         <span class="ident">specific_release</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">UrlOrVersion</span><span class="op">&gt;</span>,
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">CrossCompileSetup</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="ident">target_triple</span>;
-
-        <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">object_format</span> <span class="op">==</span> <span class="ident">ObjectFormat::Serialized</span> <span class="op">&amp;&amp;</span> <span class="kw-2">*</span><span class="ident">target_triple</span> <span class="op">!</span><span class="op">=</span> <span class="ident">Triple::host</span>() {
-            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;cannot cross-compile: --object-format serialized + cross-compilation is not supported&quot;</span>));
-        }
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">tarball_path</span>) <span class="op">=</span> <span class="ident">cross_subc</span>.<span class="ident">tarball</span>.<span class="ident">as_mut</span>() {
             <span class="kw">if</span> <span class="ident">tarball_path</span>.<span class="ident">is_relative</span>() {
