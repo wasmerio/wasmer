@@ -15,9 +15,7 @@ use std::process::Stdio;
 use tar::Archive;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
-use wasmer_types::{
-    compilation::symbols::ModuleMetadataSymbolRegistry, ModuleInfo, SymbolRegistry,
-};
+use wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, ModuleInfo};
 use webc::v1::{ParseOptions, WebCMmap};
 
 const LINK_SYSTEM_LIBRARIES_WINDOWS: &[&str] = &["userenv", "Ws2_32", "advapi32", "bcrypt"];
