@@ -85,11 +85,11 @@ pub trait NativeEngineExt {
 
 impl NativeEngineExt for crate::engine::Engine {
     fn new(compiler_config: Box<dyn CompilerConfig>, target: Target, features: Features) -> Self {
-        crate::engine::Engine(Engine::new(compiler_config, target, features))
+        Self(Engine::new(compiler_config, target, features))
     }
 
     fn headless() -> Self {
-        crate::engine::Engine(Engine::headless())
+        Self(Engine::headless())
     }
 
     fn target(&self) -> &Target {

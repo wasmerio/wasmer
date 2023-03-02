@@ -45,12 +45,12 @@ impl Memory {
     /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     /// ```
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
-        Ok(Memory(memory_impl::Memory::new(store, ty)?))
+        Ok(Self(memory_impl::Memory::new(store, ty)?))
     }
 
     /// Create a memory object from an existing memory and attaches it to the store
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
-        Memory(memory_impl::Memory::new_from_existing(new_store, memory))
+        Self(memory_impl::Memory::new_from_existing(new_store, memory))
     }
 
     /// Returns the [`MemoryType`] of the `Memory`.
@@ -125,11 +125,11 @@ impl Memory {
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
     ) -> Result<Self, MemoryError> {
-        Ok(Memory(self.0.copy_to_store(store, new_store)?))
+        Ok(Self(self.0.copy_to_store(store, new_store)?))
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternMemory) -> Self {
-        Memory(memory_impl::Memory::from_vm_extern(store, vm_extern))
+        Self(memory_impl::Memory::from_vm_extern(store, vm_extern))
     }
 
     /// Checks whether this `Memory` can be used with the given context.

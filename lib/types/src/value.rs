@@ -22,25 +22,25 @@ pub union RawValue {
 
 impl From<i32> for RawValue {
     fn from(value: i32) -> Self {
-        RawValue { i32: value }
+        Self { i32: value }
     }
 }
 
 impl From<i64> for RawValue {
     fn from(value: i64) -> Self {
-        RawValue { i64: value }
+        Self { i64: value }
     }
 }
 
 impl From<f32> for RawValue {
     fn from(value: f32) -> Self {
-        RawValue { f32: value }
+        Self { f32: value }
     }
 }
 
 impl From<f64> for RawValue {
     fn from(value: f64) -> Self {
-        RawValue { f64: value }
+        Self { f64: value }
     }
 }
 

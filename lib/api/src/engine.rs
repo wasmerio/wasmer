@@ -38,7 +38,7 @@ impl AsEngineRef for Engine {
 
 impl Default for Engine {
     fn default() -> Self {
-        Engine(default_engine())
+        Self(default_engine())
     }
 }
 

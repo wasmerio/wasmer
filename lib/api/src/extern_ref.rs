@@ -19,7 +19,7 @@ impl ExternRef {
     where
         T: Any + Send + Sync + 'static + Sized,
     {
-        ExternRef(extern_ref_imp::ExternRef::new(store, value))
+        Self(extern_ref_imp::ExternRef::new(store, value))
     }
 
     /// Try to downcast to the given value.
@@ -38,7 +38,7 @@ impl ExternRef {
         store: &mut impl AsStoreMut,
         vm_externref: VMExternRef,
     ) -> Self {
-        ExternRef(extern_ref_imp::ExternRef::from_vm_externref(
+        Self(extern_ref_imp::ExternRef::from_vm_externref(
             store,
             vm_externref,
         ))

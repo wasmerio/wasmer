@@ -151,7 +151,7 @@ impl Function {
             + Send
             + Sync,
     {
-        Function(function_impl::Function::new_with_env(store, env, ty, func))
+        Self(function_impl::Function::new_with_env(store, env, ty, func))
     }
 
     #[deprecated(
@@ -175,7 +175,7 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        Function(function_impl::Function::new_typed(store, func))
+        Self(function_impl::Function::new_typed(store, func))
     }
 
     #[deprecated(
@@ -224,7 +224,7 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        Function(function_impl::Function::new_typed_with_env(
+        Self(function_impl::Function::new_typed_with_env(
             store, env, func,
         ))
     }
@@ -347,7 +347,7 @@ impl Function {
     }
 
     pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
-        Function(function_impl::Function::from_vm_funcref(store, funcref))
+        Self(function_impl::Function::from_vm_funcref(store, funcref))
     }
 
     /// Transform this WebAssembly function into a native function.
@@ -487,7 +487,7 @@ impl Function {
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternFunction) -> Self {
-        Function(function_impl::Function::from_vm_extern(store, vm_extern))
+        Self(function_impl::Function::from_vm_extern(store, vm_extern))
     }
 
     /// Checks whether this `Function` can be used with the given store.

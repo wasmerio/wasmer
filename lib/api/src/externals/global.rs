@@ -63,7 +63,7 @@ impl Global {
         val: Value,
         mutability: Mutability,
     ) -> Result<Self, RuntimeError> {
-        Ok(Global(global_impl::Global::from_value(
+        Ok(Self(global_impl::Global::from_value(
             store, val, mutability,
         )?))
     }
@@ -148,7 +148,7 @@ impl Global {
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternGlobal) -> Self {
-        Global(global_impl::Global::from_vm_extern(store, vm_extern))
+        Self(global_impl::Global::from_vm_extern(store, vm_extern))
     }
 
     /// Checks whether this `Global` can be used with the given context.

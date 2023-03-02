@@ -35,7 +35,7 @@ impl Table {
         ty: TableType,
         init: Value,
     ) -> Result<Self, RuntimeError> {
-        Ok(Table(table_impl::Table::new(store, ty, init)?))
+        Ok(Self(table_impl::Table::new(store, ty, init)?))
     }
 
     /// Returns the [`TableType`] of the `Table`.
