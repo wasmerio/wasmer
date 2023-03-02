@@ -222,6 +222,7 @@ impl Console {
 
         let wasi_process = env.process.clone();
 
+        // TODO: fetching dependencies should be moved to the builder!
         if let Err(err) = env.uses(self.uses.clone()) {
             let mut stderr = self.stderr.clone();
             tasks.block_on(async {
