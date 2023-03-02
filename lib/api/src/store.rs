@@ -258,6 +258,11 @@ impl<'a> StoreMut<'a> {
         a.inner.objects.id() == b.inner.objects.id()
     }
 
+    #[allow(unused)]
+    pub(crate) fn engine_and_objects_mut(&mut self) -> (&Engine, &mut StoreObjects) {
+        (&self.inner.engine, &mut self.inner.objects)
+    }
+
     pub(crate) fn as_raw(&self) -> *mut StoreInner {
         self.inner as *const StoreInner as *mut StoreInner
     }
