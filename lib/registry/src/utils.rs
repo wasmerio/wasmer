@@ -1,13 +1,8 @@
-use crate::graphql::execute_query;
+use crate::graphql::{
+    execute_query,
+    queries::{who_am_i_query, WhoAmIQuery},
+};
 use graphql_client::GraphQLQuery;
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "graphql/schema.graphql",
-    query_path = "graphql/queries/whoami.graphql",
-    response_derives = "Debug"
-)]
-struct WhoAmIQuery;
 
 pub fn get_username(registry: &str) -> anyhow::Result<Option<String>> {
     let q = WhoAmIQuery::build_query(who_am_i_query::Variables {});

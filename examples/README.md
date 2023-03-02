@@ -368,6 +368,8 @@ example.
 [exported-memory]: ./exports_memory.rs
 [imported-global]: ./imports_global.rs
 [imported-function]: ./imports_function.rs
+[imported-function-env]: ./imports_function_env.rs
+[imported-function-env-global]: ./imports_function_env_global.rs
 [instance]: ./instance.rs
 [wasi]: ./wasi.rs
 [wasi-pipes]: ./wasi_pipes.rs

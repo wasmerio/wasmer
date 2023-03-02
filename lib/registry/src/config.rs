@@ -1,4 +1,3 @@
-use graphql_client::GraphQLQuery;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -148,6 +147,12 @@ impl MultiRegistry {
         format_graphql(&self.active_registry)
     }
 
+    pub fn current_login(&self) -> Option<&RegistryLogin> {
+        self.tokens
+            .iter()
+            .find(|login| login.registry == self.active_registry)
+    }
+
     /// Sets the current (active) registry URL
     pub fn set_current_registry(&mut self, registry: &str) {
         let registry = format_graphql(registry);
@@ -189,6 +194,9 @@ impl MultiRegistry {
 }
 
 impl WasmerConfig {
+    pub(crate) const ENV_VAR_WASMER_REGISTRY_TOKEN: &str = "WASMER_TOKEN";
+    pub(crate) const ENV_VAR_WASMER_REGISTRY_TOKEN_LEGACY: &str = "WAPM_REGISTRY_TOKEN";
+
     /// Save the config to a file
     pub fn save<P: AsRef<Path>>(&self, to: P) -> anyhow::Result<()> {
         use std::{fs::File, io::Write};
@@ -230,6 +238,20 @@ impl WasmerConfig {
         )
     }
 
+    /// Load the config based on environment variables and default config file locations.
+    pub fn from_env() -> Result<Self, anyhow::Error> {
+        let dir = Self::get_wasmer_dir()
+            .map_err(|err| anyhow::anyhow!("Could not determine wasmer dir: {err}"))?;
+        let file_path = Self::get_file_location(&dir);
+        Self::from_file(&file_path).map_err(|err| {
+            anyhow::anyhow!(
+                "Could not load config file at '{}': {}",
+                file_path.display(),
+                err
+            )
+        })
+    }
+
     pub fn get_current_dir() -> std::io::Result<PathBuf> {
         std::env::current_dir()
     }
@@ -242,11 +264,3 @@ impl WasmerConfig {
         wasmer_dir.join(GLOBAL_CONFIG_DATABASE_FILE_NAME)
     }
 }
-
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "graphql/schema.graphql",
-    query_path = "graphql/queries/test_if_registry_present.graphql",
-    response_derives = "Debug"
-)]
-struct TestIfRegistryPresent;
