@@ -37,10 +37,15 @@ pub fn param_from_js(ty: &Type, js_val: &JsValue) -> Value {
     match ty {
         Type::I32 => Value::I32(js_val.as_f64().unwrap() as _),
         Type::I64 => {
-            let number = js_val.as_f64().unwrap_or_else(|| {
-                // To support BigInt
-                js_sys::Number::from(js_val.clone()).as_f64().unwrap()
-            }) as _;
+            let number = js_val.as_f64().map(|f| f as i64).unwrap_or_else(|| {
+                if js_val.is_bigint() {
+                    // To support BigInt
+                    let big_num: u128 = js_sys::BigInt::from(js_val.clone()).try_into().unwrap();
+                    big_num as i64
+                } else {
+                    (js_sys::Number::from(js_val.clone()).as_f64().unwrap()) as i64
+                }
+            });
             Value::I64(number)
         }
         Type::F32 => Value::F32(js_val.as_f64().unwrap() as _),
