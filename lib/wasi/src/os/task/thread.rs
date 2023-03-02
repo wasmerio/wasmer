@@ -96,17 +96,17 @@ pub struct WasiThread {
 /// [`Thread::set_status_running`] or [`Thread::set_status_finished`], but
 /// this guard can ensure that the thread is marked as terminated even if this
 /// is forgotten or a panic occurs.
-pub struct WasiThreadGuard {
+pub struct WasiThreadRunGuard {
     pub thread: WasiThread,
 }
 
-impl WasiThreadGuard {
+impl WasiThreadRunGuard {
     pub fn new(thread: WasiThread) -> Self {
         Self { thread }
     }
 }
 
-impl Drop for WasiThreadGuard {
+impl Drop for WasiThreadRunGuard {
     fn drop(&mut self) {
         self.thread
             .set_status_finished(Err(
