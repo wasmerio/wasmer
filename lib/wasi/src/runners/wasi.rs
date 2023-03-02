@@ -1,12 +1,13 @@
 //! WebC container support for running WASI modules
 
-use std::sync::Arc;
+use std::{collections::VecDeque, path::PathBuf, sync::Arc};
 
 use crate::{runners::WapmContainer, PluggableRuntimeImplementation, VirtualTaskManager};
 use crate::{WasiEnv, WasiEnvBuilder};
 use anyhow::{Context, Error};
 use serde::{Deserialize, Serialize};
 use wasmer::{Module, Store};
+use wasmer_vfs::{DirEntry, FileSystem};
 use webc::metadata::{annotations::Wasi, Command};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -101,24 +102,40 @@ fn prepare_webc_env(
 ) -> Result<WasiEnvBuilder, anyhow::Error> {
     let filesystem = container.container_fs();
     let mut builder = WasiEnv::builder(command).args(args);
+    let preopen_dirs = all_directories(&*filesystem);
 
-    if let Ok(dir) = filesystem.read_dir("/".as_ref()) {
-        let entries = dir.filter_map(|entry| entry.ok()).filter(|entry| {
-            if let Ok(file_type) = entry.file_type() {
-                file_type.dir
-            } else {
-                false
-            }
-        });
-
-        for entry in entries {
-            builder.add_preopen_build(|p| {
-                p.directory(&entry.path).read(true).write(true).create(true)
-            })?;
-        }
+    for entry in preopen_dirs {
+        builder
+            .add_preopen_build(|p| p.directory(&entry.path).read(true).write(true).create(true))?;
     }
 
     builder.set_fs(filesystem);
 
     Ok(builder)
+}
+
+fn all_directories(fs: &dyn FileSystem) -> Vec<DirEntry> {
+    let mut dirs = Vec::new();
+
+    let mut to_check = VecDeque::new();
+    to_check.push_back(PathBuf::from("/"));
+
+    while let Some(path) = to_check.pop_front() {
+        let children = fs
+            .read_dir(&path)
+            .into_iter()
+            .flatten()
+            .flat_map(|result| result.ok());
+
+        for child in children {
+            if let Ok(file_type) = child.file_type() {
+                if file_type.is_dir() {
+                    to_check.push_back(child.path());
+                    dirs.push(child);
+                }
+            }
+        }
+    }
+
+    dirs
 }
