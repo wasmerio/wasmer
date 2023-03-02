@@ -17,7 +17,18 @@ mod wasi {
     use super::*;
 
     #[tokio::test]
-    async fn wat_2_wasm() {
+    async fn can_run_wat2wasm() {
+        let webc = download_cached("https://wapm.io/wasmer/wabt").await;
+        let store = Store::default();
+        let container = WapmContainer::from_bytes(webc).unwrap();
+        let runner = WasiRunner::new(store);
+        let command = &container.manifest().commands["wat2wasm"];
+
+        assert!(runner.can_run_command("wat2wasm", command).unwrap());
+    }
+
+    #[tokio::test]
+    async fn wat2wasm() {
         let webc = download_cached("https://wapm.io/wasmer/wabt").await;
         let store = Store::default();
         let tasks = TokioTaskManager::new(Handle::current());
@@ -38,7 +49,7 @@ mod wasi {
             .unwrap();
         let exit_code = match runtime_error {
             WasiError::Exit(code) => *code,
-            _ => unreachable!(),
+            other => unreachable!("Something else went wrong: {:?}", other),
         };
         assert_eq!(exit_code, 1);
     }
@@ -56,7 +67,19 @@ mod wcgi {
     use super::*;
 
     #[tokio::test]
-    async fn static_server() {
+    async fn can_run_staticserver() {
+        let webc = download_cached("https://wapm.io/Michael-F-Bryan/staticserver").await;
+        let container = WapmContainer::from_bytes(webc).unwrap();
+        let runner = WcgiRunner::new("staticserver");
+
+        let entrypoint = container.manifest().entrypoint.as_ref().unwrap();
+        assert!(runner
+            .can_run_command(entrypoint, &container.manifest().commands[entrypoint])
+            .unwrap());
+    }
+
+    #[tokio::test]
+    async fn staticserver() {
         let webc = download_cached("https://wapm.io/Michael-F-Bryan/staticserver").await;
         let tasks = TokioTaskManager::new(Handle::current());
         let container = WapmContainer::from_bytes(webc).unwrap();
@@ -70,26 +93,33 @@ mod wcgi {
             .callbacks(cb);
 
         // The server blocks so we need to start it on a background thread.
-        std::thread::spawn(move || {
-            runner.run_cmd(&container, "wcgi").unwrap();
+        let join_handle = std::thread::spawn(move || {
+            runner.run(&container).unwrap();
         });
 
         // wait for the server to have started
         let abort_handle = started.await;
 
         // Now the server is running, we can check that it is working by
-        // fetching "/" and checking for known content
+        // fetching "/" and checking for known content. We also want the server
+        // to close connections immediately so the graceful shutdown can kill
+        // the server immediately instead of waiting for the connection to time
+        // out.
         let resp = client()
             .get(format!("http://localhost:{port}/"))
+            .header("Connection", "close")
             .send()
             .await
             .unwrap();
         let body = resp.error_for_status().unwrap().text().await.unwrap();
-
         assert!(body.contains("<title>Index of /</title>"), "{}", body);
 
-        // Make sure the server is shutdown afterwards
+        // Make sure the server is shutdown afterwards. Failing tests will leak
+        // the server thread, but that's fine.
         abort_handle.abort();
+        if let Err(e) = join_handle.join() {
+            std::panic::resume_unwind(e);
+        }
     }
 
     fn callbacks(handle: Handle) -> (Callbacks, impl Future<Output = AbortHandle>) {
