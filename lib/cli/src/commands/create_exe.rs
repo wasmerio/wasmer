@@ -2,7 +2,6 @@
 
 use self::utils::normalize_atom_name;
 
-use super::ObjectFormat;
 use crate::common::normalize_path;
 use crate::store::CompilerOptions;
 use anyhow::{Context, Result};
@@ -17,7 +16,7 @@ use tar::Archive;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 use wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
-use wasmer_types::{ModuleInfo, SymbolRegistry};
+use wasmer_types::ModuleInfo;
 use webc::{ParseOptions, WebCMmap};
 
 const LINK_SYSTEM_LIBRARIES_WINDOWS: &[&str] = &["userenv", "Ws2_32", "advapi32", "bcrypt"];
@@ -74,14 +73,6 @@ pub struct CreateExe {
     /// this flag can be used to override that behaviour.
     #[clap(long, name = "URL_OR_RELEASE_VERSION")]
     use_wasmer_release: Option<String>,
-
-    /// Object format options
-    ///
-    /// This flag accepts two options: `symbols` or `serialized`.
-    /// - (default) `symbols` creates an object where all functions and metadata of the module are regular object symbols
-    /// - `serialized` creates an object where the module is zero-copy serialized as raw data
-    #[clap(long = "object-format", name = "OBJECT_FORMAT", verbatim_doc_comment)]
-    object_format: Option<ObjectFormat>,
 
     #[clap(long, short = 'm', multiple = true, number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
@@ -164,8 +155,6 @@ pub struct Entrypoint {
     pub atoms: Vec<CommandEntrypoint>,
     /// Volume objects (if any) to link into the final binary
     pub volumes: Vec<Volume>,
-    /// Type of the object format the atoms were compiled with
-    pub object_format: ObjectFormat,
 }
 
 /// Command entrypoint for multiple commands
@@ -203,7 +192,6 @@ impl CreateExe {
         let starting_cd = env::current_dir()?;
         let input_path = starting_cd.join(&path);
         let output_path = starting_cd.join(&self.output);
-        let object_format = self.object_format.unwrap_or_default();
 
         let url_or_version = match self
             .use_wasmer_release
@@ -215,13 +203,8 @@ impl CreateExe {
             None => None,
         };
 
-        let cross_compilation = utils::get_cross_compile_setup(
-            &mut cc,
-            &target_triple,
-            &starting_cd,
-            &object_format,
-            url_or_version,
-        )?;
+        let cross_compilation =
+            utils::get_cross_compile_setup(&mut cc, &target_triple, &starting_cd, url_or_version)?;
 
         if input_path.is_dir() {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
@@ -231,7 +214,6 @@ impl CreateExe {
 
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
-        println!("Format: {:?}", object_format);
         println!(
             "Using path `{}` as libwasmer path.",
             cross_compilation.library.display()
@@ -257,7 +239,6 @@ impl CreateExe {
                     &self.compiler,
                     &self.cpu_features,
                     &cross_compilation.target,
-                    object_format,
                     &self.precompiled_atom,
                     AllowMultiWasm::Allow,
                     self.debug_dir.is_some(),
@@ -270,13 +251,12 @@ impl CreateExe {
                     &self.compiler,
                     &cross_compilation.target,
                     &self.cpu_features,
-                    object_format,
                     &self.precompiled_atom,
                     self.debug_dir.is_some(),
                 )
             }?;
 
-        get_module_infos(&tempdir, &atoms, object_format)?;
+        get_module_infos(&tempdir, &atoms)?;
         let mut entrypoint = get_entrypoint(&tempdir)?;
         create_header_files_in_dir(&tempdir, &mut entrypoint, &atoms, &self.precompiled_atom)?;
         link_exe_from_dir(
@@ -360,7 +340,6 @@ pub(super) fn compile_pirita_into_directory(
     compiler: &CompilerOptions,
     cpu_features: &[CpuFeature],
     triple: &Triple,
-    object_format: ObjectFormat,
     prefixes: &[String],
     allow_multi_wasm: AllowMultiWasm,
     debug: bool,
@@ -433,21 +412,20 @@ pub(super) fn compile_pirita_into_directory(
         let atom_path = target_dir
             .join("atoms")
             .join(format!("{}.o", utils::normalize_atom_name(&atom_name)));
-        let header_path = match object_format {
-            ObjectFormat::Symbols => {
-                std::fs::create_dir_all(target_dir.join("include")).map_err(|e| {
-                    anyhow::anyhow!(
-                        "cannot create /include dir in {}: {e}",
-                        target_dir.display()
-                    )
-                })?;
+        let header_path = {
+            std::fs::create_dir_all(target_dir.join("include")).map_err(|e| {
+                anyhow::anyhow!(
+                    "cannot create /include dir in {}: {e}",
+                    target_dir.display()
+                )
+            })?;
 
-                Some(target_dir.join("include").join(format!(
-                    "static_defs_{}.h",
-                    utils::normalize_atom_name(&atom_name)
-                )))
-            }
-            ObjectFormat::Serialized => None,
+            let header_path = target_dir.join("include").join(format!(
+                "static_defs_{}.h",
+                utils::normalize_atom_name(&atom_name)
+            ));
+
+            Some(header_path)
         };
         target_paths.push((
             atom_name.clone(),
@@ -465,7 +443,6 @@ pub(super) fn compile_pirita_into_directory(
         &target_dir.join("atoms"),
         compiler,
         target,
-        object_format,
         &prefix_map,
         debug,
     )?;
@@ -496,7 +473,6 @@ pub(super) fn compile_pirita_into_directory(
             name: volume_name.to_string(),
             obj_file: volume_path,
         }],
-        object_format,
     };
 
     write_entrypoint(&target_dir, &entrypoint)?;
@@ -727,7 +703,6 @@ fn compile_atoms(
     output_dir: &Path,
     compiler: &CompilerOptions,
     target: &Target,
-    object_format: ObjectFormat,
     prefixes: &PrefixMapCompilation,
     debug: bool,
 ) -> Result<BTreeMap<String, ModuleInfo>, anyhow::Error> {
@@ -751,44 +726,25 @@ fn compile_atoms(
             continue;
         }
         let (store, _) = compiler.get_store_for_target(target.clone())?;
-        match object_format {
-            ObjectFormat::Symbols => {
-                let engine = store.engine();
-                let engine_inner = engine.inner();
-                let compiler = engine_inner.compiler()?;
-                let features = engine_inner.features();
-                let tunables = store.tunables();
-                let (module_info, obj, _, _) = Artifact::generate_object(
-                    compiler,
-                    data,
-                    Some(prefix.as_str()),
-                    target,
-                    tunables,
-                    features,
-                )?;
-                module_infos.insert(atom_name, module_info);
-                // Write object file with functions
-                let mut writer = BufWriter::new(File::create(&output_object_path)?);
-                obj.write_stream(&mut writer)
-                    .map_err(|err| anyhow::anyhow!(err.to_string()))?;
-                writer.flush()?;
-            }
-            ObjectFormat::Serialized => {
-                let module_name = ModuleMetadataSymbolRegistry {
-                    prefix: prefix.clone(),
-                }
-                .symbol_to_name(wasmer_types::Symbol::Metadata);
-                let module = Module::from_binary(&store, data).context("failed to compile Wasm")?;
-                let bytes = module.serialize()?;
-                let mut obj = get_object_for_target(target.triple())?;
-                emit_serialized(&mut obj, &bytes, target.triple(), &module_name)?;
-
-                let mut writer = BufWriter::new(File::create(&output_object_path)?);
-                obj.write_stream(&mut writer)
-                    .map_err(|err| anyhow::anyhow!(err.to_string()))?;
-                writer.flush()?;
-            }
-        }
+        let engine = store.engine();
+        let engine_inner = engine.inner();
+        let compiler = engine_inner.compiler()?;
+        let features = engine_inner.features();
+        let tunables = store.tunables();
+        let (module_info, obj, _, _) = Artifact::generate_object(
+            compiler,
+            data,
+            Some(prefix.as_str()),
+            target,
+            tunables,
+            features,
+        )?;
+        module_infos.insert(atom_name, module_info);
+        // Write object file with functions
+        let mut writer = BufWriter::new(File::create(&output_object_path)?);
+        obj.write_stream(&mut writer)
+            .map_err(|err| anyhow::anyhow!(err.to_string()))?;
+        writer.flush()?;
     }
 
     Ok(module_infos)
@@ -890,7 +846,6 @@ pub(super) fn prepare_directory_from_single_wasm_file(
     compiler: &CompilerOptions,
     triple: &Triple,
     cpu_features: &[CpuFeature],
-    object_format: ObjectFormat,
     prefix: &[String],
     debug: bool,
 ) -> anyhow::Result<Vec<(String, Vec<u8>)>, anyhow::Error> {
@@ -932,7 +887,6 @@ pub(super) fn prepare_directory_from_single_wasm_file(
         &target_dir.join("atoms"),
         compiler,
         target,
-        object_format,
         &prefix_map,
         debug,
     )?;
@@ -952,7 +906,6 @@ pub(super) fn prepare_directory_from_single_wasm_file(
     let entrypoint = Entrypoint {
         atoms,
         volumes: Vec::new(),
-        object_format,
     };
 
     write_entrypoint(&target_dir, &entrypoint)?;
@@ -966,7 +919,6 @@ pub(super) fn prepare_directory_from_single_wasm_file(
 fn get_module_infos(
     directory: &Path,
     atoms: &[(String, Vec<u8>)],
-    object_format: ObjectFormat,
 ) -> Result<BTreeMap<String, ModuleInfo>, anyhow::Error> {
     let mut entrypoint =
         get_entrypoint(directory).with_context(|| anyhow::anyhow!("get module infos"))?;
@@ -986,8 +938,6 @@ fn get_module_infos(
         }
     }
 
-    entrypoint.object_format = object_format;
-
     write_entrypoint(directory, &entrypoint)?;
 
     Ok(module_infos)
@@ -1001,11 +951,6 @@ pub(crate) fn create_header_files_in_dir(
     prefixes: &[String],
 ) -> anyhow::Result<()> {
     use object::{Object, ObjectSection};
-
-    if entrypoint.object_format == ObjectFormat::Serialized {
-        write_entrypoint(directory, entrypoint)?;
-        return Ok(());
-    }
 
     std::fs::create_dir_all(directory.join("include")).map_err(|e| {
         anyhow::anyhow!("cannot create /include dir in {}: {e}", directory.display())
@@ -1141,8 +1086,7 @@ fn link_exe_from_dir(
     // to libunwind and libstdc++ not compiling, so we fake this special case of cross-compilation
     // by falling back to the system compilation + system linker
     if cross_compilation.target == Triple::host()
-        && (entrypoint.object_format == ObjectFormat::Serialized
-            || cross_compilation.target.operating_system == OperatingSystem::Windows)
+        && cross_compilation.target.operating_system == OperatingSystem::Windows
     {
         run_c_compile(
             &directory.join("wasmer_main.c"),
@@ -1157,12 +1101,6 @@ fn link_exe_from_dir(
                 directory.display()
             )
         })?;
-    } else if entrypoint.object_format == ObjectFormat::Serialized
-        && cross_compilation.target != Triple::host()
-    {
-        return Err(anyhow::anyhow!(
-            "ObjectFormat::Serialized + cross compilation not implemented"
-        ));
     }
 
     // compilation done, now link
@@ -1263,10 +1201,7 @@ fn link_exe_from_dir(
     cmd.arg(normalize_path(&format!(
         "{}",
         directory
-            .join(match entrypoint.object_format {
-                ObjectFormat::Serialized => "wasmer_main.o",
-                ObjectFormat::Symbols => "wasmer_main.c",
-            })
+            .join("wasmer_main.c")
             .canonicalize()
             .expect("could not find wasmer_main.c / wasmer_main.o")
             .display()
@@ -1403,8 +1338,6 @@ fn generate_wasmer_main_c(
 
     const WASMER_MAIN_C_SOURCE: &str = include_str!("wasmer_create_exe_main.c");
 
-    let compile_static = entrypoint.object_format == ObjectFormat::Symbols;
-
     // always with compile zig + static_defs.h
     let atom_names = entrypoint
         .atoms
@@ -1412,7 +1345,7 @@ fn generate_wasmer_main_c(
         .map(|a| &a.command)
         .collect::<Vec<_>>();
 
-    let mut c_code_to_add = String::new();
+    let c_code_to_add = String::new();
     let mut c_code_to_instantiate = String::new();
     let mut deallocate_module = String::new();
     let mut extra_headers = Vec::new();
@@ -1428,44 +1361,16 @@ fn generate_wasmer_main_c(
             })?;
         let atom_name = prefix.clone();
 
-        let module_name = ModuleMetadataSymbolRegistry {
-            prefix: prefix.clone(),
-        }
-        .symbol_to_name(wasmer_types::Symbol::Metadata);
+        extra_headers.push(format!("#include \"static_defs_{atom_name}.h\""));
 
-        if compile_static {
-            extra_headers.push(format!("#include \"static_defs_{atom_name}.h\""));
-
-            write!(c_code_to_instantiate, "
-            wasm_module_t *atom_{atom_name} = wasmer_object_module_new_{atom_name}(store, \"{atom_name}\");
-            if (!atom_{atom_name}) {{
-                fprintf(stderr, \"Failed to create module from atom \\\"{a}\\\"\\n\");
-                print_wasmer_error();
-                return -1;
-            }}
-            ")?;
-        } else {
-            write!(
-                c_code_to_add,
-                "
-                extern size_t {module_name}_LENGTH asm(\"{module_name}_LENGTH\");
-                extern char {module_name}_DATA asm(\"{module_name}_DATA\");
-                "
-            )?;
-
-            write!(c_code_to_instantiate, "
-            wasm_byte_vec_t atom_{atom_name}_byte_vec = {{
-                .size = {module_name}_LENGTH,
-                .data = &{module_name}_DATA,
-            }};
-            wasm_module_t *atom_{atom_name} = wasm_module_deserialize(store, &atom_{atom_name}_byte_vec);
-            if (!atom_{atom_name}) {{
-                fprintf(stderr, \"Failed to create module from atom \\\"{atom_name}\\\"\\n\");
-                print_wasmer_error();
-                return -1;
-            }}
-            ")?;
-        }
+        write!(c_code_to_instantiate, "
+        wasm_module_t *atom_{atom_name} = wasmer_object_module_new_{atom_name}(store, \"{atom_name}\");
+        if (!atom_{atom_name}) {{
+            fprintf(stderr, \"Failed to create module from atom \\\"{a}\\\"\\n\");
+            print_wasmer_error();
+            return -1;
+        }}
+        ")?;
 
         write!(deallocate_module, "wasm_module_delete(atom_{atom_name});")?;
     }
@@ -1556,7 +1461,7 @@ fn generate_wasmer_main_c(
 #[allow(dead_code)]
 pub(super) mod utils {
 
-    use super::{CrossCompile, CrossCompileSetup, ObjectFormat, UrlOrVersion};
+    use super::{CrossCompile, CrossCompileSetup, UrlOrVersion};
     use anyhow::Context;
     use std::{
         ffi::OsStr,
@@ -1582,14 +1487,9 @@ pub(super) mod utils {
         cross_subc: &mut CrossCompile,
         target_triple: &Triple,
         starting_cd: &Path,
-        object_format: &ObjectFormat,
         specific_release: Option<UrlOrVersion>,
     ) -> Result<CrossCompileSetup, anyhow::Error> {
         let target = target_triple;
-
-        if *object_format == ObjectFormat::Serialized && *target_triple != Triple::host() {
-            return Err(anyhow::anyhow!("cannot cross-compile: --object-format serialized + cross-compilation is not supported"));
-        }
 
         if let Some(tarball_path) = cross_subc.tarball.as_mut() {
             if tarball_path.is_relative() {
