@@ -1,12 +1,8 @@
-#[cfg(feature = "core")]
-use crate::alloc::borrow::Cow;
 use crate::js::lib::std::string::String;
 pub use crate::js::trap::RuntimeError;
 #[cfg(feature = "std")]
-use std::borrow::Cow;
-#[cfg(feature = "std")]
 use thiserror::Error;
-use wasmer_types::{CompileError, ImportError};
+use wasmer_types::ImportError;
 
 /// The WebAssembly.LinkError object indicates an error during
 /// module instantiation (besides traps from the start function).

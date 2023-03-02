@@ -1,5 +1,4 @@
 use crate::errors::RuntimeError;
-use crate::exports::{ExportError, Exportable};
 use crate::externals::function::{HostFunction, HostFunctionKind, WithEnv, WithoutEnv};
 use crate::function_env::{FunctionEnv, FunctionEnvMut};
 use crate::js::as_js::{param_from_js, AsJs}; /* ValFuncRef */
@@ -8,15 +7,12 @@ use crate::js::vm::{VMExtern, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionE
 use crate::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
 use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
 use crate::value::Value;
-use crate::Extern;
-use crate::TypedFunction;
-use std::error::Error;
 use std::fmt;
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 use std::panic::{self, AssertUnwindSafe};
 
-use wasmer_types::{FunctionType, NativeWasmType, RawValue, Type};
+use wasmer_types::{FunctionType, NativeWasmType, RawValue};
 
 use js_sys::{Array, Function as JSFunction};
 use wasm_bindgen::prelude::*;
@@ -198,8 +194,8 @@ impl Function {
 
     pub fn call_raw(
         &self,
-        store: &mut impl AsStoreMut,
-        params: Vec<RawValue>,
+        _store: &mut impl AsStoreMut,
+        _params: Vec<RawValue>,
     ) -> Result<Box<[Value]>, RuntimeError> {
         // There is no optimal call_raw in JS, so we just
         // simply rely the call
@@ -275,11 +271,14 @@ impl Function {
         Self { handle: internal }
     }
 
-    pub(crate) fn vm_funcref(&self, store: &impl AsStoreRef) -> VMFuncRef {
+    pub(crate) fn vm_funcref(&self, _store: &impl AsStoreRef) -> VMFuncRef {
         unimplemented!();
     }
 
-    pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
+    pub(crate) unsafe fn from_vm_funcref(
+        _store: &mut impl AsStoreMut,
+        _funcref: VMFuncRef,
+    ) -> Self {
         unimplemented!();
     }
 

@@ -7,12 +7,10 @@
 //! let add_one = instance.exports.get_function("function_name")?;
 //! let add_one_native: TypedFunction<i32, i32> = add_one.typed().unwrap();
 //! ```
-use std::marker::PhantomData;
-
 use crate::native_type::NativeWasmTypeInto;
-use crate::{AsStoreMut, AsStoreRef, TypedFunction};
+use crate::Value;
+use crate::{AsStoreMut, TypedFunction};
 use crate::{FromToNativeWasmType, RuntimeError, WasmTypeList};
-use crate::{Function, Value};
 // use std::panic::{catch_unwind, AssertUnwindSafe};
 use crate::js::as_js::{param_from_js, AsJs};
 use js_sys::Array;

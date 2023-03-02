@@ -176,11 +176,13 @@ mod objects {
         }
 
         /// Returns the ID of the context associated with the handle.
+        #[allow(unused)]
         pub fn store_id(&self) -> StoreId {
             self.id
         }
 
         /// Overrides the store id with a new ID
+        #[allow(unused)]
         pub fn set_store_id(&mut self, id: StoreId) {
             self.id = id;
         }

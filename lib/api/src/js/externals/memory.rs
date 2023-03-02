@@ -1,8 +1,6 @@
-use crate::exports::{ExportError, Exportable};
 use crate::js::vm::{VMExtern, VMMemory};
 use crate::mem_access::MemoryAccessError;
 use crate::store::{AsStoreMut, AsStoreRef, StoreObjects};
-use crate::Extern;
 use crate::MemoryType;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
@@ -82,15 +80,6 @@ impl Memory {
             .map_err(|_e| MemoryError::Generic("Error while creating the memory".to_owned()))?;
 
         Ok(js_memory)
-    }
-
-    pub fn new_raw(
-        store: &mut impl AsStoreMut,
-        js_memory: js_sys::WebAssembly::Memory,
-        ty: MemoryType,
-    ) -> Result<Self, MemoryError> {
-        let vm_memory = VMMemory::new(js_memory, ty);
-        Ok(Self::from_vm_extern(store, vm_memory))
     }
 
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
@@ -173,6 +162,7 @@ impl Memory {
         true
     }
 
+    #[allow(unused)]
     pub fn duplicate(&mut self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         self.handle.duplicate()
     }

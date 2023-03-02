@@ -5,8 +5,6 @@
 /// once the type reflection is added to the WebAssembly JS API.
 /// https://github.com/WebAssembly/js-types/
 use crate::js::wasm_bindgen_polyfill::Global as JsGlobal;
-use crate::store::{AsStoreMut, AsStoreRef};
-use crate::MemoryView;
 use js_sys::Function as JsFunction;
 use js_sys::WebAssembly;
 use js_sys::WebAssembly::{Memory as JsMemory, Table as JsTable};
@@ -18,7 +16,7 @@ use tracing::trace;
 use wasm_bindgen::{JsCast, JsValue};
 use wasmer_types::RawValue;
 use wasmer_types::{
-    ExternType, FunctionType, GlobalType, MemoryError, MemoryType, Pages, TableType, WASM_PAGE_SIZE,
+    FunctionType, GlobalType, MemoryError, MemoryType, Pages, TableType, WASM_PAGE_SIZE,
 };
 
 /// Represents linear memory that is managed by the javascript runtime
@@ -239,7 +237,7 @@ impl VMExternRef {
     ///
     /// # Safety
     /// `raw` must be a valid `VMExternRef` instance.
-    pub unsafe fn from_raw(raw: RawValue) -> Option<Self> {
+    pub unsafe fn from_raw(_raw: RawValue) -> Option<Self> {
         unimplemented!();
     }
 }
@@ -261,7 +259,7 @@ impl VMFuncRef {
     ///
     /// # Safety
     /// `raw.funcref` must be a valid pointer.
-    pub unsafe fn from_raw(raw: RawValue) -> Option<Self> {
+    pub unsafe fn from_raw(_raw: RawValue) -> Option<Self> {
         unimplemented!();
     }
 }

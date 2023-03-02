@@ -254,6 +254,7 @@ impl<'a> MemoryView<'a> {
     }
 
     /// Copies the memory and returns it as a vector of bytes
+    #[allow(unused)]
     pub fn copy_to_vec(&self) -> Result<Vec<u8>, MemoryAccessError> {
         let mut new_memory = Vec::new();
         let mut offset = 0;

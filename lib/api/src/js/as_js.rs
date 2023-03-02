@@ -249,12 +249,12 @@ impl AsJs for Extern {
 
 impl AsJs for Instance {
     type DefinitionType = crate::module::Module;
-    fn as_jsvalue(&self, store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
+    fn as_jsvalue(&self, _store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
         self._inner._handle.clone().into()
     }
 
     fn from_jsvalue(
-        mut store: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         module: &Self::DefinitionType,
         value: &JsValue,
     ) -> Result<Self, JsError> {

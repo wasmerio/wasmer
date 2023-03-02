@@ -2,7 +2,6 @@ use crate::errors::InstantiationError;
 use crate::errors::RuntimeError;
 use crate::imports::Imports;
 use crate::js::AsJs;
-use crate::module::IoCompileError;
 use crate::store::AsStoreMut;
 use crate::vm::VMInstance;
 use crate::Extern;
@@ -10,11 +9,7 @@ use crate::IntoBytes;
 use crate::{AsEngineRef, ExportType, ImportType};
 use bytes::Bytes;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
-use std::fmt;
-use std::io;
 use std::path::Path;
-#[cfg(feature = "std")]
-use thiserror::Error;
 #[cfg(feature = "tracing")]
 use tracing::{debug, warn};
 use wasm_bindgen::JsValue;
@@ -53,14 +48,6 @@ pub struct Module {
 unsafe impl Send for Module {}
 
 impl Module {
-    /// Creates a new WebAssembly module from a file path.
-    pub fn from_file(
-        _engine: &impl AsEngineRef,
-        _file: impl AsRef<Path>,
-    ) -> Result<Self, IoCompileError> {
-        unimplemented!();
-    }
-
     pub(crate) fn from_binary(
         _engine: &impl AsEngineRef,
         binary: &[u8],
@@ -234,10 +221,10 @@ impl Module {
 
     pub unsafe fn deserialize(
         _engine: &impl AsEngineRef,
-        bytes: impl IntoBytes,
+        _bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
         #[cfg(feature = "js-serializable-module")]
-        return Self::from_binary(_engine, &bytes.into_bytes())
+        return Self::from_binary(_engine, &_bytes.into_bytes())
             .map_err(|e| DeserializeError::Compiler(e));
 
         #[cfg(not(feature = "js-serializable-module"))]
@@ -330,6 +317,7 @@ impl Module {
     ///
     /// Returns an error if the hints doesn't match the shape of
     /// import or export types of the module.
+    #[allow(unused)]
     pub fn set_type_hints(&mut self, type_hints: ModuleTypeHints) -> Result<(), String> {
         let exports = WebAssembly::Module::exports(&self.module);
         // Check exports
@@ -448,13 +436,13 @@ impl From<WebAssembly::Module> for Module {
 
 impl<T: IntoBytes> From<(WebAssembly::Module, T)> for crate::module::Module {
     fn from(module_and_binary: (WebAssembly::Module, T)) -> crate::module::Module {
-        let (module, binary) = module_and_binary;
+        let (module, _binary) = module_and_binary;
         let module = Module {
             module,
             name: None,
             type_hints: None,
             #[cfg(feature = "js-serializable-module")]
-            raw_bytes: Some(binary.into_bytes()),
+            raw_bytes: Some(_binary.into_bytes()),
         };
         crate::module::Module(module.into())
     }
