@@ -1,13 +1,11 @@
-use crate::sys::{externals::MemoryView, FromToNativeWasmType};
-use crate::NativeWasmTypeInto;
-use crate::{MemoryAccessError, WasmRef, WasmSlice};
+use crate::mem_access::{MemoryAccessError, WasmRef, WasmSlice};
+use crate::{AsStoreRef, FromToNativeWasmType, MemoryView, NativeWasmTypeInto};
 use std::convert::TryFrom;
 use std::{fmt, marker::PhantomData, mem};
-use wasmer_types::ValueType;
-
 pub use wasmer_types::Memory32;
 pub use wasmer_types::Memory64;
 pub use wasmer_types::MemorySize;
+use wasmer_types::ValueType;
 
 /// Alias for `WasmPtr<T, Memory64>.
 pub type WasmPtr64<T> = WasmPtr<T, Memory64>;
@@ -238,6 +236,10 @@ where
             offset: M::native_to_offset(n),
             _phantom: PhantomData,
         }
+    }
+    #[inline]
+    fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
+        true // in Javascript there are no different stores
     }
 }
 

@@ -109,6 +109,13 @@ impl CompilerOptions {
         Ok((store, compiler_type))
     }
 
+    /// Gets the Engine for a given target.
+    pub fn get_engine_for_target(&self, target: Target) -> Result<(Engine, CompilerType)> {
+        let (compiler_config, compiler_type) = self.get_compiler_config()?;
+        let engine = self.get_engine(target, compiler_config)?;
+        Ok((engine, compiler_type))
+    }
+
     #[cfg(feature = "compiler")]
     fn get_engine(
         &self,

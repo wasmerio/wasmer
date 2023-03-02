@@ -1,5 +1,5 @@
-use crate::js::store::AsStoreRef;
-use crate::js::MemoryAccessError;
+use crate::mem_access::MemoryAccessError;
+use crate::store::AsStoreRef;
 use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
@@ -10,8 +10,7 @@ use wasm_bindgen::JsCast;
 
 use wasmer_types::{Bytes, Pages};
 
-use super::memory::MemoryBuffer;
-use super::Memory;
+use super::memory::{Memory, MemoryBuffer};
 
 /// A WebAssembly `memory` view.
 ///
@@ -105,6 +104,7 @@ impl<'a> MemoryView<'a> {
         Bytes(self.size as usize).try_into().unwrap()
     }
 
+    #[inline]
     pub(crate) fn buffer(&self) -> MemoryBuffer<'a> {
         MemoryBuffer {
             base: &self.view as *const _ as *mut _,
@@ -170,11 +170,11 @@ impl<'a> MemoryView<'a> {
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
-    pub fn read_uninit(
+    pub fn read_uninit<'b>(
         &self,
         offset: u64,
-        buf: &'a mut [MaybeUninit<u8>],
-    ) -> Result<&'a mut [u8], MemoryAccessError> {
+        buf: &'b mut [MaybeUninit<u8>],
+    ) -> Result<&'b mut [u8], MemoryAccessError> {
         let view = &self.view;
         let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
         let len: u32 = buf

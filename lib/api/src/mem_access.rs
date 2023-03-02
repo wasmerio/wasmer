@@ -1,4 +1,5 @@
-use crate::RuntimeError;
+use crate::errors::RuntimeError;
+use crate::externals::memory::MemoryBuffer;
 #[allow(unused_imports)]
 use crate::{Memory, Memory32, Memory64, MemorySize, MemoryView, WasmPtr};
 use std::{
@@ -12,8 +13,6 @@ use std::{
 };
 use thiserror::Error;
 use wasmer_types::ValueType;
-
-use super::externals::memory::MemoryBuffer;
 
 /// Error for invalid [`Memory`] access.
 #[derive(Clone, Copy, Debug, Error)]
@@ -64,7 +63,7 @@ impl<'a, T: ValueType> WasmRef<'a, T> {
     #[inline]
     pub fn new(view: &'a MemoryView, offset: u64) -> Self {
         Self {
-            buffer: view.buffer,
+            buffer: view.buffer(),
             offset,
             marker: PhantomData,
         }

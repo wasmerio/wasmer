@@ -91,12 +91,11 @@ impl GenCHeader {
             &target_triple,
             &self.cpu_features,
         );
-        let (store, _) = CompilerOptions::default().get_store_for_target(target.clone())?;
-        let engine = store.engine();
+        let (engine, _) = CompilerOptions::default().get_engine_for_target(target.clone())?;
         let engine_inner = engine.inner();
         let compiler = engine_inner.compiler()?;
         let features = engine_inner.features();
-        let tunables = store.tunables();
+        let tunables = engine.tunables();
         let (metadata, _, _) = Artifact::metadata(
             compiler,
             &file,

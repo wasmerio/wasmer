@@ -2,6 +2,7 @@ use crate::store::StoreOptions;
 use crate::warning;
 use anyhow::{Context, Result};
 use clap::Parser;
+use std::fs;
 use std::path::{Path, PathBuf};
 use wasmer_compiler::{ArtifactBuild, ArtifactCreate, ModuleEnvironment};
 use wasmer_types::entity::PrimaryMap;
@@ -105,7 +106,8 @@ impl Compile {
             memory_styles,
             table_styles,
         )?;
-        artifact.serialize_to_file(self.output.as_ref())?;
+        let serialized = artifact.serialize()?;
+        fs::write(output_filename, serialized)?;
         eprintln!(
             "✔ File compiled successfully to `{}`.",
             self.output.display(),

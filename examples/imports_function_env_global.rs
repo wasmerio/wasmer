@@ -92,7 +92,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let global_count = data.g_counter.get(&mut storemut).unwrap_i32();
         data.g_counter
-            .set(&mut storemut, Value::I32(global_count + add));
+            .set(&mut storemut, Value::I32(global_count + add))
+            .unwrap();
 
         *counter_ref += add;
         *counter_ref

@@ -1,4 +1,4 @@
-use crate::sys::store::AsStoreRef;
+use crate::store::AsStoreRef;
 use crate::MemoryAccessError;
 use std::convert::TryInto;
 use std::marker::PhantomData;
@@ -7,8 +7,7 @@ use std::slice;
 use wasmer_types::Pages;
 use wasmer_vm::LinearMemory;
 
-use super::memory::MemoryBuffer;
-use super::Memory;
+use super::memory::{Memory, MemoryBuffer};
 
 /// A WebAssembly `memory` view.
 ///
@@ -96,6 +95,7 @@ impl<'a> MemoryView<'a> {
         self.size
     }
 
+    #[inline]
     pub(crate) fn buffer(&'a self) -> MemoryBuffer<'a> {
         self.buffer
     }
@@ -160,6 +160,7 @@ impl<'a> MemoryView<'a> {
         Ok(())
     }
 
+    #[allow(unused)]
     /// Copies the memory and returns it as a vector of bytes
     pub fn copy_to_vec(&self) -> Result<Vec<u8>, MemoryAccessError> {
         let mut new_memory = Vec::new();
@@ -175,6 +176,7 @@ impl<'a> MemoryView<'a> {
         Ok(new_memory)
     }
 
+    #[allow(unused)]
     /// Copies the memory to another new memory object
     pub fn copy_to_memory(&self, amount: u64, new_memory: &Self) -> Result<(), MemoryAccessError> {
         let mut offset = 0;

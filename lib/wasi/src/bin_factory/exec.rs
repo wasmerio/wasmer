@@ -6,6 +6,8 @@ use crate::{
 };
 use futures::Future;
 use tracing::*;
+#[cfg(feature = "sys")]
+use wasmer::NativeEngineExt;
 use wasmer::{FunctionEnvMut, Instance, Memory, Module, Store};
 use wasmer_wasi_types::wasi::{Errno, ExitCode};
 
@@ -23,13 +25,11 @@ pub fn spawn_exec(
     runtime: &Arc<dyn WasiRuntime + Send + Sync + 'static>,
     compiled_modules: &ModuleCache,
 ) -> Result<TaskJoinHandle, VirtualBusError> {
-    // Load the module
-    #[cfg(feature = "sys")]
-    let compiler = store.engine().name();
-    #[cfg(not(feature = "sys"))]
-    let compiler = "generic";
+    // The deterministic id for this engine
+    let compiler = store.engine().deterministic_id();
 
     let module = compiled_modules.get_compiled_module(&store, binary.hash().as_str(), compiler);
+
     let module = match (module, binary.entry.as_ref()) {
         (Some(a), _) => a,
         (None, Some(entry)) => {
@@ -85,7 +85,7 @@ pub fn spawn_exec_module(
         let memory_spawn = match shared_memory {
             Some(ty) => {
                 #[cfg(feature = "sys")]
-                let style = store.tunables().memory_style(&ty);
+                let style = store.engine().tunables().memory_style(&ty);
                 SpawnType::CreateWithType(SpawnedMemory {
                     ty,
                     #[cfg(feature = "sys")]

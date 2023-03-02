@@ -1,8 +1,8 @@
 use std::{any::Any, marker::PhantomData};
 
-use wasmer_vm::{StoreHandle, StoreObjects, VMFunctionEnvironment};
+use crate::vm::VMFunctionEnvironment;
 
-use crate::{AsStoreMut, AsStoreRef, StoreMut, StoreRef};
+use crate::store::{AsStoreMut, AsStoreRef, StoreHandle, StoreMut, StoreObjects, StoreRef};
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -38,6 +38,14 @@ impl<T> FunctionEnv<T> {
             .as_ref()
             .downcast_ref::<T>()
             .unwrap()
+    }
+
+    #[allow(dead_code)] // This function is only used in js
+    pub(crate) fn from_handle(handle: StoreHandle<VMFunctionEnvironment>) -> Self {
+        Self {
+            handle,
+            marker: PhantomData,
+        }
     }
 
     /// Get the data as mutable

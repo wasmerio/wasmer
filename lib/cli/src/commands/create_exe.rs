@@ -227,7 +227,7 @@ impl CreateExe {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
         }
 
-        let (_, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+        let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
 
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
@@ -276,7 +276,7 @@ impl CreateExe {
                 )
             }?;
 
-        get_module_infos(&tempdir, &atoms, object_format)?;
+        get_module_infos(&store, &tempdir, &atoms, object_format)?;
         let mut entrypoint = get_entrypoint(&tempdir)?;
         create_header_files_in_dir(&tempdir, &mut entrypoint, &atoms, &self.precompiled_atom)?;
         link_exe_from_dir(
@@ -750,14 +750,13 @@ fn compile_atoms(
             }
             continue;
         }
-        let (store, _) = compiler.get_store_for_target(target.clone())?;
         match object_format {
             ObjectFormat::Symbols => {
-                let engine = store.engine();
+                let (engine, _) = compiler.get_engine_for_target(target.clone())?;
                 let engine_inner = engine.inner();
                 let compiler = engine_inner.compiler()?;
                 let features = engine_inner.features();
-                let tunables = store.tunables();
+                let tunables = engine.tunables();
                 let (module_info, obj, _, _) = Artifact::generate_object(
                     compiler,
                     data,
@@ -774,6 +773,7 @@ fn compile_atoms(
                 writer.flush()?;
             }
             ObjectFormat::Serialized => {
+                let (store, _) = compiler.get_store_for_target(target.clone())?;
                 let module_name = ModuleMetadataSymbolRegistry {
                     prefix: prefix.clone(),
                 }
@@ -964,6 +964,7 @@ pub(super) fn prepare_directory_from_single_wasm_file(
 // reads the module info from the wasm module and writes the ModuleInfo for each file
 // into the entrypoint.json file
 fn get_module_infos(
+    store: &Store,
     directory: &Path,
     atoms: &[(String, Vec<u8>)],
     object_format: ObjectFormat,
@@ -973,9 +974,8 @@ fn get_module_infos(
 
     let mut module_infos = BTreeMap::new();
     for (atom_name, atom_bytes) in atoms {
-        let module_info = Engine::get_module_info(atom_bytes.as_slice())
-            .map_err(|e| anyhow::anyhow!("could not get module info for atom {atom_name}: {e}"))?;
-
+        let module = Module::new(&store, atom_bytes.as_slice())?;
+        let module_info = module.info();
         if let Some(s) = entrypoint
             .atoms
             .iter_mut()

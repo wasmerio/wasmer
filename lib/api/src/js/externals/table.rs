@@ -1,21 +1,12 @@
-use crate::js::exports::{ExportError, Exportable};
-use crate::js::externals::Extern;
-use crate::js::store::{AsStoreMut, AsStoreRef};
-use crate::js::value::Value;
-use crate::js::vm::{VMExtern, VMFunction, VMTable};
-use crate::js::RuntimeError;
-use crate::js::{FunctionType, TableType};
+use crate::errors::RuntimeError;
+use crate::store::{AsStoreMut, AsStoreRef};
+use crate::value::Value;
+use crate::vm::VMExternTable;
+use crate::vm::{VMExtern, VMFunction, VMTable};
+use crate::Extern;
+use crate::{FunctionType, TableType};
 use js_sys::Function;
 
-/// A WebAssembly `table` instance.
-///
-/// The `Table` struct is an array-like structure representing a WebAssembly Table,
-/// which stores function references.
-///
-/// A table created by the host or in WebAssembly code will be accessible and
-/// mutable from both host and WebAssembly.
-///
-/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
 #[derive(Debug, Clone, PartialEq)]
 pub struct Table {
     pub(crate) handle: VMTable,
@@ -30,19 +21,13 @@ fn get_function(store: &mut impl AsStoreMut, val: Value) -> Result<Function, Run
         return Err(RuntimeError::new("cannot pass Value across contexts"));
     }
     match val {
-        Value::FuncRef(Some(ref func)) => Ok(func.handle.function.clone().into()),
+        Value::FuncRef(Some(ref func)) => Ok(func.0.handle.function.clone().into()),
         // Only funcrefs is supported by the spec atm
-        _ => unimplemented!(),
+        _ => unimplemented!("The {val:?} is not yet supported"),
     }
 }
 
 impl Table {
-    /// Creates a new `Table` with the provided [`TableType`] definition.
-    ///
-    /// All the elements in the table will be set to the `init` value.
-    ///
-    /// This function will construct the `Table` using the store
-    /// [`BaseTunables`][crate::js::tunables::BaseTunables].
     pub fn new(
         store: &mut impl AsStoreMut,
         ty: TableType,
@@ -68,29 +53,25 @@ impl Table {
         Ok(Self { handle: table })
     }
 
-    /// To `VMExtern`.
     pub fn to_vm_extern(&self) -> VMExtern {
         VMExtern::Table(self.handle.clone())
     }
 
-    /// Returns the [`TableType`] of the `Table`.
     pub fn ty(&self, _store: &impl AsStoreRef) -> TableType {
         self.handle.ty
     }
 
-    /// Retrieves an element of the table at the provided `index`.
     pub fn get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value> {
         if let Some(func) = self.handle.table.get(index).ok() {
             let ty = FunctionType::new(vec![], vec![]);
             let vm_function = VMFunction::new(func, ty);
-            let function = crate::js::externals::Function::from_vm_extern(store, vm_function);
+            let function = crate::Function::from_vm_extern(store, vm_function);
             Some(Value::FuncRef(Some(function)))
         } else {
             None
         }
     }
 
-    /// Sets an element `val` in the Table at the provided `index`.
     pub fn set(
         &self,
         store: &mut impl AsStoreMut,
@@ -101,20 +82,10 @@ impl Table {
         set_table_item(&self.handle, index, &item)
     }
 
-    /// Retrieves the size of the `Table` (in elements)
     pub fn size(&self, _store: &impl AsStoreRef) -> u32 {
         self.handle.table.length()
     }
 
-    /// Grows the size of the `Table` by `delta`, initializating
-    /// the elements with the provided `init` value.
-    ///
-    /// It returns the previous size of the `Table` in case is able
-    /// to grow the Table successfully.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the `delta` is out of bounds for the table.
     pub fn grow(
         &self,
         _store: &mut impl AsStoreMut,
@@ -124,13 +95,6 @@ impl Table {
         unimplemented!();
     }
 
-    /// Copies the `len` elements of `src_table` starting at `src_index`
-    /// to the destination table `dst_table` at index `dst_index`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the range is out of bounds of either the source or
-    /// destination tables.
     pub fn copy(
         _store: &mut impl AsStoreMut,
         _dst_table: &Self,
@@ -142,36 +106,11 @@ impl Table {
         unimplemented!("Table.copy is not natively supported in Javascript");
     }
 
-    pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMTable) -> Self {
-        Self { handle: internal }
+    pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, vm_extern: VMExternTable) -> Self {
+        Self { handle: vm_extern }
     }
 
-    /// Checks whether this `Table` can be used with the given context.
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
-    }
-
-    /// Get access to the backing VM value for this extern. This function is for
-    /// tests it should not be called by users of the Wasmer API.
-    ///
-    /// # Safety
-    /// This function is unsafe to call outside of tests for the wasmer crate
-    /// because there is no stability guarantee for the returned type and we may
-    /// make breaking changes to it at any time or remove this method.
-    #[doc(hidden)]
-    pub unsafe fn get_vm_table<'context>(
-        &'context self,
-        _store: &'context impl AsStoreRef,
-    ) -> &'context VMTable {
-        &self.handle
-    }
-}
-
-impl<'a> Exportable<'a> for Table {
-    fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
-        match _extern {
-            Extern::Table(table) => Ok(table),
-            _ => Err(ExportError::IncompatibleType),
-        }
     }
 }

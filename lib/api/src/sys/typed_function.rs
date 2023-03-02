@@ -1,49 +1,8 @@
-//! Native Functions.
-//!
-//! This module creates the helper `TypedFunction` that let us call WebAssembly
-//! functions with the native ABI, that is:
-//!
-//! ```ignore
-//! let add_one = instance.exports.get_function("function_name")?;
-//! let add_one_native: TypedFunction<i32, i32> = add_one.native().unwrap();
-//! ```
-use std::marker::PhantomData;
-
-use crate::sys::{
-    AsStoreMut, FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError, WasmTypeList,
-};
+use crate::{FromToNativeWasmType, RuntimeError, TypedFunction, WasmTypeList};
 use wasmer_types::RawValue;
 
-/// A WebAssembly function that can be called natively
-/// (using the Native ABI).
-pub struct TypedFunction<Args, Rets> {
-    pub(crate) func: Function,
-    _phantom: PhantomData<fn(Args) -> Rets>,
-}
-
-unsafe impl<Args, Rets> Send for TypedFunction<Args, Rets> {}
-
-impl<Args, Rets> TypedFunction<Args, Rets>
-where
-    Args: WasmTypeList,
-    Rets: WasmTypeList,
-{
-    pub(crate) fn new(func: Function) -> Self {
-        Self {
-            func,
-            _phantom: PhantomData,
-        }
-    }
-}
-
-impl<Args: WasmTypeList, Rets: WasmTypeList> Clone for TypedFunction<Args, Rets> {
-    fn clone(&self) -> Self {
-        Self {
-            func: self.func.clone(),
-            _phantom: PhantomData,
-        }
-    }
-}
+use crate::native_type::NativeWasmTypeInto;
+use crate::store::{AsStoreMut, AsStoreRef};
 
 macro_rules! impl_native_traits {
     (  $( $x:ident ),* ) => {
@@ -58,7 +17,7 @@ macro_rules! impl_native_traits {
             #[allow(clippy::too_many_arguments)]
             pub fn call(&self, store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 let anyfunc = unsafe {
-                    *self.func
+                    *self.func.0
                         .handle
                         .get(store.as_store_ref().objects())
                         .anyfunc
@@ -68,7 +27,7 @@ macro_rules! impl_native_traits {
                 // Ensure all parameters come from the same context.
                 if $(!FromToNativeWasmType::is_from_store(&$x, store) ||)* false {
                     return Err(RuntimeError::new(
-                        "cross-`Context` values are not supported",
+                        "cross-`Store` values are not supported",
                     ));
                 }
                 // TODO: when `const fn` related features mature more, we can declare a single array
@@ -144,7 +103,7 @@ macro_rules! impl_native_traits {
             #[allow(clippy::too_many_arguments)]
             pub fn call_raw(&self, store: &mut impl AsStoreMut, mut params_list: Vec<RawValue> ) -> Result<Rets, RuntimeError> {
                 let anyfunc = unsafe {
-                    *self.func
+                    *self.func.0
                         .handle
                         .get(store.as_store_ref().objects())
                         .anyfunc

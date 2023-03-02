@@ -20,6 +20,30 @@ pub union RawValue {
     pub bytes: [u8; 16],
 }
 
+impl From<i32> for RawValue {
+    fn from(value: i32) -> Self {
+        RawValue { i32: value }
+    }
+}
+
+impl From<i64> for RawValue {
+    fn from(value: i64) -> Self {
+        RawValue { i64: value }
+    }
+}
+
+impl From<f32> for RawValue {
+    fn from(value: f32) -> Self {
+        RawValue { f32: value }
+    }
+}
+
+impl From<f64> for RawValue {
+    fn from(value: f64) -> Self {
+        RawValue { f64: value }
+    }
+}
+
 impl Default for RawValue {
     fn default() -> Self {
         Self { bytes: [0; 16] }
@@ -43,6 +67,7 @@ macro_rules! partial_eq {
         }
     )*)
 }
+
 partial_eq! {
     i32 => i32,
     u32 => u32,
