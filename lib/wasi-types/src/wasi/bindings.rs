@@ -27,7 +27,6 @@ pub type Linkcount = u64;
 pub type Snapshot0Linkcount = u32;
 pub type Tid = u32;
 pub type Pid = u32;
-pub type JoinStatus = u32;
 #[doc = " Identifiers for clocks, snapshot0 version."]
 #[repr(u32)]
 #[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
@@ -251,7 +250,7 @@ pub enum Errno {
     Shutdown,
     #[doc = " Memory access violation."]
     Memviolation,
-    #[doc = " Unknown error occured."]
+    #[doc = " An unknown error has occured"]
     Unknown,
 }
 impl Errno {
@@ -420,7 +419,7 @@ impl Errno {
             Errno::Notcapable => "Extension: Capabilities insufficient.",
             Errno::Shutdown => "Cannot send after socket shutdown.",
             Errno::Memviolation => "Memory access violation.",
-            Errno::Unknown => "Unknown error.",
+            Errno::Unknown => "An unknown error has occured",
         }
     }
 }
@@ -550,7 +549,104 @@ impl core::fmt::Display for BusErrno {
     }
 }
 impl std::error::Error for BusErrno {}
-wai_bindgen_rust::bitflags::bitflags! { # [doc = " File descriptor rights, determining which actions may be performed."] pub struct Rights : u64 { # [doc = " The right to invoke `fd_datasync`."] # [doc = " "] # [doc = " If `rights::path_open` is set, includes the right to invoke"] # [doc = " `path_open` with `fdflags::dsync`."] const FD_DATASYNC = 1 << 0 ; # [doc = " The right to invoke `fd_read` and `sock_recv`."] # [doc = " "] # [doc = " If `rights::fd_seek` is set, includes the right to invoke `fd_pread`."] const FD_READ = 1 << 1 ; # [doc = " The right to invoke `fd_seek`. This flag implies `rights::fd_tell`."] const FD_SEEK = 1 << 2 ; # [doc = " The right to invoke `fd_fdstat_set_flags`."] const FD_FDSTAT_SET_FLAGS = 1 << 3 ; # [doc = " The right to invoke `fd_sync`."] # [doc = " "] # [doc = " If `rights::path_open` is set, includes the right to invoke"] # [doc = " `path_open` with `fdflags::rsync` and `fdflags::dsync`."] const FD_SYNC = 1 << 4 ; # [doc = " The right to invoke `fd_seek` in such a way that the file offset"] # [doc = " remains unaltered (i.e., `whence::cur` with offset zero), or to"] # [doc = " invoke `fd_tell`."] const FD_TELL = 1 << 5 ; # [doc = " The right to invoke `fd_write` and `sock_send`."] # [doc = " If `rights::fd_seek` is set, includes the right to invoke `fd_pwrite`."] const FD_WRITE = 1 << 6 ; # [doc = " The right to invoke `fd_advise`."] const FD_ADVISE = 1 << 7 ; # [doc = " The right to invoke `fd_allocate`."] const FD_ALLOCATE = 1 << 8 ; # [doc = " The right to invoke `path_create_directory`."] const PATH_CREATE_DIRECTORY = 1 << 9 ; # [doc = " If `rights::path_open` is set, the right to invoke `path_open` with `oflags::creat`."] const PATH_CREATE_FILE = 1 << 10 ; # [doc = " The right to invoke `path_link` with the file descriptor as the"] # [doc = " source directory."] const PATH_LINK_SOURCE = 1 << 11 ; # [doc = " The right to invoke `path_link` with the file descriptor as the"] # [doc = " target directory."] const PATH_LINK_TARGET = 1 << 12 ; # [doc = " The right to invoke `path_open`."] const PATH_OPEN = 1 << 13 ; # [doc = " The right to invoke `fd_readdir`."] const FD_READDIR = 1 << 14 ; # [doc = " The right to invoke `path_readlink`."] const PATH_READLINK = 1 << 15 ; # [doc = " The right to invoke `path_rename` with the file descriptor as the source directory."] const PATH_RENAME_SOURCE = 1 << 16 ; # [doc = " The right to invoke `path_rename` with the file descriptor as the target directory."] const PATH_RENAME_TARGET = 1 << 17 ; # [doc = " The right to invoke `path_filestat_get`."] const PATH_FILESTAT_GET = 1 << 18 ; # [doc = " The right to change a file's size (there is no `path_filestat_set_size`)."] # [doc = " If `rights::path_open` is set, includes the right to invoke `path_open` with `oflags::trunc`."] const PATH_FILESTAT_SET_SIZE = 1 << 19 ; # [doc = " The right to invoke `path_filestat_set_times`."] const PATH_FILESTAT_SET_TIMES = 1 << 20 ; # [doc = " The right to invoke `fd_filestat_get`."] const FD_FILESTAT_GET = 1 << 21 ; # [doc = " The right to invoke `fd_filestat_set_size`."] const FD_FILESTAT_SET_SIZE = 1 << 22 ; # [doc = " The right to invoke `fd_filestat_set_times`."] const FD_FILESTAT_SET_TIMES = 1 << 23 ; # [doc = " The right to invoke `path_symlink`."] const PATH_SYMLINK = 1 << 24 ; # [doc = " The right to invoke `path_remove_directory`."] const PATH_REMOVE_DIRECTORY = 1 << 25 ; # [doc = " The right to invoke `path_unlink_file`."] const PATH_UNLINK_FILE = 1 << 26 ; # [doc = " If `rights::fd_read` is set, includes the right to invoke `poll_oneoff` to subscribe to `eventtype::fd_read`."] # [doc = " If `rights::fd_write` is set, includes the right to invoke `poll_oneoff` to subscribe to `eventtype::fd_write`."] const POLL_FD_READWRITE = 1 << 27 ; # [doc = " The right to invoke `sock_shutdown`."] const SOCK_SHUTDOWN = 1 << 28 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_ACCEPT = 1 << 29 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_CONNECT = 1 << 30 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_LISTEN = 1 << 31 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_BIND = 1 << 32 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_RECV = 1 << 33 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_SEND = 1 << 34 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_ADDR_LOCAL = 1 << 35 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_ADDR_REMOTE = 1 << 36 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_RECV_FROM = 1 << 37 ; # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"] const SOCK_SEND_TO = 1 << 38 ; } }
+wai_bindgen_rust::bitflags::bitflags! {
+    #[doc = " File descriptor rights, determining which actions may be performed."]
+    pub struct Rights : u64 {
+        #[doc = " The right to invoke `fd_datasync`."]
+        #[doc = " "]
+        #[doc = " If `rights::path_open` is set, includes the right to invoke"]
+        #[doc = " `path_open` with `fdflags::dsync`."]
+        const FD_DATASYNC = 1 << 0;
+        #[doc = " The right to invoke `fd_read` and `sock_recv`."]
+        #[doc = " "]
+        #[doc = " If `rights::fd_seek` is set, includes the right to invoke `fd_pread`."]
+        const FD_READ = 1 << 1;
+        #[doc = " The right to invoke `fd_seek`. This flag implies `rights::fd_tell`."]
+        const FD_SEEK = 1 << 2;
+        #[doc = " The right to invoke `fd_fdstat_set_flags`."]
+        const FD_FDSTAT_SET_FLAGS = 1 << 3;
+        #[doc = " The right to invoke `fd_sync`."]
+        #[doc = " "]
+        #[doc = " If `rights::path_open` is set, includes the right to invoke"]
+        #[doc = " `path_open` with `fdflags::rsync` and `fdflags::dsync`."]
+        const FD_SYNC = 1 << 4;
+        #[doc = " The right to invoke `fd_seek` in such a way that the file offset"]
+        #[doc = " remains unaltered (i.e., `whence::cur` with offset zero), or to"]
+        #[doc = " invoke `fd_tell`."]
+        const FD_TELL = 1 << 5;
+        #[doc = " The right to invoke `fd_write` and `sock_send`."]
+        #[doc = " If `rights::fd_seek` is set, includes the right to invoke `fd_pwrite`."]
+        const FD_WRITE = 1 << 6;
+        #[doc = " The right to invoke `fd_advise`."]
+        const FD_ADVISE = 1 << 7;
+        #[doc = " The right to invoke `fd_allocate`."]
+        const FD_ALLOCATE = 1 << 8;
+        #[doc = " The right to invoke `path_create_directory`."]
+        const PATH_CREATE_DIRECTORY = 1 << 9;
+        #[doc = " If `rights::path_open` is set, the right to invoke `path_open` with `oflags::creat`."]
+        const PATH_CREATE_FILE = 1 << 10;
+        #[doc = " The right to invoke `path_link` with the file descriptor as the"]
+        #[doc = " source directory."]
+        const PATH_LINK_SOURCE = 1 << 11;
+        #[doc = " The right to invoke `path_link` with the file descriptor as the"]
+        #[doc = " target directory."]
+        const PATH_LINK_TARGET = 1 << 12;
+        #[doc = " The right to invoke `path_open`."]
+        const PATH_OPEN = 1 << 13;
+        #[doc = " The right to invoke `fd_readdir`."]
+        const FD_READDIR = 1 << 14;
+        #[doc = " The right to invoke `path_readlink`."]
+        const PATH_READLINK = 1 << 15;
+        #[doc = " The right to invoke `path_rename` with the file descriptor as the source directory."]
+        const PATH_RENAME_SOURCE = 1 << 16;
+        #[doc = " The right to invoke `path_rename` with the file descriptor as the target directory."]
+        const PATH_RENAME_TARGET = 1 << 17;
+        #[doc = " The right to invoke `path_filestat_get`."]
+        const PATH_FILESTAT_GET = 1 << 18;
+        #[doc = " The right to change a file's size (there is no `path_filestat_set_size`)."]
+        #[doc = " If `rights::path_open` is set, includes the right to invoke `path_open` with `oflags::trunc`."]
+        const PATH_FILESTAT_SET_SIZE = 1 << 19;
+        #[doc = " The right to invoke `path_filestat_set_times`."]
+        const PATH_FILESTAT_SET_TIMES = 1 << 20;
+        #[doc = " The right to invoke `fd_filestat_get`."]
+        const FD_FILESTAT_GET = 1 << 21;
+        #[doc = " The right to invoke `fd_filestat_set_size`."]
+        const FD_FILESTAT_SET_SIZE = 1 << 22;
+        #[doc = " The right to invoke `fd_filestat_set_times`."]
+        const FD_FILESTAT_SET_TIMES = 1 << 23;
+        #[doc = " The right to invoke `path_symlink`."]
+        const PATH_SYMLINK = 1 << 24;
+        #[doc = " The right to invoke `path_remove_directory`."]
+        const PATH_REMOVE_DIRECTORY = 1 << 25;
+        #[doc = " The right to invoke `path_unlink_file`."]
+        const PATH_UNLINK_FILE = 1 << 26;
+        #[doc = " If `rights::fd_read` is set, includes the right to invoke `poll_oneoff` to subscribe to `eventtype::fd_read`."]
+        #[doc = " If `rights::fd_write` is set, includes the right to invoke `poll_oneoff` to subscribe to `eventtype::fd_write`."]
+        const POLL_FD_READWRITE = 1 << 27;
+        #[doc = " The right to invoke `sock_shutdown`."]
+        const SOCK_SHUTDOWN = 1 << 28;
+        #[doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"]
+        const SOCK_ACCEPT = 1 << 29;
+        #[doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"]
+        const SOCK_CONNECT = 1 << 30;
+        #[doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"]
+        const SOCK_LISTEN = 1 << 31;
+        #[doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"]
+        const SOCK_BIND = 1 << 32;
+        #[doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"]
+        const SOCK_RECV = 1 << 33;
+        #[doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"]
+        const SOCK_SEND = 1 << 34;
+        #[doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"]
+        const SOCK_ADDR_LOCAL = 1 << 35;
+        #[doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"]
+        const SOCK_ADDR_REMOTE = 1 << 36;
+        # [doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"]
+        const SOCK_RECV_FROM = 1 << 37;
+        #[doc = " TODO: Found in wasmer-wasi-types rust project, but not in wasi-snapshot0"]
+        const SOCK_SEND_TO = 1 << 38;
+    }
+}
 impl Rights {
     #[doc = " Convert from a raw integer, preserving any unknown bits. See"]
     #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
@@ -671,7 +767,23 @@ impl core::fmt::Debug for Advice {
         }
     }
 }
-wai_bindgen_rust::bitflags::bitflags! { # [doc = " File descriptor flags."] pub struct Fdflags : u16 { # [doc = " Append mode: Data written to the file is always appended to the file's end."] const APPEND = 1 << 0 ; # [doc = " Write according to synchronized I/O data integrity completion. Only the data stored in the file is synchronized."] const DSYNC = 1 << 1 ; # [doc = " Non-blocking mode."] const NONBLOCK = 1 << 2 ; # [doc = " Synchronized read I/O operations."] const RSYNC = 1 << 3 ; # [doc = " Write according to synchronized I/O file integrity completion. In"] # [doc = " addition to synchronizing the data stored in the file, the implementation"] # [doc = " may also synchronously update the file's metadata."] const SYNC = 1 << 4 ; } }
+wai_bindgen_rust::bitflags::bitflags! {
+    #[doc = " File descriptor flags."]
+    pub struct Fdflags : u16 {
+        #[doc = " Append mode: Data written to the file is always appended to the file's end."]
+        const APPEND = 1 << 0;
+        #[doc = " Write according to synchronized I/O data integrity completion. Only the data stored in the file is synchronized."]
+        const DSYNC = 1 << 1;
+        #[doc = " Non-blocking mode."]
+        const NONBLOCK = 1 << 2;
+        #[doc = " Synchronized read I/O operations."]
+        const RSYNC = 1 << 3;
+        #[doc = " Write according to synchronized I/O file integrity completion. In"]
+        #[doc = " addition to synchronizing the data stored in the file, the implementation"]
+        #[doc = " may also synchronously update the file's metadata."]
+        const SYNC = 1 << 4;
+    }
+}
 impl Fdflags {
     #[doc = " Convert from a raw integer, preserving any unknown bits. See"]
     #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
@@ -703,7 +815,21 @@ impl core::fmt::Debug for Fdstat {
             .finish()
     }
 }
-wai_bindgen_rust::bitflags::bitflags! { # [doc = " Which file time attributes to adjust."] # [doc = " TODO: wit appears to not have support for flags repr"] # [doc = " (@witx repr u16)"] pub struct Fstflags : u16 { # [doc = " Adjust the last data access timestamp to the value stored in `filestat::atim`."] const SET_ATIM = 1 << 0 ; # [doc = " Adjust the last data access timestamp to the time of clock `clockid::realtime`."] const SET_ATIM_NOW = 1 << 1 ; # [doc = " Adjust the last data modification timestamp to the value stored in `filestat::mtim`."] const SET_MTIM = 1 << 2 ; # [doc = " Adjust the last data modification timestamp to the time of clock `clockid::realtime`."] const SET_MTIM_NOW = 1 << 3 ; } }
+wai_bindgen_rust::bitflags::bitflags! {
+    #[doc = " Which file time attributes to adjust."]
+    #[doc = " TODO: wit appears to not have support for flags repr"]
+    #[doc = " (@witx repr u16)"]
+    pub struct Fstflags : u16 {
+        #[doc = " Adjust the last data access timestamp to the value stored in `filestat::atim`."]
+        const SET_ATIM = 1 << 0;
+        #[doc = " Adjust the last data access timestamp to the time of clock `clockid::realtime`."]
+        const SET_ATIM_NOW = 1 << 1;
+        #[doc = " Adjust the last data modification timestamp to the value stored in `filestat::mtim`."]
+        const SET_MTIM = 1 << 2;
+        #[doc = " Adjust the last data modification timestamp to the time of clock `clockid::realtime`."]
+        const SET_MTIM_NOW = 1 << 3;
+    }
+}
 impl Fstflags {
     #[doc = " Convert from a raw integer, preserving any unknown bits. See"]
     #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
@@ -711,7 +837,15 @@ impl Fstflags {
         Self { bits }
     }
 }
-wai_bindgen_rust::bitflags::bitflags! { # [doc = " Flags determining the method of how paths are resolved."] # [doc = " TODO: wit appears to not have support for flags repr"] # [doc = " (@witx repr u32)"] pub struct Lookup : u32 { # [doc = " As long as the resolved path corresponds to a symbolic link, it is expanded."] const SYMLINK_FOLLOW = 1 << 0 ; } }
+wai_bindgen_rust::bitflags::bitflags! {
+    #[doc = " Flags determining the method of how paths are resolved."]
+    #[doc = " TODO: wit appears to not have support for flags repr"]
+    #[doc = " (@witx repr u32)"]
+    pub struct Lookup : u32 {
+        #[doc = " As long as the resolved path corresponds to a symbolic link, it is expanded."]
+        const SYMLINK_FOLLOW = 1 << 0;
+    }
+}
 impl Lookup {
     #[doc = " Convert from a raw integer, preserving any unknown bits. See"]
     #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
@@ -719,7 +853,21 @@ impl Lookup {
         Self { bits }
     }
 }
-wai_bindgen_rust::bitflags::bitflags! { # [doc = " Open flags used by `path_open`."] # [doc = " TODO: wit appears to not have support for flags repr"] # [doc = " (@witx repr u16)"] pub struct Oflags : u16 { # [doc = " Create file if it does not exist."] const CREATE = 1 << 0 ; # [doc = " Fail if not a directory."] const DIRECTORY = 1 << 1 ; # [doc = " Fail if file already exists."] const EXCL = 1 << 2 ; # [doc = " Truncate file to size 0."] const TRUNC = 1 << 3 ; } }
+wai_bindgen_rust::bitflags::bitflags! {
+    #[doc = " Open flags used by `path_open`."]
+    #[doc = " TODO: wit appears to not have support for flags repr"]
+    #[doc = " (@witx repr u16)"]
+    pub struct Oflags : u16 {
+        #[doc = " Create file if it does not exist."]
+        const CREATE = 1 << 0;
+        #[doc = " Fail if not a directory."]
+        const DIRECTORY = 1 << 1;
+        #[doc = " Fail if file already exists."]
+        const EXCL = 1 << 2;
+        #[doc = " Truncate file to size 0."]
+        const TRUNC = 1 << 3;
+    }
+}
 impl Oflags {
     #[doc = " Convert from a raw integer, preserving any unknown bits. See"]
     #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
@@ -753,7 +901,18 @@ impl core::fmt::Debug for Eventtype {
         }
     }
 }
-wai_bindgen_rust::bitflags::bitflags! { # [doc = " Flags determining how to interpret the timestamp provided in"] # [doc = " `subscription-clock::timeout`."] pub struct Subclockflags : u16 { # [doc = " If set, treat the timestamp provided in"] # [doc = " `subscription-clock::timeout` as an absolute timestamp of clock"] # [doc = " `subscription-clock::id`. If clear, treat the timestamp"] # [doc = " provided in `subscription-clock::timeout` relative to the"] # [doc = " current time value of clock `subscription-clock::id`."] const SUBSCRIPTION_CLOCK_ABSTIME = 1 << 0 ; } }
+wai_bindgen_rust::bitflags::bitflags! {
+    #[doc = " Flags determining how to interpret the timestamp provided in"]
+    #[doc = " `subscription-clock::timeout`."]
+    pub struct Subclockflags : u16 {
+        #[doc = " If set, treat the timestamp provided in"]
+        #[doc = " `subscription-clock::timeout` as an absolute timestamp of clock"]
+        #[doc = " `subscription-clock::id`. If clear, treat the timestamp"]
+        #[doc = " provided in `subscription-clock::timeout` relative to the"]
+        #[doc = " current time value of clock `subscription-clock::id`."]
+        const SUBSCRIPTION_CLOCK_ABSTIME = 1 << 0;
+    }
+}
 impl Subclockflags {
     #[doc = " Convert from a raw integer, preserving any unknown bits. See"]
     #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
@@ -826,7 +985,14 @@ impl core::fmt::Debug for Preopentype {
         }
     }
 }
-wai_bindgen_rust::bitflags::bitflags! { # [doc = " The state of the file descriptor subscribed to with"] # [doc = " `eventtype::fd_read` or `eventtype::fd_write`."] pub struct Eventrwflags : u16 { # [doc = " The peer of this socket has closed or disconnected."] const FD_READWRITE_HANGUP = 1 << 0 ; } }
+wai_bindgen_rust::bitflags::bitflags! {
+    #[doc = " The state of the file descriptor subscribed to with"]
+    #[doc = " `eventtype::fd_read` or `eventtype::fd_write`."]
+    pub struct Eventrwflags : u16 {
+        #[doc = " The peer of this socket has closed or disconnected."]
+        const FD_READWRITE_HANGUP = 1 << 0;
+    }
+}
 impl Eventrwflags {
     #[doc = " Convert from a raw integer, preserving any unknown bits. See"]
     #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
@@ -1169,6 +1335,20 @@ impl core::fmt::Debug for OptionCid {
         f.debug_struct("OptionCid")
             .field("tag", &self.tag)
             .field("cid", &self.cid)
+            .finish()
+    }
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct OptionPid {
+    pub tag: OptionTag,
+    pub pid: Pid,
+}
+impl core::fmt::Debug for OptionPid {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("OptionPid")
+            .field("tag", &self.tag)
+            .field("pid", &self.pid)
             .finish()
     }
 }
@@ -2243,8 +2423,8 @@ impl core::fmt::Debug for Signal {
             Signal::Sigusr2 => f.debug_tuple("Signal::Sigusr2").finish(),
             Signal::Sigpipe => f.debug_tuple("Signal::Sigpipe").finish(),
             Signal::Sigalrm => f.debug_tuple("Signal::Sigalrm").finish(),
-            Signal::Sigstkflt => f.debug_tuple("Signal::Sigstkflt").finish(),
             Signal::Sigterm => f.debug_tuple("Signal::Sigterm").finish(),
+            Signal::Sigstkflt => f.debug_tuple("Signal::Sigstkflt").finish(),
             Signal::Sigchld => f.debug_tuple("Signal::Sigchld").finish(),
             Signal::Sigcont => f.debug_tuple("Signal::Sigcont").finish(),
             Signal::Sigstop => f.debug_tuple("Signal::Sigstop").finish(),
@@ -2355,6 +2535,62 @@ impl core::fmt::Debug for Timeout {
             Timeout::Connect => f.debug_tuple("Timeout::Connect").finish(),
             Timeout::Accept => f.debug_tuple("Timeout::Accept").finish(),
         }
+    }
+}
+wai_bindgen_rust::bitflags::bitflags! {
+    #[doc = " join flags."]
+    pub struct JoinFlags : u8 {
+        #[doc = " Non-blocking join on the process"]
+        const NON_BLOCKING = 1 << 0 ;
+        #[doc = " Return if a process is stopped"]
+        const WAKE_STOPPED = 1 << 1 ;
+    }
+}
+impl JoinFlags {
+    #[doc = " Convert from a raw integer, preserving any unknown bits. See"]
+    #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
+    pub fn from_bits_preserve(bits: u8) -> Self {
+        Self { bits }
+    }
+}
+#[doc = " What has happened with the proccess when we joined on it"]
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum JoinStatusType {
+    #[doc = " Nothing has happened"]
+    Nothing,
+    #[doc = " The process has exited by a normal exit code"]
+    ExitNormal,
+    #[doc = " The process was terminated by a signal"]
+    ExitSignal,
+    #[doc = " The process was stopped by a signal and can be resumed with SIGCONT"]
+    Stopped,
+}
+impl core::fmt::Debug for JoinStatusType {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            JoinStatusType::Nothing => f.debug_tuple("JoinStatusType::Nothing").finish(),
+            JoinStatusType::ExitNormal => f.debug_tuple("JoinStatusType::ExitNormal").finish(),
+            JoinStatusType::ExitSignal => f.debug_tuple("JoinStatusType::ExitSignal").finish(),
+            JoinStatusType::Stopped => f.debug_tuple("JoinStatusType::Stopped").finish(),
+        }
+    }
+}
+#[doc = " Represents an errno and a signal"]
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct ErrnoSignal {
+    #[doc = " The exit code that was returned"]
+    pub exit_code: Errno,
+    #[doc = " The signal that was returned"]
+    pub signal: Signal,
+}
+impl core::fmt::Debug for ErrnoSignal {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ErrnoSignal")
+            .field("exit-code", &self.exit_code)
+            .field("signal", &self.signal)
+            .finish()
     }
 }
 
@@ -3054,7 +3290,7 @@ unsafe impl ValueType for OptionCid {
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for OptionFd {
+unsafe impl ValueType for OptionPid {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
@@ -3079,6 +3315,12 @@ unsafe impl ValueType for BusEventFault {
 
 // TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for BusEventClose {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for OptionFd {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
@@ -3570,4 +3812,45 @@ unsafe impl wasmer::FromToNativeWasmType for Timeout {
     fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
         false
     }
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for JoinFlags {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for JoinStatusType {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+unsafe impl wasmer::FromToNativeWasmType for JoinStatusType {
+    type Native = i32;
+
+    fn to_native(self) -> Self::Native {
+        self as i32
+    }
+
+    fn from_native(n: Self::Native) -> Self {
+        match n {
+            0 => Self::Nothing,
+            1 => Self::ExitNormal,
+            2 => Self::ExitSignal,
+            3 => Self::Stopped,
+
+            q => todo!("could not serialize number {q} to enum JoinStatusType"),
+        }
+    }
+
+    fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
+        false
+    }
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for ErrnoSignal {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }

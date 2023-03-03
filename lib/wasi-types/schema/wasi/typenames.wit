@@ -827,7 +827,7 @@ record option-fd {
     fd: fd
 }
 
-type exit-code = u32
+type exit-code = errno
 
 type event-fd-flags = u16
 
@@ -1218,9 +1218,9 @@ enum timeout {
 }
 
 /// join flags.
-flags join_flags {
+flags join-flags {
     /// Non-blocking join on the process
-    non-blocking
+    non-blocking,
     /// Return if a process is stopped
     wake-stopped
 }
@@ -1228,11 +1228,11 @@ flags join_flags {
 /// What has happened with the proccess when we joined on it
 enum join-status-type {
     /// Nothing has happened
-    nothing
+    nothing,
     /// The process has exited by a normal exit code
-    exit-normal
+    exit-normal,
     /// The process was terminated by a signal
-    exit-signal
+    exit-signal,
     /// The process was stopped by a signal and can be resumed with SIGCONT
     stopped
 }

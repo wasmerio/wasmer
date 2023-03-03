@@ -3,8 +3,8 @@ use std::mem::MaybeUninit;
 use wasmer::ValueType;
 
 use super::{
-    Errno, EventFdReadwrite, Eventtype, Snapshot0SubscriptionClock, SubscriptionClock,
-    SubscriptionFsReadwrite, Userdata,
+    Errno, ErrnoSignal, EventFdReadwrite, Eventtype, JoinStatusType, Signal,
+    Snapshot0SubscriptionClock, SubscriptionClock, SubscriptionFsReadwrite, Userdata,
 };
 
 /// Thread local key
@@ -172,6 +172,40 @@ unsafe impl ValueType for Event {
 }
 
 unsafe impl ValueType for StackSnapshot {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union JoinStatusUnion {
+    pub nothing: u8,
+    pub exit_normal: Errno,
+    pub exit_signal: ErrnoSignal,
+    pub stopped: Signal,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct JoinStatus {
+    pub tag: JoinStatusType,
+    pub u: JoinStatusUnion,
+}
+impl core::fmt::Debug for JoinStatus {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let mut binding = f.debug_struct("JoinStatus");
+        let mut f = binding.field("tag", &self.tag);
+        f = unsafe {
+            match self.tag {
+                JoinStatusType::Nothing => f.field("pid", &self.u.nothing),
+                JoinStatusType::ExitNormal => f.field("exit_normal", &self.u.exit_normal),
+                JoinStatusType::ExitSignal => f.field("exit_signal", &self.u.exit_signal),
+                JoinStatusType::Stopped => f.field("stopped", &self.u.stopped),
+            }
+        };
+        f.finish()
+    }
+}
+unsafe impl ValueType for JoinStatus {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
