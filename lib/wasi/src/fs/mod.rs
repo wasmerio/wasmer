@@ -93,6 +93,9 @@ impl InodeGuard {
             inner: Arc::downgrade(&self.inner),
         }
     }
+    pub fn ref_cnt(&self) -> usize {
+        Arc::strong_count(&self.inner)
+    }
 }
 impl std::ops::Deref for InodeGuard {
     type Target = InodeVal;
@@ -1740,7 +1743,8 @@ impl WasiFs {
         match pfd {
             Ok(fd_ref) => {
                 let inode = fd_ref.inode.ino().as_u64();
-                trace!(%fd, %inode, "closing file descriptor");
+                let ref_cnt = fd_ref.inode.ref_cnt();
+                trace!(%fd, %inode, %ref_cnt, "closing file descriptor");
             }
             Err(err) => {
                 trace!(%fd, "closing file descriptor failed - {}", err);
