@@ -27,6 +27,7 @@ pub type Linkcount = u64;
 pub type Snapshot0Linkcount = u32;
 pub type Tid = u32;
 pub type Pid = u32;
+pub type JoinStatus = u32;
 #[doc = " Identifiers for clocks, snapshot0 version."]
 #[repr(u32)]
 #[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]

@@ -817,6 +817,11 @@ record option-cid {
     cid: cid
 }
 
+record option-pid {
+    tag: option-tag,
+    pid: pid
+}
+
 record option-fd {
     tag: option-tag,
     fd: fd
@@ -1210,4 +1215,42 @@ enum timeout {
     write,
     connect,
     accept,
+}
+
+/// join flags.
+flags join_flags {
+    /// Non-blocking join on the process
+    non-blocking
+    /// Return if a process is stopped
+    wake-stopped
+}
+
+/// What has happened with the proccess when we joined on it
+enum join-status-type {
+    /// Nothing has happened
+    nothing
+    /// The process has exited by a normal exit code
+    exit-normal
+    /// The process was terminated by a signal
+    exit-signal
+    /// The process was stopped by a signal and can be resumed with SIGCONT
+    stopped
+}
+
+/// Represents an errno and a signal
+record errno-signal {
+    /// The exit code that was returned
+    exit-code: errno,
+    /// The signal that was returned
+    signal: signal
+}
+
+/// The contents of an `event`.
+variant join-status {
+   // TODO: wit appears to not have support for tag type
+   //(@witx tag $join_status_type)
+   nothing(u8),
+   exit-normal(errno),
+   exit-signal(errno-signal),
+   stopped(signal)
 }

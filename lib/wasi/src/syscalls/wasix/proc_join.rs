@@ -1,3 +1,5 @@
+use wasmer_wasi_types::wasi::JoinStatus;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -10,7 +12,7 @@ use crate::syscalls::*;
 pub fn proc_join<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     pid_ptr: WasmPtr<Pid, M>,
-    exit_code_ptr: WasmPtr<ExitCode, M>,
+    status_ptr: WasmPtr<JoinStatus, M>,
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
@@ -111,4 +113,8 @@ pub fn proc_join<M: MemorySize>(
     let memory = env.memory_view(&ctx);
     wasi_try_mem_ok!(exit_code_ptr.write(&memory, Errno::Child as ExitCode));
     Ok(Errno::Child)
+}
+
+fn exit_code_to_status(err: Errno) -> JoinStatus {
+
 }
