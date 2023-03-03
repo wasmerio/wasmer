@@ -2539,7 +2539,7 @@ impl core::fmt::Debug for Timeout {
 }
 wai_bindgen_rust::bitflags::bitflags! {
     #[doc = " join flags."]
-    pub struct JoinFlags : u8 {
+    pub struct JoinFlags : u32 {
         #[doc = " Non-blocking join on the process"]
         const NON_BLOCKING = 1 << 0 ;
         #[doc = " Return if a process is stopped"]
@@ -2549,7 +2549,7 @@ wai_bindgen_rust::bitflags::bitflags! {
 impl JoinFlags {
     #[doc = " Convert from a raw integer, preserving any unknown bits. See"]
     #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
-    pub fn from_bits_preserve(bits: u8) -> Self {
+    pub fn from_bits_preserve(bits: u32) -> Self {
         Self { bits }
     }
 }

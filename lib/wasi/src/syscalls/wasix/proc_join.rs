@@ -1,4 +1,4 @@
-use wasmer_wasi_types::wasi::{JoinStatus, JoinStatusType, JoinStatusUnion, OptionPid};
+use wasmer_wasi_types::wasi::{JoinStatus, JoinStatusType, JoinStatusUnion, OptionPid, JoinFlags};
 
 use super::*;
 use crate::syscalls::*;
@@ -12,6 +12,7 @@ use crate::syscalls::*;
 pub fn proc_join<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     pid_ptr: WasmPtr<OptionPid, M>,
+    _flags: JoinFlags,
     status_ptr: WasmPtr<JoinStatus, M>,
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
