@@ -405,3 +405,29 @@ impl<'a, T: ValueType> DoubleEndedIterator for WasmSliceIter<'a, T> {
 }
 
 impl<'a, T: ValueType> ExactSizeIterator for WasmSliceIter<'a, T> {}
+
+impl<'a, T> WasmSliceAccess<'a, T>
+where
+    T: wasmer_types::ValueType,
+{
+    fn new(slice: WasmSlice<'a, T>) -> Result<Self, MemoryAccessError> {
+        let buf = slice.read_to_vec()?;
+        Ok(Self {
+            slice,
+            buf: SliceCow::Owned(buf),
+        })
+    }
+}
+
+impl<'a, T> WasmRefAccess<'a, T>
+where
+    T: wasmer_types::ValueType,
+{
+    fn new(ptr: WasmRef<'a, T>) -> Result<Self, MemoryAccessError> {
+        let val = slice.read()?;
+        Ok(Self {
+            ptr,
+            buf: RefCow::Owned(val),
+        })
+    }
+}

@@ -275,6 +275,13 @@ pub fn proc_fork<M: MemorySize>(
                     let start = ctx.data(&store).inner().thread_spawn.clone().unwrap();
                     start.call(&mut store, 0, 0);
                 }
+                trace!(
+                    "wasi[{}:{}]::proc_{} - child exited (code = {})",
+                    ctx.data(&store).pid(),
+                    ctx.data(&store).tid(),
+                    fork_op,
+                    ret
+                );
 
                 // Clean up the environment
                 ctx.cleanup((&mut store), Some(ret as ExitCode));

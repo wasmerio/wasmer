@@ -441,5 +441,7 @@ mod js;
 #[cfg(feature = "js")]
 pub use js::*;
 
+mod access;
 mod into_bytes;
+pub use access::WasmSliceAccess;
 pub use into_bytes::IntoBytes;
