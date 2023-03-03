@@ -11,6 +11,10 @@ pub struct Table {
     pub(crate) handle: VMTable,
 }
 
+// Table can't be Send in js because it dosen't support `structuredClone`
+// https://developer.mozilla.org/en-US/docs/Web/API/structuredClone
+// unsafe impl Send for Table {}
+
 fn set_table_item(table: &VMTable, item_index: u32, item: &Function) -> Result<(), RuntimeError> {
     table.table.set(item_index, item).map_err(|e| e.into())
 }

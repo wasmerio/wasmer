@@ -45,7 +45,16 @@ pub struct Module {
     raw_bytes: Option<Bytes>,
 }
 
+// Module implements `structuredClone` in js, so it's safe it to make it Send.
+// https://developer.mozilla.org/en-US/docs/Web/API/structuredClone
+// ```js
+// const module = new WebAssembly.Module(new Uint8Array([
+//   0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00
+// ]));
+// structuredClone(module)
+// ```
 unsafe impl Send for Module {}
+unsafe impl Sync for Module {}
 
 impl Module {
     pub(crate) fn from_binary(

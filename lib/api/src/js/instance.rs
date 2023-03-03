@@ -13,7 +13,9 @@ pub struct Instance {
     pub(crate) _handle: VMInstance,
 }
 
-unsafe impl Send for Instance {}
+// Instance can't be Send in js because it dosen't support `structuredClone`
+// https://developer.mozilla.org/en-US/docs/Web/API/structuredClone
+// unsafe impl Send for Instance {}
 
 impl Instance {
     pub(crate) fn new(
