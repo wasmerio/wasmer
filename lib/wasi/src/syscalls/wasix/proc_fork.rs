@@ -126,7 +126,7 @@ pub fn proc_fork<M: MemorySize>(
                         "{} failed - could not rewind the stack - errno={}",
                         fork_op, err
                     );
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)))
+                    OnCalledAction::Trap(Box::new(WasiError::Exit(err)))
                 }
             }
         });
@@ -169,7 +169,7 @@ pub fn proc_fork<M: MemorySize>(
                     fork_op,
                     err
                 );
-                return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)));
+                return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation)));
             }
         };
         let fork_module = env.inner().instance.module().clone();
@@ -322,7 +322,7 @@ pub fn proc_fork<M: MemorySize>(
             let offset = env.stack_base - pid_offset;
             if offset as usize > memory_stack.len() {
                 warn!("{} failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})", fork_op, offset, memory_stack.len());
-                return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)));
+                return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation)));
             }
 
             // Update the memory stack with the new PID
@@ -333,7 +333,7 @@ pub fn proc_fork<M: MemorySize>(
             pbytes.clone_from_slice(&val_bytes);
         } else {
             warn!("{} failed - the return value (pid) is not being returned on the stack - which is not supported", fork_op);
-            return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)));
+            return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation)));
         }
 
         // Rewind the stack and carry on
@@ -349,7 +349,7 @@ pub fn proc_fork<M: MemorySize>(
                     "{} failed - could not rewind the stack - errno={}",
                     fork_op, err
                 );
-                OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)))
+                OnCalledAction::Trap(Box::new(WasiError::Exit(err)))
             }
         }
     })

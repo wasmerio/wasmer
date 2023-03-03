@@ -67,7 +67,7 @@ pub fn proc_join<M: MemorySize>(
                 let env = ctx.data();
                 let memory = env.memory_view(&ctx);
                 wasi_try_mem_ok!(pid_ptr.write(&memory, -1i32 as Pid));
-                wasi_try_mem_ok!(exit_code_ptr.write(&memory, Errno::Child as u32));
+                wasi_try_mem_ok!(exit_code_ptr.write(&memory, Errno::Child));
                 Ok(Errno::Child)
             }
         };
@@ -79,7 +79,7 @@ pub fn proc_join<M: MemorySize>(
     let process = env.process.control_plane().get_process(pid);
     if let Some(process) = process {
         let exit_code = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-            let code = process.join().await.unwrap_or(Errno::Child as u32);
+            let code = process.join().await.unwrap_or(Errno::Child);
             Ok(code)
         })
         .map_err(|err| {

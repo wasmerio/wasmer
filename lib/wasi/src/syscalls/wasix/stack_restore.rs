@@ -35,7 +35,7 @@ pub fn stack_restore<M: MemorySize>(
                 ctx.data().tid(),
                 err
             );
-            return Err(WasiError::Exit(128));
+            return Err(WasiError::Exit(mem_error_to_wasi(err)));
         }
     };
 
@@ -59,7 +59,7 @@ pub fn stack_restore<M: MemorySize>(
                 let end = offset + (val_bytes.len() as u64);
                 if end as usize > memory_stack.len() {
                     warn!("wasi[{}:{}]::snapshot stack restore failed - the return value is outside of the active part of the memory stack ({} vs {}) - {} - {}", env.pid(), env.tid(), offset, memory_stack.len(), ret_val_offset, end);
-                    return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)));
+                    return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation)));
                 } else {
                     // Update the memory stack with the new return value
                     let pstart = memory_stack.len() - offset as usize;
@@ -76,12 +76,13 @@ pub fn stack_restore<M: MemorySize>(
                     .map(|a| {
                         a.write(&memory, val)
                             .map(|_| Errno::Success)
-                            .unwrap_or(Errno::Fault)
+                            .map_err(mem_error_to_wasi)
+                            .unwrap_or_else(|e| e)
                     })
                     .unwrap_or_else(|a| a);
                 if err != Errno::Success {
                     warn!("wasi[{}:{}]::snapshot stack restore failed - the return value can not be written too - {}", env.pid(), env.tid(), err);
-                    return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)));
+                    return OnCalledAction::Trap(Box::new(WasiError::Exit(err)));
                 }
             }
 
@@ -96,12 +97,12 @@ pub fn stack_restore<M: MemorySize>(
                         "wasi[{}:{}]::failed to rewind the stack - errno={}",
                         pid, tid, err
                     );
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)))
+                    OnCalledAction::Trap(Box::new(WasiError::Exit(err)))
                 }
             }
         } else {
             warn!("wasi[{}:{}]::snapshot stack restore failed - the snapshot can not be found and hence restored (hash={})", env.pid(), env.tid(), snapshot.hash);
-            OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)))
+            OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Unknown)))
         }
     });
 

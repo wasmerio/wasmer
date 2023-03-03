@@ -167,17 +167,17 @@ pub fn spawn_exec_module(
                     start
                         .call(&mut store, &[])
                         .map_err(WasiRuntimeError::from)
-                        .map(|_| 0)
+                        .map(|_| Errno::Success)
                 } else {
                     debug!("wasi[{}]::exec-failed: missing _start function", pid);
-                    Ok(Errno::Noexec as u32)
+                    Ok(Errno::Noexec)
                 };
                 debug!("wasi[{pid}]::main() has exited with {ret:?}");
 
                 let code = if let Err(err) = &ret {
-                    err.as_exit_code().unwrap_or(Errno::Child as u32)
+                    err.as_exit_code().unwrap_or(Errno::Child)
                 } else {
-                    0
+                    Errno::Success
                 };
                 thread.thread.set_status_finished(ret);
 

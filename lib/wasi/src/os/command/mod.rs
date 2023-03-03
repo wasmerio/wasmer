@@ -101,7 +101,7 @@ impl Commands {
                 format!("wasm command unknown - {}\r\n", path).as_bytes(),
             );
 
-            let res = OwnedTaskStatus::new(TaskStatus::Finished(Ok(Errno::Noent as u32)));
+            let res = OwnedTaskStatus::new(TaskStatus::Finished(Ok(Errno::Noent)));
             Ok(res.handle())
         }
     }

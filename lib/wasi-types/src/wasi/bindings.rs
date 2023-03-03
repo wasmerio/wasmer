@@ -90,7 +90,7 @@ impl core::fmt::Debug for Clockid {
 #[doc = " API; some are used in higher-level library layers, and others are provided"]
 #[doc = " merely for alignment with POSIX."]
 #[repr(u16)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Errno {
     #[doc = " No error occurred. System call completed successfully."]
     Success,
@@ -248,6 +248,10 @@ pub enum Errno {
     Notcapable,
     #[doc = " Cannot send after socket shutdown."]
     Shutdown,
+    #[doc = " Memory access violation."]
+    Memviolation,
+    #[doc = " Unknown error occured."]
+    Unknown,
 }
 impl Errno {
     pub fn name(&self) -> &'static str {
@@ -330,6 +334,8 @@ impl Errno {
             Errno::Xdev => "xdev",
             Errno::Notcapable => "notcapable",
             Errno::Shutdown => "shutdown",
+            Errno::Memviolation => "memviolation",
+            Errno::Unknown => "unknown",
         }
     }
     pub fn message(&self) -> &'static str {
@@ -412,6 +418,8 @@ impl Errno {
             Errno::Xdev => "Cross-device link.",
             Errno::Notcapable => "Extension: Capabilities insufficient.",
             Errno::Shutdown => "Cannot send after socket shutdown.",
+            Errno::Memviolation => "Memory access violation.",
+            Errno::Unknown => "Unknown error.",
         }
     }
 }
@@ -1195,7 +1203,7 @@ impl core::fmt::Debug for BusHandles {
             .finish()
     }
 }
-pub type ExitCode = u32;
+pub type ExitCode = Errno;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct BusEventExit {
@@ -2183,6 +2191,7 @@ impl core::fmt::Debug for OptionTimestamp {
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
 pub enum Signal {
+    Sigunknown = 0,
     Sighup,
     Sigint,
     Sigquit,
@@ -2198,6 +2207,7 @@ pub enum Signal {
     Sigpipe,
     Sigalrm,
     Sigterm,
+    Sigstkflt,
     Sigchld,
     Sigcont,
     Sigstop,
@@ -2217,6 +2227,7 @@ pub enum Signal {
 impl core::fmt::Debug for Signal {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
+            Signal::Sigunknown => f.debug_tuple("Signal::Sigunknown").finish(),
             Signal::Sighup => f.debug_tuple("Signal::Sighup").finish(),
             Signal::Sigint => f.debug_tuple("Signal::Sigint").finish(),
             Signal::Sigquit => f.debug_tuple("Signal::Sigquit").finish(),
@@ -2231,6 +2242,7 @@ impl core::fmt::Debug for Signal {
             Signal::Sigusr2 => f.debug_tuple("Signal::Sigusr2").finish(),
             Signal::Sigpipe => f.debug_tuple("Signal::Sigpipe").finish(),
             Signal::Sigalrm => f.debug_tuple("Signal::Sigalrm").finish(),
+            Signal::Sigstkflt => f.debug_tuple("Signal::Sigstkflt").finish(),
             Signal::Sigterm => f.debug_tuple("Signal::Sigterm").finish(),
             Signal::Sigchld => f.debug_tuple("Signal::Sigchld").finish(),
             Signal::Sigcont => f.debug_tuple("Signal::Sigcont").finish(),
@@ -2495,8 +2507,14 @@ unsafe impl wasmer::FromToNativeWasmType for Errno {
             74 => Self::Txtbsy,
             75 => Self::Xdev,
             76 => Self::Notcapable,
+            77 => Self::Shutdown,
+            78 => Self::Memviolation,
+            79 => Self::Unknown,
 
-            q => todo!("could not serialize number {q} to enum Errno"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Errno");
+                Self::Unknown
+            }
         }
     }
 
@@ -3449,38 +3467,43 @@ unsafe impl wasmer::FromToNativeWasmType for Signal {
 
     fn from_native(n: Self::Native) -> Self {
         match n {
-            0 => Self::Sighup,
-            1 => Self::Sigint,
-            2 => Self::Sigquit,
-            3 => Self::Sigill,
-            4 => Self::Sigtrap,
-            5 => Self::Sigabrt,
-            6 => Self::Sigbus,
-            7 => Self::Sigfpe,
-            8 => Self::Sigkill,
-            9 => Self::Sigusr1,
-            10 => Self::Sigsegv,
-            11 => Self::Sigusr2,
-            12 => Self::Sigpipe,
-            13 => Self::Sigalrm,
-            14 => Self::Sigterm,
-            15 => Self::Sigchld,
-            16 => Self::Sigcont,
-            17 => Self::Sigstop,
-            18 => Self::Sigtstp,
-            19 => Self::Sigttin,
-            20 => Self::Sigttou,
-            21 => Self::Sigurg,
-            22 => Self::Sigxcpu,
-            23 => Self::Sigxfsz,
-            24 => Self::Sigvtalrm,
-            25 => Self::Sigprof,
-            26 => Self::Sigwinch,
-            27 => Self::Sigpoll,
-            28 => Self::Sigpwr,
-            29 => Self::Sigsys,
+            0 => Self::Sigunknown,
+            1 => Self::Sighup,
+            2 => Self::Sigint,
+            3 => Self::Sigquit,
+            4 => Self::Sigill,
+            5 => Self::Sigtrap,
+            6 => Self::Sigabrt,
+            7 => Self::Sigbus,
+            8 => Self::Sigfpe,
+            9 => Self::Sigkill,
+            10 => Self::Sigusr1,
+            11 => Self::Sigsegv,
+            12 => Self::Sigusr2,
+            13 => Self::Sigpipe,
+            14 => Self::Sigalrm,
+            15 => Self::Sigterm,
+            16 => Self::Sigstkflt,
+            17 => Self::Sigchld,
+            18 => Self::Sigcont,
+            19 => Self::Sigstop,
+            20 => Self::Sigtstp,
+            21 => Self::Sigttin,
+            22 => Self::Sigttou,
+            23 => Self::Sigurg,
+            24 => Self::Sigxcpu,
+            25 => Self::Sigxfsz,
+            26 => Self::Sigvtalrm,
+            27 => Self::Sigprof,
+            28 => Self::Sigwinch,
+            29 => Self::Sigpoll,
+            30 => Self::Sigpwr,
+            31 => Self::Sigsys,
 
-            q => todo!("could not serialize number {q} to enum Signal"),
+            q => {
+                tracing::warn!("could not serialize number {q} to enum Signal");
+                Self::Sigunknown
+            }
         }
     }
 

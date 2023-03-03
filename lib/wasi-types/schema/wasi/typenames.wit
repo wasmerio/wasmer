@@ -247,6 +247,10 @@ enum errno {
     notcapable,
     /// Cannot send after socket shutdown.
     shutdown,
+    /// Memory access violation.
+    memviolation,
+    /// An unknown error has occured
+    unknown,
 }
 
 enum bus-errno {
@@ -1132,6 +1136,7 @@ record option-timestamp {
 }
 
 enum signal {
+    sigunknown,
     sighup,
     sigint,
     sigquit,
@@ -1147,6 +1152,7 @@ enum signal {
     sigpipe,
     sigalrm,
     sigterm,
+    sigstkflt,
     sigchld,
     sigcont,
     sigstop,

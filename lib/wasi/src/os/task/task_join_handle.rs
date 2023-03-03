@@ -173,7 +173,7 @@ impl TaskJoinHandle {
         }
         loop {
             if self.watch.changed().await.is_err() {
-                return Ok(Errno::Noent as u32);
+                return Ok(Errno::Noent);
             }
             match &*self.watch.borrow_and_update() {
                 TaskStatus::Pending | TaskStatus::Running => {}

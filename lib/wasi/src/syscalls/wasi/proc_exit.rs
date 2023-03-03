@@ -20,7 +20,7 @@ pub fn proc_exit<M: MemorySize>(
     );
 
     // Set the exit code for this process
-    ctx.data().thread.set_status_finished(Ok(code as u32));
+    ctx.data().thread.set_status_finished(Ok(code));
 
     // If we are in a vfork we need to return to the point we left off
     if let Some(mut vfork) = ctx.data_mut().vfork.take() {
@@ -45,7 +45,7 @@ pub fn proc_exit<M: MemorySize>(
             let offset = wasi_env.stack_base - pid_offset;
             if offset as usize > memory_stack.len() {
                 warn!("wasi[{}:{}]::vfork failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})", ctx.data().pid(), ctx.data().tid(), offset, memory_stack.len());
-                return Err(WasiError::Exit(Errno::Fault as u32));
+                return Err(WasiError::Exit(Errno::Memviolation));
             }
 
             // Update the memory stack with the new PID
@@ -56,7 +56,7 @@ pub fn proc_exit<M: MemorySize>(
             pbytes.clone_from_slice(&val_bytes);
         } else {
             warn!("wasi[{}:{}]::vfork failed - the return value (pid) is not being returned on the stack - which is not supported", ctx.data().pid(), ctx.data().tid());
-            return Err(WasiError::Exit(Errno::Fault as u32));
+            return Err(WasiError::Exit(Errno::Memviolation));
         }
 
         // Jump back to the vfork point and current on execution
@@ -71,7 +71,7 @@ pub fn proc_exit<M: MemorySize>(
                 Errno::Success => OnCalledAction::InvokeAgain,
                 err => {
                     warn!("fork failed - could not rewind the stack - errno={}", err);
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Fault as u32)))
+                    OnCalledAction::Trap(Box::new(WasiError::Exit(err)))
                 }
             }
         })?;

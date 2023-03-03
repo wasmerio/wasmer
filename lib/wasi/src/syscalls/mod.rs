@@ -175,7 +175,7 @@ pub(crate) fn copy_to_slice<M: MemorySize>(
             .map_err(mem_error_to_wasi)?;
 
         if amt != bytes.read_to_slice(left).map_err(mem_error_to_wasi)? {
-            return Err(Errno::Fault);
+            return Err(Errno::Io);
         }
 
         write_loc = right;
@@ -867,7 +867,7 @@ where
         Ok(a) => a,
         Err(err) => {
             warn!("unable to get the memory stack - {}", err);
-            return Err(WasiError::Exit(Errno::Fault as ExitCode));
+            return Err(WasiError::Exit(Errno::Unknown as ExitCode));
         }
     };
 
@@ -896,7 +896,7 @@ where
         asyncify_start_unwind.call(&mut ctx, asyncify_data);
     } else {
         warn!("failed to unwind the stack because the asyncify_start_rewind export is missing");
-        return Err(WasiError::Exit(128));
+        return Err(WasiError::Exit(Errno::Noexec));
     }
 
     // Set callback that will be invoked when this process finishes
@@ -988,7 +988,7 @@ pub(crate) fn rewind<M: MemorySize>(
         Ok(a) => a,
         Err(err) => {
             warn!("snapshot restore failed - the store snapshot could not be deserialized");
-            return Errno::Fault;
+            return Errno::Unknown;
         }
     };
     crate::utils::store::restore_snapshot(&mut ctx.as_store_mut(), &store_snapshot);
@@ -1034,7 +1034,7 @@ pub(crate) fn rewind<M: MemorySize>(
         asyncify_start_rewind.call(&mut ctx, asyncify_data);
     } else {
         warn!("failed to rewind the stack because the asyncify_start_rewind export is missing");
-        return Errno::Fault;
+        return Errno::Noexec;
     }
 
     Errno::Success

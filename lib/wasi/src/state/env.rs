@@ -536,8 +536,8 @@ impl WasiEnv {
             let signal_cnt = signals.len();
             for sig in signals {
                 if sig == Signal::Sigint || sig == Signal::Sigquit || sig == Signal::Sigkill {
-                    env.thread.set_status_finished(Ok(Errno::Intr as u32));
-                    return Err(WasiError::Exit(Errno::Intr as u32));
+                    env.thread.set_status_finished(Ok(Errno::Intr));
+                    return Err(WasiError::Exit(Errno::Intr));
                 } else {
                     trace!("wasi[{}]::signal-ignored: {:?}", env.pid(), sig);
                 }
@@ -565,7 +565,7 @@ impl WasiEnv {
                 .thread
                 .has_signal(&[Signal::Sigint, Signal::Sigquit, Signal::Sigkill])
             {
-                env.thread.set_status_finished(Ok(Errno::Intr as u32));
+                env.thread.set_status_finished(Ok(Errno::Intr));
             }
             return Ok(Ok(false));
         }
@@ -649,13 +649,13 @@ impl WasiEnv {
     }
 
     /// Returns an exit code if the thread or process has been forced to exit
-    pub fn should_exit(&self) -> Option<u32> {
+    pub fn should_exit(&self) -> Option<ExitCode> {
         // Check for forced exit
         if let Some(forced_exit) = self.thread.try_join() {
-            return Some(forced_exit.unwrap_or(Errno::Child as u32));
+            return Some(forced_exit.unwrap_or(Errno::Child));
         }
         if let Some(forced_exit) = self.process.try_join() {
-            return Some(forced_exit.unwrap_or(Errno::Child as u32));
+            return Some(forced_exit.unwrap_or(Errno::Child));
         }
         None
     }

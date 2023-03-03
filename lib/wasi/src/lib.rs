@@ -820,10 +820,10 @@ fn generate_import_object_wasix64_v1(
 
 fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
     match err {
-        MemoryAccessError::HeapOutOfBounds => Errno::Fault,
+        MemoryAccessError::HeapOutOfBounds => Errno::Memviolation,
         MemoryAccessError::Overflow => Errno::Overflow,
         MemoryAccessError::NonUtf8String => Errno::Inval,
-        _ => Errno::Inval,
+        _ => Errno::Unknown,
     }
 }
 

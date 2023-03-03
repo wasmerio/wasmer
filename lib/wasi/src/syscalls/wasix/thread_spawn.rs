@@ -161,7 +161,7 @@ pub fn thread_spawn<M: MemorySize>(
                         ctx.data(&store).pid(),
                         ctx.data(&store).tid(),
                     );
-                    ret = if code == 0 {
+                    ret = if code == Errno::Success {
                         Errno::Success
                     } else {
                         Errno::Noexec

@@ -10,6 +10,7 @@ use rand::Rng;
 use thiserror::Error;
 use wasmer::{AsStoreMut, Instance, Module};
 use wasmer_vfs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
+use wasmer_wasi_types::wasi::Errno;
 
 use crate::{
     bin_factory::{BinFactory, ModuleCache},
@@ -756,8 +757,8 @@ impl WasiEnvBuilder {
         let res = crate::run_wasi_func_start(start, store);
 
         let exit_code = match &res {
-            Ok(_) => 0,
-            Err(err) => err.as_exit_code().unwrap_or(1),
+            Ok(_) => Errno::Success,
+            Err(err) => err.as_exit_code().unwrap_or(Errno::Noexec),
         };
 
         env.cleanup(store, Some(exit_code));

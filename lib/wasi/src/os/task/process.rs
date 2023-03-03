@@ -325,7 +325,7 @@ impl WasiProcess {
             children.clone()
         };
         if children.is_empty() {
-            return Ok(None);
+            return Err(Errno::Child);
         }
 
         let mut waits = Vec::new();
@@ -344,7 +344,7 @@ impl WasiProcess {
             .await
             .0;
 
-        let code = res.unwrap_or_else(|e| e.as_exit_code().unwrap_or(Errno::Canceled as u32));
+        let code = res.unwrap_or_else(|e| e.as_exit_code().unwrap_or(Errno::Canceled));
 
         Ok(Some((pid, code)))
     }
