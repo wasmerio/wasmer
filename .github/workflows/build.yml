@@ -44,14 +44,14 @@ jobs:
           - build: linux-x64
             os: ubuntu-20.04
             artifact_name: 'wasmer-linux-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-linux-amd64.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/14.x/llvm-linux-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             use_sccache: true
             use_llvm: true
             build_wasm: true
           - build: macos-x64
             os: macos-11
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-darwin-amd64.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/14.x/llvm-darwin-amd64.tar.xz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
             use_sccache: true
@@ -67,7 +67,7 @@ jobs:
           - build: windows-x64
             os: windows-2019
             artifact_name: 'wasmer-windows-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-windows-amd64.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/14.x/llvm-windows-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
             use_sccache: true
             use_llvm: true
@@ -75,7 +75,7 @@ jobs:
           - build: linux-musl-x64
             os: ubuntu-latest
             artifact_name: 'wasmer-linux-musl-amd64'
-            #llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-linux-amd64.tar.xz'
+            #llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/14.x/llvm-linux-amd64.tar.xz'
             container: alpine:latest
             use_sccache: false
             use_llvm: false
@@ -115,7 +115,8 @@ jobs:
           mkdir -p ${LLVM_DIR}
           curl --proto '=https' --tlsv1.2 -sSf "${{ matrix.llvm_url }}" -L -o - | tar xJv -C ${LLVM_DIR}
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_140_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
       - name: Set up dependencies for Mac OS
