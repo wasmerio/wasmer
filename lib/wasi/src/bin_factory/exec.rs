@@ -1,7 +1,7 @@
 use std::{pin::Pin, sync::Arc};
 
 use crate::{
-    os::task::{thread::WasiThreadGuard, TaskJoinHandle},
+    os::task::{thread::WasiThreadRunGuard, TaskJoinHandle},
     VirtualBusError, WasiRuntimeError,
 };
 use futures::Future;
@@ -104,7 +104,7 @@ pub fn spawn_exec_module(
                 // Create the WasiFunctionEnv
                 let mut wasi_env = env;
                 wasi_env.runtime = runtime;
-                let thread = WasiThreadGuard::new(wasi_env.thread.clone());
+                let thread = WasiThreadRunGuard::new(wasi_env.thread.clone());
 
                 let mut wasi_env = WasiFunctionEnv::new(&mut store, wasi_env);
 

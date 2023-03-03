@@ -38,6 +38,14 @@ impl TaskStatus {
             _ => None,
         }
     }
+
+    /// Returns `true` if the task status is [`Finished`].
+    ///
+    /// [`Finished`]: TaskStatus::Finished
+    #[must_use]
+    pub fn is_finished(&self) -> bool {
+        matches!(self, Self::Finished(..))
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -88,6 +96,11 @@ impl OwnedTaskStatus {
 
     /// Marks the task as finished.
     pub(super) fn set_finished(&self, res: Result<ExitCode, Arc<WasiRuntimeError>>) {
+        // Don't overwrite a previous finished state.
+        if self.status().is_finished() {
+            return;
+        }
+
         let inner = match res {
             Ok(code) => Ok(code),
             Err(err) => {
@@ -98,7 +111,6 @@ impl OwnedTaskStatus {
                 }
             }
         };
-
         self.watch.send(TaskStatus::Finished(inner)).ok();
     }
 

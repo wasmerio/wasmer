@@ -42,7 +42,6 @@
 //!
 //! ```rust
 //! use wasmer::{Store, Module, Instance, Value, imports};
-//! use wasmer::FunctionEnv;
 //!
 //! fn main() -> anyhow::Result<()> {
 //!     let module_wat = r#"
