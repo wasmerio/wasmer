@@ -1,3 +1,5 @@
+use crate::WasmSliceAccess;
+use crate::access::{SliceCow, RefCow, WasmRefAccess};
 use crate::js::externals::memory::MemoryBuffer;
 use crate::js::RuntimeError;
 use crate::js::{Memory32, Memory64, MemoryView, WasmPtr};
@@ -120,6 +122,12 @@ impl<'a, T: ValueType> WasmRef<'a, T> {
         val.zero_padding_bytes(data);
         let data = unsafe { slice::from_raw_parts(data.as_ptr() as *const _, data.len()) };
         self.buffer.write(self.offset, data)
+    }
+
+    /// Gains direct access to the memory of this slice
+    #[inline]
+    pub fn access(self) -> Result<WasmRefAccess<'a, T>, MemoryAccessError> {
+        WasmRefAccess::new(self)
     }
 }
 
@@ -248,6 +256,12 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
     #[inline]
     pub fn write(self, idx: u64, val: T) -> Result<(), MemoryAccessError> {
         self.index(idx).write(val)
+    }
+
+    /// Gains direct access to the memory of this slice
+    #[inline]
+    pub fn access(self) -> Result<WasmSliceAccess<'a, T>, MemoryAccessError> {
+        WasmSliceAccess::new(self)
     }
 
     /// Reads the entire slice into the given buffer.
@@ -414,7 +428,7 @@ where
         let buf = slice.read_to_vec()?;
         Ok(Self {
             slice,
-            buf: SliceCow::Owned(buf),
+            buf: SliceCow::Owned(buf, false),
         })
     }
 }
@@ -424,10 +438,10 @@ where
     T: wasmer_types::ValueType,
 {
     fn new(ptr: WasmRef<'a, T>) -> Result<Self, MemoryAccessError> {
-        let val = slice.read()?;
+        let val = ptr.read()?;
         Ok(Self {
             ptr,
-            buf: RefCow::Owned(val),
+            buf: RefCow::Owned(val, false),
         })
     }
 }
