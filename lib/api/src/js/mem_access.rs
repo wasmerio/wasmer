@@ -1,8 +1,8 @@
-use crate::WasmSliceAccess;
-use crate::access::{SliceCow, RefCow, WasmRefAccess};
+use crate::access::{RefCow, SliceCow, WasmRefAccess};
 use crate::js::externals::memory::MemoryBuffer;
 use crate::js::RuntimeError;
 use crate::js::{Memory32, Memory64, MemoryView, WasmPtr};
+use crate::WasmSliceAccess;
 use std::{
     convert::TryInto,
     fmt,
