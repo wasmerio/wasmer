@@ -1,14 +1,18 @@
-use crate::graphql::{execute_query_modifier_inner, get_signed_url, GetSignedUrl};
-use crate::graphql::{publish_package_mutation_chunked, PublishPackageMutationChunked};
-use crate::{format_graphql, WasmerConfig};
-use console::{style, Emoji};
-use graphql_client::GraphQLQuery;
-use indicatif::{ProgressBar, ProgressState, ProgressStyle};
-
 use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::io::BufRead;
 use std::path::PathBuf;
+
+use console::{style, Emoji};
+use graphql_client::GraphQLQuery;
+use indicatif::{ProgressBar, ProgressState, ProgressStyle};
+
+use crate::graphql::{
+    execute_query_modifier_inner,
+    mutations::{publish_package_mutation_chunked, PublishPackageMutationChunked},
+    queries::{get_signed_url, GetSignedUrl},
+};
+use crate::{format_graphql, WasmerConfig};
 
 static UPLOAD: Emoji<'_, '_> = Emoji("⬆️  ", "");
 static PACKAGE: Emoji<'_, '_> = Emoji("📦  ", "");
