@@ -5,7 +5,7 @@ var sourcesIndex = JSON.parse('{\
 "wai_bindgen_wasmer":["",[],["error.rs","le.rs","lib.rs","region.rs","slab.rs","table.rs"]],\
 "wasi_test_generator":["",[],["main.rs","set_up_toolchain.rs","util.rs","wasi_version.rs","wasitests.rs"]],\
 "wasix_http_client":["",[],["lib.rs","wasix_http_client_v1.rs"]],\
-"wasmer":["",[["sys",[["externals",[],["function.rs","global.rs","memory.rs","memory_view.rs","mod.rs","table.rs"]]],["exports.rs","extern_ref.rs","function_env.rs","imports.rs","instance.rs","mem_access.rs","mod.rs","module.rs","native.rs","native_type.rs","ptr.rs","store.rs","tunables.rs","value.rs"]]],["into_bytes.rs","lib.rs"]],\
+"wasmer":["",[["sys",[["externals",[],["function.rs","global.rs","memory.rs","memory_view.rs","mod.rs","table.rs"]]],["exports.rs","extern_ref.rs","function_env.rs","imports.rs","instance.rs","mem_access.rs","mod.rs","module.rs","native.rs","native_type.rs","ptr.rs","store.rs","tunables.rs","value.rs"]]],["access.rs","into_bytes.rs","lib.rs"]],\
 "wasmer_c_api":["",[["wasm_c_api",[["externals",[],["function.rs","global.rs","memory.rs","mod.rs","table.rs"]],["types",[],["export.rs","extern_.rs","frame.rs","function.rs","global.rs","import.rs","memory.rs","mod.rs","mutability.rs","table.rs","value.rs"]],["unstable",[["middlewares",[],["metering.rs","mod.rs"]],["parser",[],["mod.rs","operator.rs"]]],["engine.rs","features.rs","mod.rs","module.rs","target_lexicon.rs","wasi.rs"]],["wasi",[],["mod.rs"]]],["engine.rs","function_env.rs","instance.rs","macros.rs","mod.rs","module.rs","store.rs","trap.rs","value.rs","version.rs","wat.rs"]]],["error.rs","lib.rs"]],\
 "wasmer_c_api_test_runner":["",[],["lib.rs"]],\
 "wasmer_cache":["",[],["cache.rs","filesystem.rs","hash.rs","lib.rs"]],\

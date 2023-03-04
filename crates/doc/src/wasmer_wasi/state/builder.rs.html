@@ -938,6 +938,13 @@
 <span id="936">936</span>
 <span id="937">937</span>
 <span id="938">938</span>
+<span id="939">939</span>
+<span id="940">940</span>
+<span id="941">941</span>
+<span id="942">942</span>
+<span id="943">943</span>
+<span id="944">944</span>
+<span id="945">945</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.</span>
 
 <span class="kw">use</span> <span class="ident">std</span>::{
@@ -1694,6 +1701,13 @@
 
         <span class="ident">env</span>.<span class="ident">data</span>(<span class="ident">store</span>).<span class="ident">thread</span>.<span class="ident">set_status_running</span>();
         <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::run_wasi_func_start</span>(<span class="ident">start</span>, <span class="ident">store</span>);
+
+        <span class="macro">tracing::trace!</span>(
+            <span class="string">&quot;wasi[{}:{}]::main exit (code = {:?})&quot;</span>,
+            <span class="ident">env</span>.<span class="ident">data</span>(<span class="ident">store</span>).<span class="ident">pid</span>(),
+            <span class="ident">env</span>.<span class="ident">data</span>(<span class="ident">store</span>).<span class="ident">tid</span>(),
+            <span class="ident">res</span>
+        );
 
         <span class="kw">let</span> <span class="ident">exit_code</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="ident">res</span> {
             <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="number">0</span>,

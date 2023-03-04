@@ -276,7 +276,18 @@
 <span id="274">274</span>
 <span id="275">275</span>
 <span id="276">276</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys</span>::{<span class="ident">externals::MemoryView</span>, <span class="ident">FromToNativeWasmType</span>};
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::access::WasmRefAccess</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys</span>::{<span class="ident">externals::MemoryView</span>, <span class="ident">FromToNativeWasmType</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::NativeWasmTypeInto</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">MemoryAccessError</span>, <span class="ident">WasmRef</span>, <span class="ident">WasmSlice</span>};
 <span class="kw">use</span> <span class="ident">std::convert::TryFrom</span>;
@@ -470,6 +481,15 @@
             <span class="ident">vec</span>.<span class="ident">push</span>(<span class="ident">val</span>);
         }
         <span class="prelude-val">Ok</span>(<span class="ident">vec</span>)
+    }
+
+    <span class="doccomment">/// Creates a `WasmAccess`</span>
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">access</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span>(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="ident">view</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">MemoryView</span>,
+    ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">WasmRefAccess</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span><span class="op">&gt;</span>, <span class="ident">MemoryAccessError</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">deref</span>(<span class="ident">view</span>).<span class="ident">access</span>()
     }
 }
 
