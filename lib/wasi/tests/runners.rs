@@ -53,6 +53,33 @@ mod wasi {
         };
         assert_eq!(exit_code, 1);
     }
+
+    #[tokio::test]
+    async fn python() {
+        let webc = download_cached("https://wapm.io/python/python").await;
+        let store = Store::default();
+        let tasks = TokioTaskManager::new(Handle::current());
+        let container = WapmContainer::from_bytes(webc).unwrap();
+
+        // Note: we don't have any way to intercept stdin or stdout, so blindly
+        // assume that everything is fine if it runs successfully.
+        let handle = std::thread::spawn(move || {
+            WasiRunner::new(store)
+                .with_task_manager(tasks)
+                .run_cmd(&container, "python")
+        });
+        let err = handle.join().unwrap().unwrap_err();
+
+        let runtime_error = err
+            .chain()
+            .find_map(|e| e.downcast_ref::<WasiError>())
+            .unwrap();
+        let exit_code = match runtime_error {
+            WasiError::Exit(code) => *code,
+            other => unreachable!("Something else went wrong: {:?}", other),
+        };
+        assert_eq!(exit_code, 42);
+    }
 }
 
 #[cfg(feature = "webc_runner_rt_wcgi")]
