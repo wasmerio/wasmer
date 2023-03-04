@@ -26,7 +26,6 @@ pub use wasix::*;
 
 pub mod legacy;
 
-use std::mem::MaybeUninit;
 pub(crate) use std::{
     borrow::{Borrow, Cow},
     cell::RefCell,
@@ -47,6 +46,7 @@ pub(crate) use std::{
     thread::LocalKey,
     time::Duration,
 };
+use std::{io::IoSlice, mem::MaybeUninit};
 
 pub(crate) use bytes::{Bytes, BytesMut};
 pub(crate) use cooked_waker::IntoWaker;
@@ -158,32 +158,6 @@ pub(crate) fn write_bytes<T: Write, M: MemorySize>(
     result
 }
 
-pub(crate) fn copy_to_slice<M: MemorySize>(
-    memory: &MemoryView,
-    iovs_arr_cell: WasmSlice<__wasi_ciovec_t<M>>,
-    mut write_loc: &mut [MaybeUninit<u8>],
-) -> Result<usize, Errno> {
-    let mut bytes_written = 0usize;
-    for iov in iovs_arr_cell.iter() {
-        let iov_inner = iov.read().map_err(mem_error_to_wasi)?;
-
-        let amt = from_offset::<M>(iov_inner.buf_len)?;
-
-        let (left, right) = write_loc.split_at_mut(amt);
-        let bytes = WasmPtr::<u8, M>::new(iov_inner.buf)
-            .slice(memory, iov_inner.buf_len)
-            .map_err(mem_error_to_wasi)?;
-
-        if amt != bytes.read_to_slice(left).map_err(mem_error_to_wasi)? {
-            return Err(Errno::Fault);
-        }
-
-        write_loc = right;
-        bytes_written += amt;
-    }
-    Ok(bytes_written)
-}
-
 pub(crate) fn copy_from_slice<M: MemorySize>(
     mut read_loc: &[u8],
     memory: &MemoryView,
@@ -191,20 +165,21 @@ pub(crate) fn copy_from_slice<M: MemorySize>(
 ) -> Result<usize, Errno> {
     let mut bytes_read = 0usize;
 
-    for iov in iovs_arr.iter() {
-        let iov_inner = iov.read().map_err(mem_error_to_wasi)?;
+    let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+    for iovs in iovs_arr.iter() {
+        let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
+            .slice(memory, iovs.buf_len)
+            .map_err(mem_error_to_wasi)?
+            .access()
+            .map_err(mem_error_to_wasi)?;
 
-        let to_read = from_offset::<M>(iov_inner.buf_len)?;
+        let to_read = from_offset::<M>(iovs.buf_len)?;
         let to_read = to_read.min(read_loc.len());
         if to_read == 0 {
             break;
         }
         let (left, right) = read_loc.split_at(to_read);
-
-        let buf = WasmPtr::<u8, M>::new(iov_inner.buf)
-            .slice(memory, to_read.try_into().map_err(|_| Errno::Overflow)?)
-            .map_err(mem_error_to_wasi)?;
-        buf.write_slice(left).map_err(mem_error_to_wasi)?;
+        buf.copy_from_slice(left);
 
         read_loc = right;
         bytes_read += to_read;
@@ -219,21 +194,17 @@ pub(crate) fn read_bytes<T: Read, M: MemorySize>(
 ) -> Result<usize, Errno> {
     let mut bytes_read = 0usize;
 
-    // We allocate the raw_bytes first once instead of
-    // N times in the loop.
-    let mut raw_bytes: Vec<u8> = vec![0; 10240];
-
-    for iov in iovs_arr.iter() {
-        let iov_inner = iov.read().map_err(mem_error_to_wasi)?;
-        raw_bytes.clear();
-        let to_read = from_offset::<M>(iov_inner.buf_len)?;
-        raw_bytes.resize(to_read, 0);
-        let has_read = reader.read(&mut raw_bytes).map_err(map_io_err)?;
-
-        let buf = WasmPtr::<u8, M>::new(iov_inner.buf)
-            .slice(memory, iov_inner.buf_len)
+    let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+    for iovs in iovs_arr.iter() {
+        let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
+            .slice(memory, iovs.buf_len)
+            .map_err(mem_error_to_wasi)?
+            .access()
             .map_err(mem_error_to_wasi)?;
-        buf.write_slice(&raw_bytes).map_err(mem_error_to_wasi)?;
+
+        let to_read = buf.len();
+        let has_read = reader.read(buf.as_mut()).map_err(map_io_err)?;
+
         bytes_read += has_read;
         if has_read != to_read {
             return Ok(bytes_read);
