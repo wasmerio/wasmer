@@ -160,8 +160,9 @@ fn fd_read_internal<M: MemorySize>(
 ) -> Result<Result<usize, Errno>, WasiError> {
     wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
 
-    let mut env = ctx.data();
-    let state = env.state.clone();
+    let env = ctx.data();
+    let memory = env.memory_view(&ctx);
+    let state = env.state();
 
     let fd_entry = wasi_try_ok_ok!(state.fs.get_fd(fd));
     let is_stdio = fd_entry.is_stdio;
@@ -175,19 +176,6 @@ fn fd_read_internal<M: MemorySize>(
         let inode = fd_entry.inode;
         let fd_flags = fd_entry.flags;
 
-        let max_size = {
-            let memory = env.memory_view(ctx);
-            let iovs_arr = wasi_try_mem_ok_ok!(iovs.slice(&memory, iovs_len));
-            let mut max_size = 0usize;
-            for iovs in iovs_arr.iter() {
-                let iovs = wasi_try_mem_ok_ok!(iovs.read());
-                let buf_len: usize =
-                    wasi_try_ok_ok!(iovs.buf_len.try_into().map_err(|_| Errno::Overflow));
-                max_size += buf_len;
-            }
-            max_size
-        };
-
         let (bytes_read, can_update_cursor) = {
             let mut guard = inode.write();
             match guard.deref_mut() {
@@ -196,8 +184,8 @@ fn fd_read_internal<M: MemorySize>(
                         let handle = handle.clone();
                         drop(guard);
 
-                        let data = wasi_try_ok_ok!(__asyncify(
-                            ctx,
+                        let read = wasi_try_ok_ok!(__asyncify_light(
+                            env,
                             if fd_flags.contains(Fdflags::NONBLOCK) {
                                 Some(Duration::ZERO)
                             } else {
@@ -212,33 +200,40 @@ fn fd_read_internal<M: MemorySize>(
                                         .map_err(map_io_err)?;
                                 }
 
-                                let mut buf = Vec::with_capacity(max_size);
+                                let mut total_read = 0usize;
 
-                                let amt = handle.read_buf(&mut buf).await.map_err(|err| {
-                                    let err = From::<std::io::Error>::from(err);
-                                    match err {
-                                        Errno::Again => {
-                                            if is_stdio {
-                                                Errno::Badf
-                                            } else {
-                                                Errno::Again
+                                let iovs_arr =
+                                    iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
+                                let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+                                for iovs in iovs_arr.iter() {
+                                    let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
+                                        .slice(&memory, iovs.buf_len)
+                                        .map_err(mem_error_to_wasi)?
+                                        .access()
+                                        .map_err(mem_error_to_wasi)?;
+
+                                    total_read +=
+                                        handle.read(buf.as_mut()).await.map_err(|err| {
+                                            let err = From::<std::io::Error>::from(err);
+                                            match err {
+                                                Errno::Again => {
+                                                    if is_stdio {
+                                                        Errno::Badf
+                                                    } else {
+                                                        Errno::Again
+                                                    }
+                                                }
+                                                a => a,
                                             }
-                                        }
-                                        a => a,
-                                    }
-                                })?;
-                                Ok(buf)
+                                        })?;
+                                }
+                                Ok(total_read)
                             }
                         )?
                         .map_err(|err| match err {
                             Errno::Timedout => Errno::Again,
                             a => a,
                         }));
-                        env = ctx.data();
-
-                        let memory = env.memory_view(&ctx);
-                        let iovs_arr = wasi_try_mem_ok_ok!(iovs.slice(&memory, iovs_len));
-                        let read = wasi_try_ok_ok!(read_bytes(&data[..], &memory, iovs_arr));
                         (read, true)
                     } else {
                         return Ok(Err(Errno::Badf));
@@ -250,28 +245,31 @@ fn fd_read_internal<M: MemorySize>(
                     drop(guard);
 
                     let tasks = env.tasks().clone();
-                    let res = __asyncify(
-                        ctx,
+                    let res = __asyncify_light(
+                        env,
                         if fd_flags.contains(Fdflags::NONBLOCK) {
                             Some(Duration::ZERO)
                         } else {
                             None
                         },
                         async {
-                            let mut buf = Vec::with_capacity(max_size);
-                            unsafe {
-                                buf.set_len(max_size);
+                            let mut total_read = 0usize;
+
+                            let iovs_arr =
+                                iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
+                            let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+                            for iovs in iovs_arr.iter() {
+                                let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
+                                    .slice(&memory, iovs.buf_len)
+                                    .map_err(mem_error_to_wasi)?
+                                    .access()
+                                    .map_err(mem_error_to_wasi)?;
+
+                                total_read += socket
+                                    .recv(tasks.deref(), buf.as_mut_uninit(), fd_flags)
+                                    .await?;
                             }
-                            socket
-                                .recv(tasks.deref(), &mut buf, fd_flags)
-                                .await
-                                .map(|amt| {
-                                    unsafe {
-                                        buf.set_len(amt);
-                                    }
-                                    let buf: Vec<u8> = unsafe { std::mem::transmute(buf) };
-                                    buf
-                                })
+                            Ok(total_read)
                         },
                     )?
                     .map_err(|err| match err {
@@ -281,16 +279,7 @@ fn fd_read_internal<M: MemorySize>(
                     match res {
                         Err(Errno::Connaborted) | Err(Errno::Connreset) => (0, false),
                         res => {
-                            let data = wasi_try_ok_ok!(res);
-                            env = ctx.data();
-
-                            let data_len = data.len();
-                            let mut reader = &data[..];
-                            let memory = env.memory_view(&ctx);
-                            let iovs_arr = wasi_try_mem_ok_ok!(iovs.slice(&memory, iovs_len));
-                            let bytes_read = wasi_try_ok_ok!(
-                                read_bytes(reader, &memory, iovs_arr).map(|_| data_len)
-                            );
+                            let bytes_read = wasi_try_ok_ok!(res);
                             (bytes_read, false)
                         }
                     }
@@ -300,36 +289,37 @@ fn fd_read_internal<M: MemorySize>(
 
                     drop(guard);
 
-                    let data = wasi_try_ok_ok!(__asyncify(
-                        ctx,
+                    let bytes_read = wasi_try_ok_ok!(__asyncify_light(
+                        env,
                         if fd_flags.contains(Fdflags::NONBLOCK) {
                             Some(Duration::ZERO)
                         } else {
                             None
                         },
                         async move {
-                            // TODO: optimize with MaybeUninit
-                            let mut data = vec![0u8; max_size];
-                            let amt = wasmer_vfs::AsyncReadExt::read(&mut pipe, &mut data[..])
-                                .await
-                                .map_err(map_io_err)?;
-                            data.truncate(amt);
-                            Ok(data)
+                            let mut total_read = 0usize;
+
+                            let iovs_arr =
+                                iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
+                            let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+                            for iovs in iovs_arr.iter() {
+                                let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
+                                    .slice(&memory, iovs.buf_len)
+                                    .map_err(mem_error_to_wasi)?
+                                    .access()
+                                    .map_err(mem_error_to_wasi)?;
+
+                                total_read +=
+                                    wasmer_vfs::AsyncReadExt::read(&mut pipe, buf.as_mut()).await?;
+                            }
+                            Ok(total_read)
                         }
                     )?
                     .map_err(|err| match err {
                         Errno::Timedout => Errno::Again,
                         a => a,
                     }));
-                    env = ctx.data();
 
-                    let data_len = data.len();
-                    let mut reader = &data[..];
-
-                    let memory = env.memory_view(ctx);
-                    let iovs_arr = wasi_try_mem_ok_ok!(iovs.slice(&memory, iovs_len));
-                    let bytes_read =
-                        wasi_try_ok_ok!(read_bytes(reader, &memory, iovs_arr).map(|_| data_len));
                     (bytes_read, false)
                 }
                 Kind::Dir { .. } | Kind::Root { .. } => {
@@ -364,12 +354,11 @@ fn fd_read_internal<M: MemorySize>(
 
                     // Yield until the notifications are triggered
                     let tasks_inner = env.tasks().clone();
-                    let val = wasi_try_ok_ok!(__asyncify(ctx, None, async { poller.await })?
+                    let val = wasi_try_ok_ok!(__asyncify_light(env, None, async { poller.await })?
                         .map_err(|err| match err {
                             Errno::Timedout => Errno::Again,
                             a => a,
                         }));
-                    env = ctx.data();
 
                     let mut memory = env.memory_view(ctx);
                     let reader = val.to_ne_bytes();

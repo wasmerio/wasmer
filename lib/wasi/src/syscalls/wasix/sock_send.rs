@@ -26,39 +26,28 @@ pub fn sock_send<M: MemorySize>(
 ) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-    let iovs_arr = wasi_try_mem_ok!(si_data.slice(&memory, si_data_len));
     let runtime = env.runtime.clone();
 
-    let buf_len: M::Offset = {
-        iovs_arr
-            .iter()
-            .filter_map(|a| a.read().ok())
-            .map(|a| a.buf_len)
-            .sum()
-    };
-    let buf_len: usize = wasi_try_ok!(buf_len.try_into().map_err(|_| Errno::Overflow));
-
     let res = {
-        if buf_len <= 10240 {
-            let mut buf: [MaybeUninit<u8>; 10240] = unsafe { MaybeUninit::uninit().assume_init() };
-            let writer = &mut buf[..buf_len];
-            let written = wasi_try_ok!(copy_to_slice(&memory, iovs_arr, writer));
+        __sock_asyncify(env, sock, Rights::SOCK_SEND, |socket, fd| async move {
+            let iovs_arr = si_data
+                .slice(&memory, si_data_len)
+                .map_err(mem_error_to_wasi)?;
+            let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
 
-            let reader = &buf[..written];
-            let reader: &[u8] = unsafe { std::mem::transmute(reader) };
-
-            __sock_asyncify(env, sock, Rights::SOCK_SEND, |socket, fd| async move {
-                socket.send(env.tasks().deref(), reader, fd.flags).await
-            })
-        } else {
-            let mut buf = Vec::with_capacity(buf_len);
-            wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
-
-            let reader = &buf;
-            __sock_asyncify(env, sock, Rights::SOCK_SEND, |socket, fd| async move {
-                socket.send(env.tasks().deref(), reader, fd.flags).await
-            })
-        }
+            let mut sent = 0usize;
+            for iovs in iovs_arr.iter() {
+                let buf = WasmPtr::<u8, M>::new(iovs.buf)
+                    .slice(&memory, iovs.buf_len)
+                    .map_err(mem_error_to_wasi)?
+                    .access()
+                    .map_err(mem_error_to_wasi)?;
+                sent += socket
+                    .send(env.tasks().deref(), buf.as_ref(), fd.flags)
+                    .await?;
+            }
+            Ok(sent)
+        })
     };
 
     let mut ret = Errno::Success;
@@ -66,11 +55,10 @@ pub fn sock_send<M: MemorySize>(
         Ok(bytes_written) => {
             debug!(
                 %bytes_written,
-                "wasi[{}:{}]::sock_send (fd={}, buf_len={}, flags={:?})",
+                "wasi[{}:{}]::sock_send (fd={}, flags={:?})",
                 ctx.data().pid(),
                 ctx.data().tid(),
                 sock,
-                buf_len,
                 si_flags
             );
             bytes_written
@@ -79,11 +67,10 @@ pub fn sock_send<M: MemorySize>(
             let socket_err = err.name();
             debug!(
                 %socket_err,
-                "wasi[{}:{}]::sock_send (fd={}, buf_len={}, flags={:?})",
+                "wasi[{}:{}]::sock_send (fd={}, flags={:?})",
                 ctx.data().pid(),
                 ctx.data().tid(),
                 sock,
-                buf_len,
                 si_flags
             );
             ret = err;
@@ -91,9 +78,9 @@ pub fn sock_send<M: MemorySize>(
         }
     };
 
+    let memory = env.memory_view(&ctx);
     let bytes_written: M::Offset =
         wasi_try_ok!(bytes_written.try_into().map_err(|_| Errno::Overflow));
     wasi_try_mem_ok!(ret_data_len.write(&memory, bytes_written));
-
     Ok(ret)
 }
