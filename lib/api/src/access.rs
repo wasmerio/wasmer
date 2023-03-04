@@ -12,8 +12,8 @@ pub(super) enum SliceCow<'a, T> {
 impl<'a, T> AsRef<[T]> for SliceCow<'a, T> {
     fn as_ref(&self) -> &[T] {
         match self {
-            Self::Borrowed(buf) => buf.as_ref(),
-            Self::Owned(buf, _) => buf.as_ref(),
+            Self::Borrowed(buf) => buf,
+            Self::Owned(buf, _) => buf,
         }
     }
 }
@@ -79,6 +79,11 @@ where
     pub fn len(&self) -> usize {
         self.buf.as_ref().len()
     }
+
+    /// If the slice is empty
+    pub fn is_empty(&self) -> bool {
+        self.buf.as_ref().is_empty()
+    }
 }
 
 impl<'a> WasmSliceAccess<'a, u8> {
@@ -96,7 +101,7 @@ where
 {
     fn drop(&mut self) {
         if let SliceCow::Owned(buf, modified) = &self.buf {
-            if *modified == true {
+            if *modified {
                 self.slice.write_slice(buf.as_ref()).ok();
             }
         }
@@ -168,6 +173,7 @@ where
 {
     /// Reads the address pointed to by this `WasmPtr` in a memory.
     #[inline]
+    #[allow(clippy::clone_on_copy)]
     pub fn read(&self) -> T
     where
         T: Clone,
@@ -191,7 +197,7 @@ where
 {
     fn drop(&mut self) {
         if let RefCow::Owned(val, modified) = &self.buf {
-            if *modified == true {
+            if *modified {
                 self.ptr.write(*val).ok();
             }
         }

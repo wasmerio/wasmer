@@ -168,7 +168,7 @@ pub(crate) fn copy_from_slice<M: MemorySize>(
     let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
     for iovs in iovs_arr.iter() {
         let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
-            .slice(&memory, iovs.buf_len)
+            .slice(memory, iovs.buf_len)
             .map_err(mem_error_to_wasi)?
             .access()
             .map_err(mem_error_to_wasi)?;
@@ -197,7 +197,7 @@ pub(crate) fn read_bytes<T: Read, M: MemorySize>(
     let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
     for iovs in iovs_arr.iter() {
         let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
-            .slice(&memory, iovs.buf_len)
+            .slice(memory, iovs.buf_len)
             .map_err(mem_error_to_wasi)?
             .access()
             .map_err(mem_error_to_wasi)?;

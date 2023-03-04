@@ -111,7 +111,8 @@ impl<'a, T: ValueType> WasmRef<'a, T> {
     /// Writes to the location pointed to by this `WasmRef`.
     #[inline]
     pub fn write(self, val: T) -> Result<(), MemoryAccessError> {
-        Ok(self.access()?.write(val))
+        self.access()?.write(val);
+        Ok(())
     }
 
     /// Gains direct access to the memory of this slice
