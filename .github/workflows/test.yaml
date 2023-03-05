@@ -48,7 +48,7 @@ jobs:
           sudo apt install -y libtinfo5
       - name: Install LLVM (Linux)
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz -L -o /opt/llvm.tar.xz
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-14.0.0/clang+llvm-14.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz -L -o /opt/llvm.tar.xz
           mkdir -p /opt/llvm-12
           tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-12
           echo '/opt/llvm-12/bin' >> $GITHUB_PATH
@@ -203,7 +203,7 @@ jobs:
             build: linux-x64, 
             os: ubuntu-22.04, 
             target: x86_64-unknown-linux-gnu,  
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-14.0.0/clang+llvm-14.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
           },
           {
             build: linux-musl,
@@ -215,7 +215,7 @@ jobs:
             build: macos-x64,
             os: macos-11,
             target: x86_64-apple-darwin,
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-14.0.6/clang+llvm-14.0.6-x86_64-apple-darwin.tar.xz'
           },
           {
             build: macos-arm,
@@ -226,7 +226,7 @@ jobs:
             build: windows-x64,
             os: windows-2019,
             target: x86_64-pc-windows-msvc,
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-windows-amd64.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/14.x/llvm-windows-amd64.tar.xz'
           },
           {
             build: windows-gnu,
@@ -313,7 +313,8 @@ jobs:
           tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_140_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
       - name: Setup Rust target
@@ -436,19 +437,19 @@ jobs:
             build: linux-x64, 
             os: ubuntu-22.04, 
             target: x86_64-unknown-linux-gnu,  
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-14.0.0/clang+llvm-14.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
           },
           {
             build: macos-x64,
             os: macos-11,
             target: x86_64-apple-darwin,
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-14.0.6/clang+llvm-14.0.6-x86_64-apple-darwin.tar.xz'
           },
           {
             build: windows-x64,
             os: windows-2019,
             target: x86_64-pc-windows-msvc,
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/13.x/llvm-windows-amd64.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/14.x/llvm-windows-amd64.tar.xz'
           },
           {
             build: linux-musl,
@@ -542,11 +543,11 @@ jobs:
           - build: linux-x64
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz'
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-14.0.0/clang+llvm-14.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
           - build: macos-x64
             os: macos-11
             target: x86_64-apple-darwin
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-13.0.0/clang+llvm-13.0.0-x86_64-apple-darwin.tar.xz'
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-14.0.6/clang+llvm-14.0.6-x86_64-apple-darwin.tar.xz'
           # we only build the integration-test CLI, we don't run tests
           - build: macos-arm
             os: macos-11
