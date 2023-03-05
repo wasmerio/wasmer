@@ -17,13 +17,12 @@ use wasmer_wasi_types::{
 };
 
 use crate::{
-    os::task::{control_plane::WasiControlPlane, signal::WasiSignalInterval},
-    syscalls::platform_clock_time_get,
-    WasiThread, WasiThreadHandle, WasiThreadId,
+    os::task::signal::WasiSignalInterval, syscalls::platform_clock_time_get, WasiThread,
+    WasiThreadHandle, WasiThreadId,
 };
 
 use super::{
-    control_plane::ControlPlaneError,
+    control_plane::{ControlPlaneError, WasiControlPlaneHandle},
     signal::{SignalDeliveryError, SignalHandlerAbi},
     task_join_handle::{OwnedTaskStatus, TaskJoinHandle},
 };
@@ -81,7 +80,7 @@ pub struct WasiProcess {
     /// Reference back to the compute engine
     // TODO: remove this reference, access should happen via separate state instead
     // (we don't want cyclical references)
-    pub(crate) compute: WasiControlPlane,
+    pub(crate) compute: WasiControlPlaneHandle,
     /// Reference to the exit code for the main thread
     pub(crate) finished: Arc<OwnedTaskStatus>,
     /// List of all the children spawned from this thread
@@ -134,11 +133,11 @@ impl Drop for WasiProcessWait {
 }
 
 impl WasiProcess {
-    pub fn new(pid: WasiProcessId, compute: WasiControlPlane) -> Self {
+    pub fn new(pid: WasiProcessId, plane: WasiControlPlaneHandle) -> Self {
         WasiProcess {
             pid,
             ppid: 0u32.into(),
-            compute,
+            compute: plane,
             inner: Arc::new(RwLock::new(WasiProcessInner {
                 threads: Default::default(),
                 thread_count: Default::default(),
@@ -184,7 +183,7 @@ impl WasiProcess {
 
     /// Creates a a thread and returns it
     pub fn new_thread(&self) -> Result<WasiThreadHandle, ControlPlaneError> {
-        let task_count_guard = self.compute.register_task()?;
+        let task_count_guard = self.compute.must_upgrade().register_task()?;
 
         let mut inner = self.inner.write().unwrap();
         let id = inner.thread_seed.inc();
@@ -232,7 +231,7 @@ impl WasiProcess {
             if self.waiting.load(Ordering::Acquire) > 0 {
                 let mut triggered = false;
                 for pid in children.iter() {
-                    if let Some(process) = self.compute.get_process(*pid) {
+                    if let Some(process) = self.compute.must_upgrade().get_process(*pid) {
                         process.signal_process(signal);
                         triggered = true;
                     }
@@ -301,7 +300,7 @@ impl WasiProcess {
         }
         let mut waits = Vec::new();
         for pid in children {
-            if let Some(process) = self.compute.get_process(pid) {
+            if let Some(process) = self.compute.must_upgrade().get_process(pid) {
                 let children = self.children.clone();
                 waits.push(async move {
                     let join = process.join().await;
@@ -330,7 +329,7 @@ impl WasiProcess {
 
         let mut waits = Vec::new();
         for pid in children {
-            if let Some(process) = self.compute.get_process(pid) {
+            if let Some(process) = self.compute.must_upgrade().get_process(pid) {
                 let children = self.children.clone();
                 waits.push(async move {
                     let join = process.join().await;
@@ -357,11 +356,6 @@ impl WasiProcess {
         for thread in guard.threads.values() {
             thread.set_status_finished(Ok(exit_code))
         }
-    }
-
-    /// Gains access to the compute control plane
-    pub fn control_plane(&self) -> &WasiControlPlane {
-        &self.compute
     }
 }
 
