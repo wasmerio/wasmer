@@ -23,7 +23,7 @@ pub fn proc_signal<M: MemorySize>(
 
     let process = {
         let pid: WasiProcessId = pid.into();
-        ctx.data().process.compute.get_process(pid)
+        ctx.data().control_plane.get_process(pid)
     };
     if let Some(process) = process {
         process.signal_process(sig);

@@ -15,14 +15,12 @@ pub fn proc_parent<M: MemorySize>(
     if pid == env.process.pid() {
         let memory = env.memory_view(&ctx);
         wasi_try_mem!(ret_parent.write(&memory, env.process.ppid().raw() as Pid));
+        Errno::Success
+    } else if let Some(process) = env.control_plane.get_process(pid) {
+        let memory = env.memory_view(&ctx);
+        wasi_try_mem!(ret_parent.write(&memory, process.pid().raw() as Pid));
+        Errno::Success
     } else {
-        let control_plane = env.process.control_plane();
-        if let Some(process) = control_plane.get_process(pid) {
-            let memory = env.memory_view(&ctx);
-            wasi_try_mem!(ret_parent.write(&memory, process.pid().raw() as Pid));
-        } else {
-            return Errno::Badf;
-        }
+        Errno::Badf
     }
-    Errno::Success
 }
