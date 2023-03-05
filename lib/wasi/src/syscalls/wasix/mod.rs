@@ -141,3 +141,5 @@ pub use thread_sleep::*;
 pub use thread_spawn::*;
 pub use tty_get::*;
 pub use tty_set::*;
+
+use tracing::{debug_span, field, instrument, trace_span, Span};

@@ -417,11 +417,7 @@ impl Errno {
 }
 impl core::fmt::Debug for Errno {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("Errno")
-            .field("code", &(*self as i32))
-            .field("name", &self.name())
-            .field("message", &self.message())
-            .finish()
+        write!(f, "Errno::{}", &self.name())
     }
 }
 impl core::fmt::Display for Errno {
@@ -528,11 +524,7 @@ impl BusErrno {
 }
 impl core::fmt::Debug for BusErrno {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("BusErrno")
-            .field("code", &(*self as i32))
-            .field("name", &self.name())
-            .field("message", &self.message())
-            .finish()
+        write!(f, "BusErrno::{}", &self.name())
     }
 }
 impl core::fmt::Display for BusErrno {
@@ -2163,6 +2155,14 @@ impl core::fmt::Debug for Bool {
         match self {
             Bool::False => f.debug_tuple("Bool::False").finish(),
             Bool::True => f.debug_tuple("Bool::True").finish(),
+        }
+    }
+}
+impl core::fmt::Display for Bool {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Bool::False => write!(f, "false"),
+            Bool::True => write!(f, "true"),
         }
     }
 }

@@ -18,6 +18,7 @@ use crate::{fs::NotificationInner, syscalls::*};
 /// - `u32 *nread`
 ///     Number of bytes read
 ///
+#[instrument(level = "trace", skip_all, fields(fd, nread = field::Empty), ret, err)]
 pub fn fd_read<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -41,29 +42,13 @@ pub fn fd_read<M: MemorySize>(
 
     let mut ret = Errno::Success;
     let bytes_read = match res {
-        Ok(bytes_read) => {
-            trace!(
-                %fd,
-                %bytes_read,
-                "wasi[{}:{}]::fd_read",
-                ctx.data().pid(),
-                ctx.data().tid(),
-            );
-            bytes_read
-        }
+        Ok(bytes_read) => bytes_read,
         Err(err) => {
-            let read_err = err.name();
-            trace!(
-                %fd,
-                %read_err,
-                "wasi[{}:{}]::fd_read",
-                ctx.data().pid(),
-                ctx.data().tid(),
-            );
             ret = err;
             0
         }
     };
+    Span::current().record("nread", bytes_read);
 
     let bytes_read: M::Offset = wasi_try_ok!(bytes_read.try_into().map_err(|_| Errno::Overflow));
 
@@ -93,6 +78,7 @@ pub fn fd_read<M: MemorySize>(
 /// Output:
 /// - `size_t nread`
 ///     The number of bytes read
+#[instrument(level = "trace", skip_all, fields(fd, offset, nread), ret, err)]
 pub fn fd_pread<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -108,33 +94,13 @@ pub fn fd_pread<M: MemorySize>(
 
     let mut ret = Errno::Success;
     let bytes_read = match res {
-        Ok(bytes_read) => {
-            trace!(
-                %fd,
-                %offset,
-                %bytes_read,
-                "wasi[{}:{}]::fd_pread - {:?}",
-                ctx.data().pid(),
-                ctx.data().tid(),
-                ret
-            );
-            bytes_read
-        }
+        Ok(bytes_read) => bytes_read,
         Err(err) => {
-            let read_err = err.name();
-            trace!(
-                %fd,
-                %offset,
-                %read_err,
-                "wasi[{}:{}]::fd_pread - {:?}",
-                ctx.data().pid(),
-                ctx.data().tid(),
-                ret
-            );
             ret = err;
             0
         }
     };
+    Span::current().record("nread", bytes_read);
 
     let bytes_read: M::Offset = wasi_try_ok!(bytes_read.try_into().map_err(|_| Errno::Overflow));
 

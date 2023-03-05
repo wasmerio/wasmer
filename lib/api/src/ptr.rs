@@ -278,11 +278,6 @@ impl<T: ValueType, M: MemorySize> Eq for WasmPtr<T, M> {}
 
 impl<T: ValueType, M: MemorySize> fmt::Debug for WasmPtr<T, M> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "WasmPtr(offset: {}, pointer: {:#x})",
-            self.offset.into(),
-            self.offset.into()
-        )
+        write!(f, "{}(@{})", std::any::type_name::<T>(), self.offset.into())
     }
 }

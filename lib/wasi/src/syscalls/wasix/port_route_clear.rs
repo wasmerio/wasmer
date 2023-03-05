@@ -3,12 +3,8 @@ use crate::syscalls::*;
 
 /// ### `port_route_clear()`
 /// Clears all the routes in the local port
+#[instrument(level = "debug", skip_all, ret, err)]
 pub fn port_route_clear(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, WasiError> {
-    debug!(
-        "wasi[{}:{}]::port_route_clear",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
     let env = ctx.data();
     let net = env.net().clone();
     wasi_try_ok!(__asyncify(&mut ctx, None, async {

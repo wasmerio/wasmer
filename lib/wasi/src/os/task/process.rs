@@ -28,7 +28,7 @@ use super::{
 };
 
 /// Represents the ID of a sub-process
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WasiProcessId(u32);
 
 impl WasiProcessId {
@@ -62,6 +62,12 @@ impl From<WasiProcessId> for u32 {
 }
 
 impl std::fmt::Display for WasiProcessId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::fmt::Debug for WasiProcessId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }

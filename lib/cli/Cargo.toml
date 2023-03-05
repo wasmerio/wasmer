@@ -91,6 +91,8 @@ pathdiff = "0.2.1"
 sha2 = "0.10.6"
 object = "0.30.0"
 wasm-coredump-builder = { version = "0.1.11" }
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3", features = [ "env-filter", "fmt" ], optional = true }
 
 [build-dependencies]
 chrono = { version = "^0.4", default-features = false, features = [ "std", "clock" ] }
@@ -111,6 +113,7 @@ default = [
     "wasmer-artifact-create",
     "static-artifact-create",
     "webc_runner",
+    "tracing"
 ]
 cache = ["wasmer-cache"]
 cache-blake3-pure = ["wasmer-cache/blake3-pure"]
@@ -167,6 +170,7 @@ debug = ["fern", "wasmer-wasi/logging"]
 disable-all-logging = ["wasmer-wasi/disable-all-logging", "log/release_max_level_off"]
 headless = []
 headless-minimal = ["headless", "disable-all-logging", "wasi"]
+tracing = [ "dep:tracing", "tracing-subscriber" ]
 
 # Optional
 enable-serde = [

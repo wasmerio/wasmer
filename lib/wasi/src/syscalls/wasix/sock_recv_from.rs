@@ -16,6 +16,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// Number of bytes stored in ri_data and message flags.
+#[instrument(level = "trace", skip_all, fields(sock, nread = field::Empty, peer = field::Empty), ret, err)]
 pub fn sock_recv_from<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -26,13 +27,6 @@ pub fn sock_recv_from<M: MemorySize>(
     ro_flags: WasmPtr<RoFlags, M>,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<Errno, WasiError> {
-    debug!(
-        "wasi[{}:{}]::sock_recv_from (fd={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        sock
-    );
-
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let mut env = ctx.data();
@@ -103,6 +97,9 @@ pub fn sock_recv_from<M: MemorySize>(
             }
         }
     };
+    Span::current()
+        .record("nread", bytes_read)
+        .record("peer", &format!("{:?}", peer));
 
     wasi_try_ok!(write_ip_port(&memory, ro_addr, peer.ip(), peer.port()));
 

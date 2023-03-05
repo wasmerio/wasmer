@@ -10,6 +10,7 @@ use crate::syscalls::*;
 ///     Last modified time
 /// - `Fstflags fst_flags`
 ///     Bit-vector for controlling which times get set
+#[instrument(level = "debug", skip_all, fields(fd, st_atim, st_mtim), ret)]
 pub fn fd_filestat_set_times(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -17,11 +18,6 @@ pub fn fd_filestat_set_times(
     st_mtim: Timestamp,
     fst_flags: Fstflags,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::fd_filestat_set_times",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
     let env = ctx.data();
     let (_, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
     let fd_entry = wasi_try!(state.fs.get_fd(fd));

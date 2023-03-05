@@ -8,17 +8,11 @@ use crate::syscalls::*;
 /// Inputs:
 /// - `ExitCode`
 ///   Exit code to return to the operating system
+#[instrument(level = "debug", skip_all, fields(code))]
 pub fn proc_exit<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     code: ExitCode,
 ) -> Result<(), WasiError> {
-    debug!(
-        "wasi[{}:{}]::proc_exit (code={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        code
-    );
-
     // Set the exit code for this process
     ctx.data().thread.set_status_finished(Ok(code as u32));
 
@@ -44,7 +38,11 @@ pub fn proc_exit<M: MemorySize>(
             // Make sure its within the "active" part of the memory stack
             let offset = wasi_env.stack_base - pid_offset;
             if offset as usize > memory_stack.len() {
-                warn!("wasi[{}:{}]::vfork failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})", ctx.data().pid(), ctx.data().tid(), offset, memory_stack.len());
+                warn!(
+                    "fork failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})",
+                    offset,
+                    memory_stack.len()
+                );
                 return Err(WasiError::Exit(Errno::Fault as u32));
             }
 
@@ -55,7 +53,9 @@ pub fn proc_exit<M: MemorySize>(
             let pbytes = &mut memory_stack[pstart..pend];
             pbytes.clone_from_slice(&val_bytes);
         } else {
-            warn!("wasi[{}:{}]::vfork failed - the return value (pid) is not being returned on the stack - which is not supported", ctx.data().pid(), ctx.data().tid());
+            warn!(
+                "fork failed - the return value (pid) is not being returned on the stack - which is not supported"
+            );
             return Err(WasiError::Exit(Errno::Fault as u32));
         }
 

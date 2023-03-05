@@ -3,6 +3,7 @@ use crate::syscalls::*;
 
 /// ### `port_route_add()`
 /// Adds a new route to the local port
+#[instrument(level = "debug", skip_all, fields(cidr = field::Empty, via_router = field::Empty), ret, err)]
 pub fn port_route_add<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     cidr: WasmPtr<__wasi_cidr_t, M>,
@@ -10,15 +11,15 @@ pub fn port_route_add<M: MemorySize>(
     preferred_until: WasmPtr<OptionTimestamp, M>,
     expires_at: WasmPtr<OptionTimestamp, M>,
 ) -> Result<Errno, WasiError> {
-    debug!(
-        "wasi[{}:{}]::port_route_add",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
+
     let cidr = wasi_try_ok!(crate::net::read_cidr(&memory, cidr));
+    Span::current().record("cidr", &format!("{:?}", cidr));
+
     let via_router = wasi_try_ok!(crate::net::read_ip(&memory, via_router));
+    Span::current().record("via_router", &format!("{:?}", via_router));
+
     let preferred_until = wasi_try_mem_ok!(preferred_until.read(&memory));
     let preferred_until = match preferred_until.tag {
         OptionTag::None => None,

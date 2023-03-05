@@ -2,6 +2,7 @@ use super::*;
 use crate::syscalls::*;
 
 /// Returns Errno::Notemtpy if directory is not empty
+#[instrument(level = "debug", skip_all, fields(fd, path = field::Empty), ret)]
 pub fn path_remove_directory<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -9,25 +10,18 @@ pub fn path_remove_directory<M: MemorySize>(
     path_len: M::Offset,
 ) -> Errno {
     // TODO check if fd is a dir, ensure it's within sandbox, etc.
-    debug!(
-        "wasi[{}:{}]::path_remove_directory",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
     let env = ctx.data();
     let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
     let base_dir = wasi_try!(state.fs.get_fd(fd));
     let mut path_str = unsafe { get_input_str!(&memory, path, path_len) };
+    Span::current().record("path", path_str.as_str());
 
     // Convert relative paths into absolute paths
     if path_str.starts_with("./") {
         path_str = ctx.data().state.fs.relative_path_to_absolute(path_str);
         trace!(
-            "wasi[{}:{}]::rel_to_abs (name={}))",
-            ctx.data().pid(),
-            ctx.data().tid(),
-            path_str
+            %path_str
         );
     }
 

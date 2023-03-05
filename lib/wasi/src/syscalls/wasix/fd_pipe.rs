@@ -10,13 +10,12 @@ use crate::syscalls::*;
 ///     First file handle that represents one end of the pipe
 /// - `Fd`
 ///     Second file handle that represents the other end of the pipe
+#[instrument(level = "trace", skip_all, fields(fd1 = field::Empty, fd2 = field::Empty), ret)]
 pub fn fd_pipe<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     ro_fd1: WasmPtr<WasiFd, M>,
     ro_fd2: WasmPtr<WasiFd, M>,
 ) -> Errno {
-    trace!("wasi[{}:{}]::fd_pipe", ctx.data().pid(), ctx.data().tid());
-
     let env = ctx.data();
     let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
@@ -47,13 +46,7 @@ pub fn fd_pipe<M: MemorySize>(
     let fd2 = wasi_try!(state
         .fs
         .create_fd(rights, rights, Fdflags::empty(), 0, inode2));
-    trace!(
-        "wasi[{}:{}]::fd_pipe (fd1={}, fd2={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        fd1,
-        fd2
-    );
+    Span::current().record("fd1", fd1).record("fd2", fd2);
 
     wasi_try_mem!(ro_fd1.write(&memory, fd1));
     wasi_try_mem!(ro_fd2.write(&memory, fd2));

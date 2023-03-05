@@ -15,6 +15,7 @@ use crate::{syscalls::*, WasiInodes};
 /// ## Return
 ///
 /// Number of bytes transmitted.
+#[instrument(level = "debug", skip_all, fields(sock, in_fd, offset, count, nsent = field::Empty), ret, err)]
 pub fn sock_send_file<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -23,14 +24,6 @@ pub fn sock_send_file<M: MemorySize>(
     mut count: Filesize,
     ret_sent: WasmPtr<Filesize, M>,
 ) -> Result<Errno, WasiError> {
-    debug!(
-        "wasi[{}:{}]::send_file (fd={}, file_fd={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        sock,
-        in_fd
-    );
-
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let mut env = ctx.data();
@@ -193,6 +186,7 @@ pub fn sock_send_file<M: MemorySize>(
 
             total_written += bytes_written as u64;
         }
+        Span::current().record("nsent", total_written);
 
         let memory = env.memory_view(&ctx);
         wasi_try_mem_ok!(ret_sent.write(&memory, total_written as Filesize));

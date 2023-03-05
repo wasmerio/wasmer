@@ -3,11 +3,11 @@ use crate::syscalls::*;
 
 /// ### `tty_get()`
 /// Retrieves the current state of the TTY
+#[instrument(level = "debug", skip_all, ret)]
 pub fn tty_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     tty_state: WasmPtr<Tty, M>,
 ) -> Errno {
-    debug!("wasi[{}:{}]::tty_get", ctx.data().pid(), ctx.data().tid());
     let env = ctx.data();
 
     let env = ctx.data();

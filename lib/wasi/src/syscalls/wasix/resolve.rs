@@ -19,6 +19,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// The number of IP addresses returned during the DNS resolution.
+#[instrument(level = "debug", skip_all, fields(host = field::Empty, port), ret, err)]
 pub fn resolve<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     host: WasmPtr<u8, M>,
@@ -34,13 +35,7 @@ pub fn resolve<M: MemorySize>(
         let memory = env.memory_view(&ctx);
         unsafe { get_input_str_ok!(&memory, host, host_len) }
     };
-
-    debug!(
-        "wasi[{}:{}]::resolve (host={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        host_str
-    );
+    Span::current().record("host", host_str.as_str());
 
     let port = if port > 0 { Some(port) } else { None };
 

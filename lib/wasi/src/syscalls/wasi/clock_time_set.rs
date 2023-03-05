@@ -8,16 +8,12 @@ use crate::syscalls::*;
 ///     The ID of the clock to query
 /// - `Timestamp *time`
 ///     The value of the clock in nanoseconds
+#[instrument(level = "trace", skip_all, fields(clock_id, time), ret)]
 pub fn clock_time_set<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     clock_id: Snapshot0Clockid,
     time: Timestamp,
 ) -> Errno {
-    trace!(
-        "wasi::clock_time_set clock_id: {:?}, time: {}",
-        clock_id,
-        time
-    );
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 
@@ -30,6 +26,5 @@ pub fn clock_time_set<M: MemorySize>(
 
     let mut guard = env.state.clock_offset.lock().unwrap();
     guard.insert(clock_id, t_offset);
-
     Errno::Success
 }

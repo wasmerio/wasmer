@@ -15,6 +15,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// Number of bytes transmitted.
+#[instrument(level = "trace", skip_all, fields(sock, addr, nsent = field::Empty), ret, err)]
 pub fn sock_send_to<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -24,12 +25,6 @@ pub fn sock_send_to<M: MemorySize>(
     addr: WasmPtr<__wasi_addr_port_t, M>,
     ret_data_len: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
-    debug!(
-        "wasi[{}:{}]::sock_send_to (fd={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        sock
-    );
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
     let iovs_arr = wasi_try_mem_ok!(si_data.slice(&memory, si_data_len));
@@ -39,6 +34,7 @@ pub fn sock_send_to<M: MemorySize>(
         wasi_try_ok!(read_ip_port(&memory, addr))
     };
     let addr = SocketAddr::new(addr_ip, addr_port);
+    Span::current().record("addr", &format!("{:?}", addr));
 
     let bytes_written = {
         wasi_try_ok!(__sock_asyncify(
@@ -66,6 +62,7 @@ pub fn sock_send_to<M: MemorySize>(
             },
         ))
     };
+    Span::current().record("nsent", bytes_written);
 
     let memory = env.memory_view(&ctx);
     let bytes_written: M::Offset =

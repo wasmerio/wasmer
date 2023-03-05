@@ -83,3 +83,5 @@ pub use poll_oneoff::*;
 pub use proc_exit::*;
 pub use proc_raise::*;
 pub use random_get::*;
+
+use tracing::{debug_span, field, instrument, trace_span, Span};
