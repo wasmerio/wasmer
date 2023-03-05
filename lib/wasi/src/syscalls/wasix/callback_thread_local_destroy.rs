@@ -7,6 +7,7 @@ use crate::syscalls::*;
 /// ### Parameters
 ///
 /// * `name` - Name of the function that will be invoked
+#[instrument(level = "debug", skip_all, fields(name = field::Empty, funct_is_some = field::Empty), ret, err)]
 pub fn callback_thread_local_destroy<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,
@@ -14,13 +15,9 @@ pub fn callback_thread_local_destroy<M: MemorySize>(
 ) -> Result<(), MemoryAccessError> {
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
+
     let name = unsafe { name.read_utf8_string(&memory, name_len)? };
-    debug!(
-        "wasi[{}:{}]::callback_thread_local_destroy (name={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        name
-    );
+    Span::current().record("name", name.as_str());
 
     let funct = env
         .inner()
@@ -28,6 +25,7 @@ pub fn callback_thread_local_destroy<M: MemorySize>(
         .exports
         .get_typed_function(&ctx, &name)
         .ok();
+    Span::current().record("funct_is_some", funct.is_some());
 
     ctx.data_mut().inner_mut().thread_local_destroy = funct;
     Ok(())

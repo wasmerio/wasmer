@@ -10,21 +10,13 @@ use crate::syscalls::*;
 /// * `fd` - Socket descriptor
 /// * `sockopt` - Socket option to be set
 /// * `flag` - Value to set the option to
+#[instrument(level = "debug", skip_all, fields(sock, opt, flag), ret)]
 pub fn sock_set_opt_flag(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     opt: Sockoption,
     flag: Bool,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::sock_set_opt_flag(fd={}, ty={}, flag={:?})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        sock,
-        opt,
-        flag
-    );
-
     let flag = match flag {
         Bool::False => false,
         Bool::True => true,

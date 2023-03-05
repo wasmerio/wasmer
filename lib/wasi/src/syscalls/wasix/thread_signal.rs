@@ -7,18 +7,12 @@ use crate::syscalls::*;
 /// Inputs:
 /// - `Signal`
 ///   Signal to be raised for this process
+#[instrument(level = "debug", skip_all, fields(tid, sig), ret, err)]
 pub fn thread_signal(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     tid: Tid,
     sig: Signal,
 ) -> Result<Errno, WasiError> {
-    debug!(
-        "wasi[{}:{}]::thread_signal(tid={}, sig={:?})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        tid,
-        sig
-    );
     {
         let tid: WasiThreadId = tid.into();
         ctx.data().process.signal_thread(&tid, sig);

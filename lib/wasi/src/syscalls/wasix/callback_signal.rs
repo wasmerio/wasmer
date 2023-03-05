@@ -7,6 +7,7 @@ use crate::syscalls::*;
 /// ### Parameters
 ///
 /// * `name` - Name of the function that will be invoked
+#[instrument(level = "trace", skip_all, fields(name = field::Empty, funct_is_some = field::Empty), ret, err)]
 pub fn callback_signal<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,
@@ -26,6 +27,7 @@ pub fn callback_signal<M: MemorySize>(
             }
         }
     };
+    Span::current().record("name", name.as_str());
 
     let funct = env
         .inner()
@@ -33,13 +35,7 @@ pub fn callback_signal<M: MemorySize>(
         .exports
         .get_typed_function(&ctx, &name)
         .ok();
-    trace!(
-        "wasi[{}:{}]::callback_signal (name={}, found={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        name,
-        funct.is_some()
-    );
+    Span::current().record("funct_is_some", funct.is_some());
 
     {
         let inner = ctx.data_mut().inner_mut();

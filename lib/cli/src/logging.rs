@@ -1,14 +1,44 @@
 //! Logging functions for the debug feature.
-use crate::utils::wasmer_should_print_color;
-use anyhow::Result;
-use fern::colors::{Color, ColoredLevelConfig};
-use std::time;
-
-/// The debug level
-pub type DebugLevel = log::LevelFilter;
 
 /// Subroutine to instantiate the loggers
+#[cfg(feature = "tracing")]
 pub fn set_up_logging(verbose: u8) -> Result<(), String> {
+    use tracing_subscriber::prelude::*;
+    use tracing_subscriber::{fmt, EnvFilter};
+
+    let fmt_layer = fmt::layer()
+        .with_target(false)
+        .with_span_events(fmt::format::FmtSpan::CLOSE)
+        .with_thread_ids(true)
+        .compact();
+
+    let filter_layer = EnvFilter::try_from_default_env()
+        .or_else(|_| match verbose {
+            1 => EnvFilter::try_new("debug"),
+            _ => EnvFilter::try_new("trace"),
+        })
+        .unwrap();
+
+    tracing_subscriber::registry()
+        .with(filter_layer)
+        .with(fmt_layer)
+        .init();
+
+    Ok(())
+}
+
+/// Subroutine to instantiate the loggers
+#[deprecated("please use the tracing feature instead")]
+#[cfg(not(feature = "tracing"))]
+pub fn set_up_logging(verbose: u8) -> Result<(), String> {
+    use crate::utils::wasmer_should_print_color;
+    use anyhow::Result;
+    use fern::colors::{Color, ColoredLevelConfig};
+    use std::time;
+
+    /// The debug level
+    pub type DebugLevel = log::LevelFilter;
+
     let colors_line = ColoredLevelConfig::new()
         .error(Color::Red)
         .warn(Color::Yellow)

@@ -13,6 +13,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// New socket connection
+#[instrument(level = "debug", skip_all, fields(sock, fd = field::Empty), ret, err)]
 pub fn sock_accept<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -20,14 +21,6 @@ pub fn sock_accept<M: MemorySize>(
     ro_fd: WasmPtr<WasiFd, M>,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<Errno, WasiError> {
-    debug!(
-        "wasi[{}:{}]::sock_accept (fd={}, flags={:?})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        sock,
-        fd_flags
-    );
-
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let tasks = ctx.data().tasks().clone();
@@ -72,13 +65,7 @@ pub fn sock_accept<M: MemorySize>(
 
     let rights = Rights::all_socket();
     let fd = wasi_try_ok!(state.fs.create_fd(rights, rights, new_flags, 0, inode));
-
-    debug!(
-        "wasi[{}:{}]::sock_accept (ret=ESUCCESS, peer={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        fd
-    );
+    Span::current().record("fd", fd);
 
     wasi_try_mem_ok!(ro_fd.write(&memory, fd));
     wasi_try_ok!(crate::net::write_ip_port(

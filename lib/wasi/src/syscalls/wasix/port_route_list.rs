@@ -10,22 +10,19 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `routes` - The buffer where routes will be stored
+#[instrument(level = "debug", skip_all, fields(nroutes = field::Empty, max_routes = field::Empty), ret, err)]
 pub fn port_route_list<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     routes_ptr: WasmPtr<Route, M>,
     nroutes_ptr: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
-    debug!(
-        "wasi[{}:{}]::port_route_list",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
     let mut env = ctx.data();
     let mut memory = env.memory_view(&ctx);
     let ref_nroutes = nroutes_ptr.deref(&memory);
     let max_routes: usize = wasi_try_ok!(wasi_try_mem_ok!(ref_nroutes.read())
         .try_into()
         .map_err(|_| Errno::Inval));
+    Span::current().record("max_routes", max_routes);
     let ref_routes =
         wasi_try_mem_ok!(routes_ptr.slice(&memory, wasi_try_ok!(to_offset::<M>(max_routes))));
 
@@ -33,6 +30,8 @@ pub fn port_route_list<M: MemorySize>(
     let routes = wasi_try_ok!(__asyncify(&mut ctx, None, async {
         net.route_list().map_err(net_error_into_wasi_err)
     })?);
+    Span::current().record("nroutes", routes.len());
+
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 

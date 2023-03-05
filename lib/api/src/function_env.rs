@@ -1,4 +1,4 @@
-use std::{any::Any, marker::PhantomData};
+use std::{any::Any, fmt::Debug, marker::PhantomData};
 
 use crate::vm::VMFunctionEnvironment;
 
@@ -100,6 +100,12 @@ impl<T> Clone for FunctionEnv<T> {
 pub struct FunctionEnvMut<'a, T: 'a> {
     pub(crate) store_mut: StoreMut<'a>,
     pub(crate) func_env: FunctionEnv<T>,
+}
+
+impl<'a, T> Debug for FunctionEnvMut<'a, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "env_mut")
+    }
 }
 
 impl<T: Send + 'static> FunctionEnvMut<'_, T> {

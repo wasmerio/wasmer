@@ -10,17 +10,12 @@ use crate::syscalls::*;
 ///
 /// * `user_data` - User data that will be passed to the destructor
 ///   when the thread variable goes out of scope
+#[instrument(level = "trace", skip_all, fields(user_data), ret)]
 pub fn thread_local_create<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     user_data: TlUser,
     ret_key: WasmPtr<TlKey, M>,
 ) -> Errno {
-    trace!(
-        "wasi[{}:{}]::thread_local_create (user_data={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        user_data
-    );
     let env = ctx.data();
 
     let key = {

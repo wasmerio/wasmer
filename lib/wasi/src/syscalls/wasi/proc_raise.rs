@@ -7,13 +7,8 @@ use crate::syscalls::*;
 /// Inputs:
 /// - `Signal`
 ///   Signal to be raised for this process
+#[instrument(level = "debug", skip_all, fields(sig), ret, err)]
 pub fn proc_raise(mut ctx: FunctionEnvMut<'_, WasiEnv>, sig: Signal) -> Result<Errno, WasiError> {
-    debug!(
-        "wasi[{}:{}]::proc_raise (sig={:?})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        sig
-    );
     let env = ctx.data();
     env.process.signal_process(sig);
 
@@ -34,12 +29,6 @@ pub fn proc_raise_interval(
     interval: Timestamp,
     repeat: Bool,
 ) -> Result<Errno, WasiError> {
-    debug!(
-        "wasi[{}:{}]::proc_raise_interval (sig={:?})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        sig
-    );
     let env = ctx.data();
     let interval = match interval {
         0 => None,

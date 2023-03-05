@@ -4890,6 +4890,8 @@ dependencies = [
  "time 0.3.20",
  "tldextract",
  "toml",
+ "tracing",
+ "tracing-subscriber 0.3.16",
  "unix_mode",
  "url",
  "walkdir",

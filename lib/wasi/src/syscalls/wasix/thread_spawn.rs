@@ -21,6 +21,7 @@ use wasmer::vm::VMMemory;
 ///
 /// Returns the thread index of the newly created thread
 /// (indices always start from zero)
+#[instrument(level = "debug", skip_all, fields(user_data, stack_base, stack_start, reactor, tid = field::Empty), ret)]
 pub fn thread_spawn<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     user_data: u64,
@@ -40,34 +41,22 @@ pub fn thread_spawn<M: MemorySize>(
         Ok(h) => h,
         Err(err) => {
             error!(
-                "wasi[{}:{}]::thread_spawn (reactor={:?}, stack_base={}, caller_id={}) - failed to create thread handle: {}",
-                ctx.data().pid(),
-                ctx.data().tid(),
-                reactor,
-                stack_base,
-                current_caller_id().raw(),
-                err
+                %reactor,
+                %stack_base,
+                caller_id = current_caller_id().raw(),
+                "failed to create thread handle",
             );
             // TODO: evaluate the appropriate error code, document it in the spec.
             return Errno::Access;
         }
     };
     let thread_id: Tid = thread_handle.id().into();
-
-    debug!(
-        %thread_id,
-        "wasi[{}:{}]::thread_spawn (reactor={:?}, stack_base={}, caller_id={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        reactor,
-        stack_base,
-        current_caller_id().raw()
-    );
+    Span::current().record("tid", thread_id);
 
     // We need a copy of the process memory and a packaged store in order to
     // launch threads and reactors
     let thread_memory = wasi_try!(ctx.data().memory().try_clone(&ctx).ok_or_else(|| {
-        error!("thread failed - the memory could not be cloned");
+        error!("failed - the memory could not be cloned");
         Errno::Notcapable
     }));
 
@@ -100,7 +89,7 @@ pub fn thread_spawn<M: MemorySize>(
             let instance = match Instance::new(&mut store, &module, &import_object) {
                 Ok(a) => a,
                 Err(err) => {
-                    error!("thread failed - create instance failed: {}", err);
+                    error!("failed - create instance failed: {}", err);
                     return Err(Errno::Noexec as u32);
                 }
             };
@@ -110,10 +99,6 @@ pub fn thread_spawn<M: MemorySize>(
             // Set the current thread ID
             ctx.data_mut(&mut store).inner =
                 Some(WasiInstanceHandles::new(memory, &store, instance));
-            trace!(
-                "threading: new context created for thread_id = {}",
-                thread.tid().raw()
-            );
             Ok(WasiThreadContext {
                 ctx,
                 store: RefCell::new(store),
@@ -129,11 +114,7 @@ pub fn thread_spawn<M: MemorySize>(
             Bool::False => ctx.data(&store).inner().thread_spawn.clone().unwrap(),
             Bool::True => ctx.data(&store).inner().react.clone().unwrap(),
             _ => {
-                debug!(
-                    "wasi[{}:{}]::thread_spawn - failed as the reactor type is not value",
-                    ctx.data(&store).pid(),
-                    ctx.data(&store).tid()
-                );
+                debug!("failed as the reactor type is not value",);
                 return Errno::Noexec as u32;
             }
         };
@@ -141,23 +122,10 @@ pub fn thread_spawn<M: MemorySize>(
         let user_data_low: u32 = (user_data & 0xFFFFFFFF) as u32;
         let user_data_high: u32 = (user_data >> 32) as u32;
 
-        trace!(
-            %user_data,
-            "wasi[{}:{}]::thread_spawn spawn.call()",
-            ctx.data(&store).pid(),
-            ctx.data(&store).tid(),
-        );
-
         let mut ret = Errno::Success;
         if let Err(err) = spawn.call(store, user_data_low as i32, user_data_high as i32) {
             match err.downcast::<WasiError>() {
                 Ok(WasiError::Exit(code)) => {
-                    debug!(
-                        %code,
-                        "wasi[{}:{}]::thread_spawn - thread exited",
-                        ctx.data(&store).pid(),
-                        ctx.data(&store).tid(),
-                    );
                     ret = if code == 0 {
                         Errno::Success
                     } else {
@@ -165,31 +133,16 @@ pub fn thread_spawn<M: MemorySize>(
                     };
                 }
                 Ok(WasiError::UnknownWasiVersion) => {
-                    debug!(
-                        "wasi[{}:{}]::thread_spawn - thread failed as wasi version is unknown",
-                        ctx.data(&store).pid(),
-                        ctx.data(&store).tid(),
-                    );
+                    debug!("failed as wasi version is unknown",);
                     ret = Errno::Noexec;
                 }
                 Err(err) => {
-                    debug!(
-                        "wasi[{}:{}]::thread_spawn - thread failed with runtime error: {}",
-                        ctx.data(&store).pid(),
-                        ctx.data(&store).tid(),
-                        err
-                    );
+                    debug!("failed with runtime error: {}", err);
                     ret = Errno::Noexec;
                 }
             }
         }
-        trace!(
-            "wasi[{}:{}]::thread_spawn - thread callback finished (reactor={:?}, ret={})",
-            ctx.data(&store).pid(),
-            ctx.data(&store).tid(),
-            reactor,
-            ret
-        );
+        trace!("callback finished (reactor={:?}, ret={})", reactor, ret);
 
         // If we are NOT a reactor then we will only run once and need to clean up
         if reactor == Bool::False {
@@ -244,18 +197,14 @@ pub fn thread_spawn<M: MemorySize>(
                 let memory = match memory.take() {
                     Some(m) => m,
                     None => {
-                        debug!(
-                            "thread failed - memory can only be consumed once per context creation"
-                        );
+                        debug!("failed - memory can only be consumed once per context creation");
                         return Errno::Noexec as u32;
                     }
                 };
                 let store = match store.take() {
                     Some(s) => s,
                     None => {
-                        debug!(
-                            "thread failed - store can only be consumed once per context creation"
-                        );
+                        debug!("failed - store can only be consumed once per context creation");
                         return Errno::Noexec as u32;
                     }
                 };
@@ -285,14 +234,14 @@ pub fn thread_spawn<M: MemorySize>(
             // If the process does not export a thread spawn function then obviously
             // we can't spawn a background thread
             if env.inner().thread_spawn.is_none() {
-                warn!("thread failed - the program does not export a _start_thread function");
+                warn!("failed - the program does not export a _start_thread function");
                 return Errno::Notcapable;
             }
 
             let spawn_type = crate::runtime::SpawnType::NewThread(thread_memory);
 
             // Now spawn a thread
-            trace!("threading: spawning background thread");
+            trace!("spawning background thread");
             let thread_module = env.inner().instance.module().clone();
             let tasks2 = tasks.clone();
 
@@ -307,7 +256,7 @@ pub fn thread_spawn<M: MemorySize>(
                 .map_err(|err| { Into::<Errno>::into(err) }));
         }
         _ => {
-            warn!("thread failed - invalid reactor parameter value");
+            warn!("failed - invalid reactor parameter value");
             return Errno::Notcapable;
         }
     }

@@ -25,6 +25,7 @@ use crate::syscalls::*;
 ///     The new file descriptor
 /// Possible Errors:
 /// - `Errno::Access`, `Errno::Badf`, `Errno::Fault`, `Errno::Fbig?`, `Errno::Inval`, `Errno::Io`, `Errno::Loop`, `Errno::Mfile`, `Errno::Nametoolong?`, `Errno::Nfile`, `Errno::Noent`, `Errno::Notdir`, `Errno::Rofs`, and `Errno::Notcapable`
+#[instrument(level = "debug", skip_all, fields(dirfd, path = field::Empty, follow_symlinks = false, ret_fd = field::Empty), ret)]
 pub fn path_open<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     dirfd: WasiFd,
@@ -37,9 +38,8 @@ pub fn path_open<M: MemorySize>(
     fs_flags: Fdflags,
     fd: WasmPtr<WasiFd, M>,
 ) -> Errno {
-    debug!("wasi[{}:{}]::path_open", ctx.data().pid(), ctx.data().tid());
     if dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0 {
-        debug!("  - will follow symlinks when opening path");
+        Span::current().record("follow_symlinks", true);
     }
     let env = ctx.data();
     let (memory, mut state, mut inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
@@ -66,18 +66,15 @@ pub fn path_open<M: MemorySize>(
     }
 
     let mut path_string = unsafe { get_input_str!(&memory, path, path_len) };
+    Span::current().record("path", path_string.as_str());
 
     // Convert relative paths into absolute paths
     if path_string.starts_with("./") {
         path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
         trace!(
-            "wasi[{}:{}]::rel_to_abs (name={}))",
-            ctx.data().pid(),
-            ctx.data().tid(),
-            path_string
+            %path_string
         );
     }
-    debug!("=> path_open(): dirfd: {}, path: {}", dirfd, &path_string);
 
     let path_arg = std::path::PathBuf::from(&path_string);
     let maybe_inode = state.fs.get_inode_at_path(
@@ -200,11 +197,7 @@ pub fn path_open<M: MemorySize>(
                         // nothing bad happens
                         let dup_fd = wasi_try!(state.fs.clone_fd(fd));
                         trace!(
-                            "wasi[{}:{}]::path_open [special_fd] (dup_fd: {}->{})",
-                            ctx.data().pid(),
-                            ctx.data().tid(),
-                            fd,
-                            dup_fd
+                            %dup_fd
                         );
 
                         // some special files will return a constant FD rather than
@@ -237,12 +230,10 @@ pub fn path_open<M: MemorySize>(
         inode
     } else {
         // less-happy path, we have to try to create the file
-        debug!("Maybe creating file");
         if o_flags.contains(Oflags::CREATE) {
             if o_flags.contains(Oflags::DIRECTORY) {
                 return Errno::Notdir;
             }
-            debug!("Creating file");
             // strip end file name
 
             let (parent_inode, new_entity_name) = wasi_try!(state.fs.get_parent_inode_at_path(
@@ -289,12 +280,9 @@ pub fn path_open<M: MemorySize>(
                     open_flags |= Fd::TRUNCATE;
                 }
 
-                Some(wasi_try!(open_options.open(&new_file_host_path).map_err(
-                    |e| {
-                        debug!("Error opening file {}", e);
-                        fs_error_into_wasi_err(e)
-                    }
-                )))
+                Some(wasi_try!(open_options
+                    .open(&new_file_host_path)
+                    .map_err(|e| { fs_error_into_wasi_err(e) })))
             };
 
             let new_inode = {
@@ -334,13 +322,8 @@ pub fn path_open<M: MemorySize>(
         inode
     ));
 
-    wasi_try_mem!(fd_ref.write(out_fd));
-    debug!(
-        "wasi[{}:{}]::path_open returning fd {}",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        out_fd
-    );
+    Span::current().record("ret_fd", out_fd);
 
+    wasi_try_mem!(fd_ref.write(out_fd));
     Errno::Success
 }

@@ -3,18 +3,12 @@ use crate::syscalls::*;
 
 /// ### `sock_status()`
 /// Returns the current status of a socket
+#[instrument(level = "debug", skip_all, fields(sock, status = field::Empty), ret)]
 pub fn sock_status<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     ret_status: WasmPtr<Sockstatus, M>,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::sock_status (fd={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        sock
-    );
-
     let status = wasi_try!(__sock_actor(
         &mut ctx,
         sock,
@@ -29,6 +23,7 @@ pub fn sock_status<M: MemorySize>(
         WasiSocketStatus::Closed => Sockstatus::Closed,
         WasiSocketStatus::Failed => Sockstatus::Failed,
     };
+    Span::current().record("status", &format!("{:?}", status));
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
