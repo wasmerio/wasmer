@@ -26,9 +26,7 @@ required-features = ["headless"]
 
 [dependencies]
 wasmer = { version = "=3.2.0-alpha.1", path = "../api", default-features = false }
-wasmer-compiler = { version = "=3.2.0-alpha.1", path = "../compiler", features = [
-    "compiler",
-] }
+wasmer-compiler = { version = "=3.2.0-alpha.1", path = "../compiler", features = ["compiler"] }
 wasmer-compiler-cranelift = { version = "=3.2.0-alpha.1", path = "../compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "=3.2.0-alpha.1", path = "../compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "=3.2.0-alpha.1", path = "../compiler-llvm", optional = true }
@@ -37,7 +35,7 @@ wasmer-vm = { version = "=3.2.0-alpha.1", path = "../vm" }
 wasmer-wasix = { version = "0.1.0", path = "../wasi", features = ["logging", "webc_runner", "webc_runner_rt_wcgi", "webc_runner_rt_wasi", "webc_runner_rt_emscripten", "host-fs"] }
 wasmer-wasix-experimental-io-devices = { version = "0.1.0", path = "../wasi-experimental-io-devices", optional = true, features = ["link_external_libs"] }
 wasmer-wast = { version = "=3.2.0-alpha.1", path = "../../tests/lib/wast", optional = true }
-wasmer-cache = { version = "=3.2.0-alpha.1", path = "../cache" }
+wasmer-cache = { version = "=3.2.0-alpha.1", path = "../cache", features = ["blake3-pure"] }
 wasmer-types = { version = "=3.2.0-alpha.1", path = "../types", features = ["enable-serde"] }
 wasmer-registry = { version = "=4.0.0", path = "../registry" }
 wasmer-object = { version = "=3.2.0-alpha.1", path = "../object", optional = true }
@@ -80,11 +78,7 @@ cargo_metadata = "0.15.2"
 rusqlite = { version = "0.28.0", features = ["bundled"] }
 tar = "0.4.38"
 thiserror = "1.0.37"
-time = { version = "0.3.17", default-features = false, features = [
-    "parsing",
-    "std",
-    "formatting",
-] }
+time = { version = "0.3.17", default-features = false, features = ["parsing", "std", "formatting"] }
 log = "0.4.17"
 minisign = "0.7.2"
 semver = "1.0.14"
@@ -98,10 +92,7 @@ tracing-subscriber = { version = "0.3", features = [ "env-filter", "fmt" ] }
 clap-verbosity-flag = "1"
 
 [build-dependencies]
-chrono = { version = "^0.4", default-features = false, features = [
-    "std",
-    "clock",
-] }
+chrono = { version = "^0.4", default-features = false, features = ["std", "clock"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 unix_mode = "0.1.3"
@@ -116,6 +107,8 @@ default = [
     "wasi",
     "emscripten",
     "compiler",
+    "wasmer-artifact-create",
+    "static-artifact-create",
     "webc_runner",
 ]
 wast = ["wasmer-wast"]
@@ -126,7 +119,28 @@ compiler = [
     "wasmer-compiler/compiler",
     "wasmer-wasix/compiler"
 ]
-
+wasmer-artifact-create = ["compiler",
+ "wasmer/wasmer-artifact-load",
+ "wasmer/wasmer-artifact-create",
+ "wasmer-compiler/wasmer-artifact-load",
+ "wasmer-compiler/wasmer-artifact-create",
+ "wasmer-object",
+ ]
+static-artifact-create = ["compiler",
+ "wasmer/static-artifact-load",
+ "wasmer/static-artifact-create",
+ "wasmer-compiler/static-artifact-load",
+ "wasmer-compiler/static-artifact-create",
+ "wasmer-object",
+ ]
+wasmer-artifact-load = ["compiler",
+ "wasmer/wasmer-artifact-load",
+ "wasmer-compiler/wasmer-artifact-load",
+ ]
+static-artifact-load = ["compiler",
+ "wasmer/static-artifact-load",
+ "wasmer-compiler/static-artifact-load",
+ ]
 experimental-io-devices = [
     "wasmer-wasix-experimental-io-devices",
     "wasi"
@@ -155,9 +169,9 @@ enable-serde = [
   "wasmer-wasix/enable-serde",
 ]
 
-# Deprecated. Code behind these feature flags will always be compiled.
+# Deprecated. These feature flags no longer protect anything.
 cache = []
-cache-blake3-pure = ["wasmer-cache/blake3-pure"]
+cache-blake3-pure = []
 debug = []
 wasi = []
 emscripten = []
