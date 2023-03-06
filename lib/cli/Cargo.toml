@@ -54,8 +54,6 @@ distance = "0.4"
 # For the inspect subcommand
 bytesize = "1.0"
 cfg-if = "1.0"
-# For debug feature
-fern = { version = "0.6", features = ["colored"], optional = true }
 tempfile = "3.4.0"
 http_req  = { version="^0.8", default-features = false, features = ["rust-tls"] }
 reqwest = { version = "^0.11", default-features = false, features = ["rustls-tls", "json", "multipart"] }
@@ -166,7 +164,7 @@ llvm = [
     "wasmer-compiler-llvm",
     "compiler",
 ]
-debug = ["fern", "wasmer-wasi/logging"]
+debug = ["tracing", "wasmer-wasi/logging"]
 disable-all-logging = ["wasmer-wasi/disable-all-logging", "log/release_max_level_off"]
 headless = []
 headless-minimal = ["headless", "disable-all-logging", "wasi"]
