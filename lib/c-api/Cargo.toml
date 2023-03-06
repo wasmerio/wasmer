@@ -32,7 +32,7 @@ wasmer-middlewares = { version = "=3.2.0-alpha.1", path = "../middlewares", opti
 wasmer-wasi = { version = "=3.2.0-alpha.1", path = "../wasi", features = ["host-fs", "host-vnet"], optional = true }
 wasmer-types = { version = "=3.2.0-alpha.1", path = "../types" }
 wasmer-vfs = { version = "=3.2.0-alpha.1", path = "../vfs", optional = true, default-features = false, features = ["static-fs"] }
-webc = { version = "4.0.0", optional = true }
+webc = { version = "5.0.0-rc.5", optional = true }
 enumset = "1.0.2"
 cfg-if = "1.0"
 lazy_static = "1.4"

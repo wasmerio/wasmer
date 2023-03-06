@@ -11,7 +11,7 @@ use wasmer_emscripten::{
     generate_emscripten_env, is_emscripten_module, run_emscripten_instance, EmEnv,
     EmscriptenGlobals,
 };
-use webc::{Command, WebCMmap};
+use webc::{metadata::Command, v1::WebCMmap};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct EmscriptenRunner {
@@ -52,7 +52,7 @@ impl crate::runners::Runner for EmscriptenRunner {
     fn can_run_command(&self, _: &str, command: &Command) -> Result<bool, Box<dyn StdError>> {
         Ok(command
             .runner
-            .starts_with("https://webc.org/runner/emscripten"))
+            .starts_with(webc::metadata::annotations::EMSCRIPTEN_RUNNER_URI))
     }
 
     #[allow(unreachable_code, unused_variables)]

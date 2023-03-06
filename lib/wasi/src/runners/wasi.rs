@@ -8,7 +8,7 @@ use std::error::Error as StdError;
 use std::sync::Arc;
 use wasmer::{Module, Store};
 use wasmer_vfs::webc_fs::WebcFileSystem;
-use webc::{Command, WebCMmap};
+use webc::{metadata::Command, v1::WebCMmap};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct WasiRunner {
@@ -51,7 +51,9 @@ impl crate::runners::Runner for WasiRunner {
         _command_name: &str,
         command: &Command,
     ) -> Result<bool, Box<dyn StdError>> {
-        Ok(command.runner.starts_with("https://webc.org/runner/wasi"))
+        Ok(command
+            .runner
+            .starts_with(webc::metadata::annotations::WASI_RUNNER_URI))
     }
 
     #[allow(unreachable_code, unused_variables)]

@@ -12,7 +12,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
-use webc::{FsEntry, FsEntryType, OwnedFsEntryFile, WebC};
+use webc::v1::{FsEntry, FsEntryType, OwnedFsEntryFile, WebC};
 
 /// Custom file system wrapper to map requested file paths
 #[derive(Debug)]
@@ -23,7 +23,7 @@ where
     pub webc: Arc<T>,
     pub memory: Arc<MemFileSystem>,
     top_level_dirs: Vec<String>,
-    volumes: Vec<webc::Volume<'static>>,
+    volumes: Vec<webc::v1::Volume<'static>>,
 }
 
 impl<T> WebcFileSystem<T>
