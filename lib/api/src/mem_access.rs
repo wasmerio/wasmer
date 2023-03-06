@@ -1,16 +1,14 @@
-use crate::errors::RuntimeError;
+use crate::access::WasmRefAccess;
 use crate::externals::memory::MemoryBuffer;
-#[allow(unused_imports)]
-use crate::{Memory, Memory32, Memory64, MemorySize, MemoryView, WasmPtr};
-use std::{
-    convert::TryInto,
-    fmt,
-    marker::PhantomData,
-    mem::{self, MaybeUninit},
-    ops::Range,
-    slice,
-    string::FromUtf8Error,
-};
+use crate::{Memory32, Memory64, MemorySize, MemoryView, WasmPtr};
+use crate::{RuntimeError, WasmSliceAccess};
+use std::convert::TryInto;
+use std::fmt;
+use std::marker::PhantomData;
+use std::mem::{self, MaybeUninit};
+use std::ops::Range;
+use std::slice;
+use std::string::FromUtf8Error;
 use thiserror::Error;
 use wasmer_types::ValueType;
 
@@ -53,8 +51,9 @@ impl From<FromUtf8Error> for MemoryAccessError {
 /// thread.
 #[derive(Clone, Copy)]
 pub struct WasmRef<'a, T: ValueType> {
-    buffer: MemoryBuffer<'a>,
-    offset: u64,
+    #[allow(unused)]
+    pub(crate) buffer: MemoryBuffer<'a>,
+    pub(crate) offset: u64,
     marker: PhantomData<*mut T>,
 }
 
@@ -101,26 +100,20 @@ impl<'a, T: ValueType> WasmRef<'a, T> {
     /// Reads the location pointed to by this `WasmRef`.
     #[inline]
     pub fn read(self) -> Result<T, MemoryAccessError> {
-        let mut out = MaybeUninit::uninit();
-        let buf =
-            unsafe { slice::from_raw_parts_mut(out.as_mut_ptr() as *mut u8, mem::size_of::<T>()) };
-        self.buffer.read(self.offset, buf)?;
-        Ok(unsafe { out.assume_init() })
+        Ok(self.access()?.read())
     }
 
     /// Writes to the location pointed to by this `WasmRef`.
     #[inline]
     pub fn write(self, val: T) -> Result<(), MemoryAccessError> {
-        let mut data = MaybeUninit::new(val);
-        let data = unsafe {
-            slice::from_raw_parts_mut(
-                data.as_mut_ptr() as *mut MaybeUninit<u8>,
-                mem::size_of::<T>(),
-            )
-        };
-        val.zero_padding_bytes(data);
-        let data = unsafe { slice::from_raw_parts(data.as_ptr() as *const _, data.len()) };
-        self.buffer.write(self.offset, data)
+        self.access()?.write(val);
+        Ok(())
+    }
+
+    /// Gains direct access to the memory of this slice
+    #[inline]
+    pub fn access(self) -> Result<WasmRefAccess<'a, T>, MemoryAccessError> {
+        WasmRefAccess::new(self)
     }
 }
 
@@ -147,9 +140,9 @@ impl<'a, T: ValueType> fmt::Debug for WasmRef<'a, T> {
 /// thread.
 #[derive(Clone, Copy)]
 pub struct WasmSlice<'a, T: ValueType> {
-    buffer: MemoryBuffer<'a>,
-    offset: u64,
-    len: u64,
+    pub(crate) buffer: MemoryBuffer<'a>,
+    pub(crate) offset: u64,
+    pub(crate) len: u64,
     marker: PhantomData<*mut T>,
 }
 
@@ -237,6 +230,12 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
     #[inline]
     pub fn iter(self) -> WasmSliceIter<'a, T> {
         WasmSliceIter { slice: self }
+    }
+
+    /// Gains direct access to the memory of this slice
+    #[inline]
+    pub fn access(self) -> Result<WasmSliceAccess<'a, T>, MemoryAccessError> {
+        WasmSliceAccess::new(self)
     }
 
     /// Reads an element of this slice.

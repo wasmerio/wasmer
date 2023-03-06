@@ -1,3 +1,4 @@
+use crate::access::WasmRefAccess;
 use crate::mem_access::{MemoryAccessError, WasmRef, WasmSlice};
 use crate::{AsStoreRef, FromToNativeWasmType, MemoryView, NativeWasmTypeInto};
 use std::convert::TryFrom;
@@ -190,6 +191,15 @@ impl<T: ValueType, M: MemorySize> WasmPtr<T, M> {
             vec.push(val);
         }
         Ok(vec)
+    }
+
+    /// Creates a `WasmAccess`
+    #[inline]
+    pub fn access<'a>(
+        &self,
+        view: &'a MemoryView,
+    ) -> Result<WasmRefAccess<'a, T>, MemoryAccessError> {
+        self.deref(view).access()
     }
 }
 

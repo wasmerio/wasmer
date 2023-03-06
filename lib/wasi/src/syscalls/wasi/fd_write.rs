@@ -115,6 +115,8 @@ fn fd_write_internal<M: MemorySize>(
         let fd_flags = fd_entry.flags;
 
         let (bytes_written, can_update_cursor) = {
+            let iovs_arr = wasi_try_mem_ok!(iovs_arr.access());
+
             let (mut memory, _) = env.get_memory_and_wasi_state(&ctx, 0);
             let mut guard = fd_entry.inode.write();
             match guard.deref_mut() {
@@ -123,18 +125,8 @@ fn fd_write_internal<M: MemorySize>(
                         let handle = handle.clone();
                         drop(guard);
 
-                        let buf_len: M::Offset = iovs_arr
-                            .iter()
-                            .filter_map(|a| a.read().ok())
-                            .map(|a| a.buf_len)
-                            .sum();
-                        let buf_len: usize =
-                            wasi_try_ok!(buf_len.try_into().map_err(|_| Errno::Inval));
-                        let mut buf = Vec::with_capacity(buf_len);
-                        wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
-
-                        let written = wasi_try_ok!(__asyncify(
-                            &mut ctx,
+                        let written = wasi_try_ok!(__asyncify_light(
+                            env,
                             if fd_entry.flags.contains(Fdflags::NONBLOCK) {
                                 Some(Duration::ZERO)
                             } else {
@@ -149,7 +141,17 @@ fn fd_write_internal<M: MemorySize>(
                                         .map_err(map_io_err)?;
                                 }
 
-                                handle.write(&buf[..]).await.map_err(map_io_err)
+                                let mut written = 0usize;
+                                for iovs in iovs_arr.iter() {
+                                    let buf = WasmPtr::<u8, M>::new(iovs.buf)
+                                        .slice(&memory, iovs.buf_len)
+                                        .map_err(mem_error_to_wasi)?
+                                        .access()
+                                        .map_err(mem_error_to_wasi)?;
+                                    written +=
+                                        handle.write(buf.as_ref()).await.map_err(map_io_err)?;
+                                }
+                                Ok(written)
                             }
                         )?
                         .map_err(|err| match err {
@@ -166,33 +168,32 @@ fn fd_write_internal<M: MemorySize>(
                     let socket = socket.clone();
                     drop(guard);
 
-                    let buf_len: M::Offset = iovs_arr
-                        .iter()
-                        .filter_map(|a| a.read().ok())
-                        .map(|a| a.buf_len)
-                        .sum();
-                    let buf_len: usize = wasi_try_ok!(buf_len.try_into().map_err(|_| Errno::Inval));
-                    let mut buf = Vec::with_capacity(buf_len);
-                    wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
-
                     let tasks = env.tasks().clone();
-                    let written = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-                        socket.send(tasks.deref(), &buf, fd_flags).await
+                    let written = wasi_try_ok!(__asyncify_light(env, None, async move {
+                        let mut sent = 0usize;
+                        for iovs in iovs_arr.iter() {
+                            let buf = WasmPtr::<u8, M>::new(iovs.buf)
+                                .slice(&memory, iovs.buf_len)
+                                .map_err(mem_error_to_wasi)?
+                                .access()
+                                .map_err(mem_error_to_wasi)?;
+                            sent += socket.send(tasks.deref(), buf.as_ref(), fd_flags).await?;
+                        }
+                        Ok(sent)
                     })?);
                     (written, false)
                 }
                 Kind::Pipe { pipe } => {
-                    let buf_len: M::Offset = iovs_arr
-                        .iter()
-                        .filter_map(|a| a.read().ok())
-                        .map(|a| a.buf_len)
-                        .sum();
-                    let buf_len: usize = wasi_try_ok!(buf_len.try_into().map_err(|_| Errno::Inval));
-                    let mut buf = Vec::with_capacity(buf_len);
-                    wasi_try_ok!(write_bytes(&mut buf, &memory, iovs_arr));
-
-                    let written =
-                        wasi_try_ok!(std::io::Write::write(pipe, &buf[..]).map_err(map_io_err));
+                    let mut written = 0usize;
+                    for iovs in iovs_arr.iter() {
+                        let buf = wasi_try_ok!(WasmPtr::<u8, M>::new(iovs.buf)
+                            .slice(&memory, iovs.buf_len)
+                            .map_err(mem_error_to_wasi));
+                        let buf = wasi_try_ok!(buf.access().map_err(mem_error_to_wasi));
+                        written += wasi_try_ok!(
+                            std::io::Write::write(pipe, buf.as_ref()).map_err(map_io_err)
+                        );
+                    }
                     (written, false)
                 }
                 Kind::Dir { .. } | Kind::Root { .. } => {
@@ -200,23 +201,41 @@ fn fd_write_internal<M: MemorySize>(
                     return Ok(Errno::Isdir);
                 }
                 Kind::EventNotifications(inner) => {
-                    let mut val: [MaybeUninit<u8>; 8] =
-                        unsafe { MaybeUninit::uninit().assume_init() };
-                    let written = wasi_try_ok!(copy_to_slice(&memory, iovs_arr, &mut val[..]));
-                    if written != val.len() {
-                        return Ok(Errno::Inval);
+                    let mut written = 0usize;
+                    for iovs in iovs_arr.iter() {
+                        let buf_len: usize =
+                            wasi_try_ok!(iovs.buf_len.try_into().map_err(|_| Errno::Inval));
+                        let will_be_written = buf_len;
+
+                        let val_cnt = buf_len / std::mem::size_of::<u64>();
+                        let val_cnt: M::Offset =
+                            wasi_try_ok!(val_cnt.try_into().map_err(|_| Errno::Inval));
+
+                        let vals = wasi_try_ok!(WasmPtr::<u64, M>::new(iovs.buf)
+                            .slice(&memory, val_cnt as M::Offset)
+                            .map_err(mem_error_to_wasi));
+                        let vals = wasi_try_ok!(vals.access().map_err(mem_error_to_wasi));
+                        for val in vals.iter() {
+                            inner.write(*val);
+                        }
+
+                        written += will_be_written;
                     }
-                    let val = u64::from_ne_bytes(unsafe { std::mem::transmute(val) });
-
-                    inner.write(val);
-
                     (written, false)
                 }
                 Kind::Symlink { .. } => return Ok(Errno::Inval),
                 Kind::Buffer { buffer } => {
-                    let written =
-                        wasi_try_ok!(write_bytes(&mut buffer[offset..], &memory, iovs_arr));
-                    (written, true)
+                    let mut written = 0usize;
+                    for iovs in iovs_arr.iter() {
+                        let buf = wasi_try_ok!(WasmPtr::<u8, M>::new(iovs.buf)
+                            .slice(&memory, iovs.buf_len)
+                            .map_err(mem_error_to_wasi));
+                        let buf = wasi_try_ok!(buf.access().map_err(mem_error_to_wasi));
+                        written += wasi_try_ok!(
+                            std::io::Write::write(buffer, buf.as_ref()).map_err(map_io_err)
+                        );
+                    }
+                    (written, false)
                 }
             }
         };

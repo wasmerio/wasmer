@@ -428,6 +428,7 @@ compile_error!(
     "The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
 );
 
+mod access;
 mod engine;
 mod errors;
 mod exports;
@@ -459,6 +460,7 @@ mod js;
 pub use js::*;
 
 pub use crate::externals::{Extern, Function, Global, HostFunction, Memory, MemoryView, Table};
+pub use access::WasmSliceAccess;
 pub use engine::{AsEngineRef, Engine};
 pub use errors::{InstantiationError, LinkError, RuntimeError};
 pub use exports::{ExportError, Exportable, Exports, ExportsIterator};

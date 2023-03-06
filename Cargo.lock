@@ -2084,15 +2084,15 @@ checksum = "f051f77a7c8e6957c0696eac88f26b0117e54f52d3fc682ab19397a8812846a4"
 
 [[package]]
 name = "llvm-sys"
-version = "120.2.5"
+version = "140.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1c9655eec036faf512507746ce70765bda72ed98e52b4328f0d7b93e970c6d8"
+checksum = "3fe3609d79f74a2e4e158e3eaa61c2e931cecba242a79de5529cec2f92b423b7"
 dependencies = [
  "cc",
  "lazy_static",
  "libc",
  "regex",
- "semver 0.11.0",
+ "semver 1.0.16",
 ]
 
 [[package]]
