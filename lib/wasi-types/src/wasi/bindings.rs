@@ -425,11 +425,7 @@ impl Errno {
 }
 impl core::fmt::Debug for Errno {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("Errno")
-            .field("code", &(*self as i32))
-            .field("name", &self.name())
-            .field("message", &self.message())
-            .finish()
+        write!(f, "{} (error {})", self.name(), *self as i32)
     }
 }
 impl core::fmt::Display for Errno {
@@ -2590,6 +2586,40 @@ impl core::fmt::Debug for ErrnoSignal {
         f.debug_struct("ErrnoSignal")
             .field("exit-code", &self.exit_code)
             .field("signal", &self.signal)
+            .finish()
+    }
+}
+
+wai_bindgen_rust::bitflags::bitflags! {
+    #[doc = " thread state flags"]
+    pub struct ThreadStateFlags : u16 {
+        const TSD_USED = 1 << 0 ;
+        const DLERROR_FLAG = 1 << 1 ;
+    }
+}
+impl ThreadStateFlags {
+    #[doc = " Convert from a raw integer, preserving any unknown bits. See"]
+    #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
+    pub fn from_bits_preserve(bits: u16) -> Self {
+        Self { bits }
+    }
+}
+#[doc = " Represents the thread start object"]
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct ThreadStart {
+    pub stack: Size,
+    pub tls_base: Size,
+    pub start_funct: Size,
+    pub start_args: Size,
+}
+impl core::fmt::Debug for ThreadStart {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ThreadStart")
+            .field("stack", &self.stack)
+            .field("tls-base", &self.tls_base)
+            .field("start-funct", &self.start_funct)
+            .field("start-args", &self.start_args)
             .finish()
     }
 }

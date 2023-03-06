@@ -1,4 +1,4 @@
-use wasmer_wasi_types::wasi::{JoinStatus, JoinStatusType, JoinStatusUnion, OptionPid, JoinFlags};
+use wasmer_wasi_types::wasi::{JoinFlags, JoinStatus, JoinStatusType, JoinStatusUnion, OptionPid};
 
 use super::*;
 use crate::syscalls::*;

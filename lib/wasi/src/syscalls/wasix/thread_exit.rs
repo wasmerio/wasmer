@@ -13,7 +13,7 @@ use crate::syscalls::*;
 pub fn thread_exit(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     exitcode: ExitCode,
-) -> Result<Errno, WasiError> {
+) -> Result<(), WasiError> {
     debug!(
         "wasi[{}:{}]::thread_exit",
         ctx.data().pid(),

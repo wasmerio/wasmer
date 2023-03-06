@@ -8,6 +8,7 @@
 ///
 /// Note: This is similar to `size_t` in POSIX.
 // TODO: This is defined as `usize` in the original witx file. Should verify that this type is good as it is defined here
+// TODO: This is not good as it breaks 64bit builds - it will need to be externalized
 type size = u32
 
 /// Non-negative file size or length of a region within a file.
@@ -1253,4 +1254,27 @@ variant join-status {
    exit-normal(errno),
    exit-signal(errno-signal),
    stopped(signal)
+}
+
+/// thread state flags
+flags thread-state-flags {
+    // TODO: wit doesnt appear to support repr
+    // flags (@witx repr u16)
+  
+    // tsd_used
+    tsd-used,
+    // dlerror_flag
+    dlerror-flag
+}
+
+/// Represents the thread start object
+record thread-start {
+    // Address where the stack starts
+    stack: size,
+    // Address where the TLS starts
+    tls-base: size,
+    // Function that will be invoked when the thread starts
+    start-funct: size,
+    // Arguments to pass the callback function
+    start-args: size,
 }
