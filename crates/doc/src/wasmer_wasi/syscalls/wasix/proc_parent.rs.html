@@ -26,8 +26,6 @@
 <span id="24">24</span>
 <span id="25">25</span>
 <span id="26">26</span>
-<span id="27">27</span>
-<span id="28">28</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -45,16 +43,14 @@
     <span class="kw">if</span> <span class="ident">pid</span> <span class="op">==</span> <span class="ident">env</span>.<span class="ident">process</span>.<span class="ident">pid</span>() {
         <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
         <span class="macro">wasi_try_mem!</span>(<span class="ident">ret_parent</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">env</span>.<span class="ident">process</span>.<span class="ident">ppid</span>().<span class="ident">raw</span>() <span class="kw">as</span> <span class="ident">Pid</span>));
+        <span class="ident">Errno::Success</span>
+    } <span class="kw">else</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">process</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">control_plane</span>.<span class="ident">get_process</span>(<span class="ident">pid</span>) {
+        <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
+        <span class="macro">wasi_try_mem!</span>(<span class="ident">ret_parent</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">process</span>.<span class="ident">pid</span>().<span class="ident">raw</span>() <span class="kw">as</span> <span class="ident">Pid</span>));
+        <span class="ident">Errno::Success</span>
     } <span class="kw">else</span> {
-        <span class="kw">let</span> <span class="ident">control_plane</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">process</span>.<span class="ident">control_plane</span>();
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">process</span>) <span class="op">=</span> <span class="ident">control_plane</span>.<span class="ident">get_process</span>(<span class="ident">pid</span>) {
-            <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
-            <span class="macro">wasi_try_mem!</span>(<span class="ident">ret_parent</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">process</span>.<span class="ident">pid</span>().<span class="ident">raw</span>() <span class="kw">as</span> <span class="ident">Pid</span>));
-        } <span class="kw">else</span> {
-            <span class="kw">return</span> <span class="ident">Errno::Badf</span>;
-        }
+        <span class="ident">Errno::Badf</span>
     }
-    <span class="ident">Errno::Success</span>
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasi" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

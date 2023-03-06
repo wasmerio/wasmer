@@ -206,6 +206,32 @@
 <span id="204">204</span>
 <span id="205">205</span>
 <span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections::HashMap</span>,
     <span class="ident">sync</span>::{
@@ -219,6 +245,28 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiControlPlane</span> {
     <span class="ident">state</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">State</span><span class="op">&gt;</span>,
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasiControlPlaneHandle</span> {
+    <span class="ident">inner</span>: <span class="ident">std::sync::Weak</span><span class="op">&lt;</span><span class="ident">State</span><span class="op">&gt;</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">WasiControlPlaneHandle</span> {
+    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">inner</span>: <span class="kw-2">&amp;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">State</span><span class="op">&gt;</span>) -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">inner</span>: <span class="ident">Arc::downgrade</span>(<span class="ident">inner</span>),
+        }
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">upgrade</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasiControlPlane</span><span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">upgrade</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">state</span><span class="op">|</span> <span class="ident">WasiControlPlane</span> { <span class="ident">state</span> })
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">must_upgrade</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">WasiControlPlane</span> {
+        <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>.<span class="ident">upgrade</span>().<span class="ident">expect</span>(<span class="string">&quot;control plane unavailable&quot;</span>);
+        <span class="ident">WasiControlPlane</span> { <span class="ident">state</span> }
+    }
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
@@ -275,6 +323,10 @@
         }
     }
 
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">handle</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">WasiControlPlaneHandle</span> {
+        <span class="ident">WasiControlPlaneHandle::new</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">state</span>)
+    }
+
     <span class="doccomment">/// Get the current count of active tasks (threads).</span>
     <span class="kw">fn</span> <span class="ident">active_task_count</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">usize</span> {
         <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">task_count</span>.<span class="ident">load</span>(<span class="ident">Ordering::SeqCst</span>)
@@ -307,7 +359,7 @@
         }
 
         <span class="comment">// Create the process first to do all the allocations before locking.</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">proc</span> <span class="op">=</span> <span class="ident">WasiProcess::new</span>(<span class="ident">WasiProcessId::from</span>(<span class="number">0</span>), <span class="self">self</span>.<span class="ident">clone</span>());
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">proc</span> <span class="op">=</span> <span class="ident">WasiProcess::new</span>(<span class="ident">WasiProcessId::from</span>(<span class="number">0</span>), <span class="self">self</span>.<span class="ident">handle</span>());
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">mutable</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">mutable</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
 
