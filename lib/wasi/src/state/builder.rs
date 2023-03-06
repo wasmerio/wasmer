@@ -756,6 +756,13 @@ impl WasiEnvBuilder {
         env.data(store).thread.set_status_running();
         let res = crate::run_wasi_func_start(start, store);
 
+        tracing::trace!(
+            "wasi[{}:{}]::main exit (code = {:?})",
+            env.data(store).pid(),
+            env.data(store).tid(),
+            res
+        );
+
         let exit_code = match &res {
             Ok(_) => Errno::Success,
             Err(err) => err.as_exit_code().unwrap_or(Errno::Noexec),

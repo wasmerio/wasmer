@@ -165,7 +165,7 @@ llvm = [
     "compiler",
 ]
 debug = ["fern", "wasmer-wasi/logging"]
-disable-all-logging = ["wasmer-wasi/disable-all-logging"]
+disable-all-logging = ["wasmer-wasi/disable-all-logging", "log/release_max_level_off"]
 headless = []
 headless-minimal = ["headless", "disable-all-logging", "wasi"]
 

@@ -1,4 +1,7 @@
-use crate::RuntimeError;
+use crate::{
+    access::{RefCow, SliceCow, WasmRefAccess},
+    RuntimeError, WasmSliceAccess,
+};
 #[allow(unused_imports)]
 use crate::{Memory, Memory32, Memory64, MemorySize, MemoryView, WasmPtr};
 use std::{
@@ -102,26 +105,20 @@ impl<'a, T: ValueType> WasmRef<'a, T> {
     /// Reads the location pointed to by this `WasmRef`.
     #[inline]
     pub fn read(self) -> Result<T, MemoryAccessError> {
-        let mut out = MaybeUninit::uninit();
-        let buf =
-            unsafe { slice::from_raw_parts_mut(out.as_mut_ptr() as *mut u8, mem::size_of::<T>()) };
-        self.buffer.read(self.offset, buf)?;
-        Ok(unsafe { out.assume_init() })
+        Ok(self.access()?.read())
     }
 
     /// Writes to the location pointed to by this `WasmRef`.
     #[inline]
     pub fn write(self, val: T) -> Result<(), MemoryAccessError> {
-        let mut data = MaybeUninit::new(val);
-        let data = unsafe {
-            slice::from_raw_parts_mut(
-                data.as_mut_ptr() as *mut MaybeUninit<u8>,
-                mem::size_of::<T>(),
-            )
-        };
-        val.zero_padding_bytes(data);
-        let data = unsafe { slice::from_raw_parts(data.as_ptr() as *const _, data.len()) };
-        self.buffer.write(self.offset, data)
+        self.access()?.write(val);
+        Ok(())
+    }
+
+    /// Gains direct access to the memory of this slice
+    #[inline]
+    pub fn access(self) -> Result<WasmRefAccess<'a, T>, MemoryAccessError> {
+        WasmRefAccess::new(self)
     }
 }
 
@@ -238,6 +235,12 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
     #[inline]
     pub fn iter(self) -> WasmSliceIter<'a, T> {
         WasmSliceIter { slice: self }
+    }
+
+    /// Gains direct access to the memory of this slice
+    #[inline]
+    pub fn access(self) -> Result<WasmSliceAccess<'a, T>, MemoryAccessError> {
+        WasmSliceAccess::new(self)
     }
 
     /// Reads an element of this slice.
@@ -404,3 +407,66 @@ impl<'a, T: ValueType> DoubleEndedIterator for WasmSliceIter<'a, T> {
 }
 
 impl<'a, T: ValueType> ExactSizeIterator for WasmSliceIter<'a, T> {}
+
+impl<'a, T> WasmSliceAccess<'a, T>
+where
+    T: wasmer_types::ValueType,
+{
+    fn new(slice: WasmSlice<'a, T>) -> Result<Self, MemoryAccessError> {
+        let total_len = slice
+            .len
+            .checked_mul(mem::size_of::<T>() as u64)
+            .ok_or(MemoryAccessError::Overflow)?;
+        let end = slice
+            .offset
+            .checked_add(total_len)
+            .ok_or(MemoryAccessError::Overflow)?;
+        if end > slice.buffer.len as u64 {
+            #[cfg(feature = "tracing")]
+            warn!(
+                "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
+                total_len, end, slice.buffer.len
+            );
+            return Err(MemoryAccessError::HeapOutOfBounds);
+        }
+        let buf = unsafe {
+            let buf_ptr: *mut u8 = slice.buffer.base.add(slice.offset as usize);
+            let buf_ptr: *mut T = std::mem::transmute(buf_ptr);
+            std::slice::from_raw_parts_mut(buf_ptr, slice.len as usize)
+        };
+        Ok(Self {
+            slice,
+            buf: SliceCow::Borrowed(buf),
+        })
+    }
+}
+
+impl<'a, T> WasmRefAccess<'a, T>
+where
+    T: wasmer_types::ValueType,
+{
+    fn new(ptr: WasmRef<'a, T>) -> Result<Self, MemoryAccessError> {
+        let total_len = mem::size_of::<T>() as u64;
+        let end = ptr
+            .offset
+            .checked_add(total_len)
+            .ok_or(MemoryAccessError::Overflow)?;
+        if end > ptr.buffer.len as u64 {
+            #[cfg(feature = "tracing")]
+            warn!(
+                "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
+                total_len, end, ptr.buffer.len
+            );
+            return Err(MemoryAccessError::HeapOutOfBounds);
+        }
+        let val = unsafe {
+            let val_ptr: *mut u8 = ptr.buffer.base.add(ptr.offset as usize);
+            let val_ptr: *mut T = std::mem::transmute(val_ptr);
+            &mut *val_ptr
+        };
+        Ok(Self {
+            ptr,
+            buf: RefCow::Borrowed(val),
+        })
+    }
+}
