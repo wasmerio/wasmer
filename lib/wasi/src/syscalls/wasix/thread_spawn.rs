@@ -5,6 +5,7 @@ use crate::syscalls::*;
 use wasmer::vm::VMMemory;
 #[cfg(feature = "js")]
 use wasmer::VMMemory;
+use wasmer_wasi_types::wasi::ThreadStart;
 
 /// ### `thread_spawn()`
 /// Creates a new thread by spawning that shares the same
@@ -26,10 +27,7 @@ use wasmer::VMMemory;
 /// (indices always start from zero)
 pub fn thread_spawn<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    user_data: u64,
-    stack_base: u64,
-    stack_start: u64,
-    reactor: Bool,
+    start_ptr: WasmPtr<ThreadStart<M>, M>,
     ret_tid: WasmPtr<Tid, M>,
 ) -> Errno {
     // Now we use the environment and memory references
@@ -38,16 +36,20 @@ pub fn thread_spawn<M: MemorySize>(
     let runtime = env.runtime.clone();
     let tasks = env.tasks().clone();
 
+    // Read the properties about the stack which we will use for asyncify
+    let start = wasi_try_mem!(start_ptr.read(&memory));
+    let stack_start: u64 = wasi_try!(start.stack_start.try_into().map_err(|_| Errno::Overflow));
+    let stack_size: u64 = wasi_try!(start.stack_size.try_into().map_err(|_| Errno::Overflow));
+    let stack_base = stack_start - stack_size;
+
     // Create the handle that represents this thread
     let mut thread_handle = match env.process.new_thread() {
         Ok(h) => h,
         Err(err) => {
             error!(
-                "wasi[{}:{}]::thread_spawn (reactor={:?}, stack_base={}, caller_id={}) - failed to create thread handle: {}",
+                "wasi[{}:{}]::thread_spawn (caller_id={}) - failed to create thread handle: {}",
                 ctx.data().pid(),
                 ctx.data().tid(),
-                reactor,
-                stack_base,
                 current_caller_id().raw(),
                 err
             );
@@ -59,11 +61,9 @@ pub fn thread_spawn<M: MemorySize>(
 
     debug!(
         %thread_id,
-        "wasi[{}:{}]::thread_spawn (reactor={:?}, stack_base={}, caller_id={})",
+        "wasi[{}:{}]::thread_spawn (caller_id={})",
         ctx.data().pid(),
         ctx.data().tid(),
-        reactor,
-        stack_base,
         current_caller_id().raw()
     );
 
@@ -125,34 +125,25 @@ pub fn thread_spawn<M: MemorySize>(
     };
 
     // This function calls into the module
+    let start_ptr_offset = start_ptr.offset();
     let call_module = move |ctx: &WasiFunctionEnv, store: &mut Store| {
         // We either call the reactor callback or the thread spawn callback
         //trace!("threading: invoking thread callback (reactor={})", reactor);
-        let spawn = match reactor {
-            Bool::False => ctx.data(&store).inner().thread_spawn.clone().unwrap(),
-            Bool::True => ctx.data(&store).inner().react.clone().unwrap(),
-            _ => {
-                debug!(
-                    "wasi[{}:{}]::thread_spawn - failed as the reactor type is not value",
-                    ctx.data(&store).pid(),
-                    ctx.data(&store).tid()
-                );
-                return Errno::Noexec as u32;
-            }
-        };
-
-        let user_data_low: u32 = (user_data & 0xFFFFFFFF) as u32;
-        let user_data_high: u32 = (user_data >> 32) as u32;
-
+        let spawn = ctx.data(&store).inner().thread_spawn.clone().unwrap();
         trace!(
-            %user_data,
             "wasi[{}:{}]::thread_spawn spawn.call()",
             ctx.data(&store).pid(),
             ctx.data(&store).tid(),
         );
 
+        let tid = ctx.data(&store).tid();
+        let call_ret = spawn.call(
+            store,
+            tid.raw().try_into().map_err(|_| Errno::Overflow).unwrap(),
+            start_ptr_offset.try_into().map_err(|_| Errno::Overflow).unwrap()
+        );
         let mut ret = Errno::Success;
-        if let Err(err) = spawn.call(store, user_data_low as i32, user_data_high as i32) {
+        if let Err(err) = call_ret {
             match err.downcast::<WasiError>() {
                 Ok(WasiError::Exit(code)) => {
                     debug!(
@@ -187,18 +178,14 @@ pub fn thread_spawn<M: MemorySize>(
             }
         }
         trace!(
-            "wasi[{}:{}]::thread_spawn - thread callback finished (reactor={:?}, ret={})",
+            "wasi[{}:{}]::thread_spawn - thread callback finished (ret={})",
             ctx.data(&store).pid(),
             ctx.data(&store).tid(),
-            reactor,
             ret
         );
 
-        // If we are NOT a reactor then we will only run once and need to clean up
-        if reactor == Bool::False {
-            // Clean up the environment
-            ctx.cleanup(store, Some(ret as ExitCode));
-        }
+        // Clean up the environment
+        ctx.cleanup(store, Some(ret as ExitCode));
 
         // Return the result
         ret as u32
@@ -276,44 +263,29 @@ pub fn thread_spawn<M: MemorySize>(
         }
     };
 
-    // If we are a reactor then instead of launching the thread now
-    // we store it in the state machine and only launch it whenever
-    // work arrives that needs to be processed
-    match reactor {
-        Bool::True => {
-            warn!("thread failed - reactors are not currently supported");
-            return Errno::Notcapable;
-        }
-        Bool::False => {
-            // If the process does not export a thread spawn function then obviously
-            // we can't spawn a background thread
-            if env.inner().thread_spawn.is_none() {
-                warn!("thread failed - the program does not export a _start_thread function");
-                return Errno::Notcapable;
-            }
-
-            let spawn_type = crate::runtime::SpawnType::NewThread(thread_memory);
-
-            // Now spawn a thread
-            trace!("threading: spawning background thread");
-            let thread_module = env.inner().instance.module().clone();
-            let tasks2 = tasks.clone();
-
-            let task = move |store, thread_module, mut thread_memory| {
-                // FIXME: should not use unwrap() here! (initializiation refactor)
-                let mut store = Some(store);
-                execute_module(&mut store, thread_module, &mut thread_memory);
-            };
-
-            wasi_try!(tasks
-                .task_wasm(Box::new(task), store, thread_module, spawn_type)
-                .map_err(|err| { Into::<Errno>::into(err) }));
-        }
-        _ => {
-            warn!("thread failed - invalid reactor parameter value");
-            return Errno::Notcapable;
-        }
+    // If the process does not export a thread spawn function then obviously
+    // we can't spawn a background thread
+    if env.inner().thread_spawn.is_none() {
+        warn!("thread failed - the program does not export a `wasi_thread_start` function");
+        return Errno::Notcapable;
     }
+
+    let spawn_type = crate::runtime::SpawnType::NewThread(thread_memory);
+
+    // Now spawn a thread
+    trace!("threading: spawning background thread");
+    let thread_module = env.inner().instance.module().clone();
+    let tasks2 = tasks.clone();
+
+    let task = move |store, thread_module, mut thread_memory| {
+        // FIXME: should not use unwrap() here! (initializiation refactor)
+        let mut store = Some(store);
+        execute_module(&mut store, thread_module, &mut thread_memory);
+    };
+
+    wasi_try!(tasks
+        .task_wasm(Box::new(task), store, thread_module, spawn_type)
+        .map_err(|err| { Into::<Errno>::into(err) }));
 
     // Success
     let memory = ctx.data().memory_view(&ctx);

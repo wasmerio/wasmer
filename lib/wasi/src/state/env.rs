@@ -63,7 +63,7 @@ pub struct WasiInstanceHandles {
     #[allow(dead_code)]
     pub(crate) initialize: Option<TypedFunction<(), ()>>,
 
-    /// Represents the callback for spawning a thread (name = "_start_thread")
+    /// Represents the callback for spawning a thread (name = "wasi_thread_start")
     /// (due to limitations with i64 in browsers the parameters are broken into i32 pairs)
     /// [this takes a user_data field]
     #[derivative(Debug = "ignore")]
@@ -152,7 +152,7 @@ impl WasiInstanceHandles {
                 .ok(),
             thread_spawn: instance
                 .exports
-                .get_typed_function(store, "_start_thread")
+                .get_typed_function(store, "wasi_thread_start")
                 .ok(),
             react: instance.exports.get_typed_function(store, "_react").ok(),
             signal: instance

@@ -1,5 +1,5 @@
 use std::mem::MaybeUninit;
-use wasmer::ValueType;
+use wasmer::{ValueType, MemorySize};
 // TODO: Remove once bindings generate wai_bindgen_rust::bitflags::bitflags!  (temp hack)
 use wai_bindgen_rust as wit_bindgen_rust;
 
@@ -2602,25 +2602,6 @@ impl ThreadStateFlags {
     #[doc = " <https://github.com/bitflags/bitflags/issues/263#issuecomment-957088321>"]
     pub fn from_bits_preserve(bits: u16) -> Self {
         Self { bits }
-    }
-}
-#[doc = " Represents the thread start object"]
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct ThreadStart {
-    pub stack: Size,
-    pub tls_base: Size,
-    pub start_funct: Size,
-    pub start_args: Size,
-}
-impl core::fmt::Debug for ThreadStart {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("ThreadStart")
-            .field("stack", &self.stack)
-            .field("tls-base", &self.tls_base)
-            .field("start-funct", &self.start_funct)
-            .field("start-args", &self.start_args)
-            .finish()
     }
 }
 

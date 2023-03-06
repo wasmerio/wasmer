@@ -1,6 +1,6 @@
 use std::mem::MaybeUninit;
 
-use wasmer::ValueType;
+use wasmer::{ValueType, MemorySize};
 
 use super::{
     Errno, ErrnoSignal, EventFdReadwrite, Eventtype, JoinStatusType, Signal,
@@ -206,6 +206,38 @@ impl core::fmt::Debug for JoinStatus {
     }
 }
 unsafe impl ValueType for JoinStatus {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+
+#[doc = " Represents the thread start object"]
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct ThreadStart<M: MemorySize> {
+    pub stack_start: M::Offset,
+    pub tls_base: M::Offset,
+    pub start_funct: M::Offset,
+    pub start_args: M::Offset,
+    pub reserved: [M::Offset; 10],
+    pub stack_size: M::Offset,
+    pub guard_size: M::Offset,
+}
+impl<M: MemorySize> core::fmt::Debug for ThreadStart<M> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ThreadStart")
+            .field("stack_start", &self.stack_start)
+            .field("tls-base", &self.tls_base)
+            .field("start-funct", &self.start_funct)
+            .field("start-args", &self.start_args)
+            .field("stack_size", &self.stack_size)
+            .field("guard_size", &self.guard_size)
+            .finish()
+    }
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl<M: MemorySize> ValueType for ThreadStart<M> {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
