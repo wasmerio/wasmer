@@ -5211,6 +5211,7 @@ dependencies = [
  "derivative",
  "filetime",
  "fs_extra",
+ "indexmap",
  "lazy_static",
  "libc",
  "pin-project-lite",
