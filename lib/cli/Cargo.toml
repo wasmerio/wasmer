@@ -56,8 +56,7 @@ bytesize = "1.0"
 cfg-if = "1.0"
 # For debug feature
 fern = { version = "0.6", features = ["colored"], optional = true }
-tempfile = "3"
-tempdir = "0.3.7"
+tempfile = "3.4.0"
 http_req  = { version="^0.8", default-features = false, features = ["rust-tls"] }
 reqwest = { version = "^0.11", default-features = false, features = ["rustls-tls", "json", "multipart"] }
 serde = { version = "1.0.147", features = ["derive"] }

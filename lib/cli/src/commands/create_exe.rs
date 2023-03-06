@@ -642,7 +642,7 @@ impl PrefixMapCompilation {
 
 #[test]
 fn test_prefix_parsing() {
-    let tempdir = tempdir::TempDir::new("test-prefix-parsing").unwrap();
+    let tempdir = tempfile::TempDir::new().unwrap();
     let path = tempdir.path();
     std::fs::write(path.join("test.obj"), b"").unwrap();
     let str1 = format!("ATOM_NAME:PREFIX:{}", path.join("test.obj").display());
@@ -2132,7 +2132,7 @@ mod http_fetch {
             .unwrap_or("output")
             .to_string();
 
-        let download_tempdir = tempdir::TempDir::new("wasmer-download")?;
+        let download_tempdir = tempfile::TempDir::new()?;
         let download_path = download_tempdir.path().join(&filename);
 
         let mut file = std::fs::File::create(&download_path)?;

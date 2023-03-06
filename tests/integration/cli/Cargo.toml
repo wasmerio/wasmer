@@ -19,7 +19,7 @@ object = "0.30.0"
 
 [dependencies]
 anyhow = "1"
-tempfile = "3"
+tempfile = "3.4.0"
 target-lexicon = "0.12.5"
 tar = "0.4.38"
 flate2 = "1.0.24"

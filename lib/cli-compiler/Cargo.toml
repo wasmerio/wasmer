@@ -33,7 +33,7 @@ cfg-if = "1.0"
 fern = { version = "0.6", features = ["colored"], optional = true }
 log = { version = "0.4", optional = true }
 target-lexicon = { version = "0.12", features = ["std"] }
-tempfile = "3"
+tempfile = "3.4.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 wasmer-compiler-singlepass = { version = "=3.2.0-alpha.1", path = "../compiler-singlepass", optional = true }

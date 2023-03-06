@@ -498,7 +498,7 @@ pub fn download_and_unpack_targz(
     target_path: &Path,
     strip_toplevel: bool,
 ) -> Result<PathBuf, anyhow::Error> {
-    let tempdir = tempdir::TempDir::new("wasmer-download-targz")?;
+    let tempdir = tempfile::TempDir::new()?;
 
     let target_targz_path = tempdir.path().join("package.tar.gz");
 
@@ -574,7 +574,7 @@ where
 pub fn install_package(wasmer_dir: &Path, url: &Url) -> Result<PathBuf, anyhow::Error> {
     use fs_extra::dir::copy;
 
-    let tempdir = tempdir::TempDir::new("download")
+    let tempdir = tempfile::TempDir::new()
         .map_err(|e| anyhow::anyhow!("could not create download temp dir: {e}"))?;
 
     let target_targz_path = tempdir.path().join("package.tar.gz");
@@ -985,7 +985,7 @@ fn test_install_package() {
         "https://registry-cdn.wapm.io/packages/wasmer/wabt/wabt-1.0.29.tar.gz".to_string()
     );
 
-    let fake_wasmer_dir = tempdir::TempDir::new("tmp").unwrap();
+    let fake_wasmer_dir = tempfile::TempDir::new().unwrap();
     let wasmer_dir = fake_wasmer_dir.path();
     let path = install_package(wasmer_dir, &url::Url::parse(&wabt.url).unwrap()).unwrap();
 
