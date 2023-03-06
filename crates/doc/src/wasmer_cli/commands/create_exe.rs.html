@@ -2850,7 +2850,7 @@
 
 <span class="attribute">#[<span class="ident">test</span>]</span>
 <span class="kw">fn</span> <span class="ident">test_prefix_parsing</span>() {
-    <span class="kw">let</span> <span class="ident">tempdir</span> <span class="op">=</span> <span class="ident">tempdir::TempDir::new</span>(<span class="string">&quot;test-prefix-parsing&quot;</span>).<span class="ident">unwrap</span>();
+    <span class="kw">let</span> <span class="ident">tempdir</span> <span class="op">=</span> <span class="ident">tempfile::TempDir::new</span>().<span class="ident">unwrap</span>();
     <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">tempdir</span>.<span class="ident">path</span>();
     <span class="ident">std::fs::write</span>(<span class="ident">path</span>.<span class="ident">join</span>(<span class="string">&quot;test.obj&quot;</span>), <span class="string">b&quot;&quot;</span>).<span class="ident">unwrap</span>();
     <span class="kw">let</span> <span class="ident">str1</span> <span class="op">=</span> <span class="macro">format!</span>(<span class="string">&quot;ATOM_NAME:PREFIX:{}&quot;</span>, <span class="ident">path</span>.<span class="ident">join</span>(<span class="string">&quot;test.obj&quot;</span>).<span class="ident">display</span>());
@@ -4340,7 +4340,7 @@
             .<span class="ident">unwrap_or</span>(<span class="string">&quot;output&quot;</span>)
             .<span class="ident">to_string</span>();
 
-        <span class="kw">let</span> <span class="ident">download_tempdir</span> <span class="op">=</span> <span class="ident">tempdir::TempDir::new</span>(<span class="string">&quot;wasmer-download&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">download_tempdir</span> <span class="op">=</span> <span class="ident">tempfile::TempDir::new</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">download_path</span> <span class="op">=</span> <span class="ident">download_tempdir</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="kw-2">&amp;</span><span class="ident">filename</span>);
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">file</span> <span class="op">=</span> <span class="ident">std::fs::File::create</span>(<span class="kw-2">&amp;</span><span class="ident">download_path</span>)<span class="question-mark">?</span>;
