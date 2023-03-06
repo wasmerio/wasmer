@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"trait":[["Runner","Trait that all runners have to implement"]]};

@@ -843,6 +843,7 @@
 <span id="841">841</span>
 <span id="842">842</span>
 <span id="843">843</span>
+<span id="844">844</span>
 </pre><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream</span>
 
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">unused_mut</span>)]</span>
@@ -884,6 +885,7 @@
 <span class="comment">// TODO: should this be pub?</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">fs</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">http</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webc_runner&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">runners</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">runtime</span>;
 <span class="kw">mod</span> <span class="ident">state</span>;

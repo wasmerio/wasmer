@@ -923,10 +923,10 @@
     <span class="ident">package_name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
 ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span>(<span class="ident">WasiFunctionEnv</span>, <span class="ident">Imports</span>)<span class="op">&gt;</span> {
     <span class="kw">use</span> <span class="ident">wasmer_vfs::static_fs::StaticFileSystem</span>;
-    <span class="kw">use</span> <span class="ident">webc::FsEntryType</span>;
+    <span class="kw">use</span> <span class="ident">webc::v1</span>::{<span class="ident">FsEntryType</span>, <span class="ident">WebC</span>};
 
     <span class="kw">let</span> <span class="ident">slice</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">std::slice::from_raw_parts</span>(<span class="ident">bytes</span>, <span class="ident">len</span>) };
-    <span class="kw">let</span> <span class="ident">volumes</span> <span class="op">=</span> <span class="ident">webc::WebC::parse_volumes_from_fileblock</span>(<span class="ident">slice</span>).<span class="ident">ok</span>()<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">volumes</span> <span class="op">=</span> <span class="ident">WebC::parse_volumes_from_fileblock</span>(<span class="ident">slice</span>).<span class="ident">ok</span>()<span class="question-mark">?</span>;
     <span class="kw">let</span> <span class="ident">top_level_dirs</span> <span class="op">=</span> <span class="ident">volumes</span>
         .<span class="ident">into_iter</span>()
         .<span class="ident">flat_map</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">volume</span>)<span class="op">|</span> {

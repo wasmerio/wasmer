@@ -142,7 +142,7 @@
 <span class="kw">use</span> <span class="ident">wasmer_compiler::Artifact</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CpuFeature</span>, <span class="ident">MetadataHeader</span>, <span class="ident">Triple</span>};
-<span class="kw">use</span> <span class="ident">webc::WebC</span>;
+<span class="kw">use</span> <span class="ident">webc::v1::WebC</span>;
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Parser</span>)]</span>
 <span class="doccomment">/// The options for the `wasmer gen-c-header` subcommand</span>
@@ -194,7 +194,7 @@
             <span class="prelude-val">None</span> =&gt; <span class="ident"><span class="kw">crate</span>::commands::PrefixMapCompilation::hash_for_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">file</span>),
         };
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">pirita</span>) <span class="op">=</span> <span class="ident">WebC::parse</span>(<span class="kw-2">&amp;</span><span class="ident">file</span>, <span class="kw-2">&amp;</span><span class="ident">webc::ParseOptions::default</span>()) {
+        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">pirita</span>) <span class="op">=</span> <span class="ident">WebC::parse</span>(<span class="kw-2">&amp;</span><span class="ident">file</span>, <span class="kw-2">&amp;</span><span class="ident">webc::v1::ParseOptions::default</span>()) {
             <span class="kw">let</span> <span class="ident">atoms</span> <span class="op">=</span> <span class="ident">pirita</span>
                 .<span class="ident">manifest</span>
                 .<span class="ident">atoms</span>

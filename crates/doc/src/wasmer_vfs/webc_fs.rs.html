@@ -460,7 +460,7 @@
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">std::task</span>::{<span class="ident">Context</span>, <span class="ident">Poll</span>};
 <span class="kw">use</span> <span class="ident">tokio::io</span>::{<span class="ident">AsyncRead</span>, <span class="ident">AsyncSeek</span>, <span class="ident">AsyncWrite</span>};
-<span class="kw">use</span> <span class="ident">webc</span>::{<span class="ident">FsEntry</span>, <span class="ident">FsEntryType</span>, <span class="ident">OwnedFsEntryFile</span>, <span class="ident">WebC</span>};
+<span class="kw">use</span> <span class="ident">webc::v1</span>::{<span class="ident">FsEntry</span>, <span class="ident">FsEntryType</span>, <span class="ident">OwnedFsEntryFile</span>, <span class="ident">WebC</span>};
 
 <span class="doccomment">/// Custom file system wrapper to map requested file paths</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
@@ -471,7 +471,7 @@
     <span class="kw">pub</span> <span class="ident">webc</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">memory</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">MemFileSystem</span><span class="op">&gt;</span>,
     <span class="ident">top_level_dirs</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>,
-    <span class="ident">volumes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">webc::Volume</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">volumes</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">webc::v1::Volume</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> <span class="ident">WebcFileSystem</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>

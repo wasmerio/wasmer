@@ -1791,7 +1791,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Clone</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RemoteWebcInfo</span> {
     <span class="kw">pub</span> <span class="ident">checksum</span>: <span class="ident">String</span>,
-    <span class="kw">pub</span> <span class="ident">manifest</span>: <span class="ident">webc::Manifest</span>,
+    <span class="kw">pub</span> <span class="ident">manifest</span>: <span class="ident">webc::metadata::Manifest</span>,
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">install_webc_package</span>(
@@ -1873,9 +1873,9 @@
     <span class="ident">read_dir</span>
         .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">r</span><span class="op">|</span> <span class="prelude-val">Some</span>(<span class="ident">r</span>.<span class="ident">ok</span>()<span class="question-mark">?</span>.<span class="ident">path</span>()))
         .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">path</span><span class="op">|</span> {
-            <span class="ident">webc::WebCMmap::parse</span>(
+            <span class="ident">webc::v1::WebCMmap::parse</span>(
                 <span class="ident">path</span>,
-                <span class="kw-2">&amp;</span><span class="ident">webc::ParseOptions</span> {
+                <span class="kw-2">&amp;</span><span class="ident">webc::v1::ParseOptions</span> {
                     <span class="ident">parse_atoms</span>: <span class="bool-val">false</span>,
                     <span class="ident">parse_volumes</span>: <span class="bool-val">false</span>,
                     ..<span class="ident">Default::default</span>()
@@ -1913,11 +1913,11 @@
 <span class="doccomment">/// Returns the checksum of the .webc file, so that we can check whether the</span>
 <span class="doccomment">/// file is already installed before downloading it</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_remote_webc_checksum</span>(<span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">request_max_bytes</span> <span class="op">=</span> <span class="ident">webc::WebC::get_signature_offset_start</span>() <span class="op">+</span> <span class="number">4</span> <span class="op">+</span> <span class="number">1024</span> <span class="op">+</span> <span class="number">8</span> <span class="op">+</span> <span class="number">8</span>;
+    <span class="kw">let</span> <span class="ident">request_max_bytes</span> <span class="op">=</span> <span class="ident">webc::v1::WebC::get_signature_offset_start</span>() <span class="op">+</span> <span class="number">4</span> <span class="op">+</span> <span class="number">1024</span> <span class="op">+</span> <span class="number">8</span> <span class="op">+</span> <span class="number">8</span>;
     <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">get_webc_bytes</span>(<span class="ident">url</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>..<span class="ident">request_max_bytes</span>), <span class="prelude-val">None</span>)
         .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;note: use --registry to change the registry URL&quot;</span>))<span class="question-mark">?</span>
         .<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">checksum</span> <span class="op">=</span> <span class="ident">webc::WebC::get_checksum_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>)
+    <span class="kw">let</span> <span class="ident">checksum</span> <span class="op">=</span> <span class="ident">webc::v1::WebC::get_checksum_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>)
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>
         .<span class="ident">to_vec</span>();
     <span class="prelude-val">Ok</span>(<span class="ident">get_checksum_hash</span>(<span class="kw-2">&amp;</span><span class="ident">checksum</span>))
@@ -1927,20 +1927,20 @@
 <span class="doccomment">/// so we can see if the package has already been installed</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_remote_webc_manifest</span>(<span class="ident">url</span>: <span class="kw-2">&amp;</span><span class="ident">Url</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">RemoteWebcInfo</span>, <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
     <span class="comment">// Request up unti manifest size / manifest len</span>
-    <span class="kw">let</span> <span class="ident">request_max_bytes</span> <span class="op">=</span> <span class="ident">webc::WebC::get_signature_offset_start</span>() <span class="op">+</span> <span class="number">4</span> <span class="op">+</span> <span class="number">1024</span> <span class="op">+</span> <span class="number">8</span> <span class="op">+</span> <span class="number">8</span>;
+    <span class="kw">let</span> <span class="ident">request_max_bytes</span> <span class="op">=</span> <span class="ident">webc::v1::WebC::get_signature_offset_start</span>() <span class="op">+</span> <span class="number">4</span> <span class="op">+</span> <span class="number">1024</span> <span class="op">+</span> <span class="number">8</span> <span class="op">+</span> <span class="number">8</span>;
     <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">get_webc_bytes</span>(<span class="ident">url</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>..<span class="ident">request_max_bytes</span>), <span class="prelude-val">None</span>)<span class="question-mark">?</span>.<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">checksum</span> <span class="op">=</span> <span class="ident">webc::WebC::get_checksum_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>)
+    <span class="kw">let</span> <span class="ident">checksum</span> <span class="op">=</span> <span class="ident">webc::v1::WebC::get_checksum_bytes</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>)
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
         .<span class="ident">context</span>(<span class="string">&quot;WebC::get_checksum_bytes failed&quot;</span>)<span class="question-mark">?</span>
         .<span class="ident">to_vec</span>();
     <span class="kw">let</span> <span class="ident">hex_string</span> <span class="op">=</span> <span class="ident">get_checksum_hash</span>(<span class="kw-2">&amp;</span><span class="ident">checksum</span>);
 
-    <span class="kw">let</span> (<span class="ident">manifest_start</span>, <span class="ident">manifest_len</span>) <span class="op">=</span> <span class="ident">webc::WebC::get_manifest_offset_size</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>)
+    <span class="kw">let</span> (<span class="ident">manifest_start</span>, <span class="ident">manifest_len</span>) <span class="op">=</span> <span class="ident">webc::v1::WebC::get_manifest_offset_size</span>(<span class="kw-2">&amp;</span><span class="ident">data</span>)
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
         .<span class="ident">context</span>(<span class="string">&quot;WebC::get_manifest_offset_size failed&quot;</span>)<span class="question-mark">?</span>;
     <span class="kw">let</span> <span class="ident">data_with_manifest</span> <span class="op">=</span>
         <span class="ident">get_webc_bytes</span>(<span class="ident">url</span>, <span class="prelude-val">Some</span>(<span class="number">0</span>..<span class="ident">manifest_start</span> <span class="op">+</span> <span class="ident">manifest_len</span>), <span class="prelude-val">None</span>)<span class="question-mark">?</span>.<span class="ident">unwrap</span>();
-    <span class="kw">let</span> <span class="ident">manifest</span> <span class="op">=</span> <span class="ident">webc::WebC::get_manifest</span>(<span class="kw-2">&amp;</span><span class="ident">data_with_manifest</span>)
+    <span class="kw">let</span> <span class="ident">manifest</span> <span class="op">=</span> <span class="ident">webc::v1::WebC::get_manifest</span>(<span class="kw-2">&amp;</span><span class="ident">data_with_manifest</span>)
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
         .<span class="ident">context</span>(<span class="string">&quot;WebC::get_manifest failed&quot;</span>)<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(<span class="ident">RemoteWebcInfo</span> {

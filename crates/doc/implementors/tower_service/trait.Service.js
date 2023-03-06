@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["wasmer_wasi"] = [{"text":"impl Service&lt;<a class=\"struct\" href=\"https://docs.rs/http/0.2.9/http/request/struct.Request.html\" title=\"struct http::request::Request\">Request</a>&lt;Body&gt;&gt; for <a class=\"struct\" href=\"wasmer_wasi/runners/wcgi/handler/struct.Handler.html\" title=\"struct wasmer_wasi::runners::wcgi::handler::Handler\">Handler</a>","synthetic":false,"types":["wasmer_wasi::runners::wcgi::handler::Handler"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

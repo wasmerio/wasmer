@@ -700,6 +700,29 @@
 <span id="698">698</span>
 <span id="699">699</span>
 <span id="700">700</span>
+<span id="701">701</span>
+<span id="702">702</span>
+<span id="703">703</span>
+<span id="704">704</span>
+<span id="705">705</span>
+<span id="706">706</span>
+<span id="707">707</span>
+<span id="708">708</span>
+<span id="709">709</span>
+<span id="710">710</span>
+<span id="711">711</span>
+<span id="712">712</span>
+<span id="713">713</span>
+<span id="714">714</span>
+<span id="715">715</span>
+<span id="716">716</span>
+<span id="717">717</span>
+<span id="718">718</span>
+<span id="719">719</span>
+<span id="720">720</span>
+<span id="721">721</span>
+<span id="722">722</span>
+<span id="723">723</span>
 </pre><pre class="rust"><code><span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common::get_cache_dir</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
@@ -710,12 +733,12 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::warning</span>;
 <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">anyhow</span>, <span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
 <span class="kw">use</span> <span class="ident">clap::Parser</span>;
-<span class="kw">use</span> <span class="ident">std::fs::File</span>;
 <span class="kw">use</span> <span class="ident">std::io::Write</span>;
 <span class="kw">use</span> <span class="ident">std::ops::Deref</span>;
 <span class="kw">use</span> <span class="ident">std::path::PathBuf</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cache&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">std::str::FromStr</span>;
+<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fs::File</span>, <span class="ident">net::SocketAddr</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;emscripten&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer::FunctionEnv</span>;
 <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="kw-2">*</span>;
@@ -792,6 +815,10 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;verbose&quot;</span>)]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">verbose</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
+
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webc_runner&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">flatten</span>)]</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">wcgi</span>: <span class="ident">WcgiOptions</span>,
 
     <span class="doccomment">/// Enable coredump generation after a WebAssembly trap.</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;COREDUMP PATH&quot;</span>, <span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;coredump-on-trap&quot;</span>, <span class="ident">parse</span>(<span class="ident">from_os_str</span>))]</span>
@@ -925,14 +952,8 @@
     <span class="kw">fn</span> <span class="ident">inner_execute</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;webc_runner&quot;</span>)]</span>
         {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">pf</span>) <span class="op">=</span> <span class="ident">WapmContainer::new</span>(<span class="self">self</span>.<span class="ident">path</span>.<span class="ident">clone</span>()) {
-                <span class="kw">return</span> <span class="self">self</span>
-                    .<span class="ident">run_container</span>(
-                        <span class="ident">pf</span>,
-                        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">command_name</span>.<span class="ident">clone</span>().<span class="ident">unwrap_or_default</span>(),
-                        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">args</span>,
-                    )
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow!</span>(<span class="string">&quot;Could not run PiritaFile: {e}&quot;</span>));
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Ok</span>(<span class="ident">pf</span>) <span class="op">=</span> <span class="ident">WapmContainer::from_path</span>(<span class="self">self</span>.<span class="ident">path</span>.<span class="ident">clone</span>()) {
+                <span class="kw">return</span> <span class="self">self</span>.<span class="ident">run_container</span>(<span class="ident">pf</span>, <span class="self">self</span>.<span class="ident">command_name</span>.<span class="ident">as_deref</span>(), <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">args</span>);
             }
         }
         <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">store</span>, <span class="ident">module</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_store_module</span>()<span class="question-mark">?</span>;
@@ -1078,48 +1099,54 @@
     <span class="kw">fn</span> <span class="ident">run_container</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">container</span>: <span class="ident">WapmContainer</span>,
-        <span class="ident">id</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>,
+        <span class="ident">id</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">&gt;</span>,
         <span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="ident">String</span>],
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">anyhow::Error</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">result</span> <span class="op">=</span> <span class="prelude-val">None</span>;
+        <span class="kw">let</span> <span class="ident">id</span> <span class="op">=</span> <span class="ident">id</span>
+            .<span class="ident">or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">container</span>.<span class="ident">manifest</span>().<span class="ident">entrypoint</span>.<span class="ident">as_deref</span>())
+            .<span class="ident">context</span>(<span class="string">&quot;No command specified&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">command</span> <span class="op">=</span> <span class="ident">container</span>
+            .<span class="ident">manifest</span>()
+            .<span class="ident">commands</span>
+            .<span class="ident">get</span>(<span class="ident">id</span>)
+            .<span class="ident">with_context</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">format!</span>(<span class="string">&quot;No metadata found for the command, \&quot;{id}\&quot;&quot;</span>))<span class="question-mark">?</span>;
 
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
-        {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">r</span>) <span class="op">=</span> <span class="ident">result</span> {
-                <span class="kw">return</span> <span class="ident">r</span>;
-            }
-
-            <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">_compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">runner</span> <span class="op">=</span> <span class="ident">wasmer_wasi::runners::wasi::WasiRunner::new</span>(<span class="ident">store</span>);
-            <span class="ident">runner</span>.<span class="ident">set_args</span>(<span class="ident">args</span>.<span class="ident">to_vec</span>());
-            <span class="ident">result</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="kw">if</span> <span class="ident">id</span>.<span class="ident">is_empty</span>() {
-                <span class="ident">runner</span>.<span class="ident">run</span>(<span class="kw-2">&amp;</span><span class="ident">container</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-            } <span class="kw">else</span> {
-                <span class="ident">runner</span>
-                    .<span class="ident">run_cmd</span>(<span class="kw-2">&amp;</span><span class="ident">container</span>, <span class="ident">id</span>)
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-            });
+        <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">_compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">runner</span> <span class="op">=</span> <span class="ident">wasmer_wasi::runners::wasi::WasiRunner::new</span>(<span class="ident">store</span>);
+        <span class="ident">runner</span>.<span class="ident">set_args</span>(<span class="ident">args</span>.<span class="ident">to_vec</span>());
+        <span class="kw">if</span> <span class="ident">runner</span>.<span class="ident">can_run_command</span>(<span class="ident">id</span>, <span class="ident">command</span>).<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>) {
+            <span class="kw">return</span> <span class="ident">runner</span>.<span class="ident">run_cmd</span>(<span class="kw-2">&amp;</span><span class="ident">container</span>, <span class="ident">id</span>).<span class="ident">context</span>(<span class="string">&quot;WASI runner failed&quot;</span>);
         }
 
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;emscripten&quot;</span>)]</span>
-        {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">r</span>) <span class="op">=</span> <span class="ident">result</span> {
-                <span class="kw">return</span> <span class="ident">r</span>;
-            }
-
-            <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">_compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">runner</span> <span class="op">=</span> <span class="ident">wasmer_wasi::runners::emscripten::EmscriptenRunner::new</span>(<span class="ident">store</span>);
-            <span class="ident">runner</span>.<span class="ident">set_args</span>(<span class="ident">args</span>.<span class="ident">to_vec</span>());
-            <span class="ident">result</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="kw">if</span> <span class="ident">id</span>.<span class="ident">is_empty</span>() {
-                <span class="ident">runner</span>.<span class="ident">run</span>(<span class="kw-2">&amp;</span><span class="ident">container</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-            } <span class="kw">else</span> {
-                <span class="ident">runner</span>
-                    .<span class="ident">run_cmd</span>(<span class="kw-2">&amp;</span><span class="ident">container</span>, <span class="ident">id</span>)
-                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-            });
+        <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">_compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">runner</span> <span class="op">=</span> <span class="ident">wasmer_wasi::runners::emscripten::EmscriptenRunner::new</span>(<span class="ident">store</span>);
+        <span class="ident">runner</span>.<span class="ident">set_args</span>(<span class="ident">args</span>.<span class="ident">to_vec</span>());
+        <span class="kw">if</span> <span class="ident">runner</span>.<span class="ident">can_run_command</span>(<span class="ident">id</span>, <span class="ident">command</span>).<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>) {
+            <span class="kw">return</span> <span class="ident">runner</span>
+                .<span class="ident">run_cmd</span>(<span class="kw-2">&amp;</span><span class="ident">container</span>, <span class="ident">id</span>)
+                .<span class="ident">context</span>(<span class="string">&quot;Emscripten runner failed&quot;</span>);
         }
 
-        <span class="ident">result</span>.<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;neither emscripten or wasi file&quot;</span>)))
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">runner</span> <span class="op">=</span> <span class="ident">wasmer_wasi::runners::wcgi::WcgiRunner::new</span>(<span class="ident">id</span>);
+        <span class="kw">let</span> (<span class="ident">store</span>, <span class="ident">_compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">get_store</span>()<span class="question-mark">?</span>;
+        <span class="ident">runner</span>
+            .<span class="ident">config</span>()
+            .<span class="ident">args</span>(<span class="ident">args</span>)
+            .<span class="ident">store</span>(<span class="ident">store</span>)
+            .<span class="ident">addr</span>(<span class="self">self</span>.<span class="ident">wcgi</span>.<span class="ident">addr</span>)
+            .<span class="ident">envs</span>(<span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">env_vars</span>.<span class="ident">clone</span>())
+            .<span class="ident">map_directories</span>(<span class="self">self</span>.<span class="ident">wasi</span>.<span class="ident">mapped_dirs</span>.<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">g</span>, <span class="ident">h</span>)<span class="op">|</span> (<span class="ident">h</span>, <span class="ident">g</span>)));
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">wcgi</span>.<span class="ident">forward_host_env</span> {
+            <span class="ident">runner</span>.<span class="ident">config</span>().<span class="ident">forward_host_env</span>();
+        }
+        <span class="kw">if</span> <span class="ident">runner</span>.<span class="ident">can_run_command</span>(<span class="ident">id</span>, <span class="ident">command</span>).<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>) {
+            <span class="kw">return</span> <span class="ident">runner</span>.<span class="ident">run_cmd</span>(<span class="kw-2">&amp;</span><span class="ident">container</span>, <span class="ident">id</span>).<span class="ident">context</span>(<span class="string">&quot;WCGI runner failed&quot;</span>);
+        }
+
+        <span class="macro">anyhow::bail!</span>(
+            <span class="string">&quot;Unable to find a runner that supports \&quot;{}\&quot;&quot;</span>,
+            <span class="ident">command</span>.<span class="ident">runner</span>
+        );
     }
 
     <span class="kw">fn</span> <span class="ident">get_store_module</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Store</span>, <span class="ident">Module</span>)<span class="op">&gt;</span> {
@@ -1399,6 +1426,25 @@
     })<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())
+}
+
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Parser</span>)]</span>
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">WcgiOptions</span> {
+    <span class="doccomment">/// The address to serve on.</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>, <span class="ident">short</span>, <span class="ident">env</span>, <span class="ident">default_value_t</span> <span class="op">=</span> ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]</span>, <span class="number">8000</span>).<span class="ident">into</span>())]
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">addr</span>: <span class="ident">SocketAddr</span>,
+    <span class="doccomment">/// Forward all host env variables to the wcgi task.</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span>)]</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">forward_host_env</span>: <span class="ident">bool</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">WcgiOptions</span> {
+    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span> {
+            <span class="ident">addr</span>: ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="number">8000</span>).<span class="ident">into</span>(),
+            <span class="ident">forward_host_env</span>: <span class="bool-val">false</span>,
+        }
+    }
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

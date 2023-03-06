@@ -2205,7 +2205,6 @@
 <span id="2203">2203</span>
 <span id="2204">2204</span>
 <span id="2205">2205</span>
-<span id="2206">2206</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="self">self</span>::utils::normalize_atom_name</span>;
@@ -2223,9 +2222,8 @@
 <span class="kw">use</span> <span class="ident">tar::Archive</span>;
 <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">wasmer_object</span>::{<span class="ident">emit_serialized</span>, <span class="ident">get_object_for_target</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types::ModuleInfo</span>;
-<span class="kw">use</span> <span class="ident">webc</span>::{<span class="ident">ParseOptions</span>, <span class="ident">WebCMmap</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">compilation::symbols::ModuleMetadataSymbolRegistry</span>, <span class="ident">ModuleInfo</span>};
+<span class="kw">use</span> <span class="ident">webc::v1</span>::{<span class="ident">ParseOptions</span>, <span class="ident">WebCMmap</span>};
 
 <span class="kw">const</span> <span class="ident">LINK_SYSTEM_LIBRARIES_WINDOWS</span>: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="ident">str</span>] <span class="op">=</span> <span class="kw-2">&amp;</span>[<span class="string">&quot;userenv&quot;</span>, <span class="string">&quot;Ws2_32&quot;</span>, <span class="string">&quot;advapi32&quot;</span>, <span class="string">&quot;bcrypt&quot;</span>];
 
@@ -2728,7 +2726,7 @@
         <span class="comment">// if prefixes are specified, have to match the atom names exactly</span>
         <span class="kw">if</span> <span class="ident">prefixes</span>.<span class="ident">len</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">atoms</span>.<span class="ident">len</span>() {
             <span class="macro">println!</span>(
-                <span class="string">&quot;WARNING: invalid mapping of prefix and atoms: expected prefixes for {} atoms, got {} prefixes&quot;</span>, 
+                <span class="string">&quot;WARNING: invalid mapping of prefix and atoms: expected prefixes for {} atoms, got {} prefixes&quot;</span>,
                 <span class="ident">atoms</span>.<span class="ident">len</span>(), <span class="ident">prefixes</span>.<span class="ident">len</span>()
             );
         }
