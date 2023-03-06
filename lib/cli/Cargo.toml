@@ -34,12 +34,14 @@ wasmer-emscripten = { version = "=3.2.0-alpha.1", path = "../emscripten", option
 wasmer-vm = { version = "=3.2.0-alpha.1", path = "../vm" }
 wasmer-wasi = { version = "=3.2.0-alpha.1", path = "../wasi", optional = true }
 wasmer-wasi-experimental-io-devices = { version = "=3.2.0-alpha.1", path = "../wasi-experimental-io-devices", optional = true, features = ["link_external_libs"] }
+wasmer-wasi-local-networking = { version = "=3.2.0-alpha.1", path = "../wasi-local-networking", optional = true }
 wasmer-wast = { version = "=3.2.0-alpha.1", path = "../../tests/lib/wast", optional = true }
 wasmer-cache = { version = "=3.2.0-alpha.1", path = "../cache", optional = true }
 wasmer-types = { version = "=3.2.0-alpha.1", path = "../types", features = ["enable-serde"] }
 wasmer-registry = { version = "=4.0.0", path = "../registry" }
 wasmer-object = { version = "=3.2.0-alpha.1", path = "../object", optional = true }
 wasmer-vfs  = { version = "=3.2.0-alpha.1", path = "../vfs", default-features = false, features = ["host-fs"] }
+wasmer-vnet  = { version = "=3.2.0-alpha.1", path = "../vnet" }
 wasmer-wasm-interface = { version = "3.2.0-alpha.1", path = "../wasm-interface" }
 wasmparser = "0.51.4"
 atty = "0.2"
@@ -54,15 +56,14 @@ bytesize = "1.0"
 cfg-if = "1.0"
 # For debug feature
 fern = { version = "0.6", features = ["colored"], optional = true }
-tempfile = "3"
-tempdir = "0.3.7"
+tempfile = "3.4.0"
 http_req  = { version="^0.8", default-features = false, features = ["rust-tls"] }
 reqwest = { version = "^0.11", default-features = false, features = ["rustls-tls", "json", "multipart"] }
 serde = { version = "1.0.147", features = ["derive"] }
 dirs = { version = "4.0" }
 serde_json = { version = "1.0" }
 target-lexicon = { version = "0.12", features = ["std"] }
-prettytable-rs = "0.9.0"
+prettytable-rs = "0.10.0"
 wasmer-toml = "0.6.0"
 indexmap = "1.9.2"
 walkdir = "2.3.2"
@@ -89,6 +90,7 @@ rpassword = "7.2.0"
 pathdiff = "0.2.1"
 sha2 = "0.10.6"
 object = "0.30.0"
+wasm-coredump-builder = { version = "0.1.11" }
 
 [build-dependencies]
 chrono = { version = "^0.4", default-features = false, features = [ "std", "clock" ] }
@@ -113,13 +115,14 @@ default = [
 cache = ["wasmer-cache"]
 cache-blake3-pure = ["wasmer-cache/blake3-pure"]
 wast = ["wasmer-wast"]
-wasi = ["wasmer-wasi"]
+wasi = ["wasmer-wasi", "wasmer-wasi-local-networking"]
 emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
 webc_runner = ["wasi", "wasmer-wasi/webc_runner", "wasmer-wasi/webc_runner_rt_wasi", "wasmer-wasi/webc_runner_rt_emscripten", "nuke-dir", "webc"]
 compiler = [
     "wasmer-compiler/translator",
     "wasmer-compiler/compiler",
+    "wasmer-wasi/compiler"
 ]
 wasmer-artifact-create = ["compiler",
  "wasmer/wasmer-artifact-load",
@@ -161,7 +164,7 @@ llvm = [
     "compiler",
 ]
 debug = ["fern", "wasmer-wasi/logging"]
-disable-all-logging = ["wasmer-wasi/disable-all-logging"]
+disable-all-logging = ["wasmer-wasi/disable-all-logging", "log/release_max_level_off"]
 headless = []
 headless-minimal = ["headless", "disable-all-logging", "wasi"]
 

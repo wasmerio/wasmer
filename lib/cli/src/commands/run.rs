@@ -8,6 +8,8 @@ use crate::suggestions::suggest_function_exports;
 use crate::warning;
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
+use std::fs::File;
+use std::io::Write;
 use std::ops::Deref;
 use std::path::PathBuf;
 #[cfg(feature = "cache")]
@@ -89,6 +91,10 @@ pub struct RunWithoutFile {
     #[clap(long = "verbose")]
     pub(crate) verbose: Option<u8>,
 
+    /// Enable coredump generation after a WebAssembly trap.
+    #[clap(name = "COREDUMP PATH", long = "coredump-on-trap", parse(from_os_str))]
+    coredump_on_trap: Option<PathBuf>,
+
     /// Application arguments
     #[clap(value_name = "ARGS")]
     pub(crate) args: Vec<String>,
@@ -154,7 +160,7 @@ impl RunWithPathBuf {
         if self.debug {
             logging::set_up_logging(self_clone.verbose.unwrap_or(0)).unwrap();
         }
-        self_clone.inner_execute().with_context(|| {
+        let invoke_res = self_clone.inner_execute().with_context(|| {
             format!(
                 "failed to run `{}`{}",
                 self_clone.path.display(),
@@ -164,20 +170,36 @@ impl RunWithPathBuf {
                     ""
                 }
             )
-        })
+        });
+
+        if let Err(err) = invoke_res {
+            if let Some(coredump_path) = self.coredump_on_trap.as_ref() {
+                let source_name = self.path.to_str().unwrap_or("unknown");
+                if let Err(coredump_err) = generate_coredump(&err, source_name, coredump_path) {
+                    eprintln!("warning: coredump failed to generate: {}", coredump_err);
+                    Err(err)
+                } else {
+                    Err(err.context(format!("core dumped at {}", coredump_path.display())))
+                }
+            } else {
+                Err(err)
+            }
+        } else {
+            invoke_res
+        }
     }
 
-    fn inner_module_run(&self, mut store: Store, instance: Instance) -> Result<()> {
+    fn inner_module_run(&self, store: &mut Store, instance: Instance) -> Result<()> {
         // If this module exports an _initialize function, run that first.
         if let Ok(initialize) = instance.exports.get_function("_initialize") {
             initialize
-                .call(&mut store, &[])
+                .call(store, &[])
                 .with_context(|| "failed to run _initialize function")?;
         }
 
         // Do we want to invoke a function?
         if let Some(ref invoke) = self.invoke {
-            let result = self.invoke_function(&mut store, &instance, invoke, &self.args)?;
+            let result = self.invoke_function(store, &instance, invoke, &self.args)?;
             println!(
                 "{}",
                 result
@@ -188,7 +210,7 @@ impl RunWithPathBuf {
             );
         } else {
             let start: Function = self.try_find_function(&instance, "_start", &[])?;
-            let result = start.call(&mut store, &[]);
+            let result = start.call(store, &[]);
             #[cfg(feature = "wasi")]
             self.wasi.handle_result(result)?;
             #[cfg(not(feature = "wasi"))]
@@ -299,16 +321,19 @@ impl RunWithPathBuf {
                                 .map(|f| f.to_string_lossy().to_string())
                         })
                         .unwrap_or_default();
-                    let (_ctx, instance) = self
+                    let (ctx, instance) = self
                         .wasi
                         .instantiate(&mut store, &module, program_name, self.args.clone())
                         .with_context(|| "failed to instantiate WASI module")?;
-                    self.inner_module_run(store, instance)
+                    let res = self.inner_module_run(&mut store, instance);
+
+                    ctx.cleanup(&mut store, None);
+                    res
                 }
                 // not WASI
                 _ => {
                     let instance = Instance::new(&mut store, &module, &imports! {})?;
-                    self.inner_module_run(store, instance)
+                    self.inner_module_run(&mut store, instance)
                 }
             }
         };
@@ -628,4 +653,48 @@ impl Run {
     fn from_binfmt_args_fallible() -> Result<Run> {
         bail!("binfmt_misc is only available on linux.")
     }
+}
+
+fn generate_coredump(
+    err: &anyhow::Error,
+    source_name: &str,
+    coredump_path: &PathBuf,
+) -> Result<()> {
+    let err = err
+        .downcast_ref::<wasmer::RuntimeError>()
+        .ok_or_else(|| anyhow!("no runtime error found to generate coredump with"))?;
+
+    let mut coredump_builder =
+        wasm_coredump_builder::CoredumpBuilder::new().executable_name(source_name);
+
+    {
+        let mut thread_builder = wasm_coredump_builder::ThreadBuilder::new().thread_name("main");
+
+        for frame in err.trace() {
+            let coredump_frame = wasm_coredump_builder::FrameBuilder::new()
+                .codeoffset(frame.func_offset() as u32)
+                .funcidx(frame.func_index())
+                .build();
+            thread_builder.add_frame(coredump_frame);
+        }
+
+        coredump_builder.add_thread(thread_builder.build());
+    }
+
+    let coredump = coredump_builder
+        .serialize()
+        .map_err(|err| anyhow!("failed to serialize coredump: {}", err))?;
+
+    let mut f = File::create(coredump_path).context(format!(
+        "failed to create file at `{}`",
+        coredump_path.display()
+    ))?;
+    f.write_all(&coredump).with_context(|| {
+        format!(
+            "failed to write coredump file at `{}`",
+            coredump_path.display()
+        )
+    })?;
+
+    Ok(())
 }

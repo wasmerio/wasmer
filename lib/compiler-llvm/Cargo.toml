@@ -27,10 +27,9 @@ rayon = "1.5"
 
 [dependencies.inkwell]
 package = "inkwell"
-git = "https://github.com/TheDan64/inkwell.git"
-rev = "a24642d"
+version = "0.1.1"
 default-features = false
-features = ["llvm12-0", "target-x86", "target-aarch64", "target-riscv"]
+features = ["llvm14-0", "target-x86", "target-aarch64", "target-riscv"]
 
 [build-dependencies]
 cc = "1.0"

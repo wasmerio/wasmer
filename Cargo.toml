@@ -41,12 +41,14 @@ members = [
     "lib/object",
     "lib/vfs",
     "lib/vnet",
-    "lib/vbus",
+    "lib/sys-utils",
     "lib/vm",
+    "lib/wai-bindgen-wasmer",
     "lib/wasi",
     "lib/wasi-types",
     "lib/wasi-experimental-io-devices",
     "lib/wasi-local-networking",
+    "lib/wasix/wasix-http-client",
     "lib/wasm-interface",
     "lib/c-api/tests/wasmer-c-api-test-runner",
     "lib/c-api/examples/wasmer-capi-examples-runner",
@@ -75,7 +77,7 @@ criterion = "0.3"
 lazy_static = "1.4"
 serial_test = "0.5"
 compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
-tempfile = "3.1"
+tempfile = "3.4.0"
 # For logging tests using the `RUST_LOG=debug` when testing
 test-log = { version = "0.2", default-features = false, features = ["trace"] }
 tracing = { version = "0.1", default-features = false, features = ["log"] }
@@ -131,6 +133,9 @@ coverage = []
 
 [profile.dev]
 split-debuginfo = "unpacked"
+
+#[profile.release]
+#debug = true
 
 [[bench]]
 name = "static_and_dynamic_functions"
@@ -212,6 +217,11 @@ path = "examples/wasi.rs"
 required-features = ["cranelift", "wasi"]
 
 [[example]]
+name = "wasi-manual-setup"
+path = "examples/wasi_manual_setup.rs"
+required-features = ["cranelift", "wasi"]
+
+[[example]]
 name = "wasi-pipes"
 path = "examples/wasi_pipes.rs"
 required-features = ["cranelift", "wasi"]
@@ -239,6 +249,11 @@ required-features = ["cranelift"]
 [[example]]
 name = "imported-function-env"
 path = "examples/imports_function_env.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "imported-function-env-global"
+path = "examples/imports_function_env_global.rs"
 required-features = ["cranelift"]
 
 [[example]]

@@ -1,15 +1,17 @@
 use crate::mem_fs::FileSystem as MemFileSystem;
 use crate::{
-    FileDescriptor, FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig,
-    ReadDir, VirtualFile,
+    FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, VirtualFile,
 };
 use anyhow::anyhow;
 use std::convert::TryInto;
-use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read, Seek, SeekFrom, Write};
+use std::io::{self, Error as IoError, ErrorKind as IoErrorKind, SeekFrom};
 use std::ops::Deref;
 use std::path::Path;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::{Context, Poll};
+use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use webc::{FsEntry, FsEntryType, OwnedFsEntryFile, WebC};
 
 /// Custom file system wrapper to map requested file paths
@@ -18,9 +20,10 @@ pub struct WebcFileSystem<T>
 where
     T: std::fmt::Debug + Send + Sync + 'static,
 {
-    pub package: String,
     pub webc: Arc<T>,
     pub memory: Arc<MemFileSystem>,
+    top_level_dirs: Vec<String>,
+    volumes: Vec<webc::Volume<'static>>,
 }
 
 impl<T> WebcFileSystem<T>
@@ -29,38 +32,54 @@ where
     T: Deref<Target = WebC<'static>>,
 {
     pub fn init(webc: Arc<T>, package: &str) -> Self {
-        let fs = Self {
-            package: package.to_string(),
+        let mut fs = Self {
             webc: webc.clone(),
             memory: Arc::new(MemFileSystem::default()),
+            top_level_dirs: Vec::new(),
+            volumes: Vec::new(),
         };
+
         for volume in webc.get_volumes_for_package(package) {
+            if let Some(vol_ref) = webc.volumes.get(&volume) {
+                fs.volumes.push(vol_ref.clone());
+            }
             for directory in webc.list_directories(&volume) {
+                fs.top_level_dirs.push(directory.clone());
                 let _ = fs.create_dir(Path::new(&directory));
             }
         }
         fs
     }
+
+    pub fn init_all(webc: Arc<T>) -> Self {
+        let mut fs = Self {
+            webc: webc.clone(),
+            memory: Arc::new(MemFileSystem::default()),
+            top_level_dirs: Vec::new(),
+            volumes: webc.volumes.clone().into_values().collect(),
+        };
+        for (header, _) in webc.volumes.iter() {
+            for directory in webc.list_directories(header) {
+                fs.top_level_dirs.push(directory.clone());
+                let _ = fs.create_dir(Path::new(&directory));
+            }
+        }
+        fs
+    }
+
+    pub fn top_level_dirs(&self) -> &Vec<String> {
+        &self.top_level_dirs
+    }
 }
 
 /// Custom file opener, returns a WebCFile
-#[derive(Debug)]
-struct WebCFileOpener<T>
-where
-    T: std::fmt::Debug + Send + Sync + 'static,
-{
-    pub package: String,
-    pub webc: Arc<T>,
-    pub memory: Arc<MemFileSystem>,
-}
-
-impl<T> FileOpener for WebCFileOpener<T>
+impl<T> FileOpener for WebcFileSystem<T>
 where
     T: std::fmt::Debug + Send + Sync + 'static,
     T: Deref<Target = WebC<'static>>,
 {
     fn open(
-        &mut self,
+        &self,
         path: &Path,
         _conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync>, FsError> {
@@ -69,12 +88,11 @@ where
                 let file = (*self.webc)
                     .volumes
                     .get(&volume)
-                    .ok_or(FsError::EntityNotFound)?
+                    .ok_or(FsError::EntryNotFound)?
                     .get_file_entry(&format!("{}", path.display()))
-                    .map_err(|_e| FsError::EntityNotFound)?;
+                    .map_err(|_e| FsError::EntryNotFound)?;
 
                 Ok(Box::new(WebCFile {
-                    package: self.package.clone(),
                     volume,
                     webc: self.webc.clone(),
                     path: path.to_path_buf(),
@@ -83,8 +101,8 @@ where
                 }))
             }
             None => {
-                for volume in self.webc.get_volumes_for_package(&self.package) {
-                    let v = match self.webc.volumes.get(&volume) {
+                for (volume, _) in self.webc.volumes.iter() {
+                    let v = match self.webc.volumes.get(volume) {
                         Some(s) => s,
                         None => continue, // error
                     };
@@ -95,7 +113,6 @@ where
                     };
 
                     return Ok(Box::new(WebCFile {
-                        package: self.package.clone(),
                         volume: volume.clone(),
                         webc: self.webc.clone(),
                         path: path.to_path_buf(),
@@ -115,8 +132,6 @@ where
     T: std::fmt::Debug + Send + Sync + 'static,
 {
     pub webc: Arc<T>,
-    #[allow(dead_code)]
-    pub package: String,
     pub volume: String,
     #[allow(dead_code)]
     pub path: PathBuf,
@@ -147,23 +162,25 @@ where
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
-    fn bytes_available(&self) -> Result<usize, FsError> {
-        Ok(self.size().try_into().unwrap_or(u32::MAX as usize))
+    fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        let remaining = self.entry.get_len() - self.cursor;
+        Poll::Ready(Ok(remaining as usize))
     }
-    fn sync_to_disk(&self) -> Result<(), FsError> {
-        Ok(())
-    }
-    fn get_fd(&self) -> Option<FileDescriptor> {
-        None
+    fn poll_write_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(0))
     }
 }
 
-impl<T> Read for WebCFile<T>
+impl<T> AsyncRead for WebCFile<T>
 where
     T: std::fmt::Debug + Send + Sync + 'static,
     T: Deref<Target = WebC<'static>>,
 {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, IoError> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
         let bytes = self
             .webc
             .volumes
@@ -181,36 +198,43 @@ where
         let _start = cursor.min(bytes.len());
         let bytes = &bytes[cursor..];
 
-        let mut len = 0;
-        for (source, target) in bytes.iter().zip(buf.iter_mut()) {
-            *target = *source;
-            len += 1;
+        if bytes.len() > buf.remaining() {
+            let remaining = buf.remaining();
+            buf.put_slice(&bytes[..remaining]);
+        } else {
+            buf.put_slice(bytes);
         }
-
-        Ok(len)
+        Poll::Ready(Ok(()))
     }
 }
 
 // WebC file is not writable, the FileOpener will return a MemoryFile for writing instead
 // This code should never be executed (since writes are redirected to memory instead).
-impl<T> Write for WebCFile<T>
+impl<T> AsyncWrite for WebCFile<T>
 where
     T: std::fmt::Debug + Send + Sync + 'static,
 {
-    fn write(&mut self, buf: &[u8]) -> Result<usize, IoError> {
-        Ok(buf.len())
+    fn poll_write(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(buf.len()))
     }
-    fn flush(&mut self) -> Result<(), IoError> {
-        Ok(())
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        Poll::Ready(Ok(()))
     }
 }
 
-impl<T> Seek for WebCFile<T>
+impl<T> AsyncSeek for WebCFile<T>
 where
     T: std::fmt::Debug + Send + Sync + 'static,
     T: Deref<Target = WebC<'static>>,
 {
-    fn seek(&mut self, pos: SeekFrom) -> Result<u64, IoError> {
+    fn start_seek(mut self: Pin<&mut Self>, pos: io::SeekFrom) -> io::Result<()> {
         let self_size = self.size();
         match pos {
             SeekFrom::Start(s) => {
@@ -230,7 +254,10 @@ where
                 .min(self_size);
             }
         }
-        Ok(self.cursor)
+        Ok(())
+    }
+    fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+        Poll::Ready(Ok(self.cursor))
     }
 }
 
@@ -277,10 +304,12 @@ where
     fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
         let path = normalizes_path(path);
         let read_dir_result = self
-            .webc
-            .read_dir(&self.package, &path)
+            .volumes
+            .iter()
+            .filter_map(|v| v.read_dir(&path).ok())
+            .next()
             .map(|o| transform_into_read_dir(Path::new(&path), o.as_ref()))
-            .map_err(|_| FsError::EntityNotFound);
+            .ok_or(FsError::EntryNotFound);
 
         match read_dir_result {
             Ok(o) => Ok(o),
@@ -295,7 +324,7 @@ where
     fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
         let result = self.memory.remove_dir(Path::new(&path));
-        if self.webc.get_file_entry(&self.package, &path).is_some() {
+        if self.volumes.iter().any(|v| v.get_file_entry(&path).is_ok()) {
             Ok(())
         } else {
             result
@@ -305,7 +334,7 @@ where
         let from = normalizes_path(from);
         let to = normalizes_path(to);
         let result = self.memory.rename(Path::new(&from), Path::new(&to));
-        if self.webc.get_file_entry(&self.package, &from).is_some() {
+        if self.volumes.iter().any(|v| v.get_file_entry(&from).is_ok()) {
             Ok(())
         } else {
             result
@@ -313,15 +342,26 @@ where
     }
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         let path = normalizes_path(path);
-        if let Some(fs_entry) = self.webc.get_file_entry(&self.package, &path) {
+        if let Some(fs_entry) = self
+            .volumes
+            .iter()
+            .filter_map(|v| v.get_file_entry(&path).ok())
+            .next()
+        {
             Ok(Metadata {
                 ft: translate_file_type(FsEntryType::File),
                 accessed: 0,
                 created: 0,
                 modified: 0,
-                len: fs_entry.1.get_len(),
+                len: fs_entry.get_len(),
             })
-        } else if self.webc.read_dir(&self.package, &path).is_ok() {
+        } else if self
+            .volumes
+            .iter()
+            .filter_map(|v| v.read_dir(&path).ok())
+            .next()
+            .is_some()
+        {
             Ok(Metadata {
                 ft: translate_file_type(FsEntryType::Dir),
                 accessed: 0,
@@ -336,30 +376,43 @@ where
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
         let result = self.memory.remove_file(Path::new(&path));
-        if self.webc.get_file_entry(&self.package, &path).is_some() {
+        if self
+            .volumes
+            .iter()
+            .filter_map(|v| v.get_file_entry(&path).ok())
+            .next()
+            .is_some()
+        {
             Ok(())
         } else {
             result
         }
     }
     fn new_open_options(&self) -> OpenOptions {
-        OpenOptions::new(Box::new(WebCFileOpener {
-            package: self.package.clone(),
-            webc: self.webc.clone(),
-            memory: self.memory.clone(),
-        }))
+        OpenOptions::new(self)
     }
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         let path = normalizes_path(path);
-        if let Some(fs_entry) = self.webc.get_file_entry(&self.package, &path) {
+        if let Some(fs_entry) = self
+            .volumes
+            .iter()
+            .filter_map(|v| v.get_file_entry(&path).ok())
+            .next()
+        {
             Ok(Metadata {
                 ft: translate_file_type(FsEntryType::File),
                 accessed: 0,
                 created: 0,
                 modified: 0,
-                len: fs_entry.1.get_len(),
+                len: fs_entry.get_len(),
             })
-        } else if self.webc.read_dir(&self.package, &path).is_ok() {
+        } else if self
+            .volumes
+            .iter()
+            .filter_map(|v| v.read_dir(&path).ok())
+            .next()
+            .is_some()
+        {
             Ok(Metadata {
                 ft: translate_file_type(FsEntryType::Dir),
                 accessed: 0,

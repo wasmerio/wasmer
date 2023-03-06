@@ -17,8 +17,9 @@ wasmer-wasi = { path = "../../../lib/wasi", version = "=3.2.0-alpha.1" }
 wasmer-vfs = { path = "../../../lib/vfs", version = "=3.2.0-alpha.1" }
 wast = "38.0"
 serde = "1"
-tempfile = "3"
+tempfile = "3.4.0"
 thiserror = "1.0"
+tokio = { version = "1", features = [ "io-util", "rt" ], default_features = false }
 
 [features]
 default = ["wat"]

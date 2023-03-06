@@ -12,12 +12,17 @@ import re
 RELEASE_VERSION=""
 DATE = datetime.date.today().strftime("%d/%m/%Y")
 SIGNOFF_REVIEWER = "syrusakbary"
+TAG = "master"
 
 if len(sys.argv) > 1:
     RELEASE_VERSION = sys.argv[1]
 else:
     print("no release version as first argument")
     sys.exit(1)
+
+
+if len(sys.argv) > 2:
+    TAG = sys.argv[2]
 
 RELEASE_VERSION_WITH_V = RELEASE_VERSION
 
@@ -35,7 +40,7 @@ if os.system("gh --version") != 0:
     sys.exit(1)
 
 def get_file_string(file):
-    file_handle = open(file, 'r')
+    file_handle = open(file, 'r', newline='')
     file_string = file_handle.read()
     file_handle.close()
     return file_string
@@ -59,7 +64,7 @@ def make_release(version):
 
     temp_dir = tempfile.TemporaryDirectory()
     print(temp_dir.name)
-    if os.system("git clone https://github.com/wasmerio/wasmer --branch master --depth 1 " + temp_dir.name) != 0:
+    if os.system("git clone https://github.com/wasmerio/wasmer --branch " + TAG + " --depth 1 " + temp_dir.name) != 0:
         raise Exception("could not clone github repo")
 
     # generate changelog
@@ -170,7 +175,7 @@ def make_release(version):
                 print(line.rstrip())
             raise Exception("could not run git checkout -b release-" + RELEASE_VERSION)
 
-        replace(temp_dir.name + "/CHANGELOG.md", "## **Unreleased**", "\n".join(changelog))
+        replace(temp_dir.name + "/CHANGELOG.md", "## **Unreleased**", "\r\n".join(changelog))
 
         proc = subprocess.Popen(['git','commit', "-am", "Update CHANGELOG"], stdout = subprocess.PIPE, cwd = temp_dir.name)
         proc.wait()
@@ -231,75 +236,25 @@ def make_release(version):
         proc = subprocess.Popen(['gh','pr', "checks", pr_number], stdout = subprocess.PIPE, cwd = temp_dir.name)
         proc.wait()
 
-        bors_failed = False
         all_checks_have_passed = True
 
-        if proc.stderr is not None:
-            for line in proc.stderr:
-                if "no checks reported" in line:
-                    all_checks_have_passed = False
-
-        if all_checks_have_passed: 
-            for line in proc.stdout:
-                line = line.decode("utf-8").rstrip()
-                print("---- " + line)
-                if "no checks reported" in line:
-                    all_checks_have_passed = False
-                if line.startswith("*"):
-                    all_checks_have_passed = False
-                if "pending" in line and not("bors" in line):
-                    all_checks_have_passed = False
-                if line.startswith("X"):
-                    raise Exception("check failed")
-                if "fail" in line and "bors" in line:
-                    bors_failed = True
-                if "pending" in line and "bors" in line:
-                    bors_failed = True
-                if "fail" in line and not("bors" in line):
-                    raise Exception("check failed")
+        print("Waiting for checks to pass... PR " + pr_number + "    https://github.com/wasmerio/wasmer/pull/" + pr_number)
+        print("")
+        
+        for line in proc.stdout:
+            line = line.decode("utf-8").rstrip()
+            print("    " + line)
+            if "no checks reported" in line:
+                all_checks_have_passed = False
+            if line.startswith("*") or "pending" in line:
+                all_checks_have_passed = False
+            if line.startswith("X") or "fail" in line:
+                raise Exception("check failed")
 
         if all_checks_have_passed:
-            if proc.returncode != 0 and not(bors_failed):
-                raise Exception("failed to list checks with: gh pr checks " + pr_number)
             break
         else:
-            print("Waiting for checks to pass... PR " + pr_number + "    https://github.com/wasmerio/wasmer/pull/" + pr_number)
-            time.sleep(30)
-
-    if not(already_released):
-        # PR created, checks have passed, run python script and publish to crates.io
-        proc = subprocess.Popen(['gh','pr', "comment", pr_number, "--body", "[bot] Checks have passed. Publishing to crates.io..."], stdout = subprocess.PIPE, cwd = temp_dir.name)
-        proc.wait()
-
-        proc = subprocess.Popen(['python3',temp_dir.name + "/scripts/publish.py", "publish"], stdout = subprocess.PIPE, cwd = temp_dir.name)
-        while True:
-            line = proc.stdout.readline()
-            line = line.decode("utf-8").rstrip()
-            print(line.rstrip())
-            if not line: break
-            
-        proc.wait()
-    
-        if proc.returncode != 0:
-            log = ["[bot] Failed to publish to crates.io"]
-            log.append("")
-            log.append("```")
-            for line in proc.stdout:
-                line = line.decode("utf-8").rstrip()
-                log.append("stdout: " + line)
-            log.append("```")
-            log.append("```")
-            if proc.stderr is not None:
-                for line in proc.stderr:
-                    line = line.decode("utf-8").rstrip()
-                    log.append("stderr: " + line)
-            log.append("```")
-            proc = subprocess.Popen(['gh','pr', "comment", pr_number, "--body", "\r\n".join(log)], stdout = subprocess.PIPE, cwd = temp_dir.name)
-            proc.wait()
-            raise Exception("Failed to publish to crates.io: " + "\r\n".join(log))
-        else:
-            proc = subprocess.Popen(['gh','pr', "comment", pr_number, "--body", "[bot] Successfully published wasmer version " + RELEASE_VERSION + " to crates.io"], stdout = subprocess.PIPE, cwd = temp_dir.name)
-            proc.wait()
+            time.sleep(5)
 
     last_commit = ""
     proc = subprocess.Popen(['git','log'], stdout = subprocess.PIPE, cwd = temp_dir.name)
@@ -324,7 +279,7 @@ def make_release(version):
         raise Exception("could not commit checkout master " + RELEASE_VERSION_WITH_V)
 
     if not(already_released):
-        proc = subprocess.Popen(['gh','pr', "comment", pr_number, "--body", "bors r+"], stdout = subprocess.PIPE, cwd = temp_dir.name)
+        proc = subprocess.Popen(['gh','pr', "merge", "--auto", pr_number, "--merge", "--delete-branch"], stdout = subprocess.PIPE, cwd = temp_dir.name)
         proc.wait()
 
     # wait for bors to merge PR

@@ -42,7 +42,6 @@
 //!
 //! ```rust
 //! use wasmer::{Store, Module, Instance, Value, imports};
-//! use wasmer::FunctionEnv;
 //!
 //! fn main() -> anyhow::Result<()> {
 //!     let module_wat = r#"
@@ -441,5 +440,7 @@ mod js;
 #[cfg(feature = "js")]
 pub use js::*;
 
+mod access;
 mod into_bytes;
+pub use access::WasmSliceAccess;
 pub use into_bytes::IntoBytes;

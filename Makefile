@@ -144,21 +144,24 @@ else ifeq ($(ENABLE_LLVM), 1)
 	LLVM_VERSION := $(shell llvm-config --version)
 	compilers += llvm
 	# … or try to autodetect LLVM from `llvm-config-<version>`.
-else ifneq (, $(shell which llvm-config-13 2>/dev/null))
-	LLVM_VERSION := $(shell llvm-config-13 --version)
+else ifneq (, $(shell which llvm-config-14 2>/dev/null))
+	LLVM_VERSION := $(shell llvm-config-14 --version)
 	compilers += llvm
-	# need force LLVM_SYS_120_PREFIX, or llvm_sys will not build in the case
-	export LLVM_SYS_120_PREFIX = $(shell llvm-config-13 --prefix)
-else ifneq (, $(shell which llvm-config-12 2>/dev/null))
-	LLVM_VERSION := $(shell llvm-config-12 --version)
+	# need force LLVM_SYS_140_PREFIX, or llvm_sys will not build in the case
+	export LLVM_SYS_140_PREFIX = $(shell llvm-config-14 --prefix)
+else ifneq (, $(shell which llvm-config-15 2>/dev/null))
+	LLVM_VERSION := $(shell llvm-config-15 --version)
 	compilers += llvm
-	# … otherwise, we try to autodetect LLVM from `llvm-config`
+	# need force LLVM_SYS_140_PREFIX, or llvm_sys will not build in the case
+	export LLVM_SYS_140_PREFIX = $(shell llvm-config-15 --prefix)
 else ifneq (, $(shell which llvm-config 2>/dev/null))
 	LLVM_VERSION := $(shell llvm-config --version)
-	ifneq (, $(findstring 13,$(LLVM_VERSION)))
+	ifneq (, $(findstring 15,$(LLVM_VERSION)))
 		compilers += llvm
-	else ifneq (, $(findstring 12,$(LLVM_VERSION)))
+		export LLVM_SYS_140_PREFIX = $(shell llvm-config --prefix)
+	else ifneq (, $(findstring 14,$(LLVM_VERSION)))
 		compilers += llvm
+		export LLVM_SYS_140_PREFIX = $(shell llvm-config --prefix)
 	endif
 endif
 
@@ -170,6 +173,9 @@ exclude_tests += --exclude wasmer-wasi-experimental-io-devices
 # We run integration tests separately (it requires building the c-api)
 exclude_tests += --exclude wasmer-integration-tests-cli
 exclude_tests += --exclude wasmer-integration-tests-ios
+# wasix_http_client is only for the WASM target, must be tested separately
+# FIXME: add separate test step!
+exclude_tests += --exclude wasix_http_client
 
 ifneq (, $(findstring llvm,$(compilers)))
 	ENABLE_LLVM := 1
@@ -493,6 +499,7 @@ test-stage-2-test-compiler-cranelift-nostd:
 test-stage-3-test-compiler-singlepass-nostd:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
 test-stage-4-wasmer-cli:
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/vfs/Cargo.toml --release
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
 
 # test examples 

@@ -1,0 +1,31 @@
+[package]
+name = "wai-bindgen-wasmer"
+description = "Generate WAI glue for a Rust Wasmer host"
+version = "0.2.3"
+edition = "2018"
+categories = ["wasm", "os"]
+keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+license = "MIT"
+readme = "README.md"
+
+[dependencies]
+anyhow = "1.0"
+async-trait = { version = "0.1.50", optional = true }
+bitflags = "1.2"
+once_cell = "1.13"
+thiserror = "1.0"
+tracing-lib = { version = "0.1.26", optional = true, package = "tracing" }
+wai-bindgen-wasmer-impl = { version = "0.2.2" }
+wasmer = { version = "=3.2.0-alpha.1", path = "../api", default-features = false }
+
+[features]
+# Enables generated code to emit events via the `tracing` crate whenever wasm is
+# entered and when native functions are called. Note that tracin is currently
+# only done for imported functions.
+tracing = ["tracing-lib", "wai-bindgen-wasmer-impl/tracing"]
+
+# Enables async support for generated code, although when enabled this still
+# needs to be configured through the macro invocation.
+async = ["async-trait", "wai-bindgen-wasmer-impl/async"]

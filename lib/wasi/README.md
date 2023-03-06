@@ -23,10 +23,10 @@ WASI easily from the Wasmer runtime, through our `ImportObject` API.
 
 ## Supported WASI versions
 
-| WASI version | Support |
-|-|-|
-| `wasi_unstable` | ✅ |
-| `wasi_snapshot_preview1` | ✅ |
+| WASI version             | Support |
+| ------------------------ | ------- |
+| `wasi_unstable`          | ✅       |
+| `wasi_snapshot_preview1` | ✅       |
 
 The special `Latest` version points to `wasi_snapshot_preview1`.
 
@@ -67,7 +67,7 @@ let mut store = Store::default();
 let module = Module::from_file(&store, "hello.wasm")?;
 
 // Create the `WasiEnv`.
-let wasi_env = WasiState::new("command-name")
+let wasi_env = WasiState::builder("command-name")
     .args(&["Gordon"])
     .finalize()?;
 

@@ -1,0 +1,22 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": null,
+    "wasm_hash": "46528fe586c0a942d8504354b6a2ca48",
+    "use_packages": [],
+    "cli_args": [],
+    "stdin": null,
+    "debug_output": false,
+    "enable_threads": true
+  },
+  "result": {
+    "Success": {
+      "stdout": "Parent has x = 0\nChild has x = 2\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

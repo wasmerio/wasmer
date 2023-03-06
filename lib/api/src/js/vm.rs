@@ -109,6 +109,12 @@ impl VMMemory {
     }
 }
 
+impl From<VMMemory> for JsValue {
+    fn from(value: VMMemory) -> Self {
+        JsValue::from(value.memory)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMGlobal {
     pub(crate) global: Global,

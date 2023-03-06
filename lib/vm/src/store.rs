@@ -108,6 +108,13 @@ impl StoreObjects {
         self.globals.iter()
     }
 
+    /// Return an vector of all globals and converted to u128
+    pub fn as_u128_globals(&self) -> Vec<u128> {
+        self.iter_globals()
+            .map(|v| unsafe { v.vmglobal().as_ref().val.u128 })
+            .collect()
+    }
+
     /// Set a global, at index idx. Will panic if idx is out of range
     /// Safety: the caller should check taht the raw value is compatible
     /// with destination VMGlobal type

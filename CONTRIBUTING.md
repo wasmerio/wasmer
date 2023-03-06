@@ -24,4 +24,5 @@ A comprehensive CI test suite will be run by a Wasmer team member after the PR h
 
 `Didn't find usable system-wide LLVM`
 
-Building Wasmer with the LLVM backend requires LLVM to be installed
+Building Wasmer with the LLVM backend requires LLVM 14 or better to be installed
+On debian family you need `sudo apt install llvm14 libclang-common-14-dev libpolly-14-dev`

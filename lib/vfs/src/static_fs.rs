@@ -1,15 +1,17 @@
 use anyhow::anyhow;
+use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
 use std::convert::TryInto;
-use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read, Seek, SeekFrom, Write};
+use std::io::{self, Error as IoError, ErrorKind as IoErrorKind, SeekFrom};
 use std::path::Path;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 
 use crate::mem_fs::FileSystem as MemFileSystem;
 use crate::{
-    FileDescriptor, FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig,
-    ReadDir, VirtualFile,
+    FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, VirtualFile,
 };
 use webc::{FsEntry, FsEntryType, OwnedFsEntryFile};
 
@@ -41,16 +43,9 @@ impl StaticFileSystem {
 }
 
 /// Custom file opener, returns a WebCFile
-#[derive(Debug)]
-struct WebCFileOpener {
-    pub package: String,
-    pub volumes: Arc<webc::IndexMap<String, webc::Volume<'static>>>,
-    pub memory: Arc<MemFileSystem>,
-}
-
-impl FileOpener for WebCFileOpener {
+impl FileOpener for StaticFileSystem {
     fn open(
-        &mut self,
+        &self,
         path: &Path,
         _conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync>, FsError> {
@@ -58,9 +53,9 @@ impl FileOpener for WebCFileOpener {
             Some(volume) => {
                 let file = (*self.volumes)
                     .get(&volume)
-                    .ok_or(FsError::EntityNotFound)?
+                    .ok_or(FsError::EntryNotFound)?
                     .get_file_entry(&format!("{}", path.display()))
-                    .map_err(|_e| FsError::EntityNotFound)?;
+                    .map_err(|_e| FsError::EntryNotFound)?;
 
                 Ok(Box::new(WebCFile {
                     package: self.package.clone(),
@@ -103,6 +98,7 @@ pub struct WebCFile {
     pub cursor: u64,
 }
 
+#[async_trait::async_trait]
 impl VirtualFile for WebCFile {
     fn last_accessed(&self) -> u64 {
         0
@@ -122,19 +118,21 @@ impl VirtualFile for WebCFile {
     fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
-    fn bytes_available(&self) -> Result<usize, FsError> {
-        Ok(self.size().try_into().unwrap_or(u32::MAX as usize))
+    fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        let remaining = self.entry.get_len() - self.cursor;
+        Poll::Ready(Ok(remaining as usize))
     }
-    fn sync_to_disk(&self) -> Result<(), FsError> {
-        Ok(())
-    }
-    fn get_fd(&self) -> Option<FileDescriptor> {
-        None
+    fn poll_write_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(0))
     }
 }
 
-impl Read for WebCFile {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, IoError> {
+impl AsyncRead for WebCFile {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
         let bytes = self
             .volumes
             .get(&self.volume)
@@ -151,29 +149,36 @@ impl Read for WebCFile {
         let _start = cursor.min(bytes.len());
         let bytes = &bytes[cursor..];
 
-        let mut len = 0;
-        for (source, target) in bytes.iter().zip(buf.iter_mut()) {
-            *target = *source;
-            len += 1;
+        if bytes.len() > buf.remaining() {
+            let remaining = buf.remaining();
+            buf.put_slice(&bytes[..remaining]);
+        } else {
+            buf.put_slice(bytes);
         }
-
-        Ok(len)
+        Poll::Ready(Ok(()))
     }
 }
 
 // WebC file is not writable, the FileOpener will return a MemoryFile for writing instead
 // This code should never be executed (since writes are redirected to memory instead).
-impl Write for WebCFile {
-    fn write(&mut self, buf: &[u8]) -> Result<usize, IoError> {
-        Ok(buf.len())
+impl AsyncWrite for WebCFile {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        _cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        Poll::Ready(Ok(buf.len()))
     }
-    fn flush(&mut self) -> Result<(), IoError> {
-        Ok(())
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Poll::Ready(Ok(()))
+    }
+    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        Poll::Ready(Ok(()))
     }
 }
 
-impl Seek for WebCFile {
-    fn seek(&mut self, pos: SeekFrom) -> Result<u64, IoError> {
+impl AsyncSeek for WebCFile {
+    fn start_seek(mut self: Pin<&mut Self>, pos: io::SeekFrom) -> io::Result<()> {
         let self_size = self.size();
         match pos {
             SeekFrom::Start(s) => {
@@ -193,7 +198,10 @@ impl Seek for WebCFile {
                 .min(self_size);
             }
         }
-        Ok(self.cursor)
+        Ok(())
+    }
+    fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+        Poll::Ready(Ok(self.cursor))
     }
 }
 
@@ -234,7 +242,7 @@ impl FileSystem for StaticFileSystem {
             let read_dir_result = volume
                 .read_dir(&path)
                 .map(|o| transform_into_read_dir(Path::new(&path), o.as_ref()))
-                .map_err(|_| FsError::EntityNotFound);
+                .map_err(|_| FsError::EntryNotFound);
 
             match read_dir_result {
                 Ok(o) => {
@@ -323,11 +331,7 @@ impl FileSystem for StaticFileSystem {
         }
     }
     fn new_open_options(&self) -> OpenOptions {
-        OpenOptions::new(Box::new(WebCFileOpener {
-            package: self.package.clone(),
-            volumes: self.volumes.clone(),
-            memory: self.memory.clone(),
-        }))
+        OpenOptions::new(self)
     }
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         let path = normalizes_path(path);
