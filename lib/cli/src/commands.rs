@@ -18,6 +18,7 @@ mod list;
 mod login;
 mod publish;
 mod run;
+mod run2;
 mod self_update;
 mod validate;
 #[cfg(feature = "wast")]
@@ -34,7 +35,7 @@ pub use create_exe::*;
 pub use wast::*;
 pub use {
     add::*, cache::*, config::*, init::*, inspect::*, list::*, login::*, publish::*, run::*,
-    self_update::*, validate::*, whoami::*,
+    run2::Run2, self_update::*, validate::*, whoami::*,
 };
 #[cfg(feature = "static-artifact-create")]
 pub use {create_obj::*, gen_c_header::*};

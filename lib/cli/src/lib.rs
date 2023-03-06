@@ -22,7 +22,6 @@ pub mod common;
 pub mod error;
 pub mod c_gen;
 pub mod cli;
-#[cfg(feature = "debug")]
 pub mod logging;
 pub mod package_source;
 pub mod store;

@@ -121,7 +121,7 @@ impl Wasi {
         program_name: String,
         args: Vec<String>,
     ) -> Result<(WasiFunctionEnv, Instance)> {
-        let args = args.iter().cloned().map(|arg| arg.into_bytes());
+        let args = args.into_iter().map(|arg| arg.into_bytes());
 
         let map_commands = self
             .map_commands
