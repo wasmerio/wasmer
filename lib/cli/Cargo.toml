@@ -118,7 +118,7 @@ wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi", "wasmer-wasi-local-networking"]
 emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
-webc_runner = ["wasi", "wasmer-wasi/webc_runner", "wasmer-wasi/webc_runner_rt_wasi", "wasmer-wasi/webc_runner_rt_emscripten", "nuke-dir", "webc"]
+webc_runner = ["wasi", "wasmer-wasi/webc_runner", "wasmer-wasi/webc_runner_rt_wasi", "wasmer-wasi/webc_runner_rt_wcgi", "wasmer-wasi/webc_runner_rt_emscripten", "nuke-dir", "webc"]
 compiler = [
     "wasmer-compiler/translator",
     "wasmer-compiler/compiler",
