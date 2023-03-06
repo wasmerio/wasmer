@@ -61,11 +61,10 @@ mod wasi {
         let tasks = TokioTaskManager::new(Handle::current());
         let container = WapmContainer::from_bytes(webc).unwrap();
 
-        // Note: we don't have any way to intercept stdin or stdout, so blindly
-        // assume that everything is fine if it runs successfully.
         let handle = std::thread::spawn(move || {
             WasiRunner::new(store)
                 .with_task_manager(tasks)
+                .with_args(["-c", "import sys; sys.exit(42)"])
                 .run_cmd(&container, "python")
         });
         let err = handle.join().unwrap().unwrap_err();
