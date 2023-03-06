@@ -1,13 +1,12 @@
 //! WebC container support for running WASI modules
 
-use std::{collections::VecDeque, path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
 use crate::{runners::WapmContainer, PluggableRuntimeImplementation, VirtualTaskManager};
 use crate::{WasiEnv, WasiEnvBuilder};
 use anyhow::{Context, Error};
 use serde::{Deserialize, Serialize};
 use wasmer::{Module, Store};
-use wasmer_vfs::{DirEntry, FileSystem};
 use webc::metadata::{annotations::Wasi, Command};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -35,14 +34,22 @@ impl WasiRunner {
     }
 
     /// Builder method to provide CLI args to the runner
-    pub fn with_args(mut self, args: Vec<String>) -> Self {
+    pub fn with_args<A, S>(mut self, args: A) -> Self
+    where
+        A: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
         self.set_args(args);
         self
     }
 
     /// Set the CLI args
-    pub fn set_args(&mut self, args: Vec<String>) {
-        self.args = args;
+    pub fn set_args<A, S>(&mut self, args: A)
+    where
+        A: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.args = args.into_iter().map(|s| s.into()).collect();
     }
 
     pub fn with_task_manager(mut self, tasks: impl VirtualTaskManager) -> Self {
@@ -100,42 +107,14 @@ fn prepare_webc_env(
     command: &str,
     args: &[String],
 ) -> Result<WasiEnvBuilder, anyhow::Error> {
-    let filesystem = container.container_fs();
+    let (filesystem, preopen_dirs) = container.container_fs();
     let mut builder = WasiEnv::builder(command).args(args);
-    let preopen_dirs = all_directories(&*filesystem);
 
     for entry in preopen_dirs {
-        builder
-            .add_preopen_build(|p| p.directory(&entry.path).read(true).write(true).create(true))?;
+        builder.add_preopen_build(|p| p.directory(&entry).read(true).write(true).create(true))?;
     }
 
     builder.set_fs(filesystem);
 
     Ok(builder)
-}
-
-fn all_directories(fs: &dyn FileSystem) -> Vec<DirEntry> {
-    let mut dirs = Vec::new();
-
-    let mut to_check = VecDeque::new();
-    to_check.push_back(PathBuf::from("/"));
-
-    while let Some(path) = to_check.pop_front() {
-        let children = fs
-            .read_dir(&path)
-            .into_iter()
-            .flatten()
-            .flat_map(|result| result.ok());
-
-        for child in children {
-            if let Ok(file_type) = child.file_type() {
-                if file_type.is_dir() {
-                    to_check.push_back(child.path());
-                    dirs.push(child);
-                }
-            }
-        }
-    }
-
-    dirs
 }
