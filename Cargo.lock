@@ -4944,7 +4944,6 @@ dependencies = [
  "fern",
  "log",
  "target-lexicon 0.12.5",
- "tempfile",
  "unix_mode",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
