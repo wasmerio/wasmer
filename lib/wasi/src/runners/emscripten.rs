@@ -49,7 +49,11 @@ impl EmscriptenRunner {
 impl crate::runners::Runner for EmscriptenRunner {
     type Output = ();
 
-    fn can_run_command(&self, _: &str, command: &Command) -> Result<bool, Box<dyn StdError>> {
+    fn can_run_command(
+        &self,
+        _: &str,
+        command: &Command,
+    ) -> Result<bool, Box<dyn StdError + Send + Sync>> {
         Ok(command
             .runner
             .starts_with(webc::metadata::annotations::EMSCRIPTEN_RUNNER_URI))
@@ -61,7 +65,7 @@ impl crate::runners::Runner for EmscriptenRunner {
         command_name: &str,
         _command: &Command,
         container: &WapmContainer,
-    ) -> Result<Self::Output, Box<dyn StdError>> {
+    ) -> Result<Self::Output, Box<dyn StdError + Send + Sync>> {
         let atom_name = container.get_atom_name_for_command("emscripten", command_name)?;
         let main_args = container.get_main_args_for_command(command_name);
         let atom_bytes = container.get_atom(&container.get_package_name(), &atom_name)?;

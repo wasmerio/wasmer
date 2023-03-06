@@ -50,7 +50,7 @@ impl crate::runners::Runner for WasiRunner {
         &self,
         _command_name: &str,
         command: &Command,
-    ) -> Result<bool, Box<dyn StdError>> {
+    ) -> Result<bool, Box<dyn StdError + Send + Sync>> {
         Ok(command
             .runner
             .starts_with(webc::metadata::annotations::WASI_RUNNER_URI))
@@ -62,7 +62,7 @@ impl crate::runners::Runner for WasiRunner {
         command_name: &str,
         _command: &Command,
         container: &WapmContainer,
-    ) -> Result<Self::Output, Box<dyn StdError>> {
+    ) -> Result<Self::Output, Box<dyn StdError + Send + Sync>> {
         let atom_name = container.get_atom_name_for_command("wasi", command_name)?;
         let atom_bytes = container.get_atom(&container.get_package_name(), &atom_name)?;
 

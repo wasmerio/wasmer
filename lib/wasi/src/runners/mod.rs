@@ -142,7 +142,7 @@ pub trait Runner {
         &self,
         command_name: &str,
         command: &Command,
-    ) -> Result<bool, Box<dyn StdError>>;
+    ) -> Result<bool, Box<dyn StdError + Send + Sync>>;
 
     /// Implementation to run the given command
     ///
@@ -153,10 +153,13 @@ pub trait Runner {
         command_name: &str,
         cmd: &Command,
         container: &WapmContainer,
-    ) -> Result<Self::Output, Box<dyn StdError>>;
+    ) -> Result<Self::Output, Box<dyn StdError + Send + Sync>>;
 
     /// Runs the container if the container has an `entrypoint` in the manifest
-    fn run(&mut self, container: &WapmContainer) -> Result<Self::Output, Box<dyn StdError>> {
+    fn run(
+        &mut self,
+        container: &WapmContainer,
+    ) -> Result<Self::Output, Box<dyn StdError + Send + Sync>> {
         let cmd = match container.webc.webc.manifest.entrypoint.as_ref() {
             Some(s) => s,
             None => {
@@ -175,7 +178,7 @@ pub trait Runner {
         &mut self,
         container: &WapmContainer,
         cmd: &str,
-    ) -> Result<Self::Output, Box<dyn StdError>> {
+    ) -> Result<Self::Output, Box<dyn StdError + Send + Sync>> {
         let path = format!("{}", container.webc.path.display());
         let command_to_exec = container
             .webc
