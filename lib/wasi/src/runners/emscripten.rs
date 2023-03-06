@@ -1,17 +1,14 @@
-#![cfg(feature = "webc_runner_rt_emscripten")]
 //! WebC container support for running Emscripten modules
 
 use crate::runners::WapmContainer;
-use anyhow::anyhow;
+use anyhow::{anyhow, Context, Error};
 use serde::{Deserialize, Serialize};
-use std::error::Error as StdError;
-use std::sync::Arc;
 use wasmer::{FunctionEnv, Instance, Module, Store};
 use wasmer_emscripten::{
     generate_emscripten_env, is_emscripten_module, run_emscripten_instance, EmEnv,
     EmscriptenGlobals,
 };
-use webc::{Command, WebCMmap};
+use webc::metadata::{annotations::Emscripten, Command};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct EmscriptenRunner {
@@ -49,35 +46,39 @@ impl EmscriptenRunner {
 impl crate::runners::Runner for EmscriptenRunner {
     type Output = ();
 
-    fn can_run_command(&self, _: &str, command: &Command) -> Result<bool, Box<dyn StdError>> {
+    fn can_run_command(&self, _: &str, command: &Command) -> Result<bool, Error> {
         Ok(command
             .runner
-            .starts_with("https://webc.org/runner/emscripten"))
+            .starts_with(webc::metadata::annotations::EMSCRIPTEN_RUNNER_URI))
     }
 
     #[allow(unreachable_code, unused_variables)]
     fn run_command(
         &mut self,
         command_name: &str,
-        _command: &Command,
+        command: &Command,
         container: &WapmContainer,
-    ) -> Result<Self::Output, Box<dyn StdError>> {
-        let atom_name = container.get_atom_name_for_command("emscripten", command_name)?;
-        let main_args = container.get_main_args_for_command(command_name);
-        let atom_bytes = container.get_atom(&container.get_package_name(), &atom_name)?;
+    ) -> Result<Self::Output, Error> {
+        let Emscripten {
+            atom: atom_name,
+            main_args,
+            ..
+        } = command.get_annotation("emscripten")?.unwrap_or_default();
+        let atom_name = atom_name.context("The atom name is required")?;
+        let atom_bytes = container
+            .get_atom(&atom_name)
+            .with_context(|| format!("Unable to read the \"{atom_name}\" atom"))?;
 
         let mut module = Module::new(&self.store, atom_bytes)?;
         module.set_name(&atom_name);
 
-        let (mut globals, env) =
-            prepare_emscripten_env(&mut self.store, &module, container.webc.clone(), &atom_name)?;
+        let (mut globals, env) = prepare_emscripten_env(&mut self.store, &module, &atom_name)?;
 
         exec_module(
             &mut self.store,
             &module,
             &mut globals,
             env,
-            container.webc.clone(),
             &atom_name,
             main_args.unwrap_or_default(),
         )?;
@@ -89,7 +90,6 @@ impl crate::runners::Runner for EmscriptenRunner {
 fn prepare_emscripten_env(
     store: &mut Store,
     module: &Module,
-    _atom: Arc<WebCMmap>,
     name: &str,
 ) -> Result<(EmscriptenGlobals, FunctionEnv<EmEnv>), anyhow::Error> {
     if !is_emscripten_module(module) {
@@ -110,7 +110,6 @@ fn exec_module(
     module: &Module,
     globals: &mut EmscriptenGlobals,
     em_env: FunctionEnv<EmEnv>,
-    _atom: Arc<WebCMmap>,
     name: &str,
     args: Vec<String>,
 ) -> Result<(), anyhow::Error> {
