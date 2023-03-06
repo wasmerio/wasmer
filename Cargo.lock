@@ -4861,7 +4861,6 @@ dependencies = [
  "dialoguer",
  "dirs",
  "distance",
- "fern",
  "flate2",
  "hex",
  "http_req",
