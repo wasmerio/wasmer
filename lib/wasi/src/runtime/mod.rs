@@ -2,11 +2,13 @@ pub mod task_manager;
 
 pub use self::task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager};
 
-use std::{fmt, sync::Arc};
-
+use crate::{http::DynHttpClient, os::TtyBridge, WasiTtyState};
+use derivative::Derivative;
+use std::{
+    fmt,
+    sync::{Arc, Mutex},
+};
 use wasmer_vnet::{DynVirtualNetworking, VirtualNetworking};
-
-use crate::{http::DynHttpClient, os::TtyBridge};
 
 #[cfg(feature = "sys")]
 pub type ArcTunables = std::sync::Arc<dyn wasmer::Tunables + Send + Sync>;
@@ -57,13 +59,33 @@ where
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Default)]
+pub struct DefaultTty {
+    state: Mutex<WasiTtyState>,
+}
+
+impl TtyBridge for DefaultTty {
+    fn tty_get(&self) -> WasiTtyState {
+        let state = self.state.lock().unwrap();
+        state.clone()
+    }
+
+    fn tty_set(&self, tty_state: WasiTtyState) {
+        let mut state = self.state.lock().unwrap();
+        *state = tty_state;
+    }
+}
+
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct PluggableRuntimeImplementation {
     pub rt: Arc<dyn VirtualTaskManager>,
     pub networking: DynVirtualNetworking,
     pub http_client: Option<DynHttpClient>,
     #[cfg(feature = "sys")]
     pub engine: Option<wasmer::Engine>,
+    #[derivative(Debug = "ignore")]
+    pub tty: Arc<dyn TtyBridge + Send + Sync>,
 }
 
 impl PluggableRuntimeImplementation {
@@ -77,6 +99,10 @@ impl PluggableRuntimeImplementation {
     #[cfg(feature = "sys")]
     pub fn set_engine(&mut self, engine: Option<wasmer::Engine>) {
         self.engine = engine;
+    }
+
+    pub fn set_tty(&mut self, tty: Arc<dyn TtyBridge + Send + Sync>) {
+        self.tty = tty;
     }
 
     pub fn new(rt: Arc<dyn VirtualTaskManager>) -> Self {
@@ -97,6 +123,13 @@ impl PluggableRuntimeImplementation {
                 let http_client = None;
             }
         }
+        cfg_if::cfg_if! {
+            if #[cfg(all(feature = "host-termios", unix))] {
+                let tty = Arc::new(crate::os::tty_sys::SysTyy::default());
+            } else {
+                let tty = Arc::new(DefaultTty::default());
+            }
+        }
 
         Self {
             rt,
@@ -104,6 +137,7 @@ impl PluggableRuntimeImplementation {
             http_client,
             #[cfg(feature = "sys")]
             engine: None,
+            tty,
         }
     }
 }
@@ -140,5 +174,9 @@ impl WasiRuntime for PluggableRuntimeImplementation {
 
     fn task_manager(&self) -> &Arc<dyn VirtualTaskManager> {
         &self.rt
+    }
+
+    fn tty(&self) -> Option<&dyn TtyBridge> {
+        Some(self.tty.as_ref())
     }
 }
