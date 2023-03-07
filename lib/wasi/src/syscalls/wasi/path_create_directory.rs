@@ -14,17 +14,13 @@ use crate::syscalls::*;
 /// Required Rights:
 /// - Rights::PATH_CREATE_DIRECTORY
 ///     This right must be set on the directory that the file is created in (TODO: verify that this is true)
+#[instrument(level = "trace", skip_all, fields(fd, path = field::Empty), ret)]
 pub fn path_create_directory<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::path_create_directory",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
     let env = ctx.data();
     let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
@@ -39,16 +35,13 @@ pub fn path_create_directory<M: MemorySize>(
         return Errno::Access;
     }
     let mut path_string = unsafe { get_input_str!(&memory, path, path_len) };
-    debug!("=> fd: {}, path: {}", fd, &path_string);
+    Span::current().record("path", path_string.as_str());
 
     // Convert relative paths into absolute paths
     if path_string.starts_with("./") {
         path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
         trace!(
-            "wasi[{}:{}]::rel_to_abs (name={}))",
-            ctx.data().pid(),
-            ctx.data().tid(),
-            path_string
+            %path_string
         );
     }
 
@@ -66,12 +59,8 @@ pub fn path_create_directory<M: MemorySize>(
         return Errno::Inval;
     }
 
-    debug!("Looking at components {:?}", &path_vec);
-
     let mut cur_dir_inode = working_dir.inode;
     for comp in &path_vec {
-        debug!("Creating dir {}", comp);
-
         let processing_cur_dir_inode = cur_dir_inode.clone();
         let mut guard = processing_cur_dir_inode.write();
         match guard.deref_mut() {

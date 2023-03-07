@@ -1,3 +1,4 @@
+use tracing::{field, instrument, trace_span};
 use wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
 use wasmer_wasi_types::wasi::{
     Errno, Event, EventFdReadwrite, Eventrwflags, Eventtype, Fd, Filesize, Filestat, Filetype,
@@ -20,6 +21,7 @@ use crate::{
 /// WARNING: this function involves saving, clobbering, and restoring unrelated
 /// Wasm memory.  If the memory clobbered by the current syscall is also used by
 /// that syscall, then it may break.
+#[instrument(level = "debug", skip_all, ret)]
 pub fn fd_filestat_get(
     mut ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
@@ -72,6 +74,7 @@ pub fn fd_filestat_get(
 
 /// Wrapper around `syscalls::path_filestat_get` with extra logic to handle the size
 /// difference of `wasi_filestat_t`
+#[instrument(level = "debug", skip_all, ret)]
 pub fn path_filestat_get(
     mut ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
@@ -115,6 +118,7 @@ pub fn path_filestat_get(
 
 /// Wrapper around `syscalls::fd_seek` with extra logic to remap the values
 /// of `Whence`
+#[instrument(level = "debug", skip_all, ret)]
 pub fn fd_seek(
     ctx: FunctionEnvMut<WasiEnv>,
     fd: Fd,
@@ -132,6 +136,7 @@ pub fn fd_seek(
 
 /// Wrapper around `syscalls::poll_oneoff` with extra logic to add the removed
 /// userdata field back
+#[instrument(level = "trace", skip_all, fields(timeout_ns = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
 pub fn poll_oneoff(
     mut ctx: FunctionEnvMut<WasiEnv>,
     in_: WasmPtr<Snapshot0Subscription, Memory32>,
@@ -157,12 +162,7 @@ pub fn poll_oneoff(
     let triggered_events = match triggered_events {
         Ok(a) => a,
         Err(err) => {
-            tracing::trace!(
-                "wasi[{}:{}]::poll_oneoff0 errno={}",
-                ctx.data().pid(),
-                ctx.data().tid(),
-                err
-            );
+            tracing::trace!(err = err as u16);
             return Ok(err);
         }
     };

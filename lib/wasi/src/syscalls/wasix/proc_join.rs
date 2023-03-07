@@ -7,6 +7,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `pid` - Handle of the child process to wait on
+#[instrument(level = "trace", skip_all, fields(filter_pid = field::Empty, ret_pid = field::Empty, exit_code = field::Empty), ret, err)]
 pub fn proc_join<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     pid_ptr: WasmPtr<Pid, M>,
@@ -17,12 +18,7 @@ pub fn proc_join<M: MemorySize>(
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
     let pid = wasi_try_mem_ok!(pid_ptr.read(&memory));
-    trace!(
-        "wasi[{}:{}]::proc_join (pid={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        pid
-    );
+    Span::current().record("filter_pid", pid);
 
     // If the ID is maximum then it means wait for any of the children
     if pid == u32::MAX {
@@ -35,23 +31,16 @@ pub fn proc_join<M: MemorySize>(
             )
             .map_err(|err| {
                 trace!(
-                    "wasi[{}:{}]::child join failed (pid={}) - {}",
-                    ctx.data().pid(),
-                    ctx.data().tid(),
-                    pid,
-                    err
+                    %pid,
+                    %err
                 );
                 err
             })?);
         return match child_exit {
             Some((pid, exit_code)) => {
-                trace!(
-                    "wasi[{}:{}]::child ({}) exited with {}",
-                    ctx.data().pid(),
-                    ctx.data().tid(),
-                    pid,
-                    exit_code
-                );
+                Span::current()
+                    .record("ret_pid", pid.raw())
+                    .record("exit_code", exit_code);
                 let env = ctx.data();
                 let memory = env.memory_view(&ctx);
                 wasi_try_mem_ok!(pid_ptr.write(&memory, pid.raw() as Pid));
@@ -59,11 +48,6 @@ pub fn proc_join<M: MemorySize>(
                 Ok(Errno::Success)
             }
             None => {
-                trace!(
-                    "wasi[{}:{}]::no children",
-                    ctx.data().pid(),
-                    ctx.data().tid()
-                );
                 let env = ctx.data();
                 let memory = env.memory_view(&ctx);
                 wasi_try_mem_ok!(pid_ptr.write(&memory, -1i32 as Pid));
@@ -84,16 +68,15 @@ pub fn proc_join<M: MemorySize>(
         })
         .map_err(|err| {
             trace!(
-                "wasi[{}:{}]::child join failed (pid={}) - {}",
-                ctx.data().pid(),
-                ctx.data().tid(),
-                pid,
-                err
+                %pid,
+                %err
             );
             err
         })?);
 
-        trace!("child ({}) exited with {}", pid.raw(), exit_code);
+        Span::current()
+            .record("ret_pid", pid.raw())
+            .record("exit_code", exit_code);
         let env = ctx.data();
         let mut children = env.process.children.write().unwrap();
         children.retain(|a| *a != pid);
@@ -103,10 +86,8 @@ pub fn proc_join<M: MemorySize>(
         return Ok(Errno::Success);
     }
 
-    debug!(
-        "process already terminated or not registered (pid={})",
-        pid.raw()
-    );
+    Span::current().record("ret_pid", pid.raw());
+
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
     wasi_try_mem_ok!(exit_code_ptr.write(&memory, Errno::Child as ExitCode));

@@ -18,6 +18,7 @@ use crate::syscalls::*;
 ///     The timestamp that the last modified time attribute is set to
 /// - `Fstflags fst_flags`
 ///     A bitmask controlling which attributes are set
+#[instrument(level = "debug", skip_all, fields(fd, path = field::Empty, st_atim, st_mtim), ret)]
 pub fn path_filestat_set_times<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -28,11 +29,6 @@ pub fn path_filestat_set_times<M: MemorySize>(
     st_mtim: Timestamp,
     fst_flags: Fstflags,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::path_filestat_set_times",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
     let env = ctx.data();
     let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
     let fd_entry = wasi_try!(state.fs.get_fd(fd));
@@ -47,16 +43,13 @@ pub fn path_filestat_set_times<M: MemorySize>(
     }
 
     let mut path_string = unsafe { get_input_str!(&memory, path, path_len) };
-    debug!("=> base_fd: {}, path: {}", fd, &path_string);
+    Span::current().record("path", path_string.as_str());
 
     // Convert relative paths into absolute paths
     if path_string.starts_with("./") {
         path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
         trace!(
-            "wasi[{}:{}]::rel_to_abs (name={}))",
-            ctx.data().pid(),
-            ctx.data().tid(),
-            path_string
+            %path_string
         );
     }
 

@@ -8,16 +8,12 @@ use crate::syscalls::*;
 ///     File descriptor to adjust
 /// - `Filesize st_size`
 ///     New size that `fd` will be set to
+#[instrument(level = "debug", skip_all, fields(fd, st_size), ret)]
 pub fn fd_filestat_set_size(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     st_size: Filesize,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::fd_filestat_set_size",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
     let env = ctx.data();
     let (_, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
     let fd_entry = wasi_try!(state.fs.get_fd(fd));

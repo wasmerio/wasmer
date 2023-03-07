@@ -7,6 +7,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `duration` - Amount of time that the thread should sleep
+#[instrument(level = "debug", skip_all, fields(duration), ret, err)]
 pub fn thread_sleep(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     duration: Timestamp,
@@ -18,13 +19,6 @@ pub(crate) fn thread_sleep_internal(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     duration: Timestamp,
 ) -> Result<Errno, WasiError> {
-    /*
-    trace!(
-        "wasi[{}:{}]::thread_sleep",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
-    */
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let env = ctx.data();

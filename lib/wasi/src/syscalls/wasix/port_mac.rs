@@ -3,11 +3,11 @@ use crate::syscalls::*;
 
 /// ### `port_mac()`
 /// Returns the MAC address of the local port
+#[instrument(level = "debug", skip_all, fields(max = field::Empty), ret, err)]
 pub fn port_mac<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     ret_mac: WasmPtr<__wasi_hardwareaddress_t, M>,
 ) -> Result<Errno, WasiError> {
-    debug!("wasi[{}:{}]::port_mac", ctx.data().pid(), ctx.data().tid());
     let mut env = ctx.data();
     let mut memory = env.memory_view(&ctx);
 
@@ -17,6 +17,8 @@ pub fn port_mac<M: MemorySize>(
     })?);
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
+
+    Span::current().record("mac", hex::encode(mac.as_ref()).as_str());
 
     let mac = __wasi_hardwareaddress_t { octs: mac };
     wasi_try_mem_ok!(ret_mac.write(&memory, mac));

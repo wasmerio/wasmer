@@ -9,16 +9,12 @@ use crate::syscalls::*;
 /// Output:
 /// - `Timestamp *resolution`
 ///     The resolution of the clock in nanoseconds
+#[instrument(level = "trace", skip_all, ret)]
 pub fn clock_res_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     clock_id: Snapshot0Clockid,
     resolution: WasmPtr<Timestamp, M>,
 ) -> Errno {
-    trace!(
-        "wasi[{}:{}]::clock_res_get",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 

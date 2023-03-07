@@ -8,8 +8,8 @@ use crate::syscalls::*;
 ///
 /// * `key` - Thread key that this local variable will be associated with
 /// * `val` - Value to be set for the thread local variable
+#[instrument(level = "trace", skip_all, fields(key, val), ret)]
 pub fn thread_local_set(ctx: FunctionEnvMut<'_, WasiEnv>, key: TlKey, val: TlVal) -> Errno {
-    //trace!("wasi[{}:{}]::thread_local_set (key={}, val={})", ctx.data().pid(), ctx.data().tid(), key, val);
     let env = ctx.data();
 
     let current_thread = ctx.data().thread.tid();

@@ -8,17 +8,11 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `tid` - Handle of the thread to wait on
+#[instrument(level = "debug", skip_all, fields(join_tid), ret, err)]
 pub fn thread_join(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     join_tid: Tid,
 ) -> Result<Errno, WasiError> {
-    debug!(
-        %join_tid,
-        "wasi[{}:{}]::thread_join",
-        ctx.data().pid(),
-        ctx.data().tid(),
-    );
-
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let env = ctx.data();

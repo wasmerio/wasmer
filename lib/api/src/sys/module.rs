@@ -62,7 +62,7 @@ impl Module {
     #[cfg(not(feature = "compiler"))]
     fn compile(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::UnsupportedTarget(
-            "The compiler feature is not enabled, but is required to compile a Module",
+            "The compiler feature is not enabled, but is required to compile a Module".to_string(),
         ))
     }
 

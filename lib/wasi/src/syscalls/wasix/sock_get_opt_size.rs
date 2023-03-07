@@ -9,19 +9,13 @@ use crate::syscalls::*;
 ///
 /// * `fd` - Socket descriptor
 /// * `sockopt` - Socket option to be retrieved
+#[instrument(level = "debug", skip_all, fields(sock, opt), ret)]
 pub fn sock_get_opt_size<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     opt: Sockoption,
     ret_size: WasmPtr<Filesize, M>,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::sock_get_opt_size(fd={}, ty={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        sock,
-        opt
-    );
     let size = wasi_try!(__sock_actor(
         &mut ctx,
         sock,

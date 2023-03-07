@@ -5,26 +5,22 @@ use crate::syscalls::*;
 /// Returns the current working directory
 /// If the path exceeds the size of the buffer then this function
 /// will fill the path_len with the needed size and return EOVERFLOW
+#[instrument(level = "debug", skip_all, fields(path = field::Empty, max_path_len = field::Empty), ret)]
 pub fn getcwd<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     path: WasmPtr<u8, M>,
     path_len: WasmPtr<M::Offset, M>,
 ) -> Errno {
-    debug!("wasi[{}:{}]::getcwd", ctx.data().pid(), ctx.data().tid());
     let env = ctx.data();
     let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
 
     let (_, cur_dir) = wasi_try!(state.fs.get_current_dir(inodes, crate::VIRTUAL_ROOT_FD,));
-    trace!(
-        "wasi[{}:{}]::getcwd(current_dir={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        cur_dir
-    );
+    Span::current().record("path", cur_dir.as_str());
 
     let max_path_len = wasi_try_mem!(path_len.read(&memory));
     let path_slice = wasi_try_mem!(path.slice(&memory, max_path_len));
     let max_path_len: u64 = max_path_len.into();
+    Span::current().record("max_path_len", max_path_len);
 
     let cur_dir = cur_dir.as_bytes();
     wasi_try_mem!(path_len.write(&memory, wasi_try!(to_offset::<M>(cur_dir.len()))));

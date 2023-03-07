@@ -8,14 +8,8 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `how` - Which channels on the socket to shut down.
+#[instrument(level = "debug", skip_all, fields(sock), ret)]
 pub fn sock_shutdown(mut ctx: FunctionEnvMut<'_, WasiEnv>, sock: WasiFd, how: SdFlags) -> Errno {
-    debug!(
-        "wasi[{}:{}]::sock_shutdown (fd={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        sock
-    );
-
     let both = __WASI_SHUT_RD | __WASI_SHUT_WR;
     let how = match how {
         __WASI_SHUT_RD => std::net::Shutdown::Read,
