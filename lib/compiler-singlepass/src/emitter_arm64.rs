@@ -1954,6 +1954,16 @@ impl EmitterARM64 for Assembler {
                 }
                 dynasm!(self ; ror X(dst), X(src1), imm);
             }
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
+            | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let imm = imm as u32;
+                let dst = dst.into_index() as u32;
+                if imm == 0 || imm > 63 {
+                    codegen_error!("singlepass ROR with incompatible imm {}", imm);
+                }
+                dynasm!(self ; ror X(dst), X(src1), imm);
+            }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
