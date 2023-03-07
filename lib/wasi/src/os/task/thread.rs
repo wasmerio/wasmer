@@ -22,7 +22,7 @@ use super::{
 };
 
 /// Represents the ID of a WASI thread
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WasiThreadId(u32);
 
 impl WasiThreadId {
@@ -62,6 +62,12 @@ impl From<WasiThreadId> for u32 {
 }
 
 impl std::fmt::Display for WasiThreadId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::fmt::Debug for WasiThreadId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }

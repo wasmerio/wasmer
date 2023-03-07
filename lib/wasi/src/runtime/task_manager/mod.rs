@@ -6,13 +6,8 @@ use std::{pin::Pin, time::Duration};
 
 use ::tokio::runtime::Handle;
 use futures::Future;
-use wasmer::{MemoryType, Module, Store};
-
-#[cfg(feature = "js")]
-use wasmer::VMMemory;
-
-#[cfg(not(target_family = "wasm"))]
 use wasmer::vm::VMMemory;
+use wasmer::{MemoryType, Module, Store};
 
 #[cfg(feature = "sys")]
 use wasmer_types::MemoryStyle;

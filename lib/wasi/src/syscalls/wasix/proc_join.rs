@@ -9,6 +9,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `pid` - Handle of the child process to wait on
+#[instrument(level = "trace", skip_all, fields(filter_pid = field::Empty, ret_pid = field::Empty, exit_code = field::Empty), ret, err)]
 pub fn proc_join<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     pid_ptr: WasmPtr<OptionPid, M>,
@@ -24,77 +25,53 @@ pub fn proc_join<M: MemorySize>(
         OptionTag::None => None,
         OptionTag::Some => Some(option_pid.pid),
     };
-    trace!(
-        "wasi[{}:{}]::proc_join (pid={:?})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        option_pid
-    );
+    Span::current().record("filter_pid", option_pid);
 
     // If the ID is maximum then it means wait for any of the children
-    let pid =
-        match option_pid {
-            None => {
-                let mut process = ctx.data_mut().process.clone();
-                let child_exit = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-                    process.join_any_child().await
-                })
-                .map_err(|err| {
-                    trace!(
-                        "wasi[{}:{}]::child join failed (pid=any) - {}",
-                        ctx.data().pid(),
-                        ctx.data().tid(),
-                        err
-                    );
-                    err
-                })?);
-                return match child_exit {
-                    Some((pid, exit_code)) => {
-                        trace!(
-                            "wasi[{}:{}]::child ({}) exited with {}",
-                            ctx.data().pid(),
-                            ctx.data().tid(),
-                            pid,
-                            exit_code
-                        );
-                        let env = ctx.data();
-                        let memory = env.memory_view(&ctx);
+    let pid = match option_pid {
+        None => {
+            let mut process = ctx.data_mut().process.clone();
+            let child_exit = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+                process.join_any_child().await
+            })?);
+            return match child_exit {
+                Some((pid, exit_code)) => {
+                    Span::current()
+                        .record("ret_pid", pid.raw())
+                        .record("exit_code", exit_code as u32);
+                    let env = ctx.data();
+                    let memory = env.memory_view(&ctx);
 
-                        let option_pid = OptionPid {
-                            tag: OptionTag::Some,
-                            pid: pid.raw() as Pid,
-                        };
-                        wasi_try_mem_ok!(pid_ptr.write(&memory, option_pid));
+                    let option_pid = OptionPid {
+                        tag: OptionTag::Some,
+                        pid: pid.raw() as Pid,
+                    };
+                    wasi_try_mem_ok!(pid_ptr.write(&memory, option_pid));
 
-                        let status = JoinStatus {
-                            tag: JoinStatusType::ExitNormal,
-                            u: JoinStatusUnion {
-                                exit_normal: exit_code,
-                            },
-                        };
-                        wasi_try_mem_ok!(status_ptr.write(&memory, status));
-                        Ok(Errno::Success)
-                    }
-                    None => {
-                        trace!(
-                            "wasi[{}:{}]::no children",
-                            ctx.data().pid(),
-                            ctx.data().tid()
-                        );
-                        let env = ctx.data();
-                        let memory = env.memory_view(&ctx);
+                    let status = JoinStatus {
+                        tag: JoinStatusType::ExitNormal,
+                        u: JoinStatusUnion {
+                            exit_normal: exit_code,
+                        },
+                    };
+                    wasi_try_mem_ok!(status_ptr.write(&memory, status));
+                    Ok(Errno::Success)
+                }
+                None => {
+                    let env = ctx.data();
+                    let memory = env.memory_view(&ctx);
 
-                        let status = JoinStatus {
-                            tag: JoinStatusType::Nothing,
-                            u: JoinStatusUnion { nothing: 0 },
-                        };
-                        wasi_try_mem_ok!(status_ptr.write(&memory, status));
-                        Ok(Errno::Child)
-                    }
-                };
-            }
-            Some(pid) => pid,
-        };
+                    let status = JoinStatus {
+                        tag: JoinStatusType::Nothing,
+                        u: JoinStatusUnion { nothing: 0 },
+                    };
+                    wasi_try_mem_ok!(status_ptr.write(&memory, status));
+                    Ok(Errno::Child)
+                }
+            };
+        }
+        Some(pid) => pid,
+    };
 
     // Otherwise we wait for the specific PID
     let env = ctx.data();
@@ -107,16 +84,15 @@ pub fn proc_join<M: MemorySize>(
         })
         .map_err(|err| {
             trace!(
-                "wasi[{}:{}]::child join failed (pid={}) - {}",
-                ctx.data().pid(),
-                ctx.data().tid(),
-                pid,
-                err
+                %pid,
+                %err
             );
             err
         })?);
 
-        trace!("child ({}) exited with {}", pid.raw(), exit_code);
+        Span::current()
+            .record("ret_pid", pid.raw())
+            .record("exit_code", exit_code as u32);
         let env = ctx.data();
         let mut children = env.process.children.write().unwrap();
         children.retain(|a| *a != pid);
@@ -133,10 +109,8 @@ pub fn proc_join<M: MemorySize>(
         return Ok(Errno::Success);
     }
 
-    debug!(
-        "process already terminated or not registered (pid={})",
-        pid.raw()
-    );
+    Span::current().record("ret_pid", pid.raw());
+
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 

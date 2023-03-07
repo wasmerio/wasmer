@@ -38,6 +38,8 @@
           src = self;
           buildInputs = with pkgs; [
             pkgconfig
+            libffi
+            libxml2
             openssl
             llvmPackages_14.llvm
             # Snapshot testing

@@ -66,6 +66,7 @@ where
 /// * `futex` - Memory location that holds the value that will be checked
 /// * `expected` - Expected value that should be currently held at the memory location
 /// * `timeout` - Timeout should the futex not be triggered in the allocated time
+#[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, expected, timeout = field::Empty, woken = field::Empty), err)]
 pub fn futex_wait<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     futex_ptr: WasmPtr<u32, M>,
@@ -85,17 +86,11 @@ pub fn futex_wait<M: MemorySize>(
         OptionTag::Some => Some(Duration::from_nanos(timeout.u as u64)),
         _ => None,
     };
-
-    trace!(
-        "wasi[{}:{}]::futex_wait(offset={}, timeout={:?})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        futex_ptr.offset(),
-        timeout
-    );
+    Span::current().record("timeout", &format!("{:?}", timeout));
 
     let state = env.state.clone();
     let futex_idx: u64 = wasi_try_ok!(futex_ptr.offset().try_into().map_err(|_| Errno::Overflow));
+    Span::current().record("futex_idx", futex_idx);
 
     // Create a poller which will register ourselves against
     // this futex event and check when it has changed
@@ -121,6 +116,8 @@ pub fn futex_wait<M: MemorySize>(
         }
         Ok(_) => Bool::True,
     };
+    Span::current().record("woken", woken as u8);
+
     let memory = env.memory_view(&ctx);
     let mut env = ctx.data();
     wasi_try_mem_ok!(ret_woken.write(&memory, woken));

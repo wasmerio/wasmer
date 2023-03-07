@@ -1,24 +1,19 @@
 use super::*;
 use crate::syscalls::*;
 
+#[instrument(level = "trace", skip_all, fields(fd, path = field::Empty), ret)]
 pub fn fd_prestat_dir_name<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
 ) -> Errno {
-    trace!(
-        "wasi[{}:{}]::fd_prestat_dir_name: fd={}, path_len={}",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        fd,
-        path_len
-    );
     let env = ctx.data();
     let (memory, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
     let path_chars = wasi_try_mem!(path.slice(&memory, path_len));
 
     let inode = wasi_try!(state.fs.get_fd_inode(fd));
+    Span::current().record("path", inode.name.as_ref());
 
     // check inode-val.is_preopened?
 

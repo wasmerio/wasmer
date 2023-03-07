@@ -14,6 +14,7 @@ use crate::syscalls::*;
 ///     Array of UTF-8 bytes representing the target path
 /// - `u32 new_path_len`
 ///     The number of bytes to read from `new_path`
+#[instrument(level = "debug", skip_all, fields(fd, old_path = field::Empty, new_path = field::Empty), ret)]
 pub fn path_symlink<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     old_path: WasmPtr<u8, M>,
@@ -22,15 +23,12 @@ pub fn path_symlink<M: MemorySize>(
     new_path: WasmPtr<u8, M>,
     new_path_len: M::Offset,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::path_symlink",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
     let env = ctx.data();
     let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
     let mut old_path_str = unsafe { get_input_str!(&memory, old_path, old_path_len) };
+    Span::current().record("old_path", old_path_str.as_str());
     let mut new_path_str = unsafe { get_input_str!(&memory, new_path, new_path_len) };
+    Span::current().record("new_path", new_path_str.as_str());
     old_path_str = ctx.data().state.fs.relative_path_to_absolute(old_path_str);
     new_path_str = ctx.data().state.fs.relative_path_to_absolute(new_path_str);
     let base_fd = wasi_try!(state.fs.get_fd(fd));
@@ -83,11 +81,6 @@ pub fn path_symlink<M: MemorySize>(
         relative_path.push("..");
     }
     relative_path.push(source_path);
-    debug!(
-        "Symlinking {} to {}",
-        new_path_str,
-        relative_path.to_string_lossy()
-    );
 
     let kind = Kind::Symlink {
         base_po_dir: fd,

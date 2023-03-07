@@ -9,19 +9,13 @@ use crate::syscalls::*;
 /// * `fd` - Socket descriptor
 /// * `multiaddr` - Multicast group to joined
 /// * `interface` - Interface that will join
+#[instrument(level = "debug", skip_all, fields(sock), ret)]
 pub fn sock_join_multicast_v4<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     multiaddr: WasmPtr<__wasi_addr_ip4_t, M>,
     iface: WasmPtr<__wasi_addr_ip4_t, M>,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::sock_join_multicast_v4 (fd={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        sock
-    );
-
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
     let multiaddr = wasi_try!(crate::net::read_ip_v4(&memory, multiaddr));

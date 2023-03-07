@@ -13,6 +13,7 @@ use crate::syscalls::*;
 /// Output:
 /// - `Filesize *fd`
 ///     The new offset relative to the start of the file
+#[instrument(level = "trace", skip_all, fields(fd, offset, whence), ret)]
 pub fn fd_seek<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -20,15 +21,6 @@ pub fn fd_seek<M: MemorySize>(
     whence: Whence,
     newoffset: WasmPtr<Filesize, M>,
 ) -> Result<Errno, WasiError> {
-    trace!(
-        "wasi[{}:{}]::fd_seek: fd={}, offset={} from={:?}",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        fd,
-        offset,
-        whence,
-    );
-
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let env = ctx.data();
@@ -123,11 +115,7 @@ pub fn fd_seek<M: MemorySize>(
     wasi_try_mem_ok!(new_offset_ref.write(new_offset));
 
     trace!(
-        "wasi[{}:{}]::fd_seek: fd={}, new_offset={}",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        fd,
-        new_offset,
+        %new_offset,
     );
 
     Ok(Errno::Success)

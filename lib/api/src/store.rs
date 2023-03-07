@@ -1,15 +1,24 @@
-use crate::sys::tunables::BaseTunables;
+use crate::engine::{AsEngineRef, Engine, EngineRef};
 use derivative::Derivative;
 use std::{
     fmt,
     ops::{Deref, DerefMut},
 };
-#[cfg(feature = "compiler")]
-use wasmer_compiler::{AsEngineRef, Engine, EngineBuilder, EngineRef, Tunables};
-use wasmer_types::OnCalledAction;
-use wasmer_vm::{init_traps, StoreId, TrapHandler, TrapHandlerFn};
+#[cfg(feature = "sys")]
+pub use wasmer_compiler::Tunables;
+pub use wasmer_types::{OnCalledAction, StoreId};
+#[cfg(feature = "sys")]
+use wasmer_vm::init_traps;
+#[cfg(feature = "sys")]
+pub use wasmer_vm::TrapHandlerFn;
 
-use wasmer_vm::StoreObjects;
+#[cfg(feature = "sys")]
+use crate::sys::NativeEngineExt;
+#[cfg(feature = "sys")]
+pub use wasmer_vm::{StoreHandle, StoreObjects};
+
+#[cfg(feature = "js")]
+pub use crate::js::store::{StoreHandle, StoreObjects};
 
 /// Call handler for a store.
 // TODO: better documentation!
@@ -25,8 +34,8 @@ pub type OnCalledHandler = Box<
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
     #[derivative(Debug = "ignore")]
-    #[cfg(feature = "compiler")]
     pub(crate) engine: Engine,
+    #[cfg(feature = "sys")]
     #[derivative(Debug = "ignore")]
     pub(crate) trap_handler: Option<Box<TrapHandlerFn<'static>>>,
     #[derivative(Debug = "ignore")]
@@ -44,32 +53,27 @@ pub(crate) struct StoreInner {
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 pub struct Store {
     pub(crate) inner: Box<StoreInner>,
-    #[cfg(feature = "compiler")]
-    engine: Engine,
 }
 
 impl Store {
-    #[cfg(feature = "compiler")]
     /// Creates a new `Store` with a specific [`Engine`].
     pub fn new(engine: impl Into<Engine>) -> Self {
-        let engine = engine.into();
-
         // Make sure the signal handlers are installed.
         // This is required for handling traps.
+        #[cfg(feature = "sys")]
         init_traps();
 
         Self {
             inner: Box::new(StoreInner {
                 objects: Default::default(),
-                engine: engine.cloned(),
+                engine: engine.into(),
+                #[cfg(feature = "sys")]
                 trap_handler: None,
                 on_called: None,
             }),
-            engine: engine.cloned(),
         }
     }
 
-    #[cfg(feature = "compiler")]
     #[deprecated(
         since = "3.0.0",
         note = "Store::new_with_engine has been deprecated in favor of Store::new"
@@ -79,12 +83,17 @@ impl Store {
         Self::new(engine)
     }
 
+    #[cfg(feature = "sys")]
     /// Set the trap handler in this store.
     pub fn set_trap_handler(&mut self, handler: Option<Box<TrapHandlerFn<'static>>>) {
         self.inner.trap_handler = handler;
     }
 
-    #[cfg(feature = "compiler")]
+    #[cfg(feature = "sys")]
+    #[deprecated(
+        since = "3.2.0",
+        note = "store.new_with_tunables() has been deprecated in favor of engine.set_tunables()"
+    )]
     /// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].
     pub fn new_with_tunables(
         engine: impl Into<Engine>,
@@ -96,24 +105,25 @@ impl Store {
         Self::new(engine)
     }
 
-    #[cfg(feature = "compiler")]
+    #[cfg(feature = "sys")]
+    #[deprecated(
+        since = "3.2.0",
+        note = "store.tunables() has been deprecated in favor of store.engine().tunables()"
+    )]
     /// Returns the [`Tunables`].
     pub fn tunables(&self) -> &dyn Tunables {
-        self.engine.tunables()
+        self.inner.engine.tunables()
     }
 
-    #[cfg(feature = "compiler")]
     /// Returns the [`Engine`].
     pub fn engine(&self) -> &Engine {
-        &self.engine
+        &self.inner.engine
     }
 
-    #[cfg(feature = "compiler")]
     /// Checks whether two stores are identical. A store is considered
-    /// equal to another store if both have the same engine. The
-    /// tunables are excluded from the logic.
+    /// equal to another store if both have the same engine.
     pub fn same(a: &Self, b: &Self) -> bool {
-        a.engine.id() == b.engine.id()
+        a.id() == b.id()
     }
 
     /// Returns the ID of this store
@@ -122,81 +132,20 @@ impl Store {
     }
 }
 
-#[cfg(feature = "compiler")]
 impl PartialEq for Store {
     fn eq(&self, other: &Self) -> bool {
         Self::same(self, other)
     }
 }
 
-unsafe impl TrapHandler for Store {
-    fn custom_trap_handler(&self, call: &dyn Fn(&TrapHandlerFn) -> bool) -> bool {
-        if let Some(handler) = self.inner.trap_handler.as_ref() {
-            call(handler.as_ref())
-        } else {
-            false
-        }
-    }
-}
-
-// impl PartialEq for Store {
-//     fn eq(&self, other: &Self) -> bool {
-//         Self::same(self, other)
-//     }
-// }
-
 // This is required to be able to set the trap_handler in the
 // Store.
 unsafe impl Send for Store {}
 unsafe impl Sync for Store {}
 
-// We only implement default if we have assigned a default compiler and engine
-#[cfg(feature = "compiler")]
 impl Default for Store {
     fn default() -> Self {
-        // We store them on a function that returns to make
-        // sure this function doesn't emit a compile error even if
-        // more than one compiler is enabled.
-        #[allow(unreachable_code)]
-        #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
-        fn get_config() -> impl wasmer_compiler::CompilerConfig + 'static {
-            cfg_if::cfg_if! {
-                if #[cfg(feature = "cranelift")] {
-                    wasmer_compiler_cranelift::Cranelift::default()
-                } else if #[cfg(feature = "llvm")] {
-                    wasmer_compiler_llvm::LLVM::default()
-                } else if #[cfg(feature = "singlepass")] {
-                    wasmer_compiler_singlepass::Singlepass::default()
-                } else {
-                    compile_error!("No default compiler chosen")
-                }
-            }
-        }
-
-        #[allow(unreachable_code, unused_mut)]
-        fn get_engine() -> Engine {
-            cfg_if::cfg_if! {
-                if #[cfg(feature = "compiler")] {
-                    cfg_if::cfg_if! {
-                        if #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
-                        {
-                            let config = get_config();
-                            EngineBuilder::new(Box::new(config) as Box<dyn wasmer_compiler::CompilerConfig>)
-                                .engine()
-                        } else {
-                            EngineBuilder::headless()
-                                .engine()
-                        }
-                    }
-                } else {
-                    compile_error!("No default engine chosen")
-                }
-            }
-        }
-
-        let engine = get_engine();
-        let tunables = BaseTunables::for_target(engine.target());
-        Self::new_with_tunables(&engine, tunables)
+        Self::new(Engine::default())
     }
 }
 
@@ -216,21 +165,18 @@ impl AsStoreMut for Store {
     }
 }
 
-#[cfg(feature = "compiler")]
 impl AsEngineRef for Store {
     fn as_engine_ref(&self) -> EngineRef<'_> {
-        EngineRef::new(&self.engine)
+        EngineRef::new(&self.inner.engine)
     }
 }
 
-#[cfg(feature = "compiler")]
 impl AsEngineRef for StoreRef<'_> {
     fn as_engine_ref(&self) -> EngineRef<'_> {
         EngineRef::new(&self.inner.engine)
     }
 }
 
-#[cfg(feature = "compiler")]
 impl AsEngineRef for StoreMut<'_> {
     fn as_engine_ref(&self) -> EngineRef<'_> {
         EngineRef::new(&self.inner.engine)
@@ -253,27 +199,29 @@ impl<'a> StoreRef<'a> {
         &self.inner.objects
     }
 
-    #[cfg(feature = "compiler")]
+    #[cfg(feature = "sys")]
+    #[deprecated(
+        since = "3.2.0",
+        note = "store.tunables() has been deprecated in favor of store.engine().tunables()"
+    )]
     /// Returns the [`Tunables`].
     pub fn tunables(&self) -> &dyn Tunables {
         self.inner.engine.tunables()
     }
 
-    #[cfg(feature = "compiler")]
     /// Returns the [`Engine`].
     pub fn engine(&self) -> &Engine {
         &self.inner.engine
     }
 
-    #[cfg(feature = "compiler")]
     /// Checks whether two stores are identical. A store is considered
-    /// equal to another store if both have the same engine. The
-    /// tunables are excluded from the logic.
+    /// equal to another store if both have the same engine.
     pub fn same(a: &Self, b: &Self) -> bool {
-        a.inner.engine.id() == b.inner.engine.id()
+        a.inner.objects.id() == b.inner.objects.id()
     }
 
     /// The signal handler
+    #[cfg(feature = "sys")]
     #[inline]
     pub fn signal_handler(&self) -> Option<*const TrapHandlerFn<'static>> {
         self.inner
@@ -290,28 +238,29 @@ pub struct StoreMut<'a> {
 
 impl<'a> StoreMut<'a> {
     /// Returns the [`Tunables`].
-    #[cfg(feature = "compiler")]
+    #[cfg(feature = "sys")]
+    #[deprecated(
+        since = "3.2.0",
+        note = "store.tunables() has been deprecated in favor of store.engine().tunables()"
+    )]
     pub fn tunables(&self) -> &dyn Tunables {
         self.inner.engine.tunables()
     }
 
     /// Returns the [`Engine`].
-    #[cfg(feature = "compiler")]
     pub fn engine(&self) -> &Engine {
         &self.inner.engine
     }
 
-    #[cfg(feature = "compiler")]
     /// Checks whether two stores are identical. A store is considered
-    /// equal to another store if both have the same engine. The
-    /// tunables are excluded from the logic.
+    /// equal to another store if both have the same engine.
     pub fn same(a: &Self, b: &Self) -> bool {
-        a.inner.engine.id() == b.inner.engine.id()
+        a.inner.objects.id() == b.inner.objects.id()
     }
 
-    #[cfg(feature = "compiler")]
-    pub(crate) fn tunables_and_objects_mut(&mut self) -> (&dyn Tunables, &mut StoreObjects) {
-        (self.inner.engine.tunables(), &mut self.inner.objects)
+    #[allow(unused)]
+    pub(crate) fn engine_and_objects_mut(&mut self) -> (&Engine, &mut StoreObjects) {
+        (&self.inner.engine, &mut self.inner.objects)
     }
 
     pub(crate) fn as_raw(&self) -> *mut StoreInner {

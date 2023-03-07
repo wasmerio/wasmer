@@ -6,6 +6,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `futex` - Memory location that holds a futex that others may be waiting on
+#[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, woken = field::Empty), ret)]
 pub fn futex_wake_all<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     futex_ptr: WasmPtr<u32, M>,
@@ -16,8 +17,9 @@ pub fn futex_wake_all<M: MemorySize>(
     let state = env.state.deref();
 
     let pointer: u64 = wasi_try!(futex_ptr.offset().try_into().map_err(|_| Errno::Overflow));
-    let mut woken = false;
+    Span::current().record("futex_idx", pointer);
 
+    let mut woken = false;
     let woken = {
         let mut guard = state.futexs.lock().unwrap();
         if let Some(futex) = guard.remove(&pointer) {
@@ -27,22 +29,7 @@ pub fn futex_wake_all<M: MemorySize>(
             false
         }
     };
-    if woken {
-        trace!(
-            %woken,
-            "wasi[{}:{}]::futex_wake(offset={})",
-            ctx.data().pid(),
-            ctx.data().tid(),
-            futex_ptr.offset()
-        );
-    } else {
-        trace!(
-            "wasi[{}:{}]::futex_wake(offset={}) - nothing waiting",
-            ctx.data().pid(),
-            ctx.data().tid(),
-            futex_ptr.offset()
-        );
-    }
+    Span::current().record("woken", woken);
 
     let woken = match woken {
         false => Bool::False,

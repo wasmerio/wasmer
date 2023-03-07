@@ -186,8 +186,7 @@ impl ModuleCache {
 
     pub fn get_compiled_module(
         &self,
-        #[cfg(feature = "sys")] engine: &impl wasmer::AsEngineRef,
-        #[cfg(feature = "js")] engine: &impl wasmer::AsStoreRef,
+        engine: &impl wasmer::AsEngineRef,
         data_hash: &str,
         compiler: &str,
     ) -> Option<Module> {

@@ -16,6 +16,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// Number of bytes transmitted.
+#[instrument(level = "trace", skip_all, fields(sock, nsent = field::Empty), ret, err)]
 pub fn sock_send<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -53,30 +54,21 @@ pub fn sock_send<M: MemorySize>(
     let mut ret = Errno::Success;
     let bytes_written = match res {
         Ok(bytes_written) => {
-            debug!(
+            trace!(
                 %bytes_written,
-                "wasi[{}:{}]::sock_send (fd={}, flags={:?})",
-                ctx.data().pid(),
-                ctx.data().tid(),
-                sock,
-                si_flags
             );
             bytes_written
         }
         Err(err) => {
             let socket_err = err.name();
-            debug!(
+            trace!(
                 %socket_err,
-                "wasi[{}:{}]::sock_send (fd={}, flags={:?})",
-                ctx.data().pid(),
-                ctx.data().tid(),
-                sock,
-                si_flags
             );
             ret = err;
             0
         }
     };
+    Span::current().record("nsent", bytes_written);
 
     let memory = env.memory_view(&ctx);
     let bytes_written: M::Offset =

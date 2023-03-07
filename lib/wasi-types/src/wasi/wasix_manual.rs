@@ -1,6 +1,6 @@
 use std::mem::MaybeUninit;
 
-use wasmer::{ValueType, MemorySize};
+use wasmer::{MemorySize, ValueType};
 
 use super::{
     Errno, ErrnoSignal, EventFdReadwrite, Eventtype, JoinStatusType, Signal,
@@ -209,7 +209,6 @@ unsafe impl ValueType for JoinStatus {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
-
 
 #[doc = " Represents the thread start object"]
 #[repr(C)]

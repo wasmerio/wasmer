@@ -8,16 +8,12 @@ use crate::syscalls::*;
 ///     The number of arguments.
 /// - `size_t *argv_buf_size`
 ///     The size of the argument string data.
+#[instrument(level = "debug", skip_all, ret)]
 pub fn args_sizes_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     argc: WasmPtr<M::Offset, M>,
     argv_buf_size: WasmPtr<M::Offset, M>,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::args_sizes_get",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
     let env = ctx.data();
     let (memory, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
 
@@ -31,7 +27,7 @@ pub fn args_sizes_get<M: MemorySize>(
     wasi_try_mem!(argc.write(argc_val));
     wasi_try_mem!(argv_buf_size.write(argv_buf_size_val));
 
-    debug!("=> argc={}, argv_buf_size={}", argc_val, argv_buf_size_val);
+    debug!("argc={}, argv_buf_size={}", argc_val, argv_buf_size_val);
 
     Errno::Success
 }

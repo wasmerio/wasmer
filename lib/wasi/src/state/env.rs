@@ -3,6 +3,8 @@ use std::{collections::HashMap, ops::Deref, path::PathBuf, sync::Arc, time::Dura
 use derivative::Derivative;
 use rand::Rng;
 use tracing::{trace, warn};
+#[cfg(feature = "sys")]
+use wasmer::NativeEngineExt;
 use wasmer::{
     AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryView, Module,
     TypedFunction,
@@ -436,7 +438,7 @@ impl WasiEnv {
             match shared_memory {
                 Some(ty) => {
                     #[cfg(feature = "sys")]
-                    let style = store.tunables().memory_style(&ty);
+                    let style = store.engine().tunables().memory_style(&ty);
                     SpawnType::CreateWithType(SpawnedMemory {
                         ty,
                         #[cfg(feature = "sys")]

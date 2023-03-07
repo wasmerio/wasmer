@@ -3,12 +3,8 @@ use crate::syscalls::*;
 
 /// ### `port_dhcp_acquire()`
 /// Acquires a set of IP addresses using DHCP
+#[instrument(level = "debug", skip_all, ret, err)]
 pub fn port_dhcp_acquire(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, WasiError> {
-    debug!(
-        "wasi[{}:{}]::port_dhcp_acquire",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
     let env = ctx.data();
     let net = env.net().clone();
     let tasks = env.tasks().clone();

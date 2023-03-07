@@ -12,24 +12,19 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `fd` - Socket that the address is bound to
+#[instrument(level = "debug", skip_all, fields(sock, addr = field::Empty), ret)]
 pub fn sock_addr_peer<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::sock_addr_peer (fd={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        sock
-    );
-
     let addr = wasi_try!(__sock_actor(
         &mut ctx,
         sock,
         Rights::empty(),
         |socket, _| socket.addr_peer()
     ));
+    Span::current().record("addr", &format!("{:?}", addr));
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
