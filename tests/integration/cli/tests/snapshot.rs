@@ -305,6 +305,7 @@ fn test_snapshot_cowsay() {
 
 // The ability to fork the current process and run a different image but retain
 // the existing open file handles (which is needed for stdin and stdout redirection)
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn test_snapshot_fork_and_exec() {
     let snapshot = TestBuilder::new()
@@ -379,6 +380,7 @@ fn test_snapshot_sleep() {
 }
 
 // Uses `posix_spawn` to launch a sub-process and wait on it to exit
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn test_snapshot_process_spawn() {
     let snapshot = TestBuilder::new()
