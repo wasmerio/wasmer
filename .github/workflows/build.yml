@@ -120,8 +120,10 @@ jobs:
       - name: Configure LLVM (Windows)
         # The Custom Windows build does not contains llvm-config.exe, so need to setup manualy here
         if: matrix.build == 'windows-x64' && matrix.llvm_url
+        shell: bash
         run: |
-          echo LLVM_SYS_140_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          echo LLVM_SYS_14_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
           echo LLVM_ENABLE=1 >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
