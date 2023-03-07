@@ -12,6 +12,20 @@ pub struct Instance {
     _handle: StoreHandle<VMInstance>,
 }
 
+#[cfg(test)]
+mod send_test {
+    use super::*;
+
+    fn is_send<T: Send>() -> bool {
+        true
+    }
+
+    #[test]
+    fn instance_is_send() {
+        assert!(is_send::<Instance>());
+    }
+}
+
 impl From<wasmer_compiler::InstantiationError> for InstantiationError {
     fn from(other: wasmer_compiler::InstantiationError) -> Self {
         match other {
