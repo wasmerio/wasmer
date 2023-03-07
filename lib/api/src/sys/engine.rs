@@ -40,7 +40,7 @@ pub(crate) fn default_engine() -> Engine {
                     }
                 }
             } else {
-                compile_error!("No default engine chosen")
+                EngineBuilder::headless().engine()
             }
         }
     }
@@ -84,6 +84,7 @@ pub trait NativeEngineExt {
 }
 
 impl NativeEngineExt for crate::engine::Engine {
+    #[cfg(feature = "compiler")]
     fn new(compiler_config: Box<dyn CompilerConfig>, target: Target, features: Features) -> Self {
         Self(Engine::new(compiler_config, target, features))
     }
