@@ -446,6 +446,9 @@ impl Default for WasiTtyState {
 
 /// Provides access to a TTY.
 pub trait TtyBridge {
+    /// Resets the values
+    fn reset(&self);
+
     /// Retrieve the current TTY state.
     fn tty_get(&self) -> WasiTtyState;
 

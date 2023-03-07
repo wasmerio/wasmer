@@ -65,6 +65,13 @@ pub struct DefaultTty {
 }
 
 impl TtyBridge for DefaultTty {
+    fn reset(&self) {
+        let mut state = self.state.lock().unwrap();
+        state.echo = false;
+        state.line_buffered = false;
+        state.line_feeds = false
+    }
+
     fn tty_get(&self) -> WasiTtyState {
         let state = self.state.lock().unwrap();
         state.clone()
@@ -126,6 +133,7 @@ impl PluggableRuntimeImplementation {
         cfg_if::cfg_if! {
             if #[cfg(all(feature = "host-termios", unix))] {
                 let tty = Arc::new(crate::os::tty_sys::SysTyy::default());
+                tty.reset();
             } else {
                 let tty = Arc::new(DefaultTty::default());
             }

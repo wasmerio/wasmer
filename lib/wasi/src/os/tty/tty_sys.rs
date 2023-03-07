@@ -6,15 +6,21 @@ use crate::WasiTtyState;
 pub struct SysTyy;
 
 impl TtyBridge for SysTyy {
+    fn reset(&self) {
+        sys::reset();
+    }
+
+    #[allow(unused_assignments)]
     fn tty_get(&self) -> WasiTtyState {
         let mut echo = false;
         let mut line_buffered = false;
         let mut line_feeds = false;
 
-        if let Ok(termios) = termios::Termios::from_fd(0) {
-            echo = (termios.c_lflag & termios::ECHO) != 0;
-            line_buffered = (termios.c_lflag & termios::ICANON) != 0;
-            line_feeds = (termios.c_lflag & termios::ONLCR) != 0;
+        #[cfg(unix)]
+        {
+            echo = sys::is_mode_echo();
+            line_buffered = sys::is_mode_line_buffering();
+            line_feeds = sys::is_mode_line_feeds();
         }
 
         if let Some((w, h)) = term_size::dimensions() {
@@ -47,34 +53,32 @@ impl TtyBridge for SysTyy {
     }
 
     fn tty_set(&self, tty_state: WasiTtyState) {
-        #[cfg(unix)]
-        {
-            if tty_state.echo {
-                unix::set_mode_echo();
-            } else {
-                unix::set_mode_no_echo();
-            }
-            if tty_state.line_buffered {
-                unix::set_mode_line_buffered();
-            } else {
-                unix::set_mode_no_line_buffered();
-            }
-            if tty_state.line_feeds {
-                unix::set_mode_line_feeds();
-            } else {
-                unix::set_mode_no_line_feeds();
-            }
+        if tty_state.echo {
+            sys::set_mode_echo();
+        } else {
+            sys::set_mode_no_echo();
+        }
+        if tty_state.line_buffered {
+            sys::set_mode_line_buffered();
+        } else {
+            sys::set_mode_no_line_buffered();
+        }
+        if tty_state.line_feeds {
+            sys::set_mode_line_feeds();
+        } else {
+            sys::set_mode_no_line_feeds();
         }
     }
 }
 
+#[allow(unused_mut)]
 #[cfg(unix)]
-mod unix {
+mod sys {
     #![allow(unused_imports)]
     use {
         libc::{
-            c_int, tcsetattr, termios, ECHO, ECHOE, ECHONL, ICANON, ICRNL, IEXTEN, IGNCR, ISIG,
-            IXON, OPOST, TCSANOW,
+            c_int, tcsetattr, termios, ECHO, ECHOCTL, ECHOE, ECHOK, ECHONL, ICANON, ICRNL, IEXTEN,
+            IGNCR, ISIG, IXON, ONLCR, OPOST, TCSANOW,
         },
         std::mem,
         std::os::unix::io::AsRawFd,
@@ -89,92 +93,126 @@ mod unix {
     }
 
     #[cfg(unix)]
-    pub fn set_mode_no_echo() -> std::fs::File {
-        let tty = std::fs::File::open("/dev/tty").unwrap();
-        let fd = tty.as_raw_fd();
-
+    pub fn reset() {
         let mut termios = mem::MaybeUninit::<termios>::uninit();
-        io_result(unsafe { ::libc::tcgetattr(fd, termios.as_mut_ptr()) }).unwrap();
+        io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) }).unwrap();
+        let mut termios = unsafe { termios.assume_init() };
+
+        termios.c_lflag |= ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL;
+
+        unsafe { tcsetattr(0, TCSANOW, &termios) };
+    }
+
+    #[cfg(unix)]
+    pub fn is_mode_echo() -> bool {
+        if let Ok(termios) = ::termios::Termios::from_fd(0) {
+            (termios.c_lflag & ::termios::ECHO) != 0
+        } else {
+            false
+        }
+    }
+
+    #[cfg(unix)]
+    pub fn is_mode_line_buffering() -> bool {
+        if let Ok(termios) = ::termios::Termios::from_fd(0) {
+            (termios.c_lflag & ::termios::ICANON) != 0
+        } else {
+            false
+        }
+    }
+
+    #[cfg(unix)]
+    pub fn is_mode_line_feeds() -> bool {
+        if let Ok(termios) = ::termios::Termios::from_fd(0) {
+            (termios.c_lflag & ::termios::ONLCR) != 0
+        } else {
+            false
+        }
+    }
+
+    #[cfg(unix)]
+    pub fn set_mode_no_echo() {
+        let mut termios = mem::MaybeUninit::<termios>::uninit();
+        io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) }).unwrap();
         let mut termios = unsafe { termios.assume_init() };
 
         termios.c_lflag &= !ECHO;
+        termios.c_lflag &= !ECHOE;
+        termios.c_lflag &= !ECHOK;
+        termios.c_lflag &= !ECHOCTL;
+        termios.c_lflag &= !IEXTEN;
+        /*
+        termios.c_lflag &= !ISIG;
+        termios.c_lflag &= !IXON;
+        termios.c_lflag &= !ICRNL;
+        termios.c_lflag &= !OPOST;
+        */
 
-        unsafe { tcsetattr(fd, TCSANOW, &termios) };
-        tty
+        unsafe { tcsetattr(0, TCSANOW, &termios) };
     }
 
     #[cfg(unix)]
-    pub fn set_mode_echo() -> std::fs::File {
-        let tty = std::fs::File::open("/dev/tty").unwrap();
-        let fd = tty.as_raw_fd();
-
+    pub fn set_mode_echo() {
         let mut termios = mem::MaybeUninit::<termios>::uninit();
-        io_result(unsafe { ::libc::tcgetattr(fd, termios.as_mut_ptr()) }).unwrap();
+        io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) }).unwrap();
         let mut termios = unsafe { termios.assume_init() };
 
         termios.c_lflag |= ECHO;
+        termios.c_lflag |= ECHOE;
+        termios.c_lflag |= ECHOK;
+        termios.c_lflag |= ECHOCTL;
+        termios.c_lflag |= IEXTEN;
+        /*
+        termios.c_lflag |= ISIG;
+        termios.c_lflag |= IXON;
+        termios.c_lflag |= ICRNL;
+        termios.c_lflag |= OPOST;
+        */
 
-        unsafe { tcsetattr(fd, TCSANOW, &termios) };
-        tty
+        unsafe { tcsetattr(0, TCSANOW, &termios) };
     }
 
     #[cfg(unix)]
-    pub fn set_mode_no_line_buffered() -> std::fs::File {
-        let tty = std::fs::File::open("/dev/tty").unwrap();
-        let fd = tty.as_raw_fd();
-
+    pub fn set_mode_no_line_buffered() {
         let mut termios = mem::MaybeUninit::<termios>::uninit();
-        io_result(unsafe { ::libc::tcgetattr(fd, termios.as_mut_ptr()) }).unwrap();
+        io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) }).unwrap();
         let mut termios = unsafe { termios.assume_init() };
 
         termios.c_lflag &= !ICANON;
 
-        unsafe { tcsetattr(fd, TCSANOW, &termios) };
-        tty
+        unsafe { tcsetattr(0, TCSANOW, &termios) };
     }
 
     #[cfg(unix)]
-    pub fn set_mode_line_buffered() -> std::fs::File {
-        let tty = std::fs::File::open("/dev/tty").unwrap();
-        let fd = tty.as_raw_fd();
-
+    pub fn set_mode_line_buffered() {
         let mut termios = mem::MaybeUninit::<termios>::uninit();
-        io_result(unsafe { ::libc::tcgetattr(fd, termios.as_mut_ptr()) }).unwrap();
+        io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) }).unwrap();
         let mut termios = unsafe { termios.assume_init() };
 
         termios.c_lflag |= ICANON;
 
-        unsafe { tcsetattr(fd, TCSANOW, &termios) };
-        tty
+        unsafe { tcsetattr(0, TCSANOW, &termios) };
     }
 
     #[cfg(unix)]
-    pub fn set_mode_no_line_feeds() -> std::fs::File {
-        let tty = std::fs::File::open("/dev/tty").unwrap();
-        let fd = tty.as_raw_fd();
-
+    pub fn set_mode_no_line_feeds() {
         let mut termios = mem::MaybeUninit::<termios>::uninit();
-        io_result(unsafe { ::libc::tcgetattr(fd, termios.as_mut_ptr()) }).unwrap();
+        io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) }).unwrap();
         let mut termios = unsafe { termios.assume_init() };
 
-        termios.c_lflag &= !IGNCR;
+        termios.c_lflag &= !ONLCR;
 
-        unsafe { tcsetattr(fd, TCSANOW, &termios) };
-        tty
+        unsafe { tcsetattr(0, TCSANOW, &termios) };
     }
 
     #[cfg(unix)]
-    pub fn set_mode_line_feeds() -> std::fs::File {
-        let tty = std::fs::File::open("/dev/tty").unwrap();
-        let fd = tty.as_raw_fd();
-
+    pub fn set_mode_line_feeds() {
         let mut termios = mem::MaybeUninit::<termios>::uninit();
-        io_result(unsafe { ::libc::tcgetattr(fd, termios.as_mut_ptr()) }).unwrap();
+        io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) }).unwrap();
         let mut termios = unsafe { termios.assume_init() };
 
-        termios.c_lflag |= IGNCR;
+        termios.c_lflag |= ONLCR;
 
-        unsafe { tcsetattr(fd, TCSANOW, &termios) };
-        tty
+        unsafe { tcsetattr(0, TCSANOW, &termios) };
     }
 }
