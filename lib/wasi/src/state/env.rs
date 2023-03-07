@@ -262,6 +262,7 @@ impl WasiEnvInit {
 /// The environment provided to the WASI imports.
 #[derive(Debug)]
 pub struct WasiEnv {
+    pub control_plane: WasiControlPlane,
     /// Represents the process this environment is attached to
     pub process: WasiProcess,
     /// Represents the thread this environment is attached to
@@ -314,6 +315,7 @@ impl WasiEnv {
     // Currently only used by fork/spawn related syscalls.
     pub(crate) fn duplicate(&self) -> Self {
         Self {
+            control_plane: self.control_plane.clone(),
             process: self.process.clone(),
             poll_seed: self.poll_seed,
             thread: self.thread.clone(),
@@ -332,7 +334,7 @@ impl WasiEnv {
 
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Result<(Self, WasiThreadHandle), ControlPlaneError> {
-        let process = self.process.compute.new_process()?;
+        let process = self.control_plane.new_process()?;
         let handle = process.new_thread()?;
 
         let thread = handle.as_thread();
@@ -343,6 +345,7 @@ impl WasiEnv {
         let bin_factory = self.bin_factory.clone();
 
         let new_env = Self {
+            control_plane: self.control_plane.clone(),
             process,
             thread,
             vfork: None,
@@ -381,6 +384,7 @@ impl WasiEnv {
         };
 
         let mut env = Self {
+            control_plane: init.control_plane,
             process,
             thread: thread.as_thread(),
             vfork: None,

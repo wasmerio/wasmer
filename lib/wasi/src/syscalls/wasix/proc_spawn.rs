@@ -39,7 +39,7 @@ pub fn proc_spawn<M: MemorySize>(
     ret_handles: WasmPtr<BusHandles, M>,
 ) -> Result<BusErrno, WasiError> {
     let env = ctx.data();
-    let control_plane = env.process.control_plane();
+    let control_plane = &env.control_plane;
     let memory = env.memory_view(&ctx);
     let name = unsafe { get_input_str_bus_ok!(&memory, name, name_len) };
     let args = unsafe { get_input_str_bus_ok!(&memory, args, args_len) };

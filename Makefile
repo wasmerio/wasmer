@@ -147,8 +147,10 @@ else ifneq (, $(shell which llvm-config 2>/dev/null))
 	LLVM_VERSION := $(shell llvm-config --version)
 	ifneq (, $(findstring 15,$(LLVM_VERSION)))
 		compilers += llvm
+		export LLVM_SYS_140_PREFIX = $(shell llvm-config --prefix)
 	else ifneq (, $(findstring 14,$(LLVM_VERSION)))
 		compilers += llvm
+		export LLVM_SYS_140_PREFIX = $(shell llvm-config --prefix)
 	endif
 endif
 

@@ -249,10 +249,10 @@ fn prepare_webc_env(
     package_name: &str,
 ) -> Option<(WasiFunctionEnv, Imports)> {
     use wasmer_vfs::static_fs::StaticFileSystem;
-    use webc::FsEntryType;
+    use webc::v1::{FsEntryType, WebC};
 
     let slice = unsafe { std::slice::from_raw_parts(bytes, len) };
-    let volumes = webc::WebC::parse_volumes_from_fileblock(slice).ok()?;
+    let volumes = WebC::parse_volumes_from_fileblock(slice).ok()?;
     let top_level_dirs = volumes
         .into_iter()
         .flat_map(|(_, volume)| {

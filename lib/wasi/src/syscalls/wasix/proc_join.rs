@@ -76,7 +76,7 @@ pub fn proc_join<M: MemorySize>(
     // Otherwise we wait for the specific PID
     let env = ctx.data();
     let pid: WasiProcessId = pid.into();
-    let process = env.process.control_plane().get_process(pid);
+    let process = env.control_plane.get_process(pid);
     if let Some(process) = process {
         let exit_code = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
             let code = process.join().await.unwrap_or(Errno::Child as u32);
