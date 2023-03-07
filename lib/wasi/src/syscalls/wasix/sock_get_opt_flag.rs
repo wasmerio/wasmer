@@ -9,20 +9,13 @@ use crate::syscalls::*;
 ///
 /// * `fd` - Socket descriptor
 /// * `sockopt` - Socket option to be retrieved
+#[instrument(level = "debug", skip_all, fields(sock, opt), ret)]
 pub fn sock_get_opt_flag<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     opt: Sockoption,
     ret_flag: WasmPtr<Bool, M>,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::sock_get_opt_flag(fd={}, ty={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        sock,
-        opt
-    );
-
     let option: crate::net::socket::WasiSocketOption = opt.into();
     let flag = wasi_try!(__sock_actor(
         &mut ctx,

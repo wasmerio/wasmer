@@ -21,6 +21,7 @@ pub mod wasix;
 
 use bytes::{Buf, BufMut};
 use futures::Future;
+use tracing::instrument;
 pub use wasi::*;
 pub use wasix::*;
 
@@ -664,7 +665,6 @@ pub(crate) fn write_buffer_array<M: MemorySize>(
 
     let mut current_buffer_offset = 0usize;
     for ((i, sub_buffer), ptr) in from.iter().enumerate().zip(ptrs.iter()) {
-        trace!("ptr: {:?}, subbuffer: {:?}", ptr, sub_buffer);
         let mut buf_offset = buffer.offset();
         buf_offset += wasi_try!(to_offset::<M>(current_buffer_offset));
         let new_ptr = WasmPtr::new(buf_offset);
@@ -935,6 +935,7 @@ where
     Ok(Errno::Success)
 }
 
+#[instrument(level = "debug", skip_all, fields(memory_stack_len = memory_stack.len(), rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
 #[must_use = "the action must be passed to the call loop"]
 pub(crate) fn rewind<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
@@ -942,15 +943,6 @@ pub(crate) fn rewind<M: MemorySize>(
     rewind_stack: Bytes,
     store_data: Bytes,
 ) -> Errno {
-    trace!(
-        "wasi[{}:{}]::rewinding (memory_stack_size={}, rewind_size={}, store_data={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        memory_stack.len(),
-        rewind_stack.len(),
-        store_data.len()
-    );
-
     // Store the memory stack so that it can be restored later
     super::REWIND.with(|cell| cell.replace(Some(memory_stack)));
 

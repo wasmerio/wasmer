@@ -11,18 +11,13 @@ use crate::syscalls::*;
 /// Output:
 /// - `Timestamp *time`
 ///     The value of the clock in nanoseconds
+#[instrument(level = "trace", skip_all, fields(clock_id, precision), ret)]
 pub fn clock_time_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     clock_id: Snapshot0Clockid,
     precision: Timestamp,
     time: WasmPtr<Timestamp, M>,
 ) -> Errno {
-    /*
-    debug!(
-        "wasi::clock_time_get clock_id: {}, precision: {}",
-        clock_id as u8, precision
-    );
-    */
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 
@@ -34,13 +29,5 @@ pub fn clock_time_get<M: MemorySize>(
         }
     };
     wasi_try_mem!(time.write(&memory, t_out as Timestamp));
-
-    /*
-    trace!(
-        "time: {} => {}",
-        wasi_try_mem!(time.deref(&memory).read()),
-        result
-    );
-    */
     Errno::Success
 }

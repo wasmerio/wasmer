@@ -15,6 +15,7 @@ use crate::{
 /// ## Return
 ///
 /// Returns a bus process id that can be used to invoke calls
+#[instrument(level = "debug", skip_all, fields(name = field::Empty, args_len), ret, err)]
 pub fn proc_exec<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,
@@ -27,13 +28,7 @@ pub fn proc_exec<M: MemorySize>(
         warn!("failed to execve as the name could not be read - {}", err);
         WasiError::Exit(Errno::Fault as ExitCode)
     })?;
-    trace!(
-        "wasi[{}:{}]::proc_exec (name={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        name
-    );
-
+    Span::current().record("name", name.as_str());
     let args = args.read_utf8_string(&memory, args_len).map_err(|err| {
         warn!("failed to execve as the args could not be read - {}", err);
         WasiError::Exit(Errno::Fault as ExitCode)
@@ -47,13 +42,8 @@ pub fn proc_exec<M: MemorySize>(
     // Convert relative paths into absolute paths
     if name.starts_with("./") {
         name = ctx.data().state.fs.relative_path_to_absolute(name);
-        trace!(
-            "wasi[{}:{}]::rel_to_abs (name={}))",
-            ctx.data().pid(),
-            ctx.data().tid(),
-            name
-        );
     }
+    trace!(name);
 
     // Convert the preopen directories
     let preopen = ctx.data().state.preopen.clone();
@@ -103,12 +93,7 @@ pub fn proc_exec<M: MemorySize>(
                 Ok(a) => Some(a),
                 Err(err) => {
                     if err != VirtualBusError::NotFound {
-                        error!(
-                            "wasi[{}:{}]::proc_exec - builtin failed - {}",
-                            ctx.data().pid(),
-                            ctx.data().tid(),
-                            err
-                        );
+                        error!("builtin failed - {}", err);
                     }
 
                     let new_store = new_store.take().unwrap();
@@ -149,21 +134,11 @@ pub fn proc_exec<M: MemorySize>(
         // exit code can be processed
         let process = match process {
             Some(a) => {
-                trace!(
-                    "wasi[{}:{}]::spawned sub-process (pid={})",
-                    ctx.data().pid(),
-                    ctx.data().tid(),
-                    child_pid.raw()
-                );
+                trace!("spawned sub-process (pid={})", child_pid.raw());
                 a
             }
             None => {
-                debug!(
-                    "wasi[{}:{}]::process failed with (err={})",
-                    ctx.data().pid(),
-                    ctx.data().tid(),
-                    err_exit_code
-                );
+                debug!("process failed with (err={})", err_exit_code);
                 OwnedTaskStatus::new(TaskStatus::Finished(Ok(err_exit_code))).handle()
             }
         };
@@ -185,7 +160,11 @@ pub fn proc_exec<M: MemorySize>(
             // Make sure its within the "active" part of the memory stack
             let offset = stack_base - pid_offset;
             if offset as usize > memory_stack.len() {
-                warn!("vfork failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})", offset, memory_stack.len());
+                warn!(
+                    "vfork failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})",
+                    offset,
+                    memory_stack.len()
+                );
             } else {
                 // Update the memory stack with the new PID
                 let val_bytes = child_pid.raw().to_ne_bytes();
@@ -195,7 +174,9 @@ pub fn proc_exec<M: MemorySize>(
                 pbytes.clone_from_slice(&val_bytes);
             }
         } else {
-            warn!("vfork failed - the return value (pid) is not being returned on the stack - which is not supported");
+            warn!(
+                "vfork failed - the return value (pid) is not being returned on the stack - which is not supported",
+            );
         }
 
         // Jump back to the vfork point and current on execution
@@ -245,12 +226,7 @@ pub fn proc_exec<M: MemorySize>(
                 Ok(a) => Ok(Ok(a)),
                 Err(err) => {
                     if err != VirtualBusError::NotFound {
-                        error!(
-                            "wasi[{}:{}]::proc_exec - builtin failed - {}",
-                            ctx.data().pid(),
-                            ctx.data().tid(),
-                            err
-                        );
+                        error!("builtin failed - {}", err);
                     }
 
                     let new_store = new_store.take().unwrap();

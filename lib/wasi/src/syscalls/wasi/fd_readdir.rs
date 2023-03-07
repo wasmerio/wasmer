@@ -16,6 +16,7 @@ use crate::syscalls::*;
 /// - `u32 *bufused`
 ///     The Number of bytes stored in `buf`; if less than `buf_len` then entire
 ///     directory has been read
+#[instrument(level = "trace", skip_all, fields(fd), ret)]
 pub fn fd_readdir<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -24,11 +25,6 @@ pub fn fd_readdir<M: MemorySize>(
     cookie: Dircookie,
     bufused: WasmPtr<M::Offset, M>,
 ) -> Errno {
-    trace!(
-        "wasi[{}:{}]::fd_readdir",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
     let env = ctx.data();
     let (memory, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
     // TODO: figure out how this is supposed to work;
@@ -44,7 +40,7 @@ pub fn fd_readdir<M: MemorySize>(
         let guard = working_dir.inode.read();
         match guard.deref() {
             Kind::Dir { path, entries, .. } => {
-                debug!("Reading dir {:?}", path);
+                trace!("reading dir {:?}", path);
                 // TODO: refactor this code
                 // we need to support multiple calls,
                 // simple and obviously correct implementation for now:
@@ -56,7 +52,7 @@ pub fn fd_readdir<M: MemorySize>(
                     .into_iter()
                     .map(|entry| {
                         let filename = entry.file_name().to_string_lossy().to_string();
-                        debug!("Getting file: {:?}", filename);
+                        trace!("getting file: {:?}", filename);
                         let filetype = virtual_file_type_to_wasi_file_type(
                             entry.file_type().map_err(fs_error_into_wasi_err)?,
                         );
@@ -79,7 +75,7 @@ pub fn fd_readdir<M: MemorySize>(
                 entry_vec
             }
             Kind::Root { entries } => {
-                debug!("Reading root");
+                trace!("reading root");
                 let sorted_entries = {
                     let mut entry_vec: Vec<(String, InodeGuard)> = entries
                         .iter()
@@ -108,7 +104,7 @@ pub fn fd_readdir<M: MemorySize>(
     for (entry_path_str, wasi_file_type, ino) in entries.iter().skip(cookie as usize) {
         cur_cookie += 1;
         let namlen = entry_path_str.len();
-        debug!("Returning dirent for {}", entry_path_str);
+        trace!("returning dirent for {}", entry_path_str);
         let dirent = Dirent {
             d_next: cur_cookie,
             d_ino: *ino,

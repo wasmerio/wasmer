@@ -13,23 +13,18 @@ use crate::syscalls::*;
 ///
 /// * `fd` - Socket descriptor
 /// * `addr` - Address of the socket to connect to
+#[instrument(level = "debug", skip_all, fields(sock, addr = field::Empty), ret)]
 pub fn sock_connect<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::sock_connect (fd={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        sock
-    );
-
     let env = ctx.data();
     let net = env.net().clone();
     let memory = env.memory_view(&ctx);
     let addr = wasi_try!(crate::net::read_ip_port(&memory, addr));
     let addr = SocketAddr::new(addr.0, addr.1);
+    Span::current().record("addr", &format!("{:?}", addr));
 
     let tasks = ctx.data().tasks().clone();
     wasi_try!(__sock_upgrade(

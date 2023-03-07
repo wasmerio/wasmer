@@ -9,13 +9,12 @@ use crate::syscalls::*;
 /// Output:
 /// - `Filesize *offset`
 ///     The offset of `fd` relative to the start of the file
+#[instrument(level = "debug", skip_all, fields(fd, offset = field::Empty), ret)]
 pub fn fd_tell<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     offset: WasmPtr<Filesize, M>,
 ) -> Errno {
-    debug!("wasi::fd_tell");
-    debug!("wasi[{}:{}]::fd_tell", ctx.data().pid(), ctx.data().tid());
     let env = ctx.data();
     let (memory, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
     let offset_ref = offset.deref(&memory);
@@ -26,7 +25,9 @@ pub fn fd_tell<M: MemorySize>(
         return Errno::Access;
     }
 
-    wasi_try_mem!(offset_ref.write(fd_entry.offset.load(Ordering::Acquire)));
+    let offset = fd_entry.offset.load(Ordering::Acquire);
+    Span::current().record("offset", offset);
+    wasi_try_mem!(offset_ref.write(offset));
 
     Errno::Success
 }

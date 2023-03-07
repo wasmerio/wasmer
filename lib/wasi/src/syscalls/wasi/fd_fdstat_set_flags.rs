@@ -8,19 +8,12 @@ use crate::syscalls::*;
 ///     The file descriptor to apply the new flags to
 /// - `Fdflags flags`
 ///     The flags to apply to `fd`
+#[instrument(level = "debug", skip_all, fields(fd), ret, err)]
 pub fn fd_fdstat_set_flags(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     flags: Fdflags,
 ) -> Result<Errno, WasiError> {
-    debug!(
-        "wasi[{}:{}]::fd_fdstat_set_flags (fd={}, flags={:?})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        fd,
-        flags
-    );
-
     {
         let env = ctx.data();
         let (_, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
@@ -29,13 +22,6 @@ pub fn fd_fdstat_set_flags(
         let inode = fd_entry.inode.clone();
 
         if !fd_entry.rights.contains(Rights::FD_FDSTAT_SET_FLAGS) {
-            debug!(
-                "wasi[{}:{}]::fd_fdstat_set_flags (fd={}, flags={:?}) - access denied",
-                ctx.data().pid(),
-                ctx.data().tid(),
-                fd,
-                flags
-            );
             return Ok(Errno::Access);
         }
     }

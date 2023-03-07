@@ -9,6 +9,7 @@ use crate::syscalls::*;
 /// Output:
 /// - `Filestat *buf`
 ///     Where the metadata from `fd` will be written
+#[instrument(level = "debug", skip_all, fields(fd), ret)]
 pub fn fd_filestat_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -30,11 +31,6 @@ pub(crate) fn fd_filestat_get_internal<M: MemorySize>(
     fd: WasiFd,
     buf: WasmPtr<Filestat, M>,
 ) -> Errno {
-    debug!(
-        "wasi[{}:{}]::fd_filestat_get: fd={fd}",
-        ctx.data().pid(),
-        ctx.data().tid()
-    );
     let env = ctx.data();
     let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
     let fd_entry = wasi_try!(state.fs.get_fd(fd));
