@@ -52,9 +52,7 @@ pub use crate::memory::{
 pub use crate::mmap::Mmap;
 pub use crate::probestack::PROBESTACK;
 pub use crate::sig_registry::SignatureRegistry;
-pub use crate::store::{
-    InternalStoreHandle, MaybeInstanceOwned, StoreHandle, StoreId, StoreObjects,
-};
+pub use crate::store::{InternalStoreHandle, MaybeInstanceOwned, StoreHandle, StoreObjects};
 pub use crate::table::{TableElement, VMTable};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
@@ -67,7 +65,7 @@ pub use wasmer_types::MemoryError;
 pub use wasmer_types::MemoryStyle;
 use wasmer_types::RawValue;
 pub use wasmer_types::TableStyle;
-pub use wasmer_types::{TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
+pub use wasmer_types::{StoreId, TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
 
 #[deprecated(
     since = "2.1.0",

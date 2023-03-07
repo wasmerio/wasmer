@@ -7,51 +7,16 @@
 //! let add_one = instance.exports.get_function("function_name")?;
 //! let add_one_native: TypedFunction<i32, i32> = add_one.typed().unwrap();
 //! ```
-use std::marker::PhantomData;
-
-use crate::js::externals::Function;
-use crate::js::store::{AsStoreMut, AsStoreRef};
-use crate::js::{FromToNativeWasmType, RuntimeError, WasmTypeList};
+use crate::native_type::NativeWasmTypeInto;
+use crate::Value;
+use crate::{AsStoreMut, TypedFunction};
+use crate::{FromToNativeWasmType, RuntimeError, WasmTypeList};
 // use std::panic::{catch_unwind, AssertUnwindSafe};
-use crate::js::types::param_from_js;
-use crate::js::types::AsJs;
-use crate::js::vm::VMFunction;
+use crate::js::as_js::{param_from_js, AsJs};
 use js_sys::Array;
 use std::iter::FromIterator;
 use wasm_bindgen::JsValue;
 use wasmer_types::RawValue;
-
-/// A WebAssembly function that can be called natively
-/// (using the Native ABI).
-#[derive(Clone)]
-pub struct TypedFunction<Args = (), Rets = ()> {
-    pub(crate) handle: VMFunction,
-    _phantom: PhantomData<(Args, Rets)>,
-}
-
-unsafe impl<Args, Rets> Send for TypedFunction<Args, Rets> {}
-unsafe impl<Args, Rets> Sync for TypedFunction<Args, Rets> {}
-
-impl<Args, Rets> TypedFunction<Args, Rets>
-where
-    Args: WasmTypeList,
-    Rets: WasmTypeList,
-{
-    #[allow(dead_code)]
-    pub(crate) fn new<T>(_store: &mut impl AsStoreMut, vm_function: VMFunction) -> Self {
-        Self {
-            handle: vm_function,
-            _phantom: PhantomData,
-        }
-    }
-
-    pub(crate) fn from_handle(f: Function) -> Self {
-        Self {
-            handle: f.handle,
-            _phantom: PhantomData,
-        }
-    }
-}
 
 macro_rules! impl_native_traits {
     (  $( $x:ident ),* ) => {
@@ -64,23 +29,23 @@ macro_rules! impl_native_traits {
             /// Call the typed func and return results.
             #[allow(clippy::too_many_arguments)]
             pub fn call(&self, mut store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
-            $( $x: FromToNativeWasmType + crate::js::NativeWasmTypeInto, )*
+            $( $x: FromToNativeWasmType + NativeWasmTypeInto, )*
             {
                 #[allow(unused_unsafe)]
-                let params_list: Vec<RawValue> = unsafe {
-                    vec![ $( RawValue { f64: $x.into_raw(store) } ),* ]
+                let params_list: Vec<_> = unsafe {
+                    vec![ $( ($x::WASM_TYPE, $x.into_raw(store) ) ),* ]
                 };
-                let params_list: Vec<JsValue> = params_list
-                    .into_iter()
-                    .map(|a| a.as_jsvalue(&store.as_store_ref()))
-                    .collect();
                 let results = {
                     let mut r;
                     // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
                     loop {
-                        r = self.handle.function.apply(
+                        r = self.func.0.handle.function.apply(
                             &JsValue::UNDEFINED,
-                            &Array::from_iter(params_list.iter())
+                            unsafe {
+                                &Array::from_iter(params_list.clone()
+                                .into_iter()
+                                .map(|(b, a)| Value::from_raw(store, b, a).as_jsvalue(store)))
+                                }
                         );
                         let store_mut = store.as_store_mut();
                         if let Some(callback) = store_mut.inner.on_called.take() {
@@ -96,7 +61,7 @@ macro_rules! impl_native_traits {
                     r?
                 };
                 let mut rets_list_array = Rets::empty_array();
-                let mut_rets = rets_list_array.as_mut() as *mut [f64] as *mut f64;
+                let mut_rets = rets_list_array.as_mut() as *mut [RawValue] as *mut RawValue;
                 match Rets::size() {
                     0 => {},
                     1 => unsafe {
@@ -117,18 +82,6 @@ macro_rules! impl_native_traits {
                     }
                 }
                 Ok(unsafe { Rets::from_array(store, rets_list_array) })
-            }
-        }
-
-        #[allow(unused_parens)]
-        impl<'a, $( $x, )* Rets> crate::js::exports::ExportableWithGenerics<'a, ($( $x ),*), Rets> for TypedFunction<( $( $x ),* ), Rets>
-        where
-            $( $x: FromToNativeWasmType, )*
-            Rets: WasmTypeList,
-        {
-            fn get_self_from_extern_with_generics(store: &impl AsStoreRef, _extern: &crate::js::externals::Extern) -> Result<Self, crate::js::exports::ExportError> {
-                use crate::js::exports::Exportable;
-                crate::js::Function::get_self_from_extern(_extern)?.typed(store).map_err(|_| crate::js::exports::ExportError::IncompatibleType)
             }
         }
     };

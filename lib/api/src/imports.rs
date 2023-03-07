@@ -1,13 +1,10 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
-use crate::{Exports, Extern, Module};
+use crate::{Exports, Extern, LinkError, Module};
 use std::collections::HashMap;
 use std::fmt;
-use wasmer_compiler::LinkError;
 use wasmer_types::ImportError;
-#[cfg(feature = "compiler")]
-use wasmer_vm::VMSharedMemory;
 
 /// All of the import data used when instantiating.
 ///
@@ -38,7 +35,7 @@ use wasmer_vm::VMSharedMemory;
 /// ```
 #[derive(Clone, Default)]
 pub struct Imports {
-    map: HashMap<(String, String), Extern>,
+    pub(crate) map: HashMap<(String, String), Extern>,
 }
 
 impl Imports {
@@ -121,37 +118,6 @@ impl Imports {
     pub fn define(&mut self, ns: &str, name: &str, val: impl Into<Extern>) {
         self.map
             .insert((ns.to_string(), name.to_string()), val.into());
-    }
-
-    /// Imports (any) shared memory into the imports.
-    /// (if the module does not import memory then this function is ignored)
-    #[cfg(feature = "compiler")]
-    pub fn import_shared_memory(
-        &mut self,
-        module: &Module,
-        store: &mut impl crate::AsStoreMut,
-    ) -> Option<VMSharedMemory> {
-        // Determine if shared memory needs to be created and imported
-        let shared_memory = module
-            .imports()
-            .memories()
-            .next()
-            .map(|a| *a.ty())
-            .map(|ty| {
-                let style = store.as_store_ref().tunables().memory_style(&ty);
-                VMSharedMemory::new(&ty, &style).unwrap()
-            });
-
-        if let Some(memory) = shared_memory {
-            self.define(
-                "env",
-                "memory",
-                crate::Memory::new_from_existing(store, memory.clone().into()),
-            );
-            Some(memory)
-        } else {
-            None
-        }
     }
 
     /// Returns the contents of a namespace as an `Exports`.
@@ -338,9 +304,11 @@ macro_rules! import_namespace {
 
 #[cfg(test)]
 mod test {
-    use crate::sys::{AsStoreMut, Global, Store, Value};
+    use crate::store::Store;
+    use crate::value::Value;
+    use crate::Extern;
+    use crate::Global;
     use wasmer_types::Type;
-    use wasmer_vm::VMExtern;
 
     #[test]
     fn namespace() {
@@ -355,18 +323,16 @@ mod test {
 
         let happy_dog_entry = imports1.get_export("dog", "happy").unwrap();
 
-        assert!(
-            if let VMExtern::Global(happy_dog_global) = happy_dog_entry.to_vm_extern() {
-                (*happy_dog_global.get(store.objects_mut()).ty()).ty == Type::I32
-            } else {
-                false
-            }
-        );
+        assert!(if let Extern::Global(happy_dog_global) = happy_dog_entry {
+            happy_dog_global.get(&mut store).ty() == Type::I32
+        } else {
+            false
+        });
     }
 
     #[test]
     fn imports_macro_allows_trailing_comma_and_none() {
-        use crate::sys::Function;
+        use crate::Function;
 
         let mut store: Store = Default::default();
 
