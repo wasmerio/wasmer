@@ -113,6 +113,7 @@ pub fn proc_spawn_internal(
             return Ok(Err(BusErrno::Denied));
         }
     };
+    let child_process = child_env.process.clone();
     if let Some(args) = args {
         let mut child_state = env.state.fork();
         child_state.args = args;
@@ -241,8 +242,8 @@ pub fn proc_spawn_internal(
 
     // Add the process to the environment state
     {
-        let mut children = ctx.data().process.children.write().unwrap();
-        children.push(child_pid);
+        let mut inner = ctx.data().process.inner.write().unwrap();
+        inner.children.push(child_process);
     }
     let env = ctx.data();
     let memory = env.memory_view(&ctx);

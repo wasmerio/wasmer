@@ -4,7 +4,7 @@ use std::{
     convert::TryInto,
     sync::{
         atomic::{AtomicU32, Ordering},
-        Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
+        Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak,
     },
     time::Duration,
 };
@@ -79,8 +79,8 @@ impl std::fmt::Debug for WasiProcessId {
 pub struct WasiProcess {
     /// Unique ID of this process
     pub(crate) pid: WasiProcessId,
-    /// ID of the parent process
-    pub(crate) ppid: WasiProcessId,
+    /// List of all the children spawned from this thread
+    pub(crate) parent: Option<Weak<RwLock<WasiProcessInner>>>,
     /// The inner protected region of the process
     pub(crate) inner: Arc<RwLock<WasiProcessInner>>,
     /// Reference back to the compute engine
@@ -89,8 +89,6 @@ pub struct WasiProcess {
     pub(crate) compute: WasiControlPlaneHandle,
     /// Reference to the exit code for the main thread
     pub(crate) finished: Arc<OwnedTaskStatus>,
-    /// List of all the children spawned from this thread
-    pub(crate) children: Arc<RwLock<Vec<WasiProcessId>>>,
     /// Number of threads waiting for children to exit
     pub(crate) waiting: Arc<AtomicU32>,
 }
@@ -98,6 +96,8 @@ pub struct WasiProcess {
 // TODO: fields should be private and only accessed via methods.
 #[derive(Debug)]
 pub struct WasiProcessInner {
+    /// Unique ID of this process
+    pub pid: WasiProcessId,
     /// The threads that make up this process
     pub threads: HashMap<WasiThreadId, WasiThread>,
     /// Number of threads running for this process
@@ -116,6 +116,8 @@ pub struct WasiProcessInner {
     pub bus_processes: HashMap<WasiProcessId, TaskJoinHandle>,
     /// Indicates if the bus process can be reused
     pub bus_process_reuse: HashMap<Cow<'static, str>, WasiProcessId>,
+    /// List of all the children spawned from this thread
+    pub children: Vec<WasiProcess>,
 }
 
 // TODO: why do we need this, how is it used?
@@ -142,9 +144,10 @@ impl WasiProcess {
     pub fn new(pid: WasiProcessId, plane: WasiControlPlaneHandle) -> Self {
         WasiProcess {
             pid,
-            ppid: 0u32.into(),
+            parent: None,
             compute: plane,
             inner: Arc::new(RwLock::new(WasiProcessInner {
+                pid,
                 threads: Default::default(),
                 thread_count: Default::default(),
                 thread_seed: Default::default(),
@@ -154,8 +157,8 @@ impl WasiProcess {
                 signal_intervals: Default::default(),
                 bus_processes: Default::default(),
                 bus_process_reuse: Default::default(),
+                children: Default::default(),
             })),
-            children: Arc::new(RwLock::new(Default::default())),
             finished: Arc::new(OwnedTaskStatus::default()),
             waiting: Arc::new(AtomicU32::new(0)),
         }
@@ -172,7 +175,12 @@ impl WasiProcess {
 
     /// Gets the process ID of the parent process
     pub fn ppid(&self) -> WasiProcessId {
-        self.ppid
+        self.parent
+            .iter()
+            .filter_map(|parent| parent.upgrade())
+            .map(|parent| parent.read().unwrap().pid)
+            .next()
+            .unwrap_or(WasiProcessId(0))
     }
 
     /// Gains write access to the process internals
@@ -233,14 +241,12 @@ impl WasiProcess {
     /// Signals all the threads in this process
     pub fn signal_process(&self, signal: Signal) {
         {
-            let children = self.children.read().unwrap();
+            let inner = self.inner.read().unwrap();
             if self.waiting.load(Ordering::Acquire) > 0 {
                 let mut triggered = false;
-                for pid in children.iter() {
-                    if let Some(process) = self.compute.must_upgrade().get_process(*pid) {
-                        process.signal_process(signal);
-                        triggered = true;
-                    }
+                for child in inner.children.iter() {
+                    child.signal_process(signal);
+                    triggered = true;
                 }
                 if triggered {
                     return;
@@ -298,20 +304,20 @@ impl WasiProcess {
     pub async fn join_children(&mut self) -> Option<Result<ExitCode, Arc<WasiRuntimeError>>> {
         let _guard = WasiProcessWait::new(self);
         let children: Vec<_> = {
-            let children = self.children.read().unwrap();
-            children.clone()
+            let inner = self.inner.read().unwrap();
+            inner.children.clone()
         };
         if children.is_empty() {
             return None;
         }
         let mut waits = Vec::new();
-        for pid in children {
-            if let Some(process) = self.compute.must_upgrade().get_process(pid) {
-                let children = self.children.clone();
+        for child in children {
+            if let Some(process) = self.compute.must_upgrade().get_process(child.pid) {
+                let inner = self.inner.clone();
                 waits.push(async move {
                     let join = process.join().await;
-                    let mut children = children.write().unwrap();
-                    children.retain(|a| *a != pid);
+                    let mut inner = inner.write().unwrap();
+                    inner.children.retain(|a| a.pid != child.pid);
                     join
                 })
             }
@@ -326,32 +332,32 @@ impl WasiProcess {
     pub async fn join_any_child(&mut self) -> Result<Option<(WasiProcessId, ExitCode)>, Errno> {
         let _guard = WasiProcessWait::new(self);
         let children: Vec<_> = {
-            let children = self.children.read().unwrap();
-            children.clone()
+            let inner = self.inner.read().unwrap();
+            inner.children.clone()
         };
         if children.is_empty() {
             return Err(Errno::Child);
         }
 
         let mut waits = Vec::new();
-        for pid in children {
-            if let Some(process) = self.compute.must_upgrade().get_process(pid) {
-                let children = self.children.clone();
+        for child in children {
+            if let Some(process) = self.compute.must_upgrade().get_process(child.pid) {
+                let inner = self.inner.clone();
                 waits.push(async move {
                     let join = process.join().await;
-                    let mut children = children.write().unwrap();
-                    children.retain(|a| *a != pid);
-                    (pid, join)
+                    let mut inner = inner.write().unwrap();
+                    inner.children.retain(|a| a.pid != child.pid);
+                    (child, join)
                 })
             }
         }
-        let (pid, res) = futures::future::select_all(waits.into_iter().map(|a| Box::pin(a)))
+        let (child, res) = futures::future::select_all(waits.into_iter().map(|a| Box::pin(a)))
             .await
             .0;
 
         let code = res.unwrap_or_else(|e| e.as_exit_code().unwrap_or(Errno::Canceled));
 
-        Ok(Some((pid, code)))
+        Ok(Some((child.pid, code)))
     }
 
     /// Terminate the process and all its threads

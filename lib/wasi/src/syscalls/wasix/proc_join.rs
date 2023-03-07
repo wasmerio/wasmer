@@ -94,8 +94,10 @@ pub fn proc_join<M: MemorySize>(
             .record("ret_pid", pid.raw())
             .record("exit_code", exit_code as u32);
         let env = ctx.data();
-        let mut children = env.process.children.write().unwrap();
-        children.retain(|a| *a != pid);
+        {
+            let mut inner = env.process.inner.write().unwrap();
+            inner.children.retain(|a| a.pid != pid);
+        }
 
         let memory = env.memory_view(&ctx);
 
