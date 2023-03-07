@@ -13,6 +13,7 @@ pub fn fd_prestat_dir_name<M: MemorySize>(
     let path_chars = wasi_try_mem!(path.slice(&memory, path_len));
 
     let inode = wasi_try!(state.fs.get_fd_inode(fd));
+    Span::current().record("path", inode.name.as_ref());
 
     // check inode-val.is_preopened?
 
