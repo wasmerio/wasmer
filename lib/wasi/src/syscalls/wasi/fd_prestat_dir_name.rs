@@ -11,7 +11,6 @@ pub fn fd_prestat_dir_name<M: MemorySize>(
     let env = ctx.data();
     let (memory, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
     let path_chars = wasi_try_mem!(path.slice(&memory, path_len));
-    Span::current().record("path", get_input_str!(&memory, path, path_len).as_str());
 
     let inode = wasi_try!(state.fs.get_fd_inode(fd));
 
