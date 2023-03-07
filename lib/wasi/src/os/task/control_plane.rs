@@ -14,6 +14,28 @@ pub struct WasiControlPlane {
 }
 
 #[derive(Debug, Clone)]
+pub struct WasiControlPlaneHandle {
+    inner: std::sync::Weak<State>,
+}
+
+impl WasiControlPlaneHandle {
+    fn new(inner: &Arc<State>) -> Self {
+        Self {
+            inner: Arc::downgrade(inner),
+        }
+    }
+
+    pub fn upgrade(&self) -> Option<WasiControlPlane> {
+        self.inner.upgrade().map(|state| WasiControlPlane { state })
+    }
+
+    pub fn must_upgrade(&self) -> WasiControlPlane {
+        let state = self.inner.upgrade().expect("control plane unavailable");
+        WasiControlPlane { state }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct ControlPlaneConfig {
     /// Total number of tasks (processes + threads) that can be spawned.
     pub max_task_count: Option<usize>,
@@ -67,6 +89,10 @@ impl WasiControlPlane {
         }
     }
 
+    pub fn handle(&self) -> WasiControlPlaneHandle {
+        WasiControlPlaneHandle::new(&self.state)
+    }
+
     /// Get the current count of active tasks (threads).
     fn active_task_count(&self) -> usize {
         self.state.task_count.load(Ordering::SeqCst)
@@ -99,7 +125,7 @@ impl WasiControlPlane {
         }
 
         // Create the process first to do all the allocations before locking.
-        let mut proc = WasiProcess::new(WasiProcessId::from(0), self.clone());
+        let mut proc = WasiProcess::new(WasiProcessId::from(0), self.handle());
 
         let mut mutable = self.state.mutable.write().unwrap();
 

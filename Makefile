@@ -133,21 +133,24 @@ else ifeq ($(ENABLE_LLVM), 1)
 	LLVM_VERSION := $(shell llvm-config --version)
 	compilers += llvm
 	# … or try to autodetect LLVM from `llvm-config-<version>`.
-else ifneq (, $(shell which llvm-config-13 2>/dev/null))
-	LLVM_VERSION := $(shell llvm-config-13 --version)
+else ifneq (, $(shell which llvm-config-14 2>/dev/null))
+	LLVM_VERSION := $(shell llvm-config-14 --version)
 	compilers += llvm
-	# need force LLVM_SYS_120_PREFIX, or llvm_sys will not build in the case
-	export LLVM_SYS_120_PREFIX = $(shell llvm-config-13 --prefix)
-else ifneq (, $(shell which llvm-config-12 2>/dev/null))
-	LLVM_VERSION := $(shell llvm-config-12 --version)
+	# need force LLVM_SYS_140_PREFIX, or llvm_sys will not build in the case
+	export LLVM_SYS_140_PREFIX = $(shell llvm-config-14 --prefix)
+else ifneq (, $(shell which llvm-config-15 2>/dev/null))
+	LLVM_VERSION := $(shell llvm-config-15 --version)
 	compilers += llvm
-	# … otherwise, we try to autodetect LLVM from `llvm-config`
+	# need force LLVM_SYS_140_PREFIX, or llvm_sys will not build in the case
+	export LLVM_SYS_140_PREFIX = $(shell llvm-config-15 --prefix)
 else ifneq (, $(shell which llvm-config 2>/dev/null))
 	LLVM_VERSION := $(shell llvm-config --version)
-	ifneq (, $(findstring 13,$(LLVM_VERSION)))
+	ifneq (, $(findstring 15,$(LLVM_VERSION)))
 		compilers += llvm
-	else ifneq (, $(findstring 12,$(LLVM_VERSION)))
+		export LLVM_SYS_140_PREFIX = $(shell llvm-config --prefix)
+	else ifneq (, $(findstring 14,$(LLVM_VERSION)))
 		compilers += llvm
+		export LLVM_SYS_140_PREFIX = $(shell llvm-config --prefix)
 	endif
 endif
 

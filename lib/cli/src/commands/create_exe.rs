@@ -15,9 +15,8 @@ use std::process::Stdio;
 use tar::Archive;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
-use wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
-use wasmer_types::ModuleInfo;
-use webc::{ParseOptions, WebCMmap};
+use wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, ModuleInfo};
+use webc::v1::{ParseOptions, WebCMmap};
 
 const LINK_SYSTEM_LIBRARIES_WINDOWS: &[&str] = &["userenv", "Ws2_32", "advapi32", "bcrypt"];
 
@@ -520,7 +519,7 @@ impl PrefixMapCompilation {
         // if prefixes are specified, have to match the atom names exactly
         if prefixes.len() != atoms.len() {
             println!(
-                "WARNING: invalid mapping of prefix and atoms: expected prefixes for {} atoms, got {} prefixes", 
+                "WARNING: invalid mapping of prefix and atoms: expected prefixes for {} atoms, got {} prefixes",
                 atoms.len(), prefixes.len()
             );
         }
@@ -642,7 +641,7 @@ impl PrefixMapCompilation {
 
 #[test]
 fn test_prefix_parsing() {
-    let tempdir = tempdir::TempDir::new("test-prefix-parsing").unwrap();
+    let tempdir = tempfile::TempDir::new().unwrap();
     let path = tempdir.path();
     std::fs::write(path.join("test.obj"), b"").unwrap();
     let str1 = format!("ATOM_NAME:PREFIX:{}", path.join("test.obj").display());
@@ -2132,7 +2131,7 @@ mod http_fetch {
             .unwrap_or("output")
             .to_string();
 
-        let download_tempdir = tempdir::TempDir::new("wasmer-download")?;
+        let download_tempdir = tempfile::TempDir::new()?;
         let download_path = download_tempdir.path().join(&filename);
 
         let mut file = std::fs::File::create(&download_path)?;
