@@ -76,7 +76,27 @@ pub fn proc_join<M: MemorySize>(
     // Otherwise we wait for the specific PID
     let env = ctx.data();
     let pid: WasiProcessId = pid.into();
-    let process = env.control_plane.get_process(pid);
+
+    // Waiting for a process that is an explicit child will join it
+    // meaning it will no longer be a sub-process of the main process
+    let mut process = {
+        let mut inner = env.process.inner.write().unwrap();
+        let process = inner
+            .children
+            .iter()
+            .filter(|c| c.pid == pid)
+            .map(Clone::clone)
+            .next();
+        inner.children.retain(|c| c.pid != pid);
+        process
+    };
+
+    // Otherwise it could be the case that we are waiting for a process
+    // that is not a child of this process but may still be running
+    if process.is_none() {
+        process = env.control_plane.get_process(pid);
+    }
+
     if let Some(process) = process {
         let exit_code = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
             let code = process.join().await.unwrap_or(Errno::Child);
