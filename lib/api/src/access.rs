@@ -1,6 +1,6 @@
 use std::mem::MaybeUninit;
 
-use crate::{WasmRef, WasmSlice};
+use crate::mem_access::{WasmRef, WasmSlice};
 
 pub(super) enum SliceCow<'a, T> {
     #[allow(dead_code)]

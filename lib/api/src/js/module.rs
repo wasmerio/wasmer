@@ -65,21 +65,20 @@ impl Module {
     }
 
     pub(crate) unsafe fn from_binary_unchecked(
-        engine: &impl AsEngineRef,
+        _engine: &impl AsEngineRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
         let js_bytes = Uint8Array::view(binary);
         let module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
-        Self::from_js_module(engine, module, binary)
+        Ok(Self::from_js_module(module, binary))
     }
 
     /// Creates a new WebAssembly module skipping any kind of validation from a javascript module
     ///
     pub(crate) unsafe fn from_js_module(
-        _engine: &impl AsEngineRef,
         module: WebAssembly::Module,
         binary: impl IntoBytes,
-    ) -> Result<Self, CompileError> {
+    ) -> Self {
         let binary = binary.into_bytes();
         // The module is now validated, so we can safely parse it's types
         #[cfg(feature = "wasm-types-polyfill")]
@@ -105,13 +104,13 @@ impl Module {
         #[cfg(not(feature = "wasm-types-polyfill"))]
         let (type_hints, name) = (None, None);
 
-        Ok(Self {
+        Self {
             module,
             type_hints,
             name,
             #[cfg(feature = "js-serializable-module")]
             raw_bytes: Some(binary.into_bytes()),
-        })
+        }
     }
 
     pub fn validate(_engine: &impl AsEngineRef, binary: &[u8]) -> Result<(), CompileError> {
@@ -444,16 +443,8 @@ impl From<WebAssembly::Module> for Module {
 }
 
 impl<T: IntoBytes> From<(WebAssembly::Module, T)> for crate::module::Module {
-    fn from(module_and_binary: (WebAssembly::Module, T)) -> crate::module::Module {
-        let (module, _binary) = module_and_binary;
-        let module = Module {
-            module,
-            name: None,
-            type_hints: None,
-            #[cfg(feature = "js-serializable-module")]
-            raw_bytes: Some(_binary.into_bytes()),
-        };
-        crate::module::Module(module.into())
+    fn from((module, binary): (WebAssembly::Module, T)) -> crate::module::Module {
+        unsafe { crate::module::Module(Module::from_js_module(module, binary.into_bytes())) }
     }
 }
 
