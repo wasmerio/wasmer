@@ -8,6 +8,8 @@ use wasmer_wasi::runners::{Runner, WapmContainer};
 
 #[cfg(feature = "webc_runner_rt_wasi")]
 mod wasi {
+    use anyhow::Error;
+    use tempfile::TempDir;
     use tokio::runtime::Handle;
     use wasmer::Store;
     use wasmer_wasi::{
@@ -43,15 +45,7 @@ mod wasi {
         });
         let err = handle.join().unwrap().unwrap_err();
 
-        let runtime_error = err
-            .chain()
-            .find_map(|e| e.downcast_ref::<WasiError>())
-            .unwrap();
-        let exit_code = match runtime_error {
-            WasiError::Exit(code) => *code,
-            other => unreachable!("Something else went wrong: {:?}", other),
-        };
-        assert_eq!(exit_code, 1);
+        assert_eq!(wasi_exit_code(&err), 1);
     }
 
     #[tokio::test]
@@ -69,15 +63,37 @@ mod wasi {
         });
         let err = handle.join().unwrap().unwrap_err();
 
-        let runtime_error = err
-            .chain()
-            .find_map(|e| e.downcast_ref::<WasiError>())
-            .unwrap();
-        let exit_code = match runtime_error {
-            WasiError::Exit(code) => *code,
-            other => unreachable!("Something else went wrong: {:?}", other),
-        };
-        assert_eq!(exit_code, 42);
+        assert_eq!(wasi_exit_code(&err), 42);
+    }
+
+    #[tokio::test]
+    async fn python_with_mapped_dir() {
+        let webc = download_cached("https://wapm.io/python/python").await;
+        let store = Store::default();
+        let tasks = TokioTaskManager::new(Handle::current());
+        let container = WapmContainer::from_bytes(webc).unwrap();
+        let temp = TempDir::new().unwrap();
+        std::fs::write(temp.path().join("main.py"), b"import sys\nsys.exit(42)").unwrap();
+
+        let handle = std::thread::spawn(move || {
+            WasiRunner::new(store)
+                .with_task_manager(tasks)
+                .with_mapped_directory(temp.path(), "/path/to/")
+                .with_args(["/path/to/main.py"])
+                .run_cmd(&container, "python")
+        });
+        let err = handle.join().unwrap().unwrap_err();
+
+        assert_eq!(wasi_exit_code(&err), 42);
+    }
+
+    fn wasi_exit_code(err: &Error) -> u32 {
+        let runtime_error = err.chain().find_map(|e| e.downcast_ref::<WasiError>());
+
+        match runtime_error {
+            Some(WasiError::Exit(code)) => *code,
+            _ => panic!("The runner exited abnormally: {:?}", err),
+        }
     }
 }
 

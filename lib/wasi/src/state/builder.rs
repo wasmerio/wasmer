@@ -223,11 +223,22 @@ impl WasiEnvBuilder {
         I: IntoIterator<Item = Arg>,
         Arg: AsRef<[u8]>,
     {
-        args.into_iter().for_each(|arg| {
-            self.add_arg(arg);
-        });
+        self.add_args(args);
 
         self
+    }
+
+    /// Add multiple arguments.
+    ///
+    /// Arguments must not contain the nul (0x0) byte
+    pub fn add_args<I, Arg>(&mut self, args: I)
+    where
+        I: IntoIterator<Item = Arg>,
+        Arg: AsRef<[u8]>,
+    {
+        for arg in args {
+            self.add_arg(arg);
+        }
     }
 
     /// Get a reference to the configured arguments.
@@ -351,7 +362,7 @@ impl WasiEnvBuilder {
     /// ```
     pub fn preopen_build<F>(mut self, inner: F) -> Result<Self, WasiStateCreationError>
     where
-        F: Fn(&mut PreopenDirBuilder) -> &mut PreopenDirBuilder,
+        F: FnOnce(&mut PreopenDirBuilder) -> &mut PreopenDirBuilder,
     {
         self.add_preopen_build(inner)?;
         Ok(self)
@@ -373,7 +384,7 @@ impl WasiEnvBuilder {
     /// ```
     pub fn add_preopen_build<F>(&mut self, inner: F) -> Result<(), WasiStateCreationError>
     where
-        F: Fn(&mut PreopenDirBuilder) -> &mut PreopenDirBuilder,
+        F: FnOnce(&mut PreopenDirBuilder) -> &mut PreopenDirBuilder,
     {
         let mut pdb = PreopenDirBuilder::new();
         let po_dir = inner(&mut pdb).build()?;

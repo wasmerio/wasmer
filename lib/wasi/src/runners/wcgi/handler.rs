@@ -25,7 +25,7 @@ use crate::{
     Capabilities, Pipe, PluggableRuntimeImplementation, VirtualTaskManager, WasiEnv,
 };
 
-/// The shared object that manages the instantiaion of WASI executables and
+/// The shared object that manages the instantiation of WASI executables and
 /// communicating with them via the CGI protocol.
 #[derive(Clone, Debug)]
 pub(crate) struct Handler(Arc<SharedState>);
