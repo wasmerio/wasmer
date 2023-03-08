@@ -1,14 +1,13 @@
-use std::time::{Duration, Instant};
+use std::{
+    path::{Path, PathBuf},
+    time::{Duration, Instant},
+};
 
 use assert_cmd::{assert::Assert, prelude::OutputAssertExt, Command};
+use once_cell::sync::Lazy;
 use predicates::str::contains;
 use reqwest::{blocking::Client, IntoUrl};
 use tempfile::TempDir;
-use wasmer_integration_tests_cli::get_wasmer_path;
-
-fn wasmer_cli() -> Command {
-    Command::new(get_wasmer_path())
-}
 
 mod webc_on_disk {
     use std::process::Stdio;
@@ -20,7 +19,7 @@ mod webc_on_disk {
 
     #[test]
     fn wasi_runner() {
-        let assert = wasmer_cli()
+        let assert = Command::new(wasmer_executable())
             .arg("run2")
             .arg(fixtures::python())
             .arg("--")
@@ -36,7 +35,7 @@ mod webc_on_disk {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("main.py"), "print('Hello, World!')").unwrap();
 
-        let assert = wasmer_cli()
+        let assert = Command::new(wasmer_executable())
             .arg("run2")
             .arg(fixtures::python())
             .arg("--mapdir")
@@ -54,7 +53,7 @@ mod webc_on_disk {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("main.py"), "print('Hello, World!')").unwrap();
 
-        let assert = wasmer_cli()
+        let assert = Command::new(wasmer_executable())
             .arg("run2")
             .arg(fixtures::python())
             .arg("--env")
@@ -71,7 +70,7 @@ mod webc_on_disk {
     fn wcgi_runner() {
         // Start the WCGI server in the background
         let port = rand::thread_rng().gen_range(10_000_u16..u16::MAX);
-        let mut cmd = std::process::Command::new(get_wasmer_path());
+        let mut cmd = std::process::Command::new(wasmer_executable());
         cmd.arg("run2")
             .env("RUST_LOG", "info,wasmer_wasi::runners=debug")
             .arg(format!("--addr=127.0.0.1:{port}"))
@@ -104,7 +103,7 @@ mod wasm_on_disk {
 
     #[test]
     fn wasi_executable() {
-        let assert = wasmer_cli()
+        let assert = Command::new(wasmer_executable())
             .arg("run2")
             .arg(fixtures::qjs())
             .arg("--")
@@ -117,21 +116,24 @@ mod wasm_on_disk {
 
     #[test]
     fn no_abi() {
-        let assert = wasmer_cli().arg("run2").arg(fixtures::fib()).assert();
+        let assert = Command::new(wasmer_executable())
+            .arg("run2")
+            .arg(fixtures::fib())
+            .assert();
 
         assert.success();
     }
 
     #[test]
     fn error_if_no_start_function_found() {
-        let assert = wasmer_cli()
+        let assert = Command::new(wasmer_executable())
             .arg("run2")
             .arg(fixtures::wat_no_start())
             .assert();
 
         assert
             .failure()
-            .stderr(contains("Can not find any export functions."));
+            .stderr(contains("The module doesn't contain a \"_start\" function"));
     }
 
     #[test]
@@ -140,7 +142,7 @@ mod wasm_on_disk {
         let dest = temp.path().join("qjs.wasmu");
         let qjs = fixtures::qjs();
         // Make sure it is compiled
-        wasmer_cli()
+        Command::new(wasmer_executable())
             .arg("compile")
             .arg("-o")
             .arg(&dest)
@@ -150,7 +152,7 @@ mod wasm_on_disk {
         assert!(dest.exists());
 
         // Now we can try to run the compiled artifact
-        let assert = wasmer_cli()
+        let assert = Command::new(wasmer_executable())
             .arg("run2")
             .arg(&dest)
             .arg("--")
@@ -169,7 +171,7 @@ fn wasmer_package_directory() {
     std::fs::copy(fixtures::qjs(), temp.path().join("qjs.wasm")).unwrap();
     std::fs::copy(fixtures::qjs_wasmer_toml(), temp.path().join("wasmer.toml")).unwrap();
 
-    let assert = wasmer_cli()
+    let assert = Command::new(wasmer_executable())
         .arg("run2")
         .arg(temp.path())
         .arg("--")
@@ -186,7 +188,7 @@ mod remote_webc {
     #[test]
     #[ignore]
     fn quickjs_as_package_name() {
-        let assert = wasmer_cli()
+        let assert = Command::new(wasmer_executable())
             .arg("run2")
             .arg("saghul/quickjs")
             .arg("--registry=https://wapm.io/")
@@ -201,7 +203,7 @@ mod remote_webc {
     #[test]
     #[ignore]
     fn quickjs_as_url() {
-        let assert = wasmer_cli()
+        let assert = Command::new(wasmer_executable())
             .arg("run2")
             .arg("https://wapm.io/saghul/quickjs")
             .arg("--")
@@ -290,4 +292,30 @@ fn http_get(url: impl IntoUrl) -> String {
     }
 
     panic!("Didn't receive a response from \"{url}\" within the allocated time");
+}
+
+/// Get the path for the `wasmer` executable.
+///
+/// Note that this will automatically run the compiler if the executable is
+/// out of date.
+///
+/// We *don't* want to use [`wasmer_integration_tests_cli::get_wasmer_path()`]
+/// because that returns the path to the release executable, and there is no
+/// guarantee it contains recent changes or was compiled with the feature flags
+/// we are trying to test (or even exists).
+fn wasmer_executable() -> &'static Path {
+    static EXECUTABLE: Lazy<PathBuf> = Lazy::new(|| {
+        let run = escargot::CargoBuild::new()
+            .package("wasmer-cli")
+            .bin("wasmer")
+            .features("compiler singlepass")
+            .current_release()
+            .current_target()
+            .run()
+            .unwrap();
+
+        run.path().to_path_buf()
+    });
+
+    &*EXECUTABLE
 }
