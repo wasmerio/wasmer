@@ -472,8 +472,6 @@
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::BaseTunables</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>))]</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::CodeMemory</span>;
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>))]</span>
-<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">AsEngineRef</span>, <span class="ident">EngineRef</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>))]</span>
@@ -539,17 +537,26 @@
         }
     }
 
-    <span class="doccomment">/// Returns only the `ModuleInfo` given a `wasm` byte slice</span>
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_module_info</span>(<span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
-        <span class="comment">// this is from `artifact_builder.rs`</span>
-        <span class="kw">let</span> <span class="ident">environ</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::ModuleEnvironment::new</span>();
-        <span class="kw">let</span> <span class="ident">translation</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">translate</span>(<span class="ident">data</span>).<span class="ident">map_err</span>(<span class="ident">CompileError::Wasm</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(<span class="ident">translation</span>.<span class="ident">module</span>)
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>))]</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(
+        <span class="ident">compiler_config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">CompilerConfig</span><span class="op">&gt;</span>,
+        <span class="ident">target</span>: <span class="ident">Target</span>,
+        <span class="ident">features</span>: <span class="ident">Features</span>,
+    ) -&gt; <span class="self">Self</span> {
+        <span class="macro">panic!</span>(<span class="string">&quot;The engine is not compiled with any compiler support&quot;</span>)
     }
 
     <span class="doccomment">/// Returns the name of this engine</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">name</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">str</span> {
+        <span class="self">self</span>.<span class="ident">name</span>.<span class="ident">as_str</span>()
+    }
+
+    <span class="doccomment">/// Returns the deterministic id of this engine</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deterministic_id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">str</span> {
+        <span class="comment">// TODO: add a `deterministic_id` to the Compiler, so two</span>
+        <span class="comment">// compilers can actually serialize into a different deterministic_id</span>
+        <span class="comment">// if their configuration is different (eg. LLVM with optimizations vs LLVM</span>
+        <span class="comment">// without optimizations)</span>
         <span class="self">self</span>.<span class="ident">name</span>.<span class="ident">as_str</span>()
     }
 
@@ -697,13 +704,6 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>))]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">tunables</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Tunables</span> {
         <span class="self">self</span>.<span class="ident">tunables</span>.<span class="ident">as_ref</span>()
-    }
-}
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;wasm32&quot;</span>))]</span>
-<span class="kw">impl</span> <span class="ident">AsEngineRef</span> <span class="kw">for</span> <span class="ident">Engine</span> {
-    <span class="kw">fn</span> <span class="ident">as_engine_ref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">EngineRef</span> {
-        <span class="ident">EngineRef</span> { <span class="ident">inner</span>: <span class="self">self</span> }
     }
 }
 

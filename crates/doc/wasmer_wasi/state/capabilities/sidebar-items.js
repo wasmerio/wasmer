@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["Capabilities",""]]};
+window.SIDEBAR_ITEMS = {"struct":[["Capabilities","Defines capabilities for a Wasi environment."],["CapabilityThreadingV1","Defines threading related permissions."]]};

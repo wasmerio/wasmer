@@ -57,6 +57,10 @@
 <span id="55">55</span>
 <span id="56">56</span>
 <span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different</span>
 <span class="doccomment">//! commands.</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::VERSION</span>;
@@ -72,9 +76,13 @@
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-simd&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="ident">simd</span>: <span class="ident">bool</span>,
 
-    <span class="doccomment">/// Enable support for the threads proposal.</span>
+    <span class="doccomment">/// Disable support for the threads proposal.</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;disable-threads&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="ident">disable_threads</span>: <span class="ident">bool</span>,
+
+    <span class="doccomment">/// Deprecated, threads are enabled by default.</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-threads&quot;</span>)]</span>
-    <span class="kw">pub</span> <span class="ident">threads</span>: <span class="ident">bool</span>,
+    <span class="kw">pub</span> <span class="ident">_threads</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Enable support for the reference types proposal.</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-reference-types&quot;</span>)]</span>

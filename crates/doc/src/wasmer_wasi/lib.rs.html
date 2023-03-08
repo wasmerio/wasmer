@@ -1686,7 +1686,7 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>))]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">build_test_engine</span>(<span class="ident">features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">wasmer::Features</span><span class="op">&gt;</span>) -&gt; <span class="ident">wasmer::Engine</span> {
     <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">features</span>;
-    <span class="ident">wasmer::Store::default</span>().<span class="ident">engine</span>().<span class="ident">cloned</span>()
+    <span class="ident">wasmer::Store::default</span>().<span class="ident">engine</span>().<span class="ident">clone</span>()
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wasi" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

@@ -43,13 +43,6 @@
 <span id="41">41</span>
 <span id="42">42</span>
 <span id="43">43</span>
-<span id="44">44</span>
-<span id="45">45</span>
-<span id="46">46</span>
-<span id="47">47</span>
-<span id="48">48</span>
-<span id="49">49</span>
-<span id="50">50</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">net::socket::TimeType</span>, <span class="ident">syscalls</span>::<span class="kw-2">*</span>};
 
@@ -62,20 +55,13 @@
 <span class="doccomment">/// * `fd` - Socket descriptor</span>
 <span class="doccomment">/// * `opt` - Socket option to be set</span>
 <span class="doccomment">/// * `size` - Buffer size</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">sock</span>, <span class="ident">opt</span>, <span class="ident">size</span>), <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sock_set_opt_size</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">sock</span>: <span class="ident">WasiFd</span>,
     <span class="ident">opt</span>: <span class="ident">Sockoption</span>,
     <span class="ident">size</span>: <span class="ident">Filesize</span>,
 ) -&gt; <span class="ident">Errno</span> {
-    <span class="macro">debug!</span>(
-        <span class="string">&quot;wasi[{}:{}]::sock_set_opt_size(fd={}, ty={})&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-        <span class="ident">sock</span>,
-        <span class="ident">opt</span>
-    );
-
     <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">opt</span> {
         <span class="ident">Sockoption::RecvTimeout</span> =&gt; <span class="ident">TimeType::ReadTimeout</span>,
         <span class="ident">Sockoption::SendTimeout</span> =&gt; <span class="ident">TimeType::WriteTimeout</span>,

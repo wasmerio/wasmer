@@ -32,28 +32,17 @@
 <span id="30">30</span>
 <span id="31">31</span>
 <span id="32">32</span>
-<span id="33">33</span>
-<span id="34">34</span>
-<span id="35">35</span>
-<span id="36">36</span>
-<span id="37">37</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// ### `sock_status()`</span>
 <span class="doccomment">/// Returns the current status of a socket</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">sock</span>, <span class="ident">status</span> <span class="op">=</span> <span class="ident">field::Empty</span>), <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sock_status</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">sock</span>: <span class="ident">WasiFd</span>,
     <span class="ident">ret_status</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Sockstatus</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">Errno</span> {
-    <span class="macro">debug!</span>(
-        <span class="string">&quot;wasi[{}:{}]::sock_status (fd={})&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-        <span class="ident">sock</span>
-    );
-
     <span class="kw">let</span> <span class="ident">status</span> <span class="op">=</span> <span class="macro">wasi_try!</span>(<span class="ident">__sock_actor</span>(
         <span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>,
         <span class="ident">sock</span>,
@@ -68,6 +57,7 @@
         <span class="ident">WasiSocketStatus::Closed</span> =&gt; <span class="ident">Sockstatus::Closed</span>,
         <span class="ident">WasiSocketStatus::Failed</span> =&gt; <span class="ident">Sockstatus::Failed</span>,
     };
+    <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;status&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">status</span>));
 
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);

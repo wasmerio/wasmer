@@ -26,12 +26,6 @@
 <span id="24">24</span>
 <span id="25">25</span>
 <span id="26">26</span>
-<span id="27">27</span>
-<span id="28">28</span>
-<span id="29">29</span>
-<span id="30">30</span>
-<span id="31">31</span>
-<span id="32">32</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -46,6 +40,7 @@
 <span class="doccomment">///     The length from the offset to which the advice applies</span>
 <span class="doccomment">/// - `__wasi_advice_t advice`</span>
 <span class="doccomment">///     The advice to give</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">fd</span>, <span class="ident">offset</span>, <span class="ident">len</span>, <span class="ident">advice</span>), <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_advise</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">fd</span>: <span class="ident">WasiFd</span>,
@@ -53,13 +48,6 @@
     <span class="ident">len</span>: <span class="ident">Filesize</span>,
     <span class="ident">advice</span>: <span class="ident">Advice</span>,
 ) -&gt; <span class="ident">Errno</span> {
-    <span class="macro">debug!</span>(
-        <span class="string">&quot;wasi[{}:{}]::fd_advise: fd={}&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-        <span class="ident">fd</span>
-    );
-
     <span class="comment">// this is used for our own benefit, so just returning success is a valid</span>
     <span class="comment">// implementation for now</span>
     <span class="ident">Errno::Success</span>

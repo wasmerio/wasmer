@@ -95,25 +95,6 @@
 <span id="93">93</span>
 <span id="94">94</span>
 <span id="95">95</span>
-<span id="96">96</span>
-<span id="97">97</span>
-<span id="98">98</span>
-<span id="99">99</span>
-<span id="100">100</span>
-<span id="101">101</span>
-<span id="102">102</span>
-<span id="103">103</span>
-<span id="104">104</span>
-<span id="105">105</span>
-<span id="106">106</span>
-<span id="107">107</span>
-<span id="108">108</span>
-<span id="109">109</span>
-<span id="110">110</span>
-<span id="111">111</span>
-<span id="112">112</span>
-<span id="113">113</span>
-<span id="114">114</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -123,6 +104,7 @@
 <span class="doccomment">/// ## Parameters</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// * `pid` - Handle of the child process to wait on</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;trace&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">filter_pid</span> <span class="op">=</span> <span class="ident">field::Empty</span>, <span class="ident">ret_pid</span> <span class="op">=</span> <span class="ident">field::Empty</span>, <span class="ident">exit_code</span> <span class="op">=</span> <span class="ident">field::Empty</span>), <span class="ident">ret</span>, <span class="ident">err</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">proc_join</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">pid_ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Pid</span>, <span class="ident">M</span><span class="op">&gt;</span>,
@@ -133,12 +115,7 @@
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">pid</span> <span class="op">=</span> <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">pid_ptr</span>.<span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>));
-    <span class="macro">trace!</span>(
-        <span class="string">&quot;wasi[{}:{}]::proc_join (pid={})&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-        <span class="ident">pid</span>
-    );
+    <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;filter_pid&quot;</span>, <span class="ident">pid</span>);
 
     <span class="comment">// If the ID is maximum then it means wait for any of the children</span>
     <span class="kw">if</span> <span class="ident">pid</span> <span class="op">==</span> <span class="ident">u32::MAX</span> {
@@ -151,23 +128,16 @@
             )
             .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> {
                 <span class="macro">trace!</span>(
-                    <span class="string">&quot;wasi[{}:{}]::child join failed (pid={}) - {}&quot;</span>,
-                    <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-                    <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-                    <span class="ident">pid</span>,
-                    <span class="ident">err</span>
+                    <span class="op">%</span><span class="ident">pid</span>,
+                    <span class="op">%</span><span class="ident">err</span>
                 );
                 <span class="ident">err</span>
             })<span class="question-mark">?</span>);
         <span class="kw">return</span> <span class="kw">match</span> <span class="ident">child_exit</span> {
             <span class="prelude-val">Some</span>((<span class="ident">pid</span>, <span class="ident">exit_code</span>)) =&gt; {
-                <span class="macro">trace!</span>(
-                    <span class="string">&quot;wasi[{}:{}]::child ({}) exited with {}&quot;</span>,
-                    <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-                    <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-                    <span class="ident">pid</span>,
-                    <span class="ident">exit_code</span>
-                );
+                <span class="ident">Span::current</span>()
+                    .<span class="ident">record</span>(<span class="string">&quot;ret_pid&quot;</span>, <span class="ident">pid</span>.<span class="ident">raw</span>())
+                    .<span class="ident">record</span>(<span class="string">&quot;exit_code&quot;</span>, <span class="ident">exit_code</span>);
                 <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
                 <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
                 <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">pid_ptr</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">pid</span>.<span class="ident">raw</span>() <span class="kw">as</span> <span class="ident">Pid</span>));
@@ -175,11 +145,6 @@
                 <span class="prelude-val">Ok</span>(<span class="ident">Errno::Success</span>)
             }
             <span class="prelude-val">None</span> =&gt; {
-                <span class="macro">trace!</span>(
-                    <span class="string">&quot;wasi[{}:{}]::no children&quot;</span>,
-                    <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-                    <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>()
-                );
                 <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
                 <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
                 <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">pid_ptr</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="op">-</span><span class="number">1i32</span> <span class="kw">as</span> <span class="ident">Pid</span>));
@@ -200,16 +165,15 @@
         })
         .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> {
             <span class="macro">trace!</span>(
-                <span class="string">&quot;wasi[{}:{}]::child join failed (pid={}) - {}&quot;</span>,
-                <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-                <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-                <span class="ident">pid</span>,
-                <span class="ident">err</span>
+                <span class="op">%</span><span class="ident">pid</span>,
+                <span class="op">%</span><span class="ident">err</span>
             );
             <span class="ident">err</span>
         })<span class="question-mark">?</span>);
 
-        <span class="macro">trace!</span>(<span class="string">&quot;child ({}) exited with {}&quot;</span>, <span class="ident">pid</span>.<span class="ident">raw</span>(), <span class="ident">exit_code</span>);
+        <span class="ident">Span::current</span>()
+            .<span class="ident">record</span>(<span class="string">&quot;ret_pid&quot;</span>, <span class="ident">pid</span>.<span class="ident">raw</span>())
+            .<span class="ident">record</span>(<span class="string">&quot;exit_code&quot;</span>, <span class="ident">exit_code</span>);
         <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">children</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">process</span>.<span class="ident">children</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
         <span class="ident">children</span>.<span class="ident">retain</span>(<span class="op">|</span><span class="ident">a</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">a</span> <span class="op">!</span><span class="op">=</span> <span class="ident">pid</span>);
@@ -219,10 +183,8 @@
         <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">Errno::Success</span>);
     }
 
-    <span class="macro">debug!</span>(
-        <span class="string">&quot;process already terminated or not registered (pid={})&quot;</span>,
-        <span class="ident">pid</span>.<span class="ident">raw</span>()
-    );
+    <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;ret_pid&quot;</span>, <span class="ident">pid</span>.<span class="ident">raw</span>());
+
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
     <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">exit_code_ptr</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">Errno::Child</span> <span class="kw">as</span> <span class="ident">ExitCode</span>));

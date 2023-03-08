@@ -32,11 +32,6 @@
 <span id="30">30</span>
 <span id="31">31</span>
 <span id="32">32</span>
-<span id="33">33</span>
-<span id="34">34</span>
-<span id="35">35</span>
-<span id="36">36</span>
-<span id="37">37</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -49,17 +44,12 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// * `user_data` - User data that will be passed to the destructor</span>
 <span class="doccomment">///   when the thread variable goes out of scope</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;trace&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">user_data</span>), <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">thread_local_create</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">user_data</span>: <span class="ident">TlUser</span>,
     <span class="ident">ret_key</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">TlKey</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">Errno</span> {
-    <span class="macro">trace!</span>(
-        <span class="string">&quot;wasi[{}:{}]::thread_local_create (user_data={})&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-        <span class="ident">user_data</span>
-    );
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
 
     <span class="kw">let</span> <span class="ident">key</span> <span class="op">=</span> {

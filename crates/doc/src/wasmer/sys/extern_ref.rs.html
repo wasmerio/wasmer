@@ -49,31 +49,19 @@
 <span id="47">47</span>
 <span id="48">48</span>
 <span id="49">49</span>
-<span id="50">50</span>
-<span id="51">51</span>
-<span id="52">52</span>
-<span id="53">53</span>
-<span id="54">54</span>
-<span id="55">55</span>
-<span id="56">56</span>
-<span id="57">57</span>
-<span id="58">58</span>
-<span id="59">59</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::any::Any</span>;
+<span class="kw">use</span> <span class="ident">wasmer_vm::VMExternRef</span>;
+<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">StoreHandle</span>, <span class="ident">VMExternObj</span>};
 
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">StoreHandle</span>, <span class="ident">VMExternObj</span>, <span class="ident">VMExternRef</span>};
-
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::store</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">AsStoreRef</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">AsStoreRef</span>};
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">transparent</span>)]</span>
-<span class="doccomment">/// An opaque reference to some data. This reference can be passed through Wasm.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ExternRef</span> {
     <span class="ident">handle</span>: <span class="ident">StoreHandle</span><span class="op">&lt;</span><span class="ident">VMExternObj</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">ExternRef</span> {
-    <span class="doccomment">/// Make a new extern reference</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">store</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">AsStoreMut</span>, <span class="ident">value</span>: <span class="ident">T</span>) -&gt; <span class="self">Self</span>
     <span class="kw">where</span>
         <span class="ident">T</span>: <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Sized</span>,
@@ -83,7 +71,6 @@
         }
     }
 
-    <span class="doccomment">/// Try to downcast to the given value.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">downcast</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">T</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">T</span><span class="op">&gt;</span>
     <span class="kw">where</span>
         <span class="ident">T</span>: <span class="ident">Any</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Sized</span>,
@@ -107,13 +94,6 @@
         }
     }
 
-    <span class="doccomment">/// Checks whether this `ExternRef` can be used with the given context.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Primitive (`i32`, `i64`, etc) and null funcref/externref values are not</span>
-    <span class="doccomment">/// tied to a context and can be freely shared between contexts.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Externref and funcref values are tied to a context and can only be used</span>
-    <span class="doccomment">/// with that context.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_from_store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">impl</span> <span class="ident">AsStoreRef</span>) -&gt; <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">handle</span>.<span class="ident">store_id</span>() <span class="op">==</span> <span class="ident">store</span>.<span class="ident">as_store_ref</span>().<span class="ident">objects</span>().<span class="ident">id</span>()
     }

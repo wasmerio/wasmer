@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Memory","A WebAssembly `memory` instance."],["MemoryBuffer","Underlying buffer for a memory."]]};

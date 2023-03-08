@@ -3968,11 +3968,7 @@
 }
 <span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">Errno</span> {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;Errno&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;code&quot;</span>, <span class="kw-2">&amp;</span>(<span class="kw-2">*</span><span class="self">self</span> <span class="kw">as</span> <span class="ident">i32</span>))
-            .<span class="ident">field</span>(<span class="string">&quot;name&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">name</span>())
-            .<span class="ident">field</span>(<span class="string">&quot;message&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">message</span>())
-            .<span class="ident">finish</span>()
+        <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;Errno::{}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">name</span>())
     }
 }
 <span class="kw">impl</span> <span class="ident">core::fmt::Display</span> <span class="kw">for</span> <span class="ident">Errno</span> {
@@ -4079,11 +4075,7 @@
 }
 <span class="kw">impl</span> <span class="ident">core::fmt::Debug</span> <span class="kw">for</span> <span class="ident">BusErrno</span> {
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
-        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;BusErrno&quot;</span>)
-            .<span class="ident">field</span>(<span class="string">&quot;code&quot;</span>, <span class="kw-2">&amp;</span>(<span class="kw-2">*</span><span class="self">self</span> <span class="kw">as</span> <span class="ident">i32</span>))
-            .<span class="ident">field</span>(<span class="string">&quot;name&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">name</span>())
-            .<span class="ident">field</span>(<span class="string">&quot;message&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">message</span>())
-            .<span class="ident">finish</span>()
+        <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;BusErrno::{}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">name</span>())
     }
 }
 <span class="kw">impl</span> <span class="ident">core::fmt::Display</span> <span class="kw">for</span> <span class="ident">BusErrno</span> {
@@ -5714,6 +5706,14 @@
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">Bool::False</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Bool::False&quot;</span>).<span class="ident">finish</span>(),
             <span class="ident">Bool::True</span> =&gt; <span class="ident">f</span>.<span class="ident">debug_tuple</span>(<span class="string">&quot;Bool::True&quot;</span>).<span class="ident">finish</span>(),
+        }
+    }
+}
+<span class="kw">impl</span> <span class="ident">core::fmt::Display</span> <span class="kw">for</span> <span class="ident">Bool</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
+        <span class="kw">match</span> <span class="self">self</span> {
+            <span class="ident">Bool::False</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;false&quot;</span>),
+            <span class="ident">Bool::True</span> =&gt; <span class="macro">write!</span>(<span class="ident">f</span>, <span class="string">&quot;true&quot;</span>),
         }
     }
 }

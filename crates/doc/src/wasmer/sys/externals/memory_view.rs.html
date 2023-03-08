@@ -193,7 +193,9 @@
 <span id="191">191</span>
 <span id="192">192</span>
 <span id="193">193</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::store::AsStoreRef</span>;
+<span id="194">194</span>
+<span id="195">195</span>
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store::AsStoreRef</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::MemoryAccessError</span>;
 <span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
 <span class="kw">use</span> <span class="ident">std::marker::PhantomData</span>;
@@ -202,8 +204,7 @@
 <span class="kw">use</span> <span class="ident">wasmer_types::Pages</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vm::LinearMemory</span>;
 
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::memory::MemoryBuffer</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::Memory</span>;
+<span class="kw">use</span> <span class="ident"><span class="kw">super</span>::memory</span>::{<span class="ident">Memory</span>, <span class="ident">MemoryBuffer</span>};
 
 <span class="doccomment">/// A WebAssembly `memory` view.</span>
 <span class="doccomment">///</span>
@@ -291,6 +292,7 @@
         <span class="self">self</span>.<span class="ident">size</span>
     }
 
+    <span class="attribute">#[<span class="ident">inline</span>]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">buffer</span>(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">self</span>) -&gt; <span class="ident">MemoryBuffer</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">buffer</span>
     }
@@ -355,6 +357,7 @@
         <span class="prelude-val">Ok</span>(())
     }
 
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused</span>)]</span>
     <span class="doccomment">/// Copies the memory and returns it as a vector of bytes</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">copy_to_vec</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">MemoryAccessError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">new_memory</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
@@ -370,6 +373,7 @@
         <span class="prelude-val">Ok</span>(<span class="ident">new_memory</span>)
     }
 
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unused</span>)]</span>
     <span class="doccomment">/// Copies the memory to another new memory object</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">copy_to_memory</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">amount</span>: <span class="ident">u64</span>, <span class="ident">new_memory</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">MemoryAccessError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">offset</span> <span class="op">=</span> <span class="number">0</span>;

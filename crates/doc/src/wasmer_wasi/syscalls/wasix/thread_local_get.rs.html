@@ -27,6 +27,8 @@
 <span id="25">25</span>
 <span id="26">26</span>
 <span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -36,12 +38,12 @@
 <span class="doccomment">/// ## Parameters</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// * `key` - Thread key that this local variable that was previous set</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;trace&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">key</span>, <span class="ident">val</span> <span class="op">=</span> <span class="ident">field::Empty</span>), <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">thread_local_get</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">key</span>: <span class="ident">TlKey</span>,
     <span class="ident">ret_val</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">TlVal</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">Errno</span> {
-    <span class="comment">//trace!(&quot;wasi[{}:{}]::thread_local_get (key={})&quot;, ctx.data().pid(), ctx.data().tid(), key);</span>
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
 
     <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> {
@@ -50,6 +52,8 @@
         <span class="ident">guard</span>.<span class="ident">thread_local</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span>(<span class="ident">current_thread</span>, <span class="ident">key</span>)).<span class="ident">copied</span>()
     };
     <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">val</span>.<span class="ident">unwrap_or_default</span>();
+    <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;val&quot;</span>, <span class="ident">val</span>);
+
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
     <span class="macro">wasi_try_mem!</span>(<span class="ident">ret_val</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">val</span>));
     <span class="ident">Errno::Success</span>

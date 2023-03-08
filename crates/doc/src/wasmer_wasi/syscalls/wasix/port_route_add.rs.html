@@ -41,11 +41,13 @@
 <span id="39">39</span>
 <span id="40">40</span>
 <span id="41">41</span>
+<span id="42">42</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// ### `port_route_add()`</span>
 <span class="doccomment">/// Adds a new route to the local port</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">cidr</span> <span class="op">=</span> <span class="ident">field::Empty</span>, <span class="ident">via_router</span> <span class="op">=</span> <span class="ident">field::Empty</span>), <span class="ident">ret</span>, <span class="ident">err</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">port_route_add</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">cidr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_cidr_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
@@ -53,15 +55,15 @@
     <span class="ident">preferred_until</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">OptionTimestamp</span>, <span class="ident">M</span><span class="op">&gt;</span>,
     <span class="ident">expires_at</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">OptionTimestamp</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
-    <span class="macro">debug!</span>(
-        <span class="string">&quot;wasi[{}:{}]::port_route_add&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>()
-    );
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
+
     <span class="kw">let</span> <span class="ident">cidr</span> <span class="op">=</span> <span class="macro">wasi_try_ok!</span>(<span class="ident"><span class="kw">crate</span>::net::read_cidr</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">cidr</span>));
+    <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;cidr&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">cidr</span>));
+
     <span class="kw">let</span> <span class="ident">via_router</span> <span class="op">=</span> <span class="macro">wasi_try_ok!</span>(<span class="ident"><span class="kw">crate</span>::net::read_ip</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">via_router</span>));
+    <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;via_router&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">via_router</span>));
+
     <span class="kw">let</span> <span class="ident">preferred_until</span> <span class="op">=</span> <span class="macro">wasi_try_mem_ok!</span>(<span class="ident">preferred_until</span>.<span class="ident">read</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>));
     <span class="kw">let</span> <span class="ident">preferred_until</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">preferred_until</span>.<span class="ident">tag</span> {
         <span class="ident">OptionTag::None</span> =&gt; <span class="prelude-val">None</span>,

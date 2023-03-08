@@ -25,12 +25,14 @@
 <span id="25">25</span>
 <span id="26">26</span>
 <span id="27">27</span>
+<span id="28">28</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Types for modules.</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::entity::PrimaryMap</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Features</span>, <span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span>, <span class="ident">ModuleInfo</span>, <span class="ident">TableIndex</span>, <span class="ident">TableStyle</span>};
 <span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
+<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 
 <span class="doccomment">/// The required info for compiling a module.</span>
 <span class="doccomment">///</span>
@@ -43,7 +45,7 @@
     <span class="doccomment">/// The features used for compiling the module</span>
     <span class="kw">pub</span> <span class="ident">features</span>: <span class="ident">Features</span>,
     <span class="doccomment">/// The module information</span>
-    <span class="kw">pub</span> <span class="ident">module</span>: <span class="ident">ModuleInfo</span>,
+    <span class="kw">pub</span> <span class="ident">module</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span>,
     <span class="doccomment">/// The memory styles used for compiling.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// The compiler will emit the most optimal code based</span>

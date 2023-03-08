@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["StoreId","Unique ID to identify a context."]]};

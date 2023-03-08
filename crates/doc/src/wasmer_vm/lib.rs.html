@@ -150,8 +150,6 @@
 <span id="150">150</span>
 <span id="151">151</span>
 <span id="152">152</span>
-<span id="153">153</span>
-<span id="154">154</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Runtime library support for Wasmer.</span>
 
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">missing_docs</span>, <span class="ident">trivial_numeric_casts</span>, <span class="ident">unused_extern_crates</span>)]</span>
@@ -206,9 +204,7 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::mmap::Mmap</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::probestack::PROBESTACK</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sig_registry::SignatureRegistry</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store</span>::{
-    <span class="ident">InternalStoreHandle</span>, <span class="ident">MaybeInstanceOwned</span>, <span class="ident">StoreHandle</span>, <span class="ident">StoreId</span>, <span class="ident">StoreObjects</span>,
-};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store</span>::{<span class="ident">InternalStoreHandle</span>, <span class="ident">MaybeInstanceOwned</span>, <span class="ident">StoreHandle</span>, <span class="ident">StoreObjects</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::table</span>::{<span class="ident">TableElement</span>, <span class="ident">VMTable</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::trap</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::vmcontext</span>::{
@@ -221,7 +217,7 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::MemoryStyle</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::RawValue</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types::TableStyle</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">TargetSharedSignatureIndex</span>, <span class="ident">VMBuiltinFunctionIndex</span>, <span class="ident">VMOffsets</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">StoreId</span>, <span class="ident">TargetSharedSignatureIndex</span>, <span class="ident">VMBuiltinFunctionIndex</span>, <span class="ident">VMOffsets</span>};
 
 <span class="attribute">#[<span class="ident">deprecated</span>(
     <span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;2.1.0&quot;</span>,

@@ -266,6 +266,9 @@
 <span id="264">264</span>
 <span id="265">265</span>
 <span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
 </pre><pre class="rust"><code><span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_compiler::BaseTunables</span>;
 
 <span class="comment">// All BaseTunable definition now is in wasmer_compile crate</span>
@@ -274,7 +277,8 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">tests</span> {
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::TableType</span>;
+    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::sys::NativeEngineExt</span>;
+    <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::TableType</span>;
     <span class="kw">use</span> <span class="ident">std::cell::UnsafeCell</span>;
     <span class="kw">use</span> <span class="ident">std::ptr::NonNull</span>;
     <span class="kw">use</span> <span class="ident">wasmer_compiler::Tunables</span>;
@@ -496,7 +500,7 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">check_customtunables</span>() -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">std::error::Error</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">imports</span>, <span class="ident">wat2wasm</span>, <span class="ident">Instance</span>, <span class="ident">Memory</span>, <span class="ident">Module</span>, <span class="ident">Store</span>};
+        <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">imports</span>, <span class="ident">wat2wasm</span>, <span class="ident">Engine</span>, <span class="ident">Instance</span>, <span class="ident">Memory</span>, <span class="ident">Module</span>, <span class="ident">Store</span>};
         <span class="kw">use</span> <span class="ident">wasmer_compiler_cranelift::Cranelift</span>;
 
         <span class="kw">let</span> <span class="ident">wasm_bytes</span> <span class="op">=</span> <span class="ident">wat2wasm</span>(
@@ -510,7 +514,9 @@
         <span class="kw">let</span> <span class="ident">compiler</span> <span class="op">=</span> <span class="ident">Cranelift::default</span>();
 
         <span class="kw">let</span> <span class="ident">tunables</span> <span class="op">=</span> <span class="ident">TinyTunables</span> {};
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new_with_tunables</span>(<span class="ident">compiler</span>, <span class="ident">tunables</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">Engine::new</span>(<span class="ident">compiler</span>.<span class="ident">into</span>(), <span class="ident">Default::default</span>(), <span class="ident">Default::default</span>());
+        <span class="ident">engine</span>.<span class="ident">set_tunables</span>(<span class="ident">tunables</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new</span>(<span class="ident">engine</span>);
         <span class="comment">//let mut store = Store::new(compiler);</span>
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module::new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">wasm_bytes</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">import_object</span> <span class="op">=</span> <span class="macro">imports!</span> {};

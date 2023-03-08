@@ -229,9 +229,6 @@
 <span id="229">229</span>
 <span id="230">230</span>
 <span id="231">231</span>
-<span id="232">232</span>
-<span id="233">233</span>
-<span id="234">234</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::entity::PrimaryMap</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">compilation::target::CpuFeature</span>, <span class="ident">CompileModuleInfo</span>, <span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">CustomSection</span>,
@@ -246,8 +243,7 @@
     <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>,
 };
 <span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
-<span class="kw">use</span> <span class="ident">std::path::Path</span>;
-<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">fs</span>, <span class="ident">mem</span>};
+<span class="kw">use</span> <span class="ident">std::mem</span>;
 
 <span class="doccomment">/// The compilation related data for a serialized modules</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Archive</span>, <span class="ident">Default</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">RkyvSerialize</span>)]</span>
@@ -363,7 +359,12 @@
 
     <span class="doccomment">/// Create a `ModuleInfo` for instantiation</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">create_module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ModuleInfo</span> {
-        <span class="self">self</span>.<span class="ident">compile_info</span>.<span class="ident">module</span>.<span class="ident">clone</span>()
+        <span class="self">self</span>.<span class="ident">compile_info</span>.<span class="ident">module</span>.<span class="ident">as_ref</span>().<span class="ident">clone</span>()
+    }
+
+    <span class="doccomment">/// Returns the `ModuleInfo` for instantiation</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span> {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">compile_info</span>.<span class="ident">module</span>
     }
 
     <span class="doccomment">/// Returns the features for this Artifact</span>
@@ -389,13 +390,6 @@
     <span class="doccomment">/// Returns the table plans associated with this `Artifact`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">table_styles</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">compile_info</span>.<span class="ident">table_styles</span>
-    }
-
-    <span class="doccomment">/// Serializes an artifact into a file path</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">serialize_to_file</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SerializeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">serialized</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">serialize</span>()<span class="question-mark">?</span>;
-        <span class="ident">fs::write</span>(<span class="ident">path</span>, <span class="ident">serialized</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(())
     }
 }
 

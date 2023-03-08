@@ -34,14 +34,6 @@
 <span id="32">32</span>
 <span id="33">33</span>
 <span id="34">34</span>
-<span id="35">35</span>
-<span id="36">36</span>
-<span id="37">37</span>
-<span id="38">38</span>
-<span id="39">39</span>
-<span id="40">40</span>
-<span id="41">41</span>
-<span id="42">42</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -54,21 +46,13 @@
 <span class="doccomment">/// * `fd` - Socket descriptor</span>
 <span class="doccomment">/// * `sockopt` - Socket option to be set</span>
 <span class="doccomment">/// * `flag` - Value to set the option to</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">sock</span>, <span class="ident">opt</span>, <span class="ident">flag</span>), <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sock_set_opt_flag</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">sock</span>: <span class="ident">WasiFd</span>,
     <span class="ident">opt</span>: <span class="ident">Sockoption</span>,
     <span class="ident">flag</span>: <span class="ident">Bool</span>,
 ) -&gt; <span class="ident">Errno</span> {
-    <span class="macro">debug!</span>(
-        <span class="string">&quot;wasi[{}:{}]::sock_set_opt_flag(fd={}, ty={}, flag={:?})&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-        <span class="ident">sock</span>,
-        <span class="ident">opt</span>,
-        <span class="ident">flag</span>
-    );
-
     <span class="kw">let</span> <span class="ident">flag</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">flag</span> {
         <span class="ident">Bool::False</span> =&gt; <span class="bool-val">false</span>,
         <span class="ident">Bool::True</span> =&gt; <span class="bool-val">true</span>,

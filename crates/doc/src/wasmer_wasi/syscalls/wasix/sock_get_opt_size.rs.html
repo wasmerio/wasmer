@@ -39,12 +39,6 @@
 <span id="37">37</span>
 <span id="38">38</span>
 <span id="39">39</span>
-<span id="40">40</span>
-<span id="41">41</span>
-<span id="42">42</span>
-<span id="43">43</span>
-<span id="44">44</span>
-<span id="45">45</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -56,19 +50,13 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// * `fd` - Socket descriptor</span>
 <span class="doccomment">/// * `sockopt` - Socket option to be retrieved</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">sock</span>, <span class="ident">opt</span>), <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sock_get_opt_size</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">sock</span>: <span class="ident">WasiFd</span>,
     <span class="ident">opt</span>: <span class="ident">Sockoption</span>,
     <span class="ident">ret_size</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Filesize</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">Errno</span> {
-    <span class="macro">debug!</span>(
-        <span class="string">&quot;wasi[{}:{}]::sock_get_opt_size(fd={}, ty={})&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-        <span class="ident">sock</span>,
-        <span class="ident">opt</span>
-    );
     <span class="kw">let</span> <span class="ident">size</span> <span class="op">=</span> <span class="macro">wasi_try!</span>(<span class="ident">__sock_actor</span>(
         <span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>,
         <span class="ident">sock</span>,

@@ -84,15 +84,12 @@
 <span id="84">84</span>
 <span id="85">85</span>
 <span id="86">86</span>
-<span id="87">87</span>
-<span id="88">88</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Generic Artifact abstraction for Wasmer Engines.</span>
 
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::Features</span>;
 <span class="kw">use</span> <span class="ident">enumset::EnumSet</span>;
 <span class="kw">use</span> <span class="ident">std::any::Any</span>;
-<span class="kw">use</span> <span class="ident">std::fs</span>;
-<span class="kw">use</span> <span class="ident">std::path::Path</span>;
+<span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::SerializeError</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
@@ -107,7 +104,13 @@
 <span class="doccomment">/// module at runtime, such as [`ModuleInfo`] and [`Features`].</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">ArtifactCreate</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">Upcastable</span> {
     <span class="doccomment">/// Create a `ModuleInfo` for instantiation</span>
-    <span class="kw">fn</span> <span class="ident">create_module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ModuleInfo</span>;
+    <span class="kw">fn</span> <span class="ident">create_module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span>;
+
+    <span class="doccomment">/// Sets the `ModuleInfo` name</span>
+    <span class="kw">fn</span> <span class="ident">set_module_info_name</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="ident">String</span>) -&gt; <span class="ident">bool</span>;
+
+    <span class="doccomment">/// Returns the `ModuleInfo` for instantiation</span>
+    <span class="kw">fn</span> <span class="ident">module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span>;
 
     <span class="doccomment">/// Returns the features for this Artifact</span>
     <span class="kw">fn</span> <span class="ident">features</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Features</span>;
@@ -126,13 +129,6 @@
 
     <span class="doccomment">/// Serializes an artifact into bytes</span>
     <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerializeError</span><span class="op">&gt;</span>;
-
-    <span class="doccomment">/// Serializes an artifact into a file path</span>
-    <span class="kw">fn</span> <span class="ident">serialize_to_file</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">Path</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">SerializeError</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">serialized</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">serialize</span>()<span class="question-mark">?</span>;
-        <span class="ident">fs::write</span>(<span class="ident">path</span>, <span class="ident">serialized</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(())
-    }
 }
 
 <span class="comment">// Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .</span>

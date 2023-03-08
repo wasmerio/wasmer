@@ -251,6 +251,7 @@
 <span id="249">249</span>
 <span id="250">250</span>
 <span id="251">251</span>
+<span id="252">252</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections::HashMap</span>,
     <span class="ident">ops::Deref</span>,
@@ -312,6 +313,7 @@
             .<span class="ident">capabilities</span>(<span class="ident">Capabilities</span> {
                 <span class="ident">insecure_allow_all</span>: <span class="bool-val">true</span>,
                 <span class="ident">http_client</span>: <span class="ident">HttpClientCapabilityV1::new_allow_all</span>(),
+                <span class="ident">threading</span>: <span class="ident">Default::default</span>(),
             })
             .<span class="ident">runtime</span>(<span class="ident">Arc::new</span>(<span class="ident">rt</span>))
             .<span class="ident">sandbox_fs</span>(<span class="self">self</span>.<span class="ident">fs</span>()<span class="question-mark">?</span>)

@@ -14,21 +14,13 @@
 <span id="12">12</span>
 <span id="13">13</span>
 <span id="14">14</span>
-<span id="15">15</span>
-<span id="16">16</span>
-<span id="17">17</span>
-<span id="18">18</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// ### `port_unbridge()`</span>
 <span class="doccomment">/// Disconnects from a remote network</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">ret</span>, <span class="ident">err</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">port_unbridge</span>(<span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
-    <span class="macro">debug!</span>(
-        <span class="string">&quot;wasi[{}:{}]::port_unbridge&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>()
-    );
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> <span class="ident">net</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">net</span>().<span class="ident">clone</span>();
     <span class="macro">wasi_try_ok!</span>(<span class="ident">__asyncify</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>, <span class="prelude-val">None</span>, <span class="kw">async</span> <span class="kw">move</span> {

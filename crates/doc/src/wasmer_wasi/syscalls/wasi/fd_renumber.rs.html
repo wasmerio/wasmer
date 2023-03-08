@@ -32,12 +32,6 @@
 <span id="30">30</span>
 <span id="31">31</span>
 <span id="32">32</span>
-<span id="33">33</span>
-<span id="34">34</span>
-<span id="35">35</span>
-<span id="36">36</span>
-<span id="37">37</span>
-<span id="38">38</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -48,14 +42,8 @@
 <span class="doccomment">///     File descriptor to copy</span>
 <span class="doccomment">/// - `Fd to`</span>
 <span class="doccomment">///     Location to copy file descriptor to</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">from</span>, <span class="ident">to</span>), <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_renumber</span>(<span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>, <span class="ident">from</span>: <span class="ident">WasiFd</span>, <span class="ident">to</span>: <span class="ident">WasiFd</span>) -&gt; <span class="ident">Errno</span> {
-    <span class="macro">debug!</span>(
-        <span class="string">&quot;wasi[{}:{}]::fd_renumber(from={}, to={})&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-        <span class="ident">from</span>,
-        <span class="ident">to</span>
-    );
     <span class="kw">if</span> <span class="ident">from</span> <span class="op">==</span> <span class="ident">to</span> {
         <span class="kw">return</span> <span class="ident">Errno::Success</span>;
     }

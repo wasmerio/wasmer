@@ -349,7 +349,7 @@
 <span class="doccomment">//! ```</span>
 <span class="kw">use</span> <span class="ident">std::cmp</span>;
 <span class="kw">use</span> <span class="ident">std::collections::BTreeMap</span>;
-<span class="kw">use</span> <span class="ident">std::sync::RwLock</span>;
+<span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Arc</span>, <span class="ident">RwLock</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::entity</span>::{<span class="ident">BoxedSlice</span>, <span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">CompiledFunctionFrameInfo</span>, <span class="ident">SourceLoc</span>, <span class="ident">TrapInformation</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">LocalFunctionIndex</span>, <span class="ident">ModuleInfo</span>};
@@ -390,7 +390,7 @@
 <span class="kw">struct</span> <span class="ident">ModuleInfoFrameInfo</span> {
     <span class="ident">start</span>: <span class="ident">usize</span>,
     <span class="ident">functions</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">FunctionInfo</span><span class="op">&gt;</span>,
-    <span class="ident">module</span>: <span class="ident">ModuleInfo</span>,
+    <span class="ident">module</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span>,
     <span class="ident">frame_infos</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">CompiledFunctionFrameInfo</span><span class="op">&gt;</span>,
 }
 
@@ -523,7 +523,7 @@
 <span class="doccomment">/// then `None` will be returned. Otherwise the returned object, when</span>
 <span class="doccomment">/// dropped, will be used to unregister all name information from this map.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">register</span>(
-    <span class="ident">module</span>: <span class="ident">ModuleInfo</span>,
+    <span class="ident">module</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span>,
     <span class="ident">finished_functions</span>: <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionExtent</span><span class="op">&gt;</span>,
     <span class="ident">frame_infos</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">CompiledFunctionFrameInfo</span><span class="op">&gt;</span>,
 ) -&gt; <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">GlobalFrameInfoRegistration</span><span class="op">&gt;</span> {

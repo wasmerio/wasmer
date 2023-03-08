@@ -30,12 +30,6 @@
 <span id="28">28</span>
 <span id="29">29</span>
 <span id="30">30</span>
-<span id="31">31</span>
-<span id="32">32</span>
-<span id="33">33</span>
-<span id="34">34</span>
-<span id="35">35</span>
-<span id="36">36</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -46,17 +40,11 @@
 <span class="doccomment">/// ## Parameters</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// * `tid` - Handle of the thread to wait on</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">join_tid</span>), <span class="ident">ret</span>, <span class="ident">err</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">thread_join</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">join_tid</span>: <span class="ident">Tid</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
-    <span class="macro">debug!</span>(
-        <span class="op">%</span><span class="ident">join_tid</span>,
-        <span class="string">&quot;wasi[{}:{}]::thread_join&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-    );
-
     <span class="macro">wasi_try_ok!</span>(<span class="ident">WasiEnv::process_signals_and_exit</span>(<span class="kw-2">&amp;mut</span> <span class="ident">ctx</span>)<span class="question-mark">?</span>);
 
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();

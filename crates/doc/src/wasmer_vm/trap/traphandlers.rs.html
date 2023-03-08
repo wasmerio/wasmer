@@ -1038,21 +1038,6 @@
 <span id="1038">1038</span>
 <span id="1039">1039</span>
 <span id="1040">1040</span>
-<span id="1041">1041</span>
-<span id="1042">1042</span>
-<span id="1043">1043</span>
-<span id="1044">1044</span>
-<span id="1045">1045</span>
-<span id="1046">1046</span>
-<span id="1047">1047</span>
-<span id="1048">1048</span>
-<span id="1049">1049</span>
-<span id="1050">1050</span>
-<span id="1051">1051</span>
-<span id="1052">1052</span>
-<span id="1053">1053</span>
-<span id="1054">1054</span>
-<span id="1055">1055</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 
@@ -1139,21 +1124,6 @@
             <span class="kw">_</span> =&gt; <span class="prelude-val">None</span>,
         },
     }
-}
-
-<span class="doccomment">/// A package of functionality needed by `catch_traps` to figure out what to do</span>
-<span class="doccomment">/// when handling a trap.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// # Safety</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// Note that this is an `unsafe` trait at least because it&#39;s being run in the</span>
-<span class="doccomment">/// context of a synchronous signal handler, so it needs to be careful to not</span>
-<span class="doccomment">/// access too much state in answering these queries.</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">trait</span> <span class="ident">TrapHandler</span> {
-    <span class="doccomment">/// Uses `call` to call a custom signal handler, if one is specified.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// Returns `true` if `call` returns true, otherwise returns `false`.</span>
-    <span class="kw">fn</span> <span class="ident">custom_trap_handler</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">call</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">TrapHandlerFn</span>) -&gt; <span class="ident">bool</span>) -&gt; <span class="ident">bool</span>;
 }
 
 <span class="macro">cfg_if::cfg_if!</span> {

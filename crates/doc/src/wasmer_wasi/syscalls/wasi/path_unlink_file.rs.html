@@ -94,16 +94,6 @@
 <span id="92">92</span>
 <span id="93">93</span>
 <span id="94">94</span>
-<span id="95">95</span>
-<span id="96">96</span>
-<span id="97">97</span>
-<span id="98">98</span>
-<span id="99">99</span>
-<span id="100">100</span>
-<span id="101">101</span>
-<span id="102">102</span>
-<span id="103">103</span>
-<span id="104">104</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -116,17 +106,13 @@
 <span class="doccomment">///     Array of UTF-8 bytes representing the path</span>
 <span class="doccomment">/// - `u32 path_len`</span>
 <span class="doccomment">///     The number of bytes in the `path` array</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">fd</span>, <span class="ident">path</span> <span class="op">=</span> <span class="ident">field::Empty</span>), <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">path_unlink_file</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">fd</span>: <span class="ident">WasiFd</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">M</span><span class="op">&gt;</span>,
     <span class="ident">path_len</span>: <span class="ident">M::Offset</span>,
 ) -&gt; <span class="ident">Errno</span> {
-    <span class="macro">debug!</span>(
-        <span class="string">&quot;wasi[{}:{}]::path_unlink_file&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>()
-    );
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>, <span class="ident">inodes</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state_and_inodes</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>, <span class="number">0</span>);
 
@@ -135,17 +121,11 @@
         <span class="kw">return</span> <span class="ident">Errno::Access</span>;
     }
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">path_str</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">path</span>, <span class="ident">path_len</span>) };
-    <span class="macro">debug!</span>(<span class="string">&quot;Requested file: {}&quot;</span>, <span class="ident">path_str</span>);
+    <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;path&quot;</span>, <span class="ident">path_str</span>.<span class="ident">as_str</span>());
 
     <span class="comment">// Convert relative paths into absolute paths</span>
     <span class="kw">if</span> <span class="ident">path_str</span>.<span class="ident">starts_with</span>(<span class="string">&quot;./&quot;</span>) {
         <span class="ident">path_str</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">relative_path_to_absolute</span>(<span class="ident">path_str</span>);
-        <span class="macro">trace!</span>(
-            <span class="string">&quot;wasi[{}:{}]::rel_to_abs (name={}))&quot;</span>,
-            <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-            <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-            <span class="ident">path_str</span>
-        );
     }
 
     <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="macro">wasi_try!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_inode_at_path</span>(<span class="ident">inodes</span>, <span class="ident">fd</span>, <span class="kw-2">&amp;</span><span class="ident">path_str</span>, <span class="bool-val">false</span>));

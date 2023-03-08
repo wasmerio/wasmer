@@ -29,12 +29,6 @@
 <span id="27">27</span>
 <span id="28">28</span>
 <span id="29">29</span>
-<span id="30">30</span>
-<span id="31">31</span>
-<span id="32">32</span>
-<span id="33">33</span>
-<span id="34">34</span>
-<span id="35">35</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -46,19 +40,13 @@
 <span class="doccomment">/// * `fd` - Socket descriptor</span>
 <span class="doccomment">/// * `multiaddr` - Multicast group to joined</span>
 <span class="doccomment">/// * `interface` - Interface that will join</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">sock</span>, <span class="ident">iface</span>), <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sock_join_multicast_v6</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">sock</span>: <span class="ident">WasiFd</span>,
     <span class="ident">multiaddr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_addr_ip6_t</span>, <span class="ident">M</span><span class="op">&gt;</span>,
     <span class="ident">iface</span>: <span class="ident">u32</span>,
 ) -&gt; <span class="ident">Errno</span> {
-    <span class="macro">debug!</span>(
-        <span class="string">&quot;wasi[{}:{}]::sock_join_multicast_v6 (fd={})&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-        <span class="ident">sock</span>
-    );
-
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">multiaddr</span> <span class="op">=</span> <span class="macro">wasi_try!</span>(<span class="ident"><span class="kw">crate</span>::net::read_ip_v6</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">multiaddr</span>));

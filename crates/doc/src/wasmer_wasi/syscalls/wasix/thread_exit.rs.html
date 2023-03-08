@@ -19,10 +19,6 @@
 <span id="17">17</span>
 <span id="18">18</span>
 <span id="19">19</span>
-<span id="20">20</span>
-<span id="21">21</span>
-<span id="22">22</span>
-<span id="23">23</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -35,15 +31,11 @@
 <span class="doccomment">/// ## Parameters</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// * `rval` - The exit code returned by the process.</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">exitcode</span>), <span class="ident">ret</span>, <span class="ident">err</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">thread_exit</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">exitcode</span>: <span class="ident">ExitCode</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
-    <span class="macro">debug!</span>(
-        <span class="string">&quot;wasi[{}:{}]::thread_exit&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>()
-    );
     <span class="prelude-val">Err</span>(<span class="ident">WasiError::Exit</span>(<span class="ident">exitcode</span>))
 }
 </code></pre></div>

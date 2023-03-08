@@ -85,6 +85,8 @@
 <span id="83">83</span>
 <span id="84">84</span>
 <span id="85">85</span>
+<span id="86">86</span>
+<span id="87">87</span>
 </pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">args_get</span>;
 <span class="kw">mod</span> <span class="ident">args_sizes_get</span>;
 <span class="kw">mod</span> <span class="ident">clock_res_get</span>;
@@ -170,5 +172,7 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">proc_exit</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">proc_raise</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">random_get</span>::<span class="kw-2">*</span>;
+
+<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug_span</span>, <span class="ident">field</span>, <span class="ident">instrument</span>, <span class="ident">trace_span</span>, <span class="ident">Span</span>};
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasi" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

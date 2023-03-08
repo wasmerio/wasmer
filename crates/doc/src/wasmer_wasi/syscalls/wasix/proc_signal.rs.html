@@ -28,13 +28,6 @@
 <span id="26">26</span>
 <span id="27">27</span>
 <span id="28">28</span>
-<span id="29">29</span>
-<span id="30">30</span>
-<span id="31">31</span>
-<span id="32">32</span>
-<span id="33">33</span>
-<span id="34">34</span>
-<span id="35">35</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -45,19 +38,12 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// * `pid` - Handle of the child process to wait on</span>
 <span class="doccomment">/// * `sig` - Signal to send the child process</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;trace&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">pid</span>, <span class="ident">sig</span>), <span class="ident">ret</span>, <span class="ident">err</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">proc_signal</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">pid</span>: <span class="ident">Pid</span>,
     <span class="ident">sig</span>: <span class="ident">Signal</span>,
 ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Errno</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
-    <span class="macro">trace!</span>(
-        <span class="string">&quot;wasi[{}:{}]::proc_signal(pid={}, sig={:?})&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-        <span class="ident">pid</span>,
-        <span class="ident">sig</span>
-    );
-
     <span class="kw">let</span> <span class="ident">process</span> <span class="op">=</span> {
         <span class="kw">let</span> <span class="ident">pid</span>: <span class="ident">WasiProcessId</span> <span class="op">=</span> <span class="ident">pid</span>.<span class="ident">into</span>();
         <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">control_plane</span>.<span class="ident">get_process</span>(<span class="ident">pid</span>)

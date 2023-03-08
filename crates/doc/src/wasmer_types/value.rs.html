@@ -114,6 +114,31 @@
 <span id="114">114</span>
 <span id="115">115</span>
 <span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">core</span>::{<span class="ident">fmt</span>, <span class="ident">marker::PhantomData</span>, <span class="ident">mem::MaybeUninit</span>};
 
 <span class="doccomment">/// Raw representation of a WebAssembly value.</span>
@@ -134,6 +159,30 @@
     <span class="kw">pub</span> <span class="ident">funcref</span>: <span class="ident">usize</span>,
     <span class="kw">pub</span> <span class="ident">externref</span>: <span class="ident">usize</span>,
     <span class="kw">pub</span> <span class="ident">bytes</span>: [<span class="ident">u8</span>; <span class="number">16</span>],
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RawValue</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">value</span>: <span class="ident">i32</span>) -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span> { <span class="ident">i32</span>: <span class="ident">value</span> }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RawValue</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">value</span>: <span class="ident">i64</span>) -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span> { <span class="ident">i64</span>: <span class="ident">value</span> }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">f32</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RawValue</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">value</span>: <span class="ident">f32</span>) -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span> { <span class="ident">f32</span>: <span class="ident">value</span> }
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">f64</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">RawValue</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">value</span>: <span class="ident">f64</span>) -&gt; <span class="self">Self</span> {
+        <span class="self">Self</span> { <span class="ident">f64</span>: <span class="ident">value</span> }
+    }
 }
 
 <span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">RawValue</span> {
@@ -159,6 +208,7 @@
         }
     )<span class="kw-2">*</span>)
 }
+
 <span class="macro">partial_eq!</span> {
     <span class="ident">i32</span> =&gt; <span class="ident">i32</span>,
     <span class="ident">u32</span> =&gt; <span class="ident">u32</span>,

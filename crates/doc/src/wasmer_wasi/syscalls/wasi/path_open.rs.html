@@ -329,23 +329,6 @@
 <span id="327">327</span>
 <span id="328">328</span>
 <span id="329">329</span>
-<span id="330">330</span>
-<span id="331">331</span>
-<span id="332">332</span>
-<span id="333">333</span>
-<span id="334">334</span>
-<span id="335">335</span>
-<span id="336">336</span>
-<span id="337">337</span>
-<span id="338">338</span>
-<span id="339">339</span>
-<span id="340">340</span>
-<span id="341">341</span>
-<span id="342">342</span>
-<span id="343">343</span>
-<span id="344">344</span>
-<span id="345">345</span>
-<span id="346">346</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -373,6 +356,7 @@
 <span class="doccomment">///     The new file descriptor</span>
 <span class="doccomment">/// Possible Errors:</span>
 <span class="doccomment">/// - `Errno::Access`, `Errno::Badf`, `Errno::Fault`, `Errno::Fbig?`, `Errno::Inval`, `Errno::Io`, `Errno::Loop`, `Errno::Mfile`, `Errno::Nametoolong?`, `Errno::Nfile`, `Errno::Noent`, `Errno::Notdir`, `Errno::Rofs`, and `Errno::Notcapable`</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">dirfd</span>, <span class="ident">path</span> <span class="op">=</span> <span class="ident">field::Empty</span>, <span class="ident">follow_symlinks</span> <span class="op">=</span> <span class="bool-val">false</span>, <span class="ident">ret_fd</span> <span class="op">=</span> <span class="ident">field::Empty</span>), <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">path_open</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">dirfd</span>: <span class="ident">WasiFd</span>,
@@ -385,9 +369,8 @@
     <span class="ident">fs_flags</span>: <span class="ident">Fdflags</span>,
     <span class="ident">fd</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">WasiFd</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">Errno</span> {
-    <span class="macro">debug!</span>(<span class="string">&quot;wasi[{}:{}]::path_open&quot;</span>, <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(), <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>());
     <span class="kw">if</span> <span class="ident">dirflags</span> <span class="op">&amp;</span> <span class="ident">__WASI_LOOKUP_SYMLINK_FOLLOW</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-        <span class="macro">debug!</span>(<span class="string">&quot;  - will follow symlinks when opening path&quot;</span>);
+        <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;follow_symlinks&quot;</span>, <span class="bool-val">true</span>);
     }
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>, <span class="kw-2">mut</span> <span class="ident">inodes</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state_and_inodes</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>, <span class="number">0</span>);
@@ -414,18 +397,15 @@
     }
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">path_string</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">path</span>, <span class="ident">path_len</span>) };
+    <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;path&quot;</span>, <span class="ident">path_string</span>.<span class="ident">as_str</span>());
 
     <span class="comment">// Convert relative paths into absolute paths</span>
     <span class="kw">if</span> <span class="ident">path_string</span>.<span class="ident">starts_with</span>(<span class="string">&quot;./&quot;</span>) {
         <span class="ident">path_string</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">relative_path_to_absolute</span>(<span class="ident">path_string</span>);
         <span class="macro">trace!</span>(
-            <span class="string">&quot;wasi[{}:{}]::rel_to_abs (name={}))&quot;</span>,
-            <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-            <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-            <span class="ident">path_string</span>
+            <span class="op">%</span><span class="ident">path_string</span>
         );
     }
-    <span class="macro">debug!</span>(<span class="string">&quot;=&gt; path_open(): dirfd: {}, path: {}&quot;</span>, <span class="ident">dirfd</span>, <span class="kw-2">&amp;</span><span class="ident">path_string</span>);
 
     <span class="kw">let</span> <span class="ident">path_arg</span> <span class="op">=</span> <span class="ident">std::path::PathBuf::from</span>(<span class="kw-2">&amp;</span><span class="ident">path_string</span>);
     <span class="kw">let</span> <span class="ident">maybe_inode</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_inode_at_path</span>(
@@ -548,11 +528,7 @@
                         <span class="comment">// nothing bad happens</span>
                         <span class="kw">let</span> <span class="ident">dup_fd</span> <span class="op">=</span> <span class="macro">wasi_try!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">clone_fd</span>(<span class="ident">fd</span>));
                         <span class="macro">trace!</span>(
-                            <span class="string">&quot;wasi[{}:{}]::path_open [special_fd] (dup_fd: {}-&gt;{})&quot;</span>,
-                            <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-                            <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-                            <span class="ident">fd</span>,
-                            <span class="ident">dup_fd</span>
+                            <span class="op">%</span><span class="ident">dup_fd</span>
                         );
 
                         <span class="comment">// some special files will return a constant FD rather than</span>
@@ -585,12 +561,10 @@
         <span class="ident">inode</span>
     } <span class="kw">else</span> {
         <span class="comment">// less-happy path, we have to try to create the file</span>
-        <span class="macro">debug!</span>(<span class="string">&quot;Maybe creating file&quot;</span>);
         <span class="kw">if</span> <span class="ident">o_flags</span>.<span class="ident">contains</span>(<span class="ident">Oflags::CREATE</span>) {
             <span class="kw">if</span> <span class="ident">o_flags</span>.<span class="ident">contains</span>(<span class="ident">Oflags::DIRECTORY</span>) {
                 <span class="kw">return</span> <span class="ident">Errno::Notdir</span>;
             }
-            <span class="macro">debug!</span>(<span class="string">&quot;Creating file&quot;</span>);
             <span class="comment">// strip end file name</span>
 
             <span class="kw">let</span> (<span class="ident">parent_inode</span>, <span class="ident">new_entity_name</span>) <span class="op">=</span> <span class="macro">wasi_try!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_parent_inode_at_path</span>(
@@ -637,12 +611,9 @@
                     <span class="ident">open_flags</span> <span class="op">|</span><span class="op">=</span> <span class="ident">Fd::TRUNCATE</span>;
                 }
 
-                <span class="prelude-val">Some</span>(<span class="macro">wasi_try!</span>(<span class="ident">open_options</span>.<span class="ident">open</span>(<span class="kw-2">&amp;</span><span class="ident">new_file_host_path</span>).<span class="ident">map_err</span>(
-                    <span class="op">|</span><span class="ident">e</span><span class="op">|</span> {
-                        <span class="macro">debug!</span>(<span class="string">&quot;Error opening file {}&quot;</span>, <span class="ident">e</span>);
-                        <span class="ident">fs_error_into_wasi_err</span>(<span class="ident">e</span>)
-                    }
-                )))
+                <span class="prelude-val">Some</span>(<span class="macro">wasi_try!</span>(<span class="ident">open_options</span>
+                    .<span class="ident">open</span>(<span class="kw-2">&amp;</span><span class="ident">new_file_host_path</span>)
+                    .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> { <span class="ident">fs_error_into_wasi_err</span>(<span class="ident">e</span>) })))
             };
 
             <span class="kw">let</span> <span class="ident">new_inode</span> <span class="op">=</span> {
@@ -682,14 +653,9 @@
         <span class="ident">inode</span>
     ));
 
-    <span class="macro">wasi_try_mem!</span>(<span class="ident">fd_ref</span>.<span class="ident">write</span>(<span class="ident">out_fd</span>));
-    <span class="macro">debug!</span>(
-        <span class="string">&quot;wasi[{}:{}]::path_open returning fd {}&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-        <span class="ident">out_fd</span>
-    );
+    <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;ret_fd&quot;</span>, <span class="ident">out_fd</span>);
 
+    <span class="macro">wasi_try_mem!</span>(<span class="ident">fd_ref</span>.<span class="ident">write</span>(<span class="ident">out_fd</span>));
     <span class="ident">Errno::Success</span>
 }
 </code></pre></div>

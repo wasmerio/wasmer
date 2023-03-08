@@ -195,7 +195,8 @@
 <span id="193">193</span>
 <span id="194">194</span>
 <span id="195">195</span>
-</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">FunctionEnvMut</span>, <span class="ident">WasmPtr</span>};
+</pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">field</span>, <span class="ident">instrument</span>, <span class="ident">trace_span</span>};
+<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">FunctionEnvMut</span>, <span class="ident">WasmPtr</span>};
 <span class="kw">use</span> <span class="ident">wasmer_wasi_types::wasi</span>::{
     <span class="ident">Errno</span>, <span class="ident">Event</span>, <span class="ident">EventFdReadwrite</span>, <span class="ident">Eventrwflags</span>, <span class="ident">Eventtype</span>, <span class="ident">Fd</span>, <span class="ident">Filesize</span>, <span class="ident">Filestat</span>, <span class="ident">Filetype</span>,
     <span class="ident">Snapshot0Event</span>, <span class="ident">Snapshot0Filestat</span>, <span class="ident">Snapshot0Subscription</span>, <span class="ident">Snapshot0Whence</span>, <span class="ident">Subscription</span>,
@@ -217,6 +218,7 @@
 <span class="doccomment">/// WARNING: this function involves saving, clobbering, and restoring unrelated</span>
 <span class="doccomment">/// Wasm memory.  If the memory clobbered by the current syscall is also used by</span>
 <span class="doccomment">/// that syscall, then it may break.</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_filestat_get</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">fd</span>: <span class="ident">Fd</span>,
@@ -269,6 +271,7 @@
 
 <span class="doccomment">/// Wrapper around `syscalls::path_filestat_get` with extra logic to handle the size</span>
 <span class="doccomment">/// difference of `wasi_filestat_t`</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">path_filestat_get</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">fd</span>: <span class="ident">Fd</span>,
@@ -312,6 +315,7 @@
 
 <span class="doccomment">/// Wrapper around `syscalls::fd_seek` with extra logic to remap the values</span>
 <span class="doccomment">/// of `Whence`</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_seek</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">fd</span>: <span class="ident">Fd</span>,
@@ -329,6 +333,7 @@
 
 <span class="doccomment">/// Wrapper around `syscalls::poll_oneoff` with extra logic to add the removed</span>
 <span class="doccomment">/// userdata field back</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;trace&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">timeout_ns</span> <span class="op">=</span> <span class="ident">field::Empty</span>, <span class="ident">fd_guards</span> <span class="op">=</span> <span class="ident">field::Empty</span>, <span class="ident">seen</span> <span class="op">=</span> <span class="ident">field::Empty</span>), <span class="ident">ret</span>, <span class="ident">err</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">poll_oneoff</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">in_</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Snapshot0Subscription</span>, <span class="ident">Memory32</span><span class="op">&gt;</span>,
@@ -354,12 +359,7 @@
     <span class="kw">let</span> <span class="ident">triggered_events</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">triggered_events</span> {
         <span class="prelude-val">Ok</span>(<span class="ident">a</span>) =&gt; <span class="ident">a</span>,
         <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-            <span class="macro">tracing::trace!</span>(
-                <span class="string">&quot;wasi[{}:{}]::poll_oneoff0 errno={}&quot;</span>,
-                <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-                <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-                <span class="ident">err</span>
-            );
+            <span class="macro">tracing::trace!</span>(<span class="ident">err</span> <span class="op">=</span> <span class="ident">err</span> <span class="kw">as</span> <span class="ident">u16</span>);
             <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">err</span>);
         }
     };

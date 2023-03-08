@@ -182,8 +182,6 @@
 <span id="180">180</span>
 <span id="181">181</span>
 <span id="182">182</span>
-<span id="183">183</span>
-<span id="184">184</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
@@ -202,6 +200,7 @@
 <span class="doccomment">///     Pointer to UTF8 bytes, the new file name</span>
 <span class="doccomment">/// - `u32 new_path_len`</span>
 <span class="doccomment">///     The number of bytes to read from `new_path`</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">old_fd</span>, <span class="ident">new_fd</span>, <span class="ident">old_path</span> <span class="op">=</span> <span class="ident">field::Empty</span>, <span class="ident">new_path</span> <span class="op">=</span> <span class="ident">field::Empty</span>), <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">path_rename</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">old_fd</span>: <span class="ident">WasiFd</span>,
@@ -211,19 +210,16 @@
     <span class="ident">new_path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">M</span><span class="op">&gt;</span>,
     <span class="ident">new_path_len</span>: <span class="ident">M::Offset</span>,
 ) -&gt; <span class="ident">Errno</span> {
-    <span class="macro">debug!</span>(
-        <span class="string">&quot;wasi::path_rename: old_fd = {}, new_fd = {}&quot;</span>,
-        <span class="ident">old_fd</span>, <span class="ident">new_fd</span>
-    );
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>, <span class="ident">inodes</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state_and_inodes</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>, <span class="number">0</span>);
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">source_str</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">old_path</span>, <span class="ident">old_path_len</span>) };
+    <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;old_path&quot;</span>, <span class="ident">source_str</span>.<span class="ident">as_str</span>());
     <span class="ident">source_str</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">relative_path_to_absolute</span>(<span class="ident">source_str</span>);
     <span class="kw">let</span> <span class="ident">source_path</span> <span class="op">=</span> <span class="ident">std::path::Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">source_str</span>);
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">target_str</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">new_path</span>, <span class="ident">new_path_len</span>) };
+    <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;new_path&quot;</span>, <span class="ident">target_str</span>.<span class="ident">as_str</span>());
     <span class="ident">target_str</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">relative_path_to_absolute</span>(<span class="ident">target_str</span>);
     <span class="kw">let</span> <span class="ident">target_path</span> <span class="op">=</span> <span class="ident">std::path::Path::new</span>(<span class="kw-2">&amp;</span><span class="ident">target_str</span>);
-    <span class="macro">debug!</span>(<span class="string">&quot;=&gt; rename from {} to {}&quot;</span>, <span class="kw-2">&amp;</span><span class="ident">source_str</span>, <span class="kw-2">&amp;</span><span class="ident">target_str</span>);
 
     {
         <span class="kw">let</span> <span class="ident">source_fd</span> <span class="op">=</span> <span class="macro">wasi_try!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">old_fd</span>));
@@ -273,7 +269,7 @@
                 <span class="kw">return</span> <span class="ident">Errno::Inval</span>
             }
             <span class="ident">Kind::Symlink</span> { .. } <span class="op">|</span> <span class="ident">Kind::File</span> { .. } <span class="op">|</span> <span class="ident">Kind::Buffer</span> { .. } =&gt; {
-                <span class="macro">error!</span>(<span class="string">&quot;Fatal internal logic error: parent of inode is not a directory&quot;</span>);
+                <span class="macro">debug!</span>(<span class="string">&quot;fatal internal logic error: parent of inode is not a directory&quot;</span>);
                 <span class="kw">return</span> <span class="ident">Errno::Inval</span>;
             }
         }
@@ -290,7 +286,7 @@
                 <span class="kw">return</span> <span class="ident">Errno::Inval</span>
             }
             <span class="ident">Kind::Symlink</span> { .. } <span class="op">|</span> <span class="ident">Kind::File</span> { .. } <span class="op">|</span> <span class="ident">Kind::Buffer</span> { .. } =&gt; {
-                <span class="macro">error!</span>(<span class="string">&quot;Fatal internal logic error: parent of inode is not a directory&quot;</span>);
+                <span class="macro">debug!</span>(<span class="string">&quot;fatal internal logic error: parent of inode is not a directory&quot;</span>);
                 <span class="kw">return</span> <span class="ident">Errno::Inval</span>;
             }
         }
@@ -361,7 +357,7 @@
             <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">entries</span>.<span class="ident">insert</span>(<span class="ident">target_entry_name</span>, <span class="ident">source_entry</span>);
             <span class="macro">assert!</span>(
                 <span class="ident">result</span>.<span class="ident">is_none</span>(),
-                <span class="string">&quot;Fatal error: race condition on filesystem detected or internal logic error&quot;</span>
+                <span class="string">&quot;fatal error: race condition on filesystem detected or internal logic error&quot;</span>
             );
         }
     }

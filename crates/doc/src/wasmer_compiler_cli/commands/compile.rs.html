@@ -116,10 +116,13 @@
 <span id="114">114</span>
 <span id="115">115</span>
 <span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::store::StoreOptions</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::warning</span>;
 <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
 <span class="kw">use</span> <span class="ident">clap::Parser</span>;
+<span class="kw">use</span> <span class="ident">std::fs</span>;
 <span class="kw">use</span> <span class="ident">std::path</span>::{<span class="ident">Path</span>, <span class="ident">PathBuf</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">ArtifactBuild</span>, <span class="ident">ArtifactCreate</span>, <span class="ident">ModuleEnvironment</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
@@ -223,7 +226,8 @@
             <span class="ident">memory_styles</span>,
             <span class="ident">table_styles</span>,
         )<span class="question-mark">?</span>;
-        <span class="ident">artifact</span>.<span class="ident">serialize_to_file</span>(<span class="self">self</span>.<span class="ident">output</span>.<span class="ident">as_ref</span>())<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">serialized</span> <span class="op">=</span> <span class="ident">artifact</span>.<span class="ident">serialize</span>()<span class="question-mark">?</span>;
+        <span class="ident">fs::write</span>(<span class="ident">output_filename</span>, <span class="ident">serialized</span>)<span class="question-mark">?</span>;
         <span class="macro">eprintln!</span>(
             <span class="string">&quot;✔ File compiled successfully to `{}`.&quot;</span>,
             <span class="self">self</span>.<span class="ident">output</span>.<span class="ident">display</span>(),

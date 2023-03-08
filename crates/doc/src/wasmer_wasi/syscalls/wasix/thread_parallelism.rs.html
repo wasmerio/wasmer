@@ -22,31 +22,23 @@
 <span id="20">20</span>
 <span id="21">21</span>
 <span id="22">22</span>
-<span id="23">23</span>
-<span id="24">24</span>
-<span id="25">25</span>
-<span id="26">26</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// ### `thread_parallelism()`</span>
 <span class="doccomment">/// Returns the available parallelism which is normally the</span>
 <span class="doccomment">/// number of available cores that can run concurrently</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">parallelism</span>), <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">thread_parallelism</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">ret_parallelism</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">M::Offset</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">Errno</span> {
-    <span class="macro">debug!</span>(
-        <span class="string">&quot;wasi[{}:{}]::thread_parallelism&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>()
-    );
-
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> <span class="ident">parallelism</span> <span class="op">=</span> <span class="macro">wasi_try!</span>(<span class="ident">env</span>.<span class="ident">tasks</span>().<span class="ident">thread_parallelism</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> {
         <span class="kw">let</span> <span class="ident">err</span>: <span class="ident">Errno</span> <span class="op">=</span> <span class="ident">err</span>.<span class="ident">into</span>();
         <span class="ident">err</span>
     }));
+    <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;parallelism&quot;</span>, <span class="ident">parallelism</span>);
     <span class="kw">let</span> <span class="ident">parallelism</span>: <span class="ident">M::Offset</span> <span class="op">=</span> <span class="macro">wasi_try!</span>(<span class="ident">parallelism</span>.<span class="ident">try_into</span>().<span class="ident">map_err</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Errno::Overflow</span>));
     <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory_view</span>(<span class="kw-2">&amp;</span><span class="ident">ctx</span>);
     <span class="macro">wasi_try_mem!</span>(<span class="ident">ret_parallelism</span>.<span class="ident">write</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">parallelism</span>));

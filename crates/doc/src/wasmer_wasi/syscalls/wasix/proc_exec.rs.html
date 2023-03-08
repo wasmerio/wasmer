@@ -278,30 +278,6 @@
 <span id="276">276</span>
 <span id="277">277</span>
 <span id="278">278</span>
-<span id="279">279</span>
-<span id="280">280</span>
-<span id="281">281</span>
-<span id="282">282</span>
-<span id="283">283</span>
-<span id="284">284</span>
-<span id="285">285</span>
-<span id="286">286</span>
-<span id="287">287</span>
-<span id="288">288</span>
-<span id="289">289</span>
-<span id="290">290</span>
-<span id="291">291</span>
-<span id="292">292</span>
-<span id="293">293</span>
-<span id="294">294</span>
-<span id="295">295</span>
-<span id="296">296</span>
-<span id="297">297</span>
-<span id="298">298</span>
-<span id="299">299</span>
-<span id="300">300</span>
-<span id="301">301</span>
-<span id="302">302</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">os::task</span>::{<span class="ident">OwnedTaskStatus</span>, <span class="ident">TaskStatus</span>},
@@ -319,6 +295,7 @@
 <span class="doccomment">/// ## Return</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// Returns a bus process id that can be used to invoke calls</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">name</span> <span class="op">=</span> <span class="ident">field::Empty</span>, <span class="ident">args_len</span>), <span class="ident">ret</span>, <span class="ident">err</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">proc_exec</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">name</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">M</span><span class="op">&gt;</span>,
@@ -331,13 +308,7 @@
         <span class="macro">warn!</span>(<span class="string">&quot;failed to execve as the name could not be read - {}&quot;</span>, <span class="ident">err</span>);
         <span class="ident">WasiError::Exit</span>(<span class="ident">Errno::Fault</span> <span class="kw">as</span> <span class="ident">ExitCode</span>)
     })<span class="question-mark">?</span>;
-    <span class="macro">trace!</span>(
-        <span class="string">&quot;wasi[{}:{}]::proc_exec (name={})&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-        <span class="ident">name</span>
-    );
-
+    <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;name&quot;</span>, <span class="ident">name</span>.<span class="ident">as_str</span>());
     <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">args</span>.<span class="ident">read_utf8_string</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="ident">args_len</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">err</span><span class="op">|</span> {
         <span class="macro">warn!</span>(<span class="string">&quot;failed to execve as the args could not be read - {}&quot;</span>, <span class="ident">err</span>);
         <span class="ident">WasiError::Exit</span>(<span class="ident">Errno::Fault</span> <span class="kw">as</span> <span class="ident">ExitCode</span>)
@@ -351,13 +322,8 @@
     <span class="comment">// Convert relative paths into absolute paths</span>
     <span class="kw">if</span> <span class="ident">name</span>.<span class="ident">starts_with</span>(<span class="string">&quot;./&quot;</span>) {
         <span class="ident">name</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">relative_path_to_absolute</span>(<span class="ident">name</span>);
-        <span class="macro">trace!</span>(
-            <span class="string">&quot;wasi[{}:{}]::rel_to_abs (name={}))&quot;</span>,
-            <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-            <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-            <span class="ident">name</span>
-        );
     }
+    <span class="macro">trace!</span>(<span class="ident">name</span>);
 
     <span class="comment">// Convert the preopen directories</span>
     <span class="kw">let</span> <span class="ident">preopen</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">state</span>.<span class="ident">preopen</span>.<span class="ident">clone</span>();
@@ -407,12 +373,7 @@
                 <span class="prelude-val">Ok</span>(<span class="ident">a</span>) =&gt; <span class="prelude-val">Some</span>(<span class="ident">a</span>),
                 <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
                     <span class="kw">if</span> <span class="ident">err</span> <span class="op">!</span><span class="op">=</span> <span class="ident">VirtualBusError::NotFound</span> {
-                        <span class="macro">error!</span>(
-                            <span class="string">&quot;wasi[{}:{}]::proc_exec - builtin failed - {}&quot;</span>,
-                            <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-                            <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-                            <span class="ident">err</span>
-                        );
+                        <span class="macro">error!</span>(<span class="string">&quot;builtin failed - {}&quot;</span>, <span class="ident">err</span>);
                     }
 
                     <span class="kw">let</span> <span class="ident">new_store</span> <span class="op">=</span> <span class="ident">new_store</span>.<span class="ident">take</span>().<span class="ident">unwrap</span>();
@@ -453,21 +414,11 @@
         <span class="comment">// exit code can be processed</span>
         <span class="kw">let</span> <span class="ident">process</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">process</span> {
             <span class="prelude-val">Some</span>(<span class="ident">a</span>) =&gt; {
-                <span class="macro">trace!</span>(
-                    <span class="string">&quot;wasi[{}:{}]::spawned sub-process (pid={})&quot;</span>,
-                    <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-                    <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-                    <span class="ident">child_pid</span>.<span class="ident">raw</span>()
-                );
+                <span class="macro">trace!</span>(<span class="string">&quot;spawned sub-process (pid={})&quot;</span>, <span class="ident">child_pid</span>.<span class="ident">raw</span>());
                 <span class="ident">a</span>
             }
             <span class="prelude-val">None</span> =&gt; {
-                <span class="macro">debug!</span>(
-                    <span class="string">&quot;wasi[{}:{}]::process failed with (err={})&quot;</span>,
-                    <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-                    <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-                    <span class="ident">err_exit_code</span>
-                );
+                <span class="macro">debug!</span>(<span class="string">&quot;process failed with (err={})&quot;</span>, <span class="ident">err_exit_code</span>);
                 <span class="ident">OwnedTaskStatus::new</span>(<span class="ident">TaskStatus::Finished</span>(<span class="prelude-val">Ok</span>(<span class="ident">err_exit_code</span>))).<span class="ident">handle</span>()
             }
         };
@@ -489,7 +440,11 @@
             <span class="comment">// Make sure its within the &quot;active&quot; part of the memory stack</span>
             <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">stack_base</span> <span class="op">-</span> <span class="ident">pid_offset</span>;
             <span class="kw">if</span> <span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span> <span class="op">&gt;</span> <span class="ident">memory_stack</span>.<span class="ident">len</span>() {
-                <span class="macro">warn!</span>(<span class="string">&quot;vfork failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})&quot;</span>, <span class="ident">offset</span>, <span class="ident">memory_stack</span>.<span class="ident">len</span>());
+                <span class="macro">warn!</span>(
+                    <span class="string">&quot;vfork failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})&quot;</span>,
+                    <span class="ident">offset</span>,
+                    <span class="ident">memory_stack</span>.<span class="ident">len</span>()
+                );
             } <span class="kw">else</span> {
                 <span class="comment">// Update the memory stack with the new PID</span>
                 <span class="kw">let</span> <span class="ident">val_bytes</span> <span class="op">=</span> <span class="ident">child_pid</span>.<span class="ident">raw</span>().<span class="ident">to_ne_bytes</span>();
@@ -499,7 +454,9 @@
                 <span class="ident">pbytes</span>.<span class="ident">clone_from_slice</span>(<span class="kw-2">&amp;</span><span class="ident">val_bytes</span>);
             }
         } <span class="kw">else</span> {
-            <span class="macro">warn!</span>(<span class="string">&quot;vfork failed - the return value (pid) is not being returned on the stack - which is not supported&quot;</span>);
+            <span class="macro">warn!</span>(
+                <span class="string">&quot;vfork failed - the return value (pid) is not being returned on the stack - which is not supported&quot;</span>,
+            );
         }
 
         <span class="comment">// Jump back to the vfork point and current on execution</span>
@@ -549,12 +506,7 @@
                 <span class="prelude-val">Ok</span>(<span class="ident">a</span>) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="ident">a</span>)),
                 <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
                     <span class="kw">if</span> <span class="ident">err</span> <span class="op">!</span><span class="op">=</span> <span class="ident">VirtualBusError::NotFound</span> {
-                        <span class="macro">error!</span>(
-                            <span class="string">&quot;wasi[{}:{}]::proc_exec - builtin failed - {}&quot;</span>,
-                            <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-                            <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-                            <span class="ident">err</span>
-                        );
+                        <span class="macro">error!</span>(<span class="string">&quot;builtin failed - {}&quot;</span>, <span class="ident">err</span>);
                     }
 
                     <span class="kw">let</span> <span class="ident">new_store</span> <span class="op">=</span> <span class="ident">new_store</span>.<span class="ident">take</span>().<span class="ident">unwrap</span>();

@@ -333,47 +333,6 @@
 <span id="331">331</span>
 <span id="332">332</span>
 <span id="333">333</span>
-<span id="334">334</span>
-<span id="335">335</span>
-<span id="336">336</span>
-<span id="337">337</span>
-<span id="338">338</span>
-<span id="339">339</span>
-<span id="340">340</span>
-<span id="341">341</span>
-<span id="342">342</span>
-<span id="343">343</span>
-<span id="344">344</span>
-<span id="345">345</span>
-<span id="346">346</span>
-<span id="347">347</span>
-<span id="348">348</span>
-<span id="349">349</span>
-<span id="350">350</span>
-<span id="351">351</span>
-<span id="352">352</span>
-<span id="353">353</span>
-<span id="354">354</span>
-<span id="355">355</span>
-<span id="356">356</span>
-<span id="357">357</span>
-<span id="358">358</span>
-<span id="359">359</span>
-<span id="360">360</span>
-<span id="361">361</span>
-<span id="362">362</span>
-<span id="363">363</span>
-<span id="364">364</span>
-<span id="365">365</span>
-<span id="366">366</span>
-<span id="367">367</span>
-<span id="368">368</span>
-<span id="369">369</span>
-<span id="370">370</span>
-<span id="371">371</span>
-<span id="372">372</span>
-<span id="373">373</span>
-<span id="374">374</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std::f32::consts::E</span>;
 
 <span class="kw">use</span> <span class="ident">wasmer_wasi_types::wasi::SubscriptionClock</span>;
@@ -398,6 +357,7 @@
 <span class="doccomment">/// Output:</span>
 <span class="doccomment">/// - `u32 nevents`</span>
 <span class="doccomment">///     The number of events seen</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;trace&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">timeout_ns</span> <span class="op">=</span> <span class="ident">field::Empty</span>, <span class="ident">fd_guards</span> <span class="op">=</span> <span class="ident">field::Empty</span>, <span class="ident">seen</span> <span class="op">=</span> <span class="ident">field::Empty</span>), <span class="ident">ret</span>, <span class="ident">err</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">poll_oneoff</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">in_</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Subscription</span>, <span class="ident">M</span><span class="op">&gt;</span>,
@@ -425,12 +385,6 @@
     <span class="kw">let</span> <span class="ident">triggered_events</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">triggered_events</span> {
         <span class="prelude-val">Ok</span>(<span class="ident">a</span>) =&gt; <span class="ident">a</span>,
         <span class="prelude-val">Err</span>(<span class="ident">err</span>) =&gt; {
-            <span class="macro">tracing::trace!</span>(
-                <span class="string">&quot;wasi[{}:{}]::poll_oneoff errno={}&quot;</span>,
-                <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-                <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-                <span class="ident">err</span>
-            );
             <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="ident">err</span>);
         }
     };
@@ -481,14 +435,7 @@
                 <span class="ident">Poll::Pending</span> =&gt; {}
                 <span class="ident">Poll::Ready</span>(<span class="ident">e</span>) =&gt; {
                     <span class="kw">for</span> <span class="ident">evt</span> <span class="kw">in</span> <span class="ident">e</span> {
-                        <span class="macro">tracing::trace!</span>(
-                            <span class="string">&quot;wasi[{}:{}]::poll_oneoff triggered_fd (fd={}, userdata={}, type={:?})&quot;</span>,
-                            <span class="ident">pid</span>,
-                            <span class="ident">tid</span>,
-                            <span class="ident">fd</span>,
-                            <span class="ident">evt</span>.<span class="ident">userdata</span>,
-                            <span class="ident">evt</span>.<span class="ident">type_</span>,
-                        );
+                        <span class="macro">tracing::trace!</span>(<span class="ident">fd</span>, <span class="ident">userdata</span> <span class="op">=</span> <span class="ident">evt</span>.<span class="ident">userdata</span>, <span class="ident">ty</span> <span class="op">=</span> <span class="ident">evt</span>.<span class="ident">type_</span> <span class="kw">as</span> <span class="ident">u8</span>,);
                         <span class="ident">evts</span>.<span class="ident">push</span>(<span class="ident">evt</span>);
                     }
                 }
@@ -525,12 +472,6 @@
     <span class="comment">// Determine if we are in silent polling mode</span>
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">state</span>.<span class="ident">deref</span>();
-    <span class="macro">trace!</span>(
-        <span class="string">&quot;wasi[{}:{}]::poll_oneoff (nsubscriptions={})&quot;</span>,
-        <span class="ident">pid</span>,
-        <span class="ident">tid</span>,
-        <span class="ident">subs</span>.<span class="ident">len</span>(),
-    );
 
     <span class="comment">// These are used when we capture what clocks (timeouts) are being</span>
     <span class="comment">// subscribed too</span>
@@ -598,23 +539,14 @@
                     <span class="comment">// If the timeout duration is zero then this is an immediate check rather than</span>
                     <span class="comment">// a sleep itself</span>
                     <span class="kw">if</span> <span class="ident">clock_info</span>.<span class="ident">timeout</span> <span class="op">==</span> <span class="number">0</span> {
-                        <span class="macro">tracing::trace!</span>(<span class="string">&quot;wasi[{}:{}]::poll_oneoff nonblocking&quot;</span>, <span class="ident">pid</span>, <span class="ident">tid</span>,);
                         <span class="ident">time_to_sleep</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Duration::ZERO</span>);
                     } <span class="kw">else</span> {
-                        <span class="macro">tracing::trace!</span>(
-                            <span class="string">&quot;wasi[{}:{}]::poll_oneoff clock_id={:?} (userdata={}, timeout={})&quot;</span>,
-                            <span class="ident">pid</span>,
-                            <span class="ident">tid</span>,
-                            <span class="ident">clock_info</span>.<span class="ident">clock_id</span>,
-                            <span class="ident">s</span>.<span class="ident">userdata</span>,
-                            <span class="ident">clock_info</span>.<span class="ident">timeout</span>
-                        );
                         <span class="ident">time_to_sleep</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Duration::from_nanos</span>(<span class="ident">clock_info</span>.<span class="ident">timeout</span>));
                         <span class="ident">clock_subs</span>.<span class="ident">push</span>((<span class="ident">clock_info</span>, <span class="ident">s</span>.<span class="ident">userdata</span>));
                     }
                     <span class="kw">continue</span>;
                 } <span class="kw">else</span> {
-                    <span class="macro">error!</span>(<span class="string">&quot;Polling not implemented for these clocks yet&quot;</span>);
+                    <span class="macro">error!</span>(<span class="string">&quot;polling not implemented for these clocks yet&quot;</span>);
                     <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(<span class="ident">Errno::Inval</span>));
                 }
             }
@@ -665,15 +597,15 @@
                             }
                         }
                     };
-                    <span class="macro">tracing::trace!</span>(
-                        <span class="string">&quot;wasi[{}:{}]::poll_oneoff wait_for_fd={} type={:?}&quot;</span>,
-                        <span class="ident">pid</span>,
-                        <span class="ident">tid</span>,
-                        <span class="ident">fd</span>,
-                        <span class="ident">wasi_file_ref</span>
-                    );
                     <span class="ident">fd_guards</span>.<span class="ident">push</span>(<span class="ident">wasi_file_ref</span>);
                 }
+            }
+
+            <span class="kw">if</span> <span class="ident">fd_guards</span>.<span class="ident">len</span>() <span class="op">&gt;</span> <span class="number">10</span> {
+                <span class="kw">let</span> <span class="ident">small_list</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">fd_guards</span>.<span class="ident">iter</span>().<span class="ident">take</span>(<span class="number">10</span>).<span class="ident">collect</span>();
+                <span class="ident">tracing::Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;fd_guards&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{:?}...&quot;</span>, <span class="ident">small_list</span>));
+            } <span class="kw">else</span> {
+                <span class="ident">tracing::Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;fd_guards&quot;</span>, <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">fd_guards</span>));
             }
 
             <span class="ident">fd_guards</span>
@@ -681,17 +613,12 @@
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">time_to_sleep</span>) <span class="op">=</span> <span class="ident">time_to_sleep</span>.<span class="ident">as_ref</span>() {
             <span class="kw">if</span> <span class="kw-2">*</span><span class="ident">time_to_sleep</span> <span class="op">==</span> <span class="ident">Duration::ZERO</span> {
-                <span class="macro">tracing::trace!</span>(<span class="string">&quot;wasi[{}:{}]::poll_oneoff non_blocking&quot;</span>, <span class="ident">pid</span>, <span class="ident">tid</span>,);
+                <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;timeout_ns&quot;</span>, <span class="string">&quot;nonblocking&quot;</span>);
             } <span class="kw">else</span> {
-                <span class="macro">tracing::trace!</span>(
-                    <span class="string">&quot;wasi[{}:{}]::poll_oneoff wait_for_timeout={}&quot;</span>,
-                    <span class="ident">pid</span>,
-                    <span class="ident">tid</span>,
-                    <span class="ident">time_to_sleep</span>.<span class="ident">as_millis</span>()
-                );
+                <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;timeout_ns&quot;</span>, <span class="ident">time_to_sleep</span>.<span class="ident">as_millis</span>());
             }
         } <span class="kw">else</span> {
-            <span class="macro">tracing::trace!</span>(<span class="string">&quot;wasi[{}:{}]::poll_oneoff wait_for_infinite&quot;</span>, <span class="ident">pid</span>, <span class="ident">tid</span>,);
+            <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;timeout_ns&quot;</span>, <span class="string">&quot;infinite&quot;</span>);
         }
 
         <span class="comment">// Block polling the file descriptors</span>
@@ -706,22 +633,13 @@
     <span class="kw">match</span> <span class="ident">ret</span> {
         <span class="prelude-val">Ok</span>(<span class="ident">evts</span>) =&gt; {
             <span class="comment">// If its a timeout then return an event for it</span>
-            <span class="macro">tracing::trace!</span>(
-                <span class="string">&quot;wasi[{}:{}]::poll_oneoff seen={}&quot;</span>,
-                <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-                <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-                <span class="ident">evts</span>.<span class="ident">len</span>()
-            );
+            <span class="ident">Span::current</span>().<span class="ident">record</span>(<span class="string">&quot;seen&quot;</span>, <span class="ident">evts</span>.<span class="ident">len</span>());
             <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="ident">evts</span>))
         }
         <span class="prelude-val">Err</span>(<span class="ident">Errno::Timedout</span>) =&gt; {
             <span class="comment">// The timeout has triggerred so lets add that event</span>
             <span class="kw">if</span> <span class="ident">clock_subs</span>.<span class="ident">is_empty</span>() <span class="op">&amp;&amp;</span> <span class="ident">time_to_sleep</span> <span class="op">!</span><span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">Duration::ZERO</span>) {
-                <span class="macro">tracing::warn!</span>(
-                    <span class="string">&quot;wasi[{}:{}]::poll_oneoff triggered_timeout (without any clock subscriptions)&quot;</span>,
-                    <span class="ident">pid</span>,
-                    <span class="ident">tid</span>
-                );
+                <span class="macro">tracing::warn!</span>(<span class="string">&quot;triggered_timeout (without any clock subscriptions)&quot;</span>,);
             }
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">evts</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
             <span class="kw">for</span> (<span class="ident">clock_info</span>, <span class="ident">userdata</span>) <span class="kw">in</span> <span class="ident">clock_subs</span> {
@@ -731,12 +649,12 @@
                     <span class="ident">type_</span>: <span class="ident">Eventtype::Clock</span>,
                     <span class="ident">u</span>: <span class="ident">EventUnion</span> { <span class="ident">clock</span>: <span class="number">0</span> },
                 };
-                <span class="macro">tracing::trace!</span>(
-                    <span class="string">&quot;wasi[{}:{}]::poll_oneoff triggered_clock id={:?} (userdata={})&quot;</span>,
-                    <span class="ident">pid</span>,
-                    <span class="ident">tid</span>,
-                    <span class="ident">clock_info</span>.<span class="ident">clock_id</span>,
-                    <span class="ident">evt</span>.<span class="ident">userdata</span>,
+                <span class="ident">Span::current</span>().<span class="ident">record</span>(
+                    <span class="string">&quot;seen&quot;</span>,
+                    <span class="kw-2">&amp;</span><span class="macro">format!</span>(
+                        <span class="string">&quot;clock(id={},userdata={})&quot;</span>,
+                        <span class="ident">clock_info</span>.<span class="ident">clock_id</span> <span class="kw">as</span> <span class="ident">u32</span>, <span class="ident">evt</span>.<span class="ident">userdata</span>
+                    ),
                 );
                 <span class="ident">evts</span>.<span class="ident">push</span>(<span class="ident">evt</span>);
             }

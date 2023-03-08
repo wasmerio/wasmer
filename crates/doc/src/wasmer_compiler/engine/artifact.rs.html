@@ -789,6 +789,73 @@
 <span id="789">789</span>
 <span id="790">790</span>
 <span id="791">791</span>
+<span id="792">792</span>
+<span id="793">793</span>
+<span id="794">794</span>
+<span id="795">795</span>
+<span id="796">796</span>
+<span id="797">797</span>
+<span id="798">798</span>
+<span id="799">799</span>
+<span id="800">800</span>
+<span id="801">801</span>
+<span id="802">802</span>
+<span id="803">803</span>
+<span id="804">804</span>
+<span id="805">805</span>
+<span id="806">806</span>
+<span id="807">807</span>
+<span id="808">808</span>
+<span id="809">809</span>
+<span id="810">810</span>
+<span id="811">811</span>
+<span id="812">812</span>
+<span id="813">813</span>
+<span id="814">814</span>
+<span id="815">815</span>
+<span id="816">816</span>
+<span id="817">817</span>
+<span id="818">818</span>
+<span id="819">819</span>
+<span id="820">820</span>
+<span id="821">821</span>
+<span id="822">822</span>
+<span id="823">823</span>
+<span id="824">824</span>
+<span id="825">825</span>
+<span id="826">826</span>
+<span id="827">827</span>
+<span id="828">828</span>
+<span id="829">829</span>
+<span id="830">830</span>
+<span id="831">831</span>
+<span id="832">832</span>
+<span id="833">833</span>
+<span id="834">834</span>
+<span id="835">835</span>
+<span id="836">836</span>
+<span id="837">837</span>
+<span id="838">838</span>
+<span id="839">839</span>
+<span id="840">840</span>
+<span id="841">841</span>
+<span id="842">842</span>
+<span id="843">843</span>
+<span id="844">844</span>
+<span id="845">845</span>
+<span id="846">846</span>
+<span id="847">847</span>
+<span id="848">848</span>
+<span id="849">849</span>
+<span id="850">850</span>
+<span id="851">851</span>
+<span id="852">852</span>
+<span id="853">853</span>
+<span id="854">854</span>
+<span id="855">855</span>
+<span id="856">856</span>
+<span id="857">857</span>
+<span id="858">858</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`</span>
 <span class="doccomment">//! to allow compiling and instantiating to be done as separate steps.</span>
 
@@ -807,6 +874,7 @@
 <span class="kw">use</span> <span class="ident">enumset::EnumSet</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-load&quot;</span>))]</span>
 <span class="kw">use</span> <span class="ident">std::mem</span>;
+<span class="kw">use</span> <span class="ident">std::sync::atomic</span>::{<span class="ident">AtomicUsize</span>, <span class="ident">Ordering::SeqCst</span>};
 <span class="kw">use</span> <span class="ident">std::sync::Arc</span>;
 <span class="kw">use</span> <span class="ident">std::sync::Mutex</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;static-artifact-create&quot;</span>)]</span>
@@ -837,8 +905,38 @@
     <span class="ident">finished_function_lengths</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">usize</span><span class="op">&gt;</span>,
 }
 
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>)]</span>
+<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">transparent</span>)]</span>
+<span class="doccomment">/// A unique identifier for an Artifact.</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ArtifactId</span> {
+    <span class="ident">id</span>: <span class="ident">usize</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">ArtifactId</span> {
+    <span class="doccomment">/// Format this identifier as a string.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">String</span> {
+        <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">id</span>)
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">ArtifactId</span> {
+    <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self</span> {
+        <span class="ident"><span class="self">Self</span>::default</span>()
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">ArtifactId</span> {
+    <span class="kw">fn</span> <span class="ident">default</span>() -&gt; <span class="self">Self</span> {
+        <span class="kw">static</span> <span class="ident">NEXT_ID</span>: <span class="ident">AtomicUsize</span> <span class="op">=</span> <span class="ident">AtomicUsize::new</span>(<span class="number">0</span>);
+        <span class="self">Self</span> {
+            <span class="ident">id</span>: <span class="ident">NEXT_ID</span>.<span class="ident">fetch_add</span>(<span class="number">1</span>, <span class="ident">SeqCst</span>),
+        }
+    }
+}
+
 <span class="doccomment">/// A compiled wasm module, ready to be instantiated.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Artifact</span> {
+    <span class="ident">id</span>: <span class="ident">ArtifactId</span>,
     <span class="ident">artifact</span>: <span class="ident">ArtifactBuild</span>,
     <span class="comment">// The artifact will only be allocated in memory in case we can execute it</span>
     <span class="comment">// (that means, if the target != host then this will be None).</span>
@@ -884,6 +982,15 @@
     <span class="doccomment">/// other architecture), it will return false.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">allocated</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">allocated</span>.<span class="ident">is_some</span>()
+    }
+
+    <span class="doccomment">/// A unique identifier for this object.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// This exists to allow us to compare two Artifacts for equality. Otherwise,</span>
+    <span class="doccomment">/// comparing two trait objects unsafely relies on implementation details</span>
+    <span class="doccomment">/// of trait representation.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">ArtifactId</span> {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">id</span>
     }
 
     <span class="doccomment">/// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.</span>
@@ -936,18 +1043,19 @@
     ) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="op">!</span><span class="ident">target</span>.<span class="ident">is_native</span>() {
             <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
+                <span class="ident">id</span>: <span class="ident">Default::default</span>(),
                 <span class="ident">artifact</span>,
                 <span class="ident">allocated</span>: <span class="prelude-val">None</span>,
             });
         }
-        <span class="kw">let</span> <span class="ident">module_info</span> <span class="op">=</span> <span class="ident">artifact</span>.<span class="ident">create_module_info</span>();
+        <span class="kw">let</span> <span class="ident">module_info</span> <span class="op">=</span> <span class="ident">artifact</span>.<span class="ident">module_info</span>();
         <span class="kw">let</span> (
             <span class="ident">finished_functions</span>,
             <span class="ident">finished_function_call_trampolines</span>,
             <span class="ident">finished_dynamic_function_trampolines</span>,
             <span class="ident">custom_sections</span>,
         ) <span class="op">=</span> <span class="ident">engine_inner</span>.<span class="ident">allocate</span>(
-            <span class="kw-2">&amp;</span><span class="ident">module_info</span>,
+            <span class="ident">module_info</span>,
             <span class="ident">artifact</span>.<span class="ident">get_function_bodies_ref</span>(),
             <span class="ident">artifact</span>.<span class="ident">get_function_call_trampolines_ref</span>(),
             <span class="ident">artifact</span>.<span class="ident">get_dynamic_function_trampolines_ref</span>(),
@@ -955,7 +1063,7 @@
         )<span class="question-mark">?</span>;
 
         <span class="ident">link_module</span>(
-            <span class="kw-2">&amp;</span><span class="ident">module_info</span>,
+            <span class="ident">module_info</span>,
             <span class="kw-2">&amp;</span><span class="ident">finished_functions</span>,
             <span class="ident">artifact</span>.<span class="ident">get_function_relocations</span>(),
             <span class="kw-2">&amp;</span><span class="ident">custom_sections</span>,
@@ -1009,6 +1117,7 @@
         <span class="kw">let</span> <span class="ident">signatures</span> <span class="op">=</span> <span class="ident">signatures</span>.<span class="ident">into_boxed_slice</span>();
 
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
+            <span class="ident">id</span>: <span class="ident">Default::default</span>(),
             <span class="ident">artifact</span>,
             <span class="ident">allocated</span>: <span class="prelude-val">Some</span>(<span class="ident">AllocatedArtifact</span> {
                 <span class="ident">finished_functions</span>,
@@ -1027,9 +1136,33 @@
     }
 }
 
+<span class="kw">impl</span> <span class="ident">PartialEq</span> <span class="kw">for</span> <span class="ident">Artifact</span> {
+    <span class="kw">fn</span> <span class="ident">eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">id</span> <span class="op">==</span> <span class="ident">other</span>.<span class="ident">id</span>
+    }
+}
+<span class="kw">impl</span> <span class="ident">Eq</span> <span class="kw">for</span> <span class="ident">Artifact</span> {}
+
+<span class="kw">impl</span> <span class="ident">std::fmt::Debug</span> <span class="kw">for</span> <span class="ident">Artifact</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;mut</span> <span class="ident">core::fmt::Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) -&gt; <span class="ident">core::fmt::Result</span> {
+        <span class="ident">f</span>.<span class="ident">debug_struct</span>(<span class="string">&quot;Artifact&quot;</span>)
+            .<span class="ident">field</span>(<span class="string">&quot;artifact_id&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">id</span>)
+            .<span class="ident">field</span>(<span class="string">&quot;module_info&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">module_info</span>())
+            .<span class="ident">finish</span>()
+    }
+}
+
 <span class="kw">impl</span> <span class="ident">ArtifactCreate</span> <span class="kw">for</span> <span class="ident">Artifact</span> {
-    <span class="kw">fn</span> <span class="ident">create_module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">ModuleInfo</span> {
+    <span class="kw">fn</span> <span class="ident">set_module_info_name</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">name</span>: <span class="ident">String</span>) -&gt; <span class="ident">bool</span> {
+        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">set_module_info_name</span>(<span class="ident">name</span>)
+    }
+
+    <span class="kw">fn</span> <span class="ident">create_module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span> {
         <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">create_module_info</span>()
+    }
+
+    <span class="kw">fn</span> <span class="ident">module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">ModuleInfo</span> {
+        <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">module_info</span>()
     }
 
     <span class="kw">fn</span> <span class="ident">features</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="ident">Features</span> {
@@ -1172,7 +1305,7 @@
 
         <span class="self">self</span>.<span class="ident">preinstantiate</span>()<span class="question-mark">?</span>;
 
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Arc::new</span>(<span class="self">self</span>.<span class="ident">create_module_info</span>());
+        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">create_module_info</span>();
         <span class="kw">let</span> <span class="ident">imports</span> <span class="op">=</span> <span class="ident">resolve_imports</span>(
             <span class="kw-2">&amp;</span><span class="ident">module</span>,
             <span class="ident">imports</span>,
@@ -1290,7 +1423,7 @@
             .<span class="ident">collect</span>();
 
         <span class="kw">let</span> <span class="ident">compile_info</span> <span class="op">=</span> <span class="ident">CompileModuleInfo</span> {
-            <span class="ident">module</span>,
+            <span class="ident">module</span>: <span class="ident">Arc::new</span>(<span class="ident">module</span>),
             <span class="ident">features</span>: <span class="ident">features</span>.<span class="ident">clone</span>(),
             <span class="ident">memory_styles</span>,
             <span class="ident">table_styles</span>,
@@ -1429,7 +1562,7 @@
         <span class="ident">emit_compilation</span>(<span class="kw-2">&amp;mut</span> <span class="ident">obj</span>, <span class="ident">compilation</span>, <span class="kw-2">&amp;</span><span class="ident">symbol_registry</span>, <span class="ident">target_triple</span>)
             .<span class="ident">map_err</span>(<span class="ident">to_compile_error</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>((
-            <span class="ident">metadata</span>.<span class="ident">compile_info</span>.<span class="ident">module</span>,
+            <span class="ident">Arc::try_unwrap</span>(<span class="ident">metadata</span>.<span class="ident">compile_info</span>.<span class="ident">module</span>).<span class="ident">unwrap</span>(),
             <span class="ident">obj</span>,
             <span class="ident">metadata_binary</span>.<span class="ident">len</span>(),
             <span class="ident">Box::new</span>(<span class="ident">symbol_registry</span>),
@@ -1566,6 +1699,7 @@
             .<span class="ident">into_boxed_slice</span>();
 
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
+            <span class="ident">id</span>: <span class="ident">Default::default</span>(),
             <span class="ident">artifact</span>,
             <span class="ident">allocated</span>: <span class="prelude-val">Some</span>(<span class="ident">AllocatedArtifact</span> {
                 <span class="ident">finished_functions</span>: <span class="ident">finished_functions</span>.<span class="ident">into_boxed_slice</span>(),

@@ -345,6 +345,16 @@
 <span id="343">343</span>
 <span id="344">344</span>
 <span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different</span>
 <span class="doccomment">//! commands.</span>
 
@@ -430,8 +440,11 @@
 
     <span class="doccomment">/// Get the enaled Wasm features.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_features</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut</span> <span class="ident">features</span>: <span class="ident">Features</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Features</span><span class="op">&gt;</span> {
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">features</span>.<span class="ident">threads</span> <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">features</span>.<span class="ident">all</span> {
+        <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">features</span>.<span class="ident">disable_threads</span> <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">features</span>.<span class="ident">all</span> {
             <span class="ident">features</span>.<span class="ident">threads</span>(<span class="bool-val">true</span>);
+        }
+        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">features</span>.<span class="ident">disable_threads</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">features</span>.<span class="ident">all</span> {
+            <span class="ident">features</span>.<span class="ident">threads</span>(<span class="bool-val">false</span>);
         }
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">features</span>.<span class="ident">multi_value</span> <span class="op">|</span><span class="op">|</span> <span class="self">self</span>.<span class="ident">features</span>.<span class="ident">all</span> {
             <span class="ident">features</span>.<span class="ident">multi_value</span>(<span class="bool-val">true</span>);
@@ -454,6 +467,13 @@
         <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_engine</span>(<span class="ident">target</span>, <span class="ident">compiler_config</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store::new</span>(<span class="ident">engine</span>);
         <span class="prelude-val">Ok</span>((<span class="ident">store</span>, <span class="ident">compiler_type</span>))
+    }
+
+    <span class="doccomment">/// Gets the Engine for a given target.</span>
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_engine_for_target</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">target</span>: <span class="ident">Target</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">Engine</span>, <span class="ident">CompilerType</span>)<span class="op">&gt;</span> {
+        <span class="kw">let</span> (<span class="ident">compiler_config</span>, <span class="ident">compiler_type</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_compiler_config</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_engine</span>(<span class="ident">target</span>, <span class="ident">compiler_config</span>)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>((<span class="ident">engine</span>, <span class="ident">compiler_type</span>))
     }
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>

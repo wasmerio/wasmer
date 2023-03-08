@@ -1062,14 +1062,6 @@
 <span id="1060">1060</span>
 <span id="1061">1061</span>
 <span id="1062">1062</span>
-<span id="1063">1063</span>
-<span id="1064">1064</span>
-<span id="1065">1065</span>
-<span id="1066">1066</span>
-<span id="1067">1067</span>
-<span id="1068">1068</span>
-<span id="1069">1069</span>
-<span id="1070">1070</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>, <span class="ident">clippy::too_many_arguments</span>, <span class="ident">clippy::cognitive_complexity</span>)]</span>
 
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span> {
@@ -1093,6 +1085,7 @@
 
 <span class="kw">use</span> <span class="ident">bytes</span>::{<span class="ident">Buf</span>, <span class="ident">BufMut</span>};
 <span class="kw">use</span> <span class="ident">futures::Future</span>;
+<span class="kw">use</span> <span class="ident">tracing::instrument</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasi</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasix</span>::<span class="kw-2">*</span>;
 
@@ -1736,7 +1729,6 @@
 
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">current_buffer_offset</span> <span class="op">=</span> <span class="number">0usize</span>;
     <span class="kw">for</span> ((<span class="ident">i</span>, <span class="ident">sub_buffer</span>), <span class="ident">ptr</span>) <span class="kw">in</span> <span class="ident">from</span>.<span class="ident">iter</span>().<span class="ident">enumerate</span>().<span class="ident">zip</span>(<span class="ident">ptrs</span>.<span class="ident">iter</span>()) {
-        <span class="macro">trace!</span>(<span class="string">&quot;ptr: {:?}, subbuffer: {:?}&quot;</span>, <span class="ident">ptr</span>, <span class="ident">sub_buffer</span>);
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">buf_offset</span> <span class="op">=</span> <span class="ident">buffer</span>.<span class="ident">offset</span>();
         <span class="ident">buf_offset</span> <span class="op">+</span><span class="op">=</span> <span class="macro">wasi_try!</span>(<span class="ident">to_offset</span>::<span class="op">&lt;</span><span class="ident">M</span><span class="op">&gt;</span>(<span class="ident">current_buffer_offset</span>));
         <span class="kw">let</span> <span class="ident">new_ptr</span> <span class="op">=</span> <span class="ident">WasmPtr::new</span>(<span class="ident">buf_offset</span>);
@@ -2007,6 +1999,7 @@
     <span class="prelude-val">Ok</span>(<span class="ident">Errno::Success</span>)
 }
 
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">memory_stack_len</span> <span class="op">=</span> <span class="ident">memory_stack</span>.<span class="ident">len</span>(), <span class="ident">rewind_stack_len</span> <span class="op">=</span> <span class="ident">rewind_stack</span>.<span class="ident">len</span>(), <span class="ident">store_data_len</span> <span class="op">=</span> <span class="ident">store_data</span>.<span class="ident">len</span>()))]</span>
 <span class="attribute">#[<span class="ident">must_use</span> <span class="op">=</span> <span class="string">&quot;the action must be passed to the call loop&quot;</span>]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">rewind</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
@@ -2014,15 +2007,6 @@
     <span class="ident">rewind_stack</span>: <span class="ident">Bytes</span>,
     <span class="ident">store_data</span>: <span class="ident">Bytes</span>,
 ) -&gt; <span class="ident">Errno</span> {
-    <span class="macro">trace!</span>(
-        <span class="string">&quot;wasi[{}:{}]::rewinding (memory_stack_size={}, rewind_size={}, store_data={})&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-        <span class="ident">memory_stack</span>.<span class="ident">len</span>(),
-        <span class="ident">rewind_stack</span>.<span class="ident">len</span>(),
-        <span class="ident">store_data</span>.<span class="ident">len</span>()
-    );
-
     <span class="comment">// Store the memory stack so that it can be restored later</span>
     <span class="ident"><span class="kw">super</span>::REWIND</span>.<span class="ident">with</span>(<span class="op">|</span><span class="ident">cell</span><span class="op">|</span> <span class="ident">cell</span>.<span class="ident">replace</span>(<span class="prelude-val">Some</span>(<span class="ident">memory_stack</span>)));
 

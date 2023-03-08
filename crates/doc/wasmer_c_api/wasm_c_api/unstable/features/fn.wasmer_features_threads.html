@@ -4,10 +4,10 @@
 pub extern &quot;C&quot; fn wasmer_features_threads(<br>&nbsp;&nbsp;&nbsp;&nbsp;features: <a class="enum" href="https://doc.rust-lang.org/1.64.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;mut <a class="struct" href="struct.wasmer_features_t.html" title="struct wasmer_c_api::wasm_c_api::unstable::features::wasmer_features_t">wasmer_features_t</a>&gt;,<br>&nbsp;&nbsp;&nbsp;&nbsp;enable: <a class="primitive" href="https://doc.rust-lang.org/1.64.0/std/primitive.bool.html">bool</a><br>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.64.0/std/primitive.bool.html">bool</a></code></pre></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Configures whether the WebAssembly threads proposal will be enabled.</p>
 <p>The <a href="https://github.com/webassembly/threads">WebAssembly threads proposal</a> is not currently fully
 standardized and is undergoing development. Support for this feature can
-be enabled through this method for appropriate WebAssembly modules.</p>
+be disabled through this method for appropriate WebAssembly modules.</p>
 <p>This feature gates items such as shared memories and atomic
 instructions.</p>
-<p>This is <code>false</code> by default.</p>
+<p>This is <code>true</code> by default.</p>
 <h2 id="example"><a href="#example">Example</a></h2>
 <p>See the module’s documentation.</p>
 </div></details></section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_c_api" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

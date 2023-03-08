@@ -45,21 +45,16 @@
 <span id="43">43</span>
 <span id="44">44</span>
 <span id="45">45</span>
-<span id="46">46</span>
-<span id="47">47</span>
-<span id="48">48</span>
-<span id="49">49</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::syscalls</span>::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// ### `tty_set()`</span>
 <span class="doccomment">/// Updates the properties of the rect</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">tty_set</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">tty_state</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">Tty</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">Errno</span> {
-    <span class="macro">debug!</span>(<span class="string">&quot;wasi::tty_set&quot;</span>);
-
     <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">data</span>();
     <span class="kw">let</span> <span class="ident">bridge</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">t</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">runtime</span>.<span class="ident">tty</span>() {
         <span class="ident">t</span>
@@ -73,12 +68,9 @@
     <span class="kw">let</span> <span class="ident">line_buffered</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">line_buffered</span>;
     <span class="kw">let</span> <span class="ident">line_feeds</span> <span class="op">=</span> <span class="bool-val">true</span>;
     <span class="macro">debug!</span>(
-        <span class="string">&quot;wasi[{}:{}]::tty_set(echo={}, line_buffered={}, line_feeds={})&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-        <span class="ident">echo</span>,
-        <span class="ident">line_buffered</span>,
-        <span class="ident">line_feeds</span>
+        <span class="op">%</span><span class="ident">echo</span>,
+        <span class="op">%</span><span class="ident">line_buffered</span>,
+        <span class="op">%</span><span class="ident">line_feeds</span>
     );
 
     <span class="kw">let</span> <span class="ident">state</span> <span class="op">=</span> <span class="ident"><span class="kw">crate</span>::os::tty::WasiTtyState</span> {

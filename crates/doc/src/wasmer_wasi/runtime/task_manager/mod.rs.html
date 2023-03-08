@@ -109,11 +109,6 @@
 <span id="107">107</span>
 <span id="108">108</span>
 <span id="109">109</span>
-<span id="110">110</span>
-<span id="111">111</span>
-<span id="112">112</span>
-<span id="113">113</span>
-<span id="114">114</span>
 </pre><pre class="rust"><code><span class="comment">// TODO: should be behind a different , tokio specific feature flag.</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys-thread&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">tokio</span>;
@@ -122,13 +117,8 @@
 
 <span class="kw">use</span> <span class="ident">::tokio::runtime::Handle</span>;
 <span class="kw">use</span> <span class="ident">futures::Future</span>;
-<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">MemoryType</span>, <span class="ident">Module</span>, <span class="ident">Store</span>};
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;js&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer::VMMemory</span>;
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_family</span> <span class="op">=</span> <span class="string">&quot;wasm&quot;</span>))]</span>
 <span class="kw">use</span> <span class="ident">wasmer::vm::VMMemory</span>;
+<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">MemoryType</span>, <span class="ident">Module</span>, <span class="ident">Store</span>};
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_types::MemoryStyle</span>;

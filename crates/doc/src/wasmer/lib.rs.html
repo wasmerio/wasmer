@@ -446,6 +446,69 @@
 <span id="444">444</span>
 <span id="445">445</span>
 <span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
 </pre><pre class="rust"><code><span class="attribute">#![<span class="ident">doc</span>(
     <span class="ident">html_logo_url</span> <span class="op">=</span> <span class="string">&quot;https://github.com/wasmerio.png?size=200&quot;</span>,
     <span class="ident">html_favicon_url</span> <span class="op">=</span> <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>
@@ -590,7 +653,7 @@
 <span class="doccomment">//! module.</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! To import an extern, simply give it a namespace and a name with the</span>
-<span class="doccomment">//! [`imports`] macro:</span>
+<span class="doccomment">//! [`imports!`] macro:</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! ```</span>
 <span class="doccomment">//! # use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Memory, MemoryType, Store, Imports};</span>
@@ -640,7 +703,7 @@
 <span class="doccomment">//!</span>
 <span class="doccomment">//! Thus WebAssembly modules by themselves cannot do anything but computation</span>
 <span class="doccomment">//! on the core types in [`Value`]. In order to make them more useful we</span>
-<span class="doccomment">//! give them access to the outside world with [`imports`].</span>
+<span class="doccomment">//! give them access to the outside world with [`imports!`].</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//! If you&#39;re looking for a sandboxed, POSIX-like environment to execute Wasm</span>
 <span class="doccomment">//! in, check out the [`wasmer-wasi`] crate for our implementation of WASI,</span>
@@ -876,6 +939,25 @@
     <span class="string">&quot;The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`).&quot;</span>
 );
 
+<span class="kw">mod</span> <span class="ident">access</span>;
+<span class="kw">mod</span> <span class="ident">engine</span>;
+<span class="kw">mod</span> <span class="ident">errors</span>;
+<span class="kw">mod</span> <span class="ident">exports</span>;
+<span class="kw">mod</span> <span class="ident">extern_ref</span>;
+<span class="kw">mod</span> <span class="ident">externals</span>;
+<span class="kw">mod</span> <span class="ident">function_env</span>;
+<span class="kw">mod</span> <span class="ident">imports</span>;
+<span class="kw">mod</span> <span class="ident">instance</span>;
+<span class="kw">mod</span> <span class="ident">into_bytes</span>;
+<span class="kw">mod</span> <span class="ident">mem_access</span>;
+<span class="kw">mod</span> <span class="ident">module</span>;
+<span class="kw">mod</span> <span class="ident">native_type</span>;
+<span class="kw">mod</span> <span class="ident">ptr</span>;
+<span class="kw">mod</span> <span class="ident">store</span>;
+<span class="kw">mod</span> <span class="ident">typed_function</span>;
+<span class="kw">mod</span> <span class="ident">value</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">vm</span>;
+
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
 <span class="kw">mod</span> <span class="ident">sys</span>;
 
@@ -888,9 +970,53 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;js&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">js</span>::<span class="kw-2">*</span>;
 
-<span class="kw">mod</span> <span class="ident">access</span>;
-<span class="kw">mod</span> <span class="ident">into_bytes</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::externals</span>::{<span class="ident">Extern</span>, <span class="ident">Function</span>, <span class="ident">Global</span>, <span class="ident">HostFunction</span>, <span class="ident">Memory</span>, <span class="ident">MemoryView</span>, <span class="ident">Table</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">access::WasmSliceAccess</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">engine</span>::{<span class="ident">AsEngineRef</span>, <span class="ident">Engine</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">errors</span>::{<span class="ident">InstantiationError</span>, <span class="ident">LinkError</span>, <span class="ident">RuntimeError</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>, <span class="ident">Exports</span>, <span class="ident">ExportsIterator</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">extern_ref::ExternRef</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">function_env</span>::{<span class="ident">FunctionEnv</span>, <span class="ident">FunctionEnvMut</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">imports::Imports</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">instance::Instance</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">into_bytes::IntoBytes</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">mem_access</span>::{<span class="ident">MemoryAccessError</span>, <span class="ident">WasmRef</span>, <span class="ident">WasmSlice</span>, <span class="ident">WasmSliceIter</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">module</span>::{<span class="ident">IoCompileError</span>, <span class="ident">Module</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">native_type</span>::{<span class="ident">FromToNativeWasmType</span>, <span class="ident">NativeWasmTypeInto</span>, <span class="ident">WasmTypeList</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">ptr</span>::{<span class="ident">Memory32</span>, <span class="ident">Memory64</span>, <span class="ident">MemorySize</span>, <span class="ident">WasmPtr</span>, <span class="ident">WasmPtr64</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">store</span>::{<span class="ident">AsStoreMut</span>, <span class="ident">AsStoreRef</span>, <span class="ident">OnCalledHandler</span>, <span class="ident">Store</span>, <span class="ident">StoreId</span>, <span class="ident">StoreMut</span>, <span class="ident">StoreRef</span>};
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;sys&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">store</span>::{<span class="ident">TrapHandlerFn</span>, <span class="ident">Tunables</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">typed_function::TypedFunction</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">value::Value</span>;
+
+<span class="comment">// Reexport from other modules</span>
+
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_derive::ValueType</span>;
+<span class="comment">// TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
+    <span class="ident">is_wasm</span>, <span class="ident">Bytes</span>, <span class="ident">CompileError</span>, <span class="ident">CpuFeature</span>, <span class="ident">DeserializeError</span>, <span class="ident">ExportIndex</span>, <span class="ident">ExportType</span>,
+    <span class="ident">ExternType</span>, <span class="ident">FunctionType</span>, <span class="ident">GlobalInit</span>, <span class="ident">GlobalType</span>, <span class="ident">ImportType</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryError</span>,
+    <span class="ident">MemoryType</span>, <span class="ident">MiddlewareError</span>, <span class="ident">Mutability</span>, <span class="ident">OnCalledAction</span>, <span class="ident">Pages</span>, <span class="ident">ParseCpuFeatureError</span>,
+    <span class="ident">SerializeError</span>, <span class="ident">TableType</span>, <span class="ident">Target</span>, <span class="ident">Type</span>, <span class="ident">ValueType</span>, <span class="ident">WasmError</span>, <span class="ident">WasmResult</span>, <span class="ident">WASM_MAX_PAGES</span>,
+    <span class="ident">WASM_MIN_PAGES</span>, <span class="ident">WASM_PAGE_SIZE</span>,
+};
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wat&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wat::parse_bytes</span> <span class="kw">as</span> <span class="ident">wat2wasm</span>;
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasmparser&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmparser</span>;
+
+<span class="comment">// Deprecated types</span>
+
+<span class="doccomment">/// This type is deprecated, it has been replaced by TypedFunction.</span>
+<span class="attribute">#[<span class="ident">deprecated</span>(
+    <span class="ident">since</span> <span class="op">=</span> <span class="string">&quot;3.0.0&quot;</span>,
+    <span class="ident">note</span> <span class="op">=</span> <span class="string">&quot;NativeFunc has been replaced by TypedFunction&quot;</span>
+)]</span>
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">NativeFunc</span><span class="op">&lt;</span><span class="ident">Args</span> <span class="op">=</span> (), <span class="ident">Rets</span> <span class="op">=</span> ()<span class="op">&gt;</span> <span class="op">=</span> <span class="ident">TypedFunction</span><span class="op">&lt;</span><span class="ident">Args</span>, <span class="ident">Rets</span><span class="op">&gt;</span>;
+
+<span class="doccomment">/// Version number of this crate.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">VERSION</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>);
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

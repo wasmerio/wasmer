@@ -51,13 +51,6 @@
 <span id="49">49</span>
 <span id="50">50</span>
 <span id="51">51</span>
-<span id="52">52</span>
-<span id="53">53</span>
-<span id="54">54</span>
-<span id="55">55</span>
-<span id="56">56</span>
-<span id="57">57</span>
-<span id="58">58</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">net::socket::TimeType</span>, <span class="ident">syscalls</span>::<span class="kw-2">*</span>};
 
@@ -68,20 +61,13 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// * `fd` - Socket descriptor</span>
 <span class="doccomment">/// * `sockopt` - Socket option to be retrieved</span>
+<span class="attribute">#[<span class="ident">instrument</span>(<span class="ident">level</span> <span class="op">=</span> <span class="string">&quot;debug&quot;</span>, <span class="ident">skip_all</span>, <span class="ident">fields</span>(<span class="ident">sock</span>, <span class="ident">opt</span>), <span class="ident">ret</span>)]</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sock_get_opt_time</span><span class="op">&lt;</span><span class="ident">M</span>: <span class="ident">MemorySize</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">ctx</span>: <span class="ident">FunctionEnvMut</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span>, <span class="ident">WasiEnv</span><span class="op">&gt;</span>,
     <span class="ident">sock</span>: <span class="ident">WasiFd</span>,
     <span class="ident">opt</span>: <span class="ident">Sockoption</span>,
     <span class="ident">ret_time</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">OptionTimestamp</span>, <span class="ident">M</span><span class="op">&gt;</span>,
 ) -&gt; <span class="ident">Errno</span> {
-    <span class="macro">debug!</span>(
-        <span class="string">&quot;wasi[{}:{}]::sock_get_opt_time(fd={}, ty={})&quot;</span>,
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">pid</span>(),
-        <span class="ident">ctx</span>.<span class="ident">data</span>().<span class="ident">tid</span>(),
-        <span class="ident">sock</span>,
-        <span class="ident">opt</span>
-    );
-
     <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">opt</span> {
         <span class="ident">Sockoption::RecvTimeout</span> =&gt; <span class="ident">TimeType::ReadTimeout</span>,
         <span class="ident">Sockoption::SendTimeout</span> =&gt; <span class="ident">TimeType::WriteTimeout</span>,

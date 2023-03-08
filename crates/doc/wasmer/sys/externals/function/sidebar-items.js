@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["inner","This private inner module contains the low-level implementation for `Function` and its siblings."]],"struct":[["DynamicFunction","Host state for a dynamic function."],["Function","A WebAssembly `function` instance."]]};
+window.SIDEBAR_ITEMS = {"macro":[["impl_host_function",""]],"struct":[["DynamicFunction","Host state for a dynamic function."],["Function",""],["StaticFunction","Represents a low-level Wasm static host function. See [`crate::Function::new_typed`] and [`crate::Function::new_typed_with_env`] to learn more."]]};

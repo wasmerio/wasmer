@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["Instance","A WebAssembly Instance is a stateful, executable instance of a WebAssembly [`Module`]."]]};

@@ -143,6 +143,8 @@
 <span id="141">141</span>
 <span id="142">142</span>
 <span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
 </pre><pre class="rust"><code><span class="kw">mod</span> <span class="ident">callback_reactor</span>;
 <span class="kw">mod</span> <span class="ident">callback_signal</span>;
 <span class="kw">mod</span> <span class="ident">callback_thread</span>;
@@ -286,5 +288,7 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">thread_spawn</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tty_get</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">tty_set</span>::<span class="kw-2">*</span>;
+
+<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug_span</span>, <span class="ident">field</span>, <span class="ident">instrument</span>, <span class="ident">trace_span</span>, <span class="ident">Span</span>};
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasi" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.64.0 (a55dd71d5 2022-09-19)" ></div></body></html>

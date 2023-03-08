@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"trait":[["NativeWasmTypeInto","`NativeWasmTypeInto` performs conversions from and into `NativeWasmType` types with a context."]]};

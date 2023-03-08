@@ -658,7 +658,7 @@
     ) {
         <span class="kw">let</span> <span class="ident">compile_info</span> <span class="op">=</span> <span class="ident">CompileModuleInfo</span> {
             <span class="ident">features</span>: <span class="ident">Features::new</span>(),
-            <span class="ident">module</span>: <span class="ident">ModuleInfo::new</span>(),
+            <span class="ident">module</span>: <span class="ident">Arc::new</span>(<span class="ident">ModuleInfo::new</span>()),
             <span class="ident">memory_styles</span>: <span class="ident">PrimaryMap</span>::<span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span><span class="ident">::new</span>(),
             <span class="ident">table_styles</span>: <span class="ident">PrimaryMap</span>::<span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span><span class="ident">::new</span>(),
         };
