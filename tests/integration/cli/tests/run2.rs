@@ -186,32 +186,32 @@ mod remote_webc {
     use super::*;
 
     #[test]
-    #[ignore]
     fn quickjs_as_package_name() {
         let assert = Command::new(wasmer_executable())
             .arg("run2")
             .arg("saghul/quickjs")
+            .arg("--entrypoint=quickjs")
             .arg("--registry=https://wapm.io/")
             .arg("--")
             .arg("--eval")
             .arg("console.log('Hello, World!')")
             .assert();
 
-        assert.success().stdout("Hello, World!");
+        assert.success().stdout(contains("Hello, World!"));
     }
 
     #[test]
-    #[ignore]
     fn quickjs_as_url() {
         let assert = Command::new(wasmer_executable())
             .arg("run2")
             .arg("https://wapm.io/saghul/quickjs")
+            .arg("--entrypoint=quickjs")
             .arg("--")
             .arg("--eval")
             .arg("console.log('Hello, World!')")
             .assert();
 
-        assert.success().stdout("Hello, World!");
+        assert.success().stdout(contains("Hello, World!"));
     }
 }
 

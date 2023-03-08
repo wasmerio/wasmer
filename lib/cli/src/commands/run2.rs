@@ -7,10 +7,12 @@ use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
     str::FromStr,
+    time::{Duration, SystemTime},
 };
 
 use anyhow::{Context, Error};
 use clap::Parser;
+use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use url::Url;
 use wasmer::{Function, Imports, Instance, Module, Store, Type, TypedFunction, Value};
@@ -19,7 +21,11 @@ use wasmer_registry::Package;
 use wasmer_wasix::runners::{Runner, WapmContainer};
 use webc::metadata::Manifest;
 
-use crate::store::StoreOptions;
+use crate::{
+    commands::Cache,
+    store::StoreOptions,
+    wasmer_home::{DownloadCached, WasmerHome},
+};
 
 /// The `wasmer run` subcommand.
 #[derive(Debug, Parser)]
@@ -325,76 +331,6 @@ fn get_cached_package(pkg: &Package, home: &WasmerHome) -> Result<Vec<u8>, Error
     todo!();
 }
 
-/// Something which can fetch resources from the internet and will cache them
-/// locally.
-trait DownloadCached {
-    fn download_package(&self, pkg: &Package) -> Result<PathBuf, Error>;
-    fn download_url(&self, url: &url::Url) -> Result<PathBuf, Error>;
-}
-
-#[derive(Debug, Parser)]
-struct WasmerHome {
-    /// The Wasmer home directory.
-    #[clap(long = "wasmer-dir", env = "WASMER_DIR")]
-    home: Option<PathBuf>,
-    /// Override the registry packages are downloaded from.
-    #[clap(long, env = "WASMER_REGISTRY")]
-    registry: Option<String>,
-    /// Skip all caching.
-    #[clap(long)]
-    no_cache: bool,
-}
-
-impl WasmerHome {
-    fn wasmer_home(&self) -> Result<PathBuf, Error> {
-        if let Some(wasmer_home) = &self.home {
-            return Ok(wasmer_home.clone());
-        }
-
-        if let Some(user_home) = dirs::home_dir() {
-            return Ok(user_home.join(".wasmer"));
-        }
-
-        anyhow::bail!("Unable to determine the Wasmer directory");
-    }
-}
-
-impl DownloadCached for WasmerHome {
-    fn download_package(&self, pkg: &Package) -> Result<PathBuf, Error> {
-        let home = self.wasmer_home()?;
-        let checkouts = wasmer_registry::get_checkouts_dir(&home);
-        todo!();
-    }
-
-    fn download_url(&self, url: &url::Url) -> Result<PathBuf, Error> {
-        let home = self.wasmer_home()?;
-        let checkouts = wasmer_registry::get_checkouts_dir(&home);
-        let temp = NamedTempFile::new()?;
-        todo!();
-    }
-}
-
-impl wasmer_cache::Cache for WasmerHome {
-    type SerializeError = wasmer::SerializeError;
-    type DeserializeError = wasmer::DeserializeError;
-
-    unsafe fn load(
-        &self,
-        engine: &impl wasmer::AsEngineRef,
-        key: wasmer_cache::Hash,
-    ) -> Result<wasmer::Module, Self::DeserializeError> {
-        todo!()
-    }
-
-    fn store(
-        &mut self,
-        key: wasmer_cache::Hash,
-        module: &wasmer::Module,
-    ) -> Result<(), Self::SerializeError> {
-        todo!()
-    }
-}
-
 /// A file/directory on disk that will be executed.
 ///
 /// Depending on the type of target and the command-line arguments, this might
@@ -561,3 +497,4 @@ impl Default for WcgiOptions {
         }
     }
 }
+
