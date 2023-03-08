@@ -106,13 +106,9 @@ impl Memory {
         self.handle.ty
     }
 
-<<<<<<< HEAD
     /// Creates a view into the memory that then allows for
     /// read and write
     pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
-=======
-    pub fn view(&self, store: &impl AsStoreRef) -> MemoryView {
->>>>>>> master
         MemoryView::new(self, store)
     }
 
