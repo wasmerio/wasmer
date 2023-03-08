@@ -59,6 +59,7 @@ impl Handler {
             .capabilities(Capabilities {
                 insecure_allow_all: true,
                 http_client: HttpClientCapabilityV1::new_allow_all(),
+                threading: Default::default(),
             })
             .runtime(Arc::new(rt))
             .sandbox_fs(self.fs()?)
