@@ -274,6 +274,7 @@ impl wasmer_cache::Cache for WasmerHome {
 #[derive(Debug, Clone)]
 enum TargetOnDisk {
     WebAssemblyBinary(PathBuf),
+    Wat(PathBuf),
     Webc(PathBuf),
     Directory(PathBuf),
     Artifact(PathBuf),
@@ -297,6 +298,8 @@ impl TargetOnDisk {
             Ok(TargetOnDisk::Webc(path))
         } else if ArtifactBuild::is_deserializable(leading_bytes) {
             Ok(TargetOnDisk::Artifact(path))
+        } else if path.extension() == Some("wat".as_ref()) {
+            Ok(TargetOnDisk::Wat(path))
         } else {
             anyhow::bail!("Unable to determine how to execute \"{}\"", path.display());
         }
@@ -306,6 +309,7 @@ impl TargetOnDisk {
         match self {
             TargetOnDisk::WebAssemblyBinary(p)
             | TargetOnDisk::Webc(p)
+            | TargetOnDisk::Wat(p)
             | TargetOnDisk::Directory(p)
             | TargetOnDisk::Artifact(p) => p,
         }
@@ -342,6 +346,15 @@ impl TargetOnDisk {
             TargetOnDisk::WebAssemblyBinary(wasm) => {
                 let module = Module::from_file(store, wasm)
                     .context("Unable to load the module from a file")?;
+                Ok(ExecutableTarget::WebAssembly(module))
+            }
+            TargetOnDisk::Wat(wat) => {
+                let wat = std::fs::read(wat)
+                    .with_context(|| format!("Unable to read \"{}\"", wat.display()))?;
+                let wasm =
+                    wasmer::wat2wasm(&wat).context("Unable to convert the WAT to WebAssembly")?;
+                let module =
+                    Module::new(store, wasm).context("Unable to load the module from a file")?;
                 Ok(ExecutableTarget::WebAssembly(module))
             }
             TargetOnDisk::Artifact(artifact) => {
