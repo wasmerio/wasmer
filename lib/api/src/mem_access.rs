@@ -12,7 +12,7 @@ use std::string::FromUtf8Error;
 use thiserror::Error;
 use wasmer_types::ValueType;
 
-/// Error for invalid [`Memory`] access.
+/// Error for invalid [`Memory`][super::Memory] access.
 #[derive(Clone, Copy, Debug, Error)]
 #[non_exhaustive]
 pub enum MemoryAccessError {

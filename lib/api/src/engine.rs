@@ -49,10 +49,10 @@ impl<T: Into<engine_imp::Engine>> From<T> for Engine {
 }
 
 /// A temporary handle to an [`Engine`]
-/// EngineRef can be used to build a [`Module`][wasmer::Module]
+/// EngineRef can be used to build a [`Module`][super::Module]
 /// It can be created directly with an [`Engine`]
 /// Or from anything implementing [`AsEngineRef`]
-/// like from [`Store`][wasmer::Store] typicaly.
+/// like from [`Store`][super::Store] typicaly.
 pub struct EngineRef<'a> {
     /// The inner engine
     pub(crate) inner: &'a Engine,

@@ -28,7 +28,7 @@ pub enum InstantiationError {
     #[cfg_attr(feature = "std", error("missing required CPU features: {0:?}"))]
     CpuFeature(String),
 
-    /// Import from a different [`Store`].
+    /// Import from a different [`Store`][super::Store].
     /// This error occurs when an import from a different store is used.
     #[cfg_attr(feature = "std", error("cannot mix imports from different stores"))]
     DifferentStores,

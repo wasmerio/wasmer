@@ -142,7 +142,7 @@
 //! module.
 //!
 //! To import an extern, simply give it a namespace and a name with the
-//! [`imports`] macro:
+//! [`imports!`] macro:
 //!
 //! ```
 //! # use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Memory, MemoryType, Store, Imports};
@@ -192,7 +192,7 @@
 //!
 //! Thus WebAssembly modules by themselves cannot do anything but computation
 //! on the core types in [`Value`]. In order to make them more useful we
-//! give them access to the outside world with [`imports`].
+//! give them access to the outside world with [`imports!`].
 //!
 //! If you're looking for a sandboxed, POSIX-like environment to execute Wasm
 //! in, check out the [`wasmer-wasi`] crate for our implementation of WASI,
