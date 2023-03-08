@@ -3,7 +3,7 @@
 use std::{
     fmt::Display,
     fs::File,
-    io::{Read, Write},
+    io::{ErrorKind, Read, Write},
     net::SocketAddr,
     path::{Path, PathBuf},
     str::FromStr,
@@ -15,16 +15,18 @@ use clap::Parser;
 use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use url::Url;
-use wasmer::{Function, Imports, Instance, Module, Store, Type, TypedFunction, Value};
+use wasmer::{
+    DeserializeError, Function, Imports, Instance, Module, Store, Type, TypedFunction, Value,
+};
+use wasmer_cache::Cache;
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::Package;
 use wasmer_wasix::runners::{Runner, WapmContainer};
 use webc::metadata::Manifest;
 
 use crate::{
-    commands::Cache,
     store::StoreOptions,
-    wasmer_home::{DownloadCached, WasmerHome},
+    wasmer_home::{DownloadCached, ModuleCache, WasmerHome},
 };
 
 /// The `wasmer run` subcommand.
@@ -65,7 +67,8 @@ impl Run2 {
 
         let (mut store, _) = self.store.get_store()?;
 
-        let result = match target.load(&self.wasmer_home, &store)? {
+        let mut cache = self.wasmer_home.module_cache();
+        let result = match target.load(&mut cache, &store)? {
             ExecutableTarget::WebAssembly(wasm) => self.execute_wasm(&target, &wasm, &mut store),
             ExecutableTarget::Webc(container) => self.execute_webc(&target, &container, &mut store),
         };
@@ -273,7 +276,7 @@ fn infer_webc_entrypoint(manifest: &Manifest) -> Result<&str, Error> {
     }
 }
 
-fn compile_directory_to_webc<W: Write>(dir: &Path, dest: W) -> Result<(), Error> {
+fn compile_directory_to_webc(dir: &Path) -> Result<Vec<u8>, Error> {
     todo!()
 }
 
@@ -335,10 +338,6 @@ impl Display for PackageSource {
     }
 }
 
-fn get_cached_package(pkg: &Package, home: &WasmerHome) -> Result<Vec<u8>, Error> {
-    todo!();
-}
-
 /// A file/directory on disk that will be executed.
 ///
 /// Depending on the type of target and the command-line arguments, this might
@@ -388,11 +387,7 @@ impl TargetOnDisk {
         }
     }
 
-    fn load(
-        &self,
-        cache: &impl wasmer_cache::Cache,
-        store: &Store,
-    ) -> Result<ExecutableTarget, Error> {
+    fn load(&self, cache: &mut ModuleCache, store: &Store) -> Result<ExecutableTarget, Error> {
         match self {
             TargetOnDisk::Webc(webc) => {
                 // As an optimisation, try to use the mmapped version first.
@@ -409,25 +404,27 @@ impl TargetOnDisk {
                 Ok(ExecutableTarget::Webc(container))
             }
             TargetOnDisk::Directory(dir) => {
-                let mut temp = NamedTempFile::new()?;
-                compile_directory_to_webc(&dir, &mut temp).with_context(|| {
-                    format!("Unable to bundle \"{}\" was a WEBC package", dir.display())
+                let webc = compile_directory_to_webc(&dir).with_context(|| {
+                    format!("Unable to bundle \"{}\" as a WEBC package", dir.display())
                 })?;
+                let container = WapmContainer::from_bytes(webc.into())
+                    .context("Unable to parse the generated WEBC file")?;
 
-                todo!("Figure out where to put the compiled WEBC in a way that won't fill the disk over time");
+                Ok(ExecutableTarget::Webc(container))
             }
-            TargetOnDisk::WebAssemblyBinary(wasm) => {
-                let module = Module::from_file(store, wasm)
-                    .context("Unable to load the module from a file")?;
+            TargetOnDisk::WebAssemblyBinary(path) => {
+                let wasm = std::fs::read(&path)
+                    .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
+                let module = compile_wasm_cached(&path, &wasm, cache, store)?;
                 Ok(ExecutableTarget::WebAssembly(module))
             }
-            TargetOnDisk::Wat(wat) => {
-                let wat = std::fs::read(wat)
-                    .with_context(|| format!("Unable to read \"{}\"", wat.display()))?;
+            TargetOnDisk::Wat(path) => {
+                let wat = std::fs::read(path)
+                    .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
                 let wasm =
                     wasmer::wat2wasm(&wat).context("Unable to convert the WAT to WebAssembly")?;
-                let module =
-                    Module::new(store, wasm).context("Unable to load the module from a file")?;
+
+                let module = compile_wasm_cached(&path, &wasm, cache, store)?;
                 Ok(ExecutableTarget::WebAssembly(module))
             }
             TargetOnDisk::Artifact(artifact) => {
@@ -439,6 +436,47 @@ impl TargetOnDisk {
             }
         }
     }
+}
+
+fn compile_wasm_cached(
+    path: &Path,
+    wasm: &[u8],
+    cache: &mut ModuleCache,
+    store: &Store,
+) -> Result<Module, Error> {
+    let hash = wasmer_cache::Hash::generate(&wasm);
+
+    unsafe {
+        match cache.load(store, hash) {
+            Ok(m) => {
+                tracing::debug!(%hash, "Reusing a cached module");
+                return Ok(m);
+            }
+            Err(DeserializeError::Io(e)) if e.kind() == ErrorKind::NotFound => {}
+            Err(error) => {
+                tracing::warn!(
+                    %hash,
+                    error=&error as &dyn std::error::Error,
+                    wasm_path=%path.display(),
+                    "Unable to deserialize the cached module",
+                );
+            }
+        }
+    }
+
+    let mut module = Module::new(store, wasm).context("Unable to load the module from a file")?;
+    module.set_name(path.display().to_string().as_str());
+
+    if let Err(e) = cache.store(hash, &module) {
+        tracing::warn!(
+            error=&e as &dyn std::error::Error,
+            wat=%path.display(),
+            key=%hash,
+            "Unable to cache the compiled module",
+        );
+    }
+
+    Ok(module)
 }
 
 #[derive(Debug, Clone)]

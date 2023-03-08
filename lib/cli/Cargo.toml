@@ -90,6 +90,7 @@ wasm-coredump-builder = { version = "0.1.11" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = [ "env-filter", "fmt" ] }
 clap-verbosity-flag = "1"
+wapm-targz-to-pirita = "0.1.7"
 
 [build-dependencies]
 chrono = { version = "^0.4", default-features = false, features = ["std", "clock"] }

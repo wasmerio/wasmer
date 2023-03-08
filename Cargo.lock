@@ -1356,6 +1356,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42703706b716c37f96a77aea830392ad231f44c9e9a67872fa5548707e11b11c"
 
 [[package]]
+name = "fuchsia-cprng"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a06f77d526c1a601b7c4cdd98f54b5eaabffc14d5f2f0296febdc7f357c6d3ba"
+
+[[package]]
 name = "futures"
 version = "0.3.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2084,6 +2090,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "json5"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96b0db21af676c1ce64250b5f40f3ce2cf27e4e47cb91ed91eb6fe9350b430c1"
+dependencies = [
+ "pest",
+ "pest_derive",
+ "serde",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2492,6 +2509,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "nuke-dir"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a6842d8099b88d19a64158a6cfdc3e9ad82c738c041dab98280ef7ba98d64fa"
+
+[[package]]
 name = "num-integer"
 version = "0.1.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2756,6 +2779,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "pest_derive"
+version = "2.5.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a81186863f3d0a27340815be8f2078dd8050b14cd71913db9fbda795e5f707d7"
+dependencies = [
+ "pest",
+ "pest_generator",
+]
+
+[[package]]
+name = "pest_generator"
+version = "2.5.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75a1ef20bf3193c15ac345acb32e26b3dc3223aff4d77ae4fc5359567683796b"
+dependencies = [
+ "pest",
+ "pest_meta",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "pest_meta"
+version = "2.5.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e3b284b1f13a20dc5ebc90aff59a51b8d7137c221131b52a7260c08cbc1cc80"
+dependencies = [
+ "once_cell",
+ "pest",
+ "sha2",
+]
+
+[[package]]
 name = "pin-project"
 version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3016,13 +3073,26 @@ dependencies = [
 
 [[package]]
 name = "rand"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "552840b97013b1a26992c11eac34bdd778e464601a4c2054b5f0bff7c6761293"
+dependencies = [
+ "fuchsia-cprng",
+ "libc",
+ "rand_core 0.3.1",
+ "rdrand",
+ "winapi",
+]
+
+[[package]]
+name = "rand"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
 dependencies = [
  "libc",
  "rand_chacha",
- "rand_core",
+ "rand_core 0.6.4",
 ]
 
 [[package]]
@@ -3032,8 +3102,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
 dependencies = [
  "ppv-lite86",
- "rand_core",
+ "rand_core 0.6.4",
 ]
+
+[[package]]
+name = "rand_core"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a6fdeb83b075e8266dcc8762c22776f6877a63111121f5f8c7411e5be7eed4b"
+dependencies = [
+ "rand_core 0.4.2",
+]
+
+[[package]]
+name = "rand_core"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c33a3c44ca05fa6f1807d8e6743f3824e8509beca625669633be0acbdf509dc"
 
 [[package]]
 name = "rand_core"
@@ -3083,6 +3168,15 @@ dependencies = [
  "crossbeam-deque",
  "crossbeam-utils",
  "num_cpus",
+]
+
+[[package]]
+name = "rdrand"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "678054eb77286b51581ba43620cc911abf02758c91f93f479767aed0f90458b2"
+dependencies = [
+ "rand_core 0.3.1",
 ]
 
 [[package]]
@@ -3164,6 +3258,15 @@ dependencies = [
  "bitflags",
  "libc",
  "mach",
+ "winapi",
+]
+
+[[package]]
+name = "remove_dir_all"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3acd125665422973a33ac9d3dd2df85edad0f4ae9b00dafb1a05e43a9f5ef8e7"
+dependencies = [
  "winapi",
 ]
 
@@ -3962,6 +4065,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ae9980cab1db3fceee2f6c6f643d5d8de2997c58ee8d25fb0cc8a9e9e7348e5"
 
 [[package]]
+name = "tempdir"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15f2b5fb00ccdf689e0149d1b1b3c03fead81c2b37735d812fa8bddbbf41b6d8"
+dependencies = [
+ "rand 0.4.6",
+ "remove_dir_all",
+]
+
+[[package]]
 name = "tempfile"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4554,6 +4667,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8db7427f936968176eaa7cdf81b7f98b980b18495ec28f1b5791ac3bfe3eea9"
 
 [[package]]
+name = "validator"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f07b0a1390e01c0fc35ebb26b28ced33c9a3808f7f9fbe94d3cc01e233bfeed5"
+dependencies = [
+ "idna 0.2.3",
+ "lazy_static",
+ "regex",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "url",
+]
+
+[[package]]
 name = "valuable"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4599,7 +4727,7 @@ dependencies = [
  "tokio",
  "tracing",
  "typetag",
- "webc",
+ "webc 5.0.0-rc.5",
 ]
 
 [[package]]
@@ -4757,6 +4885,65 @@ checksum = "1ce8a968cb1cd110d136ff8b819a556d6fb6d919363c61534f6860c7eb172ba0"
 dependencies = [
  "log",
  "try-lock",
+]
+
+[[package]]
+name = "wapm-targz-to-pirita"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39980ef50ab15c47dbd9b26678f06ece2341178d82e25e21e4ac68310d1f2e63"
+dependencies = [
+ "anyhow",
+ "base64 0.13.1",
+ "flate2",
+ "json5",
+ "nuke-dir",
+ "rand 0.8.5",
+ "serde",
+ "serde_cbor",
+ "serde_derive",
+ "serde_json",
+ "sha2",
+ "tar",
+ "toml",
+ "tracing",
+ "validator",
+ "wapm-toml 0.4.0",
+ "wasmer-registry 3.1.1",
+ "webc 4.1.1",
+]
+
+[[package]]
+name = "wapm-toml"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a61b6d3b6a2fc171198e6378b3a9b38650e114298775a9e63401613abb6a10b3"
+dependencies = [
+ "anyhow",
+ "semver 1.0.17",
+ "serde",
+ "serde_cbor",
+ "serde_derive",
+ "serde_json",
+ "serde_yaml 0.8.26",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
+name = "wapm-toml"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "994ef26447f3158955d2e3fca96021d1f1c47b830e2053569177673dca1447a9"
+dependencies = [
+ "anyhow",
+ "semver 1.0.17",
+ "serde",
+ "serde_cbor",
+ "serde_json",
+ "serde_yaml 0.9.19",
+ "thiserror",
+ "toml",
 ]
 
 [[package]]
@@ -5053,7 +5240,7 @@ dependencies = [
  "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasix",
- "webc",
+ "webc 5.0.0-rc.5",
 ]
 
 [[package]]
@@ -5073,7 +5260,7 @@ dependencies = [
  "blake3",
  "criterion",
  "hex",
- "rand",
+ "rand 0.8.5",
  "tempfile",
  "thiserror",
  "wasmer",
@@ -5140,6 +5327,7 @@ dependencies = [
  "virtual-fs",
  "virtual-net",
  "walkdir",
+ "wapm-targz-to-pirita",
  "wasm-coredump-builder",
  "wasmer",
  "wasmer-cache",
@@ -5149,7 +5337,7 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-object",
- "wasmer-registry",
+ "wasmer-registry 4.0.0",
  "wasmer-toml",
  "wasmer-types",
  "wasmer-vm",
@@ -5158,7 +5346,7 @@ dependencies = [
  "wasmer-wasm-interface",
  "wasmer-wast",
  "wasmparser 0.51.4",
- "webc",
+ "webc 5.0.0-rc.5",
 ]
 
 [[package]]
@@ -5339,7 +5527,7 @@ dependencies = [
  "once_cell",
  "predicates 2.1.5",
  "pretty_assertions",
- "rand",
+ "rand 0.8.5",
  "reqwest",
  "serde",
  "tar",
@@ -5372,6 +5560,39 @@ dependencies = [
 
 [[package]]
 name = "wasmer-registry"
+version = "3.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "982286807bf43d2522a9f6139f9c2570df45d5a32148460226ccbc7edfb3ee13"
+dependencies = [
+ "anyhow",
+ "dirs",
+ "filetime",
+ "flate2",
+ "fs_extra",
+ "futures-util",
+ "graphql_client",
+ "hex",
+ "log",
+ "lzma-rs",
+ "regex",
+ "reqwest",
+ "semver 1.0.17",
+ "serde",
+ "serde_json",
+ "tar",
+ "tempdir",
+ "thiserror",
+ "tldextract",
+ "tokio",
+ "toml",
+ "url",
+ "wapm-toml 0.2.2",
+ "webc 3.0.1",
+ "whoami",
+]
+
+[[package]]
+name = "wasmer-registry"
 version = "4.0.0"
 dependencies = [
  "anyhow",
@@ -5387,7 +5608,7 @@ dependencies = [
  "lazy_static",
  "log",
  "lzma-rs",
- "rand",
+ "rand 0.8.5",
  "regex",
  "reqwest",
  "semver 1.0.17",
@@ -5401,7 +5622,7 @@ dependencies = [
  "toml",
  "url",
  "wasmer-toml",
- "webc",
+ "webc 5.0.0-rc.5",
  "whoami",
 ]
 
@@ -5500,7 +5721,7 @@ dependencies = [
  "linked_hash_set",
  "once_cell",
  "pin-project",
- "rand",
+ "rand 0.8.5",
  "reqwest",
  "serde",
  "serde_cbor",
@@ -5532,7 +5753,7 @@ dependencies = [
  "wasmer-wasix-types",
  "wcgi",
  "wcgi-host",
- "webc",
+ "webc 5.0.0-rc.5",
  "weezl",
  "winapi",
 ]
@@ -5828,6 +6049,52 @@ dependencies = [
 
 [[package]]
 name = "webc"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef87e7b955d5d1feaa8697ae129f1a9ce8859e151574ad3baceae9413b48d2f0"
+dependencies = [
+ "anyhow",
+ "base64 0.13.1",
+ "indexmap",
+ "leb128",
+ "lexical-sort",
+ "memchr",
+ "memmap2",
+ "path-clean",
+ "rand 0.8.5",
+ "serde",
+ "serde_cbor",
+ "serde_json",
+ "sha2",
+ "url",
+ "walkdir",
+]
+
+[[package]]
+name = "webc"
+version = "4.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e4af0f2f0b6bf2e4366375c3cd6635aef1a2eb66cd02454d79525aa7eecf0751"
+dependencies = [
+ "anyhow",
+ "base64 0.13.1",
+ "byteorder",
+ "indexmap",
+ "leb128",
+ "lexical-sort",
+ "memchr",
+ "path-clean",
+ "rand 0.8.5",
+ "serde",
+ "serde_cbor",
+ "serde_json",
+ "sha2",
+ "url",
+ "walkdir",
+]
+
+[[package]]
+name = "webc"
 version = "5.0.0-rc.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "418bfd8fc298ce60295203a6960d53af48c8e10c5a021a5e7db8bc06c4830148"
@@ -5842,7 +6109,7 @@ dependencies = [
  "memmap2",
  "once_cell",
  "path-clean",
- "rand",
+ "rand 0.8.5",
  "serde",
  "serde_cbor",
  "serde_json",

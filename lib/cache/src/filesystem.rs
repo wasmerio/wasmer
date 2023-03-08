@@ -31,6 +31,7 @@ use wasmer::{AsEngineRef, DeserializeError, Module, SerializeError};
 ///     Ok(())
 /// }
 /// ```
+#[derive(Debug, Clone)]
 pub struct FileSystemCache {
     path: PathBuf,
     ext: Option<String>,

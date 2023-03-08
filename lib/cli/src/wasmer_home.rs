@@ -48,6 +48,18 @@ impl WasmerHome {
 
         anyhow::bail!("Unable to determine the Wasmer directory");
     }
+
+    pub fn module_cache(&self) -> ModuleCache {
+        if self.disable_cache {
+            return ModuleCache::Disabled;
+        };
+
+        self.wasmer_home()
+            .ok()
+            .and_then(|home| wasmer_cache::FileSystemCache::new(home.join("cache")).ok())
+            .map(ModuleCache::Enabled)
+            .unwrap_or(ModuleCache::Disabled)
+    }
 }
 
 impl DownloadCached for WasmerHome {
@@ -320,20 +332,32 @@ fn package_url(registry: &str, pkg: &Package) -> Result<Url, Error> {
     Ok(url)
 }
 
-impl wasmer_cache::Cache for WasmerHome {
+#[derive(Debug, Clone)]
+pub enum ModuleCache {
+    Enabled(wasmer_cache::FileSystemCache),
+    Disabled,
+}
+
+impl wasmer_cache::Cache for ModuleCache {
     type SerializeError = SerializeError;
     type DeserializeError = DeserializeError;
 
     unsafe fn load(
         &self,
-        _engine: &impl AsEngineRef,
-        _key: Hash,
+        engine: &impl AsEngineRef,
+        key: Hash,
     ) -> Result<Module, Self::DeserializeError> {
-        todo!()
+        match self {
+            ModuleCache::Enabled(f) => f.load(engine, key),
+            ModuleCache::Disabled => Err(DeserializeError::Io(std::io::ErrorKind::NotFound.into())),
+        }
     }
 
-    fn store(&mut self, _key: Hash, _module: &Module) -> Result<(), Self::SerializeError> {
-        todo!()
+    fn store(&mut self, key: Hash, module: &Module) -> Result<(), Self::SerializeError> {
+        match self {
+            ModuleCache::Enabled(f) => f.store(key, module),
+            ModuleCache::Disabled => Ok(()),
+        }
     }
 }
 
