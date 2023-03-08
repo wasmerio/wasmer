@@ -449,8 +449,8 @@ where
 }
 
 /// Represents a low-level Wasm static host function. See
-/// [`super::Function::new_typed`] and
-/// [`super::Function::new_typed_with_env`] to learn more.
+/// [`crate::Function::new_typed`] and
+/// [`crate::Function::new_typed_with_env`] to learn more.
 pub(crate) struct StaticFunction<F, T> {
     pub(crate) raw_store: *mut u8,
     pub(crate) env: FunctionEnv<T>,
