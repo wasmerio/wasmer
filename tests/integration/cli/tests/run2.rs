@@ -1,5 +1,6 @@
 use std::{
     path::{Path, PathBuf},
+    process::Stdio,
     time::{Duration, Instant},
 };
 
@@ -10,9 +11,6 @@ use reqwest::{blocking::Client, IntoUrl};
 use tempfile::TempDir;
 
 mod webc_on_disk {
-    use std::process::Stdio;
-
-    use predicates::str::contains;
     use rand::Rng;
 
     use super::*;
@@ -38,8 +36,7 @@ mod webc_on_disk {
         let assert = Command::new(wasmer_executable())
             .arg("run2")
             .arg(fixtures::python())
-            .arg("--mapdir")
-            .arg(format!("/app:{}", temp.path().display()))
+            .arg(format!("--mapdir=/app:{}", temp.path().display()))
             .arg("--")
             .arg("/app/main.py")
             .assert();
@@ -71,24 +68,51 @@ mod webc_on_disk {
             .env("RUST_LOG", "info,wasmer_wasi::runners=debug")
             .arg(format!("--addr=127.0.0.1:{port}"))
             .arg(fixtures::static_server());
-        let child = cmd
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map(Child::new)
-            .unwrap();
+        let child = JoinableChild::spawn(cmd);
 
         // make the request
-        let body = http_get(format!("http://127.0.0.1:{port}/"));
+        let body = http_get(format!("http://127.0.0.1:{port}/")).unwrap();
         assert!(body.contains("<title>Index of /</title>"), "{body}");
+
+        // Let's make sure 404s work too
+        let err =
+            http_get(format!("http://127.0.0.1:{port}/this/does/not/exist.html")).unwrap_err();
+        assert_eq!(err.status().unwrap(), reqwest::StatusCode::NOT_FOUND);
 
         // And kill the server, making sure it generated the expected logs
         let assert = child.join();
 
         assert
             .stdout(contains("Starting the server"))
-            .stdout(contains("method=GET url=/"));
+            .stdout(contains("method=GET url=/"))
+            .stdout(contains("method=GET url=/this/does/not/exist.html"));
+    }
+
+    #[test]
+    #[ignore]
+    fn wcgi_runner_with_mounted_directories() {
+        let temp = TempDir::new().unwrap();
+        std::fs::write(temp.path().join("file.txt"), "Hello, World!").unwrap();
+        // Start the WCGI server in the background
+        let port = rand::thread_rng().gen_range(10_000_u16..u16::MAX);
+        let mut cmd = std::process::Command::new(wasmer_executable());
+        cmd.arg("run2")
+            .env("RUST_LOG", "info,wasmer_wasi::runners=debug")
+            .arg(format!("--addr=127.0.0.1:{port}"))
+            .arg(format!("--mapdir=/examples:{}", temp.path().display()))
+            .arg(fixtures::static_server());
+        let child = JoinableChild::spawn(cmd);
+
+        // make the request
+        let body = http_get(format!("http://127.0.0.1:{port}/file.txt")).unwrap();
+        assert!(body.contains("Hello, World!"), "{body}");
+
+        // And kill the server, making sure it generated the expected logs
+        let assert = child.join();
+
+        assert
+            .stdout(contains("Starting the server"))
+            .stdout(contains("method=GET url=/file.txt"));
     }
 }
 
@@ -248,13 +272,22 @@ mod fixtures {
 
 /// A helper that wraps [`std::process::Child`] to make sure it gets terminated
 /// when it is no longer needed.
-struct Child(Option<std::process::Child>);
+struct JoinableChild(Option<std::process::Child>);
 
-impl Child {
-    fn new(child: std::process::Child) -> Self {
-        Child(Some(child))
+impl JoinableChild {
+    fn spawn(mut cmd: std::process::Command) -> Self {
+        let child = cmd
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+
+        JoinableChild(Some(child))
     }
 
+    /// Kill the underlying [`std::process::Child`] and get an [`Assert`] we
+    /// can use to check it.
     fn join(mut self) -> Assert {
         let mut child = self.0.take().unwrap();
         child.kill().unwrap();
@@ -262,7 +295,7 @@ impl Child {
     }
 }
 
-impl Drop for Child {
+impl Drop for JoinableChild {
     fn drop(&mut self) {
         if let Some(mut child) = self.0.take() {
             let _ = child.kill();
@@ -272,7 +305,7 @@ impl Drop for Child {
 
 /// Send a GET request to a particular URL, automatically retrying (with
 /// a timeout) if there are any connection errors.
-fn http_get(url: impl IntoUrl) -> String {
+fn http_get(url: impl IntoUrl) -> Result<String, reqwest::Error> {
     let start = Instant::now();
     let timeout = Duration::from_secs(5);
     let url = url.into_url().unwrap();
@@ -281,9 +314,11 @@ fn http_get(url: impl IntoUrl) -> String {
 
     while start.elapsed() < timeout {
         match client.get(url.clone()).send() {
-            Ok(response) => return response.error_for_status().unwrap().text().unwrap(),
+            Ok(response) => {
+                return response.error_for_status()?.text();
+            }
             Err(e) if e.is_connect() => continue,
-            Err(other) => panic!("An unexpected error occurred: {other}"),
+            Err(other) => return Err(other),
         }
     }
 
