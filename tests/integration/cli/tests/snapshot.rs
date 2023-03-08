@@ -183,6 +183,7 @@ pub fn run_test(spec: TestSpec, code: &[u8]) -> TestResult {
         "never=error"
     };
     cmd.env("RUST_LOG", log_level);
+    cmd.env("RUST_BACKTRACE", "1");
 
     cmd.arg(wasm_path);
     if !spec.cli_args.is_empty() {
@@ -451,7 +452,7 @@ fn test_snapshot_dash() {
 #[test]
 fn test_snapshot_bash() {
     let snapshot = TestBuilder::new()
-        .stdin_str("echo hello")
+        .stdin_str("echo hello\nexit\n")
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     // TODO: more tests!
     assert_json_snapshot!(snapshot);

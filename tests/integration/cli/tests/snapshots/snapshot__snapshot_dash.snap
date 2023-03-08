@@ -5,7 +5,7 @@ expression: snapshot
 {
   "spec": {
     "name": null,
-    "wasm_hash": "516e4c8a7100dbf1132826a2eb10ed94",
+    "wasm_hash": "4c1965d2e25f41f92804d4b229899872",
     "use_packages": [],
     "cli_args": [],
     "stdin": [

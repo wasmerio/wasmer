@@ -260,7 +260,6 @@ impl WasiEnvInit {
 }
 
 /// The environment provided to the WASI imports.
-#[derive(Debug)]
 pub struct WasiEnv {
     pub control_plane: WasiControlPlane,
     /// Represents the process this environment is attached to
@@ -290,6 +289,12 @@ pub struct WasiEnv {
     pub module_cache: Arc<ModuleCache>,
 
     pub capabilities: Capabilities,
+}
+
+impl std::fmt::Debug for WasiEnv {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "env(pid={}, tid={})", self.pid().raw(), self.tid().raw())
+    }
 }
 
 // FIXME: remove unsafe impls!
