@@ -13,12 +13,12 @@ use wasmer_vfs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
 
 use crate::{
     bin_factory::{BinFactory, ModuleCache},
+    capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
-    Capabilities, PluggableRuntimeImplementation, WasiEnv, WasiFunctionEnv, WasiRuntime,
-    WasiRuntimeError,
+    PluggableRuntimeImplementation, WasiEnv, WasiFunctionEnv, WasiRuntime, WasiRuntimeError,
 };
 
 use super::env::WasiEnvInit;

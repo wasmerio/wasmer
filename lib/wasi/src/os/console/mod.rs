@@ -27,8 +27,8 @@ use wasmer_wasi_types::{types::__WASI_STDIN_FILENO, wasi::BusErrno};
 use super::{cconst::ConsoleConst, common::*, task::TaskJoinHandle};
 use crate::{
     bin_factory::{spawn_exec, BinFactory, ModuleCache},
+    capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
-    state::Capabilities,
     VirtualBusError, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
 };
 
