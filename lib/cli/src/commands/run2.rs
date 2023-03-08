@@ -1,6 +1,7 @@
 #![allow(missing_docs, unused)]
 
 use std::{
+    collections::BTreeMap,
     fmt::Display,
     fs::File,
     io::{ErrorKind, Read, Write},
@@ -15,6 +16,7 @@ use clap::Parser;
 use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use url::Url;
+use wapm_targz_to_pirita::FileMap;
 use wasmer::{
     DeserializeError, Function, Imports, Instance, Module, Store, Type, TypedFunction, Value,
 };
@@ -23,6 +25,7 @@ use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::Package;
 use wasmer_wasix::runners::{Runner, WapmContainer};
 use webc::metadata::Manifest;
+use webc_v4::DirOrFile;
 
 use crate::{
     store::StoreOptions,
@@ -75,7 +78,13 @@ impl Run2 {
 
         if let Err(e) = &result {
             if let Some(coredump) = &self.coredump_on_trap {
-                generate_coredump(e, target.path(), coredump).context("Unable")?
+                if let Err(e) = generate_coredump(e, target.path(), coredump) {
+                    tracing::warn!(
+                        error = &*e as &dyn std::error::Error,
+                        coredump_path=%coredump.display(),
+                        "Unable to generate a coredump",
+                    );
+                }
             }
         }
 
@@ -277,7 +286,43 @@ fn infer_webc_entrypoint(manifest: &Manifest) -> Result<&str, Error> {
 }
 
 fn compile_directory_to_webc(dir: &Path) -> Result<Vec<u8>, Error> {
-    todo!()
+    let mut files = BTreeMap::new();
+    load_files_from_disk(&mut files, dir, dir)?;
+
+    let wasmer_toml = webc_v4::DirOrFile::File("wasmer.toml".into());
+    if let Some(toml_data) = files.remove(&wasmer_toml) {
+        // HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
+        // using doesn't know we renamed "wapm.toml" to "wasmer.toml", so we
+        // manually patch things up if people have already migrated their
+        // projects.
+        files
+            .entry(DirOrFile::File("wapm.toml".into()))
+            .or_insert(toml_data);
+    }
+
+    let functions = wapm_targz_to_pirita::TransformManifestFunctions::default();
+    wapm_targz_to_pirita::generate_webc_file(files, &dir.to_path_buf(), None, &functions)
+}
+
+fn load_files_from_disk(files: &mut FileMap, dir: &Path, base: &Path) -> Result<(), Error> {
+    let entries = dir
+        .read_dir()
+        .with_context(|| format!("Unable to read the contents of \"{}\"", dir.display()))?;
+
+    for entry in entries {
+        let path = entry?.path();
+        let relative_path = path.strip_prefix(base)?.to_path_buf();
+
+        if path.is_dir() {
+            load_files_from_disk(files, &path, base)?;
+            files.insert(webc_v4::DirOrFile::Dir(relative_path), Vec::new());
+        } else if path.is_file() {
+            let data = std::fs::read(&path)
+                .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
+            files.insert(webc_v4::DirOrFile::File(relative_path), data);
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -295,8 +340,10 @@ impl PackageSource {
         }
 
         let path = Path::new(s);
-        if path.exists() {
+        if path.is_file() {
             return Ok(PackageSource::File(path.to_path_buf()));
+        } else if path.is_dir() {
+            return Ok(PackageSource::Dir(path.to_path_buf()));
         }
 
         if let Ok(pkg) = Package::from_str(s) {
@@ -404,6 +451,8 @@ impl TargetOnDisk {
                 Ok(ExecutableTarget::Webc(container))
             }
             TargetOnDisk::Directory(dir) => {
+                // FIXME: Runners should be able to load directories directly
+                // instead of needing to compile to a WEBC file.
                 let webc = compile_directory_to_webc(&dir).with_context(|| {
                     format!("Unable to bundle \"{}\" as a WEBC package", dir.display())
                 })?;

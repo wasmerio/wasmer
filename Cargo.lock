@@ -5346,6 +5346,7 @@ dependencies = [
  "wasmer-wasm-interface",
  "wasmer-wast",
  "wasmparser 0.51.4",
+ "webc 4.1.1",
  "webc 5.0.0-rc.5",
 ]
 

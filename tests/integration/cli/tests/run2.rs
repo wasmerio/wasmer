@@ -185,7 +185,6 @@ mod wasm_on_disk {
 }
 
 #[test]
-#[ignore]
 fn wasmer_package_directory() {
     let temp = TempDir::new().unwrap();
     std::fs::copy(fixtures::qjs(), temp.path().join("qjs.wasm")).unwrap();
