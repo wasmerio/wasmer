@@ -13,7 +13,7 @@ use anyhow::{Context, Error};
 use clap::Parser;
 use tempfile::NamedTempFile;
 use url::Url;
-use wasmer::{Module, Store, TypedFunction};
+use wasmer::{Function, Imports, Instance, Module, Store, Type, TypedFunction, Value};
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::Package;
 use wasmer_wasix::runners::{Runner, WapmContainer};
@@ -84,7 +84,7 @@ impl Run2 {
         } else if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
             self.execute_wasi_module(target.path(), module, store)
         } else {
-            self.execute_pure_wasm_module()
+            self.execute_pure_wasm_module(module, store)
         }
     }
 
@@ -145,8 +145,35 @@ impl Run2 {
     }
 
     #[tracing::instrument(skip_all)]
-    fn execute_pure_wasm_module(&self) -> Result<(), Error> {
-        todo!()
+    fn execute_pure_wasm_module(&self, module: &Module, store: &mut Store) -> Result<(), Error> {
+        let imports = Imports::default();
+        let instance = Instance::new(store, module, &imports)
+            .context("Unable to instantiate the WebAssembly module")?;
+
+        let entrypoint  = match &self.entrypoint {
+            Some(entry) => {
+                instance.exports
+                    .get_function(entry)
+                    .with_context(|| format!("The module doesn't contain a \"{entry}\" function"))?
+            },
+            None => {
+                instance.exports.get_function("_start")
+                    .context("The module doesn't contain a \"_start\" function. Either implement it or specify an entrypoint function.")?
+            }
+        };
+
+        let return_values = invoke_function(&instance, store, entrypoint, &self.args)?;
+
+        println!(
+            "{}",
+            return_values
+                .iter()
+                .map(|val| val.to_string())
+                .collect::<Vec<String>>()
+                .join(" ")
+        );
+
+        Ok(())
     }
 
     #[tracing::instrument(skip_all)]
@@ -169,6 +196,49 @@ impl Run2 {
     fn execute_emscripten_module(&self) -> Result<(), Error> {
         todo!()
     }
+}
+
+fn invoke_function(
+    instance: &Instance,
+    store: &mut Store,
+    func: &Function,
+    args: &[String],
+) -> Result<Box<[Value]>, Error> {
+    let func_ty = func.ty(store);
+    let required_arguments = func_ty.params().len();
+    let provided_arguments = args.len();
+
+    anyhow::ensure!(
+        required_arguments == provided_arguments,
+        "Function expected {} arguments, but received {}",
+        required_arguments,
+        provided_arguments,
+    );
+
+    let invoke_args = args
+        .iter()
+        .zip(func_ty.params().iter())
+        .map(|(arg, param_type)| {
+            parse_value(arg, *param_type)
+                .with_context(|| format!("Unable to convert {arg:?} to {param_type:?}"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let return_values = func.call(store, &invoke_args)?;
+
+    Ok(return_values)
+}
+
+fn parse_value(s: &str, ty: wasmer_types::Type) -> Result<Value, Error> {
+    let value = match ty {
+        Type::I32 => Value::I32(s.parse()?),
+        Type::I64 => Value::I64(s.parse()?),
+        Type::F32 => Value::F32(s.parse()?),
+        Type::F64 => Value::F64(s.parse()?),
+        Type::V128 => Value::V128(s.parse()?),
+        _ => anyhow::bail!("There is no known conversion from {s:?} to {ty:?}"),
+    };
+    Ok(value)
 }
 
 fn infer_webc_entrypoint(manifest: &Manifest) -> Result<&str, Error> {

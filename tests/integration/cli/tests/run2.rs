@@ -116,7 +116,6 @@ mod wasm_on_disk {
     }
 
     #[test]
-    #[ignore]
     fn no_abi() {
         let assert = wasmer_cli().arg("run2").arg(fixtures::fib()).assert();
 
@@ -124,7 +123,6 @@ mod wasm_on_disk {
     }
 
     #[test]
-    #[ignore]
     fn error_if_no_start_function_found() {
         let assert = wasmer_cli()
             .arg("run2")
