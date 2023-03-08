@@ -3230,6 +3230,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f3208ce4d8448b3f3e7d168a73f5e0c43a61e32930de3bceeccedb388b6bf06"
 
 [[package]]
+name = "rusty_jsc"
+version = "0.0.3"
+dependencies = [
+ "anyhow",
+ "rusty_jsc_macros",
+ "rusty_jsc_sys",
+]
+
+[[package]]
+name = "rusty_jsc_macros"
+version = "0.0.3"
+dependencies = [
+ "pkg-config",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "rusty_jsc_sys"
+version = "0.0.3"
+dependencies = [
+ "pkg-config",
+]
+
+[[package]]
 name = "ryu"
 version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4747,6 +4772,7 @@ dependencies = [
  "js-sys",
  "macro-wasmer-universal-test",
  "more-asserts",
+ "rusty_jsc",
  "serde",
  "serde-wasm-bindgen",
  "target-lexicon 0.12.6",

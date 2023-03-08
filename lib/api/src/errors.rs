@@ -1,5 +1,7 @@
 #[cfg(feature = "js")]
 pub use crate::js::errors::{LinkError, RuntimeError};
+#[cfg(feature = "jsc")]
+pub use crate::jsc::errors::{LinkError, RuntimeError};
 use thiserror::Error;
 #[cfg(feature = "sys")]
 pub use wasmer_compiler::{LinkError, RuntimeError};

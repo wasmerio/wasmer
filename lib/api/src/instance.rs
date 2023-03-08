@@ -8,6 +8,8 @@ use crate::store::AsStoreMut;
 
 #[cfg(feature = "js")]
 use crate::js::instance as instance_imp;
+#[cfg(feature = "jsc")]
+use crate::jsc::instance as instance_imp;
 #[cfg(feature = "sys")]
 use crate::sys::instance as instance_imp;
 

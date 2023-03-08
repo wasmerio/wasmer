@@ -412,16 +412,29 @@
 //! [`wasm-pack`]: https://github.com/rustwasm/wasm-pack/
 //! [`wasm-bindgen`]: https://github.com/rustwasm/wasm-bindgen
 
-#[cfg(all(not(feature = "sys"), not(feature = "js")))]
-compile_error!("At least the `sys` or the `js` feature must be enabled. Please, pick one.");
+#[cfg(all(not(feature = "sys"), not(feature = "js"), not(feature = "jsc")))]
+compile_error!("One of: `sys`, `js` or `jsc` features must be enabled. Please, pick one.");
 
 #[cfg(all(feature = "sys", feature = "js"))]
 compile_error!(
     "Cannot have both `sys` and `js` features enabled at the same time. Please, pick one."
 );
 
+#[cfg(all(feature = "js", feature = "jsc"))]
+compile_error!(
+    "Cannot have both `js` and `jsc` features enabled at the same time. Please, pick one."
+);
+
+#[cfg(all(feature = "sys", feature = "jsc"))]
+compile_error!(
+    "Cannot have both `sys` and `jsc` features enabled at the same time. Please, pick one."
+);
+
 #[cfg(all(feature = "sys", target_arch = "wasm32"))]
 compile_error!("The `sys` feature must be enabled only for non-`wasm32` target.");
+
+#[cfg(all(feature = "jsc", target_arch = "wasm32"))]
+compile_error!("The `jsc` feature must be enabled only for non-`wasm32` target.");
 
 #[cfg(all(feature = "js", not(target_arch = "wasm32")))]
 compile_error!(
@@ -458,6 +471,12 @@ mod js;
 
 #[cfg(feature = "js")]
 pub use js::*;
+
+#[cfg(feature = "jsc")]
+mod jsc;
+
+#[cfg(feature = "jsc")]
+pub use jsc::*;
 
 pub use crate::externals::{Extern, Function, Global, HostFunction, Memory, MemoryView, Table};
 pub use access::WasmSliceAccess;
