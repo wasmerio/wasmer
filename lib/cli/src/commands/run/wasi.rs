@@ -40,6 +40,10 @@ pub struct Wasi {
     )]
     pub(crate) env_vars: Vec<(String, String)>,
 
+    /// Forward all host env variables to the wcgi task.
+    #[clap(long, env)]
+    pub(crate) forward_host_env: bool,
+
     /// List of other containers this module depends on
     #[clap(long = "use", name = "USE")]
     uses: Vec<String>,

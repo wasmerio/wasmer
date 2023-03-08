@@ -48,11 +48,7 @@ mod webc_on_disk {
     }
 
     #[test]
-    #[ignore]
     fn wasi_runner_with_env_vars() {
-        let temp = TempDir::new().unwrap();
-        std::fs::write(temp.path().join("main.py"), "print('Hello, World!')").unwrap();
-
         let assert = Command::new(wasmer_executable())
             .arg("run2")
             .arg(fixtures::python())

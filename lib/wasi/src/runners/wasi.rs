@@ -1,6 +1,6 @@
 //! WebC container support for running WASI modules
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::{runners::WapmContainer, PluggableRuntime, VirtualTaskManager};
 use crate::{WasiEnv, WasiEnvBuilder};
@@ -12,6 +12,8 @@ use webc::metadata::{annotations::Wasi, Command};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WasiRunner {
     args: Vec<String>,
+    env: HashMap<String, String>,
+    forward_host_env: bool,
     #[serde(skip, default)]
     store: Store,
     #[serde(skip, default)]
@@ -23,7 +25,9 @@ impl WasiRunner {
     pub fn new(store: Store) -> Self {
         Self {
             args: Vec::new(),
+            env: HashMap::new(),
             store,
+            forward_host_env: false,
             tasks: None,
         }
     }
@@ -50,6 +54,47 @@ impl WasiRunner {
         S: Into<String>,
     {
         self.args = args.into_iter().map(|s| s.into()).collect();
+    }
+
+    /// Builder method to provide environment variables to the runner.
+    pub fn with_env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.set_env(key, value);
+        self
+    }
+
+    /// Provide environment variables to the runner.
+    pub fn set_env(&mut self, key: impl Into<String>, value: impl Into<String>) {
+        self.env.insert(key.into(), value.into());
+    }
+
+    pub fn with_envs<I, K, V>(mut self, envs: I) -> Self
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: Into<String>,
+        V: Into<String>,
+    {
+        self.set_envs(envs);
+        self
+    }
+
+    pub fn set_envs<I, K, V>(&mut self, envs: I)
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: Into<String>,
+        V: Into<String>,
+    {
+        for (key, value) in envs {
+            self.env.insert(key.into(), value.into());
+        }
+    }
+
+    pub fn with_forward_host_env(mut self) -> Self {
+        self.set_forward_host_env();
+        self
+    }
+
+    pub fn set_forward_host_env(&mut self) {
+        self.forward_host_env = true;
     }
 
     pub fn with_task_manager(mut self, tasks: impl VirtualTaskManager) -> Self {
@@ -89,6 +134,16 @@ impl crate::runners::Runner for WasiRunner {
         module.set_name(&atom_name);
 
         let mut builder = prepare_webc_env(container, &atom_name, &self.args)?;
+
+        if self.forward_host_env {
+            for (k, v) in std::env::vars() {
+                builder.add_env(k, v);
+            }
+        }
+
+        for (k, v) in &self.env {
+            builder.add_env(k, v);
+        }
 
         if let Some(tasks) = &self.tasks {
             let rt = PluggableRuntime::new(Arc::clone(tasks));

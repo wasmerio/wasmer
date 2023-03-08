@@ -112,9 +112,17 @@ impl Run2 {
             .get(id)
             .with_context(|| format!("Unable to get metadata for the \"{id}\" command"))?;
 
+        // TODO(Michael-F-Bryan): Refactor the wasmer_wasi::runners::Runner
+        // trait So we can check whether a command is supported by a runner
+        // without needing to go through and instantiate each one.
+
         let (store, _compiler_type) = self.store.get_store()?;
-        let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new(store);
-        runner.set_args(self.args.clone());
+        let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new(store)
+            .with_args(self.args.clone())
+            .with_envs(self.wasi.env_vars.clone());
+        if self.wasi.forward_host_env {
+            runner.set_forward_host_env();
+        }
         if runner.can_run_command(id, command).unwrap_or(false) {
             return runner.run_cmd(&container, id).context("WASI runner failed");
         }
@@ -137,7 +145,7 @@ impl Run2 {
             .addr(self.wcgi.addr)
             .envs(self.wasi.env_vars.clone())
             .map_directories(self.wasi.mapped_dirs.iter().map(|(g, h)| (h, g)));
-        if self.wcgi.forward_host_env {
+        if self.wasi.forward_host_env {
             runner.config().forward_host_env();
         }
         if runner.can_run_command(id, command).unwrap_or(false) {
@@ -484,17 +492,12 @@ pub(crate) struct WcgiOptions {
     /// The address to serve on.
     #[clap(long, short, env, default_value_t = ([127, 0, 0, 1], 8000).into())]
     pub(crate) addr: SocketAddr,
-    /// Forward all host env variables to the wcgi task.
-    #[clap(long)]
-    pub(crate) forward_host_env: bool,
 }
 
 impl Default for WcgiOptions {
     fn default() -> Self {
         Self {
             addr: ([127, 0, 0, 1], 8000).into(),
-            forward_host_env: false,
         }
     }
 }
-

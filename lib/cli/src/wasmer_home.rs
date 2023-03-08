@@ -13,6 +13,9 @@ use wasmer::{AsEngineRef, DeserializeError, Module, SerializeError};
 use wasmer_cache::Hash;
 use wasmer_registry::Package;
 
+const DEFAULT_REGISTRY: &str = "https://wapm.io/";
+const CACHE_INVALIDATION_THRESHOLD: Duration = Duration::from_secs(5 * 60);
+
 /// Something which can fetch resources from the internet and will cache them
 /// locally.
 pub trait DownloadCached {
@@ -30,7 +33,7 @@ pub struct WasmerHome {
     registry: Option<String>,
     /// Skip all caching.
     #[clap(long)]
-    pub no_cache: bool,
+    pub disable_cache: bool,
 }
 
 impl WasmerHome {
@@ -61,7 +64,7 @@ impl DownloadCached for WasmerHome {
         let cache_key = Hash::generate(url.to_string().as_bytes());
 
         // First, we figure out some basic information about the item
-        let cache_info = CacheInfo::for_url(&cache_key, &checkouts, self.no_cache);
+        let cache_info = CacheInfo::for_url(&cache_key, &checkouts, self.disable_cache);
 
         // Next we check if we definitely got a cache hit
         let state = match classify_cache_using_mtime(cache_info) {
@@ -91,7 +94,8 @@ impl DownloadCached for WasmerHome {
                         tracing::warn!(
                             path=%path.display(),
                             error=&e as &dyn std::error::Error,
-                            "An error occurred while connecting to the resource. Falling back to a cached version."
+                            "An error occurred while connecting to {}. Falling back to a cached version.",
+                            url.host_str().unwrap_or(url.as_str()),
                         );
                         return Ok(path);
                     }
@@ -130,7 +134,7 @@ impl DownloadCached for WasmerHome {
 
         // Note: we want to copy directly into a file so we don't hold
         // everything in memory.
-        let (mut f, path) = if self.no_cache {
+        let (mut f, path) = if self.disable_cache {
             // Leave the temporary file where it is. The OS will clean it up
             // for us later, and hopefully the caller will open it before the
             // temp file cleaner comes along.
@@ -150,7 +154,7 @@ impl DownloadCached for WasmerHome {
             .and_then(|_| f.flush())
             .with_context(|| format!("Unable to save the response to \"{}\"", path.display()))?;
 
-        if !self.no_cache {
+        if !self.disable_cache {
             if let Some(etag) = etag {
                 let etag_path = path.with_extension("etag");
                 tracing::debug!(
@@ -174,7 +178,6 @@ impl DownloadCached for WasmerHome {
     }
 
     fn download_package(&self, pkg: &Package) -> Result<PathBuf, Error> {
-        const DEFAULT_REGISTRY: &str = "https://wapm.io/";
         let registry = self.registry.as_deref().unwrap_or(DEFAULT_REGISTRY);
         let url = package_url(registry, pkg)?;
 
@@ -220,8 +223,6 @@ impl CacheInfo {
 }
 
 fn classify_cache_using_mtime(info: CacheInfo) -> Result<PathBuf, CacheState> {
-    const CACHE_INVALIDATION_THRESHOLD: Duration = Duration::from_secs(5 * 60);
-
     let (path, last_modified, etag) = match info {
         CacheInfo::Hit {
             path,
