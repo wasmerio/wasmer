@@ -14,7 +14,7 @@ use wasmer_vfs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
 use crate::{
     bin_factory::{BinFactory, ModuleCache},
     fs::{WasiFs, WasiFsRoot, WasiInodes},
-    os::task::control_plane::{ControlPlaneError, WasiControlPlane},
+    os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     Capabilities, PluggableRuntimeImplementation, WasiEnv, WasiFunctionEnv, WasiRuntime,
@@ -684,7 +684,10 @@ impl WasiEnvBuilder {
 
         let capabilities = self.capabilites;
 
-        let control_plane = WasiControlPlane::default();
+        let plane_config = ControlPlaneConfig {
+            max_task_count: capabilities.threading.max_threads,
+        };
+        let control_plane = WasiControlPlane::new(plane_config);
 
         let init = WasiEnvInit {
             state,
