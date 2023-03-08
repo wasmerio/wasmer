@@ -3669,6 +3669,16 @@
 <span id="3669">3669</span>
 <span id="3670">3670</span>
 <span id="3671">3671</span>
+<span id="3672">3672</span>
+<span id="3673">3673</span>
+<span id="3674">3674</span>
+<span id="3675">3675</span>
+<span id="3676">3676</span>
+<span id="3677">3677</span>
+<span id="3678">3678</span>
+<span id="3679">3679</span>
+<span id="3680">3680</span>
+<span id="3681">3681</span>
 </pre><pre class="rust"><code><span class="kw">pub</span> <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::arm64_decl</span>::{<span class="ident">ARM64Register</span>, <span class="ident">ArgumentRegisterAllocator</span>, <span class="ident">GPR</span>, <span class="ident">NEON</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::codegen_error</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::common_decl::Size</span>;
@@ -5617,6 +5627,16 @@
             }
             (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::Imm32</span>(<span class="ident">imm</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>))
             <span class="op">|</span> (<span class="ident">Size::S64</span>, <span class="ident">Location::Imm32</span>(<span class="ident">imm</span>), <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
+                <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
+                <span class="kw">let</span> <span class="ident">imm</span> <span class="op">=</span> <span class="ident">imm</span> <span class="kw">as</span> <span class="ident">u32</span>;
+                <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
+                <span class="kw">if</span> <span class="ident">imm</span> <span class="op">==</span> <span class="number">0</span> <span class="op">|</span><span class="op">|</span> <span class="ident">imm</span> <span class="op">&gt;</span> <span class="number">63</span> {
+                    <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass ROR with incompatible imm {}&quot;</span>, <span class="ident">imm</span>);
+                }
+                <span class="macro">dynasm!</span>(<span class="self">self</span> ; <span class="ident">ror</span> <span class="ident">X</span>(<span class="ident">dst</span>), <span class="ident">X</span>(<span class="ident">src1</span>), <span class="ident">imm</span>);
+            }
+            (<span class="ident">Size::S64</span>, <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::Imm64</span>(<span class="ident">imm</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>))
+            <span class="op">|</span> (<span class="ident">Size::S64</span>, <span class="ident">Location::Imm64</span>(<span class="ident">imm</span>), <span class="ident">Location::GPR</span>(<span class="ident">src1</span>), <span class="ident">Location::GPR</span>(<span class="ident">dst</span>)) =&gt; {
                 <span class="kw">let</span> <span class="ident">src1</span> <span class="op">=</span> <span class="ident">src1</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">imm</span> <span class="op">=</span> <span class="ident">imm</span> <span class="kw">as</span> <span class="ident">u32</span>;
                 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="ident">dst</span>.<span class="ident">into_index</span>() <span class="kw">as</span> <span class="ident">u32</span>;
