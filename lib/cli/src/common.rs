@@ -13,9 +13,9 @@ pub struct WasmFeatures {
     #[clap(long = "enable-simd")]
     pub simd: bool,
 
-    /// Enable support for the threads proposal.
-    #[clap(long = "enable-threads")]
-    pub threads: bool,
+    /// Disable support for the threads proposal.
+    #[clap(long = "disable-threads")]
+    pub disable_threads: bool,
 
     /// Enable support for the reference types proposal.
     #[clap(long = "enable-reference-types")]
