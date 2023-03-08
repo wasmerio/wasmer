@@ -29,10 +29,10 @@ pub struct Instance {
 
 impl Instance {
     /// Creates a new `Instance` from a WebAssembly [`Module`] and a
-    /// set of imports using [`Imports`] or the [`imports`] macro helper.
+    /// set of imports using [`Imports`] or the [`imports!`] macro helper.
     ///
-    /// [`imports`]: crate::imports
-    /// [`Imports`]: crate::Imports
+    /// [`imports!`]: crate::imports!
+    /// [`Imports!`]: crate::Imports!
     ///
     /// ```
     /// # use wasmer::{imports, Store, Module, Global, Value, Instance};
