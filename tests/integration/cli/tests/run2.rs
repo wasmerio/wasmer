@@ -1,6 +1,7 @@
 use std::time::{Duration, Instant};
 
 use assert_cmd::{assert::Assert, prelude::OutputAssertExt, Command};
+use predicates::str::contains;
 use reqwest::{blocking::Client, IntoUrl};
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::get_wasmer_path;
@@ -12,6 +13,7 @@ fn wasmer_cli() -> Command {
 mod webc_on_disk {
     use std::process::Stdio;
 
+    use predicates::str::contains;
     use rand::Rng;
 
     use super::*;
@@ -25,9 +27,7 @@ mod webc_on_disk {
             .arg("--version")
             .assert();
 
-        assert
-            .success()
-            .stdout(predicates::str::contains("Python 3.6.7"));
+        assert.success().stdout(contains("Python 3.6.7"));
     }
 
     #[test]
@@ -45,9 +45,7 @@ mod webc_on_disk {
             .arg("/app/main.py")
             .assert();
 
-        assert
-            .success()
-            .stdout(predicates::str::contains("Hello, World!"));
+        assert.success().stdout(contains("Hello, World!"));
     }
 
     #[test]
@@ -66,9 +64,7 @@ mod webc_on_disk {
             .arg("import os; print(os.environ['SOME_VAR'])")
             .assert();
 
-        assert
-            .success()
-            .stdout(predicates::str::contains("Hello, World!"));
+        assert.success().stdout(contains("Hello, World!"));
     }
 
     #[test]
@@ -96,16 +92,17 @@ mod webc_on_disk {
         let assert = child.join();
 
         assert
-            .stdout(predicates::str::contains("Starting the server"))
-            .stdout(predicates::str::contains("method=GET url=/"));
+            .stdout(contains("Starting the server"))
+            .stdout(contains("method=GET url=/"));
     }
 }
 
 mod wasm_on_disk {
+    use predicates::str::contains;
+
     use super::*;
 
     #[test]
-    #[ignore]
     fn wasi_executable() {
         let assert = wasmer_cli()
             .arg("run2")
@@ -115,7 +112,7 @@ mod wasm_on_disk {
             .arg("console.log('Hello, World!')")
             .assert();
 
-        assert.success().stdout("Hello, World!");
+        assert.success().stdout(contains("Hello, World!"));
     }
 
     #[test]
@@ -136,7 +133,34 @@ mod wasm_on_disk {
 
         assert
             .failure()
-            .stderr("Can not find any export functions.");
+            .stderr(contains("Can not find any export functions."));
+    }
+
+    #[test]
+    fn pre_compiled() {
+        let temp = TempDir::new().unwrap();
+        let dest = temp.path().join("qjs.wasmu");
+        let qjs = fixtures::qjs();
+        // Make sure it is compiled
+        wasmer_cli()
+            .arg("compile")
+            .arg("-o")
+            .arg(&dest)
+            .arg(&qjs)
+            .assert()
+            .success();
+        assert!(dest.exists());
+
+        // Now we can try to run the compiled artifact
+        let assert = wasmer_cli()
+            .arg("run2")
+            .arg(&dest)
+            .arg("--")
+            .arg("--eval")
+            .arg("console.log('Hello, World!')")
+            .assert();
+
+        assert.success().stdout(contains("Hello, World!"));
     }
 }
 
@@ -155,35 +179,7 @@ fn wasmer_package_directory() {
         .arg("console.log('Hello, World!')")
         .assert();
 
-    assert.success().stdout("Hello, World!");
-}
-
-#[test]
-#[ignore]
-fn pre_compiled_wasm() {
-    let temp = TempDir::new().unwrap();
-    let dest = temp.path().join("qjs.wasmu");
-    let qjs = fixtures::qjs();
-    // Make sure it is compiled
-    wasmer_cli()
-        .arg("compile")
-        .arg("-o")
-        .arg(&dest)
-        .arg(&qjs)
-        .assert()
-        .success();
-    assert!(dest.exists());
-
-    // Now we can try to run the compiled artifact
-    let assert = wasmer_cli()
-        .arg("run2")
-        .arg(&dest)
-        .arg("--")
-        .arg("--eval")
-        .arg("console.log('Hello, World!')")
-        .assert();
-
-    assert.success().stdout("Hello, World!");
+    assert.success().stdout(contains("Hello, World!"));
 }
 
 mod remote_webc {

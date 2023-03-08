@@ -13,7 +13,7 @@ use anyhow::{Context, Error};
 use clap::Parser;
 use tempfile::NamedTempFile;
 use url::Url;
-use wasmer::{Module, Store};
+use wasmer::{Module, Store, TypedFunction};
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::Package;
 use wasmer_wasix::runners::{Runner, WapmContainer};
@@ -80,14 +80,15 @@ impl Run2 {
         store: &mut Store,
     ) -> Result<(), Error> {
         if wasmer_emscripten::is_emscripten_module(module) {
-            execute_emscripten_module()
+            self.execute_emscripten_module()
         } else if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
-            execute_wasi_module()
+            self.execute_wasi_module(target.path(), module, store)
         } else {
-            execute_pure_wasm_module()
+            self.execute_pure_wasm_module()
         }
     }
 
+    #[tracing::instrument(skip_all)]
     fn execute_webc(
         &self,
         target: &TargetOnDisk,
@@ -142,18 +143,32 @@ impl Run2 {
             command.runner
         );
     }
-}
 
-fn execute_pure_wasm_module() -> Result<(), Error> {
-    todo!()
-}
+    #[tracing::instrument(skip_all)]
+    fn execute_pure_wasm_module(&self) -> Result<(), Error> {
+        todo!()
+    }
 
-fn execute_wasi_module() -> Result<(), Error> {
-    todo!()
-}
+    #[tracing::instrument(skip_all)]
+    fn execute_wasi_module(
+        &self,
+        wasm_path: &Path,
+        module: &Module,
+        store: &mut Store,
+    ) -> Result<(), Error> {
+        let program_name = wasm_path.display().to_string();
+        let builder = self
+            .wasi
+            .prepare(store, module, program_name, self.args.clone())?;
 
-fn execute_emscripten_module() -> Result<(), Error> {
-    todo!()
+        builder.run_with_store(module.clone(), store)?;
+        Ok(())
+    }
+
+    #[tracing::instrument(skip_all)]
+    fn execute_emscripten_module(&self) -> Result<(), Error> {
+        todo!()
+    }
 }
 
 fn infer_webc_entrypoint(manifest: &Manifest) -> Result<&str, Error> {

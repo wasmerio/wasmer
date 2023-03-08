@@ -2,8 +2,8 @@ use std::{collections::HashMap, convert::Infallible, net::SocketAddr, path::Path
 
 use anyhow::{Context, Error};
 use futures::future::AbortHandle;
-use virtual_fs::FileSystem;
 use hyper::server::conn::AddrStream;
+use virtual_fs::FileSystem;
 use wasmer::{Engine, Module, Store};
 use wcgi_host::CgiDialect;
 use webc::metadata::{

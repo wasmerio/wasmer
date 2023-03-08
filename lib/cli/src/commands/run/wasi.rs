@@ -1,19 +1,18 @@
 use crate::utils::{parse_envvar, parse_mapdir};
 use anyhow::Result;
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::{collections::BTreeSet, path::Path};
-use virtual_fs::FileSystem;
-use virtual_fs::{DeviceFile, PassthruFileSystem, RootFileSystemBuilder};
+use std::{
+    collections::{BTreeSet, HashMap},
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Value};
-use wasmer_wasix::os::tty_sys::SysTty;
-use wasmer_wasix::os::TtyBridge;
-use wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager;
-use wasmer_wasix::types::__WASI_STDIN_FILENO;
 use wasmer_wasix::{
-    default_fs_backing, get_wasi_versions, PluggableRuntime, WasiEnv, WasiError, WasiFunctionEnv,
-    WasiVersion,
+    default_fs_backing, get_wasi_versions,
+    os::{tty_sys::SysTty, TtyBridge},
+    runtime::task_manager::tokio::TokioTaskManager,
+    types::__WASI_STDIN_FILENO,
+    PluggableRuntime, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv, WasiVersion,
 };
 
 use clap::Parser;
@@ -113,14 +112,13 @@ impl Wasi {
         get_wasi_versions(module, false).is_some()
     }
 
-    /// Helper function for instantiating a module with Wasi imports for the `Run` command.
-    pub fn instantiate(
+    pub fn prepare(
         &self,
         store: &mut impl AsStoreMut,
         module: &Module,
         program_name: String,
         args: Vec<String>,
-    ) -> Result<(WasiFunctionEnv, Instance)> {
+    ) -> Result<WasiEnvBuilder> {
         let args = args.into_iter().map(|arg| arg.into_bytes());
 
         let map_commands = self
@@ -198,6 +196,18 @@ impl Wasi {
             }
         }
 
+        Ok(builder)
+    }
+
+    /// Helper function for instantiating a module with Wasi imports for the `Run` command.
+    pub fn instantiate(
+        &self,
+        store: &mut impl AsStoreMut,
+        module: &Module,
+        program_name: String,
+        args: Vec<String>,
+    ) -> Result<(WasiFunctionEnv, Instance)> {
+        let builder = self.prepare(store, module, program_name, args)?;
         let (instance, wasi_env) = builder.instantiate(module.clone(), store)?;
         Ok((wasi_env, instance))
     }
