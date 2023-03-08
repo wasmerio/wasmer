@@ -20,9 +20,10 @@ use wasmer_vfs::{FileSystem, PassthruFileSystem, RootFileSystemBuilder, TmpFileS
 use wcgi_host::CgiDialect;
 
 use crate::{
+    capabilities::Capabilities,
     http::HttpClientCapabilityV1,
     runners::wcgi::{Callbacks, MappedDirectory},
-    Capabilities, Pipe, PluggableRuntimeImplementation, VirtualTaskManager, WasiEnv,
+    Pipe, PluggableRuntimeImplementation, VirtualTaskManager, WasiEnv,
 };
 
 /// The shared object that manages the instantiaion of WASI executables and

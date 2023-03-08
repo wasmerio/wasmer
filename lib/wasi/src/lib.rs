@@ -47,6 +47,8 @@ mod syscalls;
 mod utils;
 pub mod wapm;
 
+pub mod capabilities;
+
 /// WAI based bindings.
 mod bindings;
 
@@ -106,7 +108,7 @@ pub use crate::utils::is_wasix_module;
 
 pub use crate::{
     state::{
-        Capabilities, WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
+        WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
         WasiStateCreationError, ALL_RIGHTS,
     },
     syscalls::types,
