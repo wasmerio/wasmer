@@ -83,9 +83,9 @@ mod webc_on_disk {
         let assert = child.join();
 
         assert
-            .stdout(contains("Starting the server"))
-            .stdout(contains("method=GET url=/"))
-            .stdout(contains("method=GET url=/this/does/not/exist.html"));
+            .stderr(contains("Starting the server"))
+            .stderr(contains("method=GET url=/"))
+            .stderr(contains("method=GET url=/this/does/not/exist.html"));
     }
 
     #[test]
@@ -111,8 +111,8 @@ mod webc_on_disk {
         let assert = child.join();
 
         assert
-            .stdout(contains("Starting the server"))
-            .stdout(contains("method=GET url=/file.txt"));
+            .stderr(contains("Starting the server"))
+            .stderr(contains("method=GET url=/file.txt"));
     }
 }
 

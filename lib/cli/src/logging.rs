@@ -11,6 +11,7 @@ pub fn set_up_logging(level: log::LevelFilter) {
         .with_span_events(fmt::format::FmtSpan::CLOSE)
         .with_ansi(should_emit_colors())
         .with_thread_ids(true)
+        .with_writer(std::io::stderr)
         .compact();
 
     let filter_layer = EnvFilter::builder()
@@ -30,7 +31,7 @@ pub fn set_up_logging(level: log::LevelFilter) {
 ///
 /// For more, see https://github.com/tokio-rs/tracing/issues/2388
 fn should_emit_colors() -> bool {
-    isatty::stdout_isatty() && std::env::var_os("NO_COLOR").is_none()
+    isatty::stderr_isatty() && std::env::var_os("NO_COLOR").is_none()
 }
 
 fn log_directive(level: log::LevelFilter) -> Directive {
