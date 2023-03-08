@@ -1,9 +1,7 @@
-// use super::frame_info::{FrameInfo, GlobalFrameInfo, FRAME_INFO};
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
-use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsValue;
+use wasm_bindgen::{prelude::*, JsValue};
 use wasm_bindgen_downcast::DowncastJS;
 
 pub trait CoreError: fmt::Debug + fmt::Display {
@@ -216,6 +214,16 @@ impl RuntimeError {
                 inner: Arc::new(inner),
             }),
             Err(inner) => Err(Self { inner }),
+        }
+    }
+
+    /// Attempts to downcast the `RuntimeError` to a concrete type.
+    pub fn downcast_ref<T: Error + 'static>(&self) -> Option<&T> {
+        match self.inner.as_ref() {
+            // We only try to downcast user errors
+            #[cfg(feature = "std")]
+            RuntimeErrorSource::User(err) => err.downcast_ref::<T>(),
+            _ => None,
         }
     }
 

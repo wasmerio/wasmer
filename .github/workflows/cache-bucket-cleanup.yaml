@@ -1,0 +1,29 @@
+# Cleans up the custom Github Actions cache bucket.
+
+name: Actions Cache Bucket Cleanup
+
+on:
+  schedule:
+    # Run once a day.
+    - cron: "0 3 * * *"
+
+     # A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "cron"
+  cron:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install boto3 library
+        run: pip install boto3
+      - name: Clone repository
+        uses: actions/checkout@v3
+      - name: Run cleanup
+        env:
+          AWS_ENDPOINT: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          AWS_BUCKET_NAME: wasmer-rust-artifacts-cache
+        run: |
+          ./.github/s3-cache-cleanup.py

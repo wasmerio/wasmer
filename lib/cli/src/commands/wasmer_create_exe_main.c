@@ -212,23 +212,11 @@ int main(int argc, char *argv[]) {
   }
 
 #ifdef WASI
-  // Read the exports.
-  wasm_extern_vec_t exports;
-  wasm_instance_exports(instance, &exports);
-  wasm_memory_t* mem = NULL;
-  for (size_t i = 0; i < exports.size; i++) {
-    mem = wasm_extern_as_memory(exports.data[i]);
-    if (mem) {
-      break;
-    }
-  }
-
-  if (!mem) {
-    fprintf(stderr, "Failed to create instance: Could not find memory in exports\n");
+  if (!wasi_env_initialize_instance(wasi_env, store, instance)) {
+    fprintf(stderr, "Failed to initialize env\n");
     print_wasmer_error();
     return -1;
   }
-  wasi_env_set_memory(wasi_env, mem);
 
   own wasm_func_t *start_function = wasi_get_start_function(instance);
   if (!start_function) {
@@ -257,11 +245,10 @@ int main(int argc, char *argv[]) {
 
 #ifdef WASI_PIRITA
   wasi_filesystem_delete(filesystem);
+#else
+  wasm_extern_vec_delete(&imports);
 #endif
-#ifdef WASI
   wasi_env_delete(wasi_env);
-  wasm_extern_vec_delete(&exports);
-#endif
   wasm_instance_delete(instance);
   wasm_module_delete(module);
   wasm_store_delete(store);

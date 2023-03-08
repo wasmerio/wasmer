@@ -14,13 +14,9 @@ edition = "2018"
 maintenance = { status = "experimental" }
 
 [dependencies]
-wasmer-vnet = { version = "=3.2.0-alpha.1", path = "../vnet", default-features = false }
-wasmer-vfs = { path = "../vfs", version = "=3.2.0-alpha.1", default-features = false }
+wasmer-vnet = { version = "=3.2.0-alpha.1", path = "../vnet" }
 tracing = "0.1"
 bytes = "1.1"
-
-[features]
-default = ["host_fs"]
-wasix = [ ]
-host_fs = ["wasmer-vnet/host_fs", "wasmer-vfs/host-fs"]
-mem_fs = ["wasmer-vnet/mem_fs", "wasmer-vfs/mem-fs"]
+tokio = { version = "1", features = [ "sync", "macros", "io-util", "signal" ], default_features = false }
+async-trait = { version = "^0.1" }
+libc = "0.2.139"

@@ -1,0 +1,30 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": null,
+    "wasm_hash": "a14ec977d28125d9a8a24e5597553a19",
+    "use_packages": [],
+    "cli_args": [
+      "tee",
+      "/dev/stderr"
+    ],
+    "stdin": [
+      98,
+      108,
+      97,
+      104
+    ],
+    "debug_output": false,
+    "enable_threads": true
+  },
+  "result": {
+    "Success": {
+      "stdout": "blah",
+      "stderr": "blah",
+      "exit_code": 0
+    }
+  }
+}

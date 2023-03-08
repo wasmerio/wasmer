@@ -4,8 +4,9 @@ This crate contains the WASI types necessary for `wasmer-wasi`. Please check thi
 
 ---
 
-Run `regenerate.sh` to regenerate the wasi-types from
-the `wasi-clean/typenames.wit` into the final Rust bindings.
+To re-generate the bindings, run:
 
-The `wasi-types-generator-extra` generates some extra code
-that wit-bindgen currently can't provide.
+```
+cd ./wasi-types-generator-extra
+cargo run
+```

@@ -6,7 +6,8 @@ pub use wasmer_compiler::BaseTunables;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sys::TableType;
+    use crate::sys::NativeEngineExt;
+    use crate::TableType;
     use std::cell::UnsafeCell;
     use std::ptr::NonNull;
     use wasmer_compiler::Tunables;
@@ -228,7 +229,7 @@ mod tests {
 
     #[test]
     fn check_customtunables() -> Result<(), Box<dyn std::error::Error>> {
-        use crate::{imports, wat2wasm, Instance, Memory, Module, Store};
+        use crate::{imports, wat2wasm, Engine, Instance, Memory, Module, Store};
         use wasmer_compiler_cranelift::Cranelift;
 
         let wasm_bytes = wat2wasm(
@@ -242,7 +243,9 @@ mod tests {
         let compiler = Cranelift::default();
 
         let tunables = TinyTunables {};
-        let mut store = Store::new_with_tunables(compiler, tunables);
+        let mut engine = Engine::new(compiler.into(), Default::default(), Default::default());
+        engine.set_tunables(tunables);
+        let mut store = Store::new(engine);
         //let mut store = Store::new(compiler);
         let module = Module::new(&store, wasm_bytes)?;
         let import_object = imports! {};

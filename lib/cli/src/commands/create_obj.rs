@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 //! Create a standalone native executable for a given Wasm file.
 
-use super::ObjectFormat;
 use crate::store::CompilerOptions;
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -52,14 +51,6 @@ pub struct CreateObj {
     #[clap(long = "target")]
     target_triple: Option<Triple>,
 
-    /// Object format options
-    ///
-    /// This flag accepts two options: `symbols` or `serialized`.
-    /// - (default) `symbols` creates an object where all functions and metadata of the module are regular object symbols
-    /// - `serialized` creates an object where the module is zero-copy serialized as raw data
-    #[clap(long = "object-format", name = "OBJECT_FORMAT", verbatim_doc_comment)]
-    object_format: Option<ObjectFormat>,
-
     #[clap(long, short = 'm', multiple = true, number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
 
@@ -80,7 +71,6 @@ impl CreateObj {
             None => temp_dir?.path().to_path_buf(),
         };
         std::fs::create_dir_all(&output_directory_path)?;
-        let object_format = self.object_format.unwrap_or_default();
         let prefix = match self.prefix.as_ref() {
             Some(s) => vec![s.clone()],
             None => Vec::new(),
@@ -93,10 +83,9 @@ impl CreateObj {
         let (_, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
-        println!("Format: {:?}", object_format);
 
         let atoms = if let Ok(pirita) =
-            webc::WebCMmap::parse(input_path.clone(), &webc::ParseOptions::default())
+            webc::v1::WebCMmap::parse(input_path.clone(), &webc::v1::ParseOptions::default())
         {
             crate::commands::create_exe::compile_pirita_into_directory(
                 &pirita,
@@ -104,7 +93,6 @@ impl CreateObj {
                 &self.compiler,
                 &self.cpu_features,
                 &target_triple,
-                object_format,
                 &prefix,
                 crate::commands::AllowMultiWasm::Reject(self.atom.clone()),
                 self.debug_dir.is_some(),
@@ -116,7 +104,6 @@ impl CreateObj {
                 &self.compiler,
                 &target_triple,
                 &self.cpu_features,
-                object_format,
                 &prefix,
                 self.debug_dir.is_some(),
             )

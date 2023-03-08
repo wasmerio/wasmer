@@ -7,8 +7,6 @@ use crate::Artifact;
 use crate::BaseTunables;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::CodeMemory;
-#[cfg(not(target_arch = "wasm32"))]
-use crate::{AsEngineRef, EngineRef};
 #[cfg(feature = "compiler")]
 use crate::{Compiler, CompilerConfig};
 #[cfg(not(target_arch = "wasm32"))]
@@ -74,17 +72,26 @@ impl Engine {
         }
     }
 
-    /// Returns only the `ModuleInfo` given a `wasm` byte slice
-    #[cfg(feature = "compiler")]
-    pub fn get_module_info(data: &[u8]) -> Result<ModuleInfo, CompileError> {
-        // this is from `artifact_builder.rs`
-        let environ = crate::ModuleEnvironment::new();
-        let translation = environ.translate(data).map_err(CompileError::Wasm)?;
-        Ok(translation.module)
+    #[cfg(not(feature = "compiler"))]
+    pub fn new(
+        compiler_config: Box<dyn CompilerConfig>,
+        target: Target,
+        features: Features,
+    ) -> Self {
+        panic!("The engine is not compiled with any compiler support")
     }
 
     /// Returns the name of this engine
     pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    /// Returns the deterministic id of this engine
+    pub fn deterministic_id(&self) -> &str {
+        // TODO: add a `deterministic_id` to the Compiler, so two
+        // compilers can actually serialize into a different deterministic_id
+        // if their configuration is different (eg. LLVM with optimizations vs LLVM
+        // without optimizations)
         self.name.as_str()
     }
 
@@ -232,13 +239,6 @@ impl Engine {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn tunables(&self) -> &dyn Tunables {
         self.tunables.as_ref()
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl AsEngineRef for Engine {
-    fn as_engine_ref(&self) -> EngineRef {
-        EngineRef { inner: self }
     }
 }
 

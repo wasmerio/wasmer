@@ -4,29 +4,25 @@
 /// This module should not be needed any longer (with the exception of the memory)
 /// once the type reflection is added to the WebAssembly JS API.
 /// https://github.com/WebAssembly/js-types/
-use crate::js::error::WasmError;
-use crate::js::store::{AsStoreMut, AsStoreRef};
-use crate::js::wasm_bindgen_polyfill::Global;
 use crate::js::wasm_bindgen_polyfill::Global as JsGlobal;
-use crate::MemoryView;
-use js_sys::Function;
 use js_sys::Function as JsFunction;
 use js_sys::WebAssembly;
-use js_sys::WebAssembly::{Memory, Table};
 use js_sys::WebAssembly::{Memory as JsMemory, Table as JsTable};
 use serde::{Deserialize, Serialize};
+use std::any::Any;
 use std::fmt;
 #[cfg(feature = "tracing")]
 use tracing::trace;
 use wasm_bindgen::{JsCast, JsValue};
+use wasmer_types::RawValue;
 use wasmer_types::{
-    ExternType, FunctionType, GlobalType, MemoryError, MemoryType, Pages, TableType, WASM_PAGE_SIZE,
+    FunctionType, GlobalType, MemoryError, MemoryType, Pages, TableType, WASM_PAGE_SIZE,
 };
 
 /// Represents linear memory that is managed by the javascript runtime
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMMemory {
-    pub(crate) memory: Memory,
+    pub(crate) memory: JsMemory,
     pub(crate) ty: MemoryType,
 }
 
@@ -41,7 +37,7 @@ struct DummyBuffer {
 
 impl VMMemory {
     /// Creates a new memory directly from a WebAssembly javascript object
-    pub fn new(memory: Memory, ty: MemoryType) -> Self {
+    pub fn new(memory: JsMemory, ty: MemoryType) -> Self {
         Self { memory, ty }
     }
 
@@ -64,14 +60,14 @@ impl VMMemory {
 
     /// Copies this memory to a new memory
     pub fn duplicate(&self) -> Result<VMMemory, wasmer_types::MemoryError> {
-        let new_memory = crate::Memory::new_internal(self.ty.clone())?;
+        let new_memory = crate::js::externals::memory::Memory::js_memory_from_type(&self.ty)?;
 
         #[cfg(feature = "tracing")]
         trace!("memory copy started");
 
-        let src = MemoryView::new_raw(&self.memory);
+        let src = crate::js::externals::memory_view::MemoryView::new_raw(&self.memory);
         let amount = src.data_size() as usize;
-        let mut dst = MemoryView::new_raw(&new_memory);
+        let mut dst = crate::js::externals::memory_view::MemoryView::new_raw(&new_memory);
         let dst_size = dst.data_size() as usize;
 
         if amount > dst_size {
@@ -92,7 +88,7 @@ impl VMMemory {
                 }
             })?;
 
-            dst = MemoryView::new_raw(&new_memory);
+            dst = crate::js::externals::memory_view::MemoryView::new_raw(&new_memory);
         }
 
         src.copy_to_memory(amount as u64, &dst).map_err(|err| {
@@ -109,14 +105,24 @@ impl VMMemory {
     }
 }
 
+impl From<VMMemory> for JsValue {
+    fn from(value: VMMemory) -> Self {
+        JsValue::from(value.memory)
+    }
+}
+
+/// The shared memory is the same as the normal memory
+pub type VMSharedMemory = VMMemory;
+
+/// The VM Global type
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMGlobal {
-    pub(crate) global: Global,
+    pub(crate) global: JsGlobal,
     pub(crate) ty: GlobalType,
 }
 
 impl VMGlobal {
-    pub(crate) fn new(global: Global, ty: GlobalType) -> Self {
+    pub(crate) fn new(global: JsGlobal, ty: GlobalType) -> Self {
         Self { global, ty }
     }
 }
@@ -124,9 +130,10 @@ impl VMGlobal {
 unsafe impl Send for VMGlobal {}
 unsafe impl Sync for VMGlobal {}
 
+/// The VM Table type
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMTable {
-    pub(crate) table: Table,
+    pub(crate) table: JsTable,
     pub(crate) ty: TableType,
 }
 
@@ -134,17 +141,20 @@ unsafe impl Send for VMTable {}
 unsafe impl Sync for VMTable {}
 
 impl VMTable {
-    pub(crate) fn new(table: Table, ty: TableType) -> Self {
+    pub(crate) fn new(table: JsTable, ty: TableType) -> Self {
         Self { table, ty }
     }
+
+    /// Get the table size at runtime
     pub fn get_runtime_size(&self) -> u32 {
         self.table.length()
     }
 }
 
+/// The VM Function type
 #[derive(Clone)]
 pub struct VMFunction {
-    pub(crate) function: Function,
+    pub(crate) function: JsFunction,
     pub(crate) ty: FunctionType,
 }
 
@@ -152,7 +162,7 @@ unsafe impl Send for VMFunction {}
 unsafe impl Sync for VMFunction {}
 
 impl VMFunction {
-    pub(crate) fn new(function: Function, ty: FunctionType) -> Self {
+    pub(crate) fn new(function: JsFunction, ty: FunctionType) -> Self {
         Self { function, ty }
     }
 }
@@ -186,72 +196,77 @@ pub enum VMExtern {
     Global(VMGlobal),
 }
 
-impl VMExtern {
-    /// Return the export as a `JSValue`.
-    pub fn as_jsvalue<'context>(&self, _store: &'context impl AsStoreRef) -> JsValue {
-        match self {
-            Self::Memory(js_wasm_memory) => js_wasm_memory.memory.clone().into(),
-            Self::Function(js_func) => js_func.function.clone().into(),
-            Self::Table(js_wasm_table) => js_wasm_table.table.clone().into(),
-            Self::Global(js_wasm_global) => js_wasm_global.global.clone().into(),
+pub type VMInstance = WebAssembly::Instance;
+
+/// Underlying FunctionEnvironment used by a `VMFunction`.
+#[derive(Debug)]
+pub struct VMFunctionEnvironment {
+    contents: Box<dyn Any + Send + 'static>,
+}
+
+impl VMFunctionEnvironment {
+    /// Wraps the given value to expose it to Wasm code as a function context.
+    pub fn new(val: impl Any + Send + 'static) -> Self {
+        Self {
+            contents: Box::new(val),
         }
     }
 
-    /// Convert a `JsValue` into an `Export` within a given `Context`.
-    pub fn from_js_value(
-        val: JsValue,
-        _store: &mut impl AsStoreMut,
-        extern_type: ExternType,
-    ) -> Result<Self, WasmError> {
-        match extern_type {
-            ExternType::Memory(memory_type) => {
-                if val.is_instance_of::<JsMemory>() {
-                    Ok(Self::Memory(VMMemory::new(
-                        val.unchecked_into::<JsMemory>(),
-                        memory_type,
-                    )))
-                } else {
-                    Err(WasmError::TypeMismatch(
-                        val.js_typeof()
-                            .as_string()
-                            .map(Into::into)
-                            .unwrap_or("unknown".into()),
-                        "Memory".into(),
-                    ))
-                }
-            }
-            ExternType::Global(global_type) => {
-                if val.is_instance_of::<JsGlobal>() {
-                    Ok(Self::Global(VMGlobal::new(
-                        val.unchecked_into::<JsGlobal>(),
-                        global_type,
-                    )))
-                } else {
-                    panic!("Extern type doesn't match js value type");
-                }
-            }
-            ExternType::Function(function_type) => {
-                if val.is_instance_of::<JsFunction>() {
-                    Ok(Self::Function(VMFunction::new(
-                        val.unchecked_into::<JsFunction>(),
-                        function_type,
-                    )))
-                } else {
-                    panic!("Extern type doesn't match js value type");
-                }
-            }
-            ExternType::Table(table_type) => {
-                if val.is_instance_of::<JsTable>() {
-                    Ok(Self::Table(VMTable::new(
-                        val.unchecked_into::<JsTable>(),
-                        table_type,
-                    )))
-                } else {
-                    panic!("Extern type doesn't match js value type");
-                }
-            }
-        }
+    #[allow(clippy::should_implement_trait)]
+    /// Returns a reference to the underlying value.
+    pub fn as_ref(&self) -> &(dyn Any + Send + 'static) {
+        &*self.contents
+    }
+
+    #[allow(clippy::should_implement_trait)]
+    /// Returns a mutable reference to the underlying value.
+    pub fn as_mut(&mut self) -> &mut (dyn Any + Send + 'static) {
+        &mut *self.contents
     }
 }
 
-pub type VMInstance = WebAssembly::Instance;
+pub(crate) struct VMExternRef;
+
+impl VMExternRef {
+    /// Converts the `VMExternRef` into a `RawValue`.
+    pub fn into_raw(self) -> RawValue {
+        unimplemented!();
+    }
+
+    /// Extracts a `VMExternRef` from a `RawValue`.
+    ///
+    /// # Safety
+    /// `raw` must be a valid `VMExternRef` instance.
+    pub unsafe fn from_raw(_raw: RawValue) -> Option<Self> {
+        unimplemented!();
+    }
+}
+
+#[repr(C)]
+pub struct VMFunctionBody(u8);
+
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct VMFuncRef;
+
+impl VMFuncRef {
+    /// Converts the `VMFuncRef` into a `RawValue`.
+    pub fn into_raw(self) -> RawValue {
+        unimplemented!();
+    }
+
+    /// Extracts a `VMFuncRef` from a `RawValue`.
+    ///
+    /// # Safety
+    /// `raw.funcref` must be a valid pointer.
+    pub unsafe fn from_raw(_raw: RawValue) -> Option<Self> {
+        unimplemented!();
+    }
+}
+
+pub struct VMTrampoline;
+
+pub(crate) type VMExternTable = VMTable;
+pub(crate) type VMExternMemory = VMMemory;
+pub(crate) type VMExternGlobal = VMGlobal;
+pub(crate) type VMExternFunction = VMFunction;

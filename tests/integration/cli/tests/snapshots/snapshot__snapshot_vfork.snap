@@ -1,0 +1,24 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": null,
+    "wasm_hash": "a20a74e0008e21437221d6b2a8bc8d4d",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "cli_args": [],
+    "stdin": null,
+    "debug_output": false,
+    "enable_threads": true
+  },
+  "result": {
+    "Success": {
+      "stdout": "Parent waiting on Child(2)\nChild(2) exited with 10\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

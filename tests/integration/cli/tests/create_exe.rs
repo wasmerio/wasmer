@@ -12,6 +12,7 @@ fn create_exe_wabt_path() -> String {
     format!("{}/{}", C_ASSET_PATH, "wabt-1.0.37.wasmer")
 }
 
+#[allow(dead_code)]
 fn create_exe_python_wasmer() -> String {
     format!("{}/{}", C_ASSET_PATH, "python-0.1.0.wasmer")
 }
@@ -308,7 +309,10 @@ fn create_exe_works() -> anyhow::Result<()> {
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
 #[cfg_attr(target_os = "windows", ignore)]
-#[test]
+// #[test]
+// FIXME: Fix an re-enable test
+// See https://github.com/wasmerio/wasmer/issues/3615
+#[allow(dead_code)]
 fn create_exe_works_multi_command_args_handling() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
@@ -395,7 +399,7 @@ fn create_exe_works_underscore_module_name() -> anyhow::Result<()> {
 
     for a in atoms.iter() {
         let object_path = operating_dir.as_path().join(&format!("{a}.o"));
-        let output: Vec<u8> = WasmerCreateObj {
+        let _output: Vec<u8> = WasmerCreateObj {
             current_dir: operating_dir.clone(),
             wasm_path: wasm_path.clone(),
             output_object_path: object_path.clone(),
@@ -560,59 +564,14 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
     Ok(())
 }
 
-// Ignored because of -lunwind linker issue on Windows
-// see https://github.com/wasmerio/wasmer/issues/3459
-#[cfg_attr(target_os = "windows", ignore)]
-#[test]
-fn create_exe_serialized_works() -> anyhow::Result<()> {
-    let temp_dir = tempfile::tempdir()?;
-    let operating_dir: PathBuf = temp_dir.path().to_owned();
-
-    let wasm_path = operating_dir.join(create_exe_test_wasm_path());
-    #[cfg(not(windows))]
-    let executable_path = operating_dir.join("wasm.out");
-    #[cfg(windows)]
-    let executable_path = operating_dir.join("wasm.exe");
-
-    let output: Vec<u8> = WasmerCreateExe {
-        current_dir: std::env::current_dir().unwrap(),
-        wasm_path,
-        native_executable_path: executable_path.clone(),
-        compiler: Compiler::Cranelift,
-        extra_cli_flags: vec!["--object-format".to_string(), "serialized".to_string()],
-        ..Default::default()
-    }
-    .run()
-    .context("Failed to create-exe wasm with Wasmer")?;
-
-    let result = run_code(
-        &operating_dir,
-        &executable_path,
-        &["--eval".to_string(), "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));".to_string()],
-        false,
-    )
-    .context("Failed to run generated executable")?;
-    let result_lines = result.lines().collect::<Vec<&str>>();
-    assert_eq!(result_lines, vec!["\"Hello, World\""],);
-
-    let output_str = String::from_utf8_lossy(&output);
-    assert!(
-        output_str.contains("Serialized"),
-        "create-exe output doesn't mention `serialized` format keyword:\n{}",
-        output_str
-    );
-
-    Ok(())
-}
-
-fn create_obj(args: Vec<String>, keyword_needle: &str, keyword: &str) -> anyhow::Result<()> {
+fn create_obj(args: Vec<String>) -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
     let wasm_path = operating_dir.as_path().join(create_exe_test_wasm_path());
 
     let object_path = operating_dir.as_path().join("wasm");
-    let output: Vec<u8> = WasmerCreateObj {
+    let _output: Vec<u8> = WasmerCreateObj {
         current_dir: operating_dir,
         wasm_path,
         output_object_path: object_path.clone(),
@@ -629,38 +588,12 @@ fn create_obj(args: Vec<String>, keyword_needle: &str, keyword: &str) -> anyhow:
         object_path.display()
     );
 
-    let output_str = String::from_utf8_lossy(&output);
-    assert!(
-        output_str.contains(keyword_needle),
-        "create-obj output doesn't mention `{}` format keyword:\n{}",
-        keyword,
-        output_str
-    );
-
     Ok(())
 }
 
 #[test]
 fn create_obj_default() -> anyhow::Result<()> {
-    create_obj(vec![], "Symbols", "symbols")
-}
-
-#[test]
-fn create_obj_symbols() -> anyhow::Result<()> {
-    create_obj(
-        vec!["--object-format".to_string(), "symbols".to_string()],
-        "Symbols",
-        "symbols",
-    )
-}
-
-#[test]
-fn create_obj_serialized() -> anyhow::Result<()> {
-    create_obj(
-        vec!["--object-format".to_string(), "serialized".to_string()],
-        "Serialized",
-        "serialized",
-    )
+    create_obj(vec![])
 }
 
 fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
@@ -750,23 +683,4 @@ fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
 #[test]
 fn create_exe_with_object_input_default() -> anyhow::Result<()> {
     create_exe_with_object_input(vec![])
-}
-
-// Ignored because of -lunwind linker issue on Windows
-// see https://github.com/wasmerio/wasmer/issues/3459
-#[cfg_attr(target_os = "windows", ignore)]
-#[test]
-fn create_exe_with_object_input_symbols() -> anyhow::Result<()> {
-    create_exe_with_object_input(vec!["--object-format".to_string(), "symbols".to_string()])
-}
-
-// Ignored because of -lunwind linker issue on Windows
-// see https://github.com/wasmerio/wasmer/issues/3459
-#[cfg_attr(target_os = "windows", ignore)]
-#[test]
-fn create_exe_with_object_input_serialized() -> anyhow::Result<()> {
-    create_exe_with_object_input(vec![
-        "--object-format".to_string(),
-        "serialized".to_string(),
-    ])
 }

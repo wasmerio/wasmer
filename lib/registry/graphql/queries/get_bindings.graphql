@@ -1,5 +1,5 @@
-query GetBindingsQuery ($name: String!, $version: String = "latest") {
-  packageVersion: getPackageVersion(name:$name, version:$version) {
+query GetBindingsQuery($name: String!, $version: String = "latest") {
+  packageVersion: getPackageVersion(name: $name, version: $version) {
     bindings {
       id
       language

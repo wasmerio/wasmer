@@ -8,8 +8,22 @@
 //! curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
 //! ```
 
+pub mod api;
+mod client;
+pub mod config;
+pub mod graphql;
+pub mod interface;
+pub mod login;
+pub mod package;
+pub mod publish;
+pub mod types;
+pub mod utils;
+
+pub use client::RegistryClient;
+
 use anyhow::Context;
 use core::ops::Range;
+use graphql_client::GraphQLQuery;
 use reqwest::header::{ACCEPT, RANGE};
 use std::fmt;
 use std::io::{Read, Write};
@@ -18,20 +32,11 @@ use std::time::Duration;
 use tar::EntryType;
 use url::Url;
 
-pub mod config;
-pub mod graphql;
-pub mod interface;
-pub mod login;
-pub mod package;
-pub mod publish;
-pub mod queries;
-pub mod utils;
-
 use crate::utils::normalize_path;
 pub use crate::{
     config::{format_graphql, WasmerConfig},
+    graphql::queries::get_bindings_query::ProgrammingLanguage,
     package::Package,
-    queries::get_bindings_query::ProgrammingLanguage,
 };
 
 pub static PACKAGE_TOML_FILE_NAME: &str = "wasmer.toml";
@@ -268,11 +273,10 @@ pub fn query_command_from_registry(
     registry_url: &str,
     command_name: &str,
 ) -> Result<PackageDownloadInfo, String> {
-    use crate::{
-        graphql::execute_query,
+    use crate::graphql::{
+        execute_query,
         queries::{get_package_by_command_query, GetPackageByCommandQuery},
     };
-    use graphql_client::GraphQLQuery;
 
     let q = GetPackageByCommandQuery::build_query(get_package_by_command_query::Variables {
         command_name: command_name.to_string(),
@@ -357,11 +361,10 @@ pub fn query_package_from_registry(
     name: &str,
     version: Option<&str>,
 ) -> Result<PackageDownloadInfo, QueryPackageError> {
-    use crate::{
-        graphql::execute_query,
+    use crate::graphql::{
+        execute_query,
         queries::{get_package_version_query, GetPackageVersionQuery},
     };
-    use graphql_client::GraphQLQuery;
 
     let q = GetPackageVersionQuery::build_query(get_package_version_query::Variables {
         name: name.to_string(),
@@ -426,7 +429,7 @@ pub fn try_unpack_targz<P: AsRef<Path>>(
     let target_path = Path::new(&target_path);
 
     let open_file = || {
-        std::fs::File::open(&target_targz_path)
+        std::fs::File::open(target_targz_path)
             .map_err(|e| anyhow::anyhow!("failed to open {}: {e}", target_targz_path.display()))
     };
 
@@ -495,7 +498,7 @@ pub fn download_and_unpack_targz(
     target_path: &Path,
     strip_toplevel: bool,
 ) -> Result<PathBuf, anyhow::Error> {
-    let tempdir = tempdir::TempDir::new("wasmer-download-targz")?;
+    let tempdir = tempfile::TempDir::new()?;
 
     let target_targz_path = tempdir.path().join("package.tar.gz");
 
@@ -571,7 +574,7 @@ where
 pub fn install_package(wasmer_dir: &Path, url: &Url) -> Result<PathBuf, anyhow::Error> {
     use fs_extra::dir::copy;
 
-    let tempdir = tempdir::TempDir::new("download")
+    let tempdir = tempfile::TempDir::new()
         .map_err(|e| anyhow::anyhow!("could not create download temp dir: {e}"))?;
 
     let target_targz_path = tempdir.path().join("package.tar.gz");
@@ -626,8 +629,7 @@ pub fn whoami(
     registry: Option<&str>,
     token: Option<&str>,
 ) -> Result<(String, String), anyhow::Error> {
-    use crate::queries::{who_am_i_query, WhoAmIQuery};
-    use graphql_client::GraphQLQuery;
+    use crate::graphql::queries::{who_am_i_query, WhoAmIQuery};
 
     let config = WasmerConfig::from_file(wasmer_dir);
 
@@ -661,8 +663,7 @@ pub fn whoami(
 }
 
 pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
-    use crate::queries::{test_if_registry_present, TestIfRegistryPresent};
-    use graphql_client::GraphQLQuery;
+    use crate::graphql::queries::{test_if_registry_present, TestIfRegistryPresent};
 
     let q = TestIfRegistryPresent::build_query(test_if_registry_present::Variables {});
     crate::graphql::execute_query_modifier_inner_check_json(
@@ -689,7 +690,7 @@ pub fn get_all_available_registries(wasmer_dir: &Path) -> Result<Vec<String>, St
 #[derive(Debug, PartialEq, Clone)]
 pub struct RemoteWebcInfo {
     pub checksum: String,
-    pub manifest: webc::Manifest,
+    pub manifest: webc::metadata::Manifest,
 }
 
 pub fn install_webc_package(
@@ -771,9 +772,9 @@ fn get_all_installed_webc_packages_inner(wasmer_dir: &Path) -> Vec<RemoteWebcInf
     read_dir
         .filter_map(|r| Some(r.ok()?.path()))
         .filter_map(|path| {
-            webc::WebCMmap::parse(
+            webc::v1::WebCMmap::parse(
                 path,
-                &webc::ParseOptions {
+                &webc::v1::ParseOptions {
                     parse_atoms: false,
                     parse_volumes: false,
                     ..Default::default()
@@ -811,11 +812,11 @@ pub fn get_checksum_hash(bytes: &[u8]) -> String {
 /// Returns the checksum of the .webc file, so that we can check whether the
 /// file is already installed before downloading it
 pub fn get_remote_webc_checksum(url: &Url) -> Result<String, anyhow::Error> {
-    let request_max_bytes = webc::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
+    let request_max_bytes = webc::v1::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
     let data = get_webc_bytes(url, Some(0..request_max_bytes), None)
         .with_context(|| anyhow::anyhow!("note: use --registry to change the registry URL"))?
         .unwrap();
-    let checksum = webc::WebC::get_checksum_bytes(&data)
+    let checksum = webc::v1::WebC::get_checksum_bytes(&data)
         .map_err(|e| anyhow::anyhow!("{e}"))?
         .to_vec();
     Ok(get_checksum_hash(&checksum))
@@ -825,20 +826,20 @@ pub fn get_remote_webc_checksum(url: &Url) -> Result<String, anyhow::Error> {
 /// so we can see if the package has already been installed
 pub fn get_remote_webc_manifest(url: &Url) -> Result<RemoteWebcInfo, anyhow::Error> {
     // Request up unti manifest size / manifest len
-    let request_max_bytes = webc::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
+    let request_max_bytes = webc::v1::WebC::get_signature_offset_start() + 4 + 1024 + 8 + 8;
     let data = get_webc_bytes(url, Some(0..request_max_bytes), None)?.unwrap();
-    let checksum = webc::WebC::get_checksum_bytes(&data)
+    let checksum = webc::v1::WebC::get_checksum_bytes(&data)
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("WebC::get_checksum_bytes failed")?
         .to_vec();
     let hex_string = get_checksum_hash(&checksum);
 
-    let (manifest_start, manifest_len) = webc::WebC::get_manifest_offset_size(&data)
+    let (manifest_start, manifest_len) = webc::v1::WebC::get_manifest_offset_size(&data)
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("WebC::get_manifest_offset_size failed")?;
     let data_with_manifest =
         get_webc_bytes(url, Some(0..manifest_start + manifest_len), None)?.unwrap();
-    let manifest = webc::WebC::get_manifest(&data_with_manifest)
+    let manifest = webc::v1::WebC::get_manifest(&data_with_manifest)
         .map_err(|e| anyhow::anyhow!("{e}"))
         .context("WebC::get_manifest failed")?;
     Ok(RemoteWebcInfo {
@@ -913,7 +914,7 @@ fn get_bytes(
     }
 
     if let Some(path) = stream_response_into.as_ref() {
-        let mut file = std::fs::File::create(&path).map_err(|e| {
+        let mut file = std::fs::File::create(path).map_err(|e| {
             anyhow::anyhow!("failed to download {url} into {}: {e}", path.display())
         })?;
 
@@ -984,7 +985,7 @@ fn test_install_package() {
         "https://registry-cdn.wapm.io/packages/wasmer/wabt/wabt-1.0.29.tar.gz".to_string()
     );
 
-    let fake_wasmer_dir = tempdir::TempDir::new("tmp").unwrap();
+    let fake_wasmer_dir = tempfile::TempDir::new().unwrap();
     let wasmer_dir = fake_wasmer_dir.path();
     let path = install_package(wasmer_dir, &url::Url::parse(&wabt.url).unwrap()).unwrap();
 
@@ -1064,11 +1065,10 @@ pub fn list_bindings(
     name: &str,
     version: Option<&str>,
 ) -> Result<Vec<Bindings>, anyhow::Error> {
-    use crate::queries::{
+    use crate::graphql::queries::{
         get_bindings_query::{ResponseData, Variables},
         GetBindingsQuery,
     };
-    use graphql_client::GraphQLQuery;
 
     let variables = Variables {
         name: name.to_string(),
