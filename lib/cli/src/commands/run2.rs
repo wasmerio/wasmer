@@ -4,6 +4,7 @@ use std::{
     fmt::Display,
     fs::File,
     io::{Read, Write},
+    net::SocketAddr,
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -15,7 +16,7 @@ use url::Url;
 use wasmer::{Module, Store};
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::Package;
-use wasmer_wasix::runners::WapmContainer;
+use wasmer_wasix::runners::{Runner, WapmContainer};
 use webc::metadata::Manifest;
 
 use crate::store::StoreOptions;
@@ -31,6 +32,8 @@ pub struct Run2 {
     store: StoreOptions,
     #[clap(flatten)]
     wasi: crate::commands::run::Wasi,
+    #[clap(flatten)]
+    wcgi: WcgiOptions,
     /// The function or command to invoke.
     #[clap(short, long, aliases = &["command", "invoke"])]
     entrypoint: Option<String>,
@@ -47,6 +50,7 @@ pub struct Run2 {
 impl Run2 {
     pub fn execute(&self) -> Result<(), Error> {
         crate::logging::set_up_logging(self.verbosity.log_level_filter());
+        tracing::info!("Started!");
 
         let target = self
             .input
@@ -90,13 +94,53 @@ impl Run2 {
         container: &WapmContainer,
         store: &mut Store,
     ) -> Result<(), Error> {
-        let command = match self.entrypoint.as_deref() {
+        let id = match self.entrypoint.as_deref() {
             Some(cmd) => cmd,
             None => infer_webc_entrypoint(container.manifest())
                 .context("Unable to infer the entrypoint. Please specify it manually")?,
         };
+        let command = container
+            .manifest()
+            .commands
+            .get(id)
+            .with_context(|| format!("Unable to get metadata for the \"{id}\" command"))?;
 
-        todo!();
+        let (store, _compiler_type) = self.store.get_store()?;
+        let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new(store);
+        runner.set_args(self.args.clone());
+        if runner.can_run_command(id, command).unwrap_or(false) {
+            return runner.run_cmd(&container, id).context("WASI runner failed");
+        }
+
+        let (store, _compiler_type) = self.store.get_store()?;
+        let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new(store);
+        runner.set_args(self.args.clone());
+        if runner.can_run_command(id, command).unwrap_or(false) {
+            return runner
+                .run_cmd(&container, id)
+                .context("Emscripten runner failed");
+        }
+
+        let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(id);
+        let (store, _compiler_type) = self.store.get_store()?;
+        runner
+            .config()
+            .args(self.args.clone())
+            .store(store)
+            .addr(self.wcgi.addr)
+            .envs(self.wasi.env_vars.clone())
+            .map_directories(self.wasi.mapped_dirs.iter().map(|(g, h)| (h, g)));
+        if self.wcgi.forward_host_env {
+            runner.config().forward_host_env();
+        }
+        if runner.can_run_command(id, command).unwrap_or(false) {
+            return runner.run_cmd(&container, id).context("WCGI runner failed");
+        }
+
+        anyhow::bail!(
+            "Unable to find a runner that supports \"{}\"",
+            command.runner
+        );
     }
 }
 
@@ -412,4 +456,23 @@ fn generate_coredump(err: &Error, source: &Path, coredump_path: &Path) -> Result
     })?;
 
     Ok(())
+}
+
+#[derive(Debug, Clone, Parser)]
+pub(crate) struct WcgiOptions {
+    /// The address to serve on.
+    #[clap(long, short, env, default_value_t = ([127, 0, 0, 1], 8000).into())]
+    pub(crate) addr: SocketAddr,
+    /// Forward all host env variables to the wcgi task.
+    #[clap(long)]
+    pub(crate) forward_host_env: bool,
+}
+
+impl Default for WcgiOptions {
+    fn default() -> Self {
+        Self {
+            addr: ([127, 0, 0, 1], 8000).into(),
+            forward_host_env: false,
+        }
+    }
 }

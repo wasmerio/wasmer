@@ -3,6 +3,7 @@ use std::{collections::HashMap, convert::Infallible, net::SocketAddr, path::Path
 use anyhow::{Context, Error};
 use futures::future::AbortHandle;
 use virtual_fs::FileSystem;
+use hyper::server::conn::AddrStream;
 use wasmer::{Engine, Module, Store};
 use wcgi_host::CgiDialect;
 use webc::metadata::{
@@ -37,7 +38,7 @@ impl WcgiRunner {
     }
 
     #[tracing::instrument(skip(self, ctx))]
-    fn run_(&mut self, command_name: &str, ctx: &RunnerContext<'_>) -> Result<(), Error> {
+    fn run(&mut self, command_name: &str, ctx: &RunnerContext<'_>) -> Result<(), Error> {
         let wasi: Wasi = ctx
             .command()
             .get_annotation("wasi")
@@ -51,9 +52,19 @@ impl WcgiRunner {
         let handler = self.create_handler(module, &wasi, ctx)?;
         let task_manager = Arc::clone(&handler.task_manager);
 
-        let make_service = hyper::service::make_service_fn(move |_| {
+        let make_service = hyper::service::make_service_fn(move |s: &AddrStream| {
             let handler = handler.clone();
-            async { Ok::<_, Infallible>(handler) }
+            let remote_addr = s.remote_addr();
+
+            async move {
+                let f = hyper::service::service_fn(move |req| {
+                    let handler = handler.clone();
+                    tracing::debug!(method=%req.method(), url=%req.uri(), remote_addr = %remote_addr);
+
+                    async move { handler.handle(req).await }
+                });
+                Ok::<_, Infallible>(f)
+            }
         });
 
         let address = self.config.addr;
@@ -245,7 +256,7 @@ impl crate::runners::Runner for WcgiRunner {
             store,
         };
 
-        self.run_(command_name, &ctx)
+        WcgiRunner::run(self, command_name, &ctx)
     }
 }
 

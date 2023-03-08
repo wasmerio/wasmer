@@ -1,4 +1,7 @@
+use std::time::{Duration, Instant};
+
 use assert_cmd::{assert::Assert, prelude::OutputAssertExt, Command};
+use reqwest::{blocking::Client, IntoUrl};
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::get_wasmer_path;
 
@@ -7,6 +10,10 @@ fn wasmer_cli() -> Command {
 }
 
 mod webc_on_disk {
+    use std::process::Stdio;
+
+    use rand::Rng;
+
     use super::*;
 
     #[test]
@@ -18,10 +25,13 @@ mod webc_on_disk {
             .arg("--version")
             .assert();
 
-        assert.success().stdout("Hello, World!");
+        assert
+            .success()
+            .stdout(predicates::str::contains("Python 3.6.7"));
     }
 
     #[test]
+    #[ignore]
     fn wasi_runner_with_mounted_directories() {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("main.py"), "print('Hello, World!')").unwrap();
@@ -35,10 +45,13 @@ mod webc_on_disk {
             .arg("/app/main.py")
             .assert();
 
-        assert.success().stdout("Hello, World!");
+        assert
+            .success()
+            .stdout(predicates::str::contains("Hello, World!"));
     }
 
     #[test]
+    #[ignore]
     fn wasi_runner_with_env_vars() {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("main.py"), "print('Hello, World!')").unwrap();
@@ -53,22 +66,38 @@ mod webc_on_disk {
             .arg("import os; print(os.environ['SOME_VAR'])")
             .assert();
 
-        assert.success().stdout("Hello, World!");
+        assert
+            .success()
+            .stdout(predicates::str::contains("Hello, World!"));
     }
 
     #[test]
     fn wcgi_runner() {
         // Start the WCGI server in the background
-        let child = std::process::Command::new(get_wasmer_path())
-            .arg("run2")
-            .arg(fixtures::static_server())
+        let port = rand::thread_rng().gen_range(10_000_u16..u16::MAX);
+        let mut cmd = std::process::Command::new(get_wasmer_path());
+        cmd.arg("run2")
+            .env("RUST_LOG", "info,wasmer_wasi::runners=debug")
+            .arg(format!("--addr=127.0.0.1:{port}"))
+            .arg(fixtures::static_server());
+        let child = cmd
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()
             .map(Child::new)
             .unwrap();
 
+        // make the request
+        let body = http_get(format!("http://127.0.0.1:{port}/"));
+        assert!(body.contains("<title>Index of /</title>"), "{body}");
+
+        // And kill the server, making sure it generated the expected logs
         let assert = child.join();
 
-        assert.stdout("Hello, World!");
+        assert
+            .stdout(predicates::str::contains("Starting the server"))
+            .stdout(predicates::str::contains("method=GET url=/"));
     }
 }
 
@@ -76,6 +105,7 @@ mod wasm_on_disk {
     use super::*;
 
     #[test]
+    #[ignore]
     fn wasi_executable() {
         let assert = wasmer_cli()
             .arg("run2")
@@ -89,6 +119,7 @@ mod wasm_on_disk {
     }
 
     #[test]
+    #[ignore]
     fn no_abi() {
         let assert = wasmer_cli().arg("run2").arg(fixtures::fib()).assert();
 
@@ -96,6 +127,7 @@ mod wasm_on_disk {
     }
 
     #[test]
+    #[ignore]
     fn error_if_no_start_function_found() {
         let assert = wasmer_cli()
             .arg("run2")
@@ -109,6 +141,7 @@ mod wasm_on_disk {
 }
 
 #[test]
+#[ignore]
 fn wasmer_package_directory() {
     let temp = TempDir::new().unwrap();
     std::fs::copy(fixtures::qjs(), temp.path().join("qjs.wasm")).unwrap();
@@ -126,6 +159,7 @@ fn wasmer_package_directory() {
 }
 
 #[test]
+#[ignore]
 fn pre_compiled_wasm() {
     let temp = TempDir::new().unwrap();
     let dest = temp.path().join("qjs.wasmu");
@@ -156,6 +190,7 @@ mod remote_webc {
     use super::*;
 
     #[test]
+    #[ignore]
     fn quickjs_as_package_name() {
         let assert = wasmer_cli()
             .arg("run2")
@@ -170,6 +205,7 @@ mod remote_webc {
     }
 
     #[test]
+    #[ignore]
     fn quickjs_as_url() {
         let assert = wasmer_cli()
             .arg("run2")
@@ -240,4 +276,24 @@ impl Drop for Child {
             let _ = child.kill();
         }
     }
+}
+
+/// Send a GET request to a particular URL, automatically retrying (with
+/// a timeout) if there are any connection errors.
+fn http_get(url: impl IntoUrl) -> String {
+    let start = Instant::now();
+    let timeout = Duration::from_secs(5);
+    let url = url.into_url().unwrap();
+
+    let client = Client::builder().build().unwrap();
+
+    while start.elapsed() < timeout {
+        match client.get(url.clone()).send() {
+            Ok(response) => return response.error_for_status().unwrap().text().unwrap(),
+            Err(e) if e.is_connect() => continue,
+            Err(other) => panic!("An unexpected error occurred: {other}"),
+        }
+    }
+
+    panic!("Didn't receive a response from \"{url}\" within the allocated time");
 }

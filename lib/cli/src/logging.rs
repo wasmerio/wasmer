@@ -9,6 +9,7 @@ pub fn set_up_logging(level: log::LevelFilter) {
     let fmt_layer = fmt::layer()
         .with_target(false)
         .with_span_events(fmt::format::FmtSpan::CLOSE)
+        .with_ansi(should_emit_colors())
         .with_thread_ids(true)
         .compact();
 
@@ -20,6 +21,16 @@ pub fn set_up_logging(level: log::LevelFilter) {
         .with(filter_layer)
         .with(fmt_layer)
         .init();
+}
+
+/// Check whether we should emit ANSI escape codes for log formatting.
+///
+/// The `tracing-subscriber` crate doesn't have native support for
+/// "--color=always|never|auto", so we implement a poor man's version.
+///
+/// For more, see https://github.com/tokio-rs/tracing/issues/2388
+fn should_emit_colors() -> bool {
+    isatty::stdout_isatty() && std::env::var_os("NO_COLOR").is_none()
 }
 
 fn log_directive(level: log::LevelFilter) -> Directive {
