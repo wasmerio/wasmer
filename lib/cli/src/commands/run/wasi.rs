@@ -7,6 +7,8 @@ use std::{collections::BTreeSet, path::Path};
 use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Value};
 use wasmer_vfs::FileSystem;
 use wasmer_vfs::{DeviceFile, PassthruFileSystem, RootFileSystemBuilder};
+use wasmer_wasi::os::tty_sys::SysTyy;
+use wasmer_wasi::os::TtyBridge;
 use wasmer_wasi::types::__WASI_STDIN_FILENO;
 use wasmer_wasi::{
     default_fs_backing, get_wasi_versions, PluggableRuntimeImplementation, WasiEnv, WasiError,
@@ -59,6 +61,10 @@ pub struct Wasi {
     /// Allows WASI modules to open TCP and UDP connections, create sockets, ...
     #[clap(long = "net")]
     pub networking: bool,
+
+    /// Disables the TTY bridge
+    #[clap(long = "no-tty")]
+    pub no_tty: bool,
 
     /// Allow instances to send http requests.
     ///
@@ -126,6 +132,12 @@ impl Wasi {
             );
         } else {
             rt.set_networking_implementation(wasmer_vnet::UnsupportedVirtualNetworking::default());
+        }
+
+        if self.no_tty == false {
+            let tty = Arc::new(SysTyy::default());
+            tty.reset();
+            rt.set_tty(tty)
         }
 
         let engine = store.as_store_mut().engine().clone();

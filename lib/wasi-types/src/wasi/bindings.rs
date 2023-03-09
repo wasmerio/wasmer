@@ -2763,10 +2763,7 @@ unsafe impl wasmer::FromToNativeWasmType for Errno {
             78 => Self::Memviolation,
             79 => Self::Unknown,
 
-            q => {
-                tracing::debug!("could not serialize number {q} to enum Errno");
-                Self::Unknown
-            }
+            _ => Self::Unknown,
         }
     }
 
@@ -3758,10 +3755,7 @@ unsafe impl wasmer::FromToNativeWasmType for Signal {
             30 => Self::Sigpwr,
             31 => Self::Sigsys,
 
-            q => {
-                tracing::warn!("could not serialize number {q} to enum Signal");
-                Self::Sigunknown
-            }
+            _ => Self::Sigunknown,
         }
     }
 

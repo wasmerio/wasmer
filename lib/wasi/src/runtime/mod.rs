@@ -54,7 +54,7 @@ where
     }
 
     /// Get access to the TTY used by the environment.
-    fn tty(&self) -> Option<&dyn TtyBridge> {
+    fn tty(&self) -> Option<&(dyn TtyBridge + Send + Sync)> {
         None
     }
 }
@@ -92,7 +92,7 @@ pub struct PluggableRuntimeImplementation {
     #[cfg(feature = "sys")]
     pub engine: Option<wasmer::Engine>,
     #[derivative(Debug = "ignore")]
-    pub tty: Arc<dyn TtyBridge + Send + Sync>,
+    pub tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
 }
 
 impl PluggableRuntimeImplementation {
@@ -109,7 +109,7 @@ impl PluggableRuntimeImplementation {
     }
 
     pub fn set_tty(&mut self, tty: Arc<dyn TtyBridge + Send + Sync>) {
-        self.tty = tty;
+        self.tty = Some(tty);
     }
 
     pub fn new(rt: Arc<dyn VirtualTaskManager>) -> Self {
@@ -130,14 +130,6 @@ impl PluggableRuntimeImplementation {
                 let http_client = None;
             }
         }
-        cfg_if::cfg_if! {
-            if #[cfg(all(feature = "host-termios", unix))] {
-                let tty = Arc::new(crate::os::tty_sys::SysTyy::default());
-                tty.reset();
-            } else {
-                let tty = Arc::new(DefaultTty::default());
-            }
-        }
 
         Self {
             rt,
@@ -145,7 +137,7 @@ impl PluggableRuntimeImplementation {
             http_client,
             #[cfg(feature = "sys")]
             engine: None,
-            tty,
+            tty: None,
         }
     }
 }
@@ -184,7 +176,7 @@ impl WasiRuntime for PluggableRuntimeImplementation {
         &self.rt
     }
 
-    fn tty(&self) -> Option<&dyn TtyBridge> {
-        Some(self.tty.as_ref())
+    fn tty(&self) -> Option<&(dyn TtyBridge + Send + Sync)> {
+        self.tty.as_deref()
     }
 }
