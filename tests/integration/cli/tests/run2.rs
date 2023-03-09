@@ -99,8 +99,8 @@ mod webc_on_disk {
 
         assert
             .stderr(contains("Starting the server"))
-            .stderr(contains("method=GET url=/"))
-            .stderr(contains("method=GET url=/this/does/not/exist.html"));
+            .stderr(contains("response generated method=GET uri=/ status_code=200 OK"))
+            .stderr(contains("response generated method=GET uri=/this/does/not/exist.html status_code=404 Not Found"));
     }
 
     #[test]
@@ -125,8 +125,9 @@ mod webc_on_disk {
 
         assert
             .stderr(contains("Starting the server"))
-            .stderr(contains("response generated method=GET uri=/ status_code=200 OK"))
-            .stderr(contains("response generated method=GET uri=/this/does/not/exist.html status_code=404 Not Found"));
+            .stderr(contains(
+                "response generated method=GET uri=/path/to/file.txt status_code=200 OK",
+            ));
     }
 }
 

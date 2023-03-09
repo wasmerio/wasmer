@@ -162,7 +162,8 @@ impl Handler {
                             host.display(),
                             guest.display()
                         )
-                    })?;
+                    })
+                    .unwrap();
             }
         }
         Ok(root_fs)

@@ -1,6 +1,10 @@
 //! WebC container support for running WASI modules
 
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use crate::{
     runners::{wcgi::MappedDirectory, WapmContainer},
@@ -10,6 +14,7 @@ use crate::{WasiEnv, WasiEnvBuilder};
 use anyhow::{Context, Error};
 use serde::{Deserialize, Serialize};
 use wasmer::{Module, Store};
+use wasmer_vfs::{FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 use webc::metadata::{annotations::Wasi, Command};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -119,6 +124,51 @@ impl WasiRunner {
     pub fn set_task_manager(&mut self, tasks: impl VirtualTaskManager) {
         self.tasks = Some(Arc::new(tasks));
     }
+
+    fn prepare_webc_env(
+        &self,
+        container: &WapmContainer,
+        command: &str,
+    ) -> Result<WasiEnvBuilder, anyhow::Error> {
+        let root_fs = RootFileSystemBuilder::new().build();
+
+        let filesystem = container.container_fs();
+        root_fs.union(&filesystem);
+
+        if !self.mapped_dirs.is_empty() {
+            let fs_backing: Arc<dyn FileSystem + Send + Sync> =
+                Arc::new(PassthruFileSystem::new(crate::default_fs_backing()));
+
+            for MappedDirectory { host, guest } in self.mapped_dirs.iter() {
+                let guest = match guest.starts_with('/') {
+                    true => PathBuf::from(guest),
+                    false => Path::new("/").join(guest),
+                };
+                tracing::debug!(
+                    host=%host.display(),
+                    guest=%guest.display(),
+                    "mounting host directory",
+                );
+
+                root_fs
+                    .mount(guest.clone(), &fs_backing, host.clone())
+                    .with_context(|| {
+                        format!(
+                            "Unable to mount \"{}\" to \"{}\"",
+                            host.display(),
+                            guest.display()
+                        )
+                    })?;
+            }
+        }
+
+        let builder = WasiEnv::builder(command)
+            .args(&self.args)
+            .fs(Box::new(root_fs))
+            .preopen_dir("/")?;
+
+        Ok(builder)
+    }
 }
 
 impl crate::runners::Runner for WasiRunner {
@@ -147,7 +197,7 @@ impl crate::runners::Runner for WasiRunner {
         let mut module = Module::new(&self.store, atom)?;
         module.set_name(&atom_name);
 
-        let mut builder = prepare_webc_env(container, &atom_name, &self.args)?;
+        let mut builder = self.prepare_webc_env(container, &atom_name)?;
 
         if self.forward_host_env {
             for (k, v) in std::env::vars() {
@@ -173,22 +223,4 @@ impl crate::runners::Runner for WasiRunner {
 
         Ok(())
     }
-}
-
-// https://github.com/tokera-com/ate/blob/42c4ce5a0c0aef47aeb4420cc6dc788ef6ee8804/term-lib/src/eval/exec.rs#L444
-fn prepare_webc_env(
-    container: &WapmContainer,
-    command: &str,
-    args: &[String],
-) -> Result<WasiEnvBuilder, anyhow::Error> {
-    let (filesystem, preopen_dirs) = container.container_fs();
-    let mut builder = WasiEnv::builder(command).args(args);
-
-    for entry in preopen_dirs {
-        builder.add_preopen_dir(entry)?;
-    }
-
-    builder.set_fs(filesystem);
-
-    Ok(builder)
 }
