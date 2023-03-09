@@ -67,13 +67,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn hash_to_array_works() {
+    fn hash_is_displayed_as_hex() {
         let original = [
             0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x12, 0x65, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
             0x12, 0x65, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x12, 0x65, 0xAA, 0xBB, 0xCC, 0xDD,
             0xEE, 0xFF, 0x12, 0x65,
         ];
         let hash = Hash::new(original);
-        assert_eq!(hash.to_array(), original);
+        assert_eq!(
+            hash.to_string(),
+            "aabbccddeeff1265aabbccddeeff1265aabbccddeeff1265aabbccddeeff1265"
+        );
     }
 }

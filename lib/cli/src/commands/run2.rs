@@ -136,7 +136,7 @@ impl Run2 {
             runner.set_forward_host_env();
         }
         if runner.can_run_command(id, command).unwrap_or(false) {
-            return runner.run_cmd(&container, id).context("WASI runner failed");
+            return runner.run_cmd(container, id).context("WASI runner failed");
         }
 
         let (store, _compiler_type) = self.store.get_store()?;
@@ -144,7 +144,7 @@ impl Run2 {
         runner.set_args(self.args.clone());
         if runner.can_run_command(id, command).unwrap_or(false) {
             return runner
-                .run_cmd(&container, id)
+                .run_cmd(container, id)
                 .context("Emscripten runner failed");
         }
 
@@ -161,7 +161,7 @@ impl Run2 {
             runner.config().forward_host_env();
         }
         if runner.can_run_command(id, command).unwrap_or(false) {
-            return runner.run_cmd(&container, id).context("WCGI runner failed");
+            return runner.run_cmd(container, id).context("WCGI runner failed");
         }
 
         anyhow::bail!(
@@ -335,15 +335,15 @@ enum PackageSource {
 
 impl PackageSource {
     fn infer(s: &str) -> Result<PackageSource, Error> {
-        if let Ok(url) = Url::parse(s) {
-            return Ok(PackageSource::Url(url));
-        }
-
         let path = Path::new(s);
         if path.is_file() {
             return Ok(PackageSource::File(path.to_path_buf()));
         } else if path.is_dir() {
             return Ok(PackageSource::Dir(path.to_path_buf()));
+        }
+
+        if let Ok(url) = Url::parse(s) {
+            return Ok(PackageSource::Url(url));
         }
 
         if let Ok(pkg) = Package::from_str(s) {
@@ -453,7 +453,7 @@ impl TargetOnDisk {
             TargetOnDisk::Directory(dir) => {
                 // FIXME: Runners should be able to load directories directly
                 // instead of needing to compile to a WEBC file.
-                let webc = compile_directory_to_webc(&dir).with_context(|| {
+                let webc = compile_directory_to_webc(dir).with_context(|| {
                     format!("Unable to bundle \"{}\" as a WEBC package", dir.display())
                 })?;
                 let container = WapmContainer::from_bytes(webc.into())
@@ -464,7 +464,7 @@ impl TargetOnDisk {
             TargetOnDisk::WebAssemblyBinary(path) => {
                 let wasm = std::fs::read(&path)
                     .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
-                let module = compile_wasm_cached(&path, &wasm, cache, store)?;
+                let module = compile_wasm_cached(path, &wasm, cache, store)?;
                 Ok(ExecutableTarget::WebAssembly(module))
             }
             TargetOnDisk::Wat(path) => {
@@ -473,7 +473,7 @@ impl TargetOnDisk {
                 let wasm =
                     wasmer::wat2wasm(&wat).context("Unable to convert the WAT to WebAssembly")?;
 
-                let module = compile_wasm_cached(&path, &wasm, cache, store)?;
+                let module = compile_wasm_cached(path, &wasm, cache, store)?;
                 Ok(ExecutableTarget::WebAssembly(module))
             }
             TargetOnDisk::Artifact(artifact) => {
@@ -493,7 +493,7 @@ fn compile_wasm_cached(
     cache: &mut ModuleCache,
     store: &Store,
 ) -> Result<Module, Error> {
-    let hash = wasmer_cache::Hash::generate(&wasm);
+    let hash = wasmer_cache::Hash::generate(wasm);
 
     unsafe {
         match cache.load(store, hash) {
@@ -561,7 +561,7 @@ fn generate_coredump(err: &Error, source: &Path, coredump_path: &Path) -> Result
 
     let coredump = coredump_builder
         .serialize()
-        .map_err(|e| Error::msg(e))
+        .map_err(Error::msg)
         .context("Coredump serializing failed")?;
 
     std::fs::write(&coredump_path, &coredump).with_context(|| {
