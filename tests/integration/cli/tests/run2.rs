@@ -24,16 +24,33 @@ mod webc_on_disk {
     fn wasi_runner() {
         let assert = Command::new(get_wasmer_path())
             .arg("run2")
-            .arg(fixtures::python())
+            .arg(fixtures::qjs())
             .arg("--")
-            .arg("--version")
+            .arg("--eval")
+            .arg("console.log('Hello, World!')")
             .assert();
 
-        assert.success().stdout(contains("Python 3.6.7"));
+        assert.success().stdout(contains("Hello, World!"));
     }
 
     #[test]
     fn wasi_runner_with_mounted_directories() {
+        let temp = TempDir::new().unwrap();
+        std::fs::write(temp.path().join("index.js"), "console.log('Hello, World!')").unwrap();
+
+        let assert = Command::new(get_wasmer_path())
+            .arg("run2")
+            .arg(fixtures::qjs())
+            .arg(format!("--mapdir=/app:{}", temp.path().display()))
+            .arg("--")
+            .arg("/app/index.js")
+            .assert();
+
+        assert.success().stdout(contains("Hello, World!"));
+    }
+
+    #[test]
+    fn wasi_runner_with_mounted_directories_and_webc_volumes() {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("main.py"), "print('Hello, World!')").unwrap();
 

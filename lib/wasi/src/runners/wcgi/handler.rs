@@ -131,8 +131,6 @@ impl Handler {
 
         let response = hyper::Response::from_parts(parts, body);
 
-        tracing::debug!("Generated the response");
-
         Ok(response)
     }
 
