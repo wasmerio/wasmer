@@ -7,7 +7,7 @@ use tracing_subscriber::{
 /// Subroutine to instantiate the loggers
 pub fn set_up_logging(level: log::LevelFilter) {
     let fmt_layer = fmt::layer()
-        .with_target(false)
+        .with_target(true)
         .with_span_events(fmt::format::FmtSpan::CLOSE)
         .with_ansi(should_emit_colors())
         .with_thread_ids(true)

@@ -100,12 +100,11 @@ mod webc_on_disk {
         cmd.arg("run2")
             .env("RUST_LOG", "info,wasmer_wasi::runners=debug")
             .arg(format!("--addr=127.0.0.1:{port}"))
-            .arg(format!("--mapdir=/example:{}", temp.path().display()))
+            .arg(format!("--mapdir=/path/to:{}", temp.path().display()))
             .arg(fixtures::static_server());
         let child = JoinableChild::spawn(cmd);
 
-        // make the request
-        let body = http_get(format!("http://127.0.0.1:{port}/example/file.txt")).unwrap();
+        let body = http_get(format!("http://127.0.0.1:{port}/path/to/file.txt")).unwrap();
         assert!(body.contains("Hello, World!"), "{body}");
 
         // And kill the server, making sure it generated the expected logs

@@ -334,8 +334,7 @@ impl Config {
         &mut self,
         mappings: impl IntoIterator<Item = MappedDirectory>,
     ) -> &mut Self {
-        self.mapped_dirs
-            .extend(mappings.into_iter().map(|d| d.into()));
+        self.mapped_dirs.extend(mappings.into_iter());
         self
     }
 
