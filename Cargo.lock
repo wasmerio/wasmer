@@ -1236,18 +1236,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "escargot"
-version = "0.5.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5584ba17d7ab26a8a7284f13e5bd196294dd2f2d79773cff29b9e9edef601a6"
-dependencies = [
- "log",
- "once_cell",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "fallible-iterator"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5519,13 +5507,11 @@ dependencies = [
  "assert_cmd 2.0.10",
  "derivative",
  "dirs",
- "escargot",
  "flate2",
  "hex",
  "insta",
  "md5",
  "object 0.30.3",
- "once_cell",
  "predicates 2.1.5",
  "pretty_assertions",
  "rand 0.8.5",

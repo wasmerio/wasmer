@@ -23,7 +23,7 @@ use wasmer::{
 use wasmer_cache::Cache;
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::Package;
-use wasmer_wasix::runners::{Runner, WapmContainer};
+use wasmer_wasix::runners::{wcgi::MappedDirectory, Runner, WapmContainer};
 use webc::metadata::Manifest;
 use webc_v4::DirOrFile;
 
@@ -61,7 +61,6 @@ pub struct Run2 {
 impl Run2 {
     pub fn execute(&self) -> Result<(), Error> {
         crate::logging::set_up_logging(self.verbosity.log_level_filter());
-        tracing::info!("Started!");
 
         let target = self
             .input
@@ -131,7 +130,8 @@ impl Run2 {
         let (store, _compiler_type) = self.store.get_store()?;
         let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new(store)
             .with_args(self.args.clone())
-            .with_envs(self.wasi.env_vars.clone());
+            .with_envs(self.wasi.env_vars.clone())
+            .with_mapped_directories(self.wasi.mapped_dirs.clone());
         if self.wasi.forward_host_env {
             runner.set_forward_host_env();
         }
@@ -156,7 +156,7 @@ impl Run2 {
             .store(store)
             .addr(self.wcgi.addr)
             .envs(self.wasi.env_vars.clone())
-            .map_directories(self.wasi.mapped_dirs.iter().map(|(g, h)| (h, g)));
+            .map_directories(self.wasi.mapped_dirs.clone());
         if self.wasi.forward_host_env {
             runner.config().forward_host_env();
         }

@@ -2,7 +2,10 @@
 
 use std::{collections::HashMap, sync::Arc};
 
-use crate::{runners::WapmContainer, PluggableRuntime, VirtualTaskManager};
+use crate::{
+    runners::{wcgi::MappedDirectory, WapmContainer},
+    PluggableRuntime, VirtualTaskManager,
+};
 use crate::{WasiEnv, WasiEnvBuilder};
 use anyhow::{Context, Error};
 use serde::{Deserialize, Serialize};
@@ -14,6 +17,7 @@ pub struct WasiRunner {
     args: Vec<String>,
     env: HashMap<String, String>,
     forward_host_env: bool,
+    mapped_dirs: Vec<MappedDirectory>,
     #[serde(skip, default)]
     store: Store,
     #[serde(skip, default)]
@@ -27,6 +31,7 @@ impl WasiRunner {
             args: Vec::new(),
             env: HashMap::new(),
             store,
+            mapped_dirs: Vec::new(),
             forward_host_env: false,
             tasks: None,
         }
@@ -95,6 +100,15 @@ impl WasiRunner {
 
     pub fn set_forward_host_env(&mut self) {
         self.forward_host_env = true;
+    }
+
+    pub fn with_mapped_directories<I, D>(mut self, dirs: I) -> Self
+    where
+        I: IntoIterator<Item = D>,
+        D: Into<MappedDirectory>,
+    {
+        self.mapped_dirs.extend(dirs.into_iter().map(|d| d.into()));
+        self
     }
 
     pub fn with_task_manager(mut self, tasks: impl VirtualTaskManager) -> Self {
@@ -171,7 +185,7 @@ fn prepare_webc_env(
     let mut builder = WasiEnv::builder(command).args(args);
 
     for entry in preopen_dirs {
-        builder.add_preopen_build(|p| p.directory(&entry).read(true).write(true).create(true))?;
+        builder.add_preopen_dir(entry)?;
     }
 
     builder.set_fs(filesystem);

@@ -237,7 +237,12 @@ impl RunWithPathBuf {
                     .map_err(|e| anyhow!("{}", e))?;
                 env.as_mut(&mut store).set_data(
                     &emscripten_globals.data,
-                    self.wasi.mapped_dirs.clone().into_iter().collect(),
+                    self.wasi
+                        .mapped_dirs
+                        .clone()
+                        .into_iter()
+                        .map(|d| (d.guest, d.host))
+                        .collect(),
                 );
                 let import_object =
                     generate_emscripten_env(&mut store, &env, &mut emscripten_globals);
@@ -403,7 +408,7 @@ impl RunWithPathBuf {
             .store(store)
             .addr(self.wcgi.addr)
             .envs(self.wasi.env_vars.clone())
-            .map_directories(self.wasi.mapped_dirs.iter().map(|(g, h)| (h, g)));
+            .map_directories(self.wasi.mapped_dirs.clone());
         if self.wcgi.forward_host_env {
             runner.config().forward_host_env();
         }

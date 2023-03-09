@@ -7,7 +7,7 @@ use std::{
     task::Poll,
 };
 
-use anyhow::Error;
+use anyhow::{Context, Error};
 use futures::{Future, FutureExt, StreamExt, TryFutureExt};
 use http::{Request, Response};
 use hyper::{service::Service, Body};
@@ -15,6 +15,7 @@ use tokio::{
     io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt},
     runtime::Handle,
 };
+use tracing::Instrument;
 use virtual_fs::{FileSystem, PassthruFileSystem, RootFileSystemBuilder, TmpFileSystem};
 use wasmer::Module;
 use wcgi_host::CgiDialect;
@@ -46,6 +47,8 @@ impl Handler {
         let (res_body_sender, res_body_receiver) = Pipe::channel();
         let (stderr_sender, stderr_receiver) = Pipe::channel();
 
+        tracing::debug!("Creating the WebAssembly instance");
+
         let builder = WasiEnv::builder(self.program.to_string());
 
         let mut request_specific_env = HashMap::new();
@@ -53,7 +56,7 @@ impl Handler {
             .prepare_environment_variables(parts, &mut request_specific_env);
 
         let rt = PluggableRuntime::new(Arc::clone(&self.task_manager));
-        let builder = builder
+        let mut builder = builder
             .envs(self.env.iter())
             .envs(request_specific_env)
             .args(self.args.iter())
@@ -66,10 +69,16 @@ impl Handler {
                 threading: Default::default(),
             })
             .runtime(Arc::new(rt))
-            .sandbox_fs(self.fs()?)
+            .fs(Box::new(self.fs()?))
             .preopen_dir(Path::new("/"))?;
 
+        for dir in &self.mapped_dirs {
+            builder.add_preopen_dir(&dir.guest)?;
+        }
+
         let module = self.module.clone();
+
+        tracing::debug!("Calling into the WCGI executable");
 
         let done = self
             .task_manager
@@ -81,19 +90,26 @@ impl Handler {
         let handle = self.task_manager.runtime().clone();
         let callbacks = Arc::clone(&self.callbacks);
 
-        handle.spawn(async move {
-            consume_stderr(stderr_receiver, callbacks).await;
-        });
-
-        self.task_manager.runtime().spawn(async move {
-            if let Err(e) = drive_request_to_completion(&handle, done, body, req_body_sender).await
-            {
-                tracing::error!(
-                    error = &*e as &dyn std::error::Error,
-                    "Unable to drive the request to completion"
-                );
+        handle.spawn(
+            async move {
+                consume_stderr(stderr_receiver, callbacks).await;
             }
-        });
+            .in_current_span(),
+        );
+
+        self.task_manager.runtime().spawn(
+            async move {
+                if let Err(e) =
+                    drive_request_to_completion(&handle, done, body, req_body_sender).await
+                {
+                    tracing::error!(
+                        error = &*e as &dyn std::error::Error,
+                        "Unable to drive the request to completion"
+                    );
+                }
+            }
+            .in_current_span(),
+        );
 
         let mut res_body_receiver = tokio::io::BufReader::new(res_body_receiver);
 
@@ -116,6 +132,8 @@ impl Handler {
 
         let response = hyper::Response::from_parts(parts, body);
 
+        tracing::debug!("Generated the response");
+
         Ok(response)
     }
 
@@ -131,17 +149,17 @@ impl Handler {
                     true => PathBuf::from(guest),
                     false => Path::new("/").join(guest),
                 };
-                tracing::trace!(
+                tracing::debug!(
                     host=%host.display(),
                     guest=%guest.display(),
-                    "mounting directory to instance fs",
+                    "mounting host directory",
                 );
 
                 root_fs
-                    .mount(host.clone(), &fs_backing, guest.clone())
-                    .map_err(|error| {
-                        anyhow::anyhow!(
-                            "Unable to mount \"{}\" to \"{}\": {error}",
+                    .mount(guest.clone(), &fs_backing, host.clone())
+                    .with_context(|| {
+                        format!(
+                            "Unable to mount \"{}\" to \"{}\"",
                             host.display(),
                             guest.display()
                         )
@@ -169,21 +187,30 @@ async fn drive_request_to_completion(
     mut instance_stdin: impl AsyncWrite + Send + Unpin + 'static,
 ) -> Result<(), Error> {
     let request_body_send = handle
-        .spawn(async move {
-            // Copy the request into our instance, chunk-by-chunk. If the instance
-            // dies before we finish writing the body, the instance's side of the
-            // pipe will be automatically closed and we'll error out.
-            while let Some(res) = request_body.next().await {
-                // FIXME(theduke): figure out how to propagate a body error to the
-                // CGI instance.
-                let chunk = res?;
-                instance_stdin.write_all(chunk.as_ref()).await?;
+        .spawn(
+            async move {
+                // Copy the request into our instance, chunk-by-chunk. If the instance
+                // dies before we finish writing the body, the instance's side of the
+                // pipe will be automatically closed and we'll error out.
+                let mut request_size = 0;
+                while let Some(res) = request_body.next().await {
+                    // FIXME(theduke): figure out how to propagate a body error to the
+                    // CGI instance.
+                    let chunk = res?;
+                    request_size += chunk.len();
+                    instance_stdin.write_all(chunk.as_ref()).await?;
+                }
+
+                instance_stdin.shutdown().await?;
+                tracing::debug!(
+                    request_size,
+                    "Finished forwarding the request to the WCGI server"
+                );
+
+                Ok::<(), Error>(())
             }
-
-            instance_stdin.shutdown().await?;
-
-            Ok::<(), Error>(())
-        })
+            .in_current_span(),
+        )
         .map_err(Error::from)
         .and_then(|r| async { r });
 

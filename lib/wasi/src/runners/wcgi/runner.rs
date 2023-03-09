@@ -1,4 +1,4 @@
-use std::{collections::HashMap, convert::Infallible, net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, convert::Infallible, net::SocketAddr, sync::Arc};
 
 use anyhow::{Context, Error};
 use futures::future::AbortHandle;
@@ -325,29 +325,17 @@ impl Config {
         self
     }
 
-    pub fn map_directory(
-        &mut self,
-        host: impl Into<PathBuf>,
-        guest: impl Into<String>,
-    ) -> &mut Self {
-        self.mapped_dirs.push(MappedDirectory {
-            host: host.into(),
-            guest: guest.into(),
-        });
+    pub fn map_directory(&mut self, dir: MappedDirectory) -> &mut Self {
+        self.mapped_dirs.push(dir);
         self
     }
 
-    pub fn map_directories<I, H, G>(&mut self, mappings: I) -> &mut Self
-    where
-        I: IntoIterator<Item = (H, G)>,
-        H: Into<PathBuf>,
-        G: Into<String>,
-    {
-        let mappings = mappings.into_iter().map(|(h, g)| MappedDirectory {
-            host: h.into(),
-            guest: g.into(),
-        });
-        self.mapped_dirs.extend(mappings);
+    pub fn map_directories(
+        &mut self,
+        mappings: impl IntoIterator<Item = MappedDirectory>,
+    ) -> &mut Self {
+        self.mapped_dirs
+            .extend(mappings.into_iter().map(|d| d.into()));
         self
     }
 
@@ -384,8 +372,10 @@ impl Default for Config {
 pub trait Callbacks: Send + Sync + 'static {
     /// A callback that is called whenever the server starts.
     fn started(&self, _abort: AbortHandle) {}
+
     /// Data was written to stderr by an instance.
     fn on_stderr(&self, _stderr: &[u8]) {}
+
     /// Reading from stderr failed.
     fn on_stderr_error(&self, _error: std::io::Error) {}
 }

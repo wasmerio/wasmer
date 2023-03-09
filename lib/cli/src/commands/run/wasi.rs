@@ -10,6 +10,7 @@ use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Value};
 use wasmer_wasix::{
     default_fs_backing, get_wasi_versions,
     os::{tty_sys::SysTty, TtyBridge},
+    runners::wcgi::MappedDirectory,
     runtime::task_manager::tokio::TokioTaskManager,
     types::__WASI_STDIN_FILENO,
     PluggableRuntime, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv, WasiVersion,
@@ -30,7 +31,7 @@ pub struct Wasi {
         name = "GUEST_DIR:HOST_DIR",
         parse(try_from_str = parse_mapdir),
     )]
-    pub(crate) mapped_dirs: Vec<(String, PathBuf)>,
+    pub(crate) mapped_dirs: Vec<MappedDirectory>,
 
     /// Pass custom environment variables
     #[clap(
@@ -93,7 +94,10 @@ pub struct Wasi {
 #[allow(dead_code)]
 impl Wasi {
     pub fn map_dir(&mut self, alias: &str, target_on_disk: PathBuf) {
-        self.mapped_dirs.push((alias.to_string(), target_on_disk));
+        self.mapped_dirs.push(MappedDirectory {
+            guest: alias.to_string(),
+            host: target_on_disk,
+        });
     }
 
     pub fn set_env(&mut self, key: &str, value: &str) {
@@ -165,12 +169,13 @@ impl Wasi {
             if !self.mapped_dirs.is_empty() {
                 let fs_backing: Arc<dyn FileSystem + Send + Sync> =
                     Arc::new(PassthruFileSystem::new(default_fs_backing()));
-                for (src, dst) in self.mapped_dirs.clone() {
-                    let src = match src.starts_with('/') {
-                        true => src,
-                        false => format!("/{}", src),
+                for MappedDirectory { host, guest } in self.mapped_dirs.clone() {
+                    let host = if !host.is_absolute() {
+                        Path::new("/").join(host)
+                    } else {
+                        host
                     };
-                    root_fs.mount(PathBuf::from(src), &fs_backing, dst)?;
+                    root_fs.mount(guest.into(), &fs_backing, host)?;
                 }
             }
 
@@ -184,7 +189,11 @@ impl Wasi {
             builder
                 .fs(default_fs_backing())
                 .preopen_dirs(self.pre_opened_directories.clone())?
-                .map_dirs(self.mapped_dirs.clone())?
+                .map_dirs(
+                    self.mapped_dirs
+                        .iter()
+                        .map(|d| (d.guest.clone(), d.host.clone())),
+                )?
         };
 
         if self.http_client {
