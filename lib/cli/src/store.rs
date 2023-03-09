@@ -83,8 +83,11 @@ impl CompilerOptions {
 
     /// Get the enaled Wasm features.
     pub fn get_features(&self, mut features: Features) -> Result<Features> {
-        if self.features.threads || self.features.all {
+        if !self.features.disable_threads || self.features.all {
             features.threads(true);
+        }
+        if self.features.disable_threads && !self.features.all {
+            features.threads(false);
         }
         if self.features.multi_value || self.features.all {
             features.multi_value(true);
