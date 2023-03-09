@@ -1,8 +1,12 @@
-use std::{collections::HashMap, convert::Infallible, net::SocketAddr, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 
 use anyhow::{Context, Error};
 use futures::future::AbortHandle;
-use hyper::server::conn::AddrStream;
+use http::{Request, Response};
+use hyper::Body;
+use tower::{make::Shared, ServiceBuilder};
+use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
+use tracing::Span;
 use virtual_fs::FileSystem;
 use wasmer::{Engine, Module, Store};
 use wcgi_host::CgiDialect;
@@ -51,26 +55,30 @@ impl WcgiRunner {
 
         let handler = self.create_handler(module, &wasi, ctx)?;
         let task_manager = Arc::clone(&handler.task_manager);
+        let callbacks = Arc::clone(&self.config.callbacks);
 
-        let make_service = hyper::service::make_service_fn(move |s: &AddrStream| {
-            let handler = handler.clone();
-            let remote_addr = s.remote_addr();
-
-            async move {
-                let f = hyper::service::service_fn(move |req| {
-                    let handler = handler.clone();
-                    tracing::debug!(method=%req.method(), url=%req.uri(), remote_addr = %remote_addr);
-
-                    async move { handler.handle(req).await }
-                });
-                Ok::<_, Infallible>(f)
-            }
-        });
+        let service = ServiceBuilder::new()
+            .layer(
+                TraceLayer::new_for_http()
+                    .make_span_with(|request: &Request<Body>| {
+                        tracing::info_span!(
+                            "request",
+                            method = %request.method(),
+                            uri = %request.uri(),
+                            status_code = tracing::field::Empty,
+                        )
+                    })
+                    .on_response(|response: &Response<_>, _latency: Duration, span: &Span| {
+                        span.record("status_code", &tracing::field::display(response.status()));
+                        tracing::info!("response generated")
+                    }),
+            )
+            .layer(CatchPanicLayer::new())
+            .layer(CorsLayer::permissive())
+            .service(handler);
 
         let address = self.config.addr;
         tracing::info!(%address, "Starting the server");
-
-        let callbacks = Arc::clone(&self.config.callbacks);
 
         task_manager
             .block_on(async {
@@ -80,7 +88,7 @@ impl WcgiRunner {
                 callbacks.started(abort_handle);
 
                 hyper::Server::bind(&address)
-                    .serve(make_service)
+                    .serve(Shared::new(service))
                     .with_graceful_shutdown(async {
                         let _ = shutdown.await;
                         tracing::info!("Shutting down gracefully");

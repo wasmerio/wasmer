@@ -4,15 +4,17 @@ use std::{
     collections::BTreeMap,
     fmt::Display,
     fs::File,
-    io::{ErrorKind, Read, Write},
+    io::{ErrorKind, LineWriter, Read, Write},
     net::SocketAddr,
     path::{Path, PathBuf},
     str::FromStr,
+    sync::Mutex,
     time::{Duration, SystemTime},
 };
 
 use anyhow::{Context, Error};
 use clap::Parser;
+use clap_verbosity_flag::WarnLevel;
 use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use url::Url;
@@ -36,7 +38,7 @@ use crate::{
 #[derive(Debug, Parser)]
 pub struct Run2 {
     #[clap(flatten)]
-    verbosity: clap_verbosity_flag::Verbosity,
+    verbosity: clap_verbosity_flag::Verbosity<WarnLevel>,
     #[clap(flatten)]
     wasmer_home: WasmerHome,
     #[clap(flatten)]
@@ -114,8 +116,7 @@ impl Run2 {
     ) -> Result<(), Error> {
         let id = match self.entrypoint.as_deref() {
             Some(cmd) => cmd,
-            None => infer_webc_entrypoint(container.manifest())
-                .context("Unable to infer the entrypoint. Please specify it manually")?,
+            None => infer_webc_entrypoint(container.manifest())?,
         };
         let command = container
             .manifest()
@@ -156,7 +157,8 @@ impl Run2 {
             .store(store)
             .addr(self.wcgi.addr)
             .envs(self.wasi.env_vars.clone())
-            .map_directories(self.wasi.mapped_dirs.clone());
+            .map_directories(self.wasi.mapped_dirs.clone())
+            .callbacks(Callbacks::default());
         if self.wasi.forward_host_env {
             runner.config().forward_host_env();
         }
@@ -275,7 +277,7 @@ fn infer_webc_entrypoint(manifest: &Manifest) -> Result<&str, Error> {
     let commands: Vec<_> = manifest.commands.keys().collect();
 
     match commands.as_slice() {
-        [] => anyhow::bail!("The WEBC file doesn't contain any executable commands",),
+        [] => anyhow::bail!("The WEBC file doesn't contain any executable commands"),
         [one] => Ok(one.as_str()),
         [..] => {
             anyhow::bail!(
@@ -585,6 +587,31 @@ impl Default for WcgiOptions {
     fn default() -> Self {
         Self {
             addr: ([127, 0, 0, 1], 8000).into(),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Callbacks {
+    stderr: Mutex<LineWriter<std::io::Stderr>>,
+}
+
+impl Default for Callbacks {
+    fn default() -> Self {
+        Self {
+            stderr: Mutex::new(LineWriter::new(std::io::stderr())),
+        }
+    }
+}
+
+impl wasmer_wasix::runners::wcgi::Callbacks for Callbacks {
+    fn on_stderr(&self, raw_message: &[u8]) {
+        if let Ok(mut stderr) = self.stderr.lock() {
+            // If the WCGI runner printed any log messages we want to make sure
+            // they get propagated to the user. Line buffering is important here
+            // because it helps prevent the output from becoming a complete
+            // mess.
+            let _ = stderr.write_all(raw_message);
         }
     }
 }

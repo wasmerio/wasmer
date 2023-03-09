@@ -14,6 +14,8 @@ use reqwest::{blocking::Client, IntoUrl};
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::get_wasmer_path;
 
+const RUST_LOG: &str = "info,wasmer_wasi::runners=debug";
+
 mod webc_on_disk {
     use super::*;
     use rand::Rng;
@@ -47,6 +49,17 @@ mod webc_on_disk {
     }
 
     #[test]
+    fn webc_files_with_multiple_commands_require_an_entrypoint_flag() {
+        let assert = Command::new(get_wasmer_path())
+            .arg("run2")
+            .arg(fixtures::wabt())
+            .assert();
+
+        let msg = r#"Unable to determine the WEBC file's entrypoint. Please choose one of ["wat2wasm", "wast2json", "wasm2wat", "wasm-interp", "wasm-validate", "wasm-strip"]"#;
+        assert.failure().stderr(contains(msg));
+    }
+
+    #[test]
     fn wasi_runner_with_env_vars() {
         let assert = Command::new(get_wasmer_path())
             .arg("run2")
@@ -67,9 +80,9 @@ mod webc_on_disk {
         let port = rand::thread_rng().gen_range(10_000_u16..u16::MAX);
         let mut cmd = std::process::Command::new(get_wasmer_path());
         cmd.arg("run2")
-            .env("RUST_LOG", "info,wasmer_wasi::runners=debug")
             .arg(format!("--addr=127.0.0.1:{port}"))
-            .arg(fixtures::static_server());
+            .arg(fixtures::static_server())
+            .env("RUST_LOG", RUST_LOG);
         let child = JoinableChild::spawn(cmd);
 
         // make the request
@@ -98,10 +111,10 @@ mod webc_on_disk {
         let port = rand::thread_rng().gen_range(10_000_u16..u16::MAX);
         let mut cmd = std::process::Command::new(get_wasmer_path());
         cmd.arg("run2")
-            .env("RUST_LOG", "info,wasmer_wasi::runners=debug")
             .arg(format!("--addr=127.0.0.1:{port}"))
             .arg(format!("--mapdir=/path/to:{}", temp.path().display()))
-            .arg(fixtures::static_server());
+            .arg(fixtures::static_server())
+            .env("RUST_LOG", RUST_LOG);
         let child = JoinableChild::spawn(cmd);
 
         let body = http_get(format!("http://127.0.0.1:{port}/path/to/file.txt")).unwrap();
@@ -112,7 +125,8 @@ mod webc_on_disk {
 
         assert
             .stderr(contains("Starting the server"))
-            .stderr(contains("method=GET url=/example/file.txt"));
+            .stderr(contains("response generated method=GET uri=/ status_code=200 OK"))
+            .stderr(contains("response generated method=GET uri=/this/does/not/exist.html status_code=404 Not Found"));
     }
 }
 
@@ -243,6 +257,12 @@ mod fixtures {
         Path::new(C_ASSET_PATH).join("python-0.1.0.wasmer")
     }
 
+    /// A WEBC file containing `wat2wasm`, `wasm-validate`, and other helpful
+    /// WebAssembly-related commands.
+    pub fn wabt() -> PathBuf {
+        Path::new(C_ASSET_PATH).join("wabt-1.0.37.wasmer")
+    }
+
     /// A WEBC file containing the WCGI static server.
     pub fn static_server() -> PathBuf {
         Path::new(C_ASSET_PATH).join("staticserver.webc")
@@ -322,7 +342,7 @@ fn http_get(url: impl IntoUrl) -> Result<String, reqwest::Error> {
     let timeout = Duration::from_secs(5);
     let url = url.into_url().unwrap();
 
-    let client = Client::builder().build().unwrap();
+    let client = Client::new();
 
     while start.elapsed() < timeout {
         match client.get(url.clone()).send() {

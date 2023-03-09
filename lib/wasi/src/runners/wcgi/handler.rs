@@ -37,7 +37,6 @@ impl Handler {
         Handler(Arc::new(state))
     }
 
-    #[tracing::instrument(skip_all)]
     pub(crate) async fn handle(&self, req: Request<Body>) -> Result<Response<Body>, Error> {
         tracing::debug!(headers=?req.headers());
 
