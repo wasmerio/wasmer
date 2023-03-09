@@ -367,8 +367,9 @@ fn test_snapshot_longjump_fork() {
 // full multi-threading with shared memory and shared compiled modules
 #[test]
 fn test_snapshot_multithreading() {
-    let snapshot =
-        TestBuilder::new().run_wasm(include_bytes!("./wasm/example-multi-threading.wasm"));
+    let snapshot = TestBuilder::new()
+        .debug_output(true)
+        .run_wasm(include_bytes!("./wasm/example-multi-threading.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
@@ -384,9 +385,7 @@ fn test_snapshot_sleep() {
 #[cfg(not(target_os = "windows"))]
 #[test]
 fn test_snapshot_process_spawn() {
-    let snapshot = TestBuilder::new()
-        .use_coreutils()
-        .run_wasm(include_bytes!("./wasm/example-spawn.wasm"));
+    let snapshot = TestBuilder::new().run_wasm(include_bytes!("./wasm/example-spawn.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
@@ -404,9 +403,8 @@ fn test_snapshot_process_spawn() {
 #[cfg(target_os = "linux")]
 #[test]
 fn test_snapshot_thread_locals() {
-    let mut snapshot = TestBuilder::new()
-        .use_coreutils()
-        .run_wasm(include_bytes!("./wasm/example-thread-local.wasm"));
+    let mut snapshot =
+        TestBuilder::new().run_wasm(include_bytes!("./wasm/example-thread-local.wasm"));
 
     match &mut snapshot.result {
         TestResult::Success(out) => {
