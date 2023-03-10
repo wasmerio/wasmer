@@ -68,7 +68,7 @@ pub fn proc_exec<M: MemorySize>(
         // We will need the child pid later
         let child_process = ctx.data().process.clone();
         let child_pid = child_process.pid();
-        let child_finished = child_process.finished.clone();
+        let child_finished = child_process.finished;
 
         // Restore the WasiEnv to the point when we vforked
         std::mem::swap(&mut vfork.env.inner, &mut ctx.data_mut().inner);
@@ -101,7 +101,6 @@ pub fn proc_exec<M: MemorySize>(
                     let new_store = new_store.take().unwrap();
                     let env = config.take().unwrap();
 
-                    let child_finished = child_finished.clone();
                     tasks.block_on(async {
                         let name_inner = name.clone();
                         let ret = bin_factory.spawn(

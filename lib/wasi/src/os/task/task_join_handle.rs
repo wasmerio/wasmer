@@ -131,7 +131,7 @@ impl OwnedTaskStatus {
             match status {
                 TaskStatus::Pending | TaskStatus::Running => {}
                 TaskStatus::Finished(res) => {
-                    return res.clone();
+                    return res;
                 }
             }
             // NOTE: unwrap() is fine, because &self always holds on to the sender.
@@ -171,7 +171,7 @@ impl TaskJoinHandle {
             match status {
                 TaskStatus::Pending | TaskStatus::Running => {}
                 TaskStatus::Finished(res) => {
-                    return res.clone();
+                    return res;
                 }
             }
             if self.watch.changed().await.is_err() {
