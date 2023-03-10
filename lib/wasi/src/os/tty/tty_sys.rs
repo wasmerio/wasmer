@@ -220,7 +220,7 @@ mod sys {
     }
 }
 
-#[cfg(windows)]
+#[cfg(not(unix))]
 mod sys {
     pub fn reset() -> Result<(), anyhow::Error> {
         Ok(())

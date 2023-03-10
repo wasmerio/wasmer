@@ -134,7 +134,7 @@ impl Wasi {
             rt.set_networking_implementation(wasmer_vnet::UnsupportedVirtualNetworking::default());
         }
 
-        if self.no_tty == false {
+        if !self.no_tty {
             let tty = Arc::new(SysTyy::default());
             tty.reset();
             rt.set_tty(tty)
