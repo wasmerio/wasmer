@@ -79,15 +79,13 @@ mod sys {
         std::os::unix::io::AsRawFd,
     };
 
-    #[cfg(unix)]
-    pub fn io_result(ret: libc::c_int) -> std::io::Result<()> {
+    fn io_result(ret: libc::c_int) -> std::io::Result<()> {
         match ret {
             0 => Ok(()),
             _ => Err(std::io::Error::last_os_error()),
         }
     }
 
-    #[cfg(unix)]
     pub fn reset() -> Result<(), anyhow::Error> {
         let mut termios = mem::MaybeUninit::<termios>::uninit();
         io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) })?;
@@ -99,22 +97,18 @@ mod sys {
         Ok(())
     }
 
-    #[cfg(unix)]
     pub fn is_stdin_tty() -> bool {
         ::termios::Termios::from_fd(0).is_ok()
     }
 
-    #[cfg(unix)]
     pub fn is_stdout_tty() -> bool {
         ::termios::Termios::from_fd(1).is_ok()
     }
 
-    #[cfg(unix)]
     pub fn is_stderr_tty() -> bool {
         ::termios::Termios::from_fd(2).is_ok()
     }
 
-    #[cfg(unix)]
     pub fn is_mode_echo() -> bool {
         if let Ok(termios) = ::termios::Termios::from_fd(0) {
             (termios.c_lflag & ::termios::ECHO) != 0
@@ -123,7 +117,6 @@ mod sys {
         }
     }
 
-    #[cfg(unix)]
     pub fn is_mode_line_buffering() -> bool {
         if let Ok(termios) = ::termios::Termios::from_fd(0) {
             (termios.c_lflag & ::termios::ICANON) != 0
@@ -132,7 +125,6 @@ mod sys {
         }
     }
 
-    #[cfg(unix)]
     pub fn is_mode_line_feeds() -> bool {
         if let Ok(termios) = ::termios::Termios::from_fd(0) {
             (termios.c_lflag & ::termios::ONLCR) != 0
@@ -141,7 +133,6 @@ mod sys {
         }
     }
 
-    #[cfg(unix)]
     pub fn set_mode_no_echo() -> Result<(), anyhow::Error> {
         let mut termios = mem::MaybeUninit::<termios>::uninit();
         io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) })?;
@@ -163,7 +154,6 @@ mod sys {
         Ok(())
     }
 
-    #[cfg(unix)]
     pub fn set_mode_echo() -> Result<(), anyhow::Error> {
         let mut termios = mem::MaybeUninit::<termios>::uninit();
         io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) })?;
@@ -185,7 +175,6 @@ mod sys {
         Ok(())
     }
 
-    #[cfg(unix)]
     pub fn set_mode_no_line_buffered() -> Result<(), anyhow::Error> {
         let mut termios = mem::MaybeUninit::<termios>::uninit();
         io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) })?;
@@ -197,7 +186,6 @@ mod sys {
         Ok(())
     }
 
-    #[cfg(unix)]
     pub fn set_mode_line_buffered() -> Result<(), anyhow::Error> {
         let mut termios = mem::MaybeUninit::<termios>::uninit();
         io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) })?;
@@ -209,7 +197,6 @@ mod sys {
         Ok(())
     }
 
-    #[cfg(unix)]
     pub fn set_mode_no_line_feeds() -> Result<(), anyhow::Error> {
         let mut termios = mem::MaybeUninit::<termios>::uninit();
         io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) })?;
@@ -221,7 +208,6 @@ mod sys {
         Ok(())
     }
 
-    #[cfg(unix)]
     pub fn set_mode_line_feeds() -> Result<(), anyhow::Error> {
         let mut termios = mem::MaybeUninit::<termios>::uninit();
         io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) })?;
@@ -230,6 +216,61 @@ mod sys {
         termios.c_lflag |= ONLCR;
 
         unsafe { tcsetattr(0, TCSANOW, &termios) };
+        Ok(())
+    }
+}
+
+#[cfg(windows)]
+mod sys {
+    pub fn reset() -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+
+    pub fn is_stdin_tty() -> bool {
+        false
+    }
+
+    pub fn is_stdout_tty() -> bool {
+        false
+    }
+
+    pub fn is_stderr_tty() -> bool {
+        false
+    }
+
+    pub fn is_mode_echo() -> bool {
+        true
+    }
+
+    pub fn is_mode_line_buffering() -> bool {
+        true
+    }
+
+    pub fn is_mode_line_feeds() -> bool {
+        true
+    }
+
+    pub fn set_mode_no_echo() -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+
+    pub fn set_mode_echo() -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+
+    pub fn set_mode_no_line_buffered() -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+
+    pub fn set_mode_line_buffered() -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+
+    pub fn set_mode_no_line_feeds() -> Result<(), anyhow::Error> {
+        Ok(())
+    }
+
+    pub fn set_mode_line_feeds() -> Result<(), anyhow::Error> {
         Ok(())
     }
 }
