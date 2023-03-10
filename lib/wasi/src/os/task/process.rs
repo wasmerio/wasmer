@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     collections::HashMap,
     convert::TryInto,
     sync::{
@@ -24,7 +23,7 @@ use crate::{
 use super::{
     control_plane::{ControlPlaneError, WasiControlPlaneHandle},
     signal::{SignalDeliveryError, SignalHandlerAbi},
-    task_join_handle::{OwnedTaskStatus, TaskJoinHandle},
+    task_join_handle::OwnedTaskStatus,
 };
 
 /// Represents the ID of a sub-process
@@ -112,10 +111,6 @@ pub struct WasiProcessInner {
     pub thread_local_seed: TlKey,
     /// Signals that will be triggered at specific intervals
     pub signal_intervals: HashMap<Signal, WasiSignalInterval>,
-    /// Represents all the process spun up as a bus process
-    pub bus_processes: HashMap<WasiProcessId, TaskJoinHandle>,
-    /// Indicates if the bus process can be reused
-    pub bus_process_reuse: HashMap<Cow<'static, str>, WasiProcessId>,
     /// List of all the children spawned from this thread
     pub children: Vec<WasiProcess>,
 }
@@ -155,8 +150,6 @@ impl WasiProcess {
                 thread_local_user_data: Default::default(),
                 thread_local_seed: Default::default(),
                 signal_intervals: Default::default(),
-                bus_processes: Default::default(),
-                bus_process_reuse: Default::default(),
                 children: Default::default(),
             })),
             finished: Arc::new(OwnedTaskStatus::default()),

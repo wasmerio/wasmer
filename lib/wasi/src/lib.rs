@@ -244,6 +244,12 @@ impl WasiRuntimeError {
     pub fn as_exit_code(&self) -> Option<ExitCode> {
         if let WasiRuntimeError::Wasi(WasiError::Exit(code)) = self {
             Some(*code)
+        } else if let WasiRuntimeError::Runtime(err) = self {
+            if let Some(WasiError::Exit(code)) = err.downcast_ref() {
+                Some(*code)
+            } else {
+                None
+            }
         } else {
             None
         }

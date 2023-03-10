@@ -34,6 +34,7 @@ pub fn proc_fork<M: MemorySize>(
         }
     };
     let child_pid = child_env.process.pid();
+    let child_finished = child_env.process.finished.clone();
 
     // We write a zero to the PID before we capture the stack
     // so that this is what will be returned to the child
@@ -239,16 +240,6 @@ pub fn proc_fork<M: MemorySize>(
                 })
                 .ok()
         };
-
-        // Add the process to the environment state
-
-        let process = OwnedTaskStatus::default();
-
-        {
-            trace!("spawned sub-process (pid={})", child_pid.raw());
-            let mut inner = ctx.data().process.write();
-            inner.bus_processes.insert(child_pid, process.handle());
-        }
 
         // If the return value offset is within the memory stack then we need
         // to update it here rather than in the real memory

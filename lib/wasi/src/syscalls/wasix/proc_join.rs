@@ -9,7 +9,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `pid` - Handle of the child process to wait on
-#[instrument(level = "trace", skip_all, fields(filter_pid = field::Empty, ret_pid = field::Empty, exit_code = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(ret_pid = field::Empty, exit_code = field::Empty), ret, err)]
 pub fn proc_join<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     pid_ptr: WasmPtr<OptionPid, M>,
@@ -25,7 +25,7 @@ pub fn proc_join<M: MemorySize>(
         OptionTag::None => None,
         OptionTag::Some => Some(option_pid.pid),
     };
-    Span::current().record("filter_pid", option_pid);
+    tracing::trace!(filter_pid = option_pid);
 
     // If the ID is maximum then it means wait for any of the children
     let pid = match option_pid {

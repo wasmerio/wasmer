@@ -70,13 +70,19 @@ pub trait VirtualTaskHandle: std::fmt::Debug + Send + Sync + 'static {
 /// A handle that allows awaiting the termination of a task, and retrieving its exit code.
 #[derive(Debug)]
 pub struct OwnedTaskStatus {
-    watch: tokio::sync::watch::Sender<TaskStatus>,
+    watch_tx: tokio::sync::watch::Sender<TaskStatus>,
+    // Even through unused, without this receive there is a race condition
+    // where the previously sent values are lost.
+    #[allow(dead_code)]
+    watch_rx: tokio::sync::watch::Receiver<TaskStatus>,
 }
 
 impl OwnedTaskStatus {
     pub fn new(status: TaskStatus) -> Self {
+        let (tx, rx) = tokio::sync::watch::channel(status);
         Self {
-            watch: tokio::sync::watch::channel(status).0,
+            watch_tx: tx,
+            watch_rx: rx,
         }
     }
 
@@ -86,7 +92,7 @@ impl OwnedTaskStatus {
 
     /// Marks the task as finished.
     pub fn set_running(&self) {
-        self.watch.send_modify(|value| {
+        self.watch_tx.send_modify(|value| {
             // Only set to running if task was pending, otherwise the transition would be invalid.
             if value.is_pending() {
                 *value = TaskStatus::Running;
@@ -95,7 +101,7 @@ impl OwnedTaskStatus {
     }
 
     /// Marks the task as finished.
-    pub(super) fn set_finished(&self, res: Result<ExitCode, Arc<WasiRuntimeError>>) {
+    pub(crate) fn set_finished(&self, res: Result<ExitCode, Arc<WasiRuntimeError>>) {
         // Don't overwrite a previous finished state.
         if self.status().is_finished() {
             return;
@@ -111,36 +117,31 @@ impl OwnedTaskStatus {
                 }
             }
         };
-        self.watch.send(TaskStatus::Finished(inner)).ok();
+        self.watch_tx.send(TaskStatus::Finished(inner)).ok();
     }
 
     pub fn status(&self) -> TaskStatus {
-        self.watch.borrow().clone()
+        self.watch_tx.borrow().clone()
     }
 
     pub async fn await_termination(&self) -> Result<ExitCode, Arc<WasiRuntimeError>> {
-        let mut receiver = self.watch.subscribe();
-        match &*receiver.borrow_and_update() {
-            TaskStatus::Pending | TaskStatus::Running => {}
-            TaskStatus::Finished(res) => {
-                return res.clone();
-            }
-        }
+        let mut receiver = self.watch_tx.subscribe();
         loop {
-            // NOTE: unwrap() is fine, because &self always holds on to the sender.
-            receiver.changed().await.unwrap();
-            match &*receiver.borrow_and_update() {
+            let status = receiver.borrow_and_update().clone();
+            match status {
                 TaskStatus::Pending | TaskStatus::Running => {}
                 TaskStatus::Finished(res) => {
                     return res.clone();
                 }
             }
+            // NOTE: unwrap() is fine, because &self always holds on to the sender.
+            receiver.changed().await.unwrap();
         }
     }
 
     pub fn handle(&self) -> TaskJoinHandle {
         TaskJoinHandle {
-            watch: self.watch.subscribe(),
+            watch: self.watch_tx.subscribe(),
         }
     }
 }
@@ -165,21 +166,16 @@ impl TaskJoinHandle {
 
     /// Wait until the task finishes.
     pub async fn wait_finished(&mut self) -> Result<ExitCode, Arc<WasiRuntimeError>> {
-        match &*self.watch.borrow_and_update() {
-            TaskStatus::Pending | TaskStatus::Running => {}
-            TaskStatus::Finished(res) => {
-                return res.clone();
-            }
-        }
         loop {
-            if self.watch.changed().await.is_err() {
-                return Ok(Errno::Noent);
-            }
-            match &*self.watch.borrow_and_update() {
+            let status = self.watch.borrow_and_update().clone();
+            match status {
                 TaskStatus::Pending | TaskStatus::Running => {}
                 TaskStatus::Finished(res) => {
                     return res.clone();
                 }
+            }
+            if self.watch.changed().await.is_err() {
+                return Ok(Errno::Noent);
             }
         }
     }

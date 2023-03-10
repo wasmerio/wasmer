@@ -8,11 +8,13 @@ use crate::syscalls::*;
 /// Inputs:
 /// - `ExitCode`
 ///   Exit code to return to the operating system
-#[instrument(level = "debug", skip_all, fields(code))]
+#[instrument(level = "debug", skip_all)]
 pub fn proc_exit<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     code: ExitCode,
 ) -> Result<(), WasiError> {
+    debug!(%code);
+
     // Set the exit code for this process
     ctx.data().thread.set_status_finished(Ok(code));
 

@@ -66,7 +66,9 @@ pub fn proc_exec<M: MemorySize>(
     // with the forked WasiEnv, then do a longjmp back to the vfork point.
     if let Some(mut vfork) = ctx.data_mut().vfork.take() {
         // We will need the child pid later
-        let child_pid = ctx.data().process.pid();
+        let child_process = ctx.data().process.clone();
+        let child_pid = child_process.pid();
+        let child_finished = child_process.finished.clone();
 
         // Restore the WasiEnv to the point when we vforked
         std::mem::swap(&mut vfork.env.inner, &mut ctx.data_mut().inner);
@@ -82,7 +84,7 @@ pub fn proc_exec<M: MemorySize>(
         // Spawn a new process with this current execution environment
         let mut err_exit_code = Errno::Success;
 
-        let mut process = {
+        {
             let bin_factory = Box::new(ctx.data().bin_factory.clone());
             let tasks = wasi_env.tasks().clone();
 
@@ -90,7 +92,7 @@ pub fn proc_exec<M: MemorySize>(
             let mut config = Some(wasi_env);
 
             match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut new_store, &mut config) {
-                Ok(a) => Some(a),
+                Ok(a) => {}
                 Err(err) => {
                     if err != VirtualBusError::NotFound {
                         error!("builtin failed - {}", err);
@@ -99,7 +101,8 @@ pub fn proc_exec<M: MemorySize>(
                     let new_store = new_store.take().unwrap();
                     let env = config.take().unwrap();
 
-                    let (process, c) = tasks.block_on(async move {
+                    let child_finished = child_finished.clone();
+                    tasks.block_on(async {
                         let name_inner = name.clone();
                         let ret = bin_factory.spawn(
                                 name_inner,
@@ -108,9 +111,15 @@ pub fn proc_exec<M: MemorySize>(
                             )
                             .await;
                         match ret {
-                            Ok(ret) => (Some(ret), ctx),
+                            Ok(ret) => {
+                                trace!(%child_pid, "spawned sub-process");
+                            },
                             Err(err) => {
                                 err_exit_code = conv_bus_err_to_exit_code(err);
+
+                                debug!(%child_pid, "process failed with (err={})", err_exit_code);
+                                child_finished.set_finished(Ok(err_exit_code));
+
                                 warn!(
                                     "failed to execve as the process could not be spawned (vfork) - {}",
                                     err
@@ -120,34 +129,12 @@ pub fn proc_exec<M: MemorySize>(
                                     format!("wasm execute failed [{}] - {}\n", name.as_str(), err)
                                         .as_bytes(),
                                 ).await;
-                                (None, ctx)
                             }
                         }
-                    });
-                    ctx = c;
-                    process
+                    })
                 }
             }
         };
-
-        // If no process was created then we create a dummy one so that an
-        // exit code can be processed
-        let process = match process {
-            Some(a) => {
-                trace!("spawned sub-process (pid={})", child_pid.raw());
-                a
-            }
-            None => {
-                debug!("process failed with (err={})", err_exit_code);
-                OwnedTaskStatus::new(TaskStatus::Finished(Ok(err_exit_code))).handle()
-            }
-        };
-
-        // Add the process to the environment state
-        {
-            let mut inner = ctx.data().process.write();
-            inner.bus_processes.insert(child_pid, process);
-        }
 
         let mut memory_stack = vfork.memory_stack;
         let rewind_stack = vfork.rewind_stack;

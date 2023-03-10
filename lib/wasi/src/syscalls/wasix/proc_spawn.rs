@@ -248,11 +248,6 @@ pub fn proc_spawn_internal(
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
 
-    {
-        let mut guard = env.process.write();
-        guard.bus_processes.insert(child_pid, process);
-    };
-
     let handles = BusHandles {
         bid: child_pid.raw(),
         stdin,

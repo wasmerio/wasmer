@@ -29,7 +29,7 @@ use crate::{
         },
     },
     runtime::SpawnType,
-    syscalls::platform_clock_time_get,
+    syscalls::{__asyncify_light, platform_clock_time_get},
     SpawnedMemory, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError,
     WasiFunctionEnv, WasiRuntime, WasiRuntimeError, WasiStateCreationError, WasiVFork,
     DEFAULT_STACK_SIZE,
@@ -474,7 +474,7 @@ impl WasiEnv {
                 tracing::error!("wasi[{}]::wasm instantiate error ({})", pid, err);
                 func_env
                     .data(&store)
-                    .cleanup(Some(Errno::Noexec as ExitCode));
+                    .blocking_cleanup(Some(Errno::Noexec as ExitCode));
                 return Err(err.into());
             }
         };
@@ -489,7 +489,7 @@ impl WasiEnv {
             tracing::error!("wasi[{}]::wasi initialize error ({})", pid, err);
             func_env
                 .data(&store)
-                .cleanup(Some(Errno::Noexec as ExitCode));
+                .blocking_cleanup(Some(Errno::Noexec as ExitCode));
             return Err(err.into());
         }
 
@@ -499,7 +499,7 @@ impl WasiEnv {
                 if let Err(err) = crate::run_wasi_func_start(initialize, &mut store) {
                     func_env
                         .data(&store)
-                        .cleanup(Some(Errno::Noexec as ExitCode));
+                        .blocking_cleanup(Some(Errno::Noexec as ExitCode));
                     return Err(err);
                 }
             }
@@ -896,35 +896,33 @@ impl WasiEnv {
 
     /// Cleans up all the open files (if this is the main thread)
     #[allow(clippy::await_holding_lock)]
-    pub fn cleanup(&self, exit_code: Option<ExitCode>) {
+    pub fn blocking_cleanup(&self, exit_code: Option<ExitCode>) {
+        __asyncify_light(self, None, async {
+            self.cleanup(exit_code).await;
+            Ok(())
+        })
+        .ok();
+    }
+
+    /// Cleans up all the open files (if this is the main thread)
+    #[allow(clippy::await_holding_lock)]
+    pub async fn cleanup(&self, exit_code: Option<ExitCode>) {
         const CLEANUP_TIMEOUT: Duration = Duration::from_secs(10);
 
         // If this is the main thread then also close all the files
         if self.thread.is_main() {
             trace!("wasi[{}]:: cleaning up open file handles", self.pid());
 
-            let state = self.state.clone();
-            let tasks = self.tasks().clone();
-
-            let (tx, rx) = std::sync::mpsc::channel();
-            self.tasks()
-                .task_dedicated(Box::new(move || {
-                    let tasks_inner = tasks.clone();
-                    tasks.runtime().block_on(async {
-                        let timeout = tasks_inner.sleep_now(CLEANUP_TIMEOUT);
-                        tokio::select! {
-                            _ = timeout => {
-                                tracing::warn!(
-                                    "WasiEnv::cleanup has timed out after {CLEANUP_TIMEOUT:?}"
-                                );
-                            },
-                            _ = state.fs.close_all() => { }
-                        }
-                    });
-                    tx.send(()).ok();
-                }))
-                .ok();
-            rx.recv().ok();
+            // Perform the clean operation using the asynchronous runtime
+            let timeout = self.tasks().sleep_now(CLEANUP_TIMEOUT);
+            tokio::select! {
+                _ = timeout => {
+                    tracing::warn!(
+                        "WasiEnv::cleanup has timed out after {CLEANUP_TIMEOUT:?}"
+                    );
+                },
+                _ = self.state.fs.close_all() => { }
+            }
 
             // Now send a signal that the thread is terminated
             self.process.signal_process(Signal::Sigquit);

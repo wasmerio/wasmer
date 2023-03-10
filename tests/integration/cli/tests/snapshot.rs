@@ -171,6 +171,7 @@ pub fn run_test(spec: TestSpec, code: &[u8]) -> TestResult {
         cmd.arg("--enable-threads");
     }
     cmd.arg("--allow-multiple-wasi-versions");
+    cmd.arg("--enable-reference-types");
     cmd.arg("--net");
 
     for pkg in &spec.use_packages {
