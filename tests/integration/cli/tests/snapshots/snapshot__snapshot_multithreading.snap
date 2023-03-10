@@ -5,11 +5,11 @@ expression: snapshot
 {
   "spec": {
     "name": null,
-    "wasm_hash": "7ed0538ebf51b6afd5fe203200365271",
+    "wasm_hash": "929e93c5e0140d6cdbd6a6c622d331e8",
     "use_packages": [],
     "cli_args": [],
     "stdin": null,
-    "debug_output": false,
+    "debug_output": true,
     "enable_threads": true
   },
   "result": {

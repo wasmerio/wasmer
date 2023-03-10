@@ -171,7 +171,6 @@ pub fn run_test(spec: TestSpec, code: &[u8]) -> TestResult {
         cmd.arg("--enable-threads");
     }
     cmd.arg("--allow-multiple-wasi-versions");
-    cmd.arg("--enable-reference-types");
     cmd.arg("--net");
 
     for pkg in &spec.use_packages {
@@ -386,7 +385,9 @@ fn test_snapshot_sleep() {
 #[cfg(not(target_os = "windows"))]
 #[test]
 fn test_snapshot_process_spawn() {
-    let snapshot = TestBuilder::new().run_wasm(include_bytes!("./wasm/example-spawn.wasm"));
+    let snapshot = TestBuilder::new()
+    .use_coreutils()
+        .run_wasm(include_bytes!("./wasm/example-spawn.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
@@ -440,11 +441,20 @@ fn test_snapshot_thread_locals() {
 
 #[cfg(target_os = "linux")]
 #[test]
-fn test_snapshot_dash() {
+fn test_snapshot_dash_echo() {
     let snapshot = TestBuilder::new()
         .stdin_str("echo 2")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     // TODO: more tests!
+    assert_json_snapshot!(snapshot);
+}
+
+#[test]
+fn test_snapshot_dash_echo_to_cat() {
+    let snapshot = TestBuilder::new()
+        .use_coreutils()
+        .stdin_str("echo hello | cat")
+        .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
 }
 

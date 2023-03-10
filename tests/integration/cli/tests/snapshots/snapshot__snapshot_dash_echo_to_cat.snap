@@ -1,0 +1,42 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 456
+expression: snapshot
+---
+{
+  "spec": {
+    "name": null,
+    "wasm_hash": "4c1965d2e25f41f92804d4b229899872",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "cli_args": [],
+    "stdin": [
+      101,
+      99,
+      104,
+      111,
+      32,
+      104,
+      101,
+      108,
+      108,
+      111,
+      32,
+      124,
+      32,
+      99,
+      97,
+      116
+    ],
+    "debug_output": false,
+    "enable_threads": true
+  },
+  "result": {
+    "Success": {
+      "stdout": "hello\n",
+      "stderr": "# # \n",
+      "exit_code": 0
+    }
+  }
+}

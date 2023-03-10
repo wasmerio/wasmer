@@ -5,10 +5,8 @@ expression: snapshot
 {
   "spec": {
     "name": null,
-    "wasm_hash": "594fbfb8c1b51b4590d945ea0571355b",
-    "use_packages": [
-      "sharrattj/coreutils"
-    ],
+    "wasm_hash": "85b3818a4c2fef42f12451fd1e9e9e79",
+    "use_packages": [],
     "cli_args": [],
     "stdin": null,
     "debug_output": false,
