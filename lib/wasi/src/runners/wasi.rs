@@ -13,8 +13,8 @@ use crate::{
 use crate::{WasiEnv, WasiEnvBuilder};
 use anyhow::{Context, Error};
 use serde::{Deserialize, Serialize};
+use virtual_fs::{FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer::{Module, Store};
-use wasmer_vfs::{FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 use webc::metadata::{annotations::Wasi, Command};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -130,42 +130,27 @@ impl WasiRunner {
         container: &WapmContainer,
         command: &str,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
-        let root_fs = RootFileSystemBuilder::new().build();
+        let root_fs = unioned_filesystem(&self.mapped_dirs, container)?;
 
-        let filesystem = container.container_fs();
-        root_fs.union(&filesystem);
-
-        if !self.mapped_dirs.is_empty() {
-            let fs_backing: Arc<dyn FileSystem + Send + Sync> =
-                Arc::new(PassthruFileSystem::new(crate::default_fs_backing()));
-
-            for MappedDirectory { host, guest } in self.mapped_dirs.iter() {
-                let guest = match guest.starts_with('/') {
-                    true => PathBuf::from(guest),
-                    false => Path::new("/").join(guest),
-                };
-                tracing::debug!(
-                    host=%host.display(),
-                    guest=%guest.display(),
-                    "mounting host directory",
-                );
-
-                root_fs
-                    .mount(guest.clone(), &fs_backing, host.clone())
-                    .with_context(|| {
-                        format!(
-                            "Unable to mount \"{}\" to \"{}\"",
-                            host.display(),
-                            guest.display()
-                        )
-                    })?;
-            }
-        }
-
-        let builder = WasiEnv::builder(command)
+        let mut builder = WasiEnv::builder(command)
             .args(&self.args)
             .fs(Box::new(root_fs))
             .preopen_dir("/")?;
+
+        if self.forward_host_env {
+            for (k, v) in std::env::vars() {
+                builder.add_env(k, v);
+            }
+        }
+
+        for (k, v) in &self.env {
+            builder.add_env(k, v);
+        }
+
+        if let Some(tasks) = &self.tasks {
+            let rt = PluggableRuntime::new(Arc::clone(tasks));
+            builder.set_runtime(Arc::new(rt));
+        }
 
         Ok(builder)
     }
@@ -197,30 +182,107 @@ impl crate::runners::Runner for WasiRunner {
         let mut module = Module::new(&self.store, atom)?;
         module.set_name(&atom_name);
 
-        let mut builder = self.prepare_webc_env(container, &atom_name)?;
-
-        if self.forward_host_env {
-            for (k, v) in std::env::vars() {
-                builder.add_env(k, v);
-            }
-        }
-
-        for (k, v) in &self.env {
-            builder.add_env(k, v);
-        }
-
-        if let Some(tasks) = &self.tasks {
-            let rt = PluggableRuntime::new(Arc::clone(tasks));
-            builder.set_runtime(Arc::new(rt));
-        }
-
-        let res = builder.run(module);
-        match res {
-            Ok(()) => Ok(()),
-            Err(crate::WasiRuntimeError::Wasi(crate::WasiError::Exit(_))) => Ok(()),
-            Err(e) => Err(e),
-        }?;
+        self.prepare_webc_env(container, &atom_name)?.run(module)?;
 
         Ok(())
+    }
+}
+
+/// Create a [`FileSystem`] which merges the WAPM container's volumes with any
+/// directories that were mapped from the host.
+fn unioned_filesystem(
+    mapped_dirs: &[MappedDirectory],
+    container: &WapmContainer,
+) -> Result<impl FileSystem, Error> {
+    let root_fs = RootFileSystemBuilder::new().build();
+
+    let filesystem = container.container_fs();
+    root_fs.union(&filesystem);
+
+    if !mapped_dirs.is_empty() {
+        let fs_backing: Arc<dyn FileSystem + Send + Sync> =
+            Arc::new(PassthruFileSystem::new(crate::default_fs_backing()));
+
+        for MappedDirectory { host, guest } in mapped_dirs.iter() {
+            let guest = match guest.starts_with('/') {
+                true => PathBuf::from(guest),
+                false => Path::new("/").join(guest),
+            };
+            tracing::debug!(
+                host=%host.display(),
+                guest=%guest.display(),
+                "mounting host directory",
+            );
+
+            root_fs
+                .mount(guest.clone(), &fs_backing, host.clone())
+                .with_context(|| {
+                    format!(
+                        "Unable to mount \"{}\" to \"{}\"",
+                        host.display(),
+                        guest.display()
+                    )
+                })?;
+        }
+    }
+
+    Ok(root_fs)
+}
+
+#[cfg(test)]
+mod tests {
+    use tempfile::TempDir;
+    use tokio::io::AsyncReadExt;
+
+    use super::*;
+
+    #[track_caller]
+    async fn read_file(fs: &dyn FileSystem, path: impl AsRef<Path>) -> String {
+        let mut f = fs.new_open_options().read(true).open(path).unwrap();
+        let mut contents = String::new();
+        f.read_to_string(&mut contents).await.unwrap();
+
+        contents
+    }
+
+    #[track_caller]
+    fn read_dir(fs: &dyn FileSystem, path: impl AsRef<Path>) -> Vec<PathBuf> {
+        fs.read_dir(path.as_ref())
+            .unwrap()
+            .filter_map(|result| result.ok())
+            .map(|entry| entry.path)
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn construct_the_unioned_fs() {
+        let temp = TempDir::new().unwrap();
+        std::fs::write(temp.path().join("file.txt"), b"Hello, World!").unwrap();
+        let webc: &[u8] =
+            include_bytes!("../../../../lib/c-api/examples/assets/python-0.1.0.wasmer");
+        let container = WapmContainer::from_bytes(webc.into()).unwrap();
+        let mapped_dirs = [MappedDirectory {
+            guest: "/path/to/".to_string(),
+            host: temp.path().to_path_buf(),
+        }];
+
+        let fs = unioned_filesystem(&mapped_dirs, &container).unwrap();
+
+        // Files that were mounted on the host
+        assert_eq!(
+            read_dir(&fs, "/path/to/"),
+            vec![PathBuf::from("/path/to/file.txt")]
+        );
+        assert_eq!(read_file(&fs, "/path/to/file.txt").await, "Hello, World!");
+        // Files from the Python WEBC file's volumes
+        assert_eq!(
+            read_dir(&fs, "lib/python3.6/collections/"),
+            vec![
+                PathBuf::from("lib/python3.6/collections/__init__.py"),
+                PathBuf::from("lib/python3.6/collections/abc.py"),
+            ]
+        );
+        let abc = read_file(&fs, "lib/python3.6/collections/abc.py").await;
+        assert_eq!(abc, "from _collections_abc import *");
     }
 }

@@ -82,6 +82,7 @@ wasm-bindgen = "0.2.74"
 [dev-dependencies]
 wasmer = { path = "../api", version = "=3.2.0-alpha.1", default-features = false, features = ["wat", "js-serializable-module"] }
 tokio = { version = "1", features = [ "sync", "macros", "rt" ], default_features = false }
+tempfile = "3.4.0"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test = "0.3.0"
