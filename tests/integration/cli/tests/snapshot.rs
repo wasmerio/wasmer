@@ -386,7 +386,7 @@ fn test_snapshot_sleep() {
 #[test]
 fn test_snapshot_process_spawn() {
     let snapshot = TestBuilder::new()
-    .use_coreutils()
+        .use_coreutils()
         .run_wasm(include_bytes!("./wasm/example-spawn.wasm"));
     assert_json_snapshot!(snapshot);
 }
