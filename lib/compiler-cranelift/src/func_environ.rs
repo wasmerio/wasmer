@@ -13,17 +13,17 @@ use cranelift_codegen::ir::{AbiParam, ArgumentPurpose, Function, InstBuilder, Si
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
 use std::convert::TryFrom;
-use wasmer_compiler::wasmparser::Type;
+use wasmer_compiler::wasmparser::HeapType;
 use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::VMBuiltinFunctionIndex;
 use wasmer_types::VMOffsets;
+use wasmer_types::WasmResult;
 use wasmer_types::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
     SignatureIndex, TableIndex, Type as WasmerType,
 };
 use wasmer_types::{MemoryStyle, TableStyle};
-use wasmer_types::{WasmError, WasmResult};
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
 pub fn get_function_name(func_index: FunctionIndex) -> ir::ExternalName {
@@ -999,16 +999,11 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
     fn translate_ref_null(
         &mut self,
         mut pos: cranelift_codegen::cursor::FuncCursor,
-        ty: Type,
+        ty: HeapType,
     ) -> WasmResult<ir::Value> {
         Ok(match ty {
-            Type::FuncRef => pos.ins().null(self.reference_type()),
-            Type::ExternRef => pos.ins().null(self.reference_type()),
-            _ => {
-                return Err(WasmError::Unsupported(
-                    "`ref.null T` that is not a `funcref` or an `externref`".into(),
-                ));
-            }
+            HeapType::Func => pos.ins().null(self.reference_type()),
+            _ => unimplemented!("HeapType unsuported"),
         })
     }
 

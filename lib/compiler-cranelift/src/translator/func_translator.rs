@@ -16,9 +16,7 @@ use cranelift_codegen::ir::{self, Block, InstBuilder, ValueLabel};
 use cranelift_codegen::timing;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use wasmer_compiler::wasmparser;
-use wasmer_compiler::{
-    wasm_unsupported, wptype_to_type, FunctionBinaryReader, ModuleTranslationState,
-};
+use wasmer_compiler::{wptype_to_type, FunctionBinaryReader, ModuleTranslationState};
 use wasmer_types::{LocalFunctionIndex, WasmResult};
 
 /// WebAssembly to Cranelift IR function translator.
@@ -181,12 +179,12 @@ fn parse_local_decls<FE: FuncEnvironment + ?Sized>(
 fn declare_locals<FE: FuncEnvironment + ?Sized>(
     builder: &mut FunctionBuilder,
     count: u32,
-    wasm_type: wasmparser::Type,
+    wasm_type: wasmparser::ValType,
     next_local: &mut usize,
     environ: &mut FE,
 ) -> WasmResult<()> {
     // All locals are initialized to 0.
-    use wasmparser::Type::*;
+    use wasmparser::ValType::*;
     let zeroval = match wasm_type {
         I32 => builder.ins().iconst(ir::types::I32, 0),
         I64 => builder.ins().iconst(ir::types::I64, 0),
@@ -196,9 +194,7 @@ fn declare_locals<FE: FuncEnvironment + ?Sized>(
             let constant_handle = builder.func.dfg.constants.insert([0; 16].to_vec().into());
             builder.ins().vconst(ir::types::I8X16, constant_handle)
         }
-        ExternRef => builder.ins().null(environ.reference_type()),
-        FuncRef => builder.ins().null(environ.reference_type()),
-        ty => return Err(wasm_unsupported!("unsupported local type {:?}", ty)),
+        Ref(_) => builder.ins().null(environ.reference_type()),
     };
 
     let wasmer_ty = wptype_to_type(wasm_type).unwrap();

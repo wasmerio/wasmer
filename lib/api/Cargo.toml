@@ -68,7 +68,7 @@ js-sys = "0.3.51"
 #web-sys = { version = "0.3.51", features = [ "console" ] }
 wasmer-derive = { path = "../derive", version = "=3.2.0-alpha.1" }
 # - Optional dependencies for `js`.
-wasmparser = { version = "0.83", default-features = false, optional = true }
+wasmparser = { version = "0.102", default-features = false, optional = true }
 hashbrown = { version = "0.11", optional = true }
 serde-wasm-bindgen = { version = "0.4.5" }
 serde = { version = "1.0", features = ["derive"] }

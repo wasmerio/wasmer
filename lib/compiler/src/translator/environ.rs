@@ -4,7 +4,8 @@ use super::state::ModuleTranslationState;
 use crate::lib::std::string::ToString;
 use crate::lib::std::{boxed::Box, string::String, vec::Vec};
 use crate::translate_module;
-use crate::wasmparser::{Operator, Range, Type};
+use crate::wasmparser::{Operator, ValType};
+use core::ops::Range;
 use std::convert::{TryFrom, TryInto};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::FunctionType;
@@ -32,7 +33,7 @@ pub trait FunctionBinaryReader<'a> {
     fn read_local_count(&mut self) -> WasmResult<u32>;
 
     /// Read a `(count, value_type)` declaration of local variables of the same type.
-    fn read_local_decl(&mut self) -> WasmResult<(u32, Type)>;
+    fn read_local_decl(&mut self) -> WasmResult<(u32, ValType)>;
 
     /// Reads the next available `Operator`.
     fn read_operator(&mut self) -> WasmResult<Operator<'a>>;
@@ -50,7 +51,7 @@ pub trait FunctionBinaryReader<'a> {
     fn eof(&self) -> bool;
 
     /// Return the range (original offset, original offset + data length)
-    fn range(&self) -> Range;
+    fn range(&self) -> Range<usize>;
 }
 
 /// The result of translating via `ModuleEnvironment`. Function bodies are not

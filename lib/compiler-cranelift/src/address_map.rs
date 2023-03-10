@@ -1,14 +1,14 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
+use core::ops::Range;
 use cranelift_codegen::Context;
 use cranelift_codegen::MachSrcLoc;
-use wasmer_compiler::wasmparser::Range;
 use wasmer_types::{FunctionAddressMap, InstructionAddressMap, SourceLoc};
 
 pub fn get_function_address_map(
     context: &Context,
-    range: Range,
+    range: Range<usize>,
     body_len: usize,
 ) -> FunctionAddressMap {
     let mut instructions = Vec::new();
