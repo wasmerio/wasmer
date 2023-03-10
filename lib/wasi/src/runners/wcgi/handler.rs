@@ -23,7 +23,7 @@ use wcgi_host::CgiDialect;
 use crate::{
     capabilities::Capabilities,
     http::HttpClientCapabilityV1,
-    runners::wcgi::{Callbacks, MappedDirectory},
+    runners::{wcgi::Callbacks, MappedDirectory},
     Pipe, PluggableRuntime, VirtualTaskManager, WasiEnv,
 };
 

@@ -17,11 +17,8 @@ use webc::metadata::{
 
 use crate::{
     runners::{
-        wcgi::{
-            handler::{Handler, SharedState},
-            MappedDirectory,
-        },
-        WapmContainer,
+        wcgi::handler::{Handler, SharedState},
+        MappedDirectory, WapmContainer,
     },
     runtime::task_manager::tokio::TokioTaskManager,
     VirtualTaskManager,

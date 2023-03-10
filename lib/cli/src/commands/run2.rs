@@ -25,7 +25,7 @@ use wasmer::{
 use wasmer_cache::Cache;
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::Package;
-use wasmer_wasix::runners::{wcgi::MappedDirectory, Runner, WapmContainer};
+use wasmer_wasix::runners::{MappedDirectory, Runner, WapmContainer};
 use webc::metadata::Manifest;
 use webc_v4::DirOrFile;
 

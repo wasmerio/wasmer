@@ -10,7 +10,7 @@ use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Value};
 use wasmer_wasix::{
     default_fs_backing, get_wasi_versions,
     os::{tty_sys::SysTty, TtyBridge},
-    runners::wcgi::MappedDirectory,
+    runners::MappedDirectory,
     runtime::task_manager::tokio::TokioTaskManager,
     types::__WASI_STDIN_FILENO,
     PluggableRuntime, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv, WasiVersion,

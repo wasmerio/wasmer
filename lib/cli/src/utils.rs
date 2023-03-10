@@ -2,7 +2,7 @@
 use anyhow::{bail, Result};
 use std::env;
 use std::path::PathBuf;
-use wasmer_wasix::runners::wcgi::MappedDirectory;
+use wasmer_wasix::runners::MappedDirectory;
 
 /// Whether or not Wasmer should print with color
 pub fn wasmer_should_print_color() -> bool {

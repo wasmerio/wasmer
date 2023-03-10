@@ -12,3 +12,11 @@ pub use self::{
     container::{Bindings, WapmContainer, WebcParseError, WitBindings},
     runner::Runner,
 };
+
+use std::path::PathBuf;
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct MappedDirectory {
+    pub host: PathBuf,
+    pub guest: String,
+}

@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::{
-    runners::{wcgi::MappedDirectory, WapmContainer},
+    runners::{MappedDirectory, WapmContainer},
     PluggableRuntime, VirtualTaskManager,
 };
 use crate::{WasiEnv, WasiEnvBuilder};
