@@ -146,7 +146,14 @@ fn build_test_file(contents: &[u8]) -> PathBuf {
     std::fs::create_dir_all(&dir).unwrap();
     let hash = format!("{:x}.wasm", md5::compute(contents));
     let path = dir.join(hash);
-    std::fs::write(&path, contents).unwrap();
+
+    {
+        std::fs::remove_file(&path).ok();
+        let mut file = std::fs::File::create(&path).unwrap();
+        file.write_all(contents).unwrap();
+        file.flush().unwrap();
+    }
+
     path
 }
 
