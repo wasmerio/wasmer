@@ -26,12 +26,12 @@ pub fn proc_exec<M: MemorySize>(
     let memory = ctx.data().memory_view(&ctx);
     let mut name = name.read_utf8_string(&memory, name_len).map_err(|err| {
         warn!("failed to execve as the name could not be read - {}", err);
-        WasiError::Exit(Errno::Inval as ExitCode)
+        WasiError::Exit(Errno::Inval.into())
     })?;
     Span::current().record("name", name.as_str());
     let args = args.read_utf8_string(&memory, args_len).map_err(|err| {
         warn!("failed to execve as the args could not be read - {}", err);
-        WasiError::Exit(Errno::Inval as ExitCode)
+        WasiError::Exit(Errno::Inval.into())
     })?;
     let args: Vec<_> = args
         .split(&['\n', '\r'])
@@ -55,7 +55,7 @@ pub fn proc_exec<M: MemorySize>(
             Ok(a) => a,
             Err(err) => {
                 warn!("failed to create subprocess for fork - {}", err);
-                return Err(WasiError::Exit(err));
+                return Err(WasiError::Exit(err.into()));
             }
         }
     };
@@ -82,7 +82,7 @@ pub fn proc_exec<M: MemorySize>(
         let stack_start = wasi_env.stack_start;
 
         // Spawn a new process with this current execution environment
-        let mut err_exit_code = Errno::Success;
+        let mut err_exit_code: ExitCode = Errno::Success.into();
 
         {
             let bin_factory = Box::new(ctx.data().bin_factory.clone());
@@ -177,7 +177,7 @@ pub fn proc_exec<M: MemorySize>(
                 Errno::Success => OnCalledAction::InvokeAgain,
                 err => {
                     warn!("fork failed - could not rewind the stack - errno={}", err);
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(err)))
+                    OnCalledAction::Trap(Box::new(WasiError::Exit(err.into())))
                 }
             }
         })?;
@@ -235,25 +235,25 @@ pub fn proc_exec<M: MemorySize>(
                     let (tx, rx) = std::sync::mpsc::channel();
                     let tasks_inner = tasks.clone();
                     tasks.block_on(Box::pin(async move {
-                        let code = process.wait_finished().await.unwrap_or(Errno::Child);
+                        let code = process.wait_finished().await.unwrap_or(Errno::Child.into());
                         tx.send(code);
                     }));
                     let exit_code = rx.recv().unwrap();
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(exit_code as ExitCode)))
+                    OnCalledAction::Trap(Box::new(WasiError::Exit(exit_code.into())))
                 }
                 Ok(Err(err)) => {
                     warn!(
                         "failed to execve as the process could not be spawned (fork)[0] - {}",
                         err
                     );
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Noexec as ExitCode)))
+                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Noexec.into())))
                 }
                 Err(err) => {
                     warn!(
                         "failed to execve as the process could not be spawned (fork)[1] - {}",
                         err
                     );
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Noexec as ExitCode)))
+                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Noexec.into())))
                 }
             }
         })?;

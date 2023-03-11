@@ -205,7 +205,7 @@ impl Wasi {
                 let err: anyhow::Error = match err.downcast::<WasiError>() {
                     Ok(WasiError::Exit(exit_code)) => {
                         // We should exit with the provided exit code
-                        std::process::exit(exit_code as _);
+                        std::process::exit(exit_code.into());
                     }
                     Ok(err) => err.into(),
                     Err(err) => err.into(),

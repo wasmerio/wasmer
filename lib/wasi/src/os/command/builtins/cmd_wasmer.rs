@@ -85,14 +85,14 @@ impl CmdWasmer {
                     )
                     .await;
                 });
-                let handle = OwnedTaskStatus::new_finished_with_code(Errno::Noent).handle();
+                let handle = OwnedTaskStatus::new_finished_with_code(Errno::Noent.into()).handle();
                 Ok(handle)
             }
         } else {
             parent_ctx.data().tasks().block_on(async move {
                 let _ = stderr_write(parent_ctx, HELP_RUN.as_bytes()).await;
             });
-            let handle = OwnedTaskStatus::new_finished_with_code(Errno::Success).handle();
+            let handle = OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
             Ok(handle)
         }
     }
@@ -135,7 +135,8 @@ impl VirtualCommand for CmdWasmer {
                 parent_ctx.data().tasks().block_on(async move {
                     let _ = stderr_write(parent_ctx, HELP.as_bytes()).await;
                 });
-                let handle = OwnedTaskStatus::new_finished_with_code(Errno::Success).handle();
+                let handle =
+                    OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
                 Ok(handle)
             }
             Some(what) => {

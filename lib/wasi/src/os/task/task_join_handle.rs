@@ -175,7 +175,7 @@ impl TaskJoinHandle {
                 }
             }
             if self.watch.changed().await.is_err() {
-                return Ok(Errno::Noent);
+                return Ok(Errno::Noent.into());
             }
         }
     }

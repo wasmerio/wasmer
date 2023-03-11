@@ -45,7 +45,7 @@ pub fn proc_exit<M: MemorySize>(
                     offset,
                     memory_stack.len()
                 );
-                return Err(WasiError::Exit(Errno::Memviolation));
+                return Err(WasiError::Exit(Errno::Memviolation.into()));
             }
 
             // Update the memory stack with the new PID
@@ -58,7 +58,7 @@ pub fn proc_exit<M: MemorySize>(
             warn!(
                 "fork failed - the return value (pid) is not being returned on the stack - which is not supported"
             );
-            return Err(WasiError::Exit(Errno::Memviolation));
+            return Err(WasiError::Exit(Errno::Memviolation.into()));
         }
 
         // Jump back to the vfork point and current on execution
@@ -73,7 +73,7 @@ pub fn proc_exit<M: MemorySize>(
                 Errno::Success => OnCalledAction::InvokeAgain,
                 err => {
                     warn!("fork failed - could not rewind the stack - errno={}", err);
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(err)))
+                    OnCalledAction::Trap(Box::new(WasiError::Exit(err.into())))
                 }
             }
         })?;

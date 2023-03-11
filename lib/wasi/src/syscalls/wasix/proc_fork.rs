@@ -89,7 +89,7 @@ pub fn proc_fork<M: MemorySize>(
                 Errno::Success => OnCalledAction::InvokeAgain,
                 err => {
                     warn!("failed - could not rewind the stack - errno={}", err);
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(err)))
+                    OnCalledAction::Trap(Box::new(WasiError::Exit(err.into())))
                 }
             }
         });
@@ -127,7 +127,7 @@ pub fn proc_fork<M: MemorySize>(
                 warn!(
                     %err
                 );
-                return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation)));
+                return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation.into())));
             }
         };
         let fork_module = env.inner().instance.module().clone();
@@ -221,7 +221,7 @@ pub fn proc_fork<M: MemorySize>(
                 trace!("child exited (code = {})", ret);
 
                 // Clean up the environment
-                ctx.cleanup((&mut store), Some(ret as ExitCode));
+                ctx.cleanup((&mut store), Some(ret.into()));
 
                 // Send the result
                 let _ = exit_code_tx.send(ret as u32);
@@ -253,7 +253,7 @@ pub fn proc_fork<M: MemorySize>(
                         offset,
                         memory_stack.len()
                     );
-                return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation)));
+                return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation.into())));
             }
 
             // Update the memory stack with the new PID
@@ -266,7 +266,7 @@ pub fn proc_fork<M: MemorySize>(
             warn!(
                     "failed - the return value (pid) is not being returned on the stack - which is not supported"
                 );
-            return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation)));
+            return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation.into())));
         }
 
         // Rewind the stack and carry on
@@ -279,7 +279,7 @@ pub fn proc_fork<M: MemorySize>(
             Errno::Success => OnCalledAction::InvokeAgain,
             err => {
                 warn!("failed - could not rewind the stack - errno={}", err);
-                OnCalledAction::Trap(Box::new(WasiError::Exit(err)))
+                OnCalledAction::Trap(Box::new(WasiError::Exit(err.into())))
             }
         }
     })

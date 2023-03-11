@@ -474,7 +474,7 @@ impl WasiEnv {
                 tracing::error!("wasi[{}]::wasm instantiate error ({})", pid, err);
                 func_env
                     .data(&store)
-                    .blocking_cleanup(Some(Errno::Noexec as ExitCode));
+                    .blocking_cleanup(Some(Errno::Noexec.into()));
                 return Err(err.into());
             }
         };
@@ -489,7 +489,7 @@ impl WasiEnv {
             tracing::error!("wasi[{}]::wasi initialize error ({})", pid, err);
             func_env
                 .data(&store)
-                .blocking_cleanup(Some(Errno::Noexec as ExitCode));
+                .blocking_cleanup(Some(Errno::Noexec.into()));
             return Err(err.into());
         }
 
@@ -499,7 +499,7 @@ impl WasiEnv {
                 if let Err(err) = crate::run_wasi_func_start(initialize, &mut store) {
                     func_env
                         .data(&store)
-                        .blocking_cleanup(Some(Errno::Noexec as ExitCode));
+                        .blocking_cleanup(Some(Errno::Noexec.into()));
                     return Err(err);
                 }
             }
@@ -547,8 +547,8 @@ impl WasiEnv {
             let signal_cnt = signals.len();
             for sig in signals {
                 if sig == Signal::Sigint || sig == Signal::Sigquit || sig == Signal::Sigkill {
-                    env.thread.set_status_finished(Ok(Errno::Intr));
-                    return Err(WasiError::Exit(Errno::Intr));
+                    env.thread.set_status_finished(Ok(Errno::Intr.into()));
+                    return Err(WasiError::Exit(Errno::Intr.into()));
                 } else {
                     trace!("wasi[{}]::signal-ignored: {:?}", env.pid(), sig);
                 }
@@ -576,7 +576,7 @@ impl WasiEnv {
                 .thread
                 .has_signal(&[Signal::Sigint, Signal::Sigquit, Signal::Sigkill])
             {
-                env.thread.set_status_finished(Ok(Errno::Intr));
+                env.thread.set_status_finished(Ok(Errno::Intr.into()));
             }
             return Ok(Ok(false));
         }
@@ -648,7 +648,7 @@ impl WasiEnv {
                                 ctx.data().pid(),
                                 runtime_err
                             );
-                            return Err(WasiError::Exit(Errno::Intr as ExitCode));
+                            return Err(WasiError::Exit(Errno::Intr.into()));
                         }
                     }
                 }
@@ -663,10 +663,10 @@ impl WasiEnv {
     pub fn should_exit(&self) -> Option<ExitCode> {
         // Check for forced exit
         if let Some(forced_exit) = self.thread.try_join() {
-            return Some(forced_exit.unwrap_or(Errno::Child));
+            return Some(forced_exit.unwrap_or(Errno::Child.into()));
         }
         if let Some(forced_exit) = self.process.try_join() {
-            return Some(forced_exit.unwrap_or(Errno::Child));
+            return Some(forced_exit.unwrap_or(Errno::Child.into()));
         }
         None
     }
@@ -928,7 +928,7 @@ impl WasiEnv {
             self.process.signal_process(Signal::Sigquit);
 
             // Terminate the process
-            let exit_code = exit_code.unwrap_or(Errno::Canceled as ExitCode);
+            let exit_code = exit_code.unwrap_or(Errno::Canceled.into());
             self.process.terminate(exit_code);
         }
     }

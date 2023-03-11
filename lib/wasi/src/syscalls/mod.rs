@@ -838,7 +838,7 @@ where
         Ok(a) => a,
         Err(err) => {
             warn!("unable to get the memory stack - {}", err);
-            return Err(WasiError::Exit(Errno::Unknown as ExitCode));
+            return Err(WasiError::Exit(Errno::Unknown.into()));
         }
     };
 
@@ -867,7 +867,7 @@ where
         asyncify_start_unwind.call(&mut ctx, asyncify_data);
     } else {
         warn!("failed to unwind the stack because the asyncify_start_rewind export is missing");
-        return Err(WasiError::Exit(Errno::Noexec));
+        return Err(WasiError::Exit(Errno::Noexec.into()));
     }
 
     // Set callback that will be invoked when this process finishes
@@ -1054,9 +1054,9 @@ pub(crate) fn _prepare_wasi(wasi_env: &mut WasiEnv, args: Option<Vec<String>>) {
 
 pub(crate) fn conv_bus_err_to_exit_code(err: VirtualBusError) -> ExitCode {
     match err {
-        VirtualBusError::AccessDenied => Errno::Access as ExitCode,
-        VirtualBusError::NotFound => Errno::Noent as ExitCode,
-        VirtualBusError::Unsupported => Errno::Noexec as ExitCode,
-        _ => Errno::Inval as ExitCode,
+        VirtualBusError::AccessDenied => Errno::Access.into(),
+        VirtualBusError::NotFound => Errno::Noent.into(),
+        VirtualBusError::Unsupported => Errno::Noexec.into(),
+        _ => Errno::Inval.into(),
     }
 }

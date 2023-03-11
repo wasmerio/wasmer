@@ -128,7 +128,7 @@ pub fn thread_spawn<M: MemorySize>(
         if let Err(err) = call_ret {
             match err.downcast::<WasiError>() {
                 Ok(WasiError::Exit(code)) => {
-                    ret = if code == Errno::Success {
+                    ret = if code.is_success() {
                         Errno::Success
                     } else {
                         Errno::Noexec
@@ -147,7 +147,7 @@ pub fn thread_spawn<M: MemorySize>(
         trace!("callback finished (ret={})", ret);
 
         // Clean up the environment
-        ctx.cleanup(store, Some(ret as ExitCode));
+        ctx.cleanup(store, Some(ret.into()));
 
         // Return the result
         ret as u32

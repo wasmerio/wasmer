@@ -38,7 +38,7 @@ pub fn proc_join<M: MemorySize>(
                 Some((pid, exit_code)) => {
                     Span::current()
                         .record("ret_pid", pid.raw())
-                        .record("exit_code", exit_code as u32);
+                        .record("exit_code", exit_code.raw());
                     let env = ctx.data();
                     let memory = env.memory_view(&ctx);
 
@@ -51,7 +51,7 @@ pub fn proc_join<M: MemorySize>(
                     let status = JoinStatus {
                         tag: JoinStatusType::ExitNormal,
                         u: JoinStatusUnion {
-                            exit_normal: exit_code,
+                            exit_normal: exit_code.into(),
                         },
                     };
                     wasi_try_mem_ok!(status_ptr.write(&memory, status));
@@ -99,7 +99,7 @@ pub fn proc_join<M: MemorySize>(
 
     if let Some(process) = process {
         let exit_code = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-            let code = process.join().await.unwrap_or(Errno::Child);
+            let code = process.join().await.unwrap_or(Errno::Child.into());
             Ok(code)
         })
         .map_err(|err| {
@@ -112,7 +112,7 @@ pub fn proc_join<M: MemorySize>(
 
         Span::current()
             .record("ret_pid", pid.raw())
-            .record("exit_code", exit_code as u32);
+            .record("exit_code", exit_code.raw());
         let env = ctx.data();
         {
             let mut inner = env.process.inner.write().unwrap();
@@ -124,7 +124,7 @@ pub fn proc_join<M: MemorySize>(
         let status = JoinStatus {
             tag: JoinStatusType::ExitNormal,
             u: JoinStatusUnion {
-                exit_normal: exit_code,
+                exit_normal: exit_code.into(),
             },
         };
         wasi_try_mem_ok!(status_ptr.write(&memory, status));

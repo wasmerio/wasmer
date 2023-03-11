@@ -3,6 +3,8 @@ use wasmer::{MemorySize, ValueType};
 // TODO: Remove once bindings generate wai_bindgen_rust::bitflags::bitflags!  (temp hack)
 use wai_bindgen_rust as wit_bindgen_rust;
 
+use super::ExitCode;
+
 #[doc = " Type names used by low-level WASI interfaces."]
 #[doc = " An array size."]
 #[doc = " "]
@@ -1376,7 +1378,6 @@ impl core::fmt::Debug for BusHandles {
             .finish()
     }
 }
-pub type ExitCode = Errno;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct BusEventExit {

@@ -767,8 +767,8 @@ impl WasiEnvBuilder {
         );
 
         let exit_code = match &res {
-            Ok(_) => Errno::Success,
-            Err(err) => err.as_exit_code().unwrap_or(Errno::Noexec),
+            Ok(_) => Errno::Success.into(),
+            Err(err) => err.as_exit_code().unwrap_or(Errno::Noexec.into()),
         };
 
         env.cleanup(store, Some(exit_code));

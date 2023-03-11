@@ -126,7 +126,7 @@ pub fn stack_checkpoint<M: MemorySize>(
         let snapshot_ptr: WasmPtr<StackSnapshot, M> = WasmPtr::new(snapshot_offset);
         if let Err(err) = snapshot_ptr.write(&memory, snapshot) {
             warn!("could not save stack snapshot - {}", err);
-            return OnCalledAction::Trap(Box::new(WasiError::Exit(mem_error_to_wasi(err))));
+            return OnCalledAction::Trap(Box::new(WasiError::Exit(mem_error_to_wasi(err).into())));
         }
 
         // Rewind the stack and carry on
@@ -144,7 +144,7 @@ pub fn stack_checkpoint<M: MemorySize>(
                     "failed checkpoint - could not rewind the stack - errno={}",
                     err
                 );
-                OnCalledAction::Trap(Box::new(WasiError::Exit(err)))
+                OnCalledAction::Trap(Box::new(WasiError::Exit(err.into())))
             }
         }
     })

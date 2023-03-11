@@ -424,7 +424,7 @@ impl Drop for WasiThreadHandleProtected {
         if let Some(inner) = Weak::upgrade(&self.inner) {
             let mut inner = inner.write().unwrap();
             if let Some(ctrl) = inner.threads.remove(&id) {
-                ctrl.set_status_finished(Ok(Errno::Success));
+                ctrl.set_status_finished(Ok(Errno::Success.into()));
             }
             inner.thread_count -= 1;
         }

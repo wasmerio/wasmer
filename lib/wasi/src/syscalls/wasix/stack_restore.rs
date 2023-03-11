@@ -24,7 +24,7 @@ pub fn stack_restore<M: MemorySize>(
         }
         Err(err) => {
             warn!("failed to read stack snapshot - {}", err);
-            return Err(WasiError::Exit(mem_error_to_wasi(err)));
+            return Err(WasiError::Exit(mem_error_to_wasi(err).into()));
         }
     };
 
@@ -54,7 +54,9 @@ pub fn stack_restore<M: MemorySize>(
                         ret_val_offset,
                         end
                     );
-                    return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation)));
+                    return OnCalledAction::Trap(Box::new(WasiError::Exit(
+                        Errno::Memviolation.into(),
+                    )));
                 } else {
                     // Update the memory stack with the new return value
                     let pstart = memory_stack.len() - offset as usize;
@@ -80,7 +82,7 @@ pub fn stack_restore<M: MemorySize>(
                         "snapshot stack restore failed - the return value can not be written too - {}",
                         err
                     );
-                    return OnCalledAction::Trap(Box::new(WasiError::Exit(err)));
+                    return OnCalledAction::Trap(Box::new(WasiError::Exit(err.into())));
                 }
             }
 
@@ -92,7 +94,7 @@ pub fn stack_restore<M: MemorySize>(
                 Errno::Success => OnCalledAction::InvokeAgain,
                 err => {
                     warn!("failed to rewind the stack - errno={}", err);
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(err)))
+                    OnCalledAction::Trap(Box::new(WasiError::Exit(err.into())))
                 }
             }
         } else {
@@ -100,7 +102,7 @@ pub fn stack_restore<M: MemorySize>(
                 "snapshot stack restore failed - the snapshot can not be found and hence restored (hash={})",
                 snapshot.hash
             );
-            OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Unknown)))
+            OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Unknown.into())))
         }
     });
 

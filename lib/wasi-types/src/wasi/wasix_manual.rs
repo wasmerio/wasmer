@@ -1,6 +1,6 @@
 use std::mem::MaybeUninit;
 
-use wasmer::{MemorySize, ValueType};
+use wasmer::{FromToNativeWasmType, MemorySize, ValueType};
 
 use super::{
     Errno, ErrnoSignal, EventFdReadwrite, Eventtype, JoinStatusType, Signal,
@@ -239,4 +239,85 @@ impl<M: MemorySize> core::fmt::Debug for ThreadStart<M> {
 unsafe impl<M: MemorySize> ValueType for ThreadStart<M> {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ExitCode {
+    Errno(Errno),
+    Other(i32),
+}
+impl ExitCode {
+    pub fn raw(&self) -> i32 {
+        match self {
+            ExitCode::Errno(err) => err.to_native(),
+            ExitCode::Other(code) => *code,
+        }
+    }
+
+    pub fn is_success(&self) -> bool {
+        self.raw() == 0
+    }
+}
+impl core::fmt::Debug for ExitCode {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            ExitCode::Errno(a) => write!(f, "ExitCode::{}", a),
+            ExitCode::Other(a) => write!(f, "ExitCode::{}", a),
+        }
+    }
+}
+impl core::fmt::Display for ExitCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        core::fmt::Debug::fmt(&self, f)
+    }
+}
+
+unsafe impl wasmer::FromToNativeWasmType for ExitCode {
+    type Native = i32;
+
+    fn to_native(self) -> Self::Native {
+        self.into()
+    }
+
+    fn from_native(n: Self::Native) -> Self {
+        n.into()
+    }
+
+    fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
+        false
+    }
+}
+
+impl From<Errno> for ExitCode {
+    fn from(val: Errno) -> Self {
+        Self::Errno(val)
+    }
+}
+
+impl From<i32> for ExitCode {
+    fn from(val: i32) -> Self {
+        let err = Errno::from_native(val);
+        match err {
+            Errno::Unknown => Self::Other(val),
+            err => Self::Errno(err),
+        }
+    }
+}
+
+impl From<ExitCode> for Errno {
+    fn from(code: ExitCode) -> Self {
+        match code {
+            ExitCode::Errno(err) => err,
+            ExitCode::Other(code) => Errno::from_native(code),
+        }
+    }
+}
+
+impl Into<i32> for ExitCode {
+    fn into(self) -> i32 {
+        match self {
+            ExitCode::Errno(err) => err.to_native(),
+            ExitCode::Other(code) => code,
+        }
+    }
 }
