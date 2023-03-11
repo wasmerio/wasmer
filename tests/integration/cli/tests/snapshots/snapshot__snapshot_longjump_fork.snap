@@ -13,7 +13,7 @@ expression: snapshot
   },
   "result": {
     "Success": {
-      "stdout": "Parent has x = 0\nChild has x = 2\nChild(2) exited with 1280\n",
+      "stdout": "Child memory is good\nParent memory is good\nChild memory after longjmp is good\nChild has x = 2\nParent memory after longjmp is good\nParent has x = 0\nChild(2) exited with 1280\n",
       "stderr": "",
       "exit_code": 0
     }
