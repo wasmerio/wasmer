@@ -25,7 +25,7 @@ pub fn proc_join<M: MemorySize>(
         OptionTag::None => None,
         OptionTag::Some => Some(option_pid.pid),
     };
-    tracing::trace!(filter_pid = option_pid);
+    tracing::trace!("filter_pid = {:?}", option_pid);
 
     // If the ID is maximum then it means wait for any of the children
     let pid = match option_pid {

@@ -7,7 +7,7 @@ use wasmer::vm::VMMemory;
 /// Forks the current process into a new subprocess. If the function
 /// returns a zero then its the new subprocess. If it returns a positive
 /// number then its the current process and the $pid represents the child.
-#[instrument(level = "debug", skip_all, fields(copy_memory, pid = field::Empty), ret, err)]
+#[instrument(level = "debug", skip_all, fields(pid = field::Empty), ret, err)]
 pub fn proc_fork<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     mut copy_memory: Bool,
@@ -17,9 +17,16 @@ pub fn proc_fork<M: MemorySize>(
 
     // If we were just restored then we need to return the value instead
     if handle_rewind::<M>(&mut ctx) {
+        let view = ctx.data().memory_view(&ctx);
+        let ret_pid = pid_ptr.read(&view).unwrap_or(u32::MAX);
+        if ret_pid == 0 {
+            trace!("handle_rewind - i am child");
+        } else {
+            trace!("handle_rewind - i am parent (child={})", ret_pid);
+        }
         return Ok(Errno::Success);
     }
-    trace!("capturing",);
+    trace!(%copy_memory, "capturing");
 
     // Fork the environment which will copy all the open file handlers
     // and associate a new context but otherwise shares things like the
@@ -218,7 +225,7 @@ pub fn proc_fork<M: MemorySize>(
                     let start = ctx.data(&store).inner().thread_spawn.clone().unwrap();
                     start.call(&mut store, 0, 0);
                 }
-                trace!("child exited (code = {})", ret);
+                trace!(%pid, %tid, "child exited (code = {})", ret);
 
                 // Clean up the environment
                 ctx.cleanup((&mut store), Some(ret.into()));

@@ -101,8 +101,6 @@ pub struct WasiProcessInner {
     pub threads: HashMap<WasiThreadId, WasiThread>,
     /// Number of threads running for this process
     pub thread_count: u32,
-    /// Seed used to generate thread ID's
-    pub thread_seed: WasiThreadId,
     /// All the thread local variables
     pub thread_local: HashMap<(WasiThreadId, TlKey), TlVal>,
     /// User data associated with thread local data
@@ -145,7 +143,6 @@ impl WasiProcess {
                 pid,
                 threads: Default::default(),
                 thread_count: Default::default(),
-                thread_seed: Default::default(),
                 thread_local: Default::default(),
                 thread_local_user_data: Default::default(),
                 thread_local_seed: Default::default(),
@@ -190,21 +187,35 @@ impl WasiProcess {
 
     /// Creates a a thread and returns it
     pub fn new_thread(&self) -> Result<WasiThreadHandle, ControlPlaneError> {
-        let task_count_guard = self.compute.must_upgrade().register_task()?;
+        let control_plane = self.compute.must_upgrade();
+        let task_count_guard = control_plane.register_task()?;
 
+        // Determine if its the main thread or not
+        let is_main = {
+            let inner = self.inner.read().unwrap();
+            inner.thread_count == 0
+        };
+
+        // Generate a new process ID (this is because the process ID and thread ID
+        // address space must not overlap in libc). For the main proecess the TID=PID
+        let tid: WasiThreadId = if is_main {
+            self.pid().raw().into()
+        } else {
+            let tid: u32 = control_plane.generate_id()?.into();
+            tid.into()
+        };
+
+        // The wait finished should be the process version if its the main thread
         let mut inner = self.inner.write().unwrap();
-        let id = inner.thread_seed.inc();
-
-        let mut is_main = false;
-        let finished = if inner.thread_count < 1 {
-            is_main = true;
+        let finished = if is_main {
             self.finished.clone()
         } else {
             Arc::new(OwnedTaskStatus::default())
         };
 
-        let ctrl = WasiThread::new(self.pid(), id, is_main, finished, task_count_guard);
-        inner.threads.insert(id, ctrl.clone());
+        // Insert the thread into the pool
+        let ctrl = WasiThread::new(self.pid(), tid, is_main, finished, task_count_guard);
+        inner.threads.insert(tid, ctrl.clone());
         inner.thread_count += 1;
 
         Ok(WasiThreadHandle::new(ctrl, &self.inner))
