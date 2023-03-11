@@ -149,7 +149,6 @@ pub fn proc_fork<M: MemorySize>(
 
         // Spawn a new process with this current execution environment
         let signaler = Box::new(child_env.process.clone());
-        let (exit_code_tx, exit_code_rx) = tokio::sync::mpsc::unbounded_channel();
         {
             let store_data = store_data.clone();
             let runtime = runtime.clone();
@@ -215,15 +214,23 @@ pub fn proc_fork<M: MemorySize>(
                 }
 
                 // Invoke the start function
-                let mut ret = Errno::Success;
-                if ctx.data(&store).thread.is_main() {
+                let mut ret: ExitCode = Errno::Success.into();
+                let err = if ctx.data(&store).thread.is_main() {
                     trace!("re-invoking main");
                     let start = ctx.data(&store).inner().start.clone().unwrap();
-                    start.call(&mut store);
+                    start.call(&mut store)
                 } else {
                     trace!("re-invoking thread_spawn");
                     let start = ctx.data(&store).inner().thread_spawn.clone().unwrap();
-                    start.call(&mut store, 0, 0);
+                    start.call(&mut store, 0, 0)
+                };
+                if let Err(err) = err {
+                    match err.downcast::<WasiError>() {
+                        Ok(WasiError::Exit(exit_code)) => {
+                            ret = exit_code;
+                        }
+                        _ => {}
+                    };
                 }
                 trace!(%pid, %tid, "child exited (code = {})", ret);
 
@@ -231,8 +238,6 @@ pub fn proc_fork<M: MemorySize>(
                 ctx.cleanup((&mut store), Some(ret.into()));
 
                 // Send the result
-                let _ = exit_code_tx.send(ret as u32);
-                drop(exit_code_tx);
                 drop(child_handle);
             };
 

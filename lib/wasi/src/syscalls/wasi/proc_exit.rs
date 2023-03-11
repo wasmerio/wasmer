@@ -15,9 +15,6 @@ pub fn proc_exit<M: MemorySize>(
 ) -> Result<(), WasiError> {
     debug!(%code);
 
-    // Set the exit code for this process
-    ctx.data().thread.set_status_finished(Ok(code));
-
     // If we are in a vfork we need to return to the point we left off
     if let Some(mut vfork) = ctx.data_mut().vfork.take() {
         // Restore the WasiEnv to the point when we vforked

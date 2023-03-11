@@ -59,7 +59,7 @@ pub struct WasiInstanceHandles {
     #[allow(dead_code)]
     pub(crate) start: Option<TypedFunction<(), ()>>,
 
-    /// Function thats invoked to initialize the WASM module (nane = "_initialize")
+    /// Function thats invoked to initialize the WASM module (name = "_initialize")
     #[derivative(Debug = "ignore")]
     // TODO: review allow...
     #[allow(dead_code)]

@@ -9,7 +9,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `pid` - Handle of the child process to wait on
-#[instrument(level = "trace", skip_all, fields(pid = ctx.data().process.pid().raw(), ret_pid = field::Empty, exit_code = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(pid = ctx.data().process.pid().raw()), ret, err)]
 pub fn proc_join<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     pid_ptr: WasmPtr<OptionPid, M>,
@@ -36,9 +36,7 @@ pub fn proc_join<M: MemorySize>(
             })?);
             return match child_exit {
                 Some((pid, exit_code)) => {
-                    Span::current()
-                        .record("ret_pid", pid.raw())
-                        .record("exit_code", exit_code.raw());
+                    trace!(ret_id = pid.raw(), exit_code = exit_code.raw());
                     let env = ctx.data();
                     let memory = env.memory_view(&ctx);
 
@@ -110,9 +108,7 @@ pub fn proc_join<M: MemorySize>(
             err
         })?);
 
-        Span::current()
-            .record("ret_pid", pid.raw())
-            .record("exit_code", exit_code.raw());
+        trace!(ret_id = pid.raw(), exit_code = exit_code.raw());
         let env = ctx.data();
         {
             let mut inner = env.process.inner.write().unwrap();
@@ -121,17 +117,22 @@ pub fn proc_join<M: MemorySize>(
 
         let memory = env.memory_view(&ctx);
 
+        let option_pid = OptionPid {
+            tag: OptionTag::Some,
+            pid: pid.raw(),
+        };
         let status = JoinStatus {
             tag: JoinStatusType::ExitNormal,
             u: JoinStatusUnion {
                 exit_normal: exit_code.into(),
             },
         };
+        wasi_try_mem_ok!(pid_ptr.write(&memory, option_pid));
         wasi_try_mem_ok!(status_ptr.write(&memory, status));
         return Ok(Errno::Success);
     }
 
-    Span::current().record("ret_pid", pid.raw());
+    trace!(ret_id = pid.raw(), "status=nothing");
 
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
