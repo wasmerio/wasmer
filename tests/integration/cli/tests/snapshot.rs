@@ -506,7 +506,7 @@ fn test_snapshot_dash_echo_to_cat() {
 fn test_snapshot_bash_echo() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .stdin_str("echo hello\nexit\n")
+        .stdin_str("echo hello\n")
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     // TODO: more tests!
     assert_json_snapshot!(snapshot);
