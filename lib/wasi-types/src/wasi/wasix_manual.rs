@@ -313,9 +313,9 @@ impl From<ExitCode> for Errno {
     }
 }
 
-impl Into<i32> for ExitCode {
-    fn into(self) -> i32 {
-        match self {
+impl From<ExitCode> for i32 {
+    fn from(val: ExitCode) -> Self {
+        match val {
             ExitCode::Errno(err) => err.to_native(),
             ExitCode::Other(code) => code,
         }
