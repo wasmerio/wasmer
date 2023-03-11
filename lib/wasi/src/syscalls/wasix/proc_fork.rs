@@ -225,17 +225,14 @@ pub fn proc_fork<M: MemorySize>(
                     start.call(&mut store, 0, 0)
                 };
                 if let Err(err) = err {
-                    match err.downcast::<WasiError>() {
-                        Ok(WasiError::Exit(exit_code)) => {
-                            ret = exit_code;
-                        }
-                        _ => {}
-                    };
+                    if let Ok(WasiError::Exit(exit_code)) = err.downcast::<WasiError>() {
+                        ret = exit_code;
+                    }
                 }
                 trace!(%pid, %tid, "child exited (code = {})", ret);
 
                 // Clean up the environment
-                ctx.cleanup((&mut store), Some(ret.into()));
+                ctx.cleanup((&mut store), Some(ret));
 
                 // Send the result
                 drop(child_handle);

@@ -33,7 +33,7 @@ pub fn path_filestat_get<M: MemorySize>(
     if path_string.starts_with("./") {
         path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
     }
-    Span::current().record("path", path_string.as_str());
+    tracing::trace!(path = path_string.as_str());
 
     let stat = wasi_try!(path_filestat_get_internal(
         &memory,
