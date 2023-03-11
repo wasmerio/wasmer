@@ -127,13 +127,8 @@ pub fn proc_fork<M: MemorySize>(
             .memory()
             .try_clone(&ctx)
             .ok_or_else(|| MemoryError::Generic("the memory could not be cloned".to_string()))
-            .and_then(|mut memory| {
-                tracing::trace!(
-                    "memory will be duplicated (size={:?})",
-                    wasmer_vm::LinearMemory::size(&memory).bytes()
-                );
-                memory.duplicate()
-            }) {
+            .and_then(|mut memory| memory.duplicate())
+        {
             Ok(memory) => memory.into(),
             Err(err) => {
                 warn!(
