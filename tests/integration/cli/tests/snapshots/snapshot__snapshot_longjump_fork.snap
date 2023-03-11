@@ -4,8 +4,7 @@ expression: snapshot
 ---
 {
   "spec": {
-    "name": null,
-    "wasm_hash": "a739dfce7c6b3731e566ea1ce7ac703e",
+    "name": "snapshot::test_snapshot_longjump_fork",
     "use_packages": [],
     "cli_args": [],
     "stdin": null,

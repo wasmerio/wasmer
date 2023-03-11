@@ -4,8 +4,7 @@ expression: snapshot
 ---
 {
   "spec": {
-    "name": null,
-    "wasm_hash": "85b3818a4c2fef42f12451fd1e9e9e79",
+    "name": "snapshot::test_snapshot_thread_locals",
     "use_packages": [],
     "cli_args": [],
     "stdin": null,

@@ -17,7 +17,7 @@ tracing = { version = "0.1" }
 getrandom = "0.2"
 wasmer-wasi-types = { path = "../wasi-types", version = "=3.2.0-alpha.1" }
 wasmer-types = { path = "../types", version = "=3.2.0-alpha.1", default-features = false }
-wasmer = { path = "../api", version = "=3.2.0-alpha.1", default-features = false, features = ["wat", "js-serializable-module"] }
+wasmer = { path = "../api", version = "=3.2.0-alpha.1", default-features = false, features = ["wat", "js-serializable-module","tracing"] }
 wasmer-vfs = { path = "../vfs", version = "=3.2.0-alpha.1", default-features = false, features = ["webc-fs"] }
 wasmer-vm = { path = "../vm", version = "=3.2.0-alpha.1", optional = true }
 wasmer-vnet = { path = "../vnet", version = "=3.2.0-alpha.1", default-features = false }

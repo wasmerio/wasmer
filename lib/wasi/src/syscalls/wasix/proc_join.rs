@@ -9,7 +9,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `pid` - Handle of the child process to wait on
-#[instrument(level = "trace", skip_all, fields(ret_pid = field::Empty, exit_code = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(pid = ctx.data().process.pid().raw(), ret_pid = field::Empty, exit_code = field::Empty), ret, err)]
 pub fn proc_join<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     pid_ptr: WasmPtr<OptionPid, M>,

@@ -4,8 +4,7 @@ expression: snapshot
 ---
 {
   "spec": {
-    "name": null,
-    "wasm_hash": "e124abdb35b6021a00ae6bf69dfba190",
+    "name": "snapshot::test_snapshot_cowsay",
     "use_packages": [],
     "cli_args": [],
     "stdin": [

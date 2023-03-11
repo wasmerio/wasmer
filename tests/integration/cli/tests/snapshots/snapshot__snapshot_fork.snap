@@ -4,8 +4,7 @@ expression: snapshot
 ---
 {
   "spec": {
-    "name": null,
-    "wasm_hash": "b0ca75cadfd1587772688b8492a131f1",
+    "name": "snapshot::test_snapshot_fork",
     "use_packages": [
       "sharrattj/coreutils"
     ],

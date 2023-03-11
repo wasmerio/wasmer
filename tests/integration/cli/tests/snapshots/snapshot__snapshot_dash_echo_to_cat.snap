@@ -5,8 +5,7 @@ expression: snapshot
 ---
 {
   "spec": {
-    "name": null,
-    "wasm_hash": "4c1965d2e25f41f92804d4b229899872",
+    "name": "snapshot::test_snapshot_dash_echo_to_cat",
     "use_packages": [
       "sharrattj/coreutils"
     ],

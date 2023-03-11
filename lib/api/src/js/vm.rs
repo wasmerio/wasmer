@@ -62,11 +62,12 @@ impl VMMemory {
     pub fn duplicate(&self) -> Result<VMMemory, wasmer_types::MemoryError> {
         let new_memory = crate::js::externals::memory::Memory::js_memory_from_type(&self.ty)?;
 
-        #[cfg(feature = "tracing")]
-        trace!("memory copy started");
-
         let src = crate::js::externals::memory_view::MemoryView::new_raw(&self.memory);
         let amount = src.data_size() as usize;
+
+        #[cfg(feature = "tracing")]
+        trace!(%amount, "memory copy started");
+
         let mut dst = crate::js::externals::memory_view::MemoryView::new_raw(&new_memory);
         let dst_size = dst.data_size() as usize;
 
