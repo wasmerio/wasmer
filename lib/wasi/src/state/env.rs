@@ -663,10 +663,10 @@ impl WasiEnv {
     pub fn should_exit(&self) -> Option<ExitCode> {
         // Check for forced exit
         if let Some(forced_exit) = self.thread.try_join() {
-            return Some(forced_exit.unwrap_or(Errno::Child.into()));
+            return Some(forced_exit.unwrap_or_else(|_| Errno::Child.into()));
         }
         if let Some(forced_exit) = self.process.try_join() {
-            return Some(forced_exit.unwrap_or(Errno::Child.into()));
+            return Some(forced_exit.unwrap_or_else(|_| Errno::Child.into()));
         }
         None
     }
@@ -928,7 +928,7 @@ impl WasiEnv {
             self.process.signal_process(Signal::Sigquit);
 
             // Terminate the process
-            let exit_code = exit_code.unwrap_or(Errno::Canceled.into());
+            let exit_code = exit_code.unwrap_or_else(|| Errno::Canceled.into());
             self.process.terminate(exit_code);
         }
     }

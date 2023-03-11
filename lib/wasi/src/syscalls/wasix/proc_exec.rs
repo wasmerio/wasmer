@@ -235,11 +235,14 @@ pub fn proc_exec<M: MemorySize>(
                     let (tx, rx) = std::sync::mpsc::channel();
                     let tasks_inner = tasks.clone();
                     tasks.block_on(Box::pin(async move {
-                        let code = process.wait_finished().await.unwrap_or(Errno::Child.into());
+                        let code = process
+                            .wait_finished()
+                            .await
+                            .unwrap_or_else(|_| Errno::Child.into());
                         tx.send(code);
                     }));
                     let exit_code = rx.recv().unwrap();
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(exit_code.into())))
+                    OnCalledAction::Trap(Box::new(WasiError::Exit(exit_code)))
                 }
                 Ok(Err(err)) => {
                     warn!(

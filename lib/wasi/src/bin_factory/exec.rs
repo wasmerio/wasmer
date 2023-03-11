@@ -173,7 +173,7 @@ pub fn spawn_exec_module(
                 };
 
                 let code = if let Err(err) = &ret {
-                    err.as_exit_code().unwrap_or(Errno::Noexec.into())
+                    err.as_exit_code().unwrap_or_else(|| Errno::Noexec.into())
                 } else {
                     Errno::Success.into()
                 };

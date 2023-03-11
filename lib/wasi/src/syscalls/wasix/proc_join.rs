@@ -99,7 +99,7 @@ pub fn proc_join<M: MemorySize>(
 
     if let Some(process) = process {
         let exit_code = wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-            let code = process.join().await.unwrap_or(Errno::Child.into());
+            let code = process.join().await.unwrap_or_else(|_| Errno::Child.into());
             Ok(code)
         })
         .map_err(|err| {

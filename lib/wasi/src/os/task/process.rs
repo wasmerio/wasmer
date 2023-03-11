@@ -348,7 +348,8 @@ impl WasiProcess {
             .await
             .0;
 
-        let code = res.unwrap_or_else(|e| e.as_exit_code().unwrap_or(Errno::Canceled.into()));
+        let code =
+            res.unwrap_or_else(|e| e.as_exit_code().unwrap_or_else(|| Errno::Canceled.into()));
 
         Ok(Some((child.pid, code)))
     }
