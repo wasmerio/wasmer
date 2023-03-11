@@ -690,7 +690,7 @@ pub(crate) fn get_current_time_in_nanos() -> Result<Timestamp, Errno> {
 }
 
 pub(crate) fn get_stack_base(mut ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> u64 {
-    ctx.data().stack_base
+    ctx.data().stack_end
 }
 
 pub(crate) fn get_stack_start(mut ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> u64 {
@@ -769,7 +769,7 @@ pub(crate) fn get_memory_stack<M: MemorySize>(
     };
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
-    let stack_offset = env.stack_base - stack_pointer;
+    let stack_offset = env.stack_end - stack_pointer;
 
     // Read the memory stack into a vector
     let memory_stack_ptr = WasmPtr::<u8, M>::new(
@@ -852,7 +852,7 @@ where
         unwind_pointer + (std::mem::size_of::<__wasi_asyncify_t<M::Offset>>() as u64);
     let unwind_data = __wasi_asyncify_t::<M::Offset> {
         start: wasi_try_ok!(unwind_data_start.try_into().map_err(|_| Errno::Overflow)),
-        end: wasi_try_ok!(env.stack_base.try_into().map_err(|_| Errno::Overflow)),
+        end: wasi_try_ok!(env.stack_end.try_into().map_err(|_| Errno::Overflow)),
     };
     let unwind_data_ptr: WasmPtr<__wasi_asyncify_t<M::Offset>, M> =
         WasmPtr::new(wasi_try_ok!(unwind_pointer
@@ -873,14 +873,16 @@ where
     // Set callback that will be invoked when this process finishes
     let env = ctx.data();
     let unwind_stack_begin: u64 = unwind_data.start.into();
-    let unwind_space = env.stack_base - env.stack_start;
+    let total_stack_space = env.stack_end - env.stack_start;
     let func = ctx.as_ref();
     trace!(
-        "wasi[{}:{}]::unwinding (memory_stack_size={} unwind_space={})",
+        stack_end = env.stack_end,
+        stack_start = env.stack_start,
+        "wasi[{}:{}]::unwinding (used_stack_space={} total_stack_space={})",
         ctx.data().pid(),
         ctx.data().tid(),
         memory_stack.len(),
-        unwind_space
+        total_stack_space
     );
     ctx.as_store_mut().on_called(move |mut store| {
         let mut ctx = func.into_mut(&mut store);
@@ -963,16 +965,16 @@ pub(crate) fn rewind<M: MemorySize>(
     let rewind_data_start =
         rewind_pointer + (std::mem::size_of::<__wasi_asyncify_t<M::Offset>>() as u64);
     let rewind_data_end = rewind_data_start + (rewind_stack.len() as u64);
-    if rewind_data_end > env.stack_base {
+    if rewind_data_end > env.stack_end {
         warn!(
             "attempting to rewind a stack bigger than the allocated stack space ({} > {})",
-            rewind_data_end, env.stack_base
+            rewind_data_end, env.stack_end
         );
         return Errno::Overflow;
     }
     let rewind_data = __wasi_asyncify_t::<M::Offset> {
         start: wasi_try!(rewind_data_end.try_into().map_err(|_| Errno::Overflow)),
-        end: wasi_try!(env.stack_base.try_into().map_err(|_| Errno::Overflow)),
+        end: wasi_try!(env.stack_end.try_into().map_err(|_| Errno::Overflow)),
     };
     let rewind_data_ptr: WasmPtr<__wasi_asyncify_t<M::Offset>, M> =
         WasmPtr::new(wasi_try!(rewind_pointer

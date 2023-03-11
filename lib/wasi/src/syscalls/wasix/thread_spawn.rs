@@ -81,7 +81,7 @@ pub fn thread_spawn<M: MemorySize>(
             {
                 let env = ctx.data_mut(&mut store);
                 env.thread = thread.clone();
-                env.stack_base = stack_base;
+                env.stack_end = stack_base;
                 env.stack_start = stack_start;
             }
 

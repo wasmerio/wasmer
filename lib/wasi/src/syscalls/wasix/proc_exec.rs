@@ -78,7 +78,7 @@ pub fn proc_exec<M: MemorySize>(
         _prepare_wasi(&mut wasi_env, Some(args));
 
         // Recrod the stack offsets before we give up ownership of the wasi_env
-        let stack_base = wasi_env.stack_base;
+        let stack_base = wasi_env.stack_end;
         let stack_start = wasi_env.stack_start;
 
         // Spawn a new process with this current execution environment

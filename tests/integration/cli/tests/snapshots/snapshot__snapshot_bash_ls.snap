@@ -1,0 +1,34 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 477
+expression: snapshot
+---
+{
+  "spec": {
+    "name": null,
+    "wasm_hash": "2c065fad35b19ec4c4d7091ee5ca530d",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "cli_args": [],
+    "stdin": [
+      108,
+      115,
+      10,
+      101,
+      120,
+      105,
+      116,
+      10
+    ],
+    "debug_output": false,
+    "enable_threads": true
+  },
+  "result": {
+    "Success": {
+      "stdout": "bin\ndev\netc\ntmp\nusr\n",
+      "stderr": "2c065fad35b19ec4c4d7091ee5ca530d.wasm-5.1# 2c065fad35b19ec4c4d7091ee5ca530d.wasm-5.1# exit\n",
+      "exit_code": 0
+    }
+  }
+}

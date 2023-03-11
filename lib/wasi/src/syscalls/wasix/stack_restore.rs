@@ -41,10 +41,10 @@ pub fn stack_restore<M: MemorySize>(
             // If the return value offset is within the memory stack then we need
             // to update it here rather than in the real memory
             let ret_val_offset = snapshot.user;
-            if ret_val_offset >= env.stack_start && ret_val_offset < env.stack_base {
+            if ret_val_offset >= env.stack_start && ret_val_offset < env.stack_end {
                 // Make sure its within the "active" part of the memory stack
                 let val_bytes = val.to_ne_bytes();
-                let offset = env.stack_base - ret_val_offset;
+                let offset = env.stack_end - ret_val_offset;
                 let end = offset + (val_bytes.len() as u64);
                 if end as usize > memory_stack.len() {
                     warn!(

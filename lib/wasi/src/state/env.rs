@@ -268,8 +268,8 @@ pub struct WasiEnv {
     pub thread: WasiThread,
     /// Represents a fork of the process that is currently in play
     pub vfork: Option<WasiVFork>,
-    /// Base stack pointer for the memory stack
-    pub stack_base: u64,
+    /// End of the stack memory that is allocated for this thread
+    pub stack_end: u64,
     /// Start of the stack memory that is allocated for this thread
     pub stack_start: u64,
     /// Seed used to rotate around the events returned by `poll_oneoff`
@@ -325,7 +325,7 @@ impl WasiEnv {
             poll_seed: self.poll_seed,
             thread: self.thread.clone(),
             vfork: self.vfork.as_ref().map(|v| v.duplicate()),
-            stack_base: self.stack_base,
+            stack_end: self.stack_end,
             stack_start: self.stack_start,
             state: self.state.clone(),
             bin_factory: self.bin_factory.clone(),
@@ -355,7 +355,7 @@ impl WasiEnv {
             thread,
             vfork: None,
             poll_seed: 0,
-            stack_base: self.stack_base,
+            stack_end: self.stack_end,
             stack_start: self.stack_start,
             bin_factory,
             state,
@@ -394,7 +394,7 @@ impl WasiEnv {
             thread: thread.as_thread(),
             vfork: None,
             poll_seed: 0,
-            stack_base: DEFAULT_STACK_SIZE,
+            stack_end: DEFAULT_STACK_SIZE,
             stack_start: 0,
             state: Arc::new(init.state),
             inner: None,

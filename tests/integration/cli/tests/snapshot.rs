@@ -459,9 +459,29 @@ fn test_snapshot_dash_echo_to_cat() {
 }
 
 #[test]
-fn test_snapshot_bash() {
+fn test_snapshot_bash_echo() {
     let snapshot = TestBuilder::new()
         .stdin_str("echo hello\nexit\n")
+        .run_wasm(include_bytes!("./wasm/bash.wasm"));
+    // TODO: more tests!
+    assert_json_snapshot!(snapshot);
+}
+
+#[test]
+fn test_snapshot_bash_ls() {
+    let snapshot = TestBuilder::new()
+        .stdin_str("ls\nexit\n")
+        .use_coreutils()
+        .run_wasm(include_bytes!("./wasm/bash.wasm"));
+    // TODO: more tests!
+    assert_json_snapshot!(snapshot);
+}
+
+#[test]
+fn test_snapshot_bash_pipe() {
+    let snapshot = TestBuilder::new()
+        .stdin_str("echo hello | cat\nexit\n")
+        .use_coreutils()
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     // TODO: more tests!
     assert_json_snapshot!(snapshot);

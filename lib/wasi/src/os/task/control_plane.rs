@@ -138,7 +138,7 @@ impl WasiControlPlane {
     /// Generates a new process ID
     pub fn generate_id(&self) -> Result<WasiProcessId, ControlPlaneError> {
         let mut mutable = self.state.mutable.write().unwrap();
-        Ok(mutable.next_process_id()?)
+        mutable.next_process_id()
     }
 
     /// Gets a reference to a running process

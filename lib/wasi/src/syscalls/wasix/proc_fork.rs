@@ -127,8 +127,13 @@ pub fn proc_fork<M: MemorySize>(
             .memory()
             .try_clone(&ctx)
             .ok_or_else(|| MemoryError::Generic("the memory could not be cloned".to_string()))
-            .and_then(|mut memory| memory.duplicate())
-        {
+            .and_then(|mut memory| {
+                tracing::trace!(
+                    "memory will be duplicated (size={:?})",
+                    wasmer_vm::LinearMemory::size(&memory).bytes()
+                );
+                memory.duplicate()
+            }) {
             Ok(memory) => memory.into(),
             Err(err) => {
                 warn!(
@@ -251,9 +256,9 @@ pub fn proc_fork<M: MemorySize>(
         // If the return value offset is within the memory stack then we need
         // to update it here rather than in the real memory
         let pid_offset: u64 = pid_offset.into();
-        if pid_offset >= env.stack_start && pid_offset < env.stack_base {
+        if pid_offset >= env.stack_start && pid_offset < env.stack_end {
             // Make sure its within the "active" part of the memory stack
-            let offset = env.stack_base - pid_offset;
+            let offset = env.stack_end - pid_offset;
             if offset as usize > memory_stack.len() {
                 warn!(
                         "failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})",

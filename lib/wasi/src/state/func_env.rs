@@ -106,7 +106,7 @@ impl WasiFunctionEnv {
         } else {
             DEFAULT_STACK_SIZE
         };
-        self.data_mut(store).stack_base = stack_base;
+        self.data_mut(store).stack_end = stack_base;
 
         Ok(())
     }

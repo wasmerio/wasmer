@@ -36,9 +36,9 @@ pub fn proc_exit<M: MemorySize>(
         // If the return value offset is within the memory stack then we need
         // to update it here rather than in the real memory
         let pid_offset: u64 = vfork.pid_offset;
-        if pid_offset >= wasi_env.stack_start && pid_offset < wasi_env.stack_base {
+        if pid_offset >= wasi_env.stack_start && pid_offset < wasi_env.stack_end {
             // Make sure its within the "active" part of the memory stack
-            let offset = wasi_env.stack_base - pid_offset;
+            let offset = wasi_env.stack_end - pid_offset;
             if offset as usize > memory_stack.len() {
                 warn!(
                     "fork failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})",
