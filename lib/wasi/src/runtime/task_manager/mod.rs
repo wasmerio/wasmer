@@ -26,7 +26,7 @@ pub struct SpawnedMemory {
 pub enum SpawnType {
     Create,
     CreateWithType(SpawnedMemory),
-    NewThread(VMMemory),
+    NewThread(VMMemory, MemoryType),
 }
 
 /// An implementation of task management

@@ -112,6 +112,12 @@ impl From<VMMemory> for JsValue {
     }
 }
 
+impl From<VMMemory> for (JsValue, MemoryType) {
+    fn from(value: VMMemory) -> Self {
+        (JsValue::from(value.memory), value.ty)
+    }
+}
+
 /// The shared memory is the same as the normal memory
 pub type VMSharedMemory = VMMemory;
 
