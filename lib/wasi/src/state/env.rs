@@ -18,6 +18,7 @@ use wasmer_wasi_types::{
 
 use crate::{
     bin_factory::{BinFactory, ModuleCache},
+    capabilities::Capabilities,
     fs::{WasiFsRoot, WasiInodes},
     import_object_for_all_wasi_versions,
     os::{
@@ -35,7 +36,7 @@ use crate::{
     DEFAULT_STACK_SIZE,
 };
 
-use super::{Capabilities, WasiState};
+use super::WasiState;
 
 /// Various [`TypedFunction`] and [`Global`] handles for an active WASI(X) instance.
 ///
