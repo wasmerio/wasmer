@@ -194,13 +194,25 @@ fn unioned_filesystem(
     mapped_dirs: &[MappedDirectory],
     container: &WapmContainer,
 ) -> Result<impl FileSystem, Error> {
-    let root_fs = RootFileSystemBuilder::new().build();
+    let mut fs = wasmer_vfs::UnionFileSystem::new();
 
-    let filesystem = container.container_fs();
-    root_fs.union(&filesystem);
+    // First, mount the root filesystem so we get things like "/dev/"
+    fs.mount(
+        "base",
+        "/",
+        false,
+        Box::new(RootFileSystemBuilder::new().build()),
+        None,
+    );
 
+    // We also want the container's volumes
+    fs.mount("webc", "/", false, container.container_fs(), None);
+
+    // Now, let's merge in the host volumes.
     if !mapped_dirs.is_empty() {
-        let fs_backing: Arc<dyn FileSystem + Send + Sync> =
+        let mapped_fs = wasmer_vfs::TmpFileSystem::new();
+
+        let host_fs: Arc<dyn FileSystem + Send + Sync> =
             Arc::new(PassthruFileSystem::new(crate::default_fs_backing()));
 
         for MappedDirectory { host, guest } in mapped_dirs.iter() {
@@ -214,8 +226,12 @@ fn unioned_filesystem(
                 "mounting host directory",
             );
 
-            root_fs
-                .mount(guest.clone(), &fs_backing, host.clone())
+            if let Some(parent) = guest.parent() {
+                mapped_fs.create_dir_all(parent.as_ref())?;
+            }
+
+            mapped_fs
+                .mount(guest.clone(), &host_fs, host.clone())
                 .with_context(|| {
                     format!(
                         "Unable to mount \"{}\" to \"{}\"",
@@ -224,9 +240,11 @@ fn unioned_filesystem(
                     )
                 })?;
         }
+
+        fs.mount("host", "/", true, Box::new(mapped_fs), None);
     }
 
-    Ok(root_fs)
+    Ok(fs)
 }
 
 #[cfg(test)]

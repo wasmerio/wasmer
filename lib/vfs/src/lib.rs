@@ -6,6 +6,7 @@ use std::any::Any;
 use std::ffi::OsString;
 use std::fmt;
 use std::io;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::task::Context;
@@ -81,6 +82,27 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn remove_file(&self, path: &Path) -> Result<()>;
 
     fn new_open_options(&self) -> OpenOptions;
+
+    /// Create a directory and all its parent directories.
+    fn create_dir_all(&self, path: &Path) -> Result<()> {
+        create_dir_all(self, path)
+    }
+}
+
+fn create_dir_all(fs: &(impl FileSystem + ?Sized), path: &Path) -> Result<()> {
+    match fs.create_dir(path) {
+        Ok(_) | Err(FsError::AlreadyExists) => Ok(()),
+        Err(FsError::EntryNotFound) => {
+            // Note: paths don't normally have many segments, so it should be
+            // fine to use recursion here. This function should also be elegible
+            // for TCO.
+            match path.parent() {
+                Some(parent) => create_dir_all(fs, parent),
+                None => Err(FsError::EntryNotFound),
+            }
+        }
+        Err(e) => Err(e),
+    }
 }
 
 impl dyn FileSystem + 'static {
@@ -91,6 +113,40 @@ impl dyn FileSystem + 'static {
     #[inline]
     pub fn downcast_mut<T: 'static>(&'_ mut self) -> Option<&'_ mut T> {
         self.upcast_any_mut().downcast_mut::<T>()
+    }
+}
+
+impl<D, F> FileSystem for D
+where
+    D: Deref<Target = F> + std::fmt::Debug + Send + Sync + 'static,
+    F: FileSystem + ?Sized,
+{
+    fn read_dir(&self, path: &Path) -> Result<ReadDir> {
+        (**self).read_dir(path)
+    }
+
+    fn create_dir(&self, path: &Path) -> Result<()> {
+        (**self).create_dir(path)
+    }
+
+    fn remove_dir(&self, path: &Path) -> Result<()> {
+        (**self).remove_dir(path)
+    }
+
+    fn rename(&self, from: &Path, to: &Path) -> Result<()> {
+        (**self).rename(from, to)
+    }
+
+    fn metadata(&self, path: &Path) -> Result<Metadata> {
+        (**self).metadata(path)
+    }
+
+    fn remove_file(&self, path: &Path) -> Result<()> {
+        (**self).remove_file(path)
+    }
+
+    fn new_open_options(&self) -> OpenOptions {
+        (**self).new_open_options()
     }
 }
 
