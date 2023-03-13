@@ -5217,6 +5217,7 @@ dependencies = [
  "libc",
  "pin-project-lite",
  "slab",
+ "tempfile",
  "thiserror",
  "tokio",
  "tracing",
