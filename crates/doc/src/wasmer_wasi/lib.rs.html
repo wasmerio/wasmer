@@ -844,6 +844,8 @@
 <span id="842">842</span>
 <span id="843">843</span>
 <span id="844">844</span>
+<span id="845">845</span>
+<span id="846">846</span>
 </pre><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream</span>
 
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">unused_mut</span>)]</span>
@@ -892,6 +894,8 @@
 <span class="kw">mod</span> <span class="ident">syscalls</span>;
 <span class="kw">mod</span> <span class="ident">utils</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">wapm</span>;
+
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">capabilities</span>;
 
 <span class="doccomment">/// WAI based bindings.</span>
 <span class="kw">mod</span> <span class="ident">bindings</span>;
@@ -952,7 +956,7 @@
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">state</span>::{
-        <span class="ident">Capabilities</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiEnvBuilder</span>, <span class="ident">WasiEnvInit</span>, <span class="ident">WasiFunctionEnv</span>, <span class="ident">WasiInstanceHandles</span>,
+        <span class="ident">WasiEnv</span>, <span class="ident">WasiEnvBuilder</span>, <span class="ident">WasiEnvInit</span>, <span class="ident">WasiFunctionEnv</span>, <span class="ident">WasiInstanceHandles</span>,
         <span class="ident">WasiStateCreationError</span>, <span class="ident">ALL_RIGHTS</span>,
     },
     <span class="ident">syscalls::types</span>,

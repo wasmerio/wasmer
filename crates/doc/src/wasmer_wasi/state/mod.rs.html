@@ -281,8 +281,6 @@
 <span id="279">279</span>
 <span id="280">280</span>
 <span id="281">281</span>
-<span id="282">282</span>
-<span id="283">283</span>
 </pre><pre class="rust"><code><span class="doccomment">//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready</span>
 <span class="doccomment">//! yet and may be broken in patch releases.  If you&#39;re using this and have any specific needs,</span>
 <span class="doccomment">//! please [let us know here](https://github.com/wasmerio/wasmer/issues/583) or by filing an issue.</span>
@@ -301,7 +299,6 @@
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">clippy::cognitive_complexity</span>, <span class="ident">clippy::too_many_arguments</span>)]</span>
 
 <span class="kw">mod</span> <span class="ident">builder</span>;
-<span class="kw">mod</span> <span class="ident">capabilities</span>;
 <span class="kw">mod</span> <span class="ident">env</span>;
 <span class="kw">mod</span> <span class="ident">func_env</span>;
 <span class="kw">mod</span> <span class="ident">types</span>;
@@ -324,7 +321,6 @@
 
 <span class="kw">pub</span> <span class="kw">use</span> <span class="self">self</span>::{
     <span class="ident">builder</span>::<span class="kw-2">*</span>,
-    <span class="ident">capabilities::Capabilities</span>,
     <span class="ident">env</span>::{<span class="ident">WasiEnv</span>, <span class="ident">WasiEnvInit</span>, <span class="ident">WasiInstanceHandles</span>},
     <span class="ident">func_env::WasiFunctionEnv</span>,
     <span class="ident">types</span>::<span class="kw-2">*</span>,

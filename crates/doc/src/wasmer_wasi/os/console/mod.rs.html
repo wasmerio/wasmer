@@ -304,8 +304,8 @@
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">cconst::ConsoleConst</span>, <span class="ident">common</span>::<span class="kw-2">*</span>, <span class="ident">task::TaskJoinHandle</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">bin_factory</span>::{<span class="ident">spawn_exec</span>, <span class="ident">BinFactory</span>, <span class="ident">ModuleCache</span>},
+    <span class="ident">capabilities::Capabilities</span>,
     <span class="ident">os::task</span>::{<span class="ident">control_plane::WasiControlPlane</span>, <span class="ident">process::WasiProcess</span>},
-    <span class="ident">state::Capabilities</span>,
     <span class="ident">VirtualBusError</span>, <span class="ident">VirtualTaskManagerExt</span>, <span class="ident">WasiEnv</span>, <span class="ident">WasiRuntime</span>,
 };
 

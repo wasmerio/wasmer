@@ -252,6 +252,7 @@
 <span id="250">250</span>
 <span id="251">251</span>
 <span id="252">252</span>
+<span id="253">253</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections::HashMap</span>,
     <span class="ident">ops::Deref</span>,
@@ -274,9 +275,10 @@
 <span class="kw">use</span> <span class="ident">wcgi_host::CgiDialect</span>;
 
 <span class="kw">use</span> <span class="kw">crate</span>::{
+    <span class="ident">capabilities::Capabilities</span>,
     <span class="ident">http::HttpClientCapabilityV1</span>,
     <span class="ident">runners::wcgi</span>::{<span class="ident">Callbacks</span>, <span class="ident">MappedDirectory</span>},
-    <span class="ident">Capabilities</span>, <span class="ident">Pipe</span>, <span class="ident">PluggableRuntimeImplementation</span>, <span class="ident">VirtualTaskManager</span>, <span class="ident">WasiEnv</span>,
+    <span class="ident">Pipe</span>, <span class="ident">PluggableRuntimeImplementation</span>, <span class="ident">VirtualTaskManager</span>, <span class="ident">WasiEnv</span>,
 };
 
 <span class="doccomment">/// The shared object that manages the instantiaion of WASI executables and</span>
