@@ -2333,15 +2333,15 @@
     <span class="ident">use_system_linker</span>: <span class="ident">bool</span>,
 
     <span class="doccomment">/// Cross-compilation library path (path to libwasmer.a / wasmer.lib)</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;library-path&quot;</span>, <span class="ident">requires</span> <span class="op">=</span> <span class="string">&quot;target&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;library-path&quot;</span>)]</span>
     <span class="ident">library_path</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Cross-compilation tarball library path</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;tarball&quot;</span>, <span class="ident">requires</span> <span class="op">=</span> <span class="string">&quot;target&quot;</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;tarball&quot;</span>)]</span>
     <span class="ident">tarball</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Specify `zig` binary path (defaults to `zig` in $PATH if not present)</span>
-    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;zig-binary-path&quot;</span>, <span class="ident">requires</span> <span class="op">=</span> <span class="string">&quot;target&quot;</span>, <span class="ident">env</span>)]</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;zig-binary-path&quot;</span>, <span class="ident">env</span>)]</span>
     <span class="ident">zig_binary_path</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
 }
 
