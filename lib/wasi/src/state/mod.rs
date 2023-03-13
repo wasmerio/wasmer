@@ -16,7 +16,6 @@
 #![allow(clippy::cognitive_complexity, clippy::too_many_arguments)]
 
 mod builder;
-mod capabilities;
 mod env;
 mod func_env;
 mod types;
@@ -39,7 +38,6 @@ use wasmer_wasi_types::wasi::{Errno, Fd as WasiFd, Rights, Snapshot0Clockid};
 
 pub use self::{
     builder::*,
-    capabilities::Capabilities,
     env::{WasiEnv, WasiEnvInit, WasiInstanceHandles},
     func_env::WasiFunctionEnv,
     types::*,
