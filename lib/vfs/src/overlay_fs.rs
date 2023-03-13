@@ -1,24 +1,17 @@
 use std::{fmt::Debug, path::Path};
 
 use crate::{
-    FileOpener, FileSystems, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir,
-    VirtualFile,
+    FileOpener, FileSystem, FileSystemExt, FileSystems, FsError, Metadata, OpenOptions,
+    OpenOptionsConfig, ReadDir, VirtualFile,
 };
 
-/// A primary read-write filesystem and chain of read-only secondary filesystems
-/// that are overlayed on top of each other.
+/// A primary filesystem and chain of secondary filesystems that are overlayed
+/// on top of each other.
 ///
 /// # Precedence
 ///
-/// The general rule is that mutating operations (e.g.
-/// [`crate::FileSystem::remove_dir()`] or [`FileOpener::open()`] with
-/// [`OpenOptions::write()`] set) will only be executed against the "primary"
-/// filesystem.
+/// The [`OverlayFileSystem`] will execute operations based on precedence.
 ///
-/// For operations which don't make modifications (e.g. [`FileOpener::open()`]
-/// in read-only mode), [`FileSystem`] will first check the primary filesystem,
-/// and if that fails it will iterate through the secondary filesystems until
-/// either one of them succeeds or there are no more filesystems.
 ///
 /// Most importantly, this means earlier filesystems can shadow files and
 /// directories that have a lower precedence.
@@ -36,7 +29,7 @@ use crate::{
 /// use wasmer_vfs::{
 ///     mem_fs::FileSystem as MemFS,
 ///     host_fs::FileSystem as HostFS,
-///     overlay_fs::FileSystem as OverlayFS,
+///     overlay_fs::FileSystem,
 /// };
 /// let fs = OverlayFS::new(MemFS::default(), [HostFS]);
 ///
@@ -50,24 +43,24 @@ use crate::{
 ///
 /// A more complex example is
 #[derive(Clone, PartialEq, Eq)]
-pub struct FileSystem<P, S>
+pub struct OverlayFileSystem<P, S>
 where
-    P: crate::FileSystem,
+    P: FileSystem,
     S: for<'a> FileSystems<'a>,
 {
     primary: P,
     secondaries: S,
 }
 
-impl<P, S> FileSystem<P, S>
+impl<P, S> OverlayFileSystem<P, S>
 where
-    P: crate::FileSystem,
+    P: FileSystem,
     S: for<'a> FileSystems<'a>,
 {
-    /// Create a new [`FileSystem`] using a primary [`crate::FileSystem`] and
-    /// a chain of read-only secondary [`FileSystems`].
+    /// Create a new [`FileSystem`] using a primary [`crate::FileSystem`] and a
+    /// chain of secondary [`FileSystems`].
     pub fn new(primary: P, secondaries: S) -> Self {
-        FileSystem {
+        OverlayFileSystem {
             primary,
             secondaries,
         }
@@ -94,15 +87,35 @@ where
     }
 
     /// Iterate over all filesystems in order of precedence.
-    pub fn iter(&self) -> impl Iterator<Item = &'_ dyn crate::FileSystem> + '_ {
-        std::iter::once(self.primary() as &dyn crate::FileSystem)
+    pub fn iter(&self) -> impl Iterator<Item = &'_ dyn FileSystem> + '_ {
+        std::iter::once(self.primary() as &dyn FileSystem)
             .chain(self.secondaries().iter_filesystems())
+    }
+
+    /// Try to apply an operation to each [`FileSystem`] in order of precedence.
+    ///
+    /// This uses [`should_continue()`] to determine whether an error is fatal
+    /// and needs to be returned to the caller, or whether we should try the
+    /// next [`FileSystem`] in the chain.
+    fn for_each<F, T>(&self, mut func: F) -> Result<T, FsError>
+    where
+        F: FnMut(&dyn FileSystem) -> Result<T, FsError>,
+    {
+        for fs in self.iter() {
+            match func(fs) {
+                Ok(result) => return Ok(result),
+                Err(e) if should_continue(e) => continue,
+                Err(other) => return Err(other),
+            }
+        }
+
+        Err(FsError::EntryNotFound)
     }
 }
 
-impl<P, S> crate::FileSystem for FileSystem<P, S>
+impl<P, S> FileSystem for OverlayFileSystem<P, S>
 where
-    P: crate::FileSystem,
+    P: FileSystem,
     S: for<'a> crate::FileSystems<'a> + Send + Sync,
 {
     fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
@@ -135,82 +148,24 @@ where
         }
     }
 
-    fn create_dir(&self, _path: &Path) -> Result<(), FsError> {
-        todo!()
+    fn create_dir(&self, path: &Path) -> Result<(), FsError> {
+        self.for_each(|fs| fs.create_dir(path))
     }
 
     fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
-        match self.primary.remove_dir(path) {
-            Ok(_) => return Ok(()),
-            Err(e) if should_continue(e) => {
-                // It's not in the primary filesystem, so we'll check the
-                // secondaries to see whether we need to return a permission
-                // error or a not found error.
-            }
-            Err(other) => return Err(other),
-        }
-
-        for fs in self.secondaries().iter_filesystems() {
-            match fs.metadata(path) {
-                Ok(m) if m.is_dir() => {
-                    return Err(FsError::PermissionDenied);
-                }
-                Ok(_) => return Err(FsError::BaseNotDirectory),
-                Err(e) if should_continue(e) => continue,
-                Err(e) => return Err(e),
-            }
-        }
-
-        Err(FsError::BaseNotDirectory)
+        self.for_each(|fs| fs.remove_dir(path))
     }
 
     fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
-        match self.primary.rename(from, to) {
-            Ok(_) => return Ok(()),
-            Err(e) if should_continue(e) => {}
-            Err(e) => return Err(e),
-        }
-
-        for fs in self.secondaries().iter_filesystems() {
-            if fs.metadata(from).is_ok() {
-                return Err(FsError::PermissionDenied);
-            }
-        }
-
-        Err(FsError::EntryNotFound)
+        self.for_each(|fs| fs.rename(from, to))
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
-        for fs in self.iter() {
-            match fs.metadata(path) {
-                Ok(meta) => return Ok(meta),
-                Err(e) if should_continue(e) => continue,
-                Err(e) => return Err(e),
-            }
-        }
-
-        Err(FsError::EntryNotFound)
+        self.for_each(|fs| fs.metadata(path))
     }
 
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
-        match self.primary.remove_file(path) {
-            Ok(_) => return Ok(()),
-            Err(e) if should_continue(e) => {}
-            Err(e) => return Err(e),
-        }
-
-        for fs in self.secondaries.iter_filesystems() {
-            match fs.metadata(path) {
-                Ok(meta) if meta.is_file() => {
-                    return Err(FsError::PermissionDenied);
-                }
-                Ok(_) => return Err(FsError::NotAFile),
-                Err(FsError::EntryNotFound) => {}
-                Err(e) => return Err(e),
-            }
-        }
-
-        Err(FsError::EntryNotFound)
+        self.for_each(|fs| fs.remove_file(path))
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {
@@ -218,47 +173,48 @@ where
     }
 }
 
-impl<P, S> FileOpener for FileSystem<P, S>
+impl<P, S> FileOpener for OverlayFileSystem<P, S>
 where
-    P: crate::FileSystem,
-    S: for<'a> FileSystems<'a>,
+    P: FileSystem,
+    S: for<'a> FileSystems<'a> + Send + Sync,
 {
     fn open(
         &self,
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>, FsError> {
-        // First, try the primary filesystem
-        match self
-            .primary
-            .new_open_options()
-            .options(conf.clone())
-            .open(path)
-        {
-            Ok(f) => return Ok(f),
-            Err(e) if should_continue(e) => {}
-            Err(e) => return Err(e),
-        };
+        // FIXME: There is probably a smarter way to do this without the extra
+        // FileSystem::metadata() calls or the risk of TOCTOU issues.
 
-        if conf.would_mutate() {
-            return Err(FsError::PermissionDenied);
-        }
+        if (conf.create || conf.create_new) && !self.exists(path) {
+            if let Some(parent) = path.parent() {
+                // As a special case, we want to direct all newly created files
+                // to the primary filesystem so it just *looks* like they are
+                // created alongside secondary filesystems.
+                let would_normally_be_created_on_a_secondary_fs = self
+                    .secondaries
+                    .iter_filesystems()
+                    .into_iter()
+                    .any(|fs| fs.exists(parent));
 
-        for fs in self.secondaries.iter_filesystems() {
-            match fs.new_open_options().options(conf.clone()).open(path) {
-                Ok(f) => return Ok(f),
-                Err(e) if should_continue(e) => continue,
-                Err(e) => return Err(e),
+                if would_normally_be_created_on_a_secondary_fs {
+                    self.primary.create_dir_all(parent)?;
+                    return self
+                        .primary
+                        .new_open_options()
+                        .options(conf.clone())
+                        .open(path);
+                }
             }
         }
 
-        Err(FsError::EntryNotFound)
+        self.for_each(|fs| fs.new_open_options().options(conf.clone()).open(path))
     }
 }
 
-impl<P, S> Debug for FileSystem<P, S>
+impl<P, S> Debug for OverlayFileSystem<P, S>
 where
-    P: crate::FileSystem,
+    P: FileSystem,
     S: for<'a> FileSystems<'a>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -302,13 +258,13 @@ mod tests {
     #[test]
     fn can_be_used_as_an_object() {
         fn _box_with_memfs(
-            fs: FileSystem<MemFS, Vec<MemFS>>,
+            fs: OverlayFileSystem<MemFS, Vec<MemFS>>,
         ) -> Box<dyn crate::FileSystem + Send + Sync + 'static> {
             Box::new(fs)
         }
 
         fn _arc(
-            fs: FileSystem<Arc<dyn crate::FileSystem>, Vec<Box<dyn crate::FileSystem>>>,
+            fs: OverlayFileSystem<Arc<dyn crate::FileSystem>, Vec<Box<dyn crate::FileSystem>>>,
         ) -> Arc<dyn crate::FileSystem + 'static> {
             Arc::new(fs)
         }
@@ -335,7 +291,7 @@ mod tests {
             .unwrap();
         secondary.create_dir(third).unwrap();
 
-        let overlay = FileSystem::new(primary, [secondary]);
+        let overlay = OverlayFileSystem::new(primary, [secondary]);
 
         // Delete a folder on the primary filesystem
         overlay.remove_dir(first).unwrap();
@@ -376,7 +332,7 @@ mod tests {
             .await
             .unwrap();
 
-        let fs = FileSystem::new(primary, [secondary]);
+        let fs = OverlayFileSystem::new(primary, [secondary]);
 
         // Any new files will be created on the primary fs
         let _ = fs
@@ -420,7 +376,7 @@ mod tests {
             .touch("/secondary/overlayed.txt")
             .unwrap();
 
-        let fs = FileSystem::new(primary, [secondary, secondary_overlayed]);
+        let fs = OverlayFileSystem::new(primary, [secondary, secondary_overlayed]);
 
         let paths: Vec<_> = fs.walk("/").map(|entry| entry.path()).collect();
         assert_eq!(
