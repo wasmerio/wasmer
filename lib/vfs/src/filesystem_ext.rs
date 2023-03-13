@@ -1,24 +1,51 @@
-use std::path::Path;
+use std::{collections::VecDeque, path::Path};
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use crate::{FileSystem, FsError};
+use crate::{DirEntry, FileSystem, FsError};
 
 /// Helper methods for working with [`FileSystem`]s.
 #[async_trait::async_trait]
 pub trait FileSystemExt {
+    /// Does this item exists?
     fn exists(&self, path: impl AsRef<Path>) -> bool;
+
+    /// Does this path refer to a directory?
     fn is_dir(&self, path: impl AsRef<Path>) -> bool;
+
+    /// Does this path refer to a file?
     fn is_file(&self, path: impl AsRef<Path>) -> bool;
+
+    /// Make sure a directory (and all its parents) exist.
+    ///
+    /// This is analogous to [`std::fs::create_dir_all()`].
     fn create_dir_all(&self, path: impl AsRef<Path>) -> Result<(), FsError>;
+
+    /// Asynchronously write some bytes to a file.
+    ///
+    /// This is analogous to [`std::fs::write()`].
     async fn write(
         &self,
         path: impl AsRef<Path> + Send,
         data: impl AsRef<[u8]> + Send,
     ) -> Result<(), FsError>;
+
+    /// Asynchronously read a file's contents into memory.
+    ///
+    /// This is analogous to [`std::fs::read()`].
     async fn read(&self, path: impl AsRef<Path> + Send) -> Result<Vec<u8>, FsError>;
+
+    /// Asynchronously read a file's contents into memory as a string.
+    ///
+    /// This is analogous to [`std::fs::read_to_string()`].
     async fn read_to_string(&self, path: impl AsRef<Path> + Send) -> Result<String, FsError>;
+
+    /// Make sure a file exists, creating an empty file if it doesn't.
     fn touch(&self, path: impl AsRef<Path> + Send) -> Result<(), FsError>;
+
+    /// Recursively iterate over all paths inside a directory, discarding any
+    /// errors that may occur along the way.
+    fn walk(&self, path: impl AsRef<Path>) -> Box<dyn Iterator<Item = DirEntry> + '_>;
 }
 
 #[async_trait::async_trait]
@@ -86,10 +113,30 @@ impl<F: FileSystem> FileSystemExt for F {
             .new_open_options()
             .create(true)
             .append(true)
-            .write(true)
             .open(path)?;
 
         Ok(())
+    }
+
+    fn walk(&self, path: impl AsRef<Path>) -> Box<dyn Iterator<Item = DirEntry> + '_> {
+        let path = path.as_ref();
+        let mut dirs_to_visit: VecDeque<_> = self
+            .read_dir(path)
+            .ok()
+            .into_iter()
+            .flatten()
+            .filter_map(|result| result.ok())
+            .collect();
+
+        Box::new(std::iter::from_fn(move || {
+            let next = dirs_to_visit.pop_back()?;
+
+            if let Ok(children) = self.read_dir(&next.path) {
+                dirs_to_visit.extend(children.flatten());
+            }
+
+            Some(next)
+        }))
     }
 }
 
@@ -112,13 +159,13 @@ fn create_dir_all(fs: &impl FileSystem, path: &Path) -> Result<(), FsError> {
 
 #[cfg(test)]
 mod tests {
-    use tokio::io::AsyncReadExt;
-
     use super::*;
+    use crate::mem_fs::FileSystem as MemFS;
+    use tokio::io::AsyncReadExt;
 
     #[tokio::test]
     async fn write() {
-        let fs = crate::mem_fs::FileSystem::default();
+        let fs = MemFS::default();
 
         fs.write("/file.txt", b"Hello, World!").await.unwrap();
 
@@ -135,7 +182,7 @@ mod tests {
 
     #[tokio::test]
     async fn read() {
-        let fs = crate::mem_fs::FileSystem::default();
+        let fs = MemFS::default();
         fs.new_open_options()
             .create(true)
             .write(true)
@@ -154,7 +201,7 @@ mod tests {
 
     #[tokio::test]
     async fn create_dir_all() {
-        let fs = crate::mem_fs::FileSystem::default();
+        let fs = MemFS::default();
         fs.write("/file.txt", b"").await.unwrap();
 
         assert!(!fs.exists("/really/nested/directory"));
@@ -173,5 +220,14 @@ mod tests {
             fs.create_dir_all("/file.txt/invalid/path").unwrap_err(),
             FsError::BaseNotDirectory
         );
+    }
+
+    #[tokio::test]
+    async fn touch() {
+        let fs = MemFS::default();
+
+        fs.touch("/file.txt").unwrap();
+
+        assert_eq!(fs.read("/file.txt").await.unwrap(), b"");
     }
 }
