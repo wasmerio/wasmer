@@ -25,6 +25,7 @@ pub mod tmp_fs;
 pub mod union_fs;
 pub mod zero_file;
 // tty_file -> see wasmer_wasi::tty_file
+mod filesystem_ext;
 pub mod pipe;
 #[cfg(feature = "static-fs")]
 pub mod static_fs;
@@ -38,6 +39,7 @@ pub use builder::*;
 pub use combine_file::*;
 pub use dual_write_file::*;
 pub use empty_fs::*;
+pub use filesystem_ext::FileSystemExt;
 pub use null_file::*;
 pub use passthru_fs::*;
 pub use pipe::*;
