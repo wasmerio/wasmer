@@ -2,7 +2,7 @@ use std::string::FromUtf8Error;
 use std::sync::Arc;
 
 use crate::bindings::wasix_http_client_v1 as sys;
-use crate::{Capabilities, WasiRuntime};
+use crate::{capabilities::Capabilities, WasiRuntime};
 
 use crate::{
     http::{DynHttpClient, HttpClientCapabilityV1},
