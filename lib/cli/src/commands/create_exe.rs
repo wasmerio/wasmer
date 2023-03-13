@@ -127,15 +127,15 @@ pub(crate) struct CrossCompile {
     use_system_linker: bool,
 
     /// Cross-compilation library path (path to libwasmer.a / wasmer.lib)
-    #[clap(long = "library-path", requires = "target")]
+    #[clap(long = "library-path")]
     library_path: Option<PathBuf>,
 
     /// Cross-compilation tarball library path
-    #[clap(long = "tarball", requires = "target")]
+    #[clap(long = "tarball")]
     tarball: Option<PathBuf>,
 
     /// Specify `zig` binary path (defaults to `zig` in $PATH if not present)
-    #[clap(long = "zig-binary-path", requires = "target", env)]
+    #[clap(long = "zig-binary-path", env)]
     zig_binary_path: Option<PathBuf>,
 }
 
