@@ -937,9 +937,25 @@ impl Default for FileSystemInner {
     }
 }
 
+#[allow(dead_code)] // The `No` variant.
+pub(super) enum DirectoryMustBeEmpty {
+    Yes,
+    No,
+}
+
+impl DirectoryMustBeEmpty {
+    pub(super) fn yes(&self) -> bool {
+        matches!(self, Self::Yes)
+    }
+
+    pub(super) fn no(&self) -> bool {
+        !self.yes()
+    }
+}
+
 #[cfg(test)]
 mod test_filesystem {
-    use crate::{mem_fs::*, DirEntry, FileSystem as FS, FileType, FsError};
+    use crate::{mem_fs::*, DirEntry, FileSystem as FS, FileSystemExt, FileType, FsError};
 
     macro_rules! path {
         ($path:expr) => {
@@ -1686,20 +1702,26 @@ mod test_filesystem {
             "canonicalizing a crazily stupid path name",
         );
     }
-}
 
-#[allow(dead_code)] // The `No` variant.
-pub(super) enum DirectoryMustBeEmpty {
-    Yes,
-    No,
-}
+    #[test]
+    #[ignore = "Not yet supported. See https://github.com/wasmerio/wasmer/issues/3678"]
+    fn mount_to_overlapping_directories() {
+        let top_level = FileSystem::default();
+        top_level.touch("/file.txt").unwrap();
+        let nested = FileSystem::default();
+        nested.touch("/another-file.txt").unwrap();
+        let top_level: Arc<dyn crate::FileSystem + Send + Sync> = Arc::new(top_level);
+        let nested: Arc<dyn crate::FileSystem + Send + Sync> = Arc::new(nested);
 
-impl DirectoryMustBeEmpty {
-    pub(super) fn yes(&self) -> bool {
-        matches!(self, Self::Yes)
-    }
+        let fs = FileSystem::default();
+        fs.mount("/top-level".into(), &top_level, "/".into())
+            .unwrap();
+        fs.mount("/top-level/nested".into(), &nested, "/".into())
+            .unwrap();
 
-    pub(super) fn no(&self) -> bool {
-        !self.yes()
+        assert!(fs.is_dir("/top-level"));
+        assert!(fs.is_file("/top-level/file.txt"));
+        assert!(fs.is_dir("/top-level/nested"));
+        assert!(fs.is_file("/top-level/nested/another-file.txt"));
     }
 }
