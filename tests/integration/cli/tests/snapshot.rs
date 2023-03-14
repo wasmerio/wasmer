@@ -464,14 +464,14 @@ fn test_snapshot_thread_locals() {
 
 // Tests that lightweight forking that does not copy the memory but retains the
 // open file descriptors works correctly.
-// #[test]
-// fn test_snapshot_vfork() {
-//     let snapshot = TestBuilder::new()
-//         .with_name(function!())
-//         .use_coreutils()
-//         .run_wasm(include_bytes!("./wasm/example-vfork.wasm"));
-//     assert_json_snapshot!(snapshot);
-// }
+#[test]
+fn test_snapshot_vfork() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .use_coreutils()
+        .run_wasm(include_bytes!("./wasm/example-vfork.wasm"));
+    assert_json_snapshot!(snapshot);
+}
 
 // Tests that signals can be received and processed by WASM applications
 // Note: This test requires that a signal is sent to the process asynchronously
@@ -498,6 +498,16 @@ fn test_snapshot_dash_echo_to_cat() {
         .with_name(function!())
         .use_coreutils()
         .stdin_str("echo hello | cat")
+        .run_wasm(include_bytes!("./wasm/dash.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[test]
+fn test_snapshot_dash_python() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .use_coreutils()
+        .stdin_str("wasmer run syrusakbary/python -- -c 'print(10)'")
         .run_wasm(include_bytes!("./wasm/dash.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -531,6 +541,16 @@ fn test_snapshot_bash_pipe() {
         .use_coreutils()
         .run_wasm(include_bytes!("./wasm/bash.wasm"));
     // TODO: more tests!
+    assert_json_snapshot!(snapshot);
+}
+
+#[test]
+fn test_snapshot_bash_python() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .use_coreutils()
+        .stdin_str("wasmer run syrusakbary/python -- -c 'print(10)'\n")
+        .run_wasm(include_bytes!("./wasm/bash.wasm"));
     assert_json_snapshot!(snapshot);
 }
 

@@ -63,6 +63,11 @@ impl CmdWasmer {
         what: Option<String>,
         mut args: Vec<String>,
     ) -> Result<TaskJoinHandle, VirtualBusError> {
+        // If the first argument is a '--' then skip it
+        if args.iter().next().map(|a| a.as_str()) == Some("--") {
+            args = args.into_iter().skip(1).collect();
+        }
+
         if let Some(what) = what {
             let store = store.take().ok_or(VirtualBusError::UnknownError)?;
             let mut env = config.take().ok_or(VirtualBusError::UnknownError)?;
