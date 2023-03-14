@@ -102,11 +102,6 @@ impl OwnedTaskStatus {
 
     /// Marks the task as finished.
     pub(crate) fn set_finished(&self, res: Result<ExitCode, Arc<WasiRuntimeError>>) {
-        // Don't overwrite a previous finished state.
-        if self.status().is_finished() {
-            return;
-        }
-
         let inner = match res {
             Ok(code) => Ok(code),
             Err(err) => {
@@ -117,7 +112,11 @@ impl OwnedTaskStatus {
                 }
             }
         };
-        self.watch_tx.send(TaskStatus::Finished(inner)).ok();
+        self.watch_tx.send_modify(move |old| {
+            if !old.is_finished() {
+                *old = TaskStatus::Finished(inner);
+            }
+        });
     }
 
     pub fn status(&self) -> TaskStatus {
