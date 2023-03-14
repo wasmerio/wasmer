@@ -29,9 +29,9 @@ use crate::{
 /// use wasmer_vfs::{
 ///     mem_fs::FileSystem as MemFS,
 ///     host_fs::FileSystem as HostFS,
-///     overlay_fs::FileSystem,
+///     overlay_fs::OverlayFileSystem,
 /// };
-/// let fs = OverlayFS::new(MemFS::default(), [HostFS]);
+/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS]);
 ///
 /// // This also has the benefit of storing the two values in-line with no extra
 /// // overhead or indirection.
@@ -332,7 +332,6 @@ mod tests {
     use super::*;
     use crate::{
         mem_fs::FileSystem as MemFS, webc_fs::WebcFileSystem, FileSystemExt, RootFileSystemBuilder,
-        UnionFileSystem,
     };
 
     #[test]
@@ -500,16 +499,16 @@ mod tests {
         std::fs::create_dir_all(&first).unwrap();
         std::fs::write(&file_txt, b"First!").unwrap();
         std::fs::create_dir_all(&second).unwrap();
-        // configure the union FS so things are saved in memory by default, but
-        // certain folders are mapped to the host.
-        let mut primary = UnionFileSystem::default();
-        let root = RootFileSystemBuilder::new().build();
-        primary.mount("in-memory", "/", false, Box::new(root), None);
-        let mapped_dirs = [&first, &second];
-        for dir in mapped_dirs {
-            let dir = dir.display().to_string();
-            let fs = Box::new(crate::host_fs::FileSystem);
-            primary.mount("in-memory", &dir, false, fs, Some(&dir));
+        // configure the union FS so things are saved in memory by default
+        // (initialized with a set of unix-like folders), but certain folders
+        // are first to the host.
+        let primary = RootFileSystemBuilder::new().build();
+        let host_fs: Arc<dyn FileSystem + Send + Sync> = Arc::new(crate::host_fs::FileSystem);
+        let first_dirs = [(&first, "/first"), (&second, "/second")];
+        for (host, guest) in first_dirs {
+            primary
+                .mount(PathBuf::from(guest), &host_fs, host.clone())
+                .unwrap();
         }
         // Set up the secondary file systems
         let webc = webc::v1::WebCOwned::parse(
@@ -520,9 +519,6 @@ mod tests {
         let webc = WebcFileSystem::init_all(Arc::new(webc));
 
         let fs = OverlayFileSystem::new(primary, [webc]);
-
-        let paths: Vec<_> = fs.walk("/").map(|entry| entry.path()).collect();
-        println!("{paths:#?}");
 
         // We should get all the normal directories from rootfs (primary)
         assert!(fs.is_dir("/lib"));
@@ -538,7 +534,7 @@ mod tests {
                 .append(true)
                 .open("/lib/python3.6/collections/__init__.py")
                 .unwrap_err(),
-            FsError::PermissionDenied
+            FsError::PermissionDenied,
         );
         // you are allowed to create files that look like they are in a secondary
         // folder, though
@@ -562,14 +558,22 @@ mod tests {
             FsError::EntryNotFound
         );
         // you should also be able to read files mounted from the host
-        assert_eq!(fs.read_to_string(&file_txt).await.unwrap(), "First!");
+        assert!(fs.is_dir("/first"));
+        assert!(fs.is_file("/first/file.txt"));
+        assert_eq!(
+            fs.read_to_string("/first/file.txt").await.unwrap(),
+            "First!"
+        );
         // Overwriting them is fine and we'll see the changes on the host
-        fs.write(&file_txt, "Updated").await.unwrap();
+        fs.write("/first/file.txt", "Updated").await.unwrap();
         assert_eq!(std::fs::read_to_string(&file_txt).unwrap(), "Updated");
         // The filesystem will see changes on the host that happened after it was
         // set up
         let another = second.join("another.txt");
         std::fs::write(&another, "asdf").unwrap();
-        assert_eq!(fs.read_to_string(&another).await.unwrap(), "asdf");
+        assert_eq!(
+            fs.read_to_string("/second/another.txt").await.unwrap(),
+            "asdf"
+        );
     }
 }

@@ -84,11 +84,12 @@ impl<F: FileSystem + ?Sized> FileSystemExt for F {
         let mut f = self
             .new_open_options()
             .create(true)
-            .write(true)
             .truncate(true)
+            .write(true)
             .open(path)?;
 
         f.write_all(data).await?;
+        f.flush().await?;
 
         Ok(())
     }
