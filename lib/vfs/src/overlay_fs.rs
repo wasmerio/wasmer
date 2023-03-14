@@ -29,7 +29,7 @@ use crate::{
 /// use wasmer_vfs::{
 ///     mem_fs::FileSystem as MemFS,
 ///     host_fs::FileSystem as HostFS,
-///     overlay_fs::OverlayFileSystem,
+///     OverlayFileSystem,
 /// };
 /// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS]);
 ///
