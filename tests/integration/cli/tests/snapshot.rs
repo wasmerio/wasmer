@@ -332,6 +332,7 @@ fn test_snapshot_cowsay() {
 //     assert_json_snapshot!(snapshot);
 // }
 
+// FIXME: re-enable, disabled due to flakyness
 // The ability to fork the current process and run a different image but retain
 // the existing open file handles (which is needed for stdin and stdout redirection)
 #[cfg(not(target_os = "windows"))]

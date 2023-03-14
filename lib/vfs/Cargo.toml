@@ -25,6 +25,7 @@ pin-project-lite = "0.2.9"
 indexmap = "1.9.2"
 
 [dev-dependencies]
+tempfile = "3.4.0"
 tokio = { version = "1", features = [ "io-util", "rt" ], default_features = false }
 
 [features]
