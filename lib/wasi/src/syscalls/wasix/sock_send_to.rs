@@ -54,9 +54,14 @@ pub fn sock_send_to<M: MemorySize>(
                         .map_err(mem_error_to_wasi)?
                         .access()
                         .map_err(mem_error_to_wasi)?;
-                    sent += socket
+                    sent += match socket
                         .send_to::<M>(env.tasks().deref(), buf.as_ref(), addr, fd.flags)
-                        .await?;
+                        .await
+                    {
+                        Ok(s) => s,
+                        Err(_) if sent > 0 => break,
+                        Err(err) => return Err(err),
+                    };
                 }
                 Ok(sent)
             },
