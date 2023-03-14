@@ -49,7 +49,7 @@ pub trait FileSystemExt {
 }
 
 #[async_trait::async_trait]
-impl<F: FileSystem> FileSystemExt for F {
+impl<F: FileSystem + ?Sized> FileSystemExt for F {
     fn exists(&self, path: impl AsRef<Path>) -> bool {
         self.metadata(path.as_ref()).is_ok()
     }
@@ -112,7 +112,7 @@ impl<F: FileSystem> FileSystemExt for F {
         let _ = self
             .new_open_options()
             .create(true)
-            .append(true)
+            .write(true)
             .open(path)?;
 
         Ok(())
@@ -140,7 +140,10 @@ impl<F: FileSystem> FileSystemExt for F {
     }
 }
 
-fn create_dir_all(fs: &impl FileSystem, path: &Path) -> Result<(), FsError> {
+fn create_dir_all<F>(fs: &F, path: &Path) -> Result<(), FsError>
+where
+    F: FileSystem + ?Sized,
+{
     if let Some(parent) = path.parent() {
         create_dir_all(fs, parent)?;
     }
