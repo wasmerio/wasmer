@@ -113,9 +113,14 @@ fn sock_recv_internal<M: MemorySize>(
                     .access()
                     .map_err(mem_error_to_wasi)?;
 
-                total_read += socket
+                total_read += match socket
                     .recv(env.tasks().deref(), buf.as_mut_uninit(), fd.flags)
-                    .await?;
+                    .await
+                {
+                    Ok(s) => s,
+                    Err(_) if total_read > 0 => break,
+                    Err(err) => return Err(err),
+                };
             }
             Ok(total_read)
         },
