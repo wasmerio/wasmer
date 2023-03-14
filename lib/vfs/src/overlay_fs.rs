@@ -43,11 +43,7 @@ use crate::{
 ///
 /// A more complex example is
 #[derive(Clone, PartialEq, Eq)]
-pub struct OverlayFileSystem<P, S>
-where
-    P: FileSystem,
-    S: for<'a> FileSystems<'a>,
-{
+pub struct OverlayFileSystem<P, S> {
     primary: P,
     secondaries: S,
 }
@@ -136,10 +132,10 @@ where
         }
 
         if had_at_least_one_success {
-            // Note: this sort is guaranteed to be stable, so it will prefer
-            // filesystems "higher up" the chain.
+            // Note: this sort is guaranteed to be stable, so filesystems
+            // "higher up" the chain will be further towards the start.
             entries.sort_by(|a, b| a.path.cmp(&b.path));
-            // Make sure earlier entries shadow layer ones.
+            // Make sure later entries are removed in favour of earlier ones.
             entries.dedup_by(|a, b| a.path == b.path);
 
             Ok(ReadDir::new(entries))
@@ -149,15 +145,51 @@ where
     }
 
     fn create_dir(&self, path: &Path) -> Result<(), FsError> {
-        self.for_each(|fs| fs.create_dir(path))
+        match self.primary.create_dir(path) {
+            Ok(()) => return Ok(()),
+            Err(e) if should_continue(e) => {}
+            Err(e) => return Err(e),
+        }
+
+        for fs in self.secondaries.iter_filesystems() {
+            if fs.is_dir(path) {
+                return Err(FsError::PermissionDenied);
+            }
+        }
+
+        Err(FsError::EntryNotFound)
     }
 
     fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
-        self.for_each(|fs| fs.remove_dir(path))
+        match self.primary.remove_dir(path) {
+            Ok(()) => return Ok(()),
+            Err(e) if should_continue(e) => {}
+            Err(e) => return Err(e),
+        }
+
+        for fs in self.secondaries.iter_filesystems() {
+            if fs.is_dir(path) {
+                return Err(FsError::PermissionDenied);
+            }
+        }
+
+        Err(FsError::EntryNotFound)
     }
 
     fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
-        self.for_each(|fs| fs.rename(from, to))
+        match self.primary.rename(from, to) {
+            Ok(()) => return Ok(()),
+            Err(e) if should_continue(e) => {}
+            Err(e) => return Err(e),
+        }
+
+        for fs in self.secondaries.iter_filesystems() {
+            if fs.exists(from) {
+                return Err(FsError::PermissionDenied);
+            }
+        }
+
+        Err(FsError::EntryNotFound)
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
@@ -165,7 +197,19 @@ where
     }
 
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
-        self.for_each(|fs| fs.remove_file(path))
+        match self.primary.remove_file(path) {
+            Ok(()) => return Ok(()),
+            Err(e) if should_continue(e) => {}
+            Err(e) => return Err(e),
+        }
+
+        for fs in self.secondaries.iter_filesystems() {
+            if fs.exists(path) {
+                return Err(FsError::PermissionDenied);
+            }
+        }
+
+        Err(FsError::EntryNotFound)
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {
@@ -183,31 +227,9 @@ where
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>, FsError> {
-        // FIXME: There is probably a smarter way to do this without the extra
-        // FileSystem::metadata() calls or the risk of TOCTOU issues.
-
-        if (conf.create || conf.create_new) && !self.exists(path) {
-            if let Some(parent) = path.parent() {
-                // As a special case, we want to direct all newly created files
-                // to the primary filesystem so it just *looks* like they are
-                // created alongside secondary filesystems.
-                let would_normally_be_created_on_a_secondary_fs = self
-                    .secondaries
-                    .iter_filesystems()
-                    .into_iter()
-                    .any(|fs| fs.exists(parent));
-
-                if would_normally_be_created_on_a_secondary_fs {
-                    self.primary.create_dir_all(parent)?;
-                    return self
-                        .primary
-                        .new_open_options()
-                        .options(conf.clone())
-                        .open(path);
-                }
-            }
-        }
-
+        // TODO: Re-work this method so that trying to create a file inside a
+        // secondary filesystem will actually create the file on the primary
+        // filesystem, running create_dir_all() if necessary.
         self.for_each(|fs| fs.new_open_options().options(conf.clone()).open(path))
     }
 }
@@ -356,6 +378,21 @@ mod tests {
         // Files on the primary should always shadow the secondary
         let content = fs.read_to_string("/primary/read.txt").await.unwrap();
         assert_ne!(content, "This is shadowed");
+    }
+
+    #[test]
+    fn create_file_that_looks_like_it_is_in_a_secondary_filesystem_folder() {
+        let primary = MemFS::default();
+        let secondary = MemFS::default();
+        secondary.create_dir_all("/path/to/").unwrap();
+        assert!(!primary.is_dir("/path/to/"));
+        let fs = OverlayFileSystem::new(primary, [secondary]);
+
+        fs.touch("/path/to/file.txt").unwrap();
+
+        assert!(fs.primary.is_dir("/path/to/"));
+        assert!(fs.primary.is_file("/path/to/file.txt"));
+        assert!(!fs.secondaries[0].is_file("/path/to/file.txt"));
     }
 
     #[tokio::test]
