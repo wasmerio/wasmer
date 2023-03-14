@@ -2,11 +2,13 @@ use crate::FileSystem;
 
 /// A chain of one or more [`FileSystem`]s.
 pub trait FileSystems<'a>: 'a {
-    // FIXME(Michael-F-Bryan): Rewrite this to use GATs and an external iterator
-    // when we bump the MSRV to 1.65 or higher. That'll get rid of all the
-    // lifetimes and HRTBs.
+    // FIXME(Michael-F-Bryan): Rewrite this to use GATs when we bump the MSRV to
+    // 1.65 or higher. That'll get rid of all the lifetimes and HRTBs.
     type Iter: IntoIterator<Item = &'a dyn FileSystem> + 'a;
-    fn iter_filesystems(&'a self) -> Self::Iter;
+
+    /// Get something that can be used to iterate over the underlying
+    /// filesystems.
+    fn filesystems(&'a self) -> Self::Iter;
 }
 
 impl<'a, 'b, S> FileSystems<'a> for &'b S
@@ -16,8 +18,8 @@ where
 {
     type Iter = S::Iter;
 
-    fn iter_filesystems(&'a self) -> Self::Iter {
-        (**self).iter_filesystems()
+    fn filesystems(&'a self) -> Self::Iter {
+        (**self).filesystems()
     }
 }
 
@@ -27,8 +29,8 @@ where
 {
     type Iter = <[T] as FileSystems<'a>>::Iter;
 
-    fn iter_filesystems(&'a self) -> Self::Iter {
-        self[..].iter_filesystems()
+    fn filesystems(&'a self) -> Self::Iter {
+        self[..].filesystems()
     }
 }
 
@@ -38,7 +40,7 @@ where
 {
     type Iter = [&'a dyn FileSystem; N];
 
-    fn iter_filesystems(&'a self) -> Self::Iter {
+    fn filesystems(&'a self) -> Self::Iter {
         // TODO: rewrite this when array::each_ref() is stable
         let mut i = 0;
         [(); N].map(|_| {
@@ -55,7 +57,7 @@ where
 {
     type Iter = std::iter::Map<std::slice::Iter<'a, T>, fn(&T) -> &dyn FileSystem>;
 
-    fn iter_filesystems(&'a self) -> Self::Iter {
+    fn filesystems(&'a self) -> Self::Iter {
         self.iter().map(|fs| fs as &dyn FileSystem)
     }
 }
@@ -63,7 +65,7 @@ where
 impl<'a> FileSystems<'a> for () {
     type Iter = std::iter::Empty<&'a dyn FileSystem>;
 
-    fn iter_filesystems(&'a self) -> Self::Iter {
+    fn filesystems(&'a self) -> Self::Iter {
         std::iter::empty()
     }
 }
@@ -84,7 +86,7 @@ macro_rules! tuple_filesystems {
         {
             type Iter = [&'a dyn FileSystem; count!($first $($rest)*)];
 
-            fn iter_filesystems(&'a self) -> Self::Iter {
+            fn filesystems(&'a self) -> Self::Iter {
                 #[allow(non_snake_case)]
                 let ($first, $($rest),*) = self;
 

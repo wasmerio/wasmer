@@ -89,7 +89,7 @@ where
     }
 
     fn permission_error_or_not_found(&self, path: &Path) -> Result<(), FsError> {
-        for fs in self.secondaries.iter_filesystems() {
+        for fs in self.secondaries.filesystems() {
             if fs.exists(path) {
                 return Err(FsError::PermissionDenied);
             }
@@ -108,18 +108,11 @@ where
         let mut entries = Vec::new();
         let mut had_at_least_one_success = false;
 
-        match self.primary.read_dir(path) {
-            Ok(r) => {
-                for entry in r {
-                    entries.push(entry?);
-                }
-                had_at_least_one_success = true;
-            }
-            Err(e) if should_continue(e) => {}
-            Err(e) => return Err(e),
-        }
+        let filesystems = std::iter::once(&self.primary as &dyn FileSystem)
+            .into_iter()
+            .chain(self.secondaries().filesystems());
 
-        for fs in self.secondaries.iter_filesystems() {
+        for fs in filesystems {
             match fs.read_dir(path) {
                 Ok(r) => {
                     for entry in r {
@@ -133,10 +126,11 @@ where
         }
 
         if had_at_least_one_success {
-            // Note: this sort is guaranteed to be stable, so filesystems
-            // "higher up" the chain will be further towards the start.
-            entries.sort_by(|a, b| a.path.cmp(&b.path));
             // Make sure later entries are removed in favour of earlier ones.
+            // Note: this sort is guaranteed to be stable, meaning filesystems
+            // "higher up" the chain will be further towards the start and kept
+            // when deduplicating.
+            entries.sort_by(|a, b| a.path.cmp(&b.path));
             entries.dedup_by(|a, b| a.path == b.path);
 
             Ok(ReadDir::new(entries))
@@ -179,7 +173,7 @@ where
             Err(e) => return Err(e),
         }
 
-        for fs in self.secondaries.iter_filesystems() {
+        for fs in self.secondaries.filesystems() {
             match fs.metadata(path) {
                 Err(e) if should_continue(e) => continue,
                 other => return other,
@@ -227,7 +221,7 @@ where
             if let Some(parent) = path.parent() {
                 let parent_exists_on_secondary_fs = self
                     .secondaries
-                    .iter_filesystems()
+                    .filesystems()
                     .into_iter()
                     .any(|fs| fs.is_dir(parent));
                 if parent_exists_on_secondary_fs {
@@ -250,7 +244,7 @@ where
             return Err(FsError::PermissionDenied);
         }
 
-        for fs in self.secondaries.iter_filesystems() {
+        for fs in self.secondaries.filesystems() {
             match fs.new_open_options().options(conf.clone()).open(path) {
                 Err(e) if should_continue(e) => continue,
                 other => return other,
@@ -276,7 +270,7 @@ where
     if conf.create {
         // Would we create the file if it doesn't exist yet?
         let already_exists = secondaries
-            .iter_filesystems()
+            .filesystems()
             .into_iter()
             .any(|fs| fs.is_file(path));
 
@@ -302,7 +296,7 @@ where
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 let mut f = f.debug_list();
 
-                for fs in self.0.iter_filesystems() {
+                for fs in self.0.filesystems() {
                     f.entry(&fs);
                 }
 
