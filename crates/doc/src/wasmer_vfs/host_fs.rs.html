@@ -1369,128 +1369,6 @@
 <span id="1369">1369</span>
 <span id="1370">1370</span>
 <span id="1371">1371</span>
-<span id="1372">1372</span>
-<span id="1373">1373</span>
-<span id="1374">1374</span>
-<span id="1375">1375</span>
-<span id="1376">1376</span>
-<span id="1377">1377</span>
-<span id="1378">1378</span>
-<span id="1379">1379</span>
-<span id="1380">1380</span>
-<span id="1381">1381</span>
-<span id="1382">1382</span>
-<span id="1383">1383</span>
-<span id="1384">1384</span>
-<span id="1385">1385</span>
-<span id="1386">1386</span>
-<span id="1387">1387</span>
-<span id="1388">1388</span>
-<span id="1389">1389</span>
-<span id="1390">1390</span>
-<span id="1391">1391</span>
-<span id="1392">1392</span>
-<span id="1393">1393</span>
-<span id="1394">1394</span>
-<span id="1395">1395</span>
-<span id="1396">1396</span>
-<span id="1397">1397</span>
-<span id="1398">1398</span>
-<span id="1399">1399</span>
-<span id="1400">1400</span>
-<span id="1401">1401</span>
-<span id="1402">1402</span>
-<span id="1403">1403</span>
-<span id="1404">1404</span>
-<span id="1405">1405</span>
-<span id="1406">1406</span>
-<span id="1407">1407</span>
-<span id="1408">1408</span>
-<span id="1409">1409</span>
-<span id="1410">1410</span>
-<span id="1411">1411</span>
-<span id="1412">1412</span>
-<span id="1413">1413</span>
-<span id="1414">1414</span>
-<span id="1415">1415</span>
-<span id="1416">1416</span>
-<span id="1417">1417</span>
-<span id="1418">1418</span>
-<span id="1419">1419</span>
-<span id="1420">1420</span>
-<span id="1421">1421</span>
-<span id="1422">1422</span>
-<span id="1423">1423</span>
-<span id="1424">1424</span>
-<span id="1425">1425</span>
-<span id="1426">1426</span>
-<span id="1427">1427</span>
-<span id="1428">1428</span>
-<span id="1429">1429</span>
-<span id="1430">1430</span>
-<span id="1431">1431</span>
-<span id="1432">1432</span>
-<span id="1433">1433</span>
-<span id="1434">1434</span>
-<span id="1435">1435</span>
-<span id="1436">1436</span>
-<span id="1437">1437</span>
-<span id="1438">1438</span>
-<span id="1439">1439</span>
-<span id="1440">1440</span>
-<span id="1441">1441</span>
-<span id="1442">1442</span>
-<span id="1443">1443</span>
-<span id="1444">1444</span>
-<span id="1445">1445</span>
-<span id="1446">1446</span>
-<span id="1447">1447</span>
-<span id="1448">1448</span>
-<span id="1449">1449</span>
-<span id="1450">1450</span>
-<span id="1451">1451</span>
-<span id="1452">1452</span>
-<span id="1453">1453</span>
-<span id="1454">1454</span>
-<span id="1455">1455</span>
-<span id="1456">1456</span>
-<span id="1457">1457</span>
-<span id="1458">1458</span>
-<span id="1459">1459</span>
-<span id="1460">1460</span>
-<span id="1461">1461</span>
-<span id="1462">1462</span>
-<span id="1463">1463</span>
-<span id="1464">1464</span>
-<span id="1465">1465</span>
-<span id="1466">1466</span>
-<span id="1467">1467</span>
-<span id="1468">1468</span>
-<span id="1469">1469</span>
-<span id="1470">1470</span>
-<span id="1471">1471</span>
-<span id="1472">1472</span>
-<span id="1473">1473</span>
-<span id="1474">1474</span>
-<span id="1475">1475</span>
-<span id="1476">1476</span>
-<span id="1477">1477</span>
-<span id="1478">1478</span>
-<span id="1479">1479</span>
-<span id="1480">1480</span>
-<span id="1481">1481</span>
-<span id="1482">1482</span>
-<span id="1483">1483</span>
-<span id="1484">1484</span>
-<span id="1485">1485</span>
-<span id="1486">1486</span>
-<span id="1487">1487</span>
-<span id="1488">1488</span>
-<span id="1489">1489</span>
-<span id="1490">1490</span>
-<span id="1491">1491</span>
-<span id="1492">1492</span>
-<span id="1493">1493</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">DirEntry</span>, <span class="ident">FileType</span>, <span class="ident">FsError</span>, <span class="ident">Metadata</span>, <span class="ident">OpenOptions</span>, <span class="ident">OpenOptionsConfig</span>, <span class="ident">ReadDir</span>, <span class="prelude-ty">Result</span>,
     <span class="ident">VirtualFile</span>,
@@ -2359,6 +2237,8 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">tests</span> {
+    <span class="kw">use</span> <span class="ident">tempfile::TempDir</span>;
+
     <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::host_fs::FileSystem</span>;
     <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::FileSystem</span> <span class="kw">as</span> <span class="ident">FileSystemTrait</span>;
     <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::FsError</span>;
@@ -2366,21 +2246,23 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_new_filesystem</span>() {
+        <span class="kw">let</span> <span class="ident">temp</span> <span class="op">=</span> <span class="ident">TempDir::new</span>().<span class="ident">unwrap</span>();
+        <span class="ident">std::fs::write</span>(<span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo2.txt&quot;</span>), <span class="string">b&quot;&quot;</span>).<span class="ident">unwrap</span>();
+
         <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">FileSystem::default</span>();
         <span class="macro">assert!</span>(<span class="ident">fs</span>.<span class="ident">read_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/&quot;</span>)).<span class="ident">is_ok</span>(), <span class="string">&quot;hostfs can read root&quot;</span>);
-        <span class="ident">std::fs::write</span>(<span class="string">&quot;./foo2.txt&quot;</span>, <span class="string">b&quot;&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert!</span>(
             <span class="ident">fs</span>.<span class="ident">new_open_options</span>()
                 .<span class="ident">read</span>(<span class="bool-val">true</span>)
-                .<span class="ident">open</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./foo2.txt&quot;</span>))
+                .<span class="ident">open</span>(<span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo2.txt&quot;</span>))
                 .<span class="ident">is_ok</span>(),
             <span class="string">&quot;created foo2.txt&quot;</span>
         );
-        <span class="ident">std::fs::remove_file</span>(<span class="string">&quot;./foo2.txt&quot;</span>).<span class="ident">unwrap</span>();
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_create_dir</span>() {
+        <span class="kw">let</span> <span class="ident">temp</span> <span class="op">=</span> <span class="ident">TempDir::new</span>().<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">FileSystem::default</span>();
 
         <span class="macro">assert_eq!</span>(
@@ -2389,26 +2271,18 @@
             <span class="string">&quot;creating a directory that has no parent&quot;</span>,
         );
 
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_create_dir&quot;</span>]);
-
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_create_dir&quot;</span>)),
-            <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating a directory&quot;</span>,
-        );
-
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_create_dir/foo&quot;</span>)),
+            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating a directory&quot;</span>,
         );
 
         <span class="macro">assert!</span>(
-            <span class="ident">Path::new</span>(<span class="string">&quot;./test_create_dir/foo&quot;</span>).<span class="ident">exists</span>(),
+            <span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo&quot;</span>).<span class="ident">exists</span>(),
             <span class="string">&quot;foo dir exists in host_fs&quot;</span>
         );
 
-        <span class="kw">let</span> <span class="ident">cur_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;./test_create_dir&quot;</span>);
+        <span class="kw">let</span> <span class="ident">cur_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="ident">temp</span>.<span class="ident">path</span>());
 
         <span class="kw">if</span> <span class="op">!</span><span class="ident">cur_dir</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;foo&quot;</span>.<span class="ident">to_string</span>()) {
             <span class="macro">panic!</span>(<span class="string">&quot;cur_dir does not contain foo: {:#?}&quot;</span>, <span class="ident">cur_dir</span>);
@@ -2420,43 +2294,35 @@
         );
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_create_dir/foo/bar&quot;</span>)),
+            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo/bar&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating a sub-directory&quot;</span>,
         );
 
         <span class="macro">assert!</span>(
-            <span class="ident">Path::new</span>(<span class="string">&quot;./test_create_dir/foo/bar&quot;</span>).<span class="ident">exists</span>(),
+            <span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo&quot;</span>).<span class="ident">join</span>(<span class="string">&quot;bar&quot;</span>).<span class="ident">exists</span>(),
             <span class="string">&quot;foo dir exists in host_fs&quot;</span>
         );
 
-        <span class="kw">let</span> <span class="ident">foo_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;./test_create_dir/foo&quot;</span>);
+        <span class="kw">let</span> <span class="ident">foo_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo&quot;</span>));
 
         <span class="macro">assert!</span>(
             <span class="ident">foo_dir</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;bar&quot;</span>.<span class="ident">to_string</span>()),
             <span class="string">&quot;the foo directory is updated and well-defined&quot;</span>
         );
 
-        <span class="kw">let</span> <span class="ident">bar_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;./test_create_dir/foo/bar&quot;</span>);
+        <span class="kw">let</span> <span class="ident">bar_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo/bar&quot;</span>));
 
         <span class="macro">assert!</span>(
             <span class="ident">bar_dir</span>.<span class="ident">is_empty</span>(),
             <span class="string">&quot;the foo directory is updated and well-defined&quot;</span>
         );
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_create_dir&quot;</span>]);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_remove_dir</span>() {
+        <span class="kw">let</span> <span class="ident">temp</span> <span class="op">=</span> <span class="ident">TempDir::new</span>().<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">FileSystem::default</span>();
-
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_remove_dir&quot;</span>]);
-
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">remove_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/&quot;</span>)),
-            <span class="prelude-val">Err</span>(<span class="ident">FsError::BaseNotDirectory</span>),
-            <span class="string">&quot;removing a directory that has no parent&quot;</span>,
-        );
 
         <span class="macro">assert_eq!</span>(
             <span class="ident">fs</span>.<span class="ident">remove_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/foo&quot;</span>)),
@@ -2465,58 +2331,47 @@
         );
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_remove_dir&quot;</span>)),
+            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating a directory&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_remove_dir/foo&quot;</span>)),
-            <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating a directory&quot;</span>,
-        );
-
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_remove_dir/foo/bar&quot;</span>)),
+            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo/bar&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating a sub-directory&quot;</span>,
         );
 
-        <span class="macro">assert!</span>(
-            <span class="ident">Path::new</span>(<span class="string">&quot;./test_remove_dir/foo/bar&quot;</span>).<span class="ident">exists</span>(),
-            <span class="string">&quot;./foo/bar exists&quot;</span>
-        );
+        <span class="macro">assert!</span>(<span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo/bar&quot;</span>).<span class="ident">exists</span>(), <span class="string">&quot;./foo/bar exists&quot;</span>);
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">remove_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_remove_dir/foo&quot;</span>)),
+            <span class="ident">fs</span>.<span class="ident">remove_dir</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo&quot;</span>)),
             <span class="prelude-val">Err</span>(<span class="ident">FsError::DirectoryNotEmpty</span>),
             <span class="string">&quot;removing a directory that has children&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">remove_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_remove_dir/foo/bar&quot;</span>)),
+            <span class="ident">fs</span>.<span class="ident">remove_dir</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo/bar&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;removing a sub-directory&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">remove_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_remove_dir/foo&quot;</span>)),
+            <span class="ident">fs</span>.<span class="ident">remove_dir</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;removing a directory&quot;</span>,
         );
 
-        <span class="kw">let</span> <span class="ident">cur_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;./test_remove_dir&quot;</span>);
+        <span class="kw">let</span> <span class="ident">cur_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="ident">temp</span>.<span class="ident">path</span>());
 
         <span class="macro">assert!</span>(
             <span class="op">!</span><span class="ident">cur_dir</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;foo&quot;</span>.<span class="ident">to_string</span>()),
             <span class="string">&quot;the foo directory still exists&quot;</span>
         );
-
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_remove_dir&quot;</span>]);
     }
 
-    <span class="kw">fn</span> <span class="ident">read_dir_names</span>(<span class="ident">fs</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident"><span class="kw">crate</span>::FileSystem</span>, <span class="ident">path</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
-        <span class="ident">fs</span>.<span class="ident">read_dir</span>(<span class="ident">Path::new</span>(<span class="ident">path</span>))
+    <span class="kw">fn</span> <span class="ident">read_dir_names</span>(<span class="ident">fs</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident"><span class="kw">crate</span>::FileSystem</span>, <span class="ident">path</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">Path</span><span class="op">&gt;</span>) -&gt; <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span> {
+        <span class="ident">fs</span>.<span class="ident">read_dir</span>(<span class="ident">path</span>.<span class="ident">as_ref</span>())
             .<span class="ident">unwrap</span>()
             .<span class="ident">filter_map</span>(<span class="op">|</span><span class="ident">entry</span><span class="op">|</span> <span class="prelude-val">Some</span>(<span class="ident">entry</span>.<span class="ident">ok</span>()<span class="question-mark">?</span>.<span class="ident">file_name</span>().<span class="ident">to_str</span>()<span class="question-mark">?</span>.<span class="ident">to_string</span>()))
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
@@ -2524,9 +2379,11 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_rename</span>() {
+        <span class="kw">let</span> <span class="ident">temp</span> <span class="op">=</span> <span class="ident">TempDir::new</span>().<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">FileSystem::default</span>();
-
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_rename&quot;</span>]);
+        <span class="ident">std::fs::create_dir_all</span>(<span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo&quot;</span>).<span class="ident">join</span>(<span class="string">&quot;qux&quot;</span>)).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">foo</span> <span class="op">=</span> <span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo&quot;</span>);
+        <span class="kw">let</span> <span class="ident">bar</span> <span class="op">=</span> <span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;bar&quot;</span>);
 
         <span class="macro">assert_eq!</span>(
             <span class="ident">fs</span>.<span class="ident">rename</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/&quot;</span>), <span class="ident">Path::new</span>(<span class="string">&quot;/bar&quot;</span>)),
@@ -2539,28 +2396,18 @@
             <span class="string">&quot;renaming to a directory that has no parent&quot;</span>,
         );
 
-        <span class="macro">assert_eq!</span>(<span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_rename&quot;</span>)), <span class="prelude-val">Ok</span>(()));
-        <span class="macro">assert_eq!</span>(<span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/foo&quot;</span>)), <span class="prelude-val">Ok</span>(()));
-        <span class="macro">assert_eq!</span>(<span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/foo/qux&quot;</span>)), <span class="prelude-val">Ok</span>(()));
-
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">rename</span>(
-                <span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/foo&quot;</span>),
-                <span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/bar/baz&quot;</span>)
-            ),
+            <span class="ident">fs</span>.<span class="ident">rename</span>(<span class="kw-2">&amp;</span><span class="ident">foo</span>, <span class="kw-2">&amp;</span><span class="ident">foo</span>.<span class="ident">join</span>(<span class="string">&quot;bar&quot;</span>).<span class="ident">join</span>(<span class="string">&quot;baz&quot;</span>),),
             <span class="prelude-val">Err</span>(<span class="ident">FsError::EntryNotFound</span>),
             <span class="string">&quot;renaming to a directory that has parent that doesn&#39;t exist&quot;</span>,
         );
 
         <span class="comment">// On Windows, rename &quot;to&quot; must not be an existing directory</span>
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
-        <span class="macro">assert_eq!</span>(<span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/bar&quot;</span>)), <span class="prelude-val">Ok</span>(()));
+        <span class="macro">assert_eq!</span>(<span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="kw-2">&amp;</span><span class="ident">bar</span>), <span class="prelude-val">Ok</span>(()));
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">rename</span>(
-                <span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/foo&quot;</span>),
-                <span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/bar&quot;</span>)
-            ),
+            <span class="ident">fs</span>.<span class="ident">rename</span>(<span class="kw-2">&amp;</span><span class="ident">foo</span>, <span class="kw-2">&amp;</span><span class="ident">bar</span>),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming to a directory that has parent that exists&quot;</span>,
         );
@@ -2570,7 +2417,7 @@
                 <span class="ident">fs</span>.<span class="ident">new_open_options</span>()
                     .<span class="ident">write</span>(<span class="bool-val">true</span>)
                     .<span class="ident">create_new</span>(<span class="bool-val">true</span>)
-                    .<span class="ident">open</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/bar/hello1.txt&quot;</span>)),
+                    .<span class="ident">open</span>(<span class="ident">bar</span>.<span class="ident">join</span>(<span class="string">&quot;hello1.txt&quot;</span>)),
                 <span class="prelude-val">Ok</span>(<span class="kw">_</span>),
             ),
             <span class="string">&quot;creating a new file (`hello1.txt`)&quot;</span>,
@@ -2580,13 +2427,13 @@
                 <span class="ident">fs</span>.<span class="ident">new_open_options</span>()
                     .<span class="ident">write</span>(<span class="bool-val">true</span>)
                     .<span class="ident">create_new</span>(<span class="bool-val">true</span>)
-                    .<span class="ident">open</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/bar/hello2.txt&quot;</span>)),
+                    .<span class="ident">open</span>(<span class="ident">bar</span>.<span class="ident">join</span>(<span class="string">&quot;hello2.txt&quot;</span>)),
                 <span class="prelude-val">Ok</span>(<span class="kw">_</span>),
             ),
             <span class="string">&quot;creating a new file (`hello2.txt`)&quot;</span>,
         );
 
-        <span class="kw">let</span> <span class="ident">cur_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;./test_rename&quot;</span>);
+        <span class="kw">let</span> <span class="ident">cur_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="ident">temp</span>.<span class="ident">path</span>());
 
         <span class="macro">assert!</span>(
             <span class="op">!</span><span class="ident">cur_dir</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;foo&quot;</span>.<span class="ident">to_string</span>()),
@@ -2598,90 +2445,63 @@
             <span class="string">&quot;the bar directory still exists&quot;</span>
         );
 
-        <span class="kw">let</span> <span class="ident">bar_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;./test_rename/bar&quot;</span>);
+        <span class="kw">let</span> <span class="ident">bar_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="kw-2">&amp;</span><span class="ident">bar</span>);
 
         <span class="kw">if</span> <span class="op">!</span><span class="ident">bar_dir</span>.<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;qux&quot;</span>.<span class="ident">to_string</span>()) {
             <span class="macro">println!</span>(<span class="string">&quot;qux does not exist: {:?}&quot;</span>, <span class="ident">bar_dir</span>)
         }
 
-        <span class="kw">let</span> <span class="ident">qux_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;./test_rename/bar/qux&quot;</span>);
+        <span class="kw">let</span> <span class="ident">qux_dir</span> <span class="op">=</span> <span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="ident">bar</span>.<span class="ident">join</span>(<span class="string">&quot;qux&quot;</span>));
 
         <span class="macro">assert!</span>(<span class="ident">qux_dir</span>.<span class="ident">is_empty</span>(), <span class="string">&quot;the qux directory is empty&quot;</span>);
 
         <span class="macro">assert!</span>(
-            <span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/bar/hello1.txt&quot;</span>).<span class="ident">exists</span>(),
+            <span class="ident">bar</span>.<span class="ident">join</span>(<span class="string">&quot;hello1.txt&quot;</span>).<span class="ident">exists</span>(),
             <span class="string">&quot;the /bar/hello1.txt file exists&quot;</span>
         );
 
         <span class="macro">assert!</span>(
-            <span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/bar/hello2.txt&quot;</span>).<span class="ident">exists</span>(),
+            <span class="ident">bar</span>.<span class="ident">join</span>(<span class="string">&quot;hello2.txt&quot;</span>).<span class="ident">exists</span>(),
             <span class="string">&quot;the /bar/hello2.txt file exists&quot;</span>
         );
 
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/foo&quot;</span>)),
-            <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;create ./foo again&quot;</span>,
-        );
+        <span class="macro">assert_eq!</span>(<span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="kw-2">&amp;</span><span class="ident">foo</span>), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;create ./foo again&quot;</span>,);
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">rename</span>(
-                <span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/bar/hello2.txt&quot;</span>),
-                <span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/foo/world2.txt&quot;</span>)
-            ),
+            <span class="ident">fs</span>.<span class="ident">rename</span>(<span class="kw-2">&amp;</span><span class="ident">bar</span>.<span class="ident">join</span>(<span class="string">&quot;hello2.txt&quot;</span>), <span class="kw-2">&amp;</span><span class="ident">foo</span>.<span class="ident">join</span>(<span class="string">&quot;world2.txt&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming (and moving) a file&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">rename</span>(
-                <span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/foo&quot;</span>),
-                <span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/bar/baz&quot;</span>)
-            ),
+            <span class="ident">fs</span>.<span class="ident">rename</span>(<span class="kw-2">&amp;</span><span class="ident">foo</span>, <span class="kw-2">&amp;</span><span class="ident">bar</span>.<span class="ident">join</span>(<span class="string">&quot;baz&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming a directory&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">rename</span>(
-                <span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/bar/hello1.txt&quot;</span>),
-                <span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/bar/world1.txt&quot;</span>)
-            ),
+            <span class="ident">fs</span>.<span class="ident">rename</span>(<span class="kw-2">&amp;</span><span class="ident">bar</span>.<span class="ident">join</span>(<span class="string">&quot;hello1.txt&quot;</span>), <span class="kw-2">&amp;</span><span class="ident">bar</span>.<span class="ident">join</span>(<span class="string">&quot;world1.txt&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming a file (in the same directory)&quot;</span>,
         );
 
-        <span class="macro">assert!</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/bar&quot;</span>).<span class="ident">exists</span>(), <span class="string">&quot;./bar exists&quot;</span>);
+        <span class="macro">assert!</span>(<span class="ident">bar</span>.<span class="ident">exists</span>(), <span class="string">&quot;./bar exists&quot;</span>);
+        <span class="macro">assert!</span>(<span class="ident">bar</span>.<span class="ident">join</span>(<span class="string">&quot;baz&quot;</span>).<span class="ident">exists</span>(), <span class="string">&quot;./bar/baz exists&quot;</span>);
+        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">foo</span>.<span class="ident">exists</span>(), <span class="string">&quot;foo does not exist anymore&quot;</span>);
         <span class="macro">assert!</span>(
-            <span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/bar/baz&quot;</span>).<span class="ident">exists</span>(),
-            <span class="string">&quot;./bar/baz exists&quot;</span>
-        );
-        <span class="macro">assert!</span>(
-            <span class="op">!</span><span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/foo&quot;</span>).<span class="ident">exists</span>(),
-            <span class="string">&quot;foo does not exist anymore&quot;</span>
-        );
-        <span class="macro">assert!</span>(
-            <span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/bar/baz/world2.txt&quot;</span>).<span class="ident">exists</span>(),
+            <span class="ident">bar</span>.<span class="ident">join</span>(<span class="string">&quot;baz/world2.txt&quot;</span>).<span class="ident">exists</span>(),
             <span class="string">&quot;/bar/baz/world2.txt exists&quot;</span>
         );
         <span class="macro">assert!</span>(
-            <span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/bar/world1.txt&quot;</span>).<span class="ident">exists</span>(),
+            <span class="ident">bar</span>.<span class="ident">join</span>(<span class="string">&quot;world1.txt&quot;</span>).<span class="ident">exists</span>(),
             <span class="string">&quot;/bar/world1.txt (ex hello1.txt) exists&quot;</span>
         );
+        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">bar</span>.<span class="ident">join</span>(<span class="string">&quot;hello1.txt&quot;</span>).<span class="ident">exists</span>(), <span class="string">&quot;hello1.txt was moved&quot;</span>);
+        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">bar</span>.<span class="ident">join</span>(<span class="string">&quot;hello2.txt&quot;</span>).<span class="ident">exists</span>(), <span class="string">&quot;hello2.txt was moved&quot;</span>);
         <span class="macro">assert!</span>(
-            <span class="op">!</span><span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/bar/hello1.txt&quot;</span>).<span class="ident">exists</span>(),
-            <span class="string">&quot;hello1.txt was moved&quot;</span>
-        );
-        <span class="macro">assert!</span>(
-            <span class="op">!</span><span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/bar/hello2.txt&quot;</span>).<span class="ident">exists</span>(),
-            <span class="string">&quot;hello2.txt was moved&quot;</span>
-        );
-        <span class="macro">assert!</span>(
-            <span class="ident">Path::new</span>(<span class="string">&quot;./test_rename/bar/baz/world2.txt&quot;</span>).<span class="ident">exists</span>(),
+            <span class="ident">bar</span>.<span class="ident">join</span>(<span class="string">&quot;baz/world2.txt&quot;</span>).<span class="ident">exists</span>(),
             <span class="string">&quot;world2.txt was moved to the correct place&quot;</span>
         );
-
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_rename&quot;</span>]);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
@@ -2689,16 +2509,11 @@
         <span class="kw">use</span> <span class="ident">std::thread::sleep</span>;
         <span class="kw">use</span> <span class="ident">std::time::Duration</span>;
 
-        <span class="kw">let</span> <span class="ident">root_dir</span> <span class="op">=</span> <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>);
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">std::env::set_current_dir</span>(<span class="ident">root_dir</span>);
+        <span class="kw">let</span> <span class="ident">temp</span> <span class="op">=</span> <span class="ident">TempDir::new</span>().<span class="ident">unwrap</span>();
 
         <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">FileSystem::default</span>();
 
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_metadata&quot;</span>]);
-
-        <span class="macro">assert_eq!</span>(<span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_metadata&quot;</span>)), <span class="prelude-val">Ok</span>(()));
-
-        <span class="kw">let</span> <span class="ident">root_metadata</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">metadata</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_metadata&quot;</span>)).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">root_metadata</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">metadata</span>(<span class="ident">temp</span>.<span class="ident">path</span>()).<span class="ident">unwrap</span>();
 
         <span class="macro">assert!</span>(<span class="ident">root_metadata</span>.<span class="ident">ft</span>.<span class="ident">dir</span>);
         <span class="comment">// it seems created is not evailable on musl, at least on CI testing.</span>
@@ -2708,9 +2523,11 @@
         <span class="macro">assert_eq!</span>(<span class="ident">root_metadata</span>.<span class="ident">modified</span>, <span class="ident">root_metadata</span>.<span class="ident">created</span>);
         <span class="macro">assert!</span>(<span class="ident">root_metadata</span>.<span class="ident">modified</span> <span class="op">&gt;</span> <span class="number">0</span>);
 
-        <span class="macro">assert_eq!</span>(<span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_metadata/foo&quot;</span>)), <span class="prelude-val">Ok</span>(()));
+        <span class="kw">let</span> <span class="ident">foo</span> <span class="op">=</span> <span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">foo_metadata</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">metadata</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_metadata/foo&quot;</span>));
+        <span class="macro">assert_eq!</span>(<span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="kw-2">&amp;</span><span class="ident">foo</span>), <span class="prelude-val">Ok</span>(()));
+
+        <span class="kw">let</span> <span class="ident">foo_metadata</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">metadata</span>(<span class="kw-2">&amp;</span><span class="ident">foo</span>);
         <span class="macro">assert!</span>(<span class="ident">foo_metadata</span>.<span class="ident">is_ok</span>());
         <span class="kw">let</span> <span class="ident">foo_metadata</span> <span class="op">=</span> <span class="ident">foo_metadata</span>.<span class="ident">unwrap</span>();
 
@@ -2723,98 +2540,80 @@
 
         <span class="ident">sleep</span>(<span class="ident">Duration::from_secs</span>(<span class="number">3</span>));
 
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">rename</span>(
-                <span class="ident">Path::new</span>(<span class="string">&quot;./test_metadata/foo&quot;</span>),
-                <span class="ident">Path::new</span>(<span class="string">&quot;./test_metadata/bar&quot;</span>)
-            ),
-            <span class="prelude-val">Ok</span>(())
-        );
+        <span class="kw">let</span> <span class="ident">bar</span> <span class="op">=</span> <span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;bar&quot;</span>);
 
-        <span class="kw">let</span> <span class="ident">bar_metadata</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">metadata</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_metadata/bar&quot;</span>)).<span class="ident">unwrap</span>();
+        <span class="macro">assert_eq!</span>(<span class="ident">fs</span>.<span class="ident">rename</span>(<span class="kw-2">&amp;</span><span class="ident">foo</span>, <span class="kw-2">&amp;</span><span class="ident">bar</span>), <span class="prelude-val">Ok</span>(()));
+
+        <span class="kw">let</span> <span class="ident">bar_metadata</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">metadata</span>(<span class="kw-2">&amp;</span><span class="ident">bar</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert!</span>(<span class="ident">bar_metadata</span>.<span class="ident">ft</span>.<span class="ident">dir</span>);
         <span class="macro">assert!</span>(<span class="ident">bar_metadata</span>.<span class="ident">accessed</span> <span class="op">&gt;</span><span class="op">=</span> <span class="ident">foo_metadata</span>.<span class="ident">accessed</span>);
         <span class="macro">assert_eq!</span>(<span class="ident">bar_metadata</span>.<span class="ident">created</span>, <span class="ident">foo_metadata</span>.<span class="ident">created</span>);
         <span class="macro">assert!</span>(<span class="ident">bar_metadata</span>.<span class="ident">modified</span> <span class="op">&gt;</span> <span class="ident">foo_metadata</span>.<span class="ident">modified</span>);
 
-        <span class="kw">let</span> <span class="ident">root_metadata</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">metadata</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_metadata/bar&quot;</span>)).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">root_metadata</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">metadata</span>(<span class="kw-2">&amp;</span><span class="ident">bar</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert!</span>(
             <span class="ident">root_metadata</span>.<span class="ident">modified</span> <span class="op">&gt;</span> <span class="ident">foo_metadata</span>.<span class="ident">modified</span>,
             <span class="string">&quot;the parent modified time was updated&quot;</span>
         );
-
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_metadata&quot;</span>]);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_remove_file</span>() {
         <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">FileSystem::default</span>();
-
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_remove_file&quot;</span>]);
-
-        <span class="macro">assert!</span>(<span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_remove_file&quot;</span>)).<span class="ident">is_ok</span>());
+        <span class="kw">let</span> <span class="ident">temp</span> <span class="op">=</span> <span class="ident">TempDir::new</span>().<span class="ident">unwrap</span>();
 
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(
                 <span class="ident">fs</span>.<span class="ident">new_open_options</span>()
                     .<span class="ident">write</span>(<span class="bool-val">true</span>)
                     .<span class="ident">create_new</span>(<span class="bool-val">true</span>)
-                    .<span class="ident">open</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_remove_file/foo.txt&quot;</span>)),
+                    .<span class="ident">open</span>(<span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo.txt&quot;</span>)),
                 <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
             ),
             <span class="string">&quot;creating a new file&quot;</span>,
         );
 
-        <span class="macro">assert!</span>(<span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="string">&quot;./test_remove_file&quot;</span>).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;foo.txt&quot;</span>.<span class="ident">to_string</span>()));
+        <span class="macro">assert!</span>(<span class="ident">read_dir_names</span>(<span class="kw-2">&amp;</span><span class="ident">fs</span>, <span class="ident">temp</span>.<span class="ident">path</span>()).<span class="ident">contains</span>(<span class="kw-2">&amp;</span><span class="string">&quot;foo.txt&quot;</span>.<span class="ident">to_string</span>()));
 
-        <span class="macro">assert!</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_remove_file/foo.txt&quot;</span>).<span class="ident">is_file</span>());
+        <span class="macro">assert!</span>(<span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo.txt&quot;</span>).<span class="ident">is_file</span>());
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">remove_file</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_remove_file/foo.txt&quot;</span>)),
+            <span class="ident">fs</span>.<span class="ident">remove_file</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo.txt&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;removing a file that exists&quot;</span>,
         );
 
-        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">Path::new</span>(<span class="string">&quot;./test_remove_file/foo.txt&quot;</span>).<span class="ident">exists</span>());
+        <span class="macro">assert!</span>(<span class="op">!</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo.txt&quot;</span>).<span class="ident">exists</span>());
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">remove_file</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_remove_file/foo.txt&quot;</span>)),
+            <span class="ident">fs</span>.<span class="ident">remove_file</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo.txt&quot;</span>)),
             <span class="prelude-val">Err</span>(<span class="ident">FsError::EntryNotFound</span>),
             <span class="string">&quot;removing a file that doesn&#39;t exists&quot;</span>,
         );
-
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_remove_file&quot;</span>]);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_readdir</span>() {
+        <span class="kw">let</span> <span class="ident">temp</span> <span class="op">=</span> <span class="ident">TempDir::new</span>().<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">FileSystem::default</span>();
 
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_readdir&quot;</span>]);
-
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_readdir/&quot;</span>)),
-            <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating `test_readdir`&quot;</span>
-        );
-
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_readdir/foo&quot;</span>)),
+            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating `foo`&quot;</span>
         );
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_readdir/foo/sub&quot;</span>)),
+            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo/sub&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating `sub`&quot;</span>
         );
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_readdir/bar&quot;</span>)),
+            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;bar&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating `bar`&quot;</span>
         );
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_readdir/baz&quot;</span>)),
+            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;baz&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating `bar`&quot;</span>
         );
@@ -2823,7 +2622,7 @@
                 <span class="ident">fs</span>.<span class="ident">new_open_options</span>()
                     .<span class="ident">write</span>(<span class="bool-val">true</span>)
                     .<span class="ident">create_new</span>(<span class="bool-val">true</span>)
-                    .<span class="ident">open</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_readdir/a.txt&quot;</span>)),
+                    .<span class="ident">open</span>(<span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;a.txt&quot;</span>)),
                 <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
             ),
             <span class="string">&quot;creating `a.txt`&quot;</span>,
@@ -2833,15 +2632,19 @@
                 <span class="ident">fs</span>.<span class="ident">new_open_options</span>()
                     .<span class="ident">write</span>(<span class="bool-val">true</span>)
                     .<span class="ident">create_new</span>(<span class="bool-val">true</span>)
-                    .<span class="ident">open</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_readdir/b.txt&quot;</span>)),
+                    .<span class="ident">open</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;b.txt&quot;</span>)),
                 <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
             ),
             <span class="string">&quot;creating `b.txt`&quot;</span>,
         );
 
-        <span class="kw">let</span> <span class="ident">readdir</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">read_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_readdir&quot;</span>));
+        <span class="kw">let</span> <span class="ident">readdir</span> <span class="op">=</span> <span class="ident">fs</span>.<span class="ident">read_dir</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>());
 
-        <span class="macro">assert!</span>(<span class="ident">readdir</span>.<span class="ident">is_ok</span>(), <span class="string">&quot;reading the directory `./test_readdir/`&quot;</span>);
+        <span class="macro">assert!</span>(
+            <span class="ident">readdir</span>.<span class="ident">is_ok</span>(),
+            <span class="string">&quot;reading the directory `{}`&quot;</span>,
+            <span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">display</span>()
+        );
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">readdir</span> <span class="op">=</span> <span class="ident">readdir</span>.<span class="ident">unwrap</span>();
 
@@ -2868,63 +2671,20 @@
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">s</span>) <span class="op">=</span> <span class="ident">readdir</span>.<span class="ident">next</span>() {
             <span class="macro">panic!</span>(<span class="string">&quot;next: {:?}&quot;</span>, <span class="ident">s</span>);
         }
-
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_readdir&quot;</span>]);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">test_canonicalize</span>() {
+        <span class="kw">let</span> <span class="ident">temp</span> <span class="op">=</span> <span class="ident">TempDir::new</span>().<span class="ident">unwrap</span>();
+        <span class="ident">std::fs::create_dir_all</span>(<span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo/bar/baz/qux&quot;</span>)).<span class="ident">unwrap</span>();
+        <span class="ident">std::fs::write</span>(<span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo/bar/baz/qux/hello.txt&quot;</span>), <span class="string">b&quot;&quot;</span>).<span class="ident">unwrap</span>();
+
         <span class="kw">let</span> <span class="ident">fs</span> <span class="op">=</span> <span class="ident">FileSystem::default</span>();
-
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">root_dir</span> <span class="op">=</span> <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>).<span class="ident">to_owned</span>();
-        <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">windows</span>) {
-            <span class="comment">// Windows will use UNC path, so force it</span>
-            <span class="ident">root_dir</span>.<span class="ident">insert_str</span>(<span class="number">0</span>, <span class="string">&quot;\\\\?\\&quot;</span>);
-        }
-        <span class="kw">let</span> <span class="ident">char_dir</span> <span class="op">=</span> <span class="kw">if</span> <span class="macro">cfg!</span>(<span class="ident">windows</span>) { <span class="string">&quot;\\&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;/&quot;</span> };
-
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="ident">fs_extra::remove_items</span>(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_canonicalize&quot;</span>]);
+        <span class="kw">let</span> <span class="ident">root_dir</span> <span class="op">=</span> <span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">canonicalize</span>().<span class="ident">unwrap</span>();
 
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_canonicalize&quot;</span>)),
-            <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating `test_canonicalize`&quot;</span>
-        );
-
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_canonicalize/foo&quot;</span>)),
-            <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating `foo`&quot;</span>
-        );
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_canonicalize/foo/bar&quot;</span>)),
-            <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating `bar`&quot;</span>
-        );
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_canonicalize/foo/bar/baz&quot;</span>)),
-            <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating `baz`&quot;</span>,
-        );
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">create_dir</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_canonicalize/foo/bar/baz/qux&quot;</span>)),
-            <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating `qux`&quot;</span>,
-        );
-        <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                <span class="ident">fs</span>.<span class="ident">new_open_options</span>()
-                    .<span class="ident">write</span>(<span class="bool-val">true</span>)
-                    .<span class="ident">create_new</span>(<span class="bool-val">true</span>)
-                    .<span class="ident">open</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_canonicalize/foo/bar/baz/qux/hello.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
-            ),
-            <span class="string">&quot;creating `hello.txt`&quot;</span>,
-        );
-
-        <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">canonicalize</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_canonicalize&quot;</span>)),
-            <span class="prelude-val">Ok</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{root_dir}{char_dir}test_canonicalize&quot;</span>)).<span class="ident">to_path_buf</span>()),
+            <span class="ident">fs</span>.<span class="ident">canonicalize</span>(<span class="ident">temp</span>.<span class="ident">path</span>()),
+            <span class="prelude-val">Ok</span>(<span class="ident">root_dir</span>.<span class="ident">clone</span>()),
             <span class="string">&quot;canonicalizing `/`&quot;</span>,
         );
         <span class="macro">assert_eq!</span>(
@@ -2933,51 +2693,47 @@
             <span class="string">&quot;canonicalizing `foo`&quot;</span>,
         );
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">canonicalize</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_canonicalize/././././foo/&quot;</span>)),
-            <span class="prelude-val">Ok</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-                <span class="string">&quot;{root_dir}{char_dir}test_canonicalize{char_dir}foo&quot;</span>
-            ))
-            .<span class="ident">to_path_buf</span>()),
+            <span class="ident">fs</span>.<span class="ident">canonicalize</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;././././foo/&quot;</span>)),
+            <span class="prelude-val">Ok</span>(<span class="ident">root_dir</span>.<span class="ident">join</span>(<span class="string">&quot;foo&quot;</span>)),
             <span class="string">&quot;canonicalizing `/././././foo/`&quot;</span>,
         );
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">canonicalize</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_canonicalize/foo/bar//&quot;</span>)),
-            <span class="prelude-val">Ok</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-                <span class="string">&quot;{root_dir}{char_dir}test_canonicalize{char_dir}foo{char_dir}bar&quot;</span>
-            ))
-            .<span class="ident">to_path_buf</span>()),
+            <span class="ident">fs</span>.<span class="ident">canonicalize</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo/bar//&quot;</span>)),
+            <span class="prelude-val">Ok</span>(<span class="ident">root_dir</span>.<span class="ident">join</span>(<span class="string">&quot;foo&quot;</span>).<span class="ident">join</span>(<span class="string">&quot;bar&quot;</span>)),
             <span class="string">&quot;canonicalizing `/foo/bar//`&quot;</span>,
         );
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">canonicalize</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_canonicalize/foo/bar/../bar&quot;</span>)),
-            <span class="prelude-val">Ok</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-                <span class="string">&quot;{root_dir}{char_dir}test_canonicalize{char_dir}foo{char_dir}bar&quot;</span>
-            ))
-            .<span class="ident">to_path_buf</span>()),
+            <span class="ident">fs</span>.<span class="ident">canonicalize</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo/bar/../bar&quot;</span>)),
+            <span class="prelude-val">Ok</span>(<span class="ident">root_dir</span>.<span class="ident">join</span>(<span class="string">&quot;foo&quot;</span>).<span class="ident">join</span>(<span class="string">&quot;bar&quot;</span>)),
             <span class="string">&quot;canonicalizing `/foo/bar/../bar`&quot;</span>,
         );
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">canonicalize</span>(<span class="ident">Path::new</span>(<span class="string">&quot;./test_canonicalize/foo/bar/../..&quot;</span>)),
-            <span class="prelude-val">Ok</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{root_dir}{char_dir}test_canonicalize&quot;</span>)).<span class="ident">to_path_buf</span>()),
+            <span class="ident">fs</span>.<span class="ident">canonicalize</span>(<span class="kw-2">&amp;</span><span class="ident">temp</span>.<span class="ident">path</span>().<span class="ident">join</span>(<span class="string">&quot;foo/bar/../..&quot;</span>)),
+            <span class="prelude-val">Ok</span>(<span class="ident">root_dir</span>.<span class="ident">clone</span>()),
             <span class="string">&quot;canonicalizing `/foo/bar/../..`&quot;</span>,
         );
-        <span class="comment">// Path::new(&quot;/foo/bar/../../..&quot;).exists() gives true on windows</span>
+        <span class="comment">// temp.path().join(&quot;/foo/bar/../../..&quot;).exists() gives true on windows</span>
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">canonicalize</span>(<span class="ident">Path::new</span>(<span class="string">&quot;/foo/bar/../../..&quot;</span>)),
+            <span class="ident">fs</span>.<span class="ident">canonicalize</span>(<span class="kw-2">&amp;</span><span class="ident">root_dir</span>.<span class="ident">join</span>(<span class="string">&quot;/foo/bar/../../..&quot;</span>)),
             <span class="prelude-val">Err</span>(<span class="ident">FsError::InvalidInput</span>),
             <span class="string">&quot;canonicalizing `/foo/bar/../../..`&quot;</span>,
         );
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">canonicalize</span>(<span class="ident">Path::new</span>(<span class="string">&quot;C:/foo/&quot;</span>)),
+            <span class="ident">fs</span>.<span class="ident">canonicalize</span>(<span class="kw-2">&amp;</span><span class="ident">root_dir</span>.<span class="ident">join</span>(<span class="string">&quot;C:/foo/&quot;</span>)),
             <span class="prelude-val">Err</span>(<span class="ident">FsError::InvalidInput</span>),
             <span class="string">&quot;canonicalizing `C:/foo/`&quot;</span>,
         );
         <span class="macro">assert_eq!</span>(
-            <span class="ident">fs</span>.<span class="ident">canonicalize</span>(<span class="ident">Path::new</span>(
-                <span class="string">&quot;./test_canonicalize/foo/./../foo/bar/../../foo/bar/./baz/./../baz/qux/../../baz/./qux/hello.txt&quot;</span>
+            <span class="ident">fs</span>.<span class="ident">canonicalize</span>(<span class="kw-2">&amp;</span><span class="ident">root_dir</span>.<span class="ident">join</span>(
+                <span class="string">&quot;foo/./../foo/bar/../../foo/bar/./baz/./../baz/qux/../../baz/./qux/hello.txt&quot;</span>
             )),
-            <span class="prelude-val">Ok</span>(<span class="ident">Path::new</span>(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{root_dir}{char_dir}test_canonicalize{char_dir}foo{char_dir}bar{char_dir}baz{char_dir}qux{char_dir}hello.txt&quot;</span>)).<span class="ident">to_path_buf</span>()),
+            <span class="prelude-val">Ok</span>(<span class="ident">root_dir</span>
+                .<span class="ident">join</span>(<span class="string">&quot;foo&quot;</span>)
+                .<span class="ident">join</span>(<span class="string">&quot;bar&quot;</span>)
+                .<span class="ident">join</span>(<span class="string">&quot;baz&quot;</span>)
+                .<span class="ident">join</span>(<span class="string">&quot;qux&quot;</span>)
+                .<span class="ident">join</span>(<span class="string">&quot;hello.txt&quot;</span>)),
             <span class="string">&quot;canonicalizing a crazily stupid path name&quot;</span>,
         );
 
