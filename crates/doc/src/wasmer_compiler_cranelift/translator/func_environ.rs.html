@@ -504,7 +504,7 @@
 <span class="kw">use</span> <span class="ident">cranelift_codegen::ir</span>::{<span class="self">self</span>, <span class="ident">InstBuilder</span>};
 <span class="kw">use</span> <span class="ident">cranelift_codegen::isa::TargetFrontendConfig</span>;
 <span class="kw">use</span> <span class="ident">cranelift_frontend::FunctionBuilder</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser</span>::{<span class="ident">Operator</span>, <span class="ident">Type</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser</span>::{<span class="ident">Operator</span>, <span class="ident">ValType</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">SignatureIndex</span>,
     <span class="ident">TableIndex</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WasmerType</span>, <span class="ident">WasmResult</span>,
@@ -851,7 +851,7 @@
     <span class="doccomment">/// null sentinel is not a null reference type pointer for your type. If you</span>
     <span class="doccomment">/// override this method, then you should also override</span>
     <span class="doccomment">/// `translate_ref_is_null` as well.</span>
-    <span class="kw">fn</span> <span class="ident">translate_ref_null</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">pos</span>: <span class="ident">FuncCursor</span>, <span class="ident">ty</span>: <span class="ident">Type</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">ir::Value</span><span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">translate_ref_null</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">pos</span>: <span class="ident">FuncCursor</span>, <span class="ident">ty</span>: <span class="ident">ValType</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">ir::Value</span><span class="op">&gt;</span>;
     <span class="comment">// {</span>
     <span class="comment">//     let _ = ty;</span>
     <span class="comment">//     Ok(pos.ins().null(self.reference_type(ty)))</span>

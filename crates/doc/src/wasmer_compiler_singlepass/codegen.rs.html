@@ -6734,6 +6734,10 @@
 <span id="6734">6734</span>
 <span id="6735">6735</span>
 <span id="6736">6736</span>
+<span id="6737">6737</span>
+<span id="6738">6738</span>
+<span id="6739">6739</span>
+<span id="6740">6740</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::address_map::get_function_address_map</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::codegen_error</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
@@ -6747,7 +6751,7 @@
 <span class="kw">use</span> <span class="ident">smallvec</span>::{<span class="ident">smallvec</span>, <span class="ident">SmallVec</span>};
 <span class="kw">use</span> <span class="ident">std::cmp</span>;
 <span class="kw">use</span> <span class="ident">std::iter</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser</span>::{<span class="ident">Operator</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WpType</span>, <span class="ident">TypeOrFuncType</span> <span class="kw">as</span> <span class="ident">WpTypeOrFuncType</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser</span>::{<span class="ident">BlockType</span> <span class="kw">as</span> <span class="ident">WpTypeOrFuncType</span>, <span class="ident">Operator</span>, <span class="ident">ValType</span> <span class="kw">as</span> <span class="ident">WpType</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler::FunctionBodyData</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_types::CompiledFunctionUnwindInfo</span>;
@@ -9447,11 +9451,15 @@
                     }
                 }
             }
-            <span class="ident">Operator::CallIndirect</span> { <span class="ident">index</span>, <span class="ident">table_index</span> } =&gt; {
+            <span class="ident">Operator::CallIndirect</span> {
+                <span class="ident">type_index</span>,
+                <span class="ident">table_index</span>,
+                <span class="ident">table_byte</span>: <span class="kw">_</span>,
+            } =&gt; {
                 <span class="comment">// TODO: removed restriction on always being table idx 0;</span>
                 <span class="comment">// does any code depend on this?</span>
                 <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex::new</span>(<span class="ident">table_index</span> <span class="kw">as</span> <span class="kw">_</span>);
-                <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">SignatureIndex::new</span>(<span class="ident">index</span> <span class="kw">as</span> <span class="ident">usize</span>);
+                <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">SignatureIndex::new</span>(<span class="ident">type_index</span> <span class="kw">as</span> <span class="ident">usize</span>);
                 <span class="kw">let</span> <span class="ident">sig</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">signatures</span>.<span class="ident">get</span>(<span class="ident">index</span>).<span class="ident">unwrap</span>();
                 <span class="kw">let</span> <span class="ident">param_types</span>: <span class="ident">SmallVec</span><span class="op">&lt;</span>[<span class="ident">WpType</span>; <span class="number">8</span>]<span class="op">&gt;</span> <span class="op">=</span>
                     <span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">map</span>(<span class="ident">type_to_wp_type</span>).<span class="ident">collect</span>();
@@ -9672,7 +9680,7 @@
                     }
                 }
             }
-            <span class="ident">Operator::If</span> { <span class="ident">ty</span> } =&gt; {
+            <span class="ident">Operator::If</span> { <span class="ident">blockty</span> } =&gt; {
                 <span class="kw">let</span> <span class="ident">label_end</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">get_label</span>();
                 <span class="kw">let</span> <span class="ident">label_else</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">get_label</span>();
 
@@ -9682,8 +9690,8 @@
                     <span class="ident">label</span>: <span class="ident">label_end</span>,
                     <span class="ident">loop_like</span>: <span class="bool-val">false</span>,
                     <span class="ident">if_else</span>: <span class="ident">IfElseState::If</span>(<span class="ident">label_else</span>),
-                    <span class="ident">returns</span>: <span class="kw">match</span> <span class="ident">ty</span> {
-                        <span class="ident">WpTypeOrFuncType::Type</span>(<span class="ident">WpType::EmptyBlockType</span>) =&gt; <span class="macro">smallvec!</span>[],
+                    <span class="ident">returns</span>: <span class="kw">match</span> <span class="ident">blockty</span> {
+                        <span class="ident">WpTypeOrFuncType::Empty</span> =&gt; <span class="macro">smallvec!</span>[],
                         <span class="ident">WpTypeOrFuncType::Type</span>(<span class="ident">inner_ty</span>) =&gt; <span class="macro">smallvec!</span>[<span class="ident">inner_ty</span>],
                         <span class="kw">_</span> =&gt; {
                             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
@@ -9800,13 +9808,13 @@
                 }
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">emit_label</span>(<span class="ident">end_label</span>)<span class="question-mark">?</span>;
             }
-            <span class="ident">Operator::Block</span> { <span class="ident">ty</span> } =&gt; {
+            <span class="ident">Operator::Block</span> { <span class="ident">blockty</span> } =&gt; {
                 <span class="kw">let</span> <span class="ident">frame</span> <span class="op">=</span> <span class="ident">ControlFrame</span> {
                     <span class="ident">label</span>: <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">get_label</span>(),
                     <span class="ident">loop_like</span>: <span class="bool-val">false</span>,
                     <span class="ident">if_else</span>: <span class="ident">IfElseState::None</span>,
-                    <span class="ident">returns</span>: <span class="kw">match</span> <span class="ident">ty</span> {
-                        <span class="ident">WpTypeOrFuncType::Type</span>(<span class="ident">WpType::EmptyBlockType</span>) =&gt; <span class="macro">smallvec!</span>[],
+                    <span class="ident">returns</span>: <span class="kw">match</span> <span class="ident">blockty</span> {
+                        <span class="ident">WpTypeOrFuncType::Empty</span> =&gt; <span class="macro">smallvec!</span>[],
                         <span class="ident">WpTypeOrFuncType::Type</span>(<span class="ident">inner_ty</span>) =&gt; <span class="macro">smallvec!</span>[<span class="ident">inner_ty</span>],
                         <span class="kw">_</span> =&gt; {
                             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
@@ -9821,7 +9829,7 @@
                 };
                 <span class="self">self</span>.<span class="ident">control_stack</span>.<span class="ident">push</span>(<span class="ident">frame</span>);
             }
-            <span class="ident">Operator::Loop</span> { <span class="ident">ty</span> } =&gt; {
+            <span class="ident">Operator::Loop</span> { <span class="ident">blockty</span> } =&gt; {
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">align_for_loop</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">label</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">get_label</span>();
                 <span class="kw">let</span> <span class="ident">state_diff_id</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_state_diff</span>();
@@ -9831,8 +9839,8 @@
                     <span class="ident">label</span>,
                     <span class="ident">loop_like</span>: <span class="bool-val">true</span>,
                     <span class="ident">if_else</span>: <span class="ident">IfElseState::None</span>,
-                    <span class="ident">returns</span>: <span class="kw">match</span> <span class="ident">ty</span> {
-                        <span class="ident">WpTypeOrFuncType::Type</span>(<span class="ident">WpType::EmptyBlockType</span>) =&gt; <span class="macro">smallvec!</span>[],
+                    <span class="ident">returns</span>: <span class="kw">match</span> <span class="ident">blockty</span> {
+                        <span class="ident">WpTypeOrFuncType::Empty</span> =&gt; <span class="macro">smallvec!</span>[],
                         <span class="ident">WpTypeOrFuncType::Type</span>(<span class="ident">inner_ty</span>) =&gt; <span class="macro">smallvec!</span>[<span class="ident">inner_ty</span>],
                         <span class="kw">_</span> =&gt; {
                             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError::Codegen</span>(
@@ -9886,7 +9894,7 @@
                     <span class="ident">ret</span>,
                 )<span class="question-mark">?</span>;
             }
-            <span class="ident">Operator::MemoryInit</span> { <span class="ident">segment</span>, <span class="ident">mem</span> } =&gt; {
+            <span class="ident">Operator::MemoryInit</span> { <span class="ident">data_index</span>, <span class="ident">mem</span> } =&gt; {
                 <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">pop</span>().<span class="ident">unwrap</span>();
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">pop</span>().<span class="ident">unwrap</span>();
                 <span class="kw">let</span> <span class="ident">dst</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">pop</span>().<span class="ident">unwrap</span>();
@@ -9911,10 +9919,10 @@
                         <span class="ident">this</span>.<span class="ident">machine</span>
                             .<span class="ident">emit_call_register</span>(<span class="ident">this</span>.<span class="ident">machine</span>.<span class="ident">get_grp_for_call</span>())
                     },
-                    <span class="comment">// [vmctx, memory_index, segment_index, dst, src, len]</span>
+                    <span class="comment">// [vmctx, memory_index, data_index, dst, src, len]</span>
                     [
                         <span class="ident">Location::Imm32</span>(<span class="ident">mem</span>),
-                        <span class="ident">Location::Imm32</span>(<span class="ident">segment</span>),
+                        <span class="ident">Location::Imm32</span>(<span class="ident">data_index</span>),
                         <span class="ident">dst</span>,
                         <span class="ident">src</span>,
                         <span class="ident">len</span>,
@@ -9933,7 +9941,7 @@
                 )<span class="question-mark">?</span>;
                 <span class="self">self</span>.<span class="ident">release_locations_only_stack</span>(<span class="kw-2">&amp;</span>[<span class="ident">dst</span>, <span class="ident">src</span>, <span class="ident">len</span>])<span class="question-mark">?</span>;
             }
-            <span class="ident">Operator::DataDrop</span> { <span class="ident">segment</span> } =&gt; {
+            <span class="ident">Operator::DataDrop</span> { <span class="ident">data_index</span> } =&gt; {
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">move_location</span>(
                     <span class="ident">Size::S64</span>,
                     <span class="ident">Location::Memory</span>(
@@ -9950,20 +9958,20 @@
                         <span class="ident">this</span>.<span class="ident">machine</span>
                             .<span class="ident">emit_call_register</span>(<span class="ident">this</span>.<span class="ident">machine</span>.<span class="ident">get_grp_for_call</span>())
                     },
-                    <span class="comment">// [vmctx, segment_index]</span>
-                    <span class="ident">iter::once</span>(<span class="ident">Location::Imm32</span>(<span class="ident">segment</span>)),
+                    <span class="comment">// [vmctx, data_index]</span>
+                    <span class="ident">iter::once</span>(<span class="ident">Location::Imm32</span>(<span class="ident">data_index</span>)),
                     <span class="ident">iter::once</span>(<span class="ident">WpType::I64</span>),
                 )<span class="question-mark">?</span>;
             }
-            <span class="ident">Operator::MemoryCopy</span> { <span class="ident">src</span>, <span class="ident">dst</span> } =&gt; {
+            <span class="ident">Operator::MemoryCopy</span> { <span class="ident">dst_mem</span>, <span class="ident">src_mem</span> } =&gt; {
                 <span class="comment">// ignore until we support multiple memories</span>
-                <span class="kw">let</span> <span class="ident">_dst</span> <span class="op">=</span> <span class="ident">dst</span>;
+                <span class="kw">let</span> <span class="ident">_dst</span> <span class="op">=</span> <span class="ident">dst_mem</span>;
                 <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">pop</span>().<span class="ident">unwrap</span>();
                 <span class="kw">let</span> <span class="ident">src_pos</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">pop</span>().<span class="ident">unwrap</span>();
                 <span class="kw">let</span> <span class="ident">dst_pos</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">pop</span>().<span class="ident">unwrap</span>();
                 <span class="self">self</span>.<span class="ident">release_locations_only_regs</span>(<span class="kw-2">&amp;</span>[<span class="ident">len</span>, <span class="ident">src_pos</span>, <span class="ident">dst_pos</span>])<span class="question-mark">?</span>;
 
-                <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::new</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">usize</span>);
+                <span class="kw">let</span> <span class="ident">memory_index</span> <span class="op">=</span> <span class="ident">MemoryIndex::new</span>(<span class="ident">src_mem</span> <span class="kw">as</span> <span class="ident">usize</span>);
                 <span class="kw">let</span> (<span class="ident">memory_copy_index</span>, <span class="ident">memory_index</span>) <span class="op">=</span>
                     <span class="kw">if</span> <span class="self">self</span>.<span class="ident">module</span>.<span class="ident">local_memory_index</span>(<span class="ident">memory_index</span>).<span class="ident">is_some</span>() {
                         (
@@ -10802,12 +10810,12 @@
 
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">emit_label</span>(<span class="ident">after</span>)<span class="question-mark">?</span>;
             }
-            <span class="ident">Operator::BrTable</span> { <span class="kw-2">ref</span> <span class="ident">table</span> } =&gt; {
-                <span class="kw">let</span> <span class="ident">targets</span> <span class="op">=</span> <span class="ident">table</span>
+            <span class="ident">Operator::BrTable</span> { <span class="kw-2">ref</span> <span class="ident">targets</span> } =&gt; {
+                <span class="kw">let</span> <span class="ident">default_target</span> <span class="op">=</span> <span class="ident">targets</span>.<span class="ident">default</span>();
+                <span class="kw">let</span> <span class="ident">targets</span> <span class="op">=</span> <span class="ident">targets</span>
                     .<span class="ident">targets</span>()
                     .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
                     .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">CompileError::Codegen</span>(<span class="macro">format!</span>(<span class="string">&quot;BrTable read_table: {:?}&quot;</span>, <span class="ident">e</span>)))<span class="question-mark">?</span>;
-                <span class="kw">let</span> <span class="ident">default_target</span> <span class="op">=</span> <span class="ident">table</span>.<span class="ident">default</span>();
                 <span class="kw">let</span> <span class="ident">cond</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop_value_released</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">table_label</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">get_label</span>();
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">table</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Label</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec!</span>[];
@@ -10973,7 +10981,7 @@
                     }
                 }
             }
-            <span class="ident">Operator::AtomicFence</span> { <span class="ident">flags</span>: <span class="kw">_</span> } =&gt; {
+            <span class="ident">Operator::AtomicFence</span> =&gt; {
                 <span class="comment">// Fence is a nop.</span>
                 <span class="comment">//</span>
                 <span class="comment">// Fence was added to preserve information about fences from</span>
@@ -13082,7 +13090,7 @@
 
                 <span class="self">self</span>.<span class="ident">release_locations_only_stack</span>(<span class="kw-2">&amp;</span>[<span class="ident">dest</span>, <span class="ident">val</span>, <span class="ident">len</span>])<span class="question-mark">?</span>;
             }
-            <span class="ident">Operator::TableInit</span> { <span class="ident">segment</span>, <span class="ident">table</span> } =&gt; {
+            <span class="ident">Operator::TableInit</span> { <span class="ident">elem_index</span>, <span class="ident">table</span> } =&gt; {
                 <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">pop</span>().<span class="ident">unwrap</span>();
                 <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">pop</span>().<span class="ident">unwrap</span>();
                 <span class="kw">let</span> <span class="ident">dest</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">value_stack</span>.<span class="ident">pop</span>().<span class="ident">unwrap</span>();
@@ -13109,7 +13117,7 @@
                     <span class="comment">// [vmctx, table_index, elem_index, dst, src, len]</span>
                     [
                         <span class="ident">Location::Imm32</span>(<span class="ident">table</span>),
-                        <span class="ident">Location::Imm32</span>(<span class="ident">segment</span>),
+                        <span class="ident">Location::Imm32</span>(<span class="ident">elem_index</span>),
                         <span class="ident">dest</span>,
                         <span class="ident">src</span>,
                         <span class="ident">len</span>,
@@ -13129,7 +13137,7 @@
 
                 <span class="self">self</span>.<span class="ident">release_locations_only_stack</span>(<span class="kw-2">&amp;</span>[<span class="ident">dest</span>, <span class="ident">src</span>, <span class="ident">len</span>])<span class="question-mark">?</span>;
             }
-            <span class="ident">Operator::ElemDrop</span> { <span class="ident">segment</span> } =&gt; {
+            <span class="ident">Operator::ElemDrop</span> { <span class="ident">elem_index</span> } =&gt; {
                 <span class="self">self</span>.<span class="ident">machine</span>.<span class="ident">move_location</span>(
                     <span class="ident">Size::S64</span>,
                     <span class="ident">Location::Memory</span>(
@@ -13149,7 +13157,7 @@
                             .<span class="ident">emit_call_register</span>(<span class="ident">this</span>.<span class="ident">machine</span>.<span class="ident">get_grp_for_call</span>())
                     },
                     <span class="comment">// [vmctx, elem_index]</span>
-                    [<span class="ident">Location::Imm32</span>(<span class="ident">segment</span>)].<span class="ident">iter</span>().<span class="ident">cloned</span>(),
+                    [<span class="ident">Location::Imm32</span>(<span class="ident">elem_index</span>)].<span class="ident">iter</span>().<span class="ident">cloned</span>(),
                     [<span class="ident">WpType::I32</span>].<span class="ident">iter</span>().<span class="ident">cloned</span>(),
                 )<span class="question-mark">?</span>;
             }

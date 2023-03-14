@@ -449,14 +449,16 @@
 <span id="449">449</span>
 <span id="450">450</span>
 <span id="451">451</span>
+<span id="452">452</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
 <span class="kw">use</span> <span class="ident"><span class="kw">super</span>::state::ModuleTranslationState</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std::string::ToString</span>;
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::lib::std</span>::{<span class="ident">boxed::Box</span>, <span class="ident">string::String</span>, <span class="ident">vec::Vec</span>};
 <span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::translate_module</span>;
-<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::wasmparser</span>::{<span class="ident">Operator</span>, <span class="ident">Range</span>, <span class="ident">Type</span>};
+<span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::wasmparser</span>::{<span class="ident">Operator</span>, <span class="ident">ValType</span>};
 <span class="kw">use</span> <span class="ident">std::convert</span>::{<span class="ident">TryFrom</span>, <span class="ident">TryInto</span>};
+<span class="kw">use</span> <span class="ident">std::ops::Range</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::entity::PrimaryMap</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::FunctionType</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types::WasmResult</span>;
@@ -483,7 +485,7 @@
     <span class="kw">fn</span> <span class="ident">read_local_count</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>;
 
     <span class="doccomment">/// Read a `(count, value_type)` declaration of local variables of the same type.</span>
-    <span class="kw">fn</span> <span class="ident">read_local_decl</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>(<span class="ident">u32</span>, <span class="ident">Type</span>)<span class="op">&gt;</span>;
+    <span class="kw">fn</span> <span class="ident">read_local_decl</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span>(<span class="ident">u32</span>, <span class="ident">ValType</span>)<span class="op">&gt;</span>;
 
     <span class="doccomment">/// Reads the next available `Operator`.</span>
     <span class="kw">fn</span> <span class="ident">read_operator</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) -&gt; <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">Operator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span>;
@@ -501,7 +503,7 @@
     <span class="kw">fn</span> <span class="ident">eof</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span>;
 
     <span class="doccomment">/// Return the range (original offset, original offset + data length)</span>
-    <span class="kw">fn</span> <span class="ident">range</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Range</span>;
+    <span class="kw">fn</span> <span class="ident">range</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">Range</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>;
 }
 
 <span class="doccomment">/// The result of translating via `ModuleEnvironment`. Function bodies are not</span>

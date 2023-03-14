@@ -499,7 +499,7 @@
 <span class="kw">use</span> <span class="ident">std::convert::TryInto</span>;
 <span class="kw">use</span> <span class="ident">std::fmt</span>;
 <span class="kw">use</span> <span class="ident">std::sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>};
-<span class="kw">use</span> <span class="ident">wasmer::wasmparser</span>::{<span class="ident">Operator</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WpType</span>, <span class="ident">TypeOrFuncType</span> <span class="kw">as</span> <span class="ident">WpTypeOrFuncType</span>};
+<span class="kw">use</span> <span class="ident">wasmer::wasmparser</span>::{<span class="ident">BlockType</span> <span class="kw">as</span> <span class="ident">WpTypeOrFuncType</span>, <span class="ident">Operator</span>};
 <span class="kw">use</span> <span class="ident">wasmer</span>::{
     <span class="ident">AsStoreMut</span>, <span class="ident">ExportIndex</span>, <span class="ident">FunctionMiddleware</span>, <span class="ident">GlobalInit</span>, <span class="ident">GlobalType</span>, <span class="ident">Instance</span>,
     <span class="ident">LocalFunctionIndex</span>, <span class="ident">MiddlewareError</span>, <span class="ident">MiddlewareReaderState</span>, <span class="ident">ModuleMiddleware</span>, <span class="ident">Mutability</span>, <span class="ident">Type</span>,
@@ -722,7 +722,7 @@
                         <span class="ident">Operator::GlobalGet</span> { <span class="ident">global_index</span>: <span class="self">self</span>.<span class="ident">global_indexes</span>.<span class="ident">remaining_points</span>().<span class="ident">as_u32</span>() },
                         <span class="ident">Operator::I64Const</span> { <span class="ident">value</span>: <span class="self">self</span>.<span class="ident">accumulated_cost</span> <span class="kw">as</span> <span class="ident">i64</span> },
                         <span class="ident">Operator::I64LtU</span>,
-                        <span class="ident">Operator::If</span> { <span class="ident">ty</span>: <span class="ident">WpTypeOrFuncType::Type</span>(<span class="ident">WpType::EmptyBlockType</span>) },
+                        <span class="ident">Operator::If</span> { <span class="ident">blockty</span>: <span class="ident">WpTypeOrFuncType::Empty</span> },
                         <span class="ident">Operator::I32Const</span> { <span class="ident">value</span>: <span class="number">1</span> },
                         <span class="ident">Operator::GlobalSet</span> { <span class="ident">global_index</span>: <span class="self">self</span>.<span class="ident">global_indexes</span>.<span class="ident">points_exhausted</span>().<span class="ident">as_u32</span>() },
                         <span class="ident">Operator::Unreachable</span>,

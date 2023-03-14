@@ -43,12 +43,12 @@
 
 <span class="kw">use</span> <span class="ident">cranelift_codegen::Context</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen::MachSrcLoc</span>;
-<span class="kw">use</span> <span class="ident">wasmer_compiler::wasmparser::Range</span>;
+<span class="kw">use</span> <span class="ident">std::ops::Range</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionAddressMap</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">SourceLoc</span>};
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_function_address_map</span>(
     <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="ident">Context</span>,
-    <span class="ident">range</span>: <span class="ident">Range</span>,
+    <span class="ident">range</span>: <span class="ident">Range</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>,
     <span class="ident">body_len</span>: <span class="ident">usize</span>,
 ) -&gt; <span class="ident">FunctionAddressMap</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">instructions</span> <span class="op">=</span> <span class="ident">Vec::new</span>();
